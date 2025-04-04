@@ -29,9 +29,9 @@ test.describe.skip('Default Interpreters - R', {
 	});
 
 	test('R - Add a default interpreter', async function ({ app, runCommand, sessions }) {
-		await app.workbench.console.waitForInterpretersToFinishLoading();
+		await sessions.expectAllSessionsToBeReady();
 		await runCommand('workbench.action.reloadWindow');
-		await app.workbench.console.waitForReady('>');
+		await sessions.expectAllSessionsToBeReady();
 
 		const { name, path } = await sessions.getMetadata();
 

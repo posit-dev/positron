@@ -41,8 +41,8 @@ test.describe('Variables Pane', {
 	test('Python - Verify only 1 entry per environment', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
 	}, async function ({ app, r }) {
-		await app.workbench.console.barClearButton.click();
-		await app.workbench.console.barRestartButton.click();
+		await app.workbench.console.clearButton.click();
+		await app.workbench.console.restartButton.click();
 		await app.workbench.console.waitForReady('>', 90000);
 		await app.workbench.console.waitForConsoleContents('restarted');
 		const groupList = await app.workbench.variables.getVariablesGroupList();
@@ -77,8 +77,8 @@ test.describe('Variables Pane', {
 	test('R - Verify only 1 entry per environment', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5887' }],
 	}, async function ({ app, r }) {
-		await app.workbench.console.barClearButton.click();
-		await app.workbench.console.barRestartButton.click();
+		await app.workbench.console.clearButton.click();
+		await app.workbench.console.restartButton.click();
 		await app.workbench.console.waitForReady('>', 90000);
 		await app.workbench.console.waitForConsoleContents('restarted');
 		const groupList = await app.workbench.variables.getVariablesGroupList();

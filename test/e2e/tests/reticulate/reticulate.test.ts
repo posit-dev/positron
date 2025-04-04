@@ -73,7 +73,7 @@ test.describe.fixme('Reticulate', {
 
 		await app.workbench.layouts.enterLayout('stacked');
 
-		await app.workbench.console.barTrashButton.click();
+		await app.workbench.console.trashButton.click();
 
 		await app.workbench.console.waitForConsoleContents('shut down successfully');
 
@@ -114,14 +114,14 @@ async function verifyReticulateFunctionality(app: Application, sequential) {
 	await app.workbench.console.pasteCodeToConsole('x=100');
 	await app.workbench.console.sendEnterKey();
 
-	await app.workbench.console.barClearButton.click();
+	await app.workbench.console.clearButton.click();
 
 	await app.workbench.sessions.startAndSkipMetadata({ language: 'R', waitForReady: !sequential });
 
 	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x');
 	await app.workbench.console.sendEnterKey();
 
-	await app.workbench.console.barClearButton.click();
+	await app.workbench.console.clearButton.click();
 
 	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 

@@ -216,7 +216,7 @@ df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
 
 		await test.step('Verify disconnect dialog', async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.barTrashButton.click();
+			await app.workbench.console.trashButton.click();
 			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
 		});
 

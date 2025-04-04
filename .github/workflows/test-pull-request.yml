@@ -41,7 +41,7 @@ jobs:
       report_currents: false
       install_undetectable_interpreters: false
       install_license: false
-      # skip_tags: "@:nightly-only"
+      skip_tags: "@:nightly-only"
     secrets: inherit
 
   e2e-windows-electron:

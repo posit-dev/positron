@@ -426,8 +426,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('R - plot and save in one block', { tag: [tags.WEB, tags.WIN] }, async function ({ app, runCommand }) {
 
-			await app.workbench.console.barClearButton.click();
-			await app.workbench.console.barRestartButton.click();
+			await app.workbench.console.clearButton.click();
+			await app.workbench.console.restartButton.click();
 
 			await app.workbench.console.waitForConsoleContents('restarted', { expectedCount: 1 });
 

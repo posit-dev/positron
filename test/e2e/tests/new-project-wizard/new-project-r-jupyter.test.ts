@@ -11,8 +11,8 @@ test.use({
 	suiteId: __filename
 });
 
-test.beforeEach(async function ({ app }) {
-	await app.workbench.console.waitForReadyOrNoInterpreter();
+test.beforeEach(async function ({ app, sessions }) {
+	await sessions.expectAllSessionsToBeReady();
 	await app.workbench.layouts.enterLayout("stacked");
 });
 

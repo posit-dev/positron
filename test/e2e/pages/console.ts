@@ -7,13 +7,11 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
-import { Sessions } from './sessions';
 import { HotKeys } from './hotKeys.js';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
 const MAXIMIZE_CONSOLE = '.bottom .codicon-positron-maximize-panel';
-const CONSOLE_RESTART_BUTTON = 'button.monaco-text-button.runtime-restart-button';
 const HISTORY_COMPLETION_ITEM = '.history-completion-item';
 const EMPTY_CONSOLE = '.positron-console .empty-console';
 const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
@@ -25,10 +23,10 @@ const CONSOLE_LINES = `${ACTIVE_CONSOLE_INSTANCE} div span`;
  *  aren't directly console functions, but rather features needed to support console testing.
  */
 export class Console {
-	barRestartButton: Locator;
-	barClearButton: Locator;
-	barTrashButton: Locator;
-	consoleRestartButton: Locator;
+	restartButton: Locator;
+	clearButton: Locator;
+	trashButton: Locator;
+	newSessionButton: Locator;
 	activeConsole: Locator;
 	suggestionList: Locator;
 	private consoleTab: Locator;
@@ -37,11 +35,11 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys, private sessions: Sessions) {
-		this.barRestartButton = this.code.driver.page.getByLabel('Restart console');
-		this.barClearButton = this.code.driver.page.getByLabel('Clear console');
-		this.barTrashButton = this.code.driver.page.getByTestId('trash-session');
-		this.consoleRestartButton = this.code.driver.page.locator(CONSOLE_RESTART_BUTTON);
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) {
+		this.restartButton = this.code.driver.page.getByLabel('Restart console');
+		this.clearButton = this.code.driver.page.getByLabel('Clear console');
+		this.trashButton = this.code.driver.page.getByTestId('trash-session');
+		this.newSessionButton = this.code.driver.page.getByRole('toolbar', { name: 'Console actions' }).getByRole('button', { name: 'Start a New Session' });
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
 		this.consoleTab = this.code.driver.page.getByRole('tab', { name: 'Console', exact: true });
@@ -116,8 +114,6 @@ export class Console {
 	async sendEnterKey() {
 		await this.focus();
 		await this.code.driver.page.waitForTimeout(500);
-		await this.focus();
-		await this.code.driver.page.waitForTimeout(500);
 		await this.code.driver.page.keyboard.press('Enter');
 	}
 
@@ -140,51 +136,9 @@ export class Console {
 		});
 	}
 
-	async waitForInterpretersToFinishLoading() {
-		// ensure interpreter(s) containing starting/discovering do not exist in DOM
-		await expect(this.code.driver.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting|reconnecting\\.$/i')).toHaveCount(0, { timeout: 80000 });
-	}
-
-	/**
-	 * Check if the console is ready with Python or R, or if no interpreter is running.
-	 * @throws An error if the console is not ready after the retry count.
-	 */
-	async waitForReadyOrNoInterpreter() {
-		const page = this.code.driver.page;
-
-		await this.waitForInterpretersToFinishLoading();
-
-		// ensure we are on Console tab
-		await this.focus();
-
-		// Move mouse to prevent tooltip hover
-		await this.code.driver.page.mouse.move(0, 0);
-
-		// wait for the dropdown to contain R, Python, or No Interpreter.
-		const runtime = await this.sessions.sessionPicker.textContent() || '';
-
-		if (runtime.includes('Python')) {
-			await expect(page.getByRole('code').getByText('>>>')).toBeVisible({ timeout: 30000 });
-			return;
-		} else if (runtime.includes('R')) {
-			await expect(page.getByRole('code').getByText('>')).toBeVisible({ timeout: 30000 });
-			return;
-		} else if (runtime.includes('Start Session')) {
-			return;
-		}
-
-		// If we reach here, the console is not ready.
-		throw new Error('Console is not ready after waiting for R or Python to start');
-	}
-
-	async waitForInterpreterShutdown() {
-		await this.waitForConsoleContents('shut down successfully');
-	}
-
 	async doubleClickConsoleText(text: string) {
 		await this.code.driver.page.locator(CONSOLE_LINES).getByText(text).dblclick();
 	}
-
 
 	async waitForConsoleContents(
 		consoleText: string,

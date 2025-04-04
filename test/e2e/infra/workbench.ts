@@ -96,11 +96,11 @@ export class Workbench {
 		this.quickInput = new QuickInput(code);
 		this.editors = new Editors(code);
 		this.quickaccess = new QuickAccess(code, this.editors, this.quickInput);
-		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.hotKeys);
 		this.connections = new Connections(code, this.quickaccess);
 		this.newProjectWizard = new NewProjectWizard(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
-		this.console = new Console(code, this.quickaccess, this.quickInput, this.hotKeys, this.sessions);
+		this.console = new Console(code, this.quickaccess, this.quickInput, this.hotKeys);
+		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.hotKeys, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
 		this.clipboard = new Clipboard(code);
@@ -118,6 +118,5 @@ export class Workbench {
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
 		this.assistant = new Assistant(code);
-
 	}
 }

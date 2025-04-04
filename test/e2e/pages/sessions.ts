@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator } from '@playwright/test';
-import { Code, HotKeys, QuickAccess } from '../infra';
+import { Code, HotKeys, QuickAccess, Console } from '../infra';
 import { QuickInput } from './quickInput';
 
 const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
@@ -27,6 +27,7 @@ export class Sessions {
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
+	private sessionTrashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -34,19 +35,13 @@ export class Sessions {
 	private disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
 	private activeStatusIcon = this.page.locator(ACTIVE_STATUS_ICON);
 
-	// Session console buttons
-	restartButton = this.page.getByLabel('Restart console', { exact: true });
-	private shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
-	private trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
-	newSessionButton = this.page.getByRole('toolbar', { name: 'Console actions' }).getByRole('button', { name: 'Start a New Session' });
-
 	// Session Metadata
 	private metadataButton = this.page.getByRole('button', { name: 'Console information' });
 	private metadataDialog = this.page.getByRole('dialog').locator('.console-instance-info');
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys, private console: Console) { }
 
 	// -- Actions --
 
@@ -155,10 +150,9 @@ export class Sessions {
 			} else {
 				const sessionTab = this.getSessionTab(sessionId);
 
-
 				await sessionTab.click();
 				await sessionTab.hover();
-				await this.trashButton(sessionId).click();
+				await this.sessionTrashButton(sessionId).click();
 
 			}
 
@@ -189,30 +183,13 @@ export class Sessions {
 				await this.page.getByLabel('Clear console').click();
 			}
 
-			await this.restartButton.click();
+			await this.console.restartButton.click();
 			await this.page.mouse.move(0, 0);
 
 			if (waitForIdle) {
 				await expect(this.page.getByText('restarting.')).not.toBeVisible({ timeout: 90000 });
 				await expect(this.page.locator('.console-instance[style*="z-index: auto"]').getByText('restarted.')).toBeVisible({ timeout: 90000 });
 				await this.expectStatusToBe(sessionIdOrName, 'idle');
-			}
-		});
-	}
-
-	/**
-	 * Action: Shutdown the session
-	 *
-	 * @param sessionIdOrName - the id or name of the session
-	 * @param waitForDisconnected - wait for the session to display as "disconnected"
-	 */
-	async shutdown(sessionIdOrName: string, waitForDisconnected = true): Promise<void> {
-		await test.step(`Shutdown session: ${sessionIdOrName}`, async () => {
-			await this.getSessionTab(sessionIdOrName).click();
-			await this.shutDownButton.click();
-
-			if (waitForDisconnected) {
-				await this.expectStatusToBe(sessionIdOrName, 'disconnected');
 			}
 		});
 	}
@@ -438,7 +415,7 @@ export class Sessions {
 				await this.quickPick.openSessionQuickPickMenu();
 			} else if (triggerMode === 'console') {
 				await this.hotKeys.focusConsole();
-				await this.newSessionButton.click();
+				await this.console.newSessionButton.click();
 			} else {
 				await this.page.keyboard.press('Control+Shift+/');
 			}

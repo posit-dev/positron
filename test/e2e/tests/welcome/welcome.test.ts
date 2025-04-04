@@ -74,7 +74,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		});
 
 		test('Python - Verify clicking on `new console` from the Welcome page starts interpreter', async function ({ app, sessions }) {
-			const { welcome, quickInput, console } = app.workbench;
+			const { welcome, quickInput } = app.workbench;
 			await sessions.deleteAll();
 
 			await welcome.newConsoleButton.click();
@@ -82,7 +82,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 			await quickInput.type(pythonRuntime.name);
 			const fullRuntimeName = await quickInput.selectQuickInputElementContaining(pythonRuntime.name);
-			await console.waitForInterpretersToFinishLoading();
+			await sessions.expectAllSessionsToBeReady();
 
 			await sessions.expectSessionCountToBe(1);
 			await sessions.expectSessionPickerToBe(fullRuntimeName);
@@ -106,7 +106,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		});
 
 		test('R - Verify clicking on `new console` from the Welcome page starts interpreter', async function ({ app, sessions }) {
-			const { welcome, quickInput, console } = app.workbench;
+			const { welcome, quickInput } = app.workbench;
 			await sessions.deleteAll();
 
 			await welcome.newConsoleButton.click();
@@ -114,7 +114,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 			await quickInput.type(rRuntime.name);
 			const fullRuntimeName = await quickInput.selectQuickInputElementContaining(rRuntime.name);
-			await console.waitForInterpretersToFinishLoading();
+			await sessions.expectAllSessionsToBeReady();
 
 			await sessions.expectSessionCountToBe(1);
 			await sessions.expectSessionPickerToBe(fullRuntimeName);
