@@ -23,6 +23,8 @@ import { IServerAPI } from './vs/server/node/remoteExtensionHostAgentServer.js';
 // --- Start PWB ---
 import * as fs from 'fs';
 import * as https from 'https';
+import { spawn } from 'child_process';
+import { getUserDataPath } from './vs/platform/environment/node/userDataPath.js';
 // --- End PWB ---
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -175,6 +177,10 @@ if (shouldSpawnCli) {
 			_remoteExtensionHostAgentServer.dispose();
 		}
 	});
+
+	// --- Start Positron ---
+	await startKernelSupervisor();
+	// --- End Positron ---
 }
 
 function sanitizeStringArg(val: any): string | undefined {
@@ -309,3 +315,51 @@ function prompt(question: string): Promise<boolean> {
 		});
 	});
 }
+
+// --- Start Positron ---
+async function startKernelSupervisor() {
+	// Create the connection and log file paths. We put these in the user data
+	// path rather than the temporary directory since some environments clean up
+	// the temporary directory aggressively.
+	const userDataPath = getUserDataPath(parsedArgs, product.nameShort || 'positron');
+	const tempFile = path.join(userDataPath, `positron-supervisor-${process.pid}.json`);
+	const logFile = path.join(userDataPath, `positron-supervisor-${process.pid}.log`);
+
+	// Unlikely, but if the files already exist, delete them; they are stale.
+	if (fs.existsSync(tempFile)) {
+		fs.unlinkSync(tempFile);
+	}
+	if (fs.existsSync(logFile)) {
+		fs.unlinkSync(logFile);
+	}
+
+	// Pass the connection file path to the supervisor extension.
+	process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'] = tempFile;
+
+	// Search local paths for the supervisor
+	const supervisorPaths = [
+		path.join(__dirname, '..', '..',
+			'kallichore', 'target', 'debug', 'kcserver'),
+		path.join(__dirname, '..', '..',
+			'kallichore', 'target', 'release', 'kcserver'),
+		path.join(__dirname, '..',
+			'extensions', 'positron-supervisor', 'resources', 'kallichore', 'kcserver'),
+	];
+	const supervisorPath = supervisorPaths.find((p) => fs.existsSync(p));
+	if (!supervisorPath) {
+		process.stderr.write('The Positron Kernel Supervisor was not found and will not be started.\n');
+		return;
+	}
+
+	// Start the supervisor process.
+	process.stdout.write(`\nStarting Positron Kernel Supervisor (${supervisorPath})...\n`);
+	const supervisorProcess = spawn(supervisorPath, [
+		'--connection-file', tempFile, '--log-file', logFile,]);
+	supervisorProcess.stdout.on('data', (data) => {
+		process.stdout.write(data);
+	});
+	supervisorProcess.stderr.on('data', (data) => {
+		process.stderr.write(data);
+	});
+}
+// --- End Positron ---
