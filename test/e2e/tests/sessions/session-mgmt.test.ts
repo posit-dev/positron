@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Sessions: Management', {
-	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
+	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
 }, () => {
 
 	test.beforeEach(async function ({ app }) {

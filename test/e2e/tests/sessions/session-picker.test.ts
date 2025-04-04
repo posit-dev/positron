@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Sessions: Session Picker', {
-	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS]
+	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS, tags.CRITICAL]
 }, () => {
 
 	test('Python - Start and verify session via session picker', async function ({ sessions }) {

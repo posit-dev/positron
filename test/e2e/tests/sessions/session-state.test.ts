@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Sessions: State', {
-	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
+	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
