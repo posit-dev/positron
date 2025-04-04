@@ -172,7 +172,7 @@ export class Sessions {
 		const { waitForIdle = true, clearConsole = true } = options || {};
 
 		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
-			this.console.focus();
+			await this.console.focus();
 
 			if (await this.getSessionCount() > 1) {
 				await this.getSessionTab(sessionIdOrName).click();
