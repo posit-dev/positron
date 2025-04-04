@@ -9,7 +9,7 @@ import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { arrayBufferToBase64, BinaryMessageReferences, toLanguageModelChatMessage } from '../utils';
-import { documentEditToolAdapter, selectionEditToolAdapter } from '../tools';
+import { PositronAssistantToolName } from '../tools.js';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -26,6 +26,11 @@ export async function defaultHandler(
 	// System prompt
 	let system = await fs.promises.readFile(`${mdDir}/prompts/chat/default.md`, 'utf8');
 
+	// Define more readable variables for filtering tools.
+	const inChatPane = request.location2 === undefined;
+	const inEditor = request.location2 instanceof vscode.ChatRequestEditorData;
+	const hasSelection = inEditor && request.location2.selection?.isEmpty === false;
+
 	// List of tools for use by the Language Model
 	const toolOptions: Record<string, any> = {};
 	const tools: vscode.LanguageModelChatTool[] = [
@@ -34,16 +39,28 @@ export async function defaultHandler(
 			if (!tool.tags.includes('positron-assistant')) {
 				return false;
 			}
-			// Do not offer to execute code when the request isn't coming from
-			// the Chat pane; the other panes do not have an affordance for
-			// confirming executions.
+			// Only include the execute code tool in the Chat pane; the other
+			// panes do not have an affordance for confirming executions.
 			//
 			// CONSIDER: It would be better for us to introspect the tool itself
 			// to see if it requires confirmation, but that information isn't
 			// currently exposed in `vscode.LanguageModelChatTool`.
-			if (tool.name === 'executeCode' && request.location2) {
+			if (tool.name === PositronAssistantToolName.ExecuteCode && !inChatPane) {
 				return false;
 			}
+
+			// Only include the documentEdit tool in an editor and if there is
+			// no selection.
+			if (tool.name === PositronAssistantToolName.DocumentEdit && (!inEditor || hasSelection)) {
+				return false;
+			}
+
+			// Only include the selectionEdit tool in an editor and if there is
+			// a selection.
+			if (tool.name === PositronAssistantToolName.SelectionEdit && (!inEditor || !hasSelection)) {
+				return false;
+			}
+
 			return true;
 		}),
 	];
@@ -97,7 +114,7 @@ export async function defaultHandler(
 				const selectionText = document.getText(location.range);
 				const ref = {
 					id: reference.id,
-					name: reference.name,
+					uri: location.uri.toString(),
 					description,
 					documentText,
 					selectionText,
@@ -107,7 +124,7 @@ export async function defaultHandler(
 				const uri = (reference.value as vscode.Uri);
 				const document = await vscode.workspace.openTextDocument(uri);
 				const documentText = document.getText();
-				const ref = { id: reference.id, name: reference.name, documentText };
+				const ref = { id: reference.id, uri: uri.toString(), documentText };
 				textParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
 			} else if ('mimeType' in value) {
 				const binaryValue = value as vscode.ChatReferenceBinaryData;
@@ -126,7 +143,7 @@ export async function defaultHandler(
 		]);
 	}
 
-	// When invoked from the editor, add selection context and editor tool
+	// When invoked from the editor, add document and selection context
 	if (request.location2 instanceof vscode.ChatRequestEditorData) {
 		const document = request.location2.document;
 		const selection = request.location2.selection;
@@ -155,19 +172,6 @@ export async function defaultHandler(
 		messages.push(
 			vscode.LanguageModelChatMessage.Assistant('Acknowledged.')
 		);
-
-		if (hasSelection) {
-			// If we have a selection, use the selection editor tool.
-			tools.push(selectionEditToolAdapter.toolData);
-			toolOptions[selectionEditToolAdapter.toolData.name] = { document, selection };
-		} else {
-			// If we don't have a selection, use the document editor tool.
-			tools.push(documentEditToolAdapter.toolData);
-			toolOptions[documentEditToolAdapter.toolData.name] = {
-				documentUri: document.uri.toString(),
-				selection
-			};
-		}
 	}
 
 	// When invoked from the terminal, add additional instructions.

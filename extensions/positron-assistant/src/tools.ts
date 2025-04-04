@@ -5,120 +5,123 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import * as ai from 'ai';
-
-import { z } from 'zod';
 import { padBase64String } from './utils';
 import { LanguageModelImage } from './languageModelParts.js';
+import { IPositronAssistantParticipant, ParticipantID } from './participants.js';
 
-export interface PositronToolAdapter {
-	toolData: vscode.LanguageModelChatTool;
-	provideAiTool(token: unknown, toolOptions: unknown): ai.Tool<any, string>;
+export enum PositronAssistantToolName {
+	DocumentEdit = 'documentEdit',
+	ExecuteCode = 'executeCode',
+	GetPlot = 'getPlot',
+	SelectionEdit = 'selectionEdit',
 }
-
-/**
- * A tool adapter for document edits. This tool is provided when the user uses
- * inline chat without a selection.
- */
-export const documentEditToolAdapter: PositronToolAdapter = {
-	toolData: {
-		name: 'documentEdit',
-		description: 'Output an edited version of the document.',
-	},
-
-	provideAiTool(
-		token: unknown,
-		options: {
-			// The URI of the document to edit; we can't pass the whole `document` in
-			// because the tool options are serialized, so only plain JSON is supported.
-			documentUri: string;
-
-			// The active selection, if any
-			selection: vscode.Selection;
-		}): ai.Tool {
-		return ai.tool({
-			description: this.toolData.description,
-			parameters: z.object({
-				deltas: z.array(
-					z.object({
-						delete: z.string().optional().describe('Text to delete from the document.'),
-						replace: z.string().optional().describe('Text to replace the deleted text.')
-					})).describe('The array of changes to apply.')
-			}),
-			execute: async (params) => {
-				// Get the text of the document to edit
-				const document =
-					await vscode.workspace.openTextDocument(vscode.Uri.parse(options.documentUri));
-				const documentText = document.getText();
-
-				// Process each change, emitting text edits for each one
-				for (const delta of params.deltas) {
-					if ('delete' in delta && 'replace' in delta) {
-						const deleteText = delta.delete;
-						const startPos = documentText.indexOf(deleteText!);
-						if (startPos === -1) {
-							// If the delete text is not found in the document,
-							// we can't apply this edit; ignore.
-							continue;
-						}
-						const startPosition = document.positionAt(startPos);
-						const endPosition = document.positionAt(startPos + deleteText!.length);
-						const range = new vscode.Range(startPosition, endPosition);
-						const textEdit = vscode.TextEdit.replace(range, delta.replace!);
-						positron.ai.responseProgress(token,
-							new vscode.ChatResponseTextEditPart(
-								document.uri,
-								textEdit
-							));
-					}
-				}
-			}
-		});
-	}
-};
-
-/**
- * A tool adapter for selection edits.
- */
-export const selectionEditToolAdapter: PositronToolAdapter = {
-	toolData: {
-		name: 'selectionEdit',
-		description: 'Output an edited version of the code selection.',
-	},
-
-	provideAiTool(token: unknown, options: { document: vscode.TextDocument; selection: vscode.Selection }): ai.Tool {
-		return ai.tool({
-			description: this.toolData.description,
-			parameters: z.object({
-				code: z.string().describe('The entire edited code selection.'),
-			}),
-			execute: async ({ code }) => {
-				positron.ai.responseProgress(
-					token,
-					new vscode.ChatResponseTextEditPart(
-						options.document.uri,
-						vscode.TextEdit.replace(options.selection, code)
-					)
-				);
-
-				return '';
-			},
-		});
-	}
-};
-
-export const positronToolAdapters: Record<string, PositronToolAdapter> = {
-	[documentEditToolAdapter.toolData.name]: documentEditToolAdapter,
-	[selectionEditToolAdapter.toolData.name]: selectionEditToolAdapter,
-};
 
 /**
  * Registers tools for the Positron Assistant.
  *
  * @param context The extension context for registering disposables
+ * @param participants The Positron Assistant chat participants.
  */
-export function registerAssistantTools(context: vscode.ExtensionContext): void {
-	const executeCodeTool = vscode.lm.registerTool<{ code: string; language: string }>('executeCode', {
+export function registerAssistantTools(
+	context: vscode.ExtensionContext,
+	participants: Record<ParticipantID, IPositronAssistantParticipant>,
+): void {
+	const documentEditTool = vscode.lm.registerTool<{
+		deltas: { delete: string; replace: string }[];
+	}>(PositronAssistantToolName.DocumentEdit, {
+		prepareInvocation: async (options, token) => {
+			return {
+				// Hide the tool invocation message from the user.
+				presentation: 'hidden',
+			};
+		},
+
+		invoke: async (options, token) => {
+			if (!options.input.deltas) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('No edits to apply.'),
+				]);
+			}
+
+			// Get the active chat request data
+			const { request, response } = getChatRequestData(options.toolInvocationToken, participants);
+			if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
+				throw new Error('This tool can only be invoked from an editor.');
+			}
+
+			// Get the text of the document to edit
+			const document = request.location2.document;
+			const documentText = document.getText();
+
+			// Process each change, emitting text edits for each one
+			let numTextEdits = 0;
+			for (const delta of options.input.deltas) {
+				const deleteText = delta.delete;
+				const startPos = documentText.indexOf(deleteText!);
+				if (startPos === -1) {
+					// If the delete text is not found in the document,
+					// we can't apply this edit; ignore.
+					continue;
+				}
+				const startPosition = document.positionAt(startPos);
+				const endPosition = document.positionAt(startPos + deleteText!.length);
+				const range = new vscode.Range(startPosition, endPosition);
+				const textEdit = vscode.TextEdit.replace(range, delta.replace!);
+				response.textEdit(document.uri, textEdit);
+				numTextEdits++;
+			}
+
+			if (numTextEdits > 0) {
+				// Complete the text edit group.
+				response.textEdit(document.uri, true);
+
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(`Applied ${numTextEdits} of ${options.input.deltas.length} edits.`),
+				]);
+			} else {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('No edits applied.'),
+				]);
+			}
+		}
+	});
+
+	context.subscriptions.push(documentEditTool);
+
+	const selectionEditTool = vscode.lm.registerTool<{ code: string }>(PositronAssistantToolName.SelectionEdit, {
+		prepareInvocation: async (options, token) => {
+			// Hide the tool invocation message from the user.
+			return {
+				presentation: 'hidden',
+			};
+		},
+
+		invoke: async (options, token) => {
+			// Get the active chat request data.
+			const { request, response } = getChatRequestData(options.toolInvocationToken, participants);
+			if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
+				throw new Error('This tool can only be invoked from an editor.');
+			}
+
+			const document = request.location2.document;
+			const selection = request.location2.selection;
+
+			// Apply the edit to the selected text.
+			const edits = vscode.TextEdit.replace(selection, options.input.code);
+			response.textEdit(document.uri, edits);
+
+			// Complete the text edit group.
+			response.textEdit(document.uri, true);
+
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart('Selection edited.'),
+			]);
+		}
+	});
+
+	context.subscriptions.push(selectionEditTool);
+
+	const executeCodeTool = vscode.lm.registerTool<{ code: string; language: string }>(PositronAssistantToolName.ExecuteCode, {
 		/**
 		 * Called by Positron to prepare for tool invocation. We use this hook
 		 * to show the user the code that we are about to run, and ask for
@@ -219,8 +222,16 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 
 	context.subscriptions.push(executeCodeTool);
 
-	const getPlotTool = vscode.lm.registerTool<{}>('getPlot', {
-		async invoke(options, token) {
+	const getPlotTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.GetPlot, {
+		prepareInvocation: async (options, token) => {
+			return {
+				// The message shown when the code is actually executing.
+				// Positron appends '...' to this message.
+				invocationMessage: vscode.l10n.t('Viewing the active plot'),
+				pastTenseMessage: vscode.l10n.t('Viewed the active plot.'),
+			};
+		},
+		invoke: async (options, token) => {
 			// Get the current plot image data
 			const uri = await positron.ai.getCurrentPlotUri();
 			if (!uri) {
@@ -233,6 +244,8 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('Internal Error: Positron returned an unexpected plot URI format')]);
 			}
 
+			// HACK: Return the image data as a prompt tsx part.
+			// See languageModelParts.ts for an explanation.
 			const image = new LanguageModelImage(matches[1], padBase64String(matches[2]));
 			const imageJson = image.toJSON();
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelPromptTsxPart(imageJson)]);
@@ -240,4 +253,28 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 	});
 
 	context.subscriptions.push(getPlotTool);
+}
+
+/**
+ * Get the chat request data for a given tool invocation token.
+ *
+ * @param toolInvocationToken The tool invocation token .
+ * @param participants The participants in the chat.
+ * @returns The request data for the given tool invocation token.
+ * @throws Error if there is no tool invocation token or if the request data cannot be found.
+ */
+function getChatRequestData(
+	toolInvocationToken: vscode.ChatParticipantToolToken | undefined,
+	participants: Record<ParticipantID, IPositronAssistantParticipant>,
+) {
+	if (!toolInvocationToken) {
+		throw new Error('This tool requires a tool invocation token.');
+	}
+
+	const requestData = participants[ParticipantID.PositronAssistant].getRequestData(toolInvocationToken);
+	if (!requestData) {
+		throw new Error('This tool can only be invoked from a Positron Assistant chat request.');
+	}
+
+	return requestData;
 }

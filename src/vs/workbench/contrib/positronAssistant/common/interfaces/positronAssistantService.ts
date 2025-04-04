@@ -21,6 +21,9 @@ export interface IPositronChatContext {
 		language: string;
 		version: string;
 	};
+	plots?: {
+		hasPlots: boolean;
+	};
 	variables?: {
 		name: string;
 		value: string;

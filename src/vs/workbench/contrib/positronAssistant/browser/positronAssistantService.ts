@@ -60,6 +60,9 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 				language: runtimeMetadata?.languageName ?? '',
 				version: runtimeMetadata?.languageVersion ?? '',
 			},
+			plots: {
+				hasPlots: this.getCurrentPlotUri() !== undefined,
+			},
 			variables: variablesInstance?.variableItems.map((item) => {
 				return {
 					name: item.displayName,
