@@ -28,9 +28,9 @@ import { getBootstrapExtensionStream } from './bootstrapExtensions';
 import { getVersion } from './getVersion';
 import { fetchUrls, fetchGithub } from './fetch';
 
-// --- Start Positron ---
+// --- Start PWB: from Positron ---
 import { PromiseHandles } from './util';
-// --- End Positron ---
+// --- End PWB: from Positron ---
 
 const root = path.dirname(path.dirname(__dirname));
 const commit = getVersion(root);
@@ -222,7 +222,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		console.error(packagedDependencies);
 		result.emit('error', err);
 	});
-	// --- End Positron ---
+	// --- End PWB: from Positron ---
 
 	return result.pipe(createStatsStream(path.basename(extensionPath)));
 }
@@ -231,7 +231,7 @@ function fromLocalNormal(extensionPath: string): Stream {
 	const vsce = require('@vscode/vsce') as typeof import('@vscode/vsce');
 	const result = es.through();
 
-	// --- Start Positron ---
+	// --- Start PWB: from Positron ---
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
 	listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Npm })
 		.then(fileNames => {
@@ -247,7 +247,7 @@ function fromLocalNormal(extensionPath: string): Stream {
 			es.readArray(files).pipe(result);
 		})
 		.catch(err => result.emit('error', err));
-	// --- End Positron ---
+	// --- End PWB: from Positron ---
 
 	return result.pipe(createStatsStream(path.basename(extensionPath)));
 }
@@ -807,7 +807,7 @@ export async function buildExtensionMedia(isWatch: boolean, outputRoot?: string)
 	})));
 }
 
-// --- Start Positron ---
+// --- Start PWB: from Positron ---
 
 // Node 20 consistently crashes when there are too many `vsce.listFiles`
 // operations in flight at once; these operations are expensive as they recurse
@@ -955,4 +955,4 @@ export async function copyExtensionBinaries(outputRoot: string) {
 		resolve();
 	});
 }
-// --- End Positron ---
+// --- End PWB: from Positron ---

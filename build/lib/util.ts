@@ -253,7 +253,7 @@ export function stripSourceMappingURL(): NodeJS.ReadWriteStream {
 	return es.duplex(input, output);
 }
 
-// --- Start Positron ---
+// --- Start PWB: from positron ---
 /**
  * Strips and/or modifies import statements. This function only runs on
  * development builds, and helps make it possible to use the same set of source
@@ -320,7 +320,7 @@ export class PromiseHandles<T> {
 		});
 	}
 }
-// --- End Positron ---
+// --- End PWB: from positron ---
 
 /** Splits items in the stream based on the predicate, sending them to onTrue if true, or onFalse otherwise */
 export function $if(test: boolean | ((f: VinylFile) => boolean), onTrue: NodeJS.ReadWriteStream, onFalse: NodeJS.ReadWriteStream = es.through()) {
