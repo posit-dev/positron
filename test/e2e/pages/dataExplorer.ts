@@ -255,4 +255,27 @@ export class DataExplorer {
 				: expect(tabLocator).not.toHaveClass(/selected/));
 		});
 	}
+
+	async verifySparklineHoverDialog(verificationText: string[]): Promise<void> {
+		await test.step('Verify bin count hover dialog', async () => {
+			const firstSparkline = this.code.driver.page.locator('.column-sparkline .tooltip-container').nth(0);
+			await firstSparkline.hover();
+			const hoverTooltip = this.code.driver.page.locator('.hover-contents');
+			await expect(hoverTooltip).toBeVisible();
+
+			for (const text of verificationText) {
+				await expect(hoverTooltip).toContainText(text);
+			}
+		});
+	}
+
+	async verifyNullPercentHoverDialog(): Promise<void> {
+		await test.step('Verify null percent hover dialog', async () => {
+			const firstNullPercent = this.code.driver.page.locator('.column-null-percent').nth(0);
+			await firstNullPercent.hover();
+			const hoverTooltip = this.code.driver.page.locator('.hover-contents');
+			await expect(hoverTooltip).toBeVisible();
+			await expect(hoverTooltip).toContainText('Missing Values');
+		});
+	}
 }

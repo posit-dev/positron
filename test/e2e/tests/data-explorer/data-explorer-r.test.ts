@@ -46,6 +46,10 @@ test.describe('Data Explorer - R ', {
 			expect(clipboardText).toBe('Strength');
 		});
 
+		await app.workbench.dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+
+		await app.workbench.dataExplorer.verifyNullPercentHoverDialog();
+
 	});
 
 	test('R - Verify opening Data Explorer for the second time brings focus back', {

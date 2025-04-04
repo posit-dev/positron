@@ -48,6 +48,10 @@ df = pd.DataFrame(data)`;
 			expect(clipboardText).toBe('Jai');
 		});
 
+		await app.workbench.dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+
+		await app.workbench.dataExplorer.verifyNullPercentHoverDialog();
+
 		await app.workbench.dataExplorer.closeDataExplorer();
 		await app.workbench.variables.togglePane('show');
 	});

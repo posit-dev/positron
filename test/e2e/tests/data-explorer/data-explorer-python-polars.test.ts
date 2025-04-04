@@ -46,11 +46,16 @@ test.describe('Data Explorer - Python Polars', {
 			expect(clipboardText).toBe('1');
 		});
 
+		await app.workbench.dataExplorer.expandSummary();
+
+		await app.workbench.dataExplorer.verifySparklineHoverDialog(['Range', 'Count']);
+
+		await app.workbench.dataExplorer.verifyNullPercentHoverDialog();
+
 	});
 
 	// Cannot be run by itself, relies on the previous test
-	test('Python Polars - Verify basic data explorer column info functionality', async function ({ app }) {
-		await app.workbench.dataExplorer.expandSummary();
+	test('Python Polars - Verify basic data explorer column info functionality', async function ({ app, python }) {
 
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('0%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('0%');
