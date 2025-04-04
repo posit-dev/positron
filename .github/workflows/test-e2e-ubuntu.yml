@@ -33,7 +33,7 @@ on:
         description: "Whether or not to report results to TestRail."
         default: false
         type: boolean
-      enable_currents_reporter:
+      report_currents:
         required: false
         description: "Whether or not to report results to Currents."
         type: boolean
@@ -165,7 +165,7 @@ jobs:
           COMMIT_INFO_MESSAGE: ${{ github.event.head_commit.message }}
           PWTEST_BLOB_DO_NOT_REMOVE: 1
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
-          ENABLE_CURRENTS_REPORTER: ${{ inputs.enable_currents_reporter }}
+          ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
