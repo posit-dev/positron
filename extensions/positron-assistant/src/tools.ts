@@ -11,6 +11,11 @@ import { z } from 'zod';
 import { padBase64String } from './utils';
 import { LanguageModelImage } from './languageModelParts.js';
 
+export enum PositronAssistantToolName {
+	ExecuteCode = 'executeCode',
+	GetPlot = 'getPlot',
+}
+
 export interface PositronToolAdapter {
 	toolData: vscode.LanguageModelChatTool;
 	provideAiTool(token: unknown, toolOptions: unknown): ai.Tool<any, string>;
