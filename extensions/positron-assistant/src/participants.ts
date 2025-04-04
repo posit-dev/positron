@@ -15,8 +15,25 @@ import { defaultHandler } from './commands/default';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
-class PositronAssistantParticipant implements positron.ai.ChatParticipant {
+export enum ParticipantID {
+	PositronAssistant = 'positron-assistant',
+}
+
+export interface ChatRequestData {
+	request: vscode.ChatRequest;
+	context: vscode.ChatContext;
+	response: vscode.ChatResponseStream;
+}
+
+export interface IPositronAssistantParticipant extends positron.ai.ChatParticipant {
+	getRequestData(toolInvocationToken: vscode.ChatParticipantToolToken): ChatRequestData | undefined;
+}
+
+class PositronAssistantParticipant implements IPositronAssistantParticipant {
 	readonly _context: vscode.ExtensionContext;
+
+	private readonly _requests = new Map<string, ChatRequestData>();
+
 	constructor(context: vscode.ExtensionContext) {
 		this._context = context;
 	}
@@ -109,21 +126,42 @@ class PositronAssistantParticipant implements positron.ai.ChatParticipant {
 	};
 
 	async requestHandler(request: vscode.ChatRequest, context: vscode.ChatContext, response: vscode.ChatResponseStream, token: vscode.CancellationToken) {
+		this.setRequestData(request.toolInvocationToken, { request, context, response });
+
 		// Select request handler based on the command issued by the user for this request
-		switch (request.command) {
-			case 'quarto':
-				return quartoHandler(request, context, response, token);
-			default:
-				return defaultHandler(request, context, response, token);
+		try {
+			switch (request.command) {
+				case 'quarto':
+					return await quartoHandler(request, context, response, token);
+				default:
+					return await defaultHandler(request, context, response, token);
+			}
+		} finally {
+			this.setRequestData(request.toolInvocationToken, undefined);
+		}
+	}
+
+	getRequestData(token: vscode.ChatParticipantToolToken): ChatRequestData | undefined {
+		// Use the JSON string since a different instance may be provided to tools.
+		const key = JSON.stringify(token);
+		return this._requests.get(key);
+	}
+
+	private setRequestData(token: vscode.ChatParticipantToolToken, data: ChatRequestData | undefined): void {
+		// Use the JSON string since a different instance may be provided to tools.
+		const key = JSON.stringify(token);
+		if (data) {
+			this._requests.set(key, data);
+		} else {
+			this._requests.delete(key);
 		}
 	}
 
 	dispose(): void { }
 }
 
-export function createParticipants(context: vscode.ExtensionContext): Record<string, positron.ai.ChatParticipant> {
+export function createParticipants(context: vscode.ExtensionContext): Record<ParticipantID, IPositronAssistantParticipant> {
 	return {
-		'positron-assistant': new PositronAssistantParticipant(context),
+		[ParticipantID.PositronAssistant]: new PositronAssistantParticipant(context),
 	};
 }
-

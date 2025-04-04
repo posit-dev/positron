@@ -1590,6 +1590,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
+		// Ensure the kernel is ready; otherwise messages will be emitted to the
+		// frontend before the kernel is "started"
+		this._ready.wait();
+
 		// Translate the Jupyter message to a LanguageRuntimeMessage and emit it
 		this._messages.emitJupyter(msg);
 	}

@@ -54,6 +54,55 @@
     ],
     "languageModelTools": [
       {
+        "name": "documentEdit",
+        "displayName": "Edit Document",
+        "modelDescription": "Output an edited version of the document.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "deltas": {
+              "type": "array",
+              "description": "The array of changes to apply.",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "delete": {
+                    "type": "string",
+                    "description": "Text to delete from the document."
+                  },
+                  "replace": {
+                    "type": "string",
+                    "description": "Text to replace the deleted text with."
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      {
+        "name": "selectionEdit",
+        "displayName": "Edit Selection",
+        "modelDescription": "Output an edited version of the selected text.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "code": {
+              "type": "string",
+              "description": "The entire edited code selection."
+            }
+          }
+        }
+      },
+      {
         "name": "executeCode",
         "displayName": "Execute Code",
         "modelDescription": "Execute a piece of code in the specified programming language.",
@@ -77,8 +126,8 @@
       },
       {
         "name": "getPlot",
-        "displayName": "Get active plot",
-        "modelDescription": "Get the current active plot that is visible to the user.",
+        "displayName": "View active plot",
+        "modelDescription": "View the current active plot if one exists. Don't invoke this tool if there are no plots in the session.",
         "canBeReferencedInPrompt": false,
         "tags": [
           "positron-assistant"
@@ -111,5 +160,8 @@
     "typescript": "^5.6.2",
     "typescript-eslint": "^8.11.0",
     "zod": "^3.24.1"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0"
   }
 }

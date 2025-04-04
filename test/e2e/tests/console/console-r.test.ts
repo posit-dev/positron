@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -38,7 +38,7 @@ test.describe('Console Pane: R', {
 			await app.workbench.console.barClearButton.click();
 			await app.workbench.console.barRestartButton.click();
 			await app.workbench.console.waitForReady('>');
-			// await app.workbench.console.waitForConsoleContents('cat from .Rprofile'); // add back when Davis gives the go ahead
+			await app.workbench.console.waitForConsoleContents('cat from .Rprofile');
 		}).toPass();
 	});
 

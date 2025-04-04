@@ -13,6 +13,16 @@ test.use({
 
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
+	test('Python - queue user input while interpreter is starting', async function ({ app }) {
+
+		await app.workbench.console.selectInterpreter(InterpreterType.Python, process.env.POSITRON_PY_VER_SEL!, false);
+
+		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");');
+
+		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 25000 });
+
+	});
+
 	test('Python - Verify restart button inside the console', async function ({ app, python }) {
 		await expect(async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
@@ -99,16 +109,6 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 		} else {
 			fail('Secondary Python version not set');
 		}
-	});
-
-	test('Python - queue user input while interpreter is starting', async function ({ app }) {
-
-		await app.workbench.console.selectInterpreter(InterpreterType.Python, process.env.POSITRON_PY_VER_SEL!, false);
-
-		await app.workbench.console.typeToConsole('import time; time.sleep(5); print("done");', true);
-
-		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2 });
-
 	});
 
 });
