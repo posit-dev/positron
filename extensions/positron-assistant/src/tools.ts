@@ -219,8 +219,16 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 
 	context.subscriptions.push(executeCodeTool);
 
-	const getPlotTool = vscode.lm.registerTool<{}>('getPlot', {
-		async invoke(options, token) {
+	const getPlotTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.GetPlot, {
+		prepareInvocation: async (options, token) => {
+			return {
+				// The message shown when the code is actually executing.
+				// Positron appends '...' to this message.
+				invocationMessage: vscode.l10n.t('Viewing the active plot'),
+				pastTenseMessage: vscode.l10n.t('Viewed the active plot.'),
+			};
+		},
+		invoke: async (options, token) => {
 			// Get the current plot image data
 			const uri = await positron.ai.getCurrentPlotUri();
 			if (!uri) {
@@ -233,6 +241,8 @@ export function registerAssistantTools(context: vscode.ExtensionContext): void {
 				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('Internal Error: Positron returned an unexpected plot URI format')]);
 			}
 
+			// HACK: Return the image data as a prompt tsx part.
+			// See languageModelParts.ts for an explanation.
 			const image = new LanguageModelImage(matches[1], padBase64String(matches[2]));
 			const imageJson = image.toJSON();
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelPromptTsxPart(imageJson)]);

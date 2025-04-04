@@ -77,8 +77,8 @@
       },
       {
         "name": "getPlot",
-        "displayName": "Get active plot",
-        "modelDescription": "Get the current active plot that is visible to the user.",
+        "displayName": "View active plot",
+        "modelDescription": "View the current active plot if one exists.",
         "canBeReferencedInPrompt": false,
         "tags": [
           "positron-assistant"
