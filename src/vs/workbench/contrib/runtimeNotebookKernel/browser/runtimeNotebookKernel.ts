@@ -5,7 +5,7 @@
 
 import { AsyncIterableObject } from '../../../../base/common/async.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { Emitter } from '../../../../base/common/event.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ResourceMap } from '../../../../base/common/map.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -16,6 +16,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IProgressService, ProgressLocation } from '../../../../platform/progress/common/progress.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { CodeAttributionSource, ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPYNB_VIEW_TYPE } from '../../notebook/browser/notebookBrowser.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
@@ -97,6 +98,12 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 	 * A map of active sessions, keyed by notebook URI.
 	 */
 	private _sessionsByNotebookUri = new ResourceMap<ILanguageRuntimeSession>();
+
+	/**
+	 * An event that fires when the kernel executes code.
+	 */
+	private readonly _didExecuteCodeEmitter = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
+	public onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._didExecuteCodeEmitter.event;
 
 	constructor(
 		public readonly runtime: ILanguageRuntimeMetadata,
@@ -255,6 +262,22 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			this._logService.warn(`Overwriting pending execution for notebook ${notebook.uri.fsPath}`);
 		}
 		this._pendingExecutionsByNotebookUri.set(notebook.uri, execution);
+
+		// Fire the event signaling code execution.
+		const event: ILanguageRuntimeCodeExecutedEvent = {
+			attribution: {
+				source: CodeAttributionSource.Notebook,
+				metadata: {
+					notebook: notebook.uri.path,
+				}
+			},
+			code,
+			languageId: cell.language,
+			runtimeName: this.runtime.runtimeName,
+			errorBehavior: RuntimeErrorBehavior.Stop,
+			mode: RuntimeCodeExecutionMode.Interactive,
+		};
+		this._didExecuteCodeEmitter.fire(event);
 
 		// Execute the code.
 		try {

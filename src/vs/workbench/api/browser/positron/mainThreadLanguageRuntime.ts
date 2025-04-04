@@ -15,7 +15,7 @@ import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRunt
 import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -1221,6 +1221,21 @@ export class MainThreadLanguageRuntime
 			this._runtimeStartupService.registerRuntimeManager(this)
 		);
 
+		// Track code execution events in the Console and Notebooks and forward
+		// them to the event host
+		this._disposables.add(
+			this._positronConsoleService.onDidExecuteCode(
+				(event) => {
+					this._proxy.$notifyCodeExecuted(event)
+				}
+			));
+		this._disposables.add(
+			this._runtimeNotebookKernelService.onDidExecuteCode(
+				(event) => {
+					this._proxy.$notifyCodeExecuted(event)
+				}
+			));
+
 		this._disposables.add(this._runtimeSessionService.registerSessionManager(this));
 	}
 
@@ -1354,8 +1369,25 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string> {
-		return this._positronConsoleService.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId);
+	$executeCode(languageId: string,
+		code: string,
+		extensionId: string,
+		focus: boolean,
+		allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		executionId?: string): Promise<string> {
+
+		// Attribute this code to the extension that requested it.
+		const attribution: IConsoleCodeAttribution = {
+			source: CodeAttributionSource.Extension,
+			metadata: {
+				extensionId: extensionId,
+			}
+		}
+
+		return this._positronConsoleService.executeCode(
+			languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
 	}
 
 	public dispose(): void {

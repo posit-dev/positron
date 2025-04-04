@@ -35,7 +35,7 @@ import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.j
 import { ActivityItem, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
@@ -224,6 +224,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * The onDidChangeConsoleWidth event emitter.
 	 */
 	private readonly _onDidChangeConsoleWidthEmitter = this._register(new Emitter<number>());
+
+	/**
+	 * The onDidExecuteCode event emitter.
+	 */
+	private readonly _onDidExecuteCodeEmitter = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>);
 
 	/**
 	 * The debounce timer for the onDidChangeConsoleWidth event.
@@ -487,6 +492,9 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	// An event that is fired when the width of the console changes.
 	readonly onDidChangeConsoleWidth = this._onDidChangeConsoleWidthEmitter.event;
 
+	// An event that is fired when code is executed in a REPL instance.
+	readonly onDidExecuteCode = this._onDidExecuteCodeEmitter.event;
+
 	// Gets the repl instances.
 	get positronConsoleInstances(): IPositronConsoleInstance[] {
 		return Array.from(this._positronConsoleInstancesBySessionId.values());
@@ -534,6 +542,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * Executes code in a PositronConsoleInstance.
 	 * @param languageId The language ID.
 	 * @param code The code.
+	 * @param attribution Attribution naming the origin of the code.
 	 * @param focus A value which indicates whether to focus the Positron console instance.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
@@ -545,6 +554,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 */
 	async executeCode(languageId: string,
 		code: string,
+		attribution: IConsoleCodeAttribution,
 		focus: boolean,
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
@@ -620,7 +630,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}
 
 		// Enqueue the code in the Positron console instance.
-		await positronConsoleInstance.enqueueCode(code, allowIncomplete, mode, errorBehavior, executionId);
+		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId);
 		return Promise.resolve(positronConsoleInstance.sessionId);
 	}
 
@@ -704,6 +714,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Listen for console width changes.
 		this._register(positronConsoleInstance.onDidChangeWidthInChars(width => {
 			this.onConsoleWidthChange(width);
+		}));
+
+		// Listen for code executions and forward them.
+		this._register(positronConsoleInstance.onDidExecuteCode(codeExecution => {
+			this._onDidExecuteCodeEmitter.fire(codeExecution);
 		}));
 
 		// When the console is cleared, clear the execution history for the console.
@@ -925,6 +940,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_THRESHOLD,
 		ON_DID_CHANGE_RUNTIME_ITEMS_THROTTLE_INTERVAL
 	));
+
+	/**
+	 * The last text that was pasted into the console.
+	 */
+	private _lastPastedText: string = '';
 
 	/**
 	 * The onDidPasteText event emitter.
@@ -1279,6 +1299,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	pasteText(text: string) {
 		this.focusInput();
+		this._lastPastedText = text;
 		this._onDidPasteTextEmitter.fire(text);
 	}
 
@@ -1357,14 +1378,20 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Enqueues code.
 	 * @param code The code to enqueue.
+	 * @param attribution Attribution naming the origin of the code.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
-	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
-	 * @param mode Possible code execution modes for a language runtime
+	 *  will be executed by the runtime even if it is incomplete or invalid. Defaults to false
+	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID that can be used to identify the execution
 	 *   (e.g. for tracking execution history). If not provided, one will be assigned.
 	 */
-	async enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string) {
+	async enqueueCode(code: string,
+		attribution: IConsoleCodeAttribution,
+		allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		executionId?: string) {
 		// If a manually assigned execution ID is provided, add it to the set of
 		// external execution IDs.
 		if (executionId) {
@@ -1375,7 +1402,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// code, so add this code to it and wait for it to be processed the next time the runtime
 		// becomes idle.
 		if (this._runtimeItemPendingInput) {
-			this.addPendingInput(code, executionId);
+			this.addPendingInput(code, attribution, executionId);
 			return;
 		}
 
@@ -1384,7 +1411,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// time the runtime becomes idle.
 		const runtimeState = this.session?.getRuntimeState() || RuntimeState.Uninitialized;
 		if (!(runtimeState === RuntimeState.Idle || runtimeState === RuntimeState.Ready)) {
-			this.addPendingInput(code, executionId);
+			this.addPendingInput(code, attribution, executionId);
 			return;
 		}
 
@@ -1419,7 +1446,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			pendingCode += '\n' + code;
 			if (await shouldExecuteCode(pendingCode)) {
 				this.setPendingCode();
-				this.doExecuteCode(pendingCode, mode, errorBehavior, executionId);
+				this.doExecuteCode(pendingCode, attribution, mode, errorBehavior, executionId);
 			} else {
 				// Update the pending code. More will be revealed.
 				this.setPendingCode(pendingCode, executionId);
@@ -1431,7 +1458,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Figure out whether this code can be executed. If it can be, execute it immediately.
 		if (await shouldExecuteCode(code)) {
-			this.doExecuteCode(code, mode, errorBehavior, executionId);
+			this.doExecuteCode(code, attribution, mode, errorBehavior, executionId);
 			return;
 		}
 
@@ -1508,12 +1535,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Executes code.
 	 * @param code The code to execute.
+	 * @param attribution Attribution of the code's origin.
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime.
+	 * @param executionId An optional ID that can be used to identify the execution.
 	 */
-	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string) {
+	executeCode(code: string,
+		attribution: IConsoleCodeAttribution,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		executionId?: string) {
 		this.setPendingCode();
-		this.doExecuteCode(code, mode, errorBehavior, executionId);
+		this.doExecuteCode(code, attribution, mode, errorBehavior, executionId);
 	}
 
 	/**
@@ -2387,8 +2420,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Adds pending input.
 	 * @param code The code for the pending input.
+	 * @param attribution The attribution for the pending input.
+	 * @param executionId The execution ID for the pending input.
 	 */
-	private addPendingInput(code: string, executionId?: string) {
+	private addPendingInput(code: string,
+		attribution: IConsoleCodeAttribution,
+		executionId?: string) {
 		// If there is a pending input runtime item, remove it.
 		if (this._runtimeItemPendingInput) {
 			// Get the index of the pending input runtime item.
@@ -2408,6 +2445,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		this._runtimeItemPendingInput = new RuntimeItemPendingInput(
 			generateUuid(),
 			this._session?.dynState.inputPrompt ?? '',
+			attribution,
 			executionId,
 			code
 		);
@@ -2490,6 +2528,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			return;
 		}
 
+		// Save the attribution
+		const attribution = this._runtimeItemPendingInput.attribution;
+
 		// Find a complete code fragment to execute.
 		let code = undefined;
 		const codeLines: string[] = [];
@@ -2554,7 +2595,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Create the ID for the code fragment that will be executed.
-		let id = this._runtimeItemPendingInput.executionId || this.generateExecutionId(code);
+		const id = this._runtimeItemPendingInput.executionId || this.generateExecutionId(code);
 
 		// Add the provisional ActivityItemInput for the code fragment.
 		const runtimeItemActivity = new RuntimeItemActivity(
@@ -2578,10 +2619,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		const nPendingLines = pendingInputLines.length;
 
 		if (nCodeLines < nPendingLines) {
-			// Create the new pending input runtime item.
+			// Create the new pending input runtime item, preserving the
+			// attribution and the execution ID.
 			this._runtimeItemPendingInput = new RuntimeItemPendingInput(
 				generateUuid(),
 				this._session.dynState.inputPrompt,
+				attribution,
 				id,
 				pendingInputLines.slice(nCodeLines).join('\n'),
 			);
@@ -2609,8 +2652,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			errorBehavior,
 		);
 
-		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire({ code, mode, errorBehavior });
+		// Create and fire the onDidExecuteCode event.
+		const event: ILanguageRuntimeCodeExecutedEvent = {
+			code,
+			mode,
+			attribution,
+			errorBehavior,
+			languageId: this._session.runtimeMetadata.languageId,
+			runtimeName: this._session.runtimeMetadata.runtimeName
+		};
+		this._onDidExecuteCodeEmitter.fire(event);
 	}
 
 	/**
@@ -2633,17 +2684,19 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Executes code.
 	 * @param code The code to execute.
+	 * @param attribution The attribution for the code.
 	 * @param mode Possible code execution modes for a language runtime
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 */
 	private doExecuteCode(
 		code: string,
+		attribution: IConsoleCodeAttribution,
 		mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive,
 		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue,
 		executionId?: string
 	) {
 		// Use the supplied execution ID if known; otherwise, generate one
-		let id = executionId || this.generateExecutionId(code);
+		const id = executionId || this.generateExecutionId(code);
 
 		if (!this._session) {
 			return;
@@ -2671,6 +2724,19 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
 		}
 
+		// If this is an interactive submission, check to see the text we just executed is
+		// the text that was last pasted, so we can attribute it to the clipboard if
+		// appropriate.
+		if (attribution.source === CodeAttributionSource.Interactive) {
+			const lastPastedText = this._lastPastedText.trim();
+			if (lastPastedText && code.trim() === lastPastedText) {
+				attribution.source = CodeAttributionSource.Paste;
+			}
+
+			// In any case, clear the last pasted text when executing code interactively.
+			this._lastPastedText = '';
+		}
+
 		/**
 		 * Execute the code.
 		 *
@@ -2686,8 +2752,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			errorBehavior);
 
 
-		// Fire the onDidExecuteCode event.
-		this._onDidExecuteCodeEmitter.fire({ code, mode, errorBehavior });
+		// Create and fire the onDidExecuteCode event.
+		const event: ILanguageRuntimeCodeExecutedEvent = {
+			code,
+			mode,
+			attribution,
+			errorBehavior,
+			languageId: this._session.runtimeMetadata.languageId,
+			runtimeName: this._session.runtimeMetadata.runtimeName
+		};
+		this._onDidExecuteCodeEmitter.fire(event);
 	}
 
 	/**

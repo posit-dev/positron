@@ -665,6 +665,62 @@ declare module 'positron' {
 		size: number;
 	}
 
+	/**
+	 * Code attribution sources for code executed by Positron.
+	 */
+	export enum CodeAttributionSource {
+		/** The code was executed by an AI assistant. */
+		Assistant = 'assistant',
+
+		/** The code was executed by a Positron extension. */
+		Extension = 'extension',
+
+		/** The code was executed interactively (the user typed it in). */
+		Interactive = 'interactive',
+
+		/** The code was executed from a notebook cell. */
+		Notebook = 'notebook',
+
+		/** The code was pasted into the Console. */
+		Paste = 'paste',
+
+		/** The code was run as a fragment or whole of a script. */
+		Script = 'script',
+	}
+
+	/**
+	 * Code attribution metadata for code executed by Positron.
+	 */
+	export interface CodeAttribution {
+		/** The code's origin */
+		source: CodeAttributionSource;
+
+		/**
+		 * Additional metadata specific to the attribution source, if any. For
+		 * example, when code is executed from an extension, it names the
+		 * extension, and when code is executed from a script, it names the
+		 * script.
+		 */
+		metadata?: Record<string, any>;
+	}
+
+	/**
+	 * An event that is emitted when code is executed in Positron.
+	 */
+	export interface CodeExecutionEvent {
+		/** The ID of the language in which the code was executed (e.g. 'python') */
+		languageId: string;
+
+		/** The name of the runtime that executed the code (e.g. 'Python 3.12') */
+		runtimeName: string;
+
+		/** The actual code that was executed. */
+		code: string;
+
+		/** An object describing the origin of the code. */
+		attribution: CodeAttribution;
+	}
+
 	export interface LanguageRuntimeManager {
 		/**
 		 * Returns a generator that yields metadata about all the language
@@ -1590,6 +1646,11 @@ declare module 'positron' {
 		 * An event that fires when the foreground session changes
 		 */
 		export const onDidChangeForegroundSession: vscode.Event<string | undefined>;
+
+		/**
+		 * An event that fires when code is executed.
+		 */
+		export const onDidExecuteCode: vscode.Event<CodeExecutionEvent>;
 	}
 
 	// FIXME: The current (and clearly not final) state of an experiment to bring in interface(s)

@@ -12,7 +12,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
-import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -894,6 +894,7 @@ export function registerLanguageRuntimeActions() {
 			const consoleService = accessor.get(IPositronConsoleService);
 			const notificationService = accessor.get(INotificationService);
 			const quickInputService = accessor.get(IQuickInputService);
+			let fromPrompt = false;
 
 			// TODO: Should this be in a "Developer: " command?
 			// If no arguments are passed, prompt the user.
@@ -913,6 +914,7 @@ export function registerLanguageRuntimeActions() {
 				if (!code) {
 					return;
 				}
+				fromPrompt = true;
 				const escapedCode = code
 					.replace(/\\n/g, '\n')
 					.replace(/\\r/g, '\r');
@@ -939,8 +941,22 @@ export function registerLanguageRuntimeActions() {
 			}
 
 			// Execute the code in the console.
+			const attribution: IConsoleCodeAttribution = fromPrompt ?
+				{
+					// If the user typed in the code, consider it to have been
+					// executed interactively.
+					source: CodeAttributionSource.Interactive,
+					metadata: {
+						commandId: 'workbench.action.executeCode.console',
+					}
+				} :
+				{
+					// Otherwise, this was probably executed by an extension.
+					source: CodeAttributionSource.Extension,
+				}
+
 			consoleService.executeCode(
-				args.langId, args.code, !!args.focus, true /* execute the code even if incomplete */);
+				args.langId, args.code, attribution, !!args.focus, true /* execute the code even if incomplete */);
 		}
 	});
 

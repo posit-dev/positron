@@ -15,6 +15,7 @@ import { IDriverMetadata, Input } from '../../../services/positronConnections/co
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a
@@ -40,7 +41,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$startLanguageRuntime(runtimeId: string, sessionName: string, sessionMode: LanguageRuntimeSessionMode, notebookUri: URI | undefined): Promise<string>;
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;
-	$executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string>;
+	$executeCode(languageId: string, extensionId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string>;
 	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata>;
 	$getActiveSessions(): Promise<RuntimeSessionMetadata[]>;
 	$getForegroundSession(): Promise<string | undefined>;
@@ -79,6 +80,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$discoverLanguageRuntimes(disabledLanguageIds: string[]): void;
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
+	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void
 }
 
 // This is the interface that the main process exposes to the extension host

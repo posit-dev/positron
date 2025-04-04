@@ -36,6 +36,32 @@ export const enum PositronConsoleState {
 }
 
 /**
+ * Code attribution sources for code executed in the Console.
+ *
+ * These are duplicated in the Positron API (`positron.d.ts`) and should be kept
+ * in sync.
+ */
+export const enum CodeAttributionSource {
+	Assistant = 'assistant',
+	Extension = 'extension',
+	Interactive = 'interactive',
+	Notebook = 'notebook',
+	Paste = 'paste',
+	Script = 'script',
+}
+
+/**
+ * A record containing metadata about the code attribution.
+ */
+export interface IConsoleCodeAttribution {
+	/** The source of the code to be executed */
+	source: CodeAttributionSource;
+
+	/** An optional dictionary of addition source-specific metadata*/
+	metadata?: Record<string, any>;
+}
+
+/**
  * IPositronConsoleService interface.
  */
 export interface IPositronConsoleService {
@@ -115,8 +141,10 @@ export interface IPositronConsoleService {
 
 	/**
 	 * Executes code in a PositronConsoleInstance.
+	 *
 	 * @param languageId The language ID.
 	 * @param code The code.
+	 * @param attribution An optional attribution object that describes the source of the code.
 	 * @param focus A value which indicates whether to focus Positron console instance.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
@@ -127,11 +155,17 @@ export interface IPositronConsoleService {
 	 */
 	executeCode(languageId: string,
 		code: string,
+		attribution: IConsoleCodeAttribution,
 		focus: boolean,
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string): Promise<string>;
+
+	/**
+	 * Fires when code is executed in any Positron console instance.
+	 */
+	onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent>;
 }
 
 /**
@@ -158,13 +192,22 @@ export enum SessionAttachMode {
  * Represents a code fragment and its execution options sent to a language runtime.
  */
 export interface ILanguageRuntimeCodeExecutedEvent {
-	/* The code that was executed in the language runtime session */
+	/** The language ID of the code fragment */
+	languageId: string;
+
+	/** The code that was executed in the language runtime session */
 	code: string;
 
-	/* The mode used to execute the code in the language runtime session */
+	/** The attribution object that describes the source of the code */
+	attribution: IConsoleCodeAttribution;
+
+	/** The runtime that executed the code. */
+	runtimeName: string;
+
+	/** The mode used to execute the code in the language runtime session */
 	mode: RuntimeCodeExecutionMode;
 
-	/* The error disposition used to execute the code in the language runtime session */
+	/** The error disposition used to execute the code in the language runtime session */
 	errorBehavior: RuntimeErrorBehavior;
 }
 
@@ -390,22 +433,33 @@ export interface IPositronConsoleInstance {
 	/**
 	 * Enqueues code to be executed.
 	 * @param code The code to enqueue.
+	 * @param attribution An optional attribution object that describes the source of the code.
 	 * @param allowIncomplete Whether to bypass runtime code completeness checks. If true, the `code`
 	 *   will be executed by the runtime even if it is incomplete or invalid. Defaults to false
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID to track this execution for observation
 	 */
-	enqueueCode(code: string, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<void>;
+	enqueueCode(code: string,
+		attribution: IConsoleCodeAttribution,
+		allowIncomplete?: boolean,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		executionId?: string): Promise<void>;
 
 	/**
 	 * Executes code.
 	 * @param code The code to execute.
+	 * @param attribution An optional attribution object that describes the source of the code.
 	 * @param mode Possible code execution modes for a language runtime.
 	 * @param errorBehavior Possible error behavior for a language runtime
 	 * @param executionId An optional ID to track this execution for observation
 	 */
-	executeCode(code: string, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): void;
+	executeCode(code: string,
+		attribution: IConsoleCodeAttribution,
+		mode?: RuntimeCodeExecutionMode,
+		errorBehavior?: RuntimeErrorBehavior,
+		executionId?: string): void;
 
 	/**
 	 * Replies to a prompt.

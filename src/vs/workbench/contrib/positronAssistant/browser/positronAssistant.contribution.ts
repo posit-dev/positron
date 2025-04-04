@@ -12,7 +12,7 @@ import { localize2 } from '../../../../nls.js';
 import { codiconsLibrary } from '../../../../base/common/codiconsLibrary.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { ICodeBlockActionContext } from '../../chat/browser/codeBlockPart.js';
-import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { ChatAgentLocation } from '../../chat/common/chatAgents.js';
 import { ChatContextKeys } from '../../chat/common/chatContextKeys.js';
@@ -47,9 +47,13 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 			}
 
 			run(accessor: ServicesAccessor, context: ICodeBlockActionContext): void | Promise<void> {
+				const attribution: IConsoleCodeAttribution = {
+					source: CodeAttributionSource.Assistant
+				};
 				consoleService.executeCode(
 					context.languageId || '',
 					context.code,
+					attribution,
 					true, // focus
 					true, // allow incomplete
 					RuntimeCodeExecutionMode.Interactive).then(

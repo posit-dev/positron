@@ -576,4 +576,30 @@ suite('positron API - executeCode', () => {
 		// for the computation to finish instead of bailing when requested
 		assert.deepStrictEqual(result, {}, 'No result should be returned');
 	});
+
+	test('executeCode fires events', async () => {
+		let event: positron.CodeExecutionEvent | undefined;
+
+		// Create an event handler
+		disposables.push(
+			positron.runtime.onDidExecuteCode((e) => {
+				event = e;
+			})
+		)
+
+		// Execute the code
+		await positron.runtime.executeCode(
+			'test',            // languageId
+			'print("event")',  // code
+			false,             // focus
+			false,             // allowIncomplete
+		);
+
+		// Assert that the event matches the expected values
+		assert.ok(event, 'Event should be fired');
+		assert.strictEqual(event.languageId, 'test', 'Language ID should match');
+		assert.strictEqual(event.code, 'print("event")', 'Code should match');
+		assert.strictEqual(event.attribution.source, positron.CodeAttributionSource.Extension,
+			'Correctly attributed to execution via an extension');
+	});
 });

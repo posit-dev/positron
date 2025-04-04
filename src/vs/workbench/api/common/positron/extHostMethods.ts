@@ -53,7 +53,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 
 	// Parses arguments and calls relevant method. Does not throw, returns
 	// JSON-RPC error responses instead.
-	async call(method: UiFrontendRequest, params: Record<string, any>): Promise<JsonRpcResponse> {
+	async call(extensionId: string, method: UiFrontendRequest, params: Record<string, any>): Promise<JsonRpcResponse> {
 		try {
 			if (!Object.values(UiFrontendRequest).includes(method)) {
 				return <JsonRpcError>{
@@ -153,6 +153,7 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 					}
 					result = await this.executeCode(params.language_id as string,
 						params.code as string,
+						extensionId,
 						params.focus as boolean,
 						params.allow_incomplete as boolean);
 					break;
@@ -315,8 +316,8 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 		return result;
 	}
 
-	async executeCode(languageId: string, code: string, focus: boolean, allowIncomplete?: boolean): Promise<Record<string, any>> {
-		return this.runtime.executeCode(languageId, code, focus, allowIncomplete);
+	async executeCode(languageId: string, code: string, extensionId: string, focus: boolean, allowIncomplete?: boolean): Promise<Record<string, any>> {
+		return this.runtime.executeCode(languageId, code, extensionId, focus, allowIncomplete);
 	}
 
 	async evaluateWhenClause(whenClause: string): Promise<boolean> {
