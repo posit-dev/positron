@@ -17,6 +17,7 @@ test.describe('Python Applications', {
 	test.afterEach(async function ({ app, hotKeys }) {
 		await hotKeys.closeAllEditors();
 		await hotKeys.focusConsole();
+		await app.workbench.terminal.clickTerminalTab(); // ensure we are in the terminal tab for cleanup
 		await app.workbench.terminal.sendKeysToTerminal('Control+C');
 		await app.workbench.viewer.clearViewer();
 	});
