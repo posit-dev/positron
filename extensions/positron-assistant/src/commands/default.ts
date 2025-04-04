@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { arrayBufferToBase64, BinaryMessageReferences, toLanguageModelChatMessage } from '../utils';
 import { documentEditToolAdapter, selectionEditToolAdapter } from '../tools';
+import { PositronAssistantToolName } from '../tools.js';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -41,7 +42,7 @@ export async function defaultHandler(
 			// CONSIDER: It would be better for us to introspect the tool itself
 			// to see if it requires confirmation, but that information isn't
 			// currently exposed in `vscode.LanguageModelChatTool`.
-			if (tool.name === 'executeCode' && request.location2) {
+			if (tool.name === PositronAssistantToolName.ExecuteCode && request.location2) {
 				return false;
 			}
 			return true;
