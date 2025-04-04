@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize, localize2 } from '../../../nls.js';
+import { localize } from '../../../nls.js';
 import { ITelemetryData } from '../../../base/common/actions.js';
 import { IFileService } from '../../../platform/files/common/files.js';
 import { ServicesAccessor } from '../../../editor/browser/editorExtensions.js';
@@ -14,7 +14,7 @@ import { IPathService } from '../../services/path/common/pathService.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
 import { workspacesCategory } from './workspaceActions.js';
 import { Action2, MenuId, registerAction2 } from '../../../platform/actions/common/actions.js';
-import { ConfigurationTarget, IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { EnterMultiRootWorkspaceSupportContext } from '../../common/contextkeys.js';
 import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
 import { showNewFolderModalDialog } from '../positronModalDialogs/newFolderModalDialog.js';
@@ -28,11 +28,8 @@ import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { IPositronNewProjectService } from '../../services/positronNewProject/common/positronNewProject.js';
 import { IWorkspaceTrustManagementService } from '../../../platform/workspace/common/workspaceTrust.js';
 import { ILabelService } from '../../../platform/label/common/label.js';
+import * as platform from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
-import { IPreferencesService } from '../../services/preferences/common/preferences.js';
-import { INotificationService } from '../../../platform/notification/common/notification.js';
-import { IQuickInputService } from '../../../platform/quickinput/common/quickInput.js';
-// import { IEditorService } from '../../services/editor/common/editorService.js';
 
 /**
  * The PositronNewProjectAction.
@@ -234,34 +231,72 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 	}
 }
 
-export class ImportSettingsAction extends Action2 {
+export class PositronImportSettings extends Action2 {
+	/**
+	 * The action ID.
+	 */
+	static readonly ID = 'positron.workbench.action.importSettings';
+
+	/**
+	 * Constructor.
+	 */
 	constructor() {
 		super({
-			id: 'positron.workbench.action.importSettings',
-			title: localize2('positronImportSettings', "Import VSCode Settings"),
-			category: workspacesCategory,
-			f1: true
+			id: PositronImportSettings.ID,
+			title: {
+				value: localize('positronImportSettings', "Import Settings..."),
+				original: 'Import Settings...'
+			},
+			category: 'Preferences',
+			f1: true,
 		});
 	}
 
-	async run(accessor: ServicesAccessor): Promise<void> {
-		const preferencesService = accessor.get(IPreferencesService);
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		const pathService = accessor.get(IPathService);
 		const fileService = accessor.get(IFileService);
-		const notificationService = accessor.get(INotificationService);
 
-		const positronUri = await preferencesService.getEditableSettingsURI(ConfigurationTarget.USER);
-		if (!positronUri) {
-			notificationService.error('Unable to find Positron settings file');
-			return;
-		}
+		const codeSettingsPath = await this.getCodeSettingsPath(pathService);
+		const codeSettingsContent = await fileService.readFile(codeSettingsPath);
 
-		const codeUri = URI.parse('file:///Users/sclark/Library/Application Support/Code/User/settings.json');
-
-		if (!await fileService.exists(positronUri) || confirm(`This will overwrite existing Positron settings. Continue?`)) {
-			fileService.copy(codeUri, positronUri, true);
-		}
-		notificationService.info('Settings imported');
+		alert(`Import settings from ${codeSettingsContent.value.toString()}`);
 	}
+
+	private async getCodeSettingsPath(pathService: IPathService): Promise<URI> {
+		const path = await pathService.path;
+		const homedir = await pathService.userHome();
+
+		let appDataPath: URI;
+		switch (platform.OS) {
+			case platform.OperatingSystem.Windows:
+				if (process.env['APPDATA']) {
+					appDataPath = URI.parse(process.env['APPDATA']);
+				} else {
+					const userProfile = process.env['USERPROFILE'];
+					if (typeof userProfile !== 'string') {
+						throw new Error('Windows: Unexpected undefined %USERPROFILE% environment variable');
+					}
+
+					appDataPath = URI.parse(path.join(userProfile, 'AppData', 'Roaming'));
+				}
+				break;
+			case platform.OperatingSystem.Macintosh:
+				appDataPath = homedir.with({ path: path.join(homedir.path, 'Library', 'Application Support') });
+				break;
+			case platform.OperatingSystem.Linux:
+				appDataPath = process.env['XDG_CONFIG_HOME'] ? URI.parse(process.env['XDG_CONFIG_HOME']) : homedir.with({ path: path.join(homedir.path, '.config') });
+				break;
+			default:
+				throw new Error('Platform not supported');
+		}
+
+		return appDataPath.with({ path: path.join(appDataPath.path, 'Code', 'User', 'settings.json') });
+	}
+
 
 }
 
@@ -270,4 +305,4 @@ registerAction2(PositronNewProjectAction);
 registerAction2(PositronNewFolderAction);
 registerAction2(PositronNewFolderFromGitAction);
 registerAction2(PositronOpenFolderInNewWindowAction);
-registerAction2(ImportSettingsAction);
+registerAction2(PositronImportSettings);
