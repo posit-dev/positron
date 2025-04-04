@@ -432,8 +432,10 @@ const selectNewLanguageRuntime = async (
 
 	interpreterGroups.forEach(group => {
 		const language = group.primaryRuntime.languageName;
-		// Add separator with language name.
-		runtimeItems.push({ type: 'separator', label: language });
+
+		// Group runtimes by environment type
+		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
+
 		// Add primary runtime first.
 		if (group.primaryRuntime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(group.primaryRuntime.runtimeId)) {
 			runtimeItems.push({
@@ -446,20 +448,38 @@ const selectNewLanguageRuntime = async (
 				picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
 			});
 		}
-		// Follow with alternate runtimes.
-		group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
+		// Follow with alternate runtimes in their environment type groups
 		group.alternateRuntimes.forEach(runtime => {
 			if (runtime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(runtime.runtimeId)) {
-				runtimeItems.push({
-					id: runtime.runtimeId,
-					label: runtime.runtimeName,
-					detail: runtime.runtimePath,
-					iconPath: {
-						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-					},
-					picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-				});
+				const envType = runtime.runtimeSource;
+				if (!runtimesByEnvType.has(envType)) {
+					runtimesByEnvType.set(envType, []);
+				}
+				runtimesByEnvType.get(envType)!.push(runtime);
 			}
+		});
+
+		// Add items for each environment type
+		const sortedEnvTypes = Array.from(runtimesByEnvType.keys()).sort();
+		sortedEnvTypes.forEach(envType => {
+			// Add environment type separator
+			runtimeItems.push({ type: 'separator', label: `${language}:  ${envType}` });
+
+			// Add runtimes for this environment type
+			runtimesByEnvType.get(envType)!
+				.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName))
+				.forEach(runtime => {
+					runtimeItems.push({
+						id: runtime.runtimeId,
+						label: runtime.runtimeName,
+						detail: runtime.runtimePath,
+						iconPath: {
+							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+						},
+						picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+					});
+				});
+
 		});
 	});
 
