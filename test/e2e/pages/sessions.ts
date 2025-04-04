@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator } from '@playwright/test';
-import { Code, HotKeys, QuickAccess, Console } from '../infra';
+import { Code, QuickAccess, Console } from '../infra';
 import { QuickInput } from './quickInput';
 
 const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
@@ -41,7 +41,7 @@ export class Sessions {
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys, private console: Console) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console) { }
 
 	// -- Actions --
 
@@ -91,7 +91,7 @@ export class Sessions {
 		if (reuse) {
 			// retrieve the list of active sessions from the session quick pick menu
 			// filter the console tabs to include only those sessions that are currently active
-			this.hotKeys.focusConsole();
+			await this.console.focus();
 			const quickPickActiveSessionNames = new Set((await this.quickPick.getActiveSessions()).map(s => s.name));
 			const consoleTabActiveSessions = (await this.getAllSessionIdsAndNames())
 				.filter(session => quickPickActiveSessionNames.has(session.name));
@@ -130,7 +130,7 @@ export class Sessions {
 	 */
 	async delete(sessionId: string): Promise<void> {
 		await test.step(`Delete session: ${sessionId}`, async () => {
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 
 			// handle notifications interrupting delete
 			const notification = this.page.getByRole('button', { name: 'Clear Notification (Delete)' });
@@ -153,7 +153,6 @@ export class Sessions {
 				await sessionTab.click();
 				await sessionTab.hover();
 				await this.sessionTrashButton(sessionId).click();
-
 			}
 
 			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
@@ -173,7 +172,7 @@ export class Sessions {
 		const { waitForIdle = true, clearConsole = true } = options || {};
 
 		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
-			await this.hotKeys.focusConsole();
+			this.console.focus();
 
 			if (await this.getSessionCount() > 1) {
 				await this.getSessionTab(sessionIdOrName).click();
@@ -200,7 +199,7 @@ export class Sessions {
 	 * @param menuItem - the menu item to click on the metadata dialog
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
-		await this.hotKeys.focusConsole();
+		await this.console.focus();
 		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
 
@@ -333,7 +332,7 @@ export class Sessions {
 	 */
 	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 			const sessionTab = this.getSessionTab(sessionIdOrName);
 
 			if (waitForSessionIdle) {
@@ -351,7 +350,7 @@ export class Sessions {
 	 */
 	async getSessionCount(): Promise<number> {
 		return await test.step('Get console session count', async () => {
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 			const count = (await this.sessions.all()).length;
 			return count;
 		});
@@ -414,7 +413,7 @@ export class Sessions {
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
 			} else if (triggerMode === 'console') {
-				await this.hotKeys.focusConsole();
+				await this.console.focus();
 				await this.console.newSessionButton.click();
 			} else {
 				await this.page.keyboard.press('Control+Shift+/');
@@ -475,7 +474,7 @@ export class Sessions {
 	 * Helper: Wait for runtimes to finish loading
 	 */
 	async expectNoStartUpMessaging() {
-		await this.hotKeys.focusConsole();
+		await this.console.focus();
 		await this.code.driver.page.mouse.move(0, 0);
 		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 	}
@@ -572,7 +571,7 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
@@ -761,7 +760,7 @@ export class Sessions {
 			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 		});
 	}
 

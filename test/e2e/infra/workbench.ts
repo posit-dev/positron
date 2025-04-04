@@ -100,7 +100,7 @@ export class Workbench {
 		this.newProjectWizard = new NewProjectWizard(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickaccess, this.quickInput, this.hotKeys);
-		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.hotKeys, this.console);
+		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
 		this.clipboard = new Clipboard(code);
