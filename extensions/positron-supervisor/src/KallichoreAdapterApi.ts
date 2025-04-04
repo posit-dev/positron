@@ -210,15 +210,6 @@ export class KCApi implements PositronSupervisorApi {
 		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const logLevel = config.get<string>('logLevel') ?? 'warn';
 
-		// Export the Positron version as an environment variable
-		const env = {
-			'POSITRON': '1',
-			'POSITRON_VERSION': positron.version,
-			'RUST_LOG': logLevel,
-			'POSITRON_LONG_VERSION': `${positron.version}+${positron.buildNumber}`,
-			'POSITRON_MODE': vscode.env.uiKind === vscode.UIKind.Desktop ? 'desktop' : 'server',
-		};
-
 		// Create a server session ID (8 characters)
 		const sessionId = createUniqueId();
 
@@ -340,7 +331,6 @@ export class KCApi implements PositronSupervisorApi {
 			name: 'Kallichore',
 			shellPath: wrapperPath,
 			shellArgs,
-			env,
 			message: `*** Kallichore Server (${shellPath}) ***`,
 			hideFromUser: !showTerminal,
 			isTransient: false

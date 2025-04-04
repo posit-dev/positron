@@ -187,6 +187,42 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async buildEnvVarActions(): Promise<VarAction[]> {
 		const varActions: Array<VarAction> = [];
 
+		// Built-in variable POSITRON is always set to 1 to indicate that
+		// this is a Positron session.
+		varActions.push({
+			action: VarActionType.Replace, name: 'POSITRON',
+			value: '1'
+		});
+
+		// The Positron version.
+		varActions.push({
+			action: VarActionType.Replace, name: 'POSITRON_VERSION',
+			value: positron.version
+		});
+
+		// RUST_LOG sets the log level for Rust components started by the
+		// supervisor; it mirrors our own log level.
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const logLevel = config.get<string>('logLevel') ?? 'warn';
+		varActions.push({
+			action: VarActionType.Replace,
+			name: 'RUST_LOG',
+			value: logLevel
+		});
+
+		// The long form of the Positron version (includes build number).
+		varActions.push({
+			action: VarActionType.Replace, name: 'POSITRON_LONG_VERSION',
+			value: `${positron.version}+${positron.buildNumber}`
+		});
+
+		// The Positron mode (desktop or server)
+		varActions.push({
+			action: VarActionType.Replace,
+			name: 'POSITRON_MODE',
+			value: vscode.env.uiKind === vscode.UIKind.Desktop ? 'desktop' : 'server'
+		});
+
 		// Start with the environment variables from any extension's contributions.
 		const contributedVars = await positron.environment.getEnvironmentContributions();
 		for (const [extensionId, actions] of Object.entries(contributedVars)) {
