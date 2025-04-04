@@ -361,7 +361,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// before reloading the browser.
 				e.veto(this.saveWorkspaceSessions(),
 					'positron.runtimeStartup.saveWorkspaceSessions');
-			} else if (e.reason === ShutdownReason.CLOSE || e.reason === ShutdownReason.QUIT) {
+			} else {
 				// Clear the workspace sessions. In most cases this is not
 				// necessary since the sessions are stored in ephemeral
 				// storage, but it is possible that this workspace will be
@@ -373,7 +373,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// trigger a browser warning when the user attempts to navigate
 				// away.
 				if (!isWeb) {
-					e.veto(this.clearWorkspaceSessions(), 'positron.runtimeStartup.clearWorkspaceSessions');
+					e.veto(this.clearWorkspaceSessions(),
+						'positron.runtimeStartup.clearWorkspaceSessions');
 				}
 			}
 		}));
