@@ -62,7 +62,7 @@ async function clearConsole(app: Application) {
 	await test.step('Clear the console', async () => {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
-		await app.workbench.console.barClearButton.click();
+		await app.workbench.console.clearButton.click();
 	});
 }
 
@@ -80,7 +80,7 @@ async function selectFirstHistoryResult(app: Application, expectedLine: string) 
 async function verifyFullHistory(app: Application, lines: string[]) {
 	await test.step('Verify the full history', async () => {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.barClearButton.click();
+		await app.workbench.console.clearButton.click();
 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');

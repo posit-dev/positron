@@ -19,8 +19,8 @@ test.use({
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	test.describe('Python Plots', () => {
 
-		test.beforeEach(async function ({ app, interpreter }) {
-			await interpreter.set('Python');
+		test.beforeEach(async function ({ app, sessions }) {
+			await sessions.start('python');
 			await app.workbench.layouts.enterLayout('stacked');
 		});
 
@@ -32,7 +32,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verify basic plot functionality - Dynamic Plot', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger, headless, logsPath }, testInfo) {
+		}, async function ({ app, logger, headless }, testInfo) {
 			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('Python', pythonDynamicPlot);
@@ -74,7 +74,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verify basic plot functionality - Static Plot', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger, logsPath }, testInfo) {
+		}, async function ({ app, logger }, testInfo) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('Python', pythonStaticPlot);
 			await app.workbench.plots.waitForCurrentStaticPlot();
@@ -145,7 +145,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(plots.plotSizeButton).not.toBeDisabled();
 		});
 
-		test('Python - Verify saving a Python plot', { tag: [tags.WIN] }, async function ({ app, logger }) {
+		test('Python - Verify saving a Python plot', { tag: [tags.WIN] }, async function ({ app }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
 				await app.workbench.plots.waitForCurrentPlot();
@@ -272,9 +272,9 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 	test.describe('R Plots', () => {
 
-		test.beforeEach(async function ({ app, interpreter }) {
+		test.beforeEach(async function ({ app, sessions }) {
 			await app.workbench.layouts.enterLayout('stacked');
-			await interpreter.set('R');
+			await sessions.start('r');
 		});
 
 		test.afterEach(async function ({ app }) {
@@ -286,7 +286,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		test('R - Verify basic plot functionality', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN],
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5954 (see comment)' }]
-		}, async function ({ app, logger, headless, logsPath }, testInfo) {
+		}, async function ({ app, logger, headless }) {
 			logger.log('Sending code to console');
 			await app.workbench.console.executeCode('R', rBasicPlot);
 			await app.workbench.plots.waitForCurrentPlot();
@@ -330,7 +330,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForNoPlots();
 		});
 
-		test('R - Verify saving an R plot', { tag: [tags.WIN] }, async function ({ app, logger }) {
+		test('R - Verify saving an R plot', { tag: [tags.WIN] }, async function ({ app }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('R', rSavePlot);
 				await app.workbench.plots.waitForCurrentPlot();
@@ -426,8 +426,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('R - plot and save in one block', { tag: [tags.WEB, tags.WIN] }, async function ({ app, runCommand }) {
 
-			await app.workbench.console.barClearButton.click();
-			await app.workbench.console.barRestartButton.click();
+			await app.workbench.console.clearButton.click();
+			await app.workbench.console.restartButton.click();
 
 			await app.workbench.console.waitForConsoleContents('restarted', { expectedCount: 1 });
 

@@ -13,7 +13,7 @@ test.use({
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
 test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJECT_WIZARD] }, () => {
 
-	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, python }) {
+	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, sessions, python }) {
 		const projectTitle = addRandomNumSuffix('ipykernel-installed');
 
 		await createNewProject(app, {
@@ -21,7 +21,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 			title: projectTitle,
 			status: 'existing',
 			ipykernelFeedback: 'hide',
-			interpreterPath: await getInterpreterPath(app),
+			interpreterPath: (await sessions.getSelectedSessionInfo()).path
 		});
 
 		await verifyProjectCreation(app, projectTitle);
@@ -127,22 +127,4 @@ async function verifyGitStatus(app: Application) {
 		await app.workbench.terminal.runCommandInTerminal('git status');
 		await app.workbench.terminal.waitForTerminalText('On branch main');
 	});
-}
-
-async function getInterpreterPath(app: Application): Promise<string> {
-	let interpreterPath: string | undefined;
-
-	await test.step('Get the interpreter path', async () => {
-		const interpreterInfo =
-			await app.workbench.interpreter.getSelectedInterpreterInfo();
-
-		expect(interpreterInfo?.path).toBeDefined();
-		interpreterPath = interpreterInfo?.path;
-	});
-
-	if (!interpreterPath) {
-		throw new Error('Interpreter path is undefined');
-	}
-
-	return interpreterPath;
 }

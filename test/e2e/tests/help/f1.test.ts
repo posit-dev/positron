@@ -18,7 +18,7 @@ test.describe('F1 Help', {
 	test.afterEach(async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.barClearButton.click();
+		await app.workbench.console.clearButton.click();
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 

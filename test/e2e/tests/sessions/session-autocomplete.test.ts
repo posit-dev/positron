@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Session: Autocomplete', {
-	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR]
+	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR, tags.CRITICAL]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {

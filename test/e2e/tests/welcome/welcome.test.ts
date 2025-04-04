@@ -3,145 +3,129 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { WizardButton } from '../../infra';
+import { availableRuntimes, WizardButton } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
+
+const pythonRuntime = availableRuntimes['python'];
+const rRuntime = availableRuntimes['r'];
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('Help: Welcome');
+	test.beforeEach(async function ({ runCommand }) {
+		await runCommand('Help: Welcome');
 	});
 
-	test.afterEach(async function ({ app }) {
-		await app.workbench.quickaccess.runCommand('View: Close All Editors');
+	test.afterEach(async function ({ runCommand }) {
+		await runCommand('View: Close All Editors');
 	});
 
 	test.describe('General', () => {
 		test('Verify Welcome page header and footer', async function ({ app }) {
-
 			await expect(app.workbench.welcome.logo).toBeVisible();
-
-			// product name in release is 'Positron' and in dev is 'Positron Dev'
 			await expect(app.workbench.welcome.title).toHaveText([/(Positron)|(Positron Dev)/, 'an IDE for data science']);
-
 			await expect(app.workbench.welcome.footer).toHaveText('Show welcome page on startup');
 		});
 
 		test('Verify Welcome page content', async function ({ app }) {
+			const { welcome, quickaccess } = app.workbench;
 
-			let OPEN_BUTTONS_LABELS;
-			if (!app.web) {
-				if (process.platform === 'darwin') {
-					OPEN_BUTTONS_LABELS = ['Open...', 'New Folder...', 'New Folder from Git...'];
-				} else {
-					OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
-				}
-			} else {
-				OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+			let OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+
+			if (!app.web && process.platform === 'darwin') {
+				OPEN_BUTTONS_LABELS = ['Open...', 'New Folder...', 'New Folder from Git...'];
 			}
 
-			await expect(app.workbench.welcome.startTitle).toHaveText('Start');
+			await expect(welcome.startTitle).toHaveText('Start');
+			await expect(welcome.startButtons).toHaveText(['New Notebook', 'New File', 'New Console', 'New Project']);
+			await expect(welcome.helpTitle).toHaveText('Help');
+			await expect(welcome.helpLinks).toHaveText(['Positron Documentation', 'Positron Community', 'Report a bug']);
+			await expect(welcome.openTitle).toHaveText('Open');
+			await expect(welcome.openButtons).toHaveText(OPEN_BUTTONS_LABELS);
 
-			await expect(app.workbench.welcome.startButtons).toHaveText(['New Notebook', 'New File', 'New Console', 'New Project']);
+			await quickaccess.runCommand('File: Clear Recently Opened...');
 
-			await expect(app.workbench.welcome.helpTitle).toHaveText('Help');
-
-			await expect(app.workbench.welcome.helpLinks).toHaveText(['Positron Documentation', 'Positron Community', 'Report a bug']);
-
-			await expect(app.workbench.welcome.openTitle).toHaveText('Open');
-
-			await expect(app.workbench.welcome.openButtons).toHaveText(OPEN_BUTTONS_LABELS);
-
-			await app.workbench.quickaccess.runCommand('File: Clear Recently Opened...');
-
-			await expect(app.workbench.welcome.recentTitle).toHaveText('Recent');
-
+			await expect(welcome.recentTitle).toHaveText('Recent');
 			// 'open a folder' is a button so there is no character space because of its padding
-			await expect(app.workbench.welcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
+			await expect(welcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
 		});
 
 		test('Verify clicking on `new project` from the Welcome page opens wizard', { tag: [tags.MODAL] }, async function ({ app }) {
-			await app.workbench.welcome.newProjectButton.click();
-			await app.workbench.popups.popupCurrentlyOpen();
+			const { welcome, popups, newProjectWizard } = app.workbench;
 
-			await app.workbench.popups.waitForModalDialogBox();
+			await welcome.newProjectButton.click();
+			await popups.popupCurrentlyOpen();
+			await popups.waitForModalDialogBox();
 
 			// confirm New Project dialog box is open
-			await app.workbench.popups.waitForModalDialogTitle('Create New Project');
-
-			await app.workbench.newProjectWizard.clickWizardButton(WizardButton.CANCEL);
+			await popups.waitForModalDialogTitle('Create New Project');
+			await newProjectWizard.clickWizardButton(WizardButton.CANCEL);
 		});
 	});
 
 	test.describe('Python', () => {
-		test('Python - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, python }) {
+		test('Python - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app }) {
 			await app.workbench.welcome.newFileButton.click();
-
 			await app.workbench.quickInput.selectQuickInputElementContaining('Python File');
 
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/python-lang-file-icon/);
-
-			await app.workbench.quickaccess.runCommand('View: Close Editor');
 		});
 
-		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets interpreter', async function ({ app, python }) {
+		test('Python - Verify clicking on `new console` from the Welcome page starts interpreter', async function ({ app, sessions }) {
+			const { welcome, quickInput } = app.workbench;
+			await sessions.deleteAll();
+
+			await welcome.newConsoleButton.click();
+			await sessions.expectStartNewSessionMenuToBeVisible();
+
+			await quickInput.type(pythonRuntime.name);
+			const fullRuntimeName = await quickInput.selectQuickInputElementContaining(pythonRuntime.name);
+			await sessions.expectAllSessionsToBeReady();
+
+			await sessions.expectSessionCountToBe(1);
+			await sessions.expectSessionPickerToBe(fullRuntimeName);
+		});
+
+		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
 			await app.workbench.welcome.newNotebookButton.click();
 			await app.workbench.popups.clickOnModalDialogPopupOption('Python Notebook');
+
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
-			const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
-			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(expectedInterpreterVersion);
-		});
-
-		test('Python - Verify clicking on `new console` from the Welcome page maximizes console and starts interpreter', async function ({ app, python }) {
-			await app.workbench.welcome.newConsoleButton.click();
-			await app.workbench.popups.popupCurrentlyOpen();
-
-			const expectedInterpreterVersion = new RegExp(`Python ${process.env.POSITRON_PY_VER_SEL}`, 'i');
-			await app.workbench.popups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
-
-			// editor is hidden because bottom panel is maximized
-			await expect(app.workbench.editors.editorPart).not.toBeVisible();
-
-			// console is the active view in the bottom panel
-			await expect(app.workbench.layouts.panelViewsTab.and(app.code.driver.page.locator('.checked'))).toHaveText('Console');
+			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(new RegExp(pythonRuntime.name, 'i'));
 		});
 	});
 
 	test.describe('R', () => {
-		test('R - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, r }) {
+		test('R - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app }) {
 			await app.workbench.welcome.newFileButton.click();
-
 			await app.workbench.quickInput.selectQuickInputElementContaining('R File');
 
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
 		});
 
-		test('R - Verify clicking on `new console` from the Welcome page maximizes console and starts interpreter', async function ({ app, r }) {
-			await app.workbench.welcome.newConsoleButton.click();
-			await app.workbench.popups.popupCurrentlyOpen();
+		test('R - Verify clicking on `new console` from the Welcome page starts interpreter', async function ({ app, sessions }) {
+			const { welcome, quickInput } = app.workbench;
+			await sessions.deleteAll();
 
-			const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
-			await app.workbench.popups.clickOnModalDialogPopupOption(expectedInterpreterVersion);
+			await welcome.newConsoleButton.click();
+			await sessions.expectStartNewSessionMenuToBeVisible();
 
-			// editor is hidden because bottom panel is maximized
-			await expect(app.workbench.editors.editorPart).not.toBeVisible();
+			await quickInput.type(rRuntime.name);
+			const fullRuntimeName = await quickInput.selectQuickInputElementContaining(rRuntime.name);
+			await sessions.expectAllSessionsToBeReady();
 
-			// console is the active view in the bottom panel
-			await expect(app.workbench.layouts.panelViewsTab.and(app.code.driver.page.locator('.checked'))).toHaveText('Console');
+			await sessions.expectSessionCountToBe(1);
+			await sessions.expectSessionPickerToBe(fullRuntimeName);
 		});
 
-		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets interpreter', async function ({ app, r }) {
+		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, r }) {
 			await app.workbench.welcome.newNotebookButton.click();
-
 			await app.workbench.popups.clickOnModalDialogPopupOption('R Notebook');
 
 			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
-
-			const expectedInterpreterVersion = new RegExp(`R ${process.env.POSITRON_R_VER_SEL}`, 'i');
-			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(expectedInterpreterVersion);
+			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(new RegExp(rRuntime.name, 'i'));
 		});
 	});
 });

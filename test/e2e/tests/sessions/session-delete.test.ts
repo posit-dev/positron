@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Sessions: Delete', {
-	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.SESSIONS]
+	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.SESSIONS, tags.CRITICAL]
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {

@@ -62,8 +62,9 @@ export class Editor {
 		await this.code.driver.page.locator(PLAY_BUTTON).click();
 
 		// await appearance and disappearance of the toast
-		await expect(this.code.driver.page.locator('.notifications-toasts')).toBeVisible({ timeout: 30000 });
-		await expect(this.code.driver.page.locator('.notifications-toasts')).not.toBeVisible({ timeout: 50000 });
+		const appRunningToast = this.code.driver.page.locator('.notifications-toasts').getByText(/Running.*application:/);
+		await expect(appRunningToast).toBeVisible({ timeout: 30000 });
+		await expect(appRunningToast).not.toBeVisible({ timeout: 45000 });
 	}
 
 	async pressToLine(filename: string, lineNumber: number, press: string): Promise<void> {

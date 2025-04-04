@@ -11,8 +11,8 @@ test.use({
 	suiteId: __filename
 });
 
-test.beforeEach(async function ({ app }) {
-	await app.workbench.console.waitForReadyOrNoInterpreter();
+test.beforeEach(async function ({ app, sessions }) {
+	await sessions.expectAllSessionsToBeReady();
 	await app.workbench.layouts.enterLayout("stacked");
 });
 
@@ -30,7 +30,7 @@ test.describe('R - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJECT_WIZ
 		await verifyProjectCreation(app, projectTitle);
 	});
 
-	test('R - Accept Renv install', { tag: [tags.WIN] }, async function ({ app, r, page }) {
+	test('R - Accept Renv install', { tag: [tags.WIN] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('r-installRenv');
 
 		await createNewProject(app, {
@@ -88,7 +88,7 @@ test.describe('Jupyter - New Project Wizard', {
 			title: projectTitle
 		});
 
-		await verifyProjectCreation(app, projectTitle);
+		await verifyProjectCreation(app, projectTitle, false);
 	});
 });
 
@@ -96,10 +96,13 @@ function addRandomNumSuffix(name: string): string {
 	return `${name}_${Math.floor(Math.random() * 1000000)}`;
 }
 
-async function verifyProjectCreation(app: Application, projectTitle: string) {
+async function verifyProjectCreation(app: Application, projectTitle: string, waitForReady = true) {
 	await test.step(`Verify project created`, async () => {
 		await expect(app.code.driver.page.getByLabel('Folder Commands')).toHaveText(projectTitle, { timeout: 20000 });
-		// await app.workbench.console.waitForReady('>', 30000); // issue 5914 causes this to fail
+
+		if (waitForReady) {
+			await app.workbench.console.waitForReady('>', 30000); // issue 5914 causes this to fail for Jupyter notebooks
+		}
 	});
 }
 

@@ -76,12 +76,14 @@ export class QuickInput {
 		}
 	}
 
-	async selectQuickInputElementContaining(text: string): Promise<void> {
-		const element = `${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`;
+	async selectQuickInputElementContaining(text: string): Promise<string> {
+		const firstMatch = this.code.driver.page.locator(`${QuickInput.QUICK_INPUT_RESULT}[aria-label*="${text}"]`).first();
 
-		await this.code.driver.page.locator(element).first().click({ force: true, timeout: 10000 });
-		// Move mouse to avoid lingering hover state
+		const firstMatchResult = await firstMatch.locator('.quick-input-list-row').nth(0).textContent() || '';
+		await firstMatch.click({ force: true, timeout: 10000 });
 		await this.code.driver.page.mouse.move(0, 0);
+
+		return firstMatchResult.trim();
 	}
 
 	async clickOkButton(): Promise<void> {

@@ -52,8 +52,8 @@ async function testConsoleClipboard(app: Application, testLine: string, port: st
 
 async function testConsoleClipboardWithContextMenu(app: Application, prompt: string, regex: RegExp, port: string) {
 
-	await app.workbench.console.barClearButton.click();
-	await app.workbench.console.barRestartButton.click();
+	await app.workbench.console.clearButton.click();
+	await app.workbench.console.restartButton.click();
 
 	await app.workbench.console.waitForReady(prompt);
 
@@ -109,7 +109,7 @@ async function executeCopyAndPaste(console: Console, page: any, testLine: string
 		await console.waitForConsoleContents(testLine);
 
 		// Clear the console
-		await console.barClearButton.click();
+		await console.clearButton.click();
 
 		// Paste the copied line into the console
 		await page.keyboard.press(`${modifier}+V`);

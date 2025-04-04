@@ -3,9 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { fail } from 'assert';
-import { test, expect, tags } from '../_test.setup';
-import { InterpreterType } from '../../infra/fixtures/interpreter';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -13,102 +11,32 @@ test.use({
 
 test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
-	test('Python - queue user input while interpreter is starting', async function ({ app }) {
-
-		await app.workbench.console.selectInterpreter(InterpreterType.Python, process.env.POSITRON_PY_VER_SEL!, false);
-
+	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
+		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
 		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");');
-
-		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 25000 });
-
-	});
-
-	test('Python - Verify restart button inside the console', async function ({ app, python }) {
-		await expect(async () => {
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.barClearButton.click();
-
-			// workaround issue where power button click fails
-			await app.code.wait(1000);
-			await app.workbench.console.barPowerButton.click();
-			await app.workbench.console.consoleRestartButton.click();
-
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.waitForReadyAndRestarted('>>>');
-			await expect(app.workbench.console.consoleRestartButton).not.toBeVisible();
-		}).toPass();
-	});
-
-	test('Python - Verify restart button on console bar', async function ({ app, python }) {
-		// Need to make console bigger to see all bar buttons
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.barClearButton.click();
-
-		// workaround issue where "started" text never appears post restart
-		await app.code.wait(1000);
-		await app.workbench.console.barRestartButton.click();
-
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-		await app.workbench.console.waitForReady('>>>');
+		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 30000 });
 	});
 
 	test('Python - Verify cancel button on console bar', async function ({ app, python }) {
-
-		await app.workbench.console.pasteCodeToConsole('import time; time.sleep(10)');
-		await app.workbench.console.sendEnterKey();
-
+		await app.workbench.console.typeToConsole('import time', true);
+		await app.workbench.console.typeToConsole('time.sleep(10)', true);
 		await app.workbench.console.interruptExecution();
-
 	});
+});
 
-	test('Python - Verify can use multiple interpreter versions', async function ({ app, python }) {
+// This nesting is necessary because the userSettings fixture must be used in a
+// beforeAll hook to ensure app instances pass to test correctly
+test.describe('Console Pane: Alternate Python', () => {
 
-		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-
-		const primaryPython = process.env.POSITRON_PY_VER_SEL;
-
-		if (primaryPython) {
-			await app.workbench.console.barClearButton.click();
-			await app.workbench.console.pasteCodeToConsole('import platform; print(platform.python_version())', true);
-			await app.workbench.console.waitForConsoleContents(primaryPython);
-		} else {
-			fail('Primary Python version not set');
-		}
-
-		const secondaryPython = process.env.POSITRON_PY_ALT_VER_SEL;
-
-		if (secondaryPython) {
-			await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, secondaryPython, true);
-			await app.workbench.console.barClearButton.click();
-			await app.workbench.console.pasteCodeToConsole(`import platform; print(platform.python_version())`, true);
-			// If POSITRON_PY_ALT_VER_SEL has " (Pyenv)" in it, remove it"
-			await app.workbench.console.waitForConsoleContents(secondaryPython.replace(' (Pyenv)', ''));
-		} else {
-			fail('Secondary Python version not set');
-		}
-	});
-
-	test('Python - Verify alternate python can skip bundled ipykernel', async function ({ app, python, userSettings }) {
-
+	test.beforeAll(async ({ userSettings }) => {
 		await userSettings.set([['python.useBundledIpykernel', 'false']], true);
+	});
 
-		const secondaryPython = process.env.POSITRON_PY_ALT_VER_SEL;
-
-		if (secondaryPython) {
-			await expect(async () => {
-				try {
-					await app.workbench.interpreter.selectInterpreter(InterpreterType.Python, secondaryPython, true);
-				} catch (e) {
-					await app.code.driver.page.keyboard.press('Escape');
-					throw e;
-				}
-			}).toPass({ timeout: 45000 });
-			await app.workbench.console.barClearButton.click();
-			await app.workbench.console.pasteCodeToConsole(`import ipykernel; ipykernel.__file__`, true);
-			await app.workbench.console.waitForConsoleContents('site-packages');
-		} else {
-			fail('Secondary Python version not set');
-		}
+	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
+		await sessions.start('pythonAlt');
+		await app.workbench.console.clearButton.click();
+		await app.workbench.console.pasteCodeToConsole(`import ipykernel; ipykernel.__file__`, true);
+		await app.workbench.console.waitForConsoleContents('site-packages');
 	});
 
 });
