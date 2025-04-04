@@ -55,6 +55,7 @@ jobs:
       display_name: "electron (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
       report_testrail: false
+      report_currents: false
       install_undetectable_interpreters: true
       install_license: false
 
@@ -68,6 +69,7 @@ jobs:
       display_name: "electron (win)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
       report_testrail: false
+      report_currents: false
 
   e2e-browser:
     name: e2e
@@ -80,6 +82,7 @@ jobs:
       display_name: "browser (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/ubuntu' || 'browser/ubuntu' }}
       report_testrail: false
+      report_currents: false
       install_undetectable_interpreters: true
       install_license: true
 

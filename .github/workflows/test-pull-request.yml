@@ -38,8 +38,8 @@ jobs:
       display_name: "electron (ubuntu)"
       currents_tags: "pull-request,electron/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
-      enable_currents_reporter: false
-      install_undetectable_interpreters: true
+      report_currents: false
+      install_undetectable_interpreters: false
       install_license: false
       # skip_tags: "@:nightly-only"
     secrets: inherit
@@ -54,7 +54,7 @@ jobs:
       display_name: "electron (windows)"
       currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
-      enable_currents_reporter: false
+      report_currents: false
     secrets: inherit
 
   e2e-ubuntu-browser:
@@ -68,7 +68,7 @@ jobs:
       project: "e2e-browser"
       currents_tags: "pull-request,browser/ubuntu,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
-      enable_currents_reporter: false
+      report_currents: false
       install_undetectable_interpreters: false
       install_license: true
       skip_tags: "@:nightly-only"
