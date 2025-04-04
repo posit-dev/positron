@@ -5,7 +5,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
-import { languageModels } from './models';
+import { getLanguageModels } from './models';
 import { completionModels } from './completion';
 import { registerModel, registerModels } from './extension';
 
@@ -217,7 +217,7 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 	// Gather model sources; ignore disabled providers
 	const enabledProviders = await getEnabledProviders();
 	const registeredModels = context.globalState.get<Array<StoredModelConfig>>('positron.assistant.models');
-	const sources = [...languageModels, ...completionModels]
+	const sources = [...getLanguageModels(), ...completionModels]
 		.map((provider) => {
 			const isRegistered = registeredModels?.find((modelConfig) => modelConfig.provider === provider.source.provider.id);
 			provider.source.signedIn = !!isRegistered;
