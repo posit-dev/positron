@@ -137,6 +137,13 @@ export class Sessions {
 		await test.step(`Delete session: ${sessionId}`, async () => {
 			await this.hotKeys.focusConsole();
 
+			// handle notifications interrupting delete
+			const notification = this.page.getByRole('button', { name: 'Clear Notification (Delete)' });
+			await this.page.addLocatorHandler(notification, async () => {
+				await notification.click();
+
+			});
+
 			if (await this.getSessionCount() === 1) {
 				const currentSessionId = await this.getCurrentSessionId();
 				if (currentSessionId === sessionId) {
@@ -148,9 +155,11 @@ export class Sessions {
 			} else {
 				const sessionTab = this.getSessionTab(sessionId);
 
+
 				await sessionTab.click();
 				await sessionTab.hover();
 				await this.trashButton(sessionId).click();
+
 			}
 
 			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
