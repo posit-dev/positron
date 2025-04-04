@@ -31,9 +31,12 @@ test.describe('Variables Pane - Notebook', {
 		const interpreter = app.workbench.variables.interpreterLocator;
 		await expect(interpreter).toBeVisible();
 		await expect(interpreter).toHaveText(filename);
+		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 
-		const variablesMap = await app.workbench.variables.getFlatVariables();
-		expect(variablesMap.get('y')).toStrictEqual({ value: '[2, 3, 4, 5]', type: 'list [4]' });
+		await expect(async () => {
+			const variablesMap = await app.workbench.variables.getFlatVariables();
+			expect(variablesMap.get('y')).toStrictEqual({ value: '[2, 3, 4, 5]', type: 'list [4]' });
+		}).toPass({ timeout: 60000 });
 	});
 
 	test('R - Verify Variables pane basic function for notebook', async function ({ app, r }) {
@@ -46,6 +49,7 @@ test.describe('Variables Pane - Notebook', {
 		const interpreter = app.workbench.variables.interpreterLocator;
 		await expect(interpreter).toBeVisible();
 		await expect(interpreter).toHaveText('Untitled-1.ipynb');
+		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 
 		await expect(async () => {
 			const variablesMap = await app.workbench.variables.getFlatVariables();
