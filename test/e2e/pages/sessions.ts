@@ -726,7 +726,7 @@ export class Sessions {
 				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
 			} else if (sessionCount === 1) {
 				// get status from metadata dialog because there is no tab list view
-				await this.metadataButton.click();
+				await this.openMetadataDialog();
 				await expect(this.metadataDialog.getByText(`State: ${expectedStatus}`)).toBeVisible({ timeout });
 				await this.page.keyboard.press('Escape');
 			} else {
