@@ -1212,7 +1212,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Before reconnecting, validate any sessions that need it.
 		const validSessions = await Promise.all(sessions.map(async session => {
-			if (session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine) {
+			if (session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Browser) {
+				// Browser sessions are never valid since they cannot be
+				// reconnected. It'd be surprising to find one persisted.
+				this._logService.info(`[Runtime startup] Not restoring unexpected persisted ` +
+					`browser session ${session.metadata.sessionName} (${session.metadata.sessionId})`);
+				return false;
+			} else {
 				// If the session is persistent on the machine, we need to
 				// check to see if it is still valid (i.e. still running)
 				// before reconnecting.
@@ -1256,9 +1262,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					return false;
 				}
 			}
-
-			// Sessions stored in other locations are always valid.
-			return true;
 		}));
 
 		// Remove all the sessions that are no longer valid.
