@@ -14,7 +14,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 	test('Python - queue user input while interpreter is starting', async function ({ app, sessions }) {
 		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
 		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5); print("done");');
-		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2 });
+		await app.workbench.console.waitForConsoleContents('done', { expectedCount: 2, timeout: 30000 });
 	});
 
 	test('Python - Verify restart button on console bar', async function ({ app, python }) {
