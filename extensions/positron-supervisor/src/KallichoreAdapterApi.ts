@@ -152,6 +152,30 @@ export class KCApi implements PositronSupervisorApi {
 	 * @throws An error if the server cannot be started or reconnected to.
 	 */
 	async start() {
+		// Check the POSITRON_SUPERVISOR_CONNECTION_FILE environment variable to
+		// see if we're trying to connect to an existing server (in web/server
+		// mode the server is started concurrently with the node server).
+		const connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
+		if (connectionFile) {
+			if (fs.existsSync(connectionFile)) {
+				try {
+					const connectionContents = JSON.parse(fs.readFileSync(connectionFile, 'utf8'));
+					if (await this.reconnect(connectionContents)) {
+						this._log.appendLine(
+							`Connected to previously established Kallichore server.`);
+						return;
+					}
+					// No action if connection does not work; we will start a new
+					// server.
+				} catch (err) {
+					// Non-fatal. We can still start a new server if the connection file
+					// is invalid.
+					this._log.appendLine(
+						`Error connecting to Kallichore (${connectionFile}): ${err}`);
+				}
+			}
+		}
+
 		// Check to see if there's a server already running for this workspace
 		const serverState =
 			this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
