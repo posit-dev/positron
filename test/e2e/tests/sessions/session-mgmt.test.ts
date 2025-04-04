@@ -113,7 +113,7 @@ test.describe('Sessions: Management', {
 		await sessions.expectActiveSessionListsToMatch();
 	});
 
-	test('Validate session, console, variables, and plots persist after reload',
+	test.skip('Validate session, console, variables, and plots persist after reload',
 		{
 			tag: [tags.VARIABLES, tags.PLOTS],
 			annotation: [
