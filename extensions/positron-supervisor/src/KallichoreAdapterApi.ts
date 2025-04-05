@@ -156,6 +156,7 @@ export class KCApi implements PositronSupervisorApi {
 		// see if we're trying to connect to an existing server (in web/server
 		// mode the server is started concurrently with the node server).
 		const connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
+		this._log.appendLine(`POSITRON_SUPERVISOR_CONNECTION_FILE: ${connectionFile}`);
 		if (connectionFile) {
 			if (fs.existsSync(connectionFile)) {
 				try {
@@ -287,6 +288,12 @@ export class KCApi implements PositronSupervisorApi {
 			'--log-level', logLevel,
 			'--log-file', logFile,
 		]);
+
+		// If we have a connection file, add it to the arguments so that
+		// Kallichore will save connection information there.
+		if (connectionFile) {
+			shellArgs.push('--connection-file', connectionFile);
+		}
 
 		// Compute the appropriate value for the idle shutdown hours setting.
 		//
@@ -963,6 +970,21 @@ export class KCApi implements PositronSupervisorApi {
 		// Clear the workspace state so we don't try to reconnect to the old
 		// server
 		this._context.workspaceState.update(KALLICHORE_STATE_KEY, undefined);
+
+		// Do the same with the environment variable, and clean up the
+		// connection file if it exists.
+		const connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
+		if (connectionFile && fs.existsSync(connectionFile)) {
+			this._log.appendLine(`Cleaning up connection file ${connectionFile}`);
+			try {
+				fs.unlinkSync(connectionFile);
+			} catch (err) {
+				// Not fatal; just log the error. We'll unset the environment
+				// variable so we don't try to use this file again in any case.
+				this._log.appendLine(
+					`Failed to delete connection file ${connectionFile}: ${err}`);
+			}
+		}
 
 		// Shut down the server itself
 		try {
