@@ -55,7 +55,7 @@ test.describe('Data Explorer - Python Polars', {
 	});
 
 	// Cannot be run by itself, relies on the previous test
-	test('Python Polars - Verify basic data explorer column info functionality', async function ({ app, python }) {
+	test('Python Polars - Verify basic data explorer column info functionality', async function ({ app }) {
 
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('0%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('0%');

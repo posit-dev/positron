@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { isLanguageModelImagePart } from './languageModelParts.js';
+import { PositronAssistantToolName } from './tools.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
@@ -47,7 +48,7 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 			if (toolParts.length > 0) {
 				toolParts.forEach((part) => {
 					const toolCall = toolCalls[part.callId];
-					if (toolCall.name === 'getPlot') {
+					if (toolCall.name === PositronAssistantToolName.GetPlot) {
 						aiMessages.push(getPlotToolResultToAiMessage(part));
 					} else {
 						aiMessages.push({
@@ -71,7 +72,7 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 					if (part instanceof vscode.LanguageModelTextPart) {
 						return { type: 'text', text: part.value };
 					} else if (part instanceof vscode.LanguageModelToolCallPart) {
-						if (part.name === 'getPlot') {
+						if (part.name === PositronAssistantToolName.GetPlot) {
 							// Vercel AI does not yet support image tool results,
 							// so replace getPlot tool calls with text asking for the plot.
 							// The corresponding tool result will be replaced with a user

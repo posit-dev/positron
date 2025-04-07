@@ -683,9 +683,12 @@ export class Sessions {
 	* Action: Open the metadata dialog for the current session
 	*/
 	async openMetadataDialog() {
-		await this.metadataButton.click();
-		await this.page.mouse.move(0, 0);
-		await expect(this.metadataDialog).toBeVisible();
+		await expect(async () => {
+			await this.metadataButton.click();
+			await this.page.mouse.move(0, 0);
+			await this.page.waitForTimeout(500);
+			await expect(this.metadataDialog).toBeVisible();
+		}).toPass();
 	}
 
 	// -- Verifications --
@@ -724,12 +727,11 @@ export class Sessions {
 	 * Verify: Check the metadata of the session dialog
 	 * @param session - the expected session info to verify
 	 */
-	async expectMetaDataToBe(session: SessionMetaData) {
+	async expectMetadataToBe(session: SessionMetaData) {
 		await test.step(`Verify ${session.name} metadata: ${session.state}, ${session.path}`, async () => {
 
-			// Click metadata button for desired session
 			await this.getSessionTab(session.id).click();
-			await this.metadataButton.click();
+			await this.openMetadataDialog();
 
 			// Verify metadata
 			await expect(this.metadataDialog.getByTestId('session-name')).toContainText(session.name);
