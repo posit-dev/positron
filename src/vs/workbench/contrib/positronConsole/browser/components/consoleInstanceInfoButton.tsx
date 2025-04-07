@@ -56,8 +56,13 @@ export const ConsoleInstanceInfoButton = () => {
 		}
 
 		// Get the channels from the session.
-		const channels =
-			intersectionOutputChannels(await session.listOutputChannels());
+		let channels: LanguageRuntimeSessionChannel[] = []
+		try {
+			channels = intersectionOutputChannels(await session.listOutputChannels());
+		} catch (err) {
+			// If we fail to get the channels we can just ignore it
+			console.warn('Failed to get output channels', err);
+		}
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({

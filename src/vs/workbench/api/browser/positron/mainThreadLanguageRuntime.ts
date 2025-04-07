@@ -1356,6 +1356,12 @@ export class MainThreadLanguageRuntime
 			this.findSession(handle).sessionId);
 	}
 
+	$focusSession(handle: number): void {
+		return this._runtimeSessionService.focusSession(
+			this.findSession(handle).sessionId
+		);
+	}
+
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
 		this._runtimeStartupService.completeDiscovery(this._id);
