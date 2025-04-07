@@ -189,14 +189,14 @@ test.describe('Reticulate - multi console sessions', {
 	test('Can initialize multiple reticulate sessions', async function ({ app, sessions }) {
 
 		// This should start both an R session and the reticulate session
-		await sessions.start('pythonReticulate', { waitForReady: true });
+		await sessions.start('pythonReticulate', { reuse: false });
 		await sessions.expectSessionCountToBe(2); // because it also starts an R session
 		await sessions.expectAllSessionsToBeReady();
 
 
 		// Now launch a new reticulate session. This should start another R session
 		// and another python session.
-		await sessions.start('pythonReticulate', { waitForReady: true, reuse: false });
+		await sessions.start('pythonReticulate', { reuse: false });
 		await sessions.expectSessionCountToBe(4);
 		await sessions.expectAllSessionsToBeReady();
 
