@@ -130,33 +130,28 @@ export class Sessions {
 	 */
 	async delete(sessionId: string): Promise<void> {
 		await test.step(`Delete session: ${sessionId}`, async () => {
-			await this.console.focus();
+			await expect(async () => {
+				await this.console.focus();
 
-			// handle notifications interrupting delete
-			const notification = this.page.getByRole('button', { name: 'Clear Notification (Delete)' });
-			await this.page.addLocatorHandler(notification, async () => {
-				await notification.click();
-
-			});
-
-			if (await this.getSessionCount() === 1) {
-				const currentSessionId = await this.getCurrentSessionId();
-				if (currentSessionId === sessionId) {
-					await this.page.getByTestId('trash-session').click();
-					return;
+				if (await this.getSessionCount() === 1) {
+					const currentSessionId = await this.getCurrentSessionId();
+					if (currentSessionId === sessionId) {
+						await this.page.getByTestId('trash-session').click();
+						return;
+					} else {
+						throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
+					}
 				} else {
-					throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
+					const sessionTab = this.getSessionTab(sessionId);
+
+					await sessionTab.click();
+					await sessionTab.hover();
+					await this.sessionTrashButton(sessionId).click();
 				}
-			} else {
-				const sessionTab = this.getSessionTab(sessionId);
 
-				await sessionTab.click();
-				await sessionTab.hover();
-				await this.sessionTrashButton(sessionId).click();
-			}
-
-			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
-			await expect(this.consoleInstance(sessionId)).not.toBeVisible();
+				await expect(this.page.getByText('Shutting down')).not.toBeVisible();
+				await expect(this.consoleInstance(sessionId)).not.toBeVisible();
+			}, `Delete session: ${sessionId}`).toPass();
 		});
 	}
 
@@ -684,11 +679,16 @@ export class Sessions {
 	*/
 	async openMetadataDialog() {
 		await expect(async () => {
-			await this.metadataButton.click();
-			await this.page.mouse.move(0, 0);
-			await this.page.waitForTimeout(500);
+			const isMetadataDialogVisible = await this.metadataDialog.isVisible();
+
+			if (!isMetadataDialogVisible) {
+				await this.metadataButton.click();
+				await this.page.mouse.move(0, 0);
+				await this.page.waitForTimeout(500);
+			}
+
 			await expect(this.metadataDialog).toBeVisible();
-		}).toPass();
+		}, 'Open the Metadata Dialog').toPass();
 	}
 
 	// -- Verifications --

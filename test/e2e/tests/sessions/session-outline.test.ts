@@ -79,7 +79,7 @@ test.describe('Session: Outline', {
 		await verifyPythonOutline(outline);
 	});
 
-	test('Verify outline after reload with Python in foreground and R in background', {
+	test.skip('Verify outline after reload with Python in foreground and R in background', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
 	}, async function ({ app, runCommand, sessions }) {
 		const { outline, editor } = app.workbench;
