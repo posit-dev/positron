@@ -115,4 +115,11 @@
 
 .variable-item .details-column .right-column .viewer-icon {
 	display: flex;
+	cursor: pointer;
+	opacity: 0.75;
+	transition: opacity 0.1s ease;
+}
+
+.variable-item .details-column .right-column .viewer-icon:hover {
+	opacity: 1;
 }
