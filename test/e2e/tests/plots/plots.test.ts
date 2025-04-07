@@ -30,8 +30,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForNoPlots();
 		});
 
-		test.afterAll(async function ({ app }) {
-			await app.removeTestFiles(['Python-scatter.jpeg', 'Python-scatter-editor.jpeg']);
+		test.afterAll(async function ({ cleanup }) {
+			await cleanup.removeTestFiles(['Python-scatter.jpeg', 'Python-scatter-editor.jpeg']);
 		});
 
 		test('Python - Verify basic plot functionality - Dynamic Plot', {
@@ -287,8 +287,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForNoPlots();
 		});
 
-		test.afterAll(async function ({ app }) {
-			await app.removeTestFiles(['r-cars.svg', 'r-cars.jpeg', 'plot.png']);
+		test.afterAll(async function ({ cleanup }) {
+			await cleanup.removeTestFiles(['r-cars.svg', 'r-cars.jpeg', 'plot.png']);
 
 			console.log('debug');
 		});

@@ -20,8 +20,8 @@ test.describe('Top Action Bar - Save Actions', {
 		}
 	});
 
-	test.afterAll(async function ({ app }) {
-		await app.discardAllChanges();
+	test.afterAll(async function ({ cleanup }) {
+		await cleanup.discardAllChanges();
 	});
 
 	test('Verify `Save` and `Save All` are disabled when no unsaved editors are open', async function ({ app }) {

@@ -14,8 +14,8 @@ test.describe('Source Content Management', {
 	tag: [tags.SCM, tags.WEB, tags.WIN]
 }, () => {
 
-	test.afterAll(async function ({ app }) {
-		await app.discardAllChanges();
+	test.afterAll(async function ({ cleanup }) {
+		await cleanup.discardAllChanges();
 	});
 
 	test('Verify SCM Tracks File Modifications, Staging, and Commit Actions', async function ({ app, openFile }) {

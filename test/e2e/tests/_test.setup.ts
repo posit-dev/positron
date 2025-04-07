@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, Sessions, HotKeys } from '../infra';
+import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -361,6 +361,11 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		logger.log(endLog);
 		logger.log('');
 	}, { scope: 'test', auto: true }],
+
+	cleanup: async ({ app }, use) => {
+		const cleanup = new TestTeardown(app.workspacePathOrFolder);
+		await use(cleanup);
+	},
 });
 
 // Runs once per worker. If a worker handles multiple specs, these hooks only run for the first spec.
@@ -439,6 +444,7 @@ interface TestFixtures {
 	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
 	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
 	hotKeys: HotKeys;
+	cleanup: TestTeardown;
 }
 
 interface WorkerFixtures {

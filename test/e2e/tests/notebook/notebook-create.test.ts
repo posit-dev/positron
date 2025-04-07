@@ -33,8 +33,8 @@ test.describe('Notebooks', {
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
 		});
 
-		test.afterAll(async function ({ app }) {
-			await app.removeTestFiles([newFileName]);
+		test.afterAll(async function ({ cleanup }) {
+			await cleanup.removeTestFiles([newFileName]);
 		});
 
 		test('Python - Verify code cell execution in notebook', async function ({ app }) {
