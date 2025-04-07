@@ -14,7 +14,7 @@ test.describe('Data Explorer - Python Polars', {
 	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
 	test.describe.configure({ mode: 'serial' });
-	test('Python Polars - Verify basic data explorer functionality', async function ({ app, python, logger }) {
+	test('Python Polars - Verify basic data explorer functionality', async function ({ app, python, logger, hotKeys }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
@@ -40,10 +40,12 @@ test.describe('Data Explorer - Python Polars', {
 		}).toPass({ timeout: 60000 });
 
 		await test.step('Verify copy to clipboard', async () => {
-			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
-			const clipboardText = await app.workbench.clipboard.getClipboardText();
-			expect(clipboardText).toBe('1');
+			await expect(async () => {
+				await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+				await hotKeys.copy();
+				const clipboardText = await app.workbench.clipboard.getClipboardText();
+				expect(clipboardText).toBe('1');
+			}).toPass();
 		});
 
 		await app.workbench.dataExplorer.expandSummary();
