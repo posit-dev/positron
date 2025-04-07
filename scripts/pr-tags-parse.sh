@@ -56,10 +56,10 @@ else
       TAGS="@:critical"
     fi
   fi
-fi
 
-# Output the tags
-echo "Extracted Tags: $TAGS"
+	# Output the tags
+	echo "Extracted Tags: $TAGS"
+fi
 
 # Save tags to GITHUB_OUTPUT for use in GitHub Actions
 if [[ -n "$GITHUB_OUTPUT" ]]; then
