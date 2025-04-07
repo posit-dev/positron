@@ -43,7 +43,9 @@ function prepareDebPackage(arch) {
 	const debArch = getDebPackageArch(arch);
 	const destination = '.build/linux/deb/' + debArch + '/' + product.applicationName + '-' + debArch;
 
-	return function () {
+	return async function () {
+		const dependencies = await dependenciesGenerator.getDependencies('deb', binaryDir, product.applicationName, debArch);
+
 		const desktop = gulp.src('resources/linux/code.desktop', { base: '.' })
 			.pipe(rename('usr/share/applications/' + product.applicationName + '.desktop'));
 
@@ -97,9 +99,9 @@ function prepareDebPackage(arch) {
 		let size = 0;
 		const control = code.pipe(es.through(
 			function (f) { size += f.isDirectory() ? 4096 : f.contents.length; },
-			async function () {
+			function () {
 				const that = this;
-				const dependencies = await dependenciesGenerator.getDependencies('deb', binaryDir, product.applicationName, debArch);
+
 				// --- Start Positron ---
 				// VS Code's Debian control file is replaced with Positron's
 				// control file. This file contains metadata about the package,
@@ -107,7 +109,6 @@ function prepareDebPackage(arch) {
 
 				// gulp.src('resources/linux/debian/control.template', { base: '.' })
 				gulp.src('resources/linux/debian/positron.control.template', { base: '.' })
-					// --- End Positron ---
 					.pipe(replace('@@NAME@@', product.applicationName))
 					// --- Start Positron ---
 					.pipe(replace('@@VERSION@@', product.version))
@@ -180,7 +181,9 @@ function prepareRpmPackage(arch) {
 	const rpmArch = getRpmPackageArch(arch);
 	const stripBinary = process.env['STRIP'] ?? '/usr/bin/strip';
 
-	return function () {
+	return async function () {
+		const dependencies = await dependenciesGenerator.getDependencies('rpm', binaryDir, product.applicationName, rpmArch);
+
 		const desktop = gulp.src('resources/linux/code.desktop', { base: '.' })
 			.pipe(rename('BUILD/usr/share/applications/' + product.applicationName + '.desktop'));
 
@@ -231,35 +234,23 @@ function prepareRpmPackage(arch) {
 		const code = gulp.src(binaryDir + '/**/*', { base: binaryDir })
 			.pipe(rename(function (p) { p.dirname = 'BUILD/usr/share/' + product.applicationName + '/' + p.dirname; }));
 
-		// --- Start Positron ---
-		// Fixes an upstream bug where the template was generated once per code
-		// source file and overwhelming the build.
-		const spec = gulp.src('resources/linux/rpm/positron.spec.template', { base: '.' }).pipe(es.through(
-			function (f) { },
-			async function (spec) {
-				const that = this;
-				const dependencies = await dependenciesGenerator.getDependencies('rpm', binaryDir, product.applicationName, rpmArch);
-				gulp.src('resources/linux/rpm/positron.spec.template', { base: '.' })
-					.pipe(replace('@@NAME@@', product.applicationName))
-					.pipe(replace('@@NAME_LONG@@', product.nameLong))
-					.pipe(replace('@@ICON@@', product.linuxIconName))
-					// --- Start Positron ---
-					.pipe(replace('@@VERSION@@', product.version))
-					.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${positronBuildNumber}`))
-					.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
-					// --- End Positron ---
-					.pipe(replace('@@RELEASE@@', linuxPackageRevision))
-					.pipe(replace('@@ARCHITECTURE@@', rpmArch))
-					.pipe(replace('@@LICENSE@@', product.licenseName))
-					.pipe(replace('@@QUALITY@@', product.quality || '@@QUALITY@@'))
-					.pipe(replace('@@UPDATEURL@@', product.updateUrl || '@@UPDATEURL@@'))
-					.pipe(replace('@@DEPENDENCIES@@', dependencies.join(', ')))
-					.pipe(replace('@@STRIP@@', stripBinary))
-					.pipe(rename('SPECS/' + product.applicationName + '.spec'))
-					.pipe(es.through(function (f) { that.emit('data', f); }, function () { that.emit('end'); }));
-			}
-		));
-		// --- End Positron ---
+		const spec = gulp.src('resources/linux/rpm/code.spec.template', { base: '.' })
+			.pipe(replace('@@NAME@@', product.applicationName))
+			.pipe(replace('@@NAME_LONG@@', product.nameLong))
+			.pipe(replace('@@ICON@@', product.linuxIconName))
+			// --- Start Positron ---
+			.pipe(replace('@@VERSION@@', product.version))
+			.pipe(replace('@@POSITRONVERSION@@', `${product.positronVersion}+${positronBuildNumber}`))
+			.pipe(replace('@@BUILDNUMBER@@', positronBuildNumber))
+			// --- End Positron ---
+			.pipe(replace('@@RELEASE@@', linuxPackageRevision))
+			.pipe(replace('@@ARCHITECTURE@@', rpmArch))
+			.pipe(replace('@@LICENSE@@', product.licenseName))
+			.pipe(replace('@@QUALITY@@', product.quality || '@@QUALITY@@'))
+			.pipe(replace('@@UPDATEURL@@', product.updateUrl || '@@UPDATEURL@@'))
+			.pipe(replace('@@DEPENDENCIES@@', dependencies.join(', ')))
+			.pipe(replace('@@STRIP@@', stripBinary))
+			.pipe(rename('SPECS/' + product.applicationName + '.spec'));
 
 		const specIcon = gulp.src('resources/linux/rpm/code.xpm', { base: '.' })
 			.pipe(rename('SOURCES/' + product.applicationName + '.xpm'));

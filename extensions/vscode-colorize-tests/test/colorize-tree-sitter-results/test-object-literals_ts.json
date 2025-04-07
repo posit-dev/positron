@@ -1,7 +1,7 @@
 [
 	{
 		"c": "let",
-		"t": "storage.type",
+		"t": "storage.type.ts",
 		"r": {
 			"hc_black": "storage.type: #569CD6",
 			"positron_dark": "storage.type: #569CD6",
@@ -11,7 +11,7 @@
 	},
 	{
 		"c": "s1",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -21,7 +21,7 @@
 	},
 	{
 		"c": "=",
-		"t": "keyword.operator.assignment",
+		"t": "keyword.operator.assignment.ts",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -31,7 +31,7 @@
 	},
 	{
 		"c": "{",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -41,7 +41,7 @@
 	},
 	{
 		"c": "k",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -51,7 +51,7 @@
 	},
 	{
 		"c": ":",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -67,7 +67,7 @@
 	},
 	{
 		"c": "{",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -77,7 +77,7 @@
 	},
 	{
 		"c": "k1",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -87,7 +87,7 @@
 	},
 	{
 		"c": ":",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -103,7 +103,7 @@
 	},
 	{
 		"c": "s",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -113,7 +113,7 @@
 	},
 	{
 		"c": ",",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -123,7 +123,7 @@
 	},
 	{
 		"c": "k2",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -133,7 +133,7 @@
 	},
 	{
 		"c": ":",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -149,7 +149,7 @@
 	},
 	{
 		"c": "1",
-		"t": "constant.numeric",
+		"t": "constant.numeric.ts",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -159,7 +159,7 @@
 	},
 	{
 		"c": "}",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -169,7 +169,7 @@
 	},
 	{
 		"c": "}",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -179,7 +179,7 @@
 	},
 	{
 		"c": ";",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
