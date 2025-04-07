@@ -7,7 +7,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import enum
+import inspect
 import logging
 import os
 import re
@@ -38,11 +40,12 @@ from .patch.holoviews import set_holoviews_extension
 from .plots import PlotsService
 from .session_mode import SessionMode
 from .ui import UiService
-from .utils import BackgroundJobQueue, JsonRecord, get_qualname
+from .utils import BackgroundJobQueue, JsonRecord, get_qualname, with_logging
 from .variables import VariablesService
 
 if TYPE_CHECKING:
     from ipykernel.comm.manager import CommManager
+    from ipykernel.control import ControlThread
 
 
 class _CommTarget(str, enum.Enum):
@@ -480,6 +483,26 @@ class PositronIPyKernel(IPythonKernel):
         # Patch haystack-ai to ensure is_in_jupyter() returns True in Positron
         patch_haystack_is_in_jupyter()
 
+    # -----
+    # Backport https://github.com/ipython/ipykernel/pull/1210 which removes the control queue and
+    # instead queues control messages using an asyncio.Lock. This is an attempt to fix shutdown
+    # hanging while waiting for the control thread to exit. We're not sure *why* the control
+    # thread never exits, but this simplification shouldn't hurt.
+    # See https://github.com/posit-dev/positron/issues/7142.
+    async def _flush_control_queue(self):  # type: ignore
+        pass
+
+    async def poll_control_queue(self):  # type: ignore
+        pass
+
+    async def dispatch_control(self, msg):  # type: ignore
+        # Ensure only one control message is processed at a time
+        async with asyncio.Lock():
+            await self.process_control(msg)
+
+    # Backport ends here.
+    # -----
+
     def publish_execute_input(
         self,
         code: str,
@@ -562,6 +585,7 @@ class PositronIPyKernel(IPythonKernel):
 
 
 class PositronIPKernelApp(IPKernelApp):
+    control_thread: ControlThread
     kernel: PositronIPyKernel
 
     # Use the PositronIPyKernel class.
@@ -569,6 +593,18 @@ class PositronIPKernelApp(IPKernelApp):
 
     # Positron-specific attributes:
     session_mode: SessionMode = SessionMode.trait()  # type: ignore
+
+    def init_control(self, context):
+        result = super().init_control(context)
+        # Add a bunch of debug logging to control thread methods.
+        # See: https://github.com/posit-dev/positron/issues/7142.
+        self.control_thread.io_loop.start = with_logging(self.control_thread.io_loop.start)
+        self.control_thread.io_loop.stop = with_logging(self.control_thread.io_loop.stop)
+        self.control_thread.io_loop.close = with_logging(self.control_thread.io_loop.close)
+        self.control_thread.run = with_logging(self.control_thread.run)
+        self.control_thread.stop = with_logging(self.control_thread.stop)
+        self.control_thread.join = with_logging(self.control_thread.join)
+        return result
 
     def init_gui_pylab(self):
         # Enable the Positron matplotlib backend if we're not in a notebook.
