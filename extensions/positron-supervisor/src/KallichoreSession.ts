@@ -89,6 +89,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/** Whether we are currently restarting the kernel */
 	private _restarting = false;
 
+	/** Whether it is possible to connect to the session's websocket */
+	private _canConnect = true;
+
 	/** The Debug Adapter Protocol client, if any */
 	private _dapClient: DapClient | undefined;
 
@@ -1154,6 +1157,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns A promise that resolves when the websocket is connected.
 	 */
 	connect(): Promise<void> {
+		// Ensure we are eligible for reconnection. We can't reconnect if
+		// another client is connected to the session as it would disconnect the
+		// other client.
+		if (!this._canConnect) {
+			return Promise.reject(new Error('This session cannot be reconnected.'));
+		}
+
 		return new Promise((resolve, reject) => {
 			// Ensure websocket is closed if it's open
 			if (this._socket) {
@@ -1333,7 +1343,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	handleMessage(data: any) {
 		if (!data.kind) {
-			this.log(`Kallichore session ${this.metadata.sessionId} message has no kind: ${data}`, vscode.LogLevel.Warning);
+			this.log(`Kallichore session ${this.metadata.sessionId} message has no kind: ${JSON.stringify(data)}`, vscode.LogLevel.Warning);
 			return;
 		}
 		switch (data.kind) {
@@ -1383,6 +1393,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		} else if (data.hasOwnProperty('output')) {
 			const output = data as KernelOutputMessage;
 			this._kernelChannel.append(output.output[1]);
+		} else if (data.hasOwnProperty('clientDisconnected')) {
+			// Log the disconnection and close the socket
+			this._kernelChannel.append(`Client disconnected: ${data.clientDisconnected}`);
+			this.disconnect();
+
+			// Treat the runtime as exited
+			this.disconnected.fire(positron.RuntimeState.Exited);
+			this.onStateChange(positron.RuntimeState.Exited, data.clientDisconnected);
+
+			// Additional guard to ensure we don't try to reconnect
+			this._canConnect = false;
 		} else if (data.hasOwnProperty('exited')) {
 			this.onExited(data.exited);
 		}
