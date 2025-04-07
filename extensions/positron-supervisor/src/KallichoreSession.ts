@@ -182,9 +182,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Builds the set of environment variable actions to be applied to the
 	 * kernel when starting or restarting.
 	 *
+	 * @params restart Whether this is a restart or a new session
+	 *
 	 * @returns An array of environment variable actions
 	 */
-	async buildEnvVarActions(): Promise<VarAction[]> {
+	async buildEnvVarActions(restart: boolean): Promise<VarAction[]> {
 		const varActions: Array<VarAction> = [];
 
 		// Built-in variable POSITRON is always set to 1 to indicate that
@@ -227,10 +229,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const contributedVars = await positron.environment.getEnvironmentContributions();
 		for (const [extensionId, actions] of Object.entries(contributedVars)) {
 
-			if (extensionId === 'ms-python.python') {
+			if (restart && extensionId === 'ms-python.python') {
 				// The variables contributed by the Python extension are
 				// intended for the "current" version of Python, which isn't
-				// necessarily the version we are starting/restarting here.
+				// necessarily the version we are restarting here.
 				// Ignore these for now, but consider: there should be a scoping
 				// mechanism of some kind that would allow us to work with these
 				// kinds of values.
@@ -302,7 +304,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Save the kernel spec for later use
 		this._kernelSpec = kernelSpec;
-		const varActions = await this.buildEnvVarActions();
+		const varActions = await this.buildEnvVarActions(false);
 
 		// Prepare the working directory; use the workspace root if available,
 		// otherwise the home directory
@@ -1251,7 +1253,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// Build the set of environment variables to pass to the kernel.
 				// This is done on every restart so that changes to extension
 				// environment contributions can be respected.
-				env: await this.buildEnvVarActions(),
+				env: await this.buildEnvVarActions(true),
 			};
 			await this._api.restartSession(this.metadata.sessionId, restart);
 
