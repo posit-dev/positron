@@ -30,6 +30,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.plots.waitForNoPlots();
 		});
 
+		test.afterAll(async function ({ cleanup }) {
+			await cleanup.removeTestFiles(['Python-scatter.jpeg', 'Python-scatter-editor.jpeg']);
+		});
+
 		test('Python - Verify basic plot functionality - Dynamic Plot', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
 		}, async function ({ app, logger, headless }, testInfo) {
@@ -281,6 +285,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 			await app.workbench.plots.clearPlots();
 			await app.workbench.plots.waitForNoPlots();
+		});
+
+		test.afterAll(async function ({ cleanup }) {
+			await cleanup.removeTestFiles(['r-cars.svg', 'r-cars.jpeg', 'plot.png']);
 		});
 
 		test('R - Verify basic plot functionality', {

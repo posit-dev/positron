@@ -95,7 +95,7 @@ test.describe.skip('Reticulate', {
 
 	});
 
-	test('R - Verify Reticulate Restart', {
+	test.skip('R - Verify Reticulate Restart', {
 		tag: [tags.RETICULATE, tags.CONSOLE]
 	}, async function ({ app, sessions }) {
 		// const interpreterDesc = 'Python (reticulate)';
@@ -106,6 +106,67 @@ test.describe.skip('Reticulate', {
 
 		// await app.workbench.interpreter.restartPrimaryInterpreter(interpreterDesc);
 		// await app.workbench.interpreter.verifyInterpreterIsRunning(interpreterDesc);
+	});
+});
+
+test.describe('Reticulate - console interaction', {
+	tag: [tags.RETICULATE, tags.WEB]
+}, () => {
+	test.beforeAll(async function ({ app, userSettings }) {
+		try {
+			await userSettings.set([
+				['positron.reticulate.enabled', 'true']
+			]);
+
+		} catch (e) {
+			await app.code.driver.takeScreenshot('reticulateSetup');
+			throw e;
+		}
+	});
+
+	test.skip('R - Reticulate can be started with reticulate::repl_python()', async function ({ app, sessions }) {
+		// // Start R console
+		// await app.workbench.interpreter.selectInterpreter(InterpreterType.R, process.env.POSITRON_R_VER_SEL!);
+
+		// // Now execute reticulate::repl_python()
+		// await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()');
+		// await app.workbench.console.sendEnterKey();
+
+		// // Wait for the reticulate interpreter to be running
+		// // There's a small bug such that the button is green button is updated when
+		// // the session starts. So we need to wait until reticulate starts to see the
+		// // interpreter running
+		// await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+		// await app.workbench.interpreter.verifyInterpreterIsRunning('Python (reticulate)');
+
+		// // Create a variable in Python, we'll check we can access it from R.
+		// await app.workbench.console.pasteCodeToConsole('x=100');
+		// await app.workbench.console.sendEnterKey();
+
+		// // Now go back to the R interprerter
+		// await app.workbench.interpreter.selectInterpreter(InterpreterType.R, process.env.POSITRON_R_VER_SEL!);
+		// await app.workbench.console.pasteCodeToConsole('print(reticulate::py$x)');
+		// await app.workbench.console.sendEnterKey();
+		// await app.workbench.console.waitForConsoleContents('[1] 100');
+
+		// // Create a variable in R and expect to be able to access it from Python
+		// await app.workbench.console.pasteCodeToConsole('y <- 200L');
+		// await app.workbench.console.sendEnterKey();
+
+		// // Executing reticulate::repl_python() should not start a new interpreter
+		// // but should move focus to the reticulate interpreter
+		// await app.workbench.console.pasteCodeToConsole('reticulate::repl_python(input = "z = 3")');
+		// await app.workbench.console.sendEnterKey();
+
+		// // Expect that focus changed to the reticulate console
+		// await app.workbench.interpreter.verifyInterpreterIsRunning('Python (reticulate)');
+		// await app.workbench.console.pasteCodeToConsole('print(r.y)');
+		// await app.workbench.console.sendEnterKey();
+		// await app.workbench.console.waitForConsoleContents('200');
+
+		// await app.workbench.console.pasteCodeToConsole('print(z)');
+		// await app.workbench.console.sendEnterKey();
+		// await app.workbench.console.waitForConsoleContents('200');
 	});
 });
 
