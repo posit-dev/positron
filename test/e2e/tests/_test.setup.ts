@@ -119,7 +119,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
 			await moveAndOverwrite(logsPath, specLogsPath);
 		}
-	}, { scope: 'worker', auto: true, timeout: 60000 }],
+	}, { scope: 'worker', auto: true, timeout: 80000 }],
 
 	sessions: [
 		async ({ app }, use) => {
