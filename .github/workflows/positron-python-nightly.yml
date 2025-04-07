@@ -134,10 +134,11 @@ jobs:
 
     steps:
     - name: Send Slack Notification
-      uses: midleman/slack-workflow-status@v2.3.0
+      uses: midleman/slack-workflow-status@v3.1.0
       with:
-        repo_token: ${{ secrets.GITHUB_TOKEN }}
+        gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-        channel: "#positron-test-results"
-        include_jobs_time: "false"
         notify_on: "failure"
+        slack_channel: "#positron-test-results"
+        include_job_durations: "false"
+
