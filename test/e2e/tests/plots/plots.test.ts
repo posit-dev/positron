@@ -289,8 +289,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test.afterAll(async function ({ cleanup }) {
 			await cleanup.removeTestFiles(['r-cars.svg', 'r-cars.jpeg', 'plot.png']);
-
-			console.log('debug');
 		});
 
 		test('R - Verify basic plot functionality', {
