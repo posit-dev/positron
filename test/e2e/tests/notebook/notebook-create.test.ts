@@ -63,12 +63,21 @@ test.describe('Notebooks', {
 			// First, create and execute a cell to verify initial session
 			await app.workbench.notebooks.addCodeToCellAtIndex('foo = "bar"');
 
-			await expect(async () => {
-				await app.workbench.notebooks.executeCodeInCell();
-
-				// Verify the variable is in the variables pane
-				await app.workbench.variables.expectVariableToBe('foo', "'bar'", 20000);
-			}).toPass({ timeout: 60000 });
+			await expect.poll(
+				async () => {
+					try {
+						await app.workbench.notebooks.executeCodeInCell();
+						await app.workbench.variables.expectVariableToBe('foo', "'bar'", 1000);
+						return true;
+					} catch {
+						return false;
+					}
+				},
+				{
+					timeout: 15000,
+					intervals: [3000],
+				}
+			).toBe(true);
 
 			// Save the notebook using the command
 			await app.workbench.quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
