@@ -290,6 +290,20 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		return this._currentLanguageModel?.identifier;
 	}
 
+	// --- Start Positron ---
+	private _modelPickerDelegate!: ModelPickerDelegate;
+
+	// allows setting the language model from React
+	public changeLanguageModel(newLanguageModel: ILanguageModelChatMetadataAndIdentifier) {
+		this._currentLanguageModel = newLanguageModel;
+		this._onDidChangeCurrentLanguageModel.fire(newLanguageModel);
+	}
+
+	get modelPickerDelegate() {
+		return this._modelPickerDelegate;
+	}
+	// --- End Positron ---
+
 	private cachedDimensions: dom.Dimension | undefined;
 	private cachedExecuteToolbarWidth: number | undefined;
 	private cachedInputToolbarWidth: number | undefined;
@@ -402,6 +416,17 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		});
 
 		this.initSelectedModel();
+
+		// --- Start Positron ---
+		this._modelPickerDelegate = {
+			onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
+			setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
+				this.setCurrentLanguageModelByUser(model);
+				this.renderAttachedContext();
+			},
+			getModels: () => this.getModels()
+		};
+		// --- End Positron ---
 	}
 
 	private getSelectedModelStorageKey(): string {
@@ -871,14 +896,21 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					}
 
 					if (this._currentLanguageModel) {
-						const itemDelegate: ModelPickerDelegate = {
-							onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
-							setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
-								this.setCurrentLanguageModelByUser(model);
-								this.renderAttachedContext();
-							},
-							getModels: () => this.getModels()
-						};
+						// --- Start Positron ---
+						// const itemDelegate: ModelPickerDelegate = {
+						// 	onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
+						// 	setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
+						// 		this.setCurrentLanguageModelByUser(model);
+						// 		this.renderAttachedContext();
+						// 	},
+						// 	getModels: () => this.getModels()
+						// };
+
+						// supports the old way of selecting a language model
+						// the picker delegate is now exposed to Positron's React component so it can update based on the current model
+						// that is selected in the Chat input
+						const itemDelegate = this._modelPickerDelegate;
+						// --- End Positron ---
 						return this.instantiationService.createInstance(ModelPickerActionViewItem, action, this._currentLanguageModel, itemDelegate);
 					}
 				} else if (action.id === ToggleAgentModeActionId && action instanceof MenuItemAction) {
@@ -1607,11 +1639,13 @@ class ChatSubmitDropdownActionItem extends DropdownWithPrimaryActionViewItem {
 	}
 }
 
-interface ModelPickerDelegate {
+// --- Start Positron ---
+export interface ModelPickerDelegate {
 	onDidChangeModel: Event<ILanguageModelChatMetadataAndIdentifier>;
 	setModel(selectedModelId: ILanguageModelChatMetadataAndIdentifier): void;
 	getModels(): ILanguageModelChatMetadataAndIdentifier[];
 }
+// --- End Positron ---
 
 class ModelPickerActionViewItem extends DropdownMenuActionViewItemWithKeybinding {
 	constructor(

@@ -6,6 +6,7 @@
 import { useEffect, useState } from 'react';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from '../../common/languageModels.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 export interface PositronChatServices {
 	readonly languageModelsService: ILanguageModelsService;
@@ -21,35 +22,25 @@ export const usePositronChatState = (services: PositronChatServices): PositronCh
 	const [languageModels, setLanguageModels] = useState<ILanguageModelChatMetadataAndIdentifier[]>([]);
 
 	useEffect(() => {
-		services.languageModelsService.onDidChangeLanguageModels((e) => {
+		const disposableStore = new DisposableStore();
+
+		disposableStore.add(services.languageModelsService.onDidChangeLanguageModels((_e) => {
 			const newModels: ILanguageModelChatMetadataAndIdentifier[] = [];
-			if (e.added) {
-				newModels.push(...e.added
-					.map(modelId => ({ identifier: modelId.identifier, metadata: services.languageModelsService.lookupLanguageModel(modelId.identifier)! }))
-					.filter((model) => {
-						return model.metadata?.isUserSelectable;
-					}));
-				setLanguageModels([...languageModels, ...newModels]);
-			}
-			if (e.removed) {
-				e.removed.forEach((modelId) => {
-					const index = languageModels.findIndex((model) => model.identifier === modelId);
-					if (index !== -1) {
-						languageModels.splice(index, 1);
-					}
-				});
-			}
-		});
+			services.languageModelsService.getLanguageModelIds().forEach((id) => {
+				const metadata = services.languageModelsService.lookupLanguageModel(id);
+				if (metadata && metadata.isUserSelectable) {
+					newModels.push({
+						identifier: id,
+						metadata: metadata
+					})
+				}
+			});
+
+			setLanguageModels(newModels);
+		}));
+
+		return () => disposableStore.dispose();
 	}, [languageModels, services.languageModelsService]);
-	services.languageModelsService.getLanguageModelIds().map((model) => {
-		const metadata = services.languageModelsService.lookupLanguageModel(model)!
-		return {
-			identifier: model,
-			metadata: metadata,
-		}
-	}).filter((model) => {
-		return model.metadata?.isUserSelectable;
-	});
 
 	return {
 		languageModels: languageModels,
