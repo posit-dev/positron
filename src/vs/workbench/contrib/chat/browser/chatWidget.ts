@@ -1277,6 +1277,9 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 	}
 
 	layout(height: number, width: number): void {
+		// --- Start Positron ---
+		const actionBarHeight = this.actionBarContainer.height;
+		// --- End Positron ---
 		width = Math.min(width, 850);
 		this.bodyDimension = new dom.Dimension(width, height);
 
@@ -1285,7 +1288,9 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 		const inputPartHeight = this.inputPart.inputPartHeight;
 		const lastElementVisible = this.tree.scrollTop + this.tree.renderHeight >= this.tree.scrollHeight - 2;
 
-		const listHeight = Math.max(0, height - inputPartHeight);
+		// --- Start Positron ---
+		const listHeight = Math.max(0, height - inputPartHeight - actionBarHeight);
+		// --- End Positron ---
 		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
 			this.listContainer.style.removeProperty('--chat-current-response-min-height');
 		} else {
@@ -1302,10 +1307,7 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 		} else if (this.viewOptions.enableWorkingSet) {
 			extraOffset = Math.max(100 - this.inputPart.editSessionWidgetHeight, 0);
 		}
-		// --- Start Positron ---
-		const actionBarHeight = this.actionBarContainer.height;
-		// --- End Positron ---
-		this.welcomeMessageContainer.style.height = `${listHeight - extraOffset - actionBarHeight}px`;
+		this.welcomeMessageContainer.style.height = `${listHeight - extraOffset}px`;
 		this.welcomeMessageContainer.style.paddingBottom = `${extraOffset}px`;
 		this.renderer.layout(width);
 
