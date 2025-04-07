@@ -8,6 +8,8 @@ import { Code, launch, LaunchOptions } from './code';
 import { Logger, measureAndLog } from './logger';
 import { Profiler } from './profiler';
 import { expect } from '@playwright/test';
+import * as fs from 'fs';
+import { execSync } from 'child_process';
 
 export const enum Quality {
 	Dev,
@@ -131,6 +133,33 @@ export class Application {
 		// Remote but not web: wait for a remote connection state change
 		if (this.remote) {
 			await measureAndLog(() => expect(code.driver.page.locator('.monaco-workbench .statusbar-item[id="status.host"]')).not.toContainText('Opening Remote'), 'Application#checkWindowReady: wait for remote indicator', this.logger);
+		}
+	}
+
+	async removeTestFiles(files: string[]): Promise<void> {
+		for (const file of files) {
+			const filePath = this._workspacePathOrFolder + '/' + file;
+			if (fs.existsSync(filePath)) {
+				fs.rmSync(filePath, { recursive: true, force: true });
+			}
+		}
+	}
+
+	async removeTestFolder(folder: string): Promise<void> {
+		const folderPath = this._workspacePathOrFolder + '/' + folder;
+		if (fs.existsSync(folderPath)) {
+			fs.rmSync(folderPath, { recursive: true, force: true });
+		}
+	}
+
+	async discardAllChanges(): Promise<void> {
+		try {
+			//execSync('git reset --hard', { cwd: this._workspacePathOrFolder });
+			//execSync('git clean -fd', { cwd: this._workspacePathOrFolder });
+			execSync('git reset --hard $(git rev-list --max-parents=0 HEAD)', { cwd: this._workspacePathOrFolder });
+			execSync('git clean -fd', { cwd: this._workspacePathOrFolder });
+		} catch (error) {
+			console.error('Failed to discard changes:', error);
 		}
 	}
 }

@@ -11,6 +11,8 @@ test.use({
 	suiteId: __filename
 });
 
+let newFileName: string;
+
 test.describe('Notebooks', {
 	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
 }, () => {
@@ -29,6 +31,10 @@ test.describe('Notebooks', {
 
 		test.afterEach(async function ({ app }) {
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
+		});
+
+		test.afterAll(async function ({ app }) {
+			await app.removeTestFiles([newFileName]);
 		});
 
 		test('Python - Verify code cell execution in notebook', async function ({ app }) {
@@ -68,7 +74,7 @@ test.describe('Notebooks', {
 			await app.workbench.quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
 			await app.workbench.quickInput.waitForQuickInputOpened();
 			// Generate a random filename
-			const newFileName = `saved-session-test-${Math.random().toString(36).substring(7)}.ipynb`;
+			newFileName = `saved-session-test-${Math.random().toString(36).substring(7)}.ipynb`;
 
 			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, newFileName));
 			await app.workbench.quickInput.clickOkButton();
