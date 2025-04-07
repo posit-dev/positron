@@ -5,24 +5,27 @@
 
 import * as React from 'react';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { DynamicActionBarAction, PositronDynamicActionBar } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 import Claude from '../../../positronAssistant/browser/icons/claude.js';
 import { ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
 import { usePositronChatContext } from './chatContext.js';
 import { IAction } from '../../../../../base/common/actions.js';
+import { ModelPickerDelegate } from '../chatInputPart.js';
+import Gemini from '../../../positronAssistant/browser/icons/gemini.js';
+import Bedrock from '../../../positronAssistant/browser/icons/bedrockColor.js';
 
 interface ChatActionBarProps {
 	currentModel?: ILanguageModelChatMetadataAndIdentifier;
+	delegate: ModelPickerDelegate;
 	width: number;
+	onModelSelect: (newLanguageModel: ILanguageModelChatMetadataAndIdentifier) => void;
 }
 
 export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	const positronChatContext = usePositronChatContext();
 
-	const [languageModelActions, setLanguageModelActions] = React.useState<IAction[]>([]);
-	const leftActions: DynamicActionBarAction[] = [];
+	const [model, setModel] = React.useState<ILanguageModelChatMetadataAndIdentifier>();
 
-	React.useEffect(() => {
+	const actions = React.useCallback(() => {
 		const actions: IAction[] = [];
 		positronChatContext.languageModels?.forEach((model) => {
 			actions.push({
@@ -32,39 +35,40 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 				class: undefined,
 				tooltip: `${model.metadata.name} ${model.metadata.version}`,
 				run: () => {
-					console.log(`Selected model: ${model.metadata.name}`);
+					props.onModelSelect(model);
 				}
 			});
-			setLanguageModelActions(actions);
 		});
-	}, [positronChatContext.languageModels]);
 
-	// Function to get actions for the action bar menu button.
-	// Returns an empty array of IAction
-	const getActions = () => {
-		return languageModelActions;
-	}
+		return actions;
+	}, [positronChatContext.languageModels, props]);
 
-	leftActions.push({
-		fixedWidth: props.width ?? 100,
-		separator: false,
-		component: (
-			<>
-				<Claude />
-				<ActionBarMenuButton
-					actions={() => getActions()}
-					text={props.currentModel?.identifier ?? 'Select Model'}
-				/>
-			</>
-		)
+	React.useEffect(() => {
+		props.delegate.onDidChangeModel((newModel) => setModel(newModel));
 	})
 
+	const getIcon = () => {
+		switch (model?.metadata.family) {
+			case 'bedrock':
+				return <Bedrock />;
+			case 'anthropic':
+				return <Claude />;
+			case 'google':
+				return <Gemini />;
+			case 'echo':
+				return <div className={`icon codicon codicon-error`} />;
+			default:
+				return null;
+		}
+	}
+
 	return (
-		<PositronDynamicActionBar
-			borderBottom={true}
-			leftActions={leftActions}
-			rightActions={[]}
-			size='small'
-		/>
+		<div className='chat-action-bar'>
+			{getIcon()}
+			<ActionBarMenuButton
+				actions={actions}
+				text={model?.metadata.name ?? 'Loading models...'}
+			/>
+		</div>
 	);
 });

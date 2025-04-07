@@ -6,3 +6,9 @@
 .chat-action-bar-container {
 	height: 32px;
 }
+
+.chat-action-bar {
+	margin-left: 5px;
+	display: flex;
+	align-items: center;
+}
