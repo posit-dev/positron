@@ -11,7 +11,7 @@ COMMENT_MARKER="$1"  # e.g., "<!-- PR Tags -->"
 TAGS="$2"            # e.g., "@:critical,@:quarto"
 
 # Ensure required arguments are provided
-if [ -z "$COMMENT_MARKER" ] || [ -z "$TAGS" ]; then
+if [ -z "$COMMENT_MARKER" ]; then
   echo "Usage: $0 \"<comment_marker>\" \"<tags>\""
   exit 1
 fi
@@ -37,8 +37,12 @@ COMMENTS=$(gh api repos/${REPO}/issues/${PR_NUMBER}/comments --header "Authoriza
 # Check if a comment with the marker already exists
 COMMENT_ID=$(echo "$COMMENTS" | jq -r ".[] | select(.body | contains(\"$COMMENT_MARKER\")) | .id")
 
-# Format the tags with individual backticks
-FORMATTED_TAGS=$(echo "$TAGS" | sed 's/,/` `/g' | sed 's/^/`/' | sed 's/$/`/')
+# Format the tags with individual backticks, or use default
+if [ -z "$TAGS" ]; then
+  FORMATTED_TAGS="\`@:all\`"
+else
+  FORMATTED_TAGS=$(echo "$TAGS" | sed 's/,/` `/g' | sed 's/^/`/' | sed 's/$/`/')
+fi
 
 # Add the "🚨 RED ALERT!" note
 RED_ALERT_NOTE="<!-- \n🚨 RED ALERT! ✋ Rule breaker detected! Tags don’t go here, they belong above ^ in the PR description using this proper format: \`@:tag\`. Changing them here won't do anything (trust us, we’ve tried). Confused? Check out the README hyperlink.\n-->"
