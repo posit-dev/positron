@@ -40,6 +40,35 @@ import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 
+/**
+ * The reason for a disconnection event.
+ */
+export enum DisconnectReason {
+	/** Normal disconnect after kernel exits. */
+	Exit = 'exit',
+
+	/** Abnormal disconnect with no known reason. */
+	Unknown = 'unknown',
+
+	/**
+	 * Disconnected because the connection was transferred to another client.
+	 * This can happen in Server mode when another browser tab is opened with
+	 * the same set of sessions as this browser tab.
+	 */
+	Transferred = 'transferred',
+}
+
+/**
+ * The event emitted when the session's websocket is disconnected from the kernel.
+ */
+export interface DisconnectedEvent {
+	/** The state of the kernel at the time of the disconnection */
+	state: positron.RuntimeState;
+
+	/** The reason for the disconnection */
+	reason: DisconnectReason;
+}
+
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * The runtime messages emitter; consumes Jupyter messages and translates
@@ -54,7 +83,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
 
 	/** Emitter for disconnection events  */
-	readonly disconnected: vscode.EventEmitter<positron.RuntimeState>;
+	readonly disconnected: vscode.EventEmitter<DisconnectedEvent>;
 
 	/** Barrier: opens when the session has been established on Kallichore */
 	private readonly _established: Barrier = new Barrier();
@@ -156,7 +185,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Create event emitters
 		this._state = new vscode.EventEmitter<positron.RuntimeState>();
 		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
-		this.disconnected = new vscode.EventEmitter<positron.RuntimeState>();
+		this.disconnected = new vscode.EventEmitter<DisconnectedEvent>();
 
 		// Ensure the emitters are disposed when the session is disposed
 		this._disposables.push(this._state);
@@ -1203,7 +1232,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			this._socket.ws.onclose = (evt: any) => {
 				this.log(`Websocket closed with kernel in status ${this._runtimeState}: ${JSON.stringify(evt)}`, vscode.LogLevel.Info);
-				this.disconnected.fire(this._runtimeState);
+
+				// Only fire the disconnected event if we are eligible to
+				// reconnect
+				if (this._canConnect) {
+					const disconnectEvent: DisconnectedEvent = {
+						reason: this._runtimeState === positron.RuntimeState.Exited ?
+							DisconnectReason.Exit : DisconnectReason.Unknown,
+						state: this._runtimeState,
+					};
+					this.disconnected.fire(disconnectEvent);
+				}
+
 				// When the socket is closed, reset the connected barrier and
 				// clear the websocket instance.
 				this._connected = new Barrier();
@@ -1399,7 +1439,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.disconnect();
 
 			// Treat the runtime as exited
-			this.disconnected.fire(positron.RuntimeState.Exited);
+			const disconnectEvent: DisconnectedEvent = {
+				reason: DisconnectReason.Transferred,
+				state: this._runtimeState,
+			};
+			this.disconnected.fire(disconnectEvent);
 			this.onStateChange(positron.RuntimeState.Exited, data.clientDisconnected);
 
 			// Additional guard to ensure we don't try to reconnect

@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { PositronSupervisorApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './positron-supervisor';
-import { KallichoreSession } from './KallichoreSession';
+import { DisconnectedEvent, DisconnectReason, KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
@@ -631,12 +631,13 @@ export class KCApi implements PositronSupervisorApi {
 	 * @param session The session to add the disconnect handler to
 	 */
 	private addDisconnectHandler(session: KallichoreSession) {
-		this._disposables.push(session.disconnected.event(async (state: positron.RuntimeState) => {
-			if (state !== positron.RuntimeState.Exited) {
+		this._disposables.push(session.disconnected.event(async (evt: DisconnectedEvent) => {
+			if (evt.reason === DisconnectReason.Unknown) {
 				// The websocket disconnected while the session was still
 				// running. This could signal a problem with the supervisor; we
 				// should see if it's still running.
-				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected while in state '${state}'. This is unexpected; checking server status.`);
+				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected ` +
+					`while in state '${evt.state}'. This is unexpected; checking server status.`);
 
 				// If the server did not exit, and the session also appears to
 				// still be running, try to reconnect the websocket. It's
@@ -654,6 +655,9 @@ export class KCApi implements PositronSupervisorApi {
 						vscode.window.showErrorMessage(vscode.l10n.t('Unable to re-establish connection to {0}: {1}', session.metadata.sessionName, err));
 					}
 				}
+			} else if (evt.reason === DisconnectReason.Transferred) {
+				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected ` +
+					`because another client connected to it.`);
 			}
 		}));
 	}
