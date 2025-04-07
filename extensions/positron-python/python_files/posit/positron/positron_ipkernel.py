@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import asyncio
 import enum
-import inspect
 import logging
 import os
 import re
