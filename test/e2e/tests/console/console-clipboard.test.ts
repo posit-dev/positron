@@ -83,10 +83,10 @@ async function toggleAuxiliaryBar(app: Application) {
 	});
 }
 
-async function initializeConsole(console: any) {
+async function initializeConsole(console: Console) {
 	await test.step('Initialize console', async () => {
 		await console.sendEnterKey();
-		await console.barClearButton.click();
+		await console.clearButton.click();
 	});
 }
 
