@@ -352,3 +352,15 @@ export enum PositronChatAgentLocation {
 	Editor = 'editor',
 	EditingSession = 'editing-session',
 }
+
+/**
+ * Code attribution sources for code executed in the Console.
+ */
+export enum CodeAttributionSource {
+	Assistant = 'assistant',
+	Extension = 'extension',
+	Interactive = 'interactive',
+	Notebook = 'notebook',
+	Paste = 'paste',
+	Script = 'script',
+}

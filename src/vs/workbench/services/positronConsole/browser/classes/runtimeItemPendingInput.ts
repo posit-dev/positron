@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IConsoleCodeAttribution } from '../interfaces/positronConsoleService.js';
 import { RuntimeItemStandard } from './runtimeItem.js';
 
 /**
@@ -15,12 +16,14 @@ export class RuntimeItemPendingInput extends RuntimeItemStandard {
 	 * Constructor.
 	 * @param id The identifier.
 	 * @param inputPrompt The input prompt.
+	 * @param attribution The attribution for the code.
 	 * @param executionId The execution identifier for the code.
 	 * @param code The code.
 	 */
 	constructor(
 		id: string,
 		readonly inputPrompt: string,
+		readonly attribution: IConsoleCodeAttribution,
 		readonly executionId: string | undefined,
 		readonly code: string
 	) {
