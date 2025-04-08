@@ -482,26 +482,6 @@ class PositronIPyKernel(IPythonKernel):
         # Patch haystack-ai to ensure is_in_jupyter() returns True in Positron
         patch_haystack_is_in_jupyter()
 
-    # -----
-    # Backport https://github.com/ipython/ipykernel/pull/1210 which removes the control queue and
-    # instead queues control messages using an asyncio.Lock. This is an attempt to fix shutdown
-    # hanging while waiting for the control thread to exit. We're not sure *why* the control
-    # thread never exits, but this simplification shouldn't hurt.
-    # See https://github.com/posit-dev/positron/issues/7142.
-    async def _flush_control_queue(self):  # type: ignore
-        pass
-
-    async def poll_control_queue(self):  # type: ignore
-        pass
-
-    async def dispatch_control(self, msg):  # type: ignore
-        # Ensure only one control message is processed at a time
-        async with asyncio.Lock():
-            await self.process_control(msg)
-
-    # Backport ends here.
-    # -----
-
     def publish_execute_input(
         self,
         code: str,
@@ -584,7 +564,7 @@ class PositronIPyKernel(IPythonKernel):
 
 
 class PositronIPKernelApp(IPKernelApp):
-    control_thread: ControlThread
+    control_thread: ControlThread | None
     kernel: PositronIPyKernel
 
     # Use the PositronIPyKernel class.
@@ -595,6 +575,8 @@ class PositronIPKernelApp(IPKernelApp):
 
     def init_control(self, context):
         result = super().init_control(context)
+        # Should be defined in init_control().
+        assert self.control_thread is not None
         # Add a bunch of debug logging to control thread methods.
         # See: https://github.com/posit-dev/positron/issues/7142.
         self.control_thread.io_loop.start = with_logging(self.control_thread.io_loop.start)
@@ -614,6 +596,23 @@ class PositronIPKernelApp(IPKernelApp):
             os.environ["MPLBACKEND"] = "module://positron.matplotlib_backend"
 
         return super().init_gui_pylab()
+
+    def close(self):
+        # Stop the control thread if it's still alive. This is also attempted in super().close(),
+        # but that doesn't timeout on join() so can hang forever if the control thread is stuck.
+        # See https://github.com/posit-dev/positron/issues/7142.
+        if self.control_thread and self.control_thread.is_alive():
+            self.log.debug("Closing control thread")
+            self.control_thread.stop()
+            self.control_thread.join(timeout=5)
+            # If the thread is still alive after 5 seconds, log a warning and drop the reference.
+            # This leaves the thread dangling, but since it's a daemon thread it won't stop the
+            # process from exiting.
+            if self.control_thread.is_alive() and self.control_thread.daemon:
+                self.log.warning("Control thread did not exit after 5 seconds, dropping it")
+                self.control_thread = None
+
+        super().close()
 
 
 #
