@@ -14,7 +14,7 @@ import { IPathService } from '../../services/path/common/pathService.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
 import { workspacesCategory } from './workspaceActions.js';
 import { Action2, MenuId, registerAction2 } from '../../../platform/actions/common/actions.js';
-import { ConfigurationTarget, IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { EnterMultiRootWorkspaceSupportContext } from '../../common/contextkeys.js';
 import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
 import { showNewFolderModalDialog } from '../positronModalDialogs/newFolderModalDialog.js';
@@ -28,11 +28,6 @@ import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { IPositronNewProjectService } from '../../services/positronNewProject/common/positronNewProject.js';
 import { IWorkspaceTrustManagementService } from '../../../platform/workspace/common/workspaceTrust.js';
 import { ILabelService } from '../../../platform/label/common/label.js';
-import * as platform from '../../../base/common/platform.js';
-import { URI } from '../../../base/common/uri.js';
-import { IEditorService } from '../../services/editor/common/editorService.js';
-import { IPreferencesService } from '../../services/preferences/common/preferences.js';
-import { IResourceDiffEditorInput } from '../../common/editor.js';
 
 /**
  * The PositronNewProjectAction.
@@ -234,128 +229,9 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 	}
 }
 
-export class PositronImportSettings extends Action2 {
-	/**
-	 * The action ID.
-	 */
-	static readonly ID = 'positron.workbench.action.importSettings';
-
-	/**
-	 * Constructor.
-	 */
-	constructor() {
-		super({
-			id: PositronImportSettings.ID,
-			title: {
-				value: localize('positronImportSettings', "Import Settings..."),
-				original: 'Import Settings...'
-			},
-			category: 'Preferences',
-			f1: true,
-		});
-	}
-
-	/**
-	 * Runs action.
-	 * @param accessor The services accessor.
-	 */
-	override async run(accessor: ServicesAccessor): Promise<void> {
-		const pathService = accessor.get(IPathService);
-		const fileService = accessor.get(IFileService);
-		const editorService = accessor.get(IEditorService);
-		const prefService = accessor.get(IPreferencesService);
-
-		const positronSettingsPath = await prefService.getEditableSettingsURI(ConfigurationTarget.USER);
-		if (!positronSettingsPath) {
-			alert('No Positron settings found');
-			return;
-		}
-
-		const positronSettingsContent = await fileService
-			.readFile(positronSettingsPath)
-			.then(content => content.value.toString());
-		const positronData = JSON.parse(positronSettingsContent);
-
-		if (!positronData) {
-			alert('No Positron settings found');
-			return;
-		}
-
-		const codeSettingsPath = await this.getCodeSettingsPath(pathService);
-		const codeSettingsContent = await fileService
-			.readFile(codeSettingsPath)
-			.then(content => content.value.toString());
-		const codeData = JSON.parse(codeSettingsContent);
-
-		if (!codeData) {
-			alert('No Code settings found');
-			return;
-		}
-
-		const orderedPositronData = Object.keys(positronData).sort().reduce(
-			(obj, key) => {
-				obj[key] = positronData[key];
-				return obj;
-			},
-			{} as any
-		);
-
-		const orderedCodeData = Object.keys(codeData).sort().reduce(
-			(obj, key) => {
-				obj[key] = codeData[key];
-				return obj;
-			},
-			{} as any
-		);
-
-		const input: IResourceDiffEditorInput = {
-			original: { resource: positronSettingsPath, contents: JSON.stringify(orderedCodeData, null, 2) },
-			modified: { resource: codeSettingsPath, contents: JSON.stringify(orderedPositronData, null, 2) },
-		};
-
-		await editorService.openEditor(input);
-
-	}
-
-
-
-	private async getCodeSettingsPath(pathService: IPathService): Promise<URI> {
-		const path = await pathService.path;
-		const homedir = await pathService.userHome();
-
-		let appDataPath: URI;
-		switch (platform.OS) {
-			case platform.OperatingSystem.Windows:
-				if (process.env['APPDATA']) {
-					appDataPath = URI.parse(process.env['APPDATA']);
-				} else {
-					const userProfile = process.env['USERPROFILE'];
-					if (typeof userProfile !== 'string') {
-						throw new Error('Windows: Unexpected undefined %USERPROFILE% environment variable');
-					}
-
-					appDataPath = URI.parse(path.join(userProfile, 'AppData', 'Roaming'));
-				}
-				break;
-			case platform.OperatingSystem.Macintosh:
-				appDataPath = homedir.with({ path: path.join(homedir.path, 'Library', 'Application Support') });
-				break;
-			case platform.OperatingSystem.Linux:
-				appDataPath = process.env['XDG_CONFIG_HOME'] ? URI.parse(process.env['XDG_CONFIG_HOME']) : homedir.with({ path: path.join(homedir.path, '.config') });
-				break;
-			default:
-				throw new Error('Platform not supported');
-		}
-
-		return appDataPath.with({ path: path.join(appDataPath.path, 'Code', 'User', 'settings.json') });
-	}
-
-
-}
 
 // Register the actions defined above.
 registerAction2(PositronNewProjectAction);
 registerAction2(PositronNewFolderAction);
 registerAction2(PositronNewFolderFromGitAction);
 registerAction2(PositronOpenFolderInNewWindowAction);
-registerAction2(PositronImportSettings);
