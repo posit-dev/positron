@@ -258,14 +258,15 @@ export class NotebookProviderInfoStore extends Disposable {
 					};
 				}
 
+				const preferredResourceParam = cellOptions?.resource;
+
 				// --- Start Positron ---
 				if (getShouldUsePositronEditor(this._configurationService)) {
 					// Use our editor instead of the built in one.
-					return { editor: PositronNotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResource, notebookProviderInfo.id), options };
+					return { editor: PositronNotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResourceParam, notebookProviderInfo.id), options };
 				}
 				// --- End Positron ---
-				//
-				const preferredResourceParam = cellOptions?.resource;
+
 				const editor = NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResourceParam, notebookProviderInfo.id);
 				return { editor, options: notebookOptions };
 			};
