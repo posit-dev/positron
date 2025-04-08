@@ -234,7 +234,10 @@ function prepareRpmPackage(arch) {
 		const code = gulp.src(binaryDir + '/**/*', { base: binaryDir })
 			.pipe(rename(function (p) { p.dirname = 'BUILD/usr/share/' + product.applicationName + '/' + p.dirname; }));
 
-		const spec = gulp.src('resources/linux/rpm/code.spec.template', { base: '.' })
+		// --- Start Positron ---
+		// Use Positron control file instead of VS Code's
+		const spec = gulp.src('resources/linux/rpm/positron.spec.template', { base: '.' })
+			// --- End Positron ---
 			.pipe(replace('@@NAME@@', product.applicationName))
 			.pipe(replace('@@NAME_LONG@@', product.nameLong))
 			.pipe(replace('@@ICON@@', product.linuxIconName))
