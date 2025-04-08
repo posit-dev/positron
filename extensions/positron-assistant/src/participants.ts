@@ -98,7 +98,8 @@ class PositronAssistantParticipant implements IPositronAssistantParticipant {
 	};
 
 	readonly welcomeMessageProvider = {
-		provideWelcomeMessage: async (token: vscode.CancellationToken) => {
+		async provideSampleQuestions(location: vscode.ChatLocation, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
+			/*
 			let welcomeText;
 			const addLanguageModelMessage = vscode.l10n.t('Add a Language Model.');
 
@@ -116,12 +117,11 @@ class PositronAssistantParticipant implements IPositronAssistantParticipant {
 
 			const message = new vscode.MarkdownString(welcomeText, true);
 			message.isTrusted = true;
+			*/
 
-			return {
-				icon: new vscode.ThemeIcon('positron-assistant'),
-				title: 'Positron Assistant',
-				message,
-			};
+			return [{
+				prompt: 'Welcome to Positron Assistant! How can I help you today?',
+			}];
 		}
 	};
 
