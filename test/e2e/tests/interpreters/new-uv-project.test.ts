@@ -13,7 +13,7 @@ test.use({
 });
 
 test.describe('New UV Environment', {
-	tag: [tags.INTERPRETER, tags.WIN]
+	tag: [tags.INTERPRETER]
 }, () => {
 
 	test.afterAll(async () => {
