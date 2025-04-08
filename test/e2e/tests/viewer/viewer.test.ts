@@ -28,7 +28,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		// extra clean up - https://github.com/posit-dev/positron/issues/4604
 		// without this, on ubuntu, the Enter key send to the console
 		// won't work because the pasted code is out of view
-		await app.workbench.console.barClearButton.click();
+		await app.workbench.console.clearButton.click();
 
 		logger.log('Sending code to console');
 		await app.workbench.console.pasteCodeToConsole(pythonGreatTablesScript);

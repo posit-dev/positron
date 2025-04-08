@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from './code';
-import { Interpreter } from '../infra/fixtures/interpreter';
 import { Popups } from '../pages/popups';
 import { Console } from '../pages/console';
 import { Variables } from '../pages/variables';
@@ -38,8 +37,8 @@ import { References } from '../pages/references';
 import { SCM } from '../pages/scm';
 import { Sessions } from '../pages/sessions';
 import { Search } from '../pages/search.js';
-import { HotKeys } from '../pages/hotKeys.js';
 import { Assistant } from '../pages/positronAssistant.js';
+import { HotKeys } from '../pages/hotKeys.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -47,7 +46,6 @@ export interface Commands {
 
 export class Workbench {
 
-	readonly interpreter: Interpreter;
 	readonly popups: Popups;
 	readonly console: Console;
 	readonly variables: Variables;
@@ -98,12 +96,11 @@ export class Workbench {
 		this.quickInput = new QuickInput(code);
 		this.editors = new Editors(code);
 		this.quickaccess = new QuickAccess(code, this.editors, this.quickInput);
-		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.hotKeys);
 		this.connections = new Connections(code, this.quickaccess);
 		this.newProjectWizard = new NewProjectWizard(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickaccess, this.quickInput, this.hotKeys);
-		this.interpreter = new Interpreter(code, this.console);
+		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
 		this.clipboard = new Clipboard(code);

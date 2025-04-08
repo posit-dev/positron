@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import test, { expect, Locator } from '@playwright/test';
-import { Code, HotKeys, QuickAccess } from '../infra';
+import { Code, QuickAccess, Console } from '../infra';
 import { QuickInput } from './quickInput';
 
 const DESIRED_PYTHON = process.env.POSITRON_PY_VER_SEL;
@@ -27,6 +27,7 @@ export class Sessions {
 	sessionTabs = this.page.getByTestId(/console-tab/);
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
+	private sessionTrashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -34,19 +35,13 @@ export class Sessions {
 	private disconnectedStatus = (session: Locator) => session.locator('.codicon-positron-status-disconnected');
 	private activeStatusIcon = this.page.locator(ACTIVE_STATUS_ICON);
 
-	// Session console buttons
-	restartButton = this.page.getByLabel('Restart console', { exact: true });
-	private shutDownButton = this.page.getByLabel('Shutdown console', { exact: true });
-	private trashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
-	newSessionButton = this.page.getByRole('toolbar', { name: 'Console actions' }).getByRole('button', { name: 'Start a New Session' });
-
 	// Session Metadata
 	private metadataButton = this.page.getByRole('button', { name: 'Console information' });
 	private metadataDialog = this.page.getByRole('dialog').locator('.console-instance-info');
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private console: Console) { }
 
 	// -- Actions --
 
@@ -96,6 +91,7 @@ export class Sessions {
 		if (reuse) {
 			// retrieve the list of active sessions from the session quick pick menu
 			// filter the console tabs to include only those sessions that are currently active
+			await this.console.focus();
 			const quickPickActiveSessionNames = new Set((await this.quickPick.getActiveSessions()).map(s => s.name));
 			const consoleTabActiveSessions = (await this.getAllSessionIdsAndNames())
 				.filter(session => quickPickActiveSessionNames.has(session.name));
@@ -134,26 +130,28 @@ export class Sessions {
 	 */
 	async delete(sessionId: string): Promise<void> {
 		await test.step(`Delete session: ${sessionId}`, async () => {
-			await this.hotKeys.focusConsole();
+			await expect(async () => {
+				await this.console.focus();
 
-			if (await this.getSessionCount() === 1) {
-				const currentSessionId = await this.getCurrentSessionId();
-				if (currentSessionId === sessionId) {
-					await this.page.getByTestId('trash-session').click();
-					return;
+				if (await this.getSessionCount() === 1) {
+					const currentSessionId = await this.getCurrentSessionId();
+					if (currentSessionId === sessionId) {
+						await this.page.getByTestId('trash-session').click();
+						return;
+					} else {
+						throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
+					}
 				} else {
-					throw new Error(`Cannot delete session ${sessionId} because it does not exist`);
+					const sessionTab = this.getSessionTab(sessionId);
+
+					await sessionTab.click();
+					await sessionTab.hover();
+					await this.sessionTrashButton(sessionId).click();
 				}
-			} else {
-				const sessionTab = this.getSessionTab(sessionId);
 
-				await sessionTab.click();
-				await sessionTab.hover();
-				await this.trashButton(sessionId).click();
-			}
-
-			await expect(this.page.getByText('Shutting down')).not.toBeVisible();
-			await expect(this.consoleInstance(sessionId)).not.toBeVisible();
+				await expect(this.page.getByText('Shutting down')).not.toBeVisible();
+				await expect(this.consoleInstance(sessionId)).not.toBeVisible();
+			}, `Delete session: ${sessionId}`).toPass();
 		});
 	}
 
@@ -169,7 +167,7 @@ export class Sessions {
 		const { waitForIdle = true, clearConsole = true } = options || {};
 
 		await test.step(`Restart session: ${sessionIdOrName}`, async () => {
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 
 			if (await this.getSessionCount() > 1) {
 				await this.getSessionTab(sessionIdOrName).click();
@@ -179,7 +177,7 @@ export class Sessions {
 				await this.page.getByLabel('Clear console').click();
 			}
 
-			await this.restartButton.click();
+			await this.console.restartButton.click();
 			await this.page.mouse.move(0, 0);
 
 			if (waitForIdle) {
@@ -191,29 +189,12 @@ export class Sessions {
 	}
 
 	/**
-	 * Action: Shutdown the session
-	 *
-	 * @param sessionIdOrName - the id or name of the session
-	 * @param waitForDisconnected - wait for the session to display as "disconnected"
-	 */
-	async shutdown(sessionIdOrName: string, waitForDisconnected = true): Promise<void> {
-		await test.step(`Shutdown session: ${sessionIdOrName}`, async () => {
-			await this.getSessionTab(sessionIdOrName).click();
-			await this.shutDownButton.click();
-
-			if (waitForDisconnected) {
-				await this.expectStatusToBe(sessionIdOrName, 'disconnected');
-			}
-		});
-	}
-
-	/**
 	 * Action: Open the metadata dialog and select the desired menu item
 	 *
 	 * @param menuItem - the menu item to click on the metadata dialog
 	 */
 	async selectMetadataOption(menuItem: 'Show Kernel Output Channel' | 'Show Console Output Channel' | 'Show LSP Output Channel') {
-		await this.hotKeys.focusConsole();
+		await this.console.focus();
 		await this.metadataButton.click();
 		await this.metadataDialog.getByText(menuItem).click();
 
@@ -346,7 +327,7 @@ export class Sessions {
 	 */
 	async select(sessionIdOrName: string, waitForSessionIdle = false): Promise<void> {
 		await test.step(`Select session: ${sessionIdOrName}`, async () => {
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 			const sessionTab = this.getSessionTab(sessionIdOrName);
 
 			if (waitForSessionIdle) {
@@ -364,7 +345,7 @@ export class Sessions {
 	 */
 	async getSessionCount(): Promise<number> {
 		return await test.step('Get console session count', async () => {
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 			const count = (await this.sessions.all()).length;
 			return count;
 		});
@@ -427,8 +408,8 @@ export class Sessions {
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
 			} else if (triggerMode === 'console') {
-				await this.hotKeys.focusConsole();
-				await this.newSessionButton.click();
+				await this.console.focus();
+				await this.console.newSessionButton.click();
 			} else {
 				await this.page.keyboard.press('Control+Shift+/');
 			}
@@ -488,7 +469,7 @@ export class Sessions {
 	 * Helper: Wait for runtimes to finish loading
 	 */
 	async expectNoStartUpMessaging() {
-		await this.hotKeys.focusConsole();
+		await this.console.focus();
 		await this.code.driver.page.mouse.move(0, 0);
 		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });
 	}
@@ -585,7 +566,7 @@ export class Sessions {
 	 */
 	async getMetadata(sessionId?: string): Promise<SessionMetaData> {
 		return await test.step(`Get metadata for: ${sessionId ?? 'current session'}`, async () => {
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 
 			const isSingleSession = (await this.getSessionCount()) === 1;
 
@@ -697,9 +678,17 @@ export class Sessions {
 	* Action: Open the metadata dialog for the current session
 	*/
 	async openMetadataDialog() {
-		await this.metadataButton.click();
-		await this.page.mouse.move(0, 0);
-		await expect(this.metadataDialog).toBeVisible();
+		await expect(async () => {
+			const isMetadataDialogVisible = await this.metadataDialog.isVisible();
+
+			if (!isMetadataDialogVisible) {
+				await this.metadataButton.click();
+				await this.page.mouse.move(0, 0);
+				await this.page.waitForTimeout(500);
+			}
+
+			await expect(this.metadataDialog).toBeVisible();
+		}, 'Open the Metadata Dialog').toPass();
 	}
 
 	// -- Verifications --
@@ -725,7 +714,7 @@ export class Sessions {
 				await expect(sessionTab.locator(statusClass)).toBeVisible({ timeout });
 			} else if (sessionCount === 1) {
 				// get status from metadata dialog because there is no tab list view
-				await this.metadataButton.click();
+				await this.openMetadataDialog();
 				await expect(this.metadataDialog.getByText(`State: ${expectedStatus}`)).toBeVisible({ timeout });
 				await this.page.keyboard.press('Escape');
 			} else {
@@ -738,12 +727,11 @@ export class Sessions {
 	 * Verify: Check the metadata of the session dialog
 	 * @param session - the expected session info to verify
 	 */
-	async expectMetaDataToBe(session: SessionMetaData) {
+	async expectMetadataToBe(session: SessionMetaData) {
 		await test.step(`Verify ${session.name} metadata: ${session.state}, ${session.path}`, async () => {
 
-			// Click metadata button for desired session
 			await this.getSessionTab(session.id).click();
-			await this.metadataButton.click();
+			await this.openMetadataDialog();
 
 			// Verify metadata
 			await expect(this.metadataDialog.getByTestId('session-name')).toContainText(session.name);
@@ -774,7 +762,7 @@ export class Sessions {
 			await expect(this.outputChannel).toHaveValue(/Language Server \(Console\)$/);
 
 			// Go back to console when done
-			await this.hotKeys.focusConsole();
+			await this.console.focus();
 		});
 	}
 
@@ -1058,6 +1046,16 @@ const pythonSessionHidden: SessionInfo = {
 	waitForReady: true
 };
 
+// Use this session object to manage reticulate sessions.
+const pythonReticulate: SessionInfo = {
+	name: `Python (reticulate)`,
+	language: 'Python',
+	version: '',
+	triggerMode: 'session-picker',
+	id: '',
+	waitForReady: true
+};
+
 // Use this session object to manage default R env in the test
 const rSession: SessionInfo = {
 	name: `R ${DESIRED_R}`,
@@ -1088,7 +1086,7 @@ const rSessionHidden: SessionInfo = {
 	waitForReady: true
 };
 
-type SessionRuntimes = 'python' | 'pythonAlt' | 'pythonHidden' | 'r' | 'rAlt' | 'rHidden';
+type SessionRuntimes = 'python' | 'pythonAlt' | 'pythonHidden' | 'pythonReticulate' | 'r' | 'rAlt' | 'rHidden';
 
 export const availableRuntimes: { [key: string]: SessionInfo } = {
 	r: { ...rSession },
@@ -1097,4 +1095,5 @@ export const availableRuntimes: { [key: string]: SessionInfo } = {
 	python: { ...pythonSession },
 	pythonAlt: { ...pythonSessionAlt },
 	pythonHidden: { ...pythonSessionHidden },
+	pythonReticulate: { ...pythonReticulate },
 };

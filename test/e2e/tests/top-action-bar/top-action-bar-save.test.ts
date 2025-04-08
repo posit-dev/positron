@@ -20,6 +20,10 @@ test.describe('Top Action Bar - Save Actions', {
 		}
 	});
 
+	test.afterAll(async function ({ cleanup }) {
+		await cleanup.discardAllChanges();
+	});
+
 	test('Verify `Save` and `Save All` are disabled when no unsaved editors are open', async function ({ app }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors', { keepOpen: false });
 		await expect(app.workbench.topActionBar.saveButton).not.toBeEnabled();
