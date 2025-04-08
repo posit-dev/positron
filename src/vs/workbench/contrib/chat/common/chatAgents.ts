@@ -304,6 +304,9 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		let toolsAgentRegistered = false;
 		for (const agent of this.getAgents()) {
 			if (agent.isDefault && agent.locations.includes(ChatAgentLocation.EditingSession)) {
+				// --- Start Positron ---
+				defaultAgentRegistered = true;
+				// --- End Positron ---
 				editingAgentRegistered = true;
 				if (agent.isToolsAgent) {
 					toolsAgentRegistered = true;
