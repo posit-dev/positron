@@ -22,7 +22,7 @@ const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
 // const OATH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
-// const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
+const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -90,6 +90,7 @@ export class Assistant {
 	}
 
 	async enterApiKey(apiKey: string) {
+		await this.code.driver.page.locator(APIKEY_RADIO).check();
 		const apiKeyInput = this.code.driver.page.locator(APIKEY_INPUT);
 		await apiKeyInput.fill(apiKey);
 	}
