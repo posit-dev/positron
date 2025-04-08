@@ -16,6 +16,10 @@ test.describe('New UV Environment', {
 	tag: [tags.INTERPRETER]
 }, () => {
 
+	test.beforeAll(async function ({ userSettings }) {
+		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
+	});
+
 	test.afterAll(async () => {
 		const projPath = '/tmp/vscsmoke/qa-example-content/proj';
 		try {
@@ -29,8 +33,6 @@ test.describe('New UV Environment', {
 	test('Python - Add new UV environment', async function ({ app, openFolder }) {
 
 		await app.workbench.terminal.clickTerminalTab();
-
-		await app.code.wait(2000);
 
 		await app.workbench.terminal.runCommandInTerminal('uv init proj');
 
