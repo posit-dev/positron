@@ -4,11 +4,21 @@
  *--------------------------------------------------------------------------------------------*/
 
 .chat-action-bar-container {
-	height: 32px;
+	height: 28px;
 }
 
 .chat-action-bar {
 	margin-left: 5px;
 	display: flex;
 	align-items: center;
+	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
+	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
+	--positronActionBar-foreground: var(--vscode-positronSideActionBar-foreground);
+	--positronActionBar-hoverBackground: var(--vscode-positronSideActionBar-hoverBackground);
+	--positronActionBar-disabledForeground: var(--vscode-positronSideActionBar-disabledForeground);
+}
+
+.chat-action-bar svg {
+	width: 16px;
+	height: 16px;
 }

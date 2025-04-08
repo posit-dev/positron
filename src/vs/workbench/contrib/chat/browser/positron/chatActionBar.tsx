@@ -12,6 +12,7 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { ModelPickerDelegate } from '../chatInputPart.js';
 import Gemini from '../../../positronAssistant/browser/icons/gemini.js';
 import Bedrock from '../../../positronAssistant/browser/icons/bedrockColor.js';
+import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 
 interface ChatActionBarProps {
 	currentModel?: ILanguageModelChatMetadataAndIdentifier;
@@ -45,7 +46,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 
 	React.useEffect(() => {
 		props.delegate.onDidChangeModel((newModel) => setModel(newModel));
-	})
+	}, [props.delegate])
 
 	const getIcon = () => {
 		switch (model?.metadata.family) {
@@ -64,11 +65,15 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 
 	return (
 		<div className='chat-action-bar'>
-			{getIcon()}
-			<ActionBarMenuButton
-				actions={actions}
-				text={model?.metadata.name ?? 'Loading models...'}
-			/>
+			<PositronActionBar
+				size='small'
+			>
+				{getIcon()}
+				<ActionBarMenuButton
+					actions={actions}
+					text={model?.metadata.name ?? 'Loading models...'}
+				/>
+			</PositronActionBar>
 		</div>
 	);
 });

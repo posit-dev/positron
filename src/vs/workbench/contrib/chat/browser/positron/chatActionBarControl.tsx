@@ -23,7 +23,7 @@ import { ILayoutService } from '../../../../../platform/layout/browser/layoutSer
 import { ILanguageModelsService, ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
 import { PositronChatContextProvider } from './chatContext.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
-import { ModelPickerDelegate } from '../chatInputPart.js';
+import { ChatInputPart } from '../chatInputPart.js';
 
 export class ChatActionBarControl extends Disposable {
 	private _container?: HTMLElement;
@@ -33,7 +33,7 @@ export class ChatActionBarControl extends Disposable {
 	readonly onModelSelect = this._onChangeLanguageModel.event;
 
 	constructor(
-		private readonly _modelPickerDelegate: ModelPickerDelegate,
+		private readonly _chatInput: ChatInputPart,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -49,6 +49,13 @@ export class ChatActionBarControl extends Disposable {
 
 		this._container = document.createElement('div');
 		this._container.className = 'chat-action-bar-container';
+
+		const initialModel = this._chatInput.modelPickerDelegate.getModels()
+			.find((model) => model.identifier === this._chatInput.currentLanguageModel);
+
+		if (initialModel) {
+			this._currentLanguageModel = initialModel;
+		}
 
 		this._positronReactRenderer = new PositronReactRenderer(this._container);
 		this._positronReactRenderer.render(
@@ -68,7 +75,7 @@ export class ChatActionBarControl extends Disposable {
 				>
 					<ChatActionBar
 						currentModel={this._currentLanguageModel}
-						delegate={this._modelPickerDelegate}
+						delegate={this._chatInput.modelPickerDelegate}
 						width={this._container.parentElement?.clientWidth ?? 150}
 						onModelSelect={(newLanguageModel) => {
 							this._currentLanguageModel = newLanguageModel;
