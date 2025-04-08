@@ -87,6 +87,11 @@ export class KCApi implements PositronSupervisorApi {
 	private _newSupervisor = true;
 
 	/**
+	 * Whether or not we are showing the disconnected warning dialog
+	 */
+	private _showingDisconnectedWarning = false;
+
+	/**
 	 * Create a new Kallichore API object.
 	 *
 	 * @param _context The extension context
@@ -658,6 +663,19 @@ export class KCApi implements PositronSupervisorApi {
 			} else if (evt.reason === DisconnectReason.Transferred) {
 				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected ` +
 					`because another client connected to it.`);
+				if (!this._showingDisconnectedWarning) {
+					this._showingDisconnectedWarning = true;
+					try {
+						await positron.window.showSimpleModalDialogMessage(
+							vscode.l10n.t('Interpreters Disconnected'),
+							vscode.l10n.t('This Positron session has been opened in another window, and ' +
+								'interpreters are now disconnected from this window.'),
+							vscode.l10n.t('Continue')
+						);
+					} finally {
+						this._showingDisconnectedWarning = false;
+					}
+				}
 			}
 		}));
 	}
