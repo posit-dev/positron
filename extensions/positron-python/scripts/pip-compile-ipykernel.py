@@ -1,3 +1,10 @@
+# /// script
+# requires-python = "==3.9.*"
+# dependencies = [
+#     "pip",
+#     "pip-tools",
+# ]
+# ///
 """
 This script generates pinned requirements files for ipykernel.
 
