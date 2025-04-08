@@ -92,6 +92,8 @@ export async function defaultHandler(
 					vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
 					...messages
 				];
+				// Add the file as a reference in the response.
+				response.reference(fileUri);
 			}
 		}
 	}
@@ -120,12 +122,19 @@ export async function defaultHandler(
 					selectionText,
 				};
 				textParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
+				// Add the file as a reference in the response.
+				// Although the reference includes a range, we provide the full document text as context
+				// and can't distinguish which part the model uses, so we don't include the range in the
+				// response reference.
+				response.reference(location.uri);
 			} else if (reference.id.startsWith('file://')) {
 				const uri = (reference.value as vscode.Uri);
 				const document = await vscode.workspace.openTextDocument(uri);
 				const documentText = document.getText();
 				const ref = { id: reference.id, uri: uri.toString(), documentText };
 				textParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
+				// Add the file as a reference in the response.
+				response.reference(uri);
 			} else if ('mimeType' in value) {
 				const binaryValue = value as vscode.ChatReferenceBinaryData;
 				const data = await binaryValue.data();
