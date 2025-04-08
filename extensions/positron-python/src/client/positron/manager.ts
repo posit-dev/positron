@@ -441,8 +441,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
      * @param pythonPath The path to the Python interpreter.
      * @returns Promise that resolves when the runtime is selected.
      */
-    async selectLanguageRuntimeFromPath(pythonPath: string, recreateEnv?: boolean): Promise<void> {
-        await this.registerLanguageRuntimeFromPath(pythonPath, recreateEnv);
+    async selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<void> {
+        await this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
         const runtimeMetadata = this.registeredPythonRuntimes.get(pythonPath);
         if (runtimeMetadata) {
             await positron.runtime.selectLanguageRuntime(runtimeMetadata.runtimeId);
