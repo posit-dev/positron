@@ -692,7 +692,16 @@ export class TreeSitterParseResult implements IDisposable, ITreeSitterParseResul
 			await new Promise<void>(resolve => setTimeout0(resolve));
 
 		} while (!model.isDisposed() && !this.isDisposed && !newTree && inProgressVersion === model.getVersionId());
-		this.sendParseTimeTelemetry(parseType, time, passes);
+		// --- Start Positron ---
+		// Disable telemetry (which leaks into tests and causes failures) by
+		// effectively surrounding it with `if false`; we don't just comment it
+		// out because that results in a TS error due to the unused method.
+		//
+		// this.sendParseTimeTelemetry(parseType, language, time, passes);
+		if (!model) {
+			this.sendParseTimeTelemetry(parseType, time, passes);
+		}
+		// --- End Positron ---
 		return (newTree && (inProgressVersion === model.getVersionId())) ? newTree : undefined;
 	}
 
