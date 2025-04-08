@@ -2290,6 +2290,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			case RuntimeExitReason.SwitchRuntime:
 				return localize('positronConsole.exit.shutdown', "{0} shut down successfully.", exit.runtime_name);
 
+			case RuntimeExitReason.Transferred:
+				return localize('positronConsole.exit.transfer', "{0} was opened in another window.", exit.runtime_name);
+
 			case RuntimeExitReason.Error:
 				return localize('positronConsole.exit.error', "{0} exited unexpectedly: {1}", exit.runtime_name, this.formatExitCode(exit.exit_code));
 

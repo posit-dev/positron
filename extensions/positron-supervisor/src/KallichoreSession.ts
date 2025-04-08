@@ -1446,6 +1446,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this.disconnected.fire(disconnectEvent);
 			this.onStateChange(positron.RuntimeState.Exited, data.clientDisconnected);
 
+			const exitEvent: positron.LanguageRuntimeExit = {
+				exit_code: 0,
+				reason: positron.RuntimeExitReason.Transferred,
+				runtime_name: this.runtimeMetadata.runtimeName,
+				message: ''
+			};
+			this._exit.fire(exitEvent);
+
 			// Additional guard to ensure we don't try to reconnect
 			this._canConnect = false;
 		} else if (data.hasOwnProperty('exited')) {
