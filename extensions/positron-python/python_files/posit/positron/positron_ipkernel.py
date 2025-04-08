@@ -7,7 +7,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import enum
 import logging
 import os
