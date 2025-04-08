@@ -13,7 +13,7 @@ test.use({
 });
 
 test.describe('New UV Environment', {
-	tag: [tags.INTERPRETER]
+	tag: [tags.INTERPRETER, tags.WIN]
 }, () => {
 
 	test.afterAll(async () => {
@@ -29,6 +29,8 @@ test.describe('New UV Environment', {
 	test('Python - Add new UV environment', async function ({ app, openFolder }) {
 
 		await app.workbench.terminal.clickTerminalTab();
+
+		await app.code.wait(2000);
 
 		await app.workbench.terminal.runCommandInTerminal('uv init proj');
 
