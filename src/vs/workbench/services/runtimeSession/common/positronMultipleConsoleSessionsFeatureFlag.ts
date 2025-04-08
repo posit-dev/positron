@@ -36,7 +36,7 @@ configurationRegistry.registerConfiguration({
 	properties: {
 		[USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY]: {
 			type: 'boolean',
-			default: false,
+			default: true,
 			markdownDescription: localize(
 				'console.enableMultipleConsoleSessionsFeature',
 				'**CAUTION**: Enable experimental Positron multiple console sessions features which may result in unexpected behaviour. Please restart Positron if you change this option.'
