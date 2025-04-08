@@ -13,10 +13,6 @@ test.describe('Sessions: Delete', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.SESSIONS, tags.CRITICAL]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
-	});
-
 	test('Python - Validate can delete a single session', async function ({ sessions }) {
 		await sessions.start(['python']);
 		await sessions.expectSessionCountToBe(1);
