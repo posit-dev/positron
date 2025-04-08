@@ -39,9 +39,10 @@ export async function promptImport(
 			// This will prevent the prompt from showing up again.
 			{
 				label: 'Import',
-				run: async () => {
-					setImportWasPrompted(storageService);
-					await commandService.executeCommand(PositronImportSettings.ID);
+				run: () => {
+					commandService.executeCommand(PositronImportSettings.ID);
+					// TODO @samclark2015: Uncomment this when the import command is implemented.
+					// setImportWasPrompted(storageService);
 				},
 			},
 			// Dismisses notification, but will prompt again on next launch.

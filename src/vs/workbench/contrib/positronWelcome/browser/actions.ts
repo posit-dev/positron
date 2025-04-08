@@ -92,9 +92,11 @@ export class PositronImportSettings extends Action2 {
 			{} as any
 		);
 
+
+
 		const input: IResourceDiffEditorInput = {
-			original: { resource: positronSettingsPath, contents: JSON.stringify(orderedCodeData, null, 2) },
-			modified: { resource: codeSettingsPath, contents: JSON.stringify(orderedPositronData, null, 2) },
+			original: { resource: undefined, contents: JSON.stringify(orderedPositronData, null, 2), label: 'Positron Settings', options: { transient: true } },
+			modified: { resource: undefined, contents: JSON.stringify(orderedCodeData, null, 2), label: 'Visual Studio Code Settings', options: { transient: true } },
 		};
 
 		await editorService.openEditor(input);

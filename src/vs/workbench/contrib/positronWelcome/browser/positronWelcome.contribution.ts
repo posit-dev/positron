@@ -29,8 +29,8 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 	}
 
 	private registerActions(): void {
-		registerAction2(PositronImportSettings);
-		registerAction2(ResetPositronImportPrompt);
+		this._register(registerAction2(PositronImportSettings));
+		this._register(registerAction2(ResetPositronImportPrompt));
 	}
 }
 
