@@ -143,7 +143,11 @@ mockedVSCode.RelativePattern = vscodeMocks.vscMockExtHostedTypes.RelativePattern
 mockedVSCode.ProgressLocation = vscodeMocks.vscMockExtHostedTypes.ProgressLocation;
 mockedVSCode.ViewColumn = vscodeMocks.vscMockExtHostedTypes.ViewColumn;
 mockedVSCode.TextEditorRevealType = vscodeMocks.vscMockExtHostedTypes.TextEditorRevealType;
-mockedVSCode.TreeItem = vscodeMocks.vscMockExtHostedTypes.TreeItem;
+// --- Start Positron ---
+// Added the (mockedVSCode as any) cast to avoid TypeScript error?
+// Not sure why this wasn't done upstream.
+(mockedVSCode as any).TreeItem = vscodeMocks.vscMockExtHostedTypes.TreeItem;
+// --- End Positron ---
 mockedVSCode.TreeItemCollapsibleState = vscodeMocks.vscMockExtHostedTypes.TreeItemCollapsibleState;
 (mockedVSCode as any).CodeActionKind = vscodeMocks.CodeActionKind;
 mockedVSCode.CompletionItemKind = vscodeMocks.CompletionItemKind;

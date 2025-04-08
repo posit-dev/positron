@@ -23,6 +23,8 @@ import { isRuntimeNotebookKernelEnabled } from '../common/runtimeNotebookKernelC
 import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
+import { Emitter, Event } from '../../../../base/common/event.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
  * The affinity of a kernel for a notebook.
@@ -46,6 +48,10 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 
 	/** Map of runtime notebook kernels keyed by runtime ID. */
 	private readonly _kernelsByRuntimeId = new Map<string, RuntimeNotebookKernel>();
+
+	/** An event that fires when code is executed in any notebook */
+	private readonly _didExecuteCodeEmitter = this._register(new Emitter<ILanguageRuntimeCodeExecutedEvent>());
+	onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._didExecuteCodeEmitter.event;
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -186,6 +192,11 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 
 		// Register the kernel with the notebook kernel service.
 		this._register(this._notebookKernelService.registerKernel(kernel));
+
+		// Listen for code execution events from the kernel.
+		this._register(kernel.onDidExecuteCode(e => {
+			this._didExecuteCodeEmitter.fire(e);
+		}));
 	}
 
 	/**

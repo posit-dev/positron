@@ -11,6 +11,8 @@ test.use({
 	suiteId: __filename
 });
 
+let newFileName: string;
+
 test.describe('Notebooks', {
 	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
 }, () => {
@@ -29,6 +31,10 @@ test.describe('Notebooks', {
 
 		test.afterEach(async function ({ app }) {
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
+		});
+
+		test.afterAll(async function ({ cleanup }) {
+			await cleanup.removeTestFiles([newFileName]);
 		});
 
 		test('Python - Verify code cell execution in notebook', async function ({ app }) {
@@ -57,18 +63,27 @@ test.describe('Notebooks', {
 			// First, create and execute a cell to verify initial session
 			await app.workbench.notebooks.addCodeToCellAtIndex('foo = "bar"');
 
-			await expect(async () => {
-				await app.workbench.notebooks.executeCodeInCell();
-
-				// Verify the variable is in the variables pane
-				await app.workbench.variables.expectVariableToBe('foo', "'bar'", 20000);
-			}).toPass({ timeout: 60000 });
+			await expect.poll(
+				async () => {
+					try {
+						await app.workbench.notebooks.executeCodeInCell();
+						await app.workbench.variables.expectVariableToBe('foo', "'bar'", 1000);
+						return true;
+					} catch {
+						return false;
+					}
+				},
+				{
+					timeout: 15000,
+					intervals: [3000],
+				}
+			).toBe(true);
 
 			// Save the notebook using the command
 			await app.workbench.quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
 			await app.workbench.quickInput.waitForQuickInputOpened();
 			// Generate a random filename
-			const newFileName = `saved-session-test-${Math.random().toString(36).substring(7)}.ipynb`;
+			newFileName = `saved-session-test-${Math.random().toString(36).substring(7)}.ipynb`;
 
 			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, newFileName));
 			await app.workbench.quickInput.clickOkButton();

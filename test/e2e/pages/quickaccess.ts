@@ -183,7 +183,7 @@ export class QuickAccess {
 					await this.quickInput.closeQuickInput();
 					throw new Error('Command not found');
 				}
-			}).toPass({
+			}, `Run Command: ${commandId}`).toPass({
 				timeout: 15000,
 				intervals: [1000],
 			});

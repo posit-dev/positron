@@ -14,12 +14,8 @@ test.use({
 });
 
 test.describe('Session: Outline', {
-	tag: [tags.WEB, tags.WIN, tags.SESSIONS, tags.OUTLINE]
+	tag: [tags.WEB, tags.WIN, tags.SESSIONS, tags.OUTLINE, tags.CRITICAL]
 }, () => {
-
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
-	});
 
 	test.beforeAll(async function ({ app, openFile }) {
 		const { variables, outline } = app.workbench;
@@ -79,7 +75,7 @@ test.describe('Session: Outline', {
 		await verifyPythonOutline(outline);
 	});
 
-	test('Verify outline after reload with Python in foreground and R in background', {
+	test.skip('Verify outline after reload with Python in foreground and R in background', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7052' }],
 	}, async function ({ app, runCommand, sessions }) {
 		const { outline, editor } = app.workbench;

@@ -205,6 +205,7 @@ export class Notebooks {
 
 	async executeActiveCell(): Promise<void> {
 		await this.quickaccess.runCommand('notebook.cell.execute');
+		await expect(this.code.driver.page.getByRole('button', { name: 'Go To' })).not.toBeVisible({ timeout: 30000 });
 	}
 
 	async focusNextCell() {
