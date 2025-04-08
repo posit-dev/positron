@@ -1,9 +1,11 @@
+# This file isn't used in CI but is useful for local development if you're using Conda.
+# Try to keep it aligned with test-requirements.txt.
 fastcore
 geopandas
 haystack-ai
 holoviews
 hvplot
-ibis-framework[duckdb]; python_version >= '3.10'
+ibis-duckdb
 ipykernel
 ipython<=8.31.0  # see https://github.com/posit-dev/positron/issues/6604
 ipywidgets
@@ -13,14 +15,15 @@ numpy
 pandas
 plotly
 polars
-polars[timezone]; sys_platform == 'win32'
 pyarrow
 pytest
 pytest-asyncio
 pytest-mock
-torch
+pytorch
 sqlalchemy
 
-# putting this last because holoviews is picky about dependency versions (including bokeh),
-# so uv's resolver needs to tackle holoviews first
+# putting this last like test-requirements.txt
 bokeh
+
+# to help with linting
+ruff

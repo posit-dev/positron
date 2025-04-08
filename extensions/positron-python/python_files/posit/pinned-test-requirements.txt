@@ -1,9 +1,24 @@
+# Pinned versions of packages from test-requirements.txt for testing PRs (note we use unpinned during nightly testing).
+# During monthly maintenance, this command may be helpful to audit the pinned versions:
+#
+# cd extensions/positron-python/python_files/posit
+# PYTHON_VERSION=3.9
+# uv venv -p $PYTHON_VERSION --seed \
+#     && source .venv/bin/activate \
+#     && uv pip install -r test-requirements.txt \
+#     && pip freeze -r test-requirements.txt | sed '/## The following requirements/,$ d'
+#
+# Then iterate through supported PYTHON_VERSIONS to make sure we covered the latest versions.
+
 fastcore==1.8.1
 geopandas==1.0.1
 haystack-ai==2.12.0
 holoviews==1.20.2
+hvplot==0.11.2
 ibis-framework[duckdb]==10.4.0; python_version >= '3.10'
 ipykernel==6.29.5
+ipython==8.18.1; python_version == '3.9'
+ipython==8.31.0; python_version >= '3.10'
 ipywidgets==8.1.5
 lightning==2.5.1
 matplotlib==3.9.4; python_version == '3.9'
@@ -20,7 +35,7 @@ pytest-asyncio==0.26.0
 pytest-mock==3.14.0
 torch==2.6.0
 SQLAlchemy==2.0.40
-ipython==8.18.1; python_version == '3.9'
-ipython==8.31.0; python_version >= '3.10'
+
+# putting this last like test-requirements.txt
 bokeh==3.4.3; python_version == '3.9'
 bokeh==3.7.2; python_version >= '3.10'
