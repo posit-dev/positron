@@ -120,7 +120,9 @@ class PositronAssistantParticipant implements IPositronAssistantParticipant {
 			*/
 
 			return [{
-				prompt: 'Welcome to Positron Assistant! How can I help you today?',
+				label: vscode.l10n.t('Positron Assistant'),
+				participant: ParticipantID.PositronAssistant,
+				prompt: 'Analyze the data in my workspace and visualize your key findings',
 			}];
 		}
 	};
