@@ -431,8 +431,6 @@ const selectNewLanguageRuntime = async (
 
 
 	interpreterGroups.forEach(group => {
-		const language = group.primaryRuntime.languageName;
-
 		// Group runtimes by environment type
 		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
 
@@ -451,23 +449,53 @@ const selectNewLanguageRuntime = async (
 		// Follow with alternate runtimes in their environment type groups
 		group.alternateRuntimes.forEach(runtime => {
 			if (runtime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(runtime.runtimeId)) {
-				const envType = runtime.runtimeSource;
+				const envType = `${runtime.languageName}${runtime.runtimeSource}`;
 				if (!runtimesByEnvType.has(envType)) {
 					runtimesByEnvType.set(envType, []);
 				}
 				runtimesByEnvType.get(envType)!.push(runtime);
 			}
+
 		});
 
 		// Add items for each environment type
 		const sortedEnvTypes = Array.from(runtimesByEnvType.keys()).sort();
+
+
 		sortedEnvTypes.forEach(envType => {
 			// Add environment type separator
-			runtimeItems.push({ type: 'separator', label: `${language}:  ${envType}` });
 
 			// Add runtimes for this environment type
 			runtimesByEnvType.get(envType)!
-				.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName))
+				.sort((a, b) => {
+					// Extract version numbers from runtime names if they exist
+					const aMatch = a.runtimeName.match(/(\d+\.\d+\.\d+)/);
+					const bMatch = b.runtimeName.match(/(\d+\.\d+\.\d+)/);
+
+					// If both have version numbers, compare them
+					if (aMatch && bMatch) {
+						const aVersion = aMatch[1].split('.').map(Number);
+						const bVersion = bMatch[1].split('.').map(Number);
+
+						// Compare major version (decreasing order)
+						if (aVersion[0] !== bVersion[0]) {
+							return bVersion[0] - aVersion[0];
+						}
+
+						// Compare minor version (decreasing order)
+						if (aVersion[1] !== bVersion[1]) {
+							return bVersion[1] - aVersion[1];
+						}
+
+						// Compare patch version (decreasing order)
+						if (aVersion[2] !== bVersion[2]) {
+							return bVersion[2] - aVersion[2];
+						}
+					}
+
+					// If versions are equal or not found, sort alphabetically
+					return a.runtimeName.localeCompare(b.runtimeName);
+				})
 				.forEach(runtime => {
 					runtimeItems.push({
 						id: runtime.runtimeId,
