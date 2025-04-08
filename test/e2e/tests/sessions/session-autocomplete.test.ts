@@ -14,10 +14,6 @@ test.describe('Session: Autocomplete', {
 	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR, tags.CRITICAL]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
-	});
-
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});

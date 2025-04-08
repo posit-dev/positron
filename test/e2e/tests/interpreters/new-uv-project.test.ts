@@ -16,10 +16,6 @@ test.describe('New UV Environment', {
 	tag: [tags.INTERPRETER]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
-	});
-
 	test.afterAll(async () => {
 		const projPath = '/tmp/vscsmoke/qa-example-content/proj';
 		try {
