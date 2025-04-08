@@ -14,7 +14,7 @@ import { IPathService } from '../../services/path/common/pathService.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
 import { workspacesCategory } from './workspaceActions.js';
 import { Action2, MenuId, registerAction2 } from '../../../platform/actions/common/actions.js';
-import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { ConfigurationTarget, IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { EnterMultiRootWorkspaceSupportContext } from '../../common/contextkeys.js';
 import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
 import { showNewFolderModalDialog } from '../positronModalDialogs/newFolderModalDialog.js';
@@ -30,6 +30,9 @@ import { IWorkspaceTrustManagementService } from '../../../platform/workspace/co
 import { ILabelService } from '../../../platform/label/common/label.js';
 import * as platform from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
+import { IEditorService } from '../../services/editor/common/editorService.js';
+import { IPreferencesService } from '../../services/preferences/common/preferences.js';
+import { IResourceDiffEditorInput } from '../../common/editor.js';
 
 /**
  * The PositronNewProjectAction.
@@ -259,12 +262,62 @@ export class PositronImportSettings extends Action2 {
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		const pathService = accessor.get(IPathService);
 		const fileService = accessor.get(IFileService);
+		const editorService = accessor.get(IEditorService);
+		const prefService = accessor.get(IPreferencesService);
+
+		const positronSettingsPath = await prefService.getEditableSettingsURI(ConfigurationTarget.USER);
+		if (!positronSettingsPath) {
+			alert('No Positron settings found');
+			return;
+		}
+
+		const positronSettingsContent = await fileService
+			.readFile(positronSettingsPath)
+			.then(content => content.value.toString());
+		const positronData = JSON.parse(positronSettingsContent);
+
+		if (!positronData) {
+			alert('No Positron settings found');
+			return;
+		}
 
 		const codeSettingsPath = await this.getCodeSettingsPath(pathService);
-		const codeSettingsContent = await fileService.readFile(codeSettingsPath);
+		const codeSettingsContent = await fileService
+			.readFile(codeSettingsPath)
+			.then(content => content.value.toString());
+		const codeData = JSON.parse(codeSettingsContent);
 
-		alert(`Import settings from ${codeSettingsContent.value.toString()}`);
+		if (!codeData) {
+			alert('No Code settings found');
+			return;
+		}
+
+		const orderedPositronData = Object.keys(positronData).sort().reduce(
+			(obj, key) => {
+				obj[key] = positronData[key];
+				return obj;
+			},
+			{} as any
+		);
+
+		const orderedCodeData = Object.keys(codeData).sort().reduce(
+			(obj, key) => {
+				obj[key] = codeData[key];
+				return obj;
+			},
+			{} as any
+		);
+
+		const input: IResourceDiffEditorInput = {
+			original: { resource: positronSettingsPath, contents: JSON.stringify(orderedCodeData, null, 2) },
+			modified: { resource: codeSettingsPath, contents: JSON.stringify(orderedPositronData, null, 2) },
+		};
+
+		await editorService.openEditor(input);
+
 	}
+
+
 
 	private async getCodeSettingsPath(pathService: IPathService): Promise<URI> {
 		const path = await pathService.path;
