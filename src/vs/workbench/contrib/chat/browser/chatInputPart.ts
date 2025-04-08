@@ -511,6 +511,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			this.layout(this.cachedDimensions.height, this.cachedDimensions.width);
 		}
 
+		// --- Start Positron ---
+		// notifies Positron's model switcher
+		this._onDidChangeCurrentLanguageModel.fire(model);
+		// --- End Positron ---
+
 		this.storageService.store(this.getSelectedModelStorageKey(), model.identifier, StorageScope.APPLICATION, StorageTarget.USER);
 	}
 
