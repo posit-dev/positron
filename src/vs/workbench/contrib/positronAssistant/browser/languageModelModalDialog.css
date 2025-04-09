@@ -124,3 +124,7 @@
 	padding-top: 0px;
 	height: 32px;
 }
+
+.language-model-modal-dialog .content-area {
+	padding: 16px 16px 0 16px;
+}
