@@ -102,3 +102,7 @@
 .language-model-modal-dialog .ok-action-bar.top-separator {
 	border-top: none;
 }
+
+.language-model-modal-dialog .content-area {
+	padding: 16px 16px 0 16px;
+}
