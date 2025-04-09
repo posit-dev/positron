@@ -42,8 +42,10 @@ export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbna
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+			e.preventDefault();
 			props.focusPreviousPlotThumbnail(props.plotClient.id);
 		} else if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+			e.preventDefault();
 			props.focusNextPlotThumbnail(props.plotClient.id);
 		} else if (e.key === 'Enter' || e.key === ' ') {
 			// if the focus is on the remove button, call the removePlot function
