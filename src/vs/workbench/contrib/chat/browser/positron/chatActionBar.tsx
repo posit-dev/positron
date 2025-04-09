@@ -25,10 +25,11 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	const positronChatContext = usePositronChatContext();
 
 	const [model, setModel] = React.useState<ILanguageModelChatMetadataAndIdentifier>();
+	const [models, setModels] = React.useState<ILanguageModelChatMetadataAndIdentifier[] | undefined>(positronChatContext.languageModels);
 
 	const actions = React.useCallback(() => {
 		const actions: IAction[] = [];
-		positronChatContext.languageModels?.forEach((model) => {
+		models?.forEach((model) => {
 			actions.push({
 				id: model.identifier,
 				label: model.metadata.name,
@@ -42,7 +43,17 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 		});
 
 		return actions;
-	}, [positronChatContext.languageModels, props]);
+	}, [models, props]);
+
+	React.useEffect(() => {
+		if (!models || models.length === 0 || !models.find((m) => m.identifier === model?.identifier)) {
+			setModel(undefined);
+		}
+	}, [models, model]);
+
+	React.useEffect(() => {
+		setModels(positronChatContext.languageModels);
+	}, [positronChatContext.languageModels]);
 
 	React.useEffect(() => {
 		props.delegate.onDidChangeModel((newModel) => setModel(newModel));
@@ -71,7 +82,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 				{getIcon()}
 				<ActionBarMenuButton
 					actions={actions}
-					text={model?.metadata.name ?? 'Loading models...'}
+					text={model?.metadata.name ?? 'No models available'}
 				/>
 			</PositronActionBar>
 		</div>
