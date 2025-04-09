@@ -48,13 +48,13 @@
       },
       {
         "command": "positron-assistant.copilot.signin",
-        "title": "Copilot Sign In",
+        "title": "%commands.copilot.signin.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable && config.positron.assistant.copilot.enable"
       },
       {
         "command": "positron-assistant.copilot.signout",
-        "title": "Copilot Sign Out",
+        "title": "%commands.copilot.signout.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable && config.positron.assistant.copilot.enable"
       }
