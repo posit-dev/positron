@@ -74,7 +74,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			const selectedPlot = plotHistory.querySelector('.selected');
 			if (selectedPlot) {
 				// If a plot is selected, scroll it into view.
-				selectedPlot.scrollIntoView();
+				selectedPlot.scrollIntoView({ behavior: 'smooth' });
 			} else {
 				// If no plot is selected, scroll the history to the end, which
 				// will show the most recently generated plot.
@@ -117,6 +117,59 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	};
 
 	/**
+	 * Focuses the plot thumbnail for the given plot ID.
+	 * @param plotId The ID of the plot to focus on.
+	 */
+	const focusPlotThumbnail = (plotId: string) => {
+		const plotHistory = plotHistoryRef.current;
+		if (!plotHistory) {
+			return;
+		}
+		const plotThumbnailElement = plotHistory.querySelector(
+			`.plot-thumbnail[data-plot-id="${plotId}"]`
+		) as HTMLButtonElement;
+		if (plotThumbnailElement) {
+			plotThumbnailElement.focus();
+		}
+	};
+
+	/**
+	 * Focuses the previous plot thumbnail in the history.
+	 * @param currentPlotId The ID of the currently selected plot.
+	 */
+	const focusPreviousPlotThumbnail = (currentPlotId: string) => {
+		const currentPlotIndex = positronPlotsContext.positronPlotInstances.findIndex(
+			(plotInstance) => plotInstance.id === currentPlotId
+		);
+		if (currentPlotIndex === -1) {
+			return;
+		}
+		if (currentPlotIndex === 0) {
+			return;
+		}
+		const previousPlotInstance = positronPlotsContext.positronPlotInstances[currentPlotIndex - 1];
+		focusPlotThumbnail(previousPlotInstance.id);
+	}
+
+	/**
+	 * Focuses the next plot thumbnail in the history.
+	 * @param currentPlotId The ID of the currently selected plot.
+	 */
+	const focusNextPlotThumbnail = (currentPlotId: string) => {
+		const currentPlotIndex = positronPlotsContext.positronPlotInstances.findIndex(
+			(plotInstance) => plotInstance.id === currentPlotId
+		);
+		if (currentPlotIndex === -1) {
+			return;
+		}
+		if (currentPlotIndex === positronPlotsContext.positronPlotInstances.length - 1) {
+			return;
+		}
+		const nextPlotInstance = positronPlotsContext.positronPlotInstances[currentPlotIndex + 1];
+		focusPlotThumbnail(nextPlotInstance.id);
+	}
+
+	/**
 	 * Renders a thumbnail of either a DynamicPlotInstance (resizable plot), a
 	 * StaticPlotInstance (static plot image), or a WebviewPlotInstance
 	 * (interactive HTML plot) depending on the type of plot instance.
@@ -140,6 +193,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 		return <PlotGalleryThumbnail
 			key={plotInstance.id}
+			focusNextPlotThumbnail={focusNextPlotThumbnail}
+			focusPreviousPlotThumbnail={focusPreviousPlotThumbnail}
 			plotClient={plotInstance}
 			plotService={positronPlotsContext}
 			selected={selected}>
