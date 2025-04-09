@@ -427,29 +427,44 @@ const selectNewLanguageRuntime = async (
 				picked: true
 			});
 		});
+
+		// Add separator for suggested runtimes (if not already in the active runtimes)
+		const suggestedRuntimes = interpreterGroups
+			.map(group => group.primaryRuntime)
+			.filter(runtime => !activeRuntimeIds.has(runtime.runtimeId) && runtime.runtimeId !== currentRuntime?.runtimeId);
+
+		if (suggestedRuntimes.length > 0) {
+			runtimeItems.push({
+				type: 'separator',
+				label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
+			});
+
+			suggestedRuntimes.forEach(runtime => {
+				runtimeItems.push({
+					id: runtime.runtimeId,
+					label: runtime.runtimeName,
+					detail: runtime.runtimePath,
+					iconPath: {
+						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+					}
+				});
+			});
+		}
 	}
 
 
 	interpreterGroups.forEach(group => {
+		const language = group.primaryRuntime.languageName;
+		// Add separator with language name.
+		runtimeItems.push({ type: 'separator', id: language });
 		// Group runtimes by environment type
 		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
 
-		// Add primary runtime first.
-		if (group.primaryRuntime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(group.primaryRuntime.runtimeId)) {
-			runtimeItems.push({
-				id: group.primaryRuntime.runtimeId,
-				label: group.primaryRuntime.runtimeName,
-				detail: group.primaryRuntime.runtimePath,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
-				},
-				picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-			});
-		}
+
 		// Follow with alternate runtimes in their environment type groups
 		group.alternateRuntimes.forEach(runtime => {
 			if (runtime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(runtime.runtimeId)) {
-				const envType = `${runtime.languageName}${runtime.runtimeSource}`;
+				const envType = `${runtime.runtimeSource}`;
 				if (!runtimesByEnvType.has(envType)) {
 					runtimesByEnvType.set(envType, []);
 				}
@@ -457,14 +472,12 @@ const selectNewLanguageRuntime = async (
 			}
 
 		});
-
 		// Add items for each environment type
 		const sortedEnvTypes = Array.from(runtimesByEnvType.keys()).sort();
 
 
 		sortedEnvTypes.forEach(envType => {
-			// Add environment type separator
-
+			runtimeItems.push({ type: 'separator', label: envType });
 			// Add runtimes for this environment type
 			runtimesByEnvType.get(envType)!
 				.sort((a, b) => {
