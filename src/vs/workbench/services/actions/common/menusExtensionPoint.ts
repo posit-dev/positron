@@ -694,6 +694,9 @@ namespace schema {
 		enablement?: string;
 		category?: string | ILocalizedString;
 		icon?: IUserFriendlyIcon;
+		// --- Start Positron ---
+		displayTitleOnActionBar?: boolean;
+		// --- End Positron ---
 	}
 
 	export type IUserFriendlyIcon = string | { light: string; dark: string };
@@ -723,8 +726,24 @@ namespace schema {
 		if (!isValidIcon(command.icon, collector)) {
 			return false;
 		}
+		// --- Start Positron ---
+		if (!isValidOptionalBoolean('displayTitleOnActionBar', command.displayTitleOnActionBar, collector)) {
+			return false;
+		}
+		// --- End Positron ---
 		return true;
 	}
+
+	// --- Start Positron ---
+	function isValidOptionalBoolean(propertyName: string, value: boolean | undefined, collector: ExtensionMessageCollector): boolean {
+		if (typeof value === 'undefined' || typeof value === 'boolean') {
+			return true;
+		} else {
+			collector.error(localize('optionalboolean', "property `{0}` can be omitted or must be either true or false`", propertyName));
+			return false;
+		}
+	}
+	// --- End Positron ---
 
 	function isValidIcon(icon: IUserFriendlyIcon | undefined, collector: ExtensionMessageCollector): boolean {
 		if (typeof icon === 'undefined') {
@@ -796,7 +815,13 @@ namespace schema {
 						}
 					}
 				}]
-			}
+			},
+			// --- Start Positron ---
+			displayTitleOnActionBar: {
+				description: localize('vscode.extension.contributes.commandType.displayTitleOnActionBar', '(Optional) A value which indicates whether to display the title when the command appears on an action bar.'),
+				type: 'boolean'
+			},
+			// --- End Positron ---
 		}
 	};
 
@@ -842,7 +867,10 @@ commandsExtensionPoint.setHandler(extensions => {
 		}
 		// --- End Positron ---
 
-		const { icon, enablement, category, title, shortTitle, command } = userFriendlyCommand;
+		// --- Start Positron ---
+		// Add displayTitleOnActionBar.
+		const { icon, enablement, category, title, shortTitle, command, displayTitleOnActionBar } = userFriendlyCommand;
+		// --- End Positron ---
 
 		let absoluteIcon: { dark: URI; light?: URI } | ThemeIcon | undefined;
 		if (icon) {
@@ -873,7 +901,10 @@ commandsExtensionPoint.setHandler(extensions => {
 			tooltip: title,
 			category,
 			precondition: ContextKeyExpr.deserialize(enablement),
-			icon: absoluteIcon
+			icon: absoluteIcon,
+			// --- Start Positron ---
+			displayTitleOnActionBar
+			// --- End Positron ---
 		}));
 	}
 
