@@ -45,6 +45,18 @@
         "title": "%commands.configureModels.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.copilot.signin",
+        "title": "Copilot Sign In",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && config.positron.assistant.copilot.enable"
+      },
+      {
+        "command": "positron-assistant.copilot.signout",
+        "title": "Copilot Sign Out",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && config.positron.assistant.copilot.enable"
       }
     ],
     "languageModels": [
@@ -162,6 +174,8 @@
     "zod": "^3.24.1"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0"
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@github/copilot-language-server": "^1.286.0",
+    "vscode-languageclient": "^9.0.1"
   }
 }
