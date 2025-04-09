@@ -61,11 +61,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Notify Slack
-        uses: midleman/slack-workflow-status@v2.3.0
+        uses: midleman/slack-workflow-status@v3.1.2
         with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-          channel: "#positron-test-results"
+          slack_channel: "#positron-test-results"
           notify_on: "failure"
 
 

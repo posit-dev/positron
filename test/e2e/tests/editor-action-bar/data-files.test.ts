@@ -51,10 +51,10 @@ test.describe('Editor Action Bar: Data Files', {
 	});
 
 	for (const testCase of testCases) {
-		test(testCase.title, async function ({ app, interpreter, openDataFile, openFile }) {
+		test(testCase.title, async function ({ app, sessions, openDataFile, openFile }) {
 			// Set interpreter
-			const language = testCase.title.startsWith('R') ? 'R' : 'Python';
-			await interpreter.set(language);
+			const language = testCase.title.startsWith('R') ? 'r' : 'python';
+			await sessions.start(language);
 
 			// Open file
 			testCase.openFile

@@ -1,26 +1,26 @@
 fastcore
 geopandas
+haystack-ai
 holoviews
+hvplot
 ibis-framework[duckdb]; python_version >= '3.10'
 ipykernel
+ipython<=8.31.0  # see https://github.com/posit-dev/positron/issues/6604
 ipywidgets
 lightning
 matplotlib
 numpy
 pandas
 plotly
-polars; python_version >= '3.9'
+polars
 polars[timezone]; sys_platform == 'win32'
-pyarrow; python_version < '3.13'
-pyarrow>=19.0.0; python_version >= '3.13'
-pytest<8.1.1
+pyarrow
+pytest
 pytest-asyncio
 pytest-mock
 torch
 sqlalchemy
-# see https://github.com/posit-dev/positron/issues/6604
-ipython<=8.31.0
+
 # putting this last because holoviews is picky about dependency versions (including bokeh),
 # so uv's resolver needs to tackle holoviews first
 bokeh
-haystack-ai

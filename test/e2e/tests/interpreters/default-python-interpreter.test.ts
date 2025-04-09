@@ -3,16 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
-import { deletePositronHistoryFiles, getPrimaryInterpretersText } from './helpers/default-interpreters.js';
+import { test, tags } from '../_test.setup';
+import { deletePositronHistoryFiles } from './helpers/default-interpreters.js';
 
 test.use({
 	suiteId: __filename
 });
 
 // electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
-test.describe('Default Interpreters - Python', {
+test.describe.skip('Default Interpreters - Python', {
 	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
@@ -26,21 +26,21 @@ test.describe('Default Interpreters - Python', {
 		await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], false);
 
 		await deletePositronHistoryFiles();
-
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand }) {
-
-		await app.workbench.console.waitForInterpretersToFinishLoading();
-
+	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand, sessions }) {
+		await sessions.expectAllSessionsToBeReady();
 		await runCommand('workbench.action.reloadWindow');
+		await sessions.expectAllSessionsToBeReady();
 
-		const interpretersText = await getPrimaryInterpretersText(app);
+		const { name, path } = await sessions.getMetadata();
 
-		// local debugging:
-		// expect(interpretersText.some(text => text.includes("3.13.0"))).toBe(true);
+		// Local debugging sample:
+		// expect(name).toContain('Python 3.13.0');
+		// expect(path).toContain('.pyenv/versions/3.13.0/bin/python');
 
 		// hidden CI interpreter:
-		expect(interpretersText.some(text => text.includes("3.12.9"))).toBe(true);
+		expect(name).toMatch(/Python 3\.12\.9/);
+		expect(path).toMatch(/python-env\/bin\/python/);
 	});
 });

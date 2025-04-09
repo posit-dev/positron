@@ -16,7 +16,7 @@ test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT] }, () => 
 			// don't use native file picker
 			await userSettings.set([['files.simpleDialog.enable', 'true']]);
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.barClearButton.click();
+			await app.workbench.console.clearButton.click();
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		} catch (e) {
 			await app.code.driver.takeScreenshot('rPackageSetup');
