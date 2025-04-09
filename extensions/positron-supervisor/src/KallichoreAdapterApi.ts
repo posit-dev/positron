@@ -158,17 +158,21 @@ export class KCApi implements PositronSupervisorApi {
 	 */
 	async start() {
 		// Check the POSITRON_SUPERVISOR_CONNECTION_FILE environment variable to
-		// see if we're trying to connect to an existing server (in web/server
-		// mode the server is started concurrently with the node server).
+		// see if we're trying to connect to an existing server.
+		//
+		// In web/server mode, the server is started concurrently with the node
+		// server, and its connection details are passed to Positron via an
+		// environment variable that points to a connection file.
 		const connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
-		this._log.appendLine(`POSITRON_SUPERVISOR_CONNECTION_FILE: ${connectionFile}`);
 		if (connectionFile) {
 			if (fs.existsSync(connectionFile)) {
+				this._log.appendLine(`Using connection file from ` +
+					`POSITRON_SUPERVISOR_CONNECTION_FILE: ${connectionFile}`);
 				try {
 					const connectionContents = JSON.parse(fs.readFileSync(connectionFile, 'utf8'));
 					if (await this.reconnect(connectionContents)) {
 						this._log.appendLine(
-							`Connected to previously established Kallichore server.`);
+							`Connected to previously established supervisor.`);
 						return;
 					}
 					// No action if connection does not work; we will start a new
@@ -179,6 +183,10 @@ export class KCApi implements PositronSupervisorApi {
 					this._log.appendLine(
 						`Error connecting to Kallichore (${connectionFile}): ${err}`);
 				}
+			} else {
+				// Non-fatal, but not expected.
+				this._log.appendLine(`Connection file named in ` +
+					`POSITRON_SUPERVISOR_CONNECTION_FILE does not exist: ${connectionFile}`);
 			}
 		}
 
@@ -668,8 +676,8 @@ export class KCApi implements PositronSupervisorApi {
 					try {
 						await positron.window.showSimpleModalDialogMessage(
 							vscode.l10n.t('Interpreters Disconnected'),
-							vscode.l10n.t('This Positron session has been opened in another window, and ' +
-								'interpreters are now disconnected from this window.'),
+							vscode.l10n.t('This Positron session has been opened in another window. ' +
+								'Interpreters have been disconnected; reload the window to reconnect.'),
 							vscode.l10n.t('Continue')
 						);
 					} finally {
