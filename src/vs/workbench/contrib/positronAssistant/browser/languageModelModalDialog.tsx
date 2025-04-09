@@ -121,17 +121,17 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	}, [type, defaultSource]);
 
 	useEffect(() => {
-		const disposable = props.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
+		const disposable = props.positronAssistantService.onChangeLanguageModelConfig((newConfig) => {
 			// find newSource in props.sources and update it
-			const index = props.sources.findIndex(source => source.provider.id === newSource.provider.id);
-			const mergedSource = { ...source, ...newSource, supportedOptions: source.supportedOptions };
+			const index = props.sources.findIndex(source => source.provider.id === newConfig.provider.id);
+			const updatedSource = { ...source, supportedOptions: source.supportedOptions, signedIn: newConfig.signedIn };
 			if (index >= 0) {
-				props.sources[index] = mergedSource;
+				props.sources[index] = updatedSource;
 			}
 
 			// if newSource matches source, update source
-			if (source.provider.id === newSource.provider.id) {
-				setSource(mergedSource);
+			if (source.provider.id === newConfig.provider.id) {
+				setSource(updatedSource);
 			}
 
 		});
