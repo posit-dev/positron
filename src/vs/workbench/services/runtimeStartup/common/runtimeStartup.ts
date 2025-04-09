@@ -166,14 +166,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			this._register(e.session.onDidEncounterStartupFailure(_exit => {
-				// Update the set of workspace sessions
-				this.saveWorkspaceSessions();
+				// Update the set of workspace sessions, removing the one that
+				// failed to start.
+				this.saveWorkspaceSessions(e.session.metadata.sessionId);
 			}));
 		}));
 
 		this._register(this._runtimeSessionService.onDidFailStartRuntime(e => {
 			// Update the set of workspace sessions
-			this.saveWorkspaceSessions();
+			this.saveWorkspaceSessions(e.sessionId);
 		}));
 
 		// Listen for runtime start events and update the most recently started
@@ -198,7 +199,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 
 				// Update the set of workspace sessions
-				this.saveWorkspaceSessions();
+				this.saveWorkspaceSessions(session.metadata.sessionId);
 
 				// Restart after a crash, if necessary
 				this.restartAfterCrash(session, exit);
@@ -1346,10 +1347,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Update the set of workspace sessions in the workspace storage.
 	 *
+	 * @param removeSessionId Optionally, a session ID to remove from the
+	 * workspace sessions.
+	 *
 	 * @returns False, always, so that it can be called during the shutdown
 	 * process.
 	 */
-	private async saveWorkspaceSessions(): Promise<boolean> {
+	private async saveWorkspaceSessions(removeSessionId?: string): Promise<boolean> {
 		// Derive the set of sessions that are currently active
 		const activeSessions = this._runtimeSessionService.activeSessions
 			.filter(session =>
@@ -1386,15 +1390,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		const activeSessionIds: Set<string> =
 			new Set(workspaceSessions.map(session => session.metadata.sessionId));
 
-		// Collect all the sessions that need to remain in storage (i.e. active
-		// sessions from other windows that haven't been adopted by this window)
-
-		// TODO: This fails to remove sessions that _were_ active in this window
-		// but are no longer
-		const existingSessionsByWindowId = existingSessions.filter(session => {
+		// We need to update the storage with the new set of sessions, but we
+		// also need to avoid removing any sessions could still be active in
+		// other windows. Filter the existing sessions to build a set of sesions
+		// to preserve in storage.
+		const preservedSessions = existingSessions.filter(session => {
 			if (activeSessionIds.has(session.metadata.sessionId)) {
 				// We have a copy of this session in the active sessions; we will replace
 				// it with the new session
+				return false;
+			}
+			if (session.metadata.sessionId === removeSessionId) {
+				// This session exited, so it should be removed
 				return false;
 			}
 			if (session.localWindowId !== this._localWindowId) {
@@ -1406,8 +1413,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return false;
 		});
 
-		// Add the new sessions to the existing sessions
-		const newSessions = existingSessionsByWindowId.concat(workspaceSessions);
+		// Add the workspace sessions to the preserved sessions to form the new
+		// set of sessions to be written to storage
+		const newSessions = preservedSessions.concat(workspaceSessions);
 
 		// Save the new sessions to ephemeral storage
 		this._logService.debug(`[Runtime startup] Saving ephemeral workspace sessions ` +
