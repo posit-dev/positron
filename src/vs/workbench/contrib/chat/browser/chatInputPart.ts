@@ -539,6 +539,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		if (defaultModel) {
 			this.setCurrentLanguageModel(defaultModel);
 		}
+		// --- Start Positron ---
+		if (this._currentLanguageModel) {
+			this._onDidChangeCurrentLanguageModel.fire(this._currentLanguageModel);
+		}
+		// --- End Positron ---
 	}
 
 	private setCurrentLanguageModel(model: ILanguageModelChatMetadataAndIdentifier) {

@@ -18,7 +18,10 @@
 	--positronActionBar-disabledForeground: var(--vscode-positronSideActionBar-disabledForeground);
 }
 
-.chat-action-bar svg {
+.chat-action-bar svg.language-model.icon,
+.chat-action-bar div.language-model.icon.button-icon.codicon {
 	width: 16px;
 	height: 16px;
+	font-size: 1rem;
+	margin: 0;
 }
