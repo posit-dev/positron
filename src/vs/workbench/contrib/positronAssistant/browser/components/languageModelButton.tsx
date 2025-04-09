@@ -25,9 +25,28 @@ interface LanguageModelButtonProps {
  * LanguageModelButton component.
  */
 export const LanguageModelButton = (props: LanguageModelButtonProps) => {
+	return (
+		<Button
+			className={positronClassNames(
+				'language-model',
+				'button',
+				{ 'selected': props.selected }
+			)}
+			disabled={props.disabled}
+			onPressed={props.onClick}>
+			<div id={`${props.identifier}-provider-button`}>
+				<VerticalStack>
+					<LanguageModelIcon provider={props.identifier} />
+					{props.displayName}
+				</VerticalStack>
+			</div>
+		</Button>
+	);
+};
 
+export const LanguageModelIcon = (props: { provider: string }) => {
 	function getIcon() {
-		switch (props.identifier) {
+		switch (props.provider) {
 			case 'anthropic':
 				return <Claude className='language-model icon' />;
 			case 'google':
@@ -44,23 +63,5 @@ export const LanguageModelButton = (props: LanguageModelButtonProps) => {
 				return null;
 		}
 	}
-
-	// Render.
-	return (
-		<Button
-			className={positronClassNames(
-				'language-model',
-				'button',
-				{ 'selected': props.selected }
-			)}
-			disabled={props.disabled}
-			onPressed={props.onClick}>
-			<div id={`${props.identifier}-provider-button`}>
-				<VerticalStack>
-					{getIcon()}
-					{props.displayName}
-				</VerticalStack>
-			</div>
-		</Button>
-	);
-};
+	return getIcon();
+}

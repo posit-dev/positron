@@ -500,6 +500,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this._currentLanguageModel = hasUserSelectableLanguageModels && defaultLanguageModelId ?
 			{ metadata: this.languageModelsService.lookupLanguageModel(defaultLanguageModelId)!, identifier: defaultLanguageModelId } :
 			undefined;
+		// --- Start Positron ---
+		if (this._currentLanguageModel) {
+			this._onDidChangeCurrentLanguageModel.fire(this._currentLanguageModel);
+		}
+		// --- End Positron ---
 	}
 
 	private setCurrentLanguageModelByUser(model: ILanguageModelChatMetadataAndIdentifier) {
