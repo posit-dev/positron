@@ -372,7 +372,8 @@ function createSerializedSessionMetadata(sessionId: string): SerializedSessionMe
 		metadata: createSessionMetadata(sessionId),
 		runtimeMetadata: TestLanguageRuntimeMetadata,
 		sessionState: RuntimeState.Idle,
-		workingDirectory: ''
+		workingDirectory: '',
+		localWindowId: 'test-window-id',
 	};
 }
 

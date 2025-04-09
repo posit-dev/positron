@@ -114,6 +114,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private _restoredSessions: SerializedSessionMetadata[] = [];
 	private _foundRestoredSessions: Barrier = new Barrier();
 
+	/// A unique identifier for this window. This is used to identify the
+	/// persisted sessions that belong to it.
+	private _localWindowId: string;
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
@@ -137,6 +141,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this._register(this._onWillAutoStartRuntime);
 		this.onWillAutoStartRuntime = this._onWillAutoStartRuntime.event;
 		this.onSessionRestoreFailure = this._onSessionRestoreFailure.event;
+
+		// Generate a short (8 character) random hex string to use as a unique
+		// identifier for this window.
+		this._localWindowId = `window-${Math.random().toString(16).substring(2, 10)}`;
 
 		this._register(
 			this._runtimeSessionService.onDidChangeForegroundSession(
@@ -181,6 +189,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// Ignore if shutting down; sessions 'exit' during shutdown as
 				// they disconnect from the extension host.
 				if (this._shuttingDown) {
+					return;
+				}
+
+				// Ignore when sessions "exited" due to being transferred.
+				if (exit.reason === RuntimeExitReason.Transferred) {
 					return;
 				}
 
@@ -1353,6 +1366,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					runtimeMetadata: session.runtimeMetadata,
 					workingDirectory: activeSession?.workingDirectory || '',
 					lastUsed: session.lastUsed,
+					localWindowId: this._localWindowId,
 				};
 				return metadata;
 			});
@@ -1364,9 +1378,42 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Save the ephemeral sessions to the workspace storage.
 		const workspaceSessions = activeSessions.filter(session =>
 			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace);
-		this._logService.debug(`[Runtime startup] Saving ephemeral workspace sessions (${workspaceSessions.length})`);
+
+		// Get the existing sessions from ephemeral storage
+		const existingSessions = Array.from(
+			await this._ephemeralStateService.getItem<SerializedSessionMetadata[]>(
+				this.getEphemeralWorkspaceSessionsKey()) || []);
+		const activeSessionIds: Set<string> =
+			new Set(workspaceSessions.map(session => session.metadata.sessionId));
+
+		// Collect all the sessions that need to remain in storage (i.e. active
+		// sessions from other windows that haven't been adopted by this window)
+
+		// TODO: This fails to remove sessions that _were_ active in this window
+		// but are no longer
+		const existingSessionsByWindowId = existingSessions.filter(session => {
+			if (activeSessionIds.has(session.metadata.sessionId)) {
+				// We have a copy of this session in the active sessions; we will replace
+				// it with the new session
+				return false;
+			}
+			if (session.localWindowId !== this._localWindowId) {
+				// Keep the session if it is from a different window _and_ isn't
+				// going to be replaced with an incoming session
+				return true;
+			}
+			// Remove everything else
+			return false;
+		});
+
+		// Add the new sessions to the existing sessions
+		const newSessions = existingSessionsByWindowId.concat(workspaceSessions);
+
+		// Save the new sessions to ephemeral storage
+		this._logService.debug(`[Runtime startup] Saving ephemeral workspace sessions ` +
+			`(${workspaceSessions.length} local, ${newSessions.length} total)`);
 		this._ephemeralStateService.setItem(this.getEphemeralWorkspaceSessionsKey(),
-			workspaceSessions);
+			newSessions);
 
 		// Save the persisted sessions to the workspace storage.
 		const machineSessions = activeSessions.filter(session =>

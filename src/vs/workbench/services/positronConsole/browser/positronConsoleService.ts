@@ -573,8 +573,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// If there isn't a running runtime for the language, start one.
 		if (!runningLanguageRuntimeSessions.length) {
 			// Get the preferred runtime for the language.
-			let languageRuntime: ILanguageRuntimeMetadata;
-			languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
+			const languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
 
 			// Start the preferred runtime.
 			this._logService.trace(`Language runtime ` +
