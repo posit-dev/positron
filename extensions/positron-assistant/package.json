@@ -132,6 +132,15 @@
         "tags": [
           "positron-assistant"
         ]
+      },
+      {
+        "name": "getProjectTree",
+        "displayName": "Get project tree",
+        "modelDescription": "Construct a tree of the directories and files in the project. Don't invoke this tool if no folders are open in the workspace.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant"
+        ]
       }
     ]
   },
