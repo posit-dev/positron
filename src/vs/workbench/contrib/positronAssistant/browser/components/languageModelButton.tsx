@@ -17,6 +17,7 @@ interface LanguageModelButtonProps {
 	identifier: string;
 	displayName: string;
 	selected?: boolean;
+	disabled?: boolean;
 	onClick?: () => void;
 }
 
@@ -52,6 +53,7 @@ export const LanguageModelButton = (props: LanguageModelButtonProps) => {
 				'button',
 				{ 'selected': props.selected }
 			)}
+			disabled={props.disabled}
 			onPressed={props.onClick}>
 			<div id={`${props.identifier}-provider-button`}>
 				<VerticalStack>

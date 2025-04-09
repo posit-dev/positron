@@ -369,6 +369,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 						providers.map(provider => {
 							return <LanguageModelButton
 								key={provider.options.identifier}
+								disabled={showProgress}
 								displayName={provider.options.title ?? provider.options.identifier}
 								identifier={provider.options.identifier}
 								selected={provider.options.identifier === source.provider.id}

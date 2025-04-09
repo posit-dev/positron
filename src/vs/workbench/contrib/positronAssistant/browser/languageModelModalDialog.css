@@ -59,6 +59,11 @@
 	background: var(--vscode-positronIconButton-background);
 }
 
+.language-model.button.disabled {
+	opacity: 0.4 !important;
+	cursor: default;
+}
+
 .language-model-container {
 	display: flex;
 	height: 3rem;
