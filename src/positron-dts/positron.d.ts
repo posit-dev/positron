@@ -1867,6 +1867,11 @@ declare module 'positron' {
 		export function getCurrentPlotUri(): Thenable<string | undefined>;
 
 		/**
+		 * Request the project tree for the workspace.
+		 */
+		export function getProjectTree(): Thenable<object>;
+
+		/**
 		 * Get Positron global context information to be included with every request.
 		 */
 		export function getPositronChatContext(request: vscode.ChatRequest): Thenable<ChatContext>;

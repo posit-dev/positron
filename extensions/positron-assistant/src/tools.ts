@@ -8,7 +8,6 @@ import * as positron from 'positron';
 import { padBase64String } from './utils';
 import { LanguageModelImage } from './languageModelParts.js';
 import { IPositronAssistantParticipant, ParticipantID } from './participants.js';
-import { getProjectTree } from './workspace.js';
 
 export enum PositronAssistantToolName {
 	DocumentEdit = 'documentEdit',
@@ -266,25 +265,10 @@ export function registerAssistantTools(
 			};
 		},
 		invoke: async (options, token) => {
-			const result = await getProjectTree();
-			if (!result.workspaceTrees || result.workspaceTrees.length === 0) {
-				return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('No workspace folders found.')]);
-			}
-
-			// Convert the tree to a JSON string
-			const treeJson = JSON.stringify(result.workspaceTrees, null, 2);
-
-			// Return the project tree and any errors
-			if (result.error) {
-				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelPromptTsxPart(result.workspaceTrees),
-					new vscode.LanguageModelTextPart('Some errors occurred while constructing the project tree:'),
-					...result.error.split('\n').map((error) => new vscode.LanguageModelTextPart(error)),
-				]);
-			}
-
-			// If no errors, return the project tree
-			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(treeJson)]);
+			const projectTree = await positron.ai.getProjectTree();
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(JSON.stringify(projectTree))
+			]);
 		}
 	});
 
