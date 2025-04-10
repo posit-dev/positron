@@ -5,10 +5,16 @@
 
 import * as vscode from 'vscode';
 
-type DirectoryTree = { [name: string]: DirectoryTree | null };
+/**
+ * Represents either a file (string) or a directory (tuple with name and children).
+ */
+type DirectoryEntry = string | [string, DirectoryEntry[]];
 
+/**
+ * Result of workspace tree query.
+ */
 type WorkspaceTreeResult = {
-	workspaceTrees: DirectoryTree[];
+	workspaceTrees: DirectoryEntry[][];
 	error?: string;
 };
 
@@ -25,10 +31,9 @@ export async function getProjectTree(): Promise<WorkspaceTreeResult> {
 		};
 	}
 
-	const workspaceTrees: DirectoryTree[] = [];
+	const workspaceTrees: DirectoryEntry[][] = [];
 	const treeErrors: string[] = [];
 	for (const workspaceFolder of workspaceFolders) {
-		console.log(`[HELLO] Workspace tree for: ${workspaceFolder.name}`);
 		try {
 			const tree = await constructDirectoryTree(workspaceFolder.uri);
 			workspaceTrees.push(tree);
@@ -37,22 +42,18 @@ export async function getProjectTree(): Promise<WorkspaceTreeResult> {
 		}
 	}
 
-	const result = {
+	return {
 		workspaceTrees,
 		error: treeErrors.length > 0 ? treeErrors.join('\n') : undefined
 	};
-
-	console.log(`[HELLO] Workspace tree result: ${JSON.stringify(result, null, 2)}`);
-	console.log(`[HELLO] Tokens in workspace tree: ${JSON.stringify(workspaceTrees, null, 2).length}`);
-	return result;
 }
 
 /**
- * Constructs an object representing a directory tree starting from the given URI
+ * Constructs an array representing a directory tree starting from the given URI.
  * @param uri The URI of the directory to start from
- * @returns A promise that resolves to the directory tree object
+ * @returns A promise that resolves to the directory tree array
  */
-async function constructDirectoryTree(uri: vscode.Uri): Promise<any> {
+async function constructDirectoryTree(uri: vscode.Uri): Promise<DirectoryEntry[]> {
 	try {
 		const entries = await vscode.workspace.fs.readDirectory(uri);
 
@@ -70,16 +71,19 @@ async function constructDirectoryTree(uri: vscode.Uri): Promise<any> {
 		});
 
 		// Construct the tree
-		const tree: DirectoryTree = {};
+		const result: DirectoryEntry[] = [];
 		for (const [name, type] of sortedEntries) {
 			const entryUri = vscode.Uri.joinPath(uri, name);
 			if (type & vscode.FileType.Directory) {
-				tree[name] = await constructDirectoryTree(entryUri);
+				const children = await constructDirectoryTree(entryUri);
+				if (children.length > 0) {
+					result.push([name, children]);
+				}
 			} else {
-				tree[name] = null; // Files are represented as null
+				result.push(name);
 			}
 		}
-		return tree;
+		return result;
 	} catch (error) {
 		throw new Error(`Error reading directory: ${error}`);
 	}
