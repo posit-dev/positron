@@ -1413,14 +1413,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				`The runtime exited unexpectedly and is being restarted automatically.`
 			);
 
-			// await this._runtimeSessionService.startNewRuntimeSession(
-			// 	session.runtimeMetadata.runtimeId,
-			// 	session.metadata.sessionName,
-			// 	session.metadata.sessionMode,
-			// 	session.metadata.notebookUri,
-			// 	`The runtime exited unexpectedly and is being restarted automatically.`,
-			// 	RuntimeStartMode.Restarting,
-			// 	false);
 			action = 'and was automatically restarted';
 		} else {
 			await session.cleanup();
