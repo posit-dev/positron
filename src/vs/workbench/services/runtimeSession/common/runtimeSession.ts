@@ -738,6 +738,93 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		return startPromise.p.then(() => { });
 	}
 
+	async restartExitedRuntimeSession(
+		session: ILanguageRuntimeSession,
+		activate: boolean): Promise<void> {
+		const multisessionEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
+
+		if (!multisessionEnabled) {
+			return;
+		}
+
+		const sessionMetadata = session.metadata;
+		const runtimeMetadata = session.runtimeMetadata;
+
+		// See if we are already starting the requested session. If we
+		// are, return the promise that resolves when the session is ready to
+		// use. This makes it possible for multiple requests to start the same
+		// session to be coalesced.
+		const sessionMapKey = getSessionMapKey(
+			sessionMetadata.sessionMode, runtimeMetadata.runtimeId, sessionMetadata.notebookUri);
+
+		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			const startingRuntimePromise = this._startingSessionsBySessionMapKey.get(sessionMapKey);
+			if (startingRuntimePromise && !startingRuntimePromise.isSettled) {
+				return startingRuntimePromise.p.then(() => { });
+			}
+		}
+
+		// Ensure that the runtime is registered.
+		const languageRuntime = this._languageRuntimeService.getRegisteredRuntime(
+			runtimeMetadata.runtimeId);
+		if (!languageRuntime) {
+			this._logService.debug(`[Reconnect ${sessionMetadata.sessionId}]: ` +
+				`Registering runtime ${runtimeMetadata.runtimeName}`);
+			this._languageRuntimeService.registerRuntime(runtimeMetadata);
+		}
+
+		const runningSessionId = this.validateRuntimeSessionStart(
+			sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+		if (runningSessionId) {
+			return;
+		}
+
+		const startPromise = new DeferredPromise<string>();
+		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			// Create a promise that resolves when the runtime is ready to use.
+			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+
+			// It's possible that startPromise is never awaited, so we log any errors here
+			// at the debug level since we still expect the error to be handled/logged elsewhere.
+			startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
+
+			this.setStartingSessionMaps(
+				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+		}
+		// We should already have a session manager registered, since we can't
+		// get here until the extension host has been activated.
+		if (this._sessionManagers.length === 0) {
+			throw new Error(`No session manager has been registered.`);
+		}
+
+		// Get the runtime's manager.
+		let sessionManager: ILanguageRuntimeSessionManager;
+		try {
+			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
+		} catch (err) {
+			startPromise.error(err);
+			if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+				this.clearStartingSessionMaps(
+					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+			}
+			throw err;
+		}
+
+		// Actually reconnect the session.
+		try {
+			// TODO @samclark2015: We seem to be dropping state events from the
+			// session after starting back up. I can see them being emitted in
+			// the extension host code, but the corresponding main thread code
+			// isn't invoked. The method is `$emitLanguageRuntimeState`.
+			await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Restarting, activate);
+			startPromise.complete(sessionMetadata.sessionId);
+		} catch (err) {
+			startPromise.error(err);
+		}
+
+		return startPromise.p.then(() => { });
+	}
+
 	/**
 	 * Sets the foreground session.
 	 */
