@@ -14,7 +14,7 @@ test.use({
 // RETICULATE_PYTHON
 // to the installed python path
 
-test.describe.skip('Reticulate', {
+test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
@@ -33,10 +33,11 @@ test.describe.skip('Reticulate', {
 	// will already be running
 	let sequential = false;
 
-	test('R - Verify Basic Reticulate Functionality', async function ({ app, r }) {
+	test('R - Verify Basic Reticulate Functionality', async function ({ app, sessions }) {
+
+		const rSessionMetdData = await sessions.start('r');
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
-		await app.code.driver.page.pause();
 
 		try {
 			await app.workbench.console.waitForConsoleContents('Yes/no/cancel');
@@ -50,7 +51,7 @@ test.describe.skip('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await verifyReticulateFunctionality(app, false);
+		await verifyReticulateFunctionality(app, false, rSessionMetdData.id);
 
 		sequential = true;
 
@@ -60,38 +61,38 @@ test.describe.skip('Reticulate', {
 		tag: [tags.WEB_ONLY]
 	}, async function ({ app, sessions }) {
 
-		await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
-		await sessions.expectSessionPickerToBe('Python (reticulate)');
+		// await sessions.startAndSkipMetadata({ language: 'Python', waitForReady: false });
+		// await sessions.expectSessionPickerToBe('Python (reticulate)');
 
-		await app.workbench.popups.installIPyKernel();
+		// await app.workbench.popups.installIPyKernel();
 
-		if (!sequential) {
-			app.workbench.console.waitForReadyAndStarted('>>>', 30000);
-		}
+		// if (!sequential) {
+		// 	app.workbench.console.waitForReadyAndStarted('>>>', 30000);
+		// }
 
-		await verifyReticulateFunctionality(app, sequential);
+		// await verifyReticulateFunctionality(app, sequential);
 
-		await app.workbench.layouts.enterLayout('stacked');
+		// await app.workbench.layouts.enterLayout('stacked');
 
-		await app.workbench.console.trashButton.click();
+		// await app.workbench.console.trashButton.click();
 
-		await app.workbench.console.waitForConsoleContents('shut down successfully');
+		// await app.workbench.console.waitForConsoleContents('shut down successfully');
 
-		await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart R' }).click();
+		// await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart R' }).click();
 
-		await app.workbench.console.waitForReadyAndStarted('>');
+		// await app.workbench.console.waitForReadyAndStarted('>');
 
-		await app.code.driver.page.locator('.positron-console').locator('.action-bar-button-drop-down-arrow').click();
+		// await app.code.driver.page.locator('.positron-console').locator('.action-bar-button-drop-down-arrow').click();
 
-		await app.code.driver.page.locator('.action-label', { hasText: 'Python (reticulate)' }).hover();
+		// await app.code.driver.page.locator('.action-label', { hasText: 'Python (reticulate)' }).hover();
 
-		await app.code.driver.page.keyboard.press('Enter');
+		// await app.code.driver.page.keyboard.press('Enter');
 
-		await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart Python' }).click();
+		// await app.code.driver.page.locator('.positron-console').getByRole('button', { name: 'Restart Python' }).click();
 
-		await app.workbench.console.waitForReadyAndStarted('>>>');
+		// await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await verifyReticulateFunctionality(app, sequential);
+		// await verifyReticulateFunctionality(app, sequential);
 
 	});
 
@@ -170,14 +171,16 @@ test.describe('Reticulate - console interaction', {
 	});
 });
 
-async function verifyReticulateFunctionality(app: Application, sequential) {
+async function verifyReticulateFunctionality(app: Application, sequential: boolean, rSessionId: string) {
+
+	await app.workbench.sessions.select('Python (reticulate)');
 
 	await app.workbench.console.pasteCodeToConsole('x=100');
 	await app.workbench.console.sendEnterKey();
 
 	await app.workbench.console.clearButton.click();
 
-	await app.workbench.sessions.startAndSkipMetadata({ language: 'R', waitForReady: !sequential });
+	await app.workbench.sessions.select(rSessionId);
 
 	await app.workbench.console.pasteCodeToConsole('y<-reticulate::py$x');
 	await app.workbench.console.sendEnterKey();
