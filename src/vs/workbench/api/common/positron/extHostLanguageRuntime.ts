@@ -553,7 +553,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 			// If the session isn't exiting in order to restart, then we need
 			// to clean up its resources.
-			if (exit.reason !== RuntimeExitReason.Restart) {
+			if (exit.reason !== RuntimeExitReason.Restart && exit.reason !== RuntimeExitReason.Error) {
 				session.dispose();
 			}
 
