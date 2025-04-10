@@ -632,8 +632,17 @@ export class CopilotCompletion implements vscode.InlineCompletionItemProvider {
 		position: vscode.Position,
 		context: vscode.InlineCompletionContext,
 		token: vscode.CancellationToken
-	): Promise<vscode.InlineCompletionList> {
-		return await this._copilotService.provideInlineCompletionItems(document, position, context, token);
+	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined> {
+		return await this._copilotService.inlineCompletion(document, position, context, token);
+	}
+
+	handleDidPartiallyAcceptCompletionItem(completionItem: vscode.InlineCompletionItem, infoOrAcceptedLength: vscode.PartialAcceptInfo | number): void {
+		const acceptedLength = typeof infoOrAcceptedLength === 'number' ? infoOrAcceptedLength : infoOrAcceptedLength.acceptedLength;
+		this._copilotService.didPartiallyAcceptCompletionItem(completionItem, acceptedLength);
+	}
+
+	handleDidShowCompletionItem(completionItem: vscode.InlineCompletionItem, updatedInsertText: string): void {
+		this._copilotService.didShowCompletionItem(completionItem, updatedInsertText);
 	}
 }
 

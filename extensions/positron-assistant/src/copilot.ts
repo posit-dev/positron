@@ -52,16 +52,15 @@ interface DidChangeStatusParams {
 	kind: StatusKind;
 }
 
-/** A Copilot inline completion item; a special case of vscode-languageclient's InlineCompletionItem. */
-interface CopilotInlineCompletionItem {
-	insertText: string;
-	range: Range;
-	command: Command;
+/** The parameters for a {@link DidShowCompletionNotification}. */
+interface DidShowCompletionParams {
+	item: InlineCompletionItem;
 }
 
-/** A Copilot inline completion list; a special case of vscode-languageclient's InlineCompletionList. */
-interface CopilotCompletionList {
-	items: CopilotInlineCompletionItem[];
+/** The parameters for a {@link DidPartiallyAcceptCompletionNotification}. */
+interface DidPartiallyAcceptCompletionParams {
+	item: InlineCompletionItem;
+	acceptedLength: number;
 }
 
 /** Initiate Copilot authentication. */
@@ -74,14 +73,19 @@ namespace SignOutRequest {
 	export const type = new RequestType<SignOutParams, void, void>('signOut');
 }
 
-/** Emitted when the status of the client has changed. */
+/** Emitted by the server when its status has changed. */
 namespace DidChangeStatusNotification {
 	export const type = new NotificationType<DidChangeStatusParams>('didChangeStatus');
 }
 
-/** Request inline completions; a special-case of vscode-languageclient's InlineCompletionRequest. */
-namespace CopilotInlineCompletionRequest {
-	export const type = new RequestType<InlineCompletionParams, CopilotCompletionList, void>('textDocument/inlineCompletion');
+/** Emitted by the client when a completion item is shown to the user. */
+namespace DidShowCompletionNotification {
+	export const type = new NotificationType<DidShowCompletionParams>('textDocument/didShowCompletion');
+}
+
+/** Emitted by the client when a completion item is partially accepted by the user. */
+namespace DidPartiallyAcceptCompletionNotification {
+	export const type = new NotificationType<DidPartiallyAcceptCompletionParams>('textDocument/didPartiallyAcceptCompletion');
 }
 
 /** Register the Copilot service. */
@@ -205,16 +209,50 @@ export class CopilotService implements vscode.Disposable {
 		await client.sendRequest(SignOutRequest.type, {});
 	}
 
-	async provideInlineCompletionItems(
+	async inlineCompletion(
 		textDocument: vscode.TextDocument,
 		position: vscode.Position,
 		context: vscode.InlineCompletionContext,
 		token: vscode.CancellationToken
-	): Promise<vscode.InlineCompletionList> {
+	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined> {
 		const client = this.client();
-		const request = client.code2ProtocolConverter.asInlineCompletionParams(textDocument, position, context);
-		const result = await client.sendRequest(CopilotInlineCompletionRequest.type, request, token);
+		const params = client.code2ProtocolConverter.asInlineCompletionParams(textDocument, position, context);
+		const result = await client.sendRequest(InlineCompletionRequest.type, params, token);
 		return client.protocol2CodeConverter.asInlineCompletionResult(result);
+	}
+
+	private asCopilotInlineCompletionItem(completionItem: vscode.InlineCompletionItem, updatedInsertText?: string): InlineCompletionItem {
+		const client = this.client();
+		return {
+			insertText: updatedInsertText ?? (completionItem.insertText instanceof vscode.SnippetString ? completionItem.insertText.value : completionItem.insertText),
+			range: completionItem.range && client.code2ProtocolConverter.asRange(completionItem.range),
+			command: completionItem.command && client.code2ProtocolConverter.asCommand(completionItem.command),
+		};
+	}
+
+	private asDidShowCompletionParams(completionItem: vscode.InlineCompletionItem, updatedInsertText: string): DidShowCompletionParams {
+		return {
+			item: this.asCopilotInlineCompletionItem(completionItem, updatedInsertText),
+		};
+	}
+
+	private asDidShowPartiallyAcceptCompletionParams(completionItem: vscode.InlineCompletionItem, acceptedLength: number): DidPartiallyAcceptCompletionParams {
+		return {
+			item: this.asCopilotInlineCompletionItem(completionItem),
+			acceptedLength,
+		};
+	}
+
+	didShowCompletionItem(completionItem: vscode.InlineCompletionItem, updatedInsertText: string): void {
+		const client = this.client();
+		const params = this.asDidShowCompletionParams(completionItem, updatedInsertText);
+		client.sendNotification(DidShowCompletionNotification.type, params);
+	}
+
+	didPartiallyAcceptCompletionItem(completionItem: vscode.InlineCompletionItem, acceptedLength: number): void {
+		const client = this.client();
+		const params = this.asDidShowPartiallyAcceptCompletionParams(completionItem, acceptedLength);
+		client.sendNotification(DidPartiallyAcceptCompletionNotification.type, params);
 	}
 
 	dispose(): void {
@@ -232,6 +270,7 @@ export class CopilotLanguageClient implements vscode.Disposable {
 	public code2ProtocolConverter: typeof this._client.code2ProtocolConverter;
 	public onNotification: typeof this._client.onNotification;
 	public protocol2CodeConverter: typeof this._client.protocol2CodeConverter;
+	public sendNotification: typeof this._client.sendNotification;
 	public sendRequest: typeof this._client.sendRequest;
 	public start: typeof this._client.start;
 
