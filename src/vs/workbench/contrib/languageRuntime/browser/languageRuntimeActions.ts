@@ -456,7 +456,7 @@ const selectNewLanguageRuntime = async (
 	interpreterGroups.forEach(group => {
 		const language = group.primaryRuntime.languageName;
 		// Add separator with language name.
-		runtimeItems.push({ type: 'separator', id: language });
+		runtimeItems.push({ type: 'separator', label: language });
 		// Group runtimes by environment type
 		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
 
