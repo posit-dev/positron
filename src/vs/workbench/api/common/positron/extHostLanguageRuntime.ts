@@ -402,16 +402,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 	}
 
-	async $cleanupLanguageRuntimeSession(handle: number): Promise<void> {
-		if (handle >= this._runtimeSessions.length) {
-			throw new Error(`Cannot dispose runtime: session handle '${handle}' not found or no longer valid.`);
-		}
-		const session = this._runtimeSessions[handle];
-
-		// Dispose session to cleanup kernel, LSP, etc.
-		session.dispose();
-	}
-
 	/**
 	 * Utility function to look up the manager for a given runtime.
 	 *
@@ -636,6 +626,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);
 		}
 		return this._runtimeSessions[handle].start();
+	}
+
+	async $cleanupLanguageRuntime(handle: number): Promise<void> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot cleanup runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		// Dispose session to cleanup kernel, LSP, etc.
+		await this._runtimeSessions[handle].dispose();
 	}
 
 	$showOutputLanguageRuntime(handle: number, channel?: positron.LanguageRuntimeSessionChannel): void {
