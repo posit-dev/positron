@@ -8,10 +8,11 @@ import * as positron from 'positron';
 import * as path from 'path';
 
 import { ExtensionContext } from 'vscode';
-import { Command, ExecuteCommandRequest, InlineCompletionParams, LanguageClient, LanguageClientOptions, NotificationType, Range, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { ModelConfig } from './config.js';
 import { CopilotCompletion } from './completion.js';
 import { randomUUID } from 'crypto';
+import { platform } from 'os';
 
 interface EditorPluginInfo {
 	name: string;
@@ -95,9 +96,6 @@ export class CopilotService implements vscode.Disposable {
 	/** The CopilotService singleton instance. */
 	private static _instance?: CopilotService;
 
-	/** The path to the bundled language server module. */
-	private _serverModule: string;
-
 	private _client?: CopilotLanguageClient;
 
 	/** Create the CopilotLanguageService singleton instance. */
@@ -120,9 +118,6 @@ export class CopilotService implements vscode.Disposable {
 	private constructor(
 		private readonly _context: vscode.ExtensionContext,
 	) {
-		// Get the path to the language server module.
-		this._serverModule = path.join(this._context.extensionPath, 'node_modules', '@github', 'copilot-language-server', 'dist', 'language-server.js');
-
 		this.registerCommands();
 	}
 
@@ -142,12 +137,19 @@ export class CopilotService implements vscode.Disposable {
 	private client(): CopilotLanguageClient {
 		if (!this._client) {
 			// The client does not exist, create it.
+			const serverName = platform() === 'win32' ? 'copilot-language-server.exe' : 'copilot-language-server';
+			const command = path.join(this._context.extensionPath, 'resources', 'copilot', serverName);
+			const executable: Executable = {
+				command,
+				args: ['--stdio'],
+				transport: TransportKind.stdio,
+			};
 			const packageJSON = this._context.extension.packageJSON;
 			const editorPluginInfo: EditorPluginInfo = {
 				name: packageJSON.name,
 				version: packageJSON.version,
 			};
-			this._client = new CopilotLanguageClient(this._serverModule, editorPluginInfo);
+			this._client = new CopilotLanguageClient(executable, editorPluginInfo);
 		}
 		return this._client;
 	}
@@ -234,16 +236,16 @@ export class CopilotLanguageClient implements vscode.Disposable {
 	public start: typeof this._client.start;
 
 	/**
-	 * @param module The path to the language server module.
+	 * @param executable The language server executable.
 	 * @param editorPluginInfo The editor plugin information used to initialize the client.
 	 */
 	constructor(
-		module: string,
+		executable: Executable,
 		editorPluginInfo: EditorPluginInfo,
 	) {
 		const serverOptions: ServerOptions = {
-			run: { module, transport: TransportKind.ipc },
-			debug: { module, transport: TransportKind.ipc },
+			run: executable,
+			debug: executable,
 		};
 
 		const outputChannel = vscode.window.createOutputChannel('GitHub Copilot Language Server', { log: true });
@@ -282,6 +284,7 @@ export class CopilotLanguageClient implements vscode.Disposable {
 		this.code2ProtocolConverter = this._client.code2ProtocolConverter;
 		this.onNotification = this._client.onNotification.bind(this._client);
 		this.protocol2CodeConverter = this._client.protocol2CodeConverter;
+		this.sendNotification = this._client.sendNotification.bind(this._client);
 		this.sendRequest = this._client.sendRequest.bind(this._client);
 		this.start = this._client.start.bind(this._client);
 	}
