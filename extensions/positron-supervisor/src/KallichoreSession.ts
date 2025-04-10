@@ -852,6 +852,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			if (this._runtimeState === positron.RuntimeState.Starting) {
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
+					session_name: this.metadata.sessionName,
 					exit_code: 0,
 					reason: positron.RuntimeExitReason.StartupFailed,
 					message: summarizeError(err)
@@ -970,6 +971,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				}
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
+					session_name: this.metadata.sessionName,
 					exit_code: startupErr.exit_code ?? 0,
 					reason: positron.RuntimeExitReason.StartupFailed,
 					message
@@ -984,6 +986,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// stringify it if it's not an Error
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
+					session_name: this.metadata.sessionName,
 					exit_code: 0,
 					reason: positron.RuntimeExitReason.StartupFailed,
 					message: summarizeError(err)
@@ -1458,6 +1461,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Create and fire the exit event.
 		const event: positron.LanguageRuntimeExit = {
 			runtime_name: this.runtimeMetadata.runtimeName,
+			session_name: this.metadata.sessionName,
 			exit_code: exitCode,
 			reason: this._exitReason,
 			message: ''
