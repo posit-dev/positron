@@ -551,8 +551,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// Notify the main thread that the session has ended
 			this._proxy.$emitLanguageRuntimeExit(handle, exit);
 
-			// If the session isn't exiting in order to restart, then we need
-			// to clean up its resources.
+			// The main thread will handle the session cleanup
+			// by calling the `$cleanupLanguageRuntime` method.
 
 			// Note that we don't remove the session from the list of sessions;
 			// that would invalidate the handles of all subsequent sessions
