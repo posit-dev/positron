@@ -1395,6 +1395,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// `exit_code` was `0`, so we don't treat it as a crash. If the `exit_code` had not been
 		// `0`, then `onKernelExited()` would have upgraded the crash from `Unknown` to `Error`.
 		if (exit.reason !== RuntimeExitReason.Error) {
+			await session.cleanup();
 			return;
 		}
 
@@ -1422,6 +1423,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// 	false);
 			action = 'and was automatically restarted';
 		} else {
+			await session.cleanup();
 			action = 'and was not automatically restarted';
 		}
 

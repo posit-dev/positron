@@ -10,7 +10,7 @@ import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
-import { RuntimeClientState, RuntimeClientType, RuntimeExitReason } from './extHostTypes.positron.js';
+import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -402,6 +402,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 	}
 
+	async $cleanupLanguageRuntimeSession(handle: number): Promise<void> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot dispose runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		const session = this._runtimeSessions[handle];
+
+		// Dispose session to cleanup kernel, LSP, etc.
+		session.dispose();
+	}
+
 	/**
 	 * Utility function to look up the manager for a given runtime.
 	 *
@@ -553,9 +563,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 			// If the session isn't exiting in order to restart, then we need
 			// to clean up its resources.
-			if (exit.reason !== RuntimeExitReason.Restart && exit.reason !== RuntimeExitReason.Error) {
-				session.dispose();
-			}
 
 			// Note that we don't remove the session from the list of sessions;
 			// that would invalidate the handles of all subsequent sessions
