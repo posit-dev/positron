@@ -87,7 +87,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		// --- Start Positron ---
 		const runtime: typeof positron.runtime = {
 			executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer): Thenable<Record<string, any>> {
-				return extHostLanguageRuntime.executeCode(languageId, code, focus, allowIncomplete, mode, errorBehavior, observer);
+				const extensionId = extension.identifier.value;
+				return extHostLanguageRuntime.executeCode(languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, observer);
 			},
 			registerLanguageRuntimeManager(
 				languageId: string,
@@ -130,6 +131,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			restartSession(sessionId: string): Thenable<void> {
 				return extHostLanguageRuntime.restartSession(sessionId);
 			},
+			focusSession(sessionId: string): void {
+				return extHostLanguageRuntime.focusSession(sessionId);
+			},
 			registerClientHandler(handler: positron.RuntimeClientHandler): vscode.Disposable {
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			},
@@ -147,6 +151,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			get onDidChangeForegroundSession() {
 				return extHostLanguageRuntime.onDidChangeForegroundSession;
+			},
+			get onDidExecuteCode() {
+				return extHostLanguageRuntime.onDidExecuteCode;
 			}
 		};
 
@@ -196,7 +203,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 		const methods: typeof positron.methods = {
 			// This takes a string to avoid making `positron.d.ts` depend on the UI comm types
 			call(method: string, params: Record<string, any>): Thenable<any> {
-				return extHostMethods.call(method as UiFrontendRequest, params);
+				return extHostMethods.call(extension.identifier.value, method as UiFrontendRequest, params);
 			},
 			lastActiveEditorContext(): Thenable<positron.EditorContext | null> {
 				return extHostMethods.lastActiveEditorContext();
@@ -272,6 +279,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			environment,
 			connections,
 			ai,
+			CodeAttributionSource: extHostTypes.CodeAttributionSource,
 			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
 			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,

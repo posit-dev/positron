@@ -43,7 +43,7 @@ import { HistoryBrowserPopup } from './historyBrowserPopup.js';
 import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
-import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
 import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 
@@ -89,7 +89,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		useStateRef<HistoryNavigator2<IInputHistoryEntry> | undefined>(undefined);
 	const [, setCurrentCodeFragment, currentCodeFragmentRef] =
 		useStateRef<string | undefined>(undefined);
-	const [, setShouldExecuteOnStart, shouldExecuteOnStartRef] = useStateRef(false);
+	const shouldExecuteOnStartRef = useRef(false);
 
 	/**
 	 * Determines whether it is OK to take focus.
@@ -210,7 +210,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		});
 
 		// Execute the code.
-		props.positronConsoleInstance.executeCode(code);
+		const attribution: IConsoleCodeAttribution = {
+			source: CodeAttributionSource.Interactive
+		};
+		props.positronConsoleInstance.executeCode(code, attribution);
 
 		// Render the code editor widget.
 		codeEditorWidgetRef.current.render(true);
@@ -622,7 +625,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// If the console instance isn't ready, ignore the event.
 				if (props.positronConsoleInstance.state !== PositronConsoleState.Ready) {
 					if (!shouldExecuteOnStartRef.current) {
-						setShouldExecuteOnStart(true);
+						shouldExecuteOnStartRef.current = true;
 					}
 					break;
 				}
@@ -889,7 +892,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// Update just the line number options.
 			codeEditorWidget.updateOptions(createLineNumbersOptions());
 			if (state === PositronConsoleState.Ready && shouldExecuteOnStartRef.current) {
-				setShouldExecuteOnStart(false);
+				shouldExecuteOnStartRef.current = false;
 				executeCodeEditorWidgetCodeIfPossible();
 			}
 		}));

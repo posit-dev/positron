@@ -7,6 +7,7 @@ import asyncio
 import concurrent.futures
 import functools
 import inspect
+import logging
 import numbers
 import pprint
 import sys
@@ -30,6 +31,8 @@ from typing import (
     cast,
 )
 from urllib.parse import unquote, urlparse
+
+logger = logging.getLogger(__name__)
 
 JsonData = Union[Dict[str, "JsonData"], List["JsonData"], str, int, float, bool, None]
 JsonRecord = Dict[str, JsonData]
@@ -495,5 +498,19 @@ def debounce(interval_s: int, keyed_by: Optional[str] = None):
         debounced.timers = timers  # type: ignore
 
         return debounced
+
+    return wrapper
+
+
+def with_logging(func: Callable):
+    """Decorator to log the execution of a function."""
+    name = get_qualname(func)
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        logger.debug(f"Calling {name} with args: {args}, kwargs: {kwargs}")
+        result = func(*args, **kwargs)
+        logger.debug(f"{name} returned: {result}")
+        return result
 
     return wrapper

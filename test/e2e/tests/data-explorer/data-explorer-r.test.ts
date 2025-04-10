@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.beforeEach(async function ({ app, runCommand }) {
+test.beforeEach(async function ({ app }) {
 	await app.workbench.layouts.enterLayout('stacked');
 	await app.workbench.variables.focusVariablesView();
 });
@@ -22,7 +22,7 @@ test.afterEach(async function ({ runCommand }) {
 test.describe('Data Explorer - R ', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
-	test('R - Verify basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, runCommand }) {
+	test('R - Verify basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, hotKeys }) {
 		// Execute code to generate data frames
 		await openFile('workspaces/generate-data-frames-r/simple-data-frames.r');
 		await app.workbench.editor.playButton.click();
@@ -41,20 +41,22 @@ test.describe('Data Explorer - R ', {
 
 		await test.step('Verify copy to clipboard', async () => {
 			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
+			await hotKeys.copy();
 			const clipboardText = await app.workbench.clipboard.getClipboardText();
 			expect(clipboardText).toBe('Strength');
 		});
 
+		await app.workbench.dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+
+		await app.workbench.dataExplorer.verifyNullPercentHoverDialog();
+
 	});
 
 	test('R - Verify opening Data Explorer for the second time brings focus back', {
-		annotation: [{
-			type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714'
-		}, {
-			type: 'regression', description: 'https://github.com/posit-dev/positron/issues/4197'
-		}]
-	}, async function ({ app, r, runCommand, executeCode }) {
+		annotation: [
+			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714' },
+			{ type: 'regression', description: 'https://github.com/posit-dev/positron/issues/4197' }]
+	}, async function ({ app, r, executeCode }) {
 		// Execute code to generate data frames
 		await executeCode('R', `Data_Frame <- mtcars`);
 		await app.workbench.variables.focusVariablesView();
@@ -96,7 +98,7 @@ test.describe('Data Explorer - R ', {
 
 		await test.step('Verify disconnect dialog', async () => {
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.barPowerButton.click();
+			await app.workbench.console.trashButton.click();
 			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
 		});
 	});

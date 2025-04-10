@@ -21,6 +21,7 @@ import { SerializableObjectWithBuffers } from '../../../services/extensions/comm
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
  * Interface for code execution observers
@@ -225,6 +226,12 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 	// The event that fires when the foreground session changes.
 	public onDidChangeForegroundSession = this._onDidChangeForegroundSessionEmitter.event;
+
+	// The event emitter for the onDidExecuteCode event.
+	private readonly _onDidExecuteCodeEmitter = new Emitter<positron.CodeExecutionEvent>();
+
+	// The event that fires when code is executed.
+	public onDidExecuteCode = this._onDidExecuteCodeEmitter.event;
 
 	// Map to track execution observers by execution ID
 	private _executionObservers = new Map<string, ExecutionObserver>();
@@ -806,6 +813,29 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	/**
+	 * Notification from the main thread that code has been executed.
+	 *
+	 * @param event The event containing the code execution details
+	 */
+	public async $notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): Promise<void> {
+		// Derive the code attribution object
+		const attribution: positron.CodeAttribution = {
+			metadata: event.attribution.metadata,
+			source: event.attribution.source as unknown as positron.CodeAttributionSource,
+		};
+
+		// Create the event object
+		const evt: positron.CodeExecutionEvent = {
+			languageId: event.languageId,
+			code: event.code,
+			attribution,
+			runtimeName: event.runtimeName,
+		};
+
+		this._onDidExecuteCodeEmitter.fire(evt);
+	}
+
+	/**
 	 * Discovers language runtimes in parallel and registers each one with the main thread.
 	 *
 	 * @param discoverers The set of discoverers to discover runtimes from
@@ -1071,6 +1101,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	public executeCode(
 		languageId: string,
 		code: string,
+		extensionId: string,
 		focus: boolean,
 		allowIncomplete?: boolean,
 		mode?: RuntimeCodeExecutionMode,
@@ -1085,7 +1116,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		// Begin the code execution. This returns a promise that resolves to the
 		// session ID of the session assigned (or created) to run the code.
 		this._proxy.$executeCode(
-			languageId, code, focus, allowIncomplete, mode, errorBehavior, executionId).then(
+			languageId, code, extensionId, focus, allowIncomplete, mode, errorBehavior, executionId).then(
 				(sessionId) => {
 					// Bind the session ID to the observer so we can use it later
 					executionObserver.sessionId = sessionId;
@@ -1178,6 +1209,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.reject(
 			new Error(`Session with ID '${sessionId}' must be started before ` +
 				`it can be restarted.`));
+	}
+
+	public focusSession(sessionId: string): void {
+		for (let i = 0; i < this._runtimeSessions.length; i++) {
+			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
+				return this._proxy.$focusSession(i);
+			}
+		}
+		throw new Error(`Session with ID '${sessionId}' must be started before ` +
+			`it can be focused.`);
 	}
 
 	/**

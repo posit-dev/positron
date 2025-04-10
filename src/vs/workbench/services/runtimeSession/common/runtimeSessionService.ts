@@ -464,6 +464,14 @@ export interface IRuntimeSessionService {
 	deleteSession(sessionId: string): Promise<void>;
 
 	/**
+	 * Focus the runtime session by making it the foreground session if it's
+	 * a console session.
+	 *
+	 * @param sessionId The identifier of the session to focus.
+	 */
+	focusSession(sessionId: string): void;
+
+	/**
 	 * Restart a runtime session.
 	 *
 	 * @param sessionId The identifier of the session to restart.

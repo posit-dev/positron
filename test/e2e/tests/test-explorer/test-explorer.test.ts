@@ -20,7 +20,7 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 			]]);
 
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.barClearButton.click();
+			await app.workbench.console.clearButton.click();
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 		} catch (e) {
 			await app.code.driver.takeScreenshot('testExplorerSetup');
@@ -33,13 +33,11 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 		// Open R package embedded in qa-example-content
 		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
 
-		await app.workbench.console.waitForInterpretersToFinishLoading();
+		await app.workbench.sessions.expectAllSessionsToBeReady();
 
 		await expect(async () => {
 			await app.workbench.testExplorer.openTestExplorer();
-
-			await app.workbench.console.waitForInterpretersToFinishLoading();
-
+			await app.workbench.sessions.expectAllSessionsToBeReady();
 			await app.workbench.testExplorer.verifyTestFilesExist(['test-mathstuff.R']);
 		}).toPass({ timeout: 60000 });
 

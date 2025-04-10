@@ -13,7 +13,8 @@ test.use({
 test.describe('Data Explorer - Python Polars', {
 	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
-	test('Python Polars - Verify basic data explorer functionality', async function ({ app, python, logger }) {
+	test.describe.configure({ mode: 'serial' });
+	test('Python Polars - Verify basic data explorer functionality', async function ({ app, python, logger, hotKeys }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'polars-dataframe-py', 'polars_basic.py'));
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
@@ -39,17 +40,24 @@ test.describe('Data Explorer - Python Polars', {
 		}).toPass({ timeout: 60000 });
 
 		await test.step('Verify copy to clipboard', async () => {
-			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
-			const clipboardText = await app.workbench.clipboard.getClipboardText();
-			expect(clipboardText).toBe('1');
+			await expect(async () => {
+				await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+				await hotKeys.copy();
+				const clipboardText = await app.workbench.clipboard.getClipboardText();
+				expect(clipboardText).toBe('1');
+			}).toPass();
 		});
+
+		await app.workbench.dataExplorer.expandSummary();
+
+		await app.workbench.dataExplorer.verifySparklineHoverDialog(['Range', 'Count']);
+
+		await app.workbench.dataExplorer.verifyNullPercentHoverDialog();
 
 	});
 
 	// Cannot be run by itself, relies on the previous test
-	test('Python Polars - Verify basic data explorer column info functionality', async function ({ app, python }) {
-		await app.workbench.dataExplorer.expandSummary();
+	test('Python Polars - Verify basic data explorer column info functionality', async function ({ app }) {
 
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('0%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('0%');
@@ -57,7 +65,6 @@ test.describe('Data Explorer - Python Polars', {
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(4)).toBe('33%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(5)).toBe('33%');
 		expect(await app.workbench.dataExplorer.getColumnMissingPercent(6)).toBe('33%');
-
 
 		const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);
 		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Min': '1.00', 'Median': '2.00', 'Mean': '2.00', 'Max': '3.00', 'SD': '1.00' });
@@ -81,7 +88,7 @@ test.describe('Data Explorer - Python Polars', {
 
 	});
 
-	test('Python Polars - Verify Simple Column filter', async function ({ app, python }) {
+	test('Python Polars - Verify Simple Column filter', async function ({ app }) {
 
 		const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
 		await app.workbench.dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
@@ -101,7 +108,7 @@ test.describe('Data Explorer - Python Polars', {
 		}).toPass({ timeout: 60000 });
 	});
 
-	test('Python Polars - Verify Simple Column Sort', async function ({ app, python }) {
+	test('Python Polars - Verify Simple Column Sort', async function ({ app }) {
 		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
 		let tableData;
@@ -130,6 +137,5 @@ test.describe('Data Explorer - Python Polars', {
 			expect(tableData[1]['ham']).toBe('2022-05-06');
 			expect(tableData.length).toBe(2);
 		}).toPass({ timeout: 60000 });
-
 	});
 });

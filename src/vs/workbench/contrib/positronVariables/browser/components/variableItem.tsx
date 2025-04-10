@@ -396,7 +396,11 @@ export const VariableItem = (props: VariableItemProps) => {
 
 			return (
 				<div className='right-column'>
-					<div className={icon} onMouseDown={viewerMouseDownHandler}></div>
+					<div
+						className={icon}
+						onMouseDown={viewerMouseDownHandler}
+						title={localize('positron.variables.clickToView', "Click to view")}
+					></div>
 				</div>
 			);
 		} else if (props.rightColumnVisible) {

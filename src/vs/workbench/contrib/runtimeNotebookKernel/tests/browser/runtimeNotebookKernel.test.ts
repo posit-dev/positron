@@ -23,6 +23,8 @@ import { ICellExecuteUpdate, ICellExecutionComplete, INotebookCellExecution, INo
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { createTestNotebookEditor, TestNotebookExecutionStateService } from '../../../notebook/test/browser/testNotebookEditor.js';
 import { RuntimeNotebookKernel } from '../../browser/runtimeNotebookKernel.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { CodeAttributionSource } from '../../../../api/common/positron/extHostTypes.positron.js';
 
 suite('Positron - RuntimeNotebookKernel', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -124,6 +126,31 @@ suite('Positron - RuntimeNotebookKernel', () => {
 		// Check that the execution was started before it was completed.
 		sinon.assert.callOrder(execution.update, execution.complete);
 	});
+
+	test('single cell emits execution events', async () => {
+		// Start a session.
+		const session = await startSession();
+
+		// On execute, reply with an idle state.
+		disposables.add(session.onDidExecute(parent_id => session.receiveStateMessage({ parent_id, state: RuntimeOnlineState.Idle })));
+
+		// Establish the event handler.
+		let event: ILanguageRuntimeCodeExecutedEvent | undefined = undefined;
+		disposables.add(kernel.onDidExecuteCode(evt => {
+			event = evt;
+		}));
+
+		// Execute a cell.
+		await kernel.executeNotebookCellsRequest(notebookDocument.uri, [0]);
+
+		// Verify the event.
+		assert.ok(event !== undefined);
+		const executed = event as ILanguageRuntimeCodeExecutedEvent;
+		assert.strictEqual(executed.code, 'print(x)');
+		assert.strictEqual(executed.languageId, 'python');
+		assert.strictEqual(executed.attribution.source, CodeAttributionSource.Notebook);
+	});
+
 
 	test('single cell starts a new session if required', async () => {
 		// When a session is started, setup its execute handler to reply with an idle state.
