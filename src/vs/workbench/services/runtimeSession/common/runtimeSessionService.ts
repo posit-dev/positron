@@ -439,10 +439,6 @@ export interface IRuntimeSessionService {
 		sessionMetadata: IRuntimeSessionMetadata,
 		activate: boolean): Promise<void>;
 
-	restartExitedRuntimeSession(
-		session: ILanguageRuntimeSession,
-		activate: boolean): Promise<void>;
-
 	/**
 	 * Automatically starts a runtime.
 	 *

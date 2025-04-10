@@ -1408,9 +1408,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Wait a beat, then start the runtime.
 			await new Promise<void>(resolve => setTimeout(resolve, 250));
 
-			await this._runtimeSessionService.restartExitedRuntimeSession(
-				session,
-				true,
+			await this._runtimeSessionService.restartSession(
+				session.sessionId,
+				`The runtime exited unexpectedly and is being restarted automatically.`
 			);
 
 			// await this._runtimeSessionService.startNewRuntimeSession(
