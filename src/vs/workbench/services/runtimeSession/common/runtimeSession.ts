@@ -812,17 +812,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const state = session.getRuntimeState();
 		if (state === RuntimeState.Busy ||
 			state === RuntimeState.Idle ||
-			state === RuntimeState.Ready) {
+			state === RuntimeState.Ready ||
+			state === RuntimeState.Exited) {
 			// The runtime looks like it could handle a restart request, so send
 			// one over.
 			return this.doRestartRuntime(session);
-		} else if (state === RuntimeState.Exited) {
-			await this.doStartRuntimeSession(
-				session,
-				await this.getManagerForRuntime(session.runtimeMetadata),
-				RuntimeStartMode.Restarting,
-				true
-			);
 		} else if (state === RuntimeState.Uninitialized) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
@@ -906,7 +900,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Ask the runtime to restart.
 		try {
 			// Restart the working directory in the same directory as the session.
-			await session.restart(activeSession.workingDirectory);
+			if (session.getRuntimeState() === RuntimeState.Exited) {
+				// Do a start, behind the scenes
+				await session.start();
+			} else {
+				await session.restart(activeSession.workingDirectory);
+			}
 		} catch (err) {
 			startPromise.error(err);
 			this.clearStartingSessionMaps(
