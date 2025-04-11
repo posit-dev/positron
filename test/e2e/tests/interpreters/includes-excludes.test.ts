@@ -60,10 +60,14 @@ test.describe('Interpreter: Excludes', {
 			return fail('Alternate R version not set');
 		}
 
+		const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded';
 		try {
 			await sessions.start('rAlt', { reuse: false });
-			fail('selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded');
+			fail(failMessage);
 		} catch (e) {
+			if (e instanceof Error && e.message.includes(failMessage)) {
+				fail(failMessage);
+			}
 			// Success = interpreter was correctly excluded
 		}
 
@@ -84,7 +88,10 @@ test.describe('Interpreter: Excludes', {
 		try {
 			await sessions.start('pythonAlt', { reuse: false });
 			fail(failMessage);
-		} catch {
+		} catch (e) {
+			if (e instanceof Error && e.message.includes(failMessage)) {
+				fail(failMessage);
+			}
 			// Success = interpreter was correctly excluded
 		}
 
@@ -110,10 +117,14 @@ test.describe('Interpreter: Override', {
 			return fail('Alternate R version not set');
 		}
 
+		const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was overriden';
 		try {
 			await sessions.start('r', { reuse: false });
-			fail('selectInterpreter was supposed to fail as default R was overridden');
+			fail(failMessage);
 		} catch (e) {
+			if (e instanceof Error && e.message.includes(failMessage)) {
+				fail(failMessage);
+			}
 			// Success = interpreter was correctly overriden
 		}
 		await app.code.driver.page.keyboard.press('Escape');
@@ -127,10 +138,14 @@ test.describe('Interpreter: Override', {
 			return fail('Alternate Python version not set');
 		}
 
+		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was overriden';
 		try {
 			await sessions.start('python', { reuse: false });
-			fail('selectInterpreter was supposed to fail as ~/.pyenv was overriden');
-		} catch {
+			fail(failMessage);
+		} catch (e) {
+			if (e instanceof Error && e.message.includes(failMessage)) {
+				fail(failMessage);
+			}
 			// Success = interpreter was correctly overriden
 		}
 
