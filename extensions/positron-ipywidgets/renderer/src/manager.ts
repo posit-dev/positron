@@ -135,7 +135,7 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 					data: message.data as JSONObject,
 				},
 				// Sometimes these buffers are not aligned, so we need to convert them to Uint8Arrays to avoid mangled data.
-				// This is handeled by the Comm class for subsequent messages.
+				// This is handled by the Comm class for subsequent messages.
 				buffers: message.buffers?.map(buffer => new Uint8Array(buffer.buffer)),
 				// This is expected to at least contain the backend widget protocol 'version', which
 				// should match the frontend version.
