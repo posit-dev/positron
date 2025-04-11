@@ -8,6 +8,7 @@ import { ContextKeyExpression } from '../../contextkey/common/contextkey.js';
 import { ThemeIcon } from '../../../base/common/themables.js';
 import { Categories } from './actionCommonCategories.js';
 import { ICommandMetadata } from '../../commands/common/commands.js';
+import { IUserFriendlyActionBarButtonOptions, IUserFriendlyActionBarCheckboxOptions, IUserFriendlyActionBarToggleOptions } from '../../../workbench/services/actions/common/menusExtensionPoint.js';
 
 export interface ILocalizedString {
 
@@ -71,27 +72,17 @@ export interface ICommandActionSource {
 }
 
 // --- Start Positron ---
-export type PositronActionBarButtonOptions = {
-	controlType: 'button';
-	displayTitle: boolean;
-};
+export type PositronActionBarButtonOptions = IUserFriendlyActionBarButtonOptions;
 
-export type PositronActionBarCheckboxOptions = {
-	controlType: 'checkbox';
+export type PositronActionBarCheckboxOptions = Omit<IUserFriendlyActionBarCheckboxOptions, 'checked'> & {
 	checked?: ContextKeyExpression;
 };
 
-export type PositronActionBarToggleOptions = {
-	controlType: 'toggle';
+export type PositronActionBarToggleOptions = Omit<IUserFriendlyActionBarToggleOptions, 'toggled'> & {
 	toggled?: ContextKeyExpression;
-	leftTitle: string | ILocalizedString;
-	rightTitle: string | ILocalizedString;
 };
 
-export type PositronActionBarOptions =
-	PositronActionBarButtonOptions |
-	PositronActionBarCheckboxOptions |
-	PositronActionBarToggleOptions;
+export type PositronActionBarOptions = PositronActionBarButtonOptions | PositronActionBarCheckboxOptions | PositronActionBarToggleOptions;
 
 export const isPositronActionBarButtonOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarButtonOptions =>
 	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'button';
