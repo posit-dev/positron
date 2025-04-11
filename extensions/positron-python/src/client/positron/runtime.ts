@@ -27,6 +27,7 @@ import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 export interface PythonRuntimeExtraData {
     pythonPath: string;
     ipykernelBundle?: IpykernelBundle;
+    externallyManaged?: boolean;
 }
 
 export async function createPythonRuntimeMetadata(
