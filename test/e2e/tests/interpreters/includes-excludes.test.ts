@@ -128,8 +128,6 @@ test.describe('Interpreter: Override', {
 			return fail('Alternate Python version not set');
 		}
 
-		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
-
 		try {
 			await sessions.start('python', { reuse: false });
 			fail('selectInterpreter was supposed to fail as ~/.pyenv was overriden');
