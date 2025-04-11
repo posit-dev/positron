@@ -427,6 +427,29 @@ const selectNewLanguageRuntime = async (
 				picked: true
 			});
 		});
+
+		// Add separator for suggested runtimes (if not already in the active runtimes)
+		const suggestedRuntimes = interpreterGroups
+			.map(group => group.primaryRuntime)
+			.filter(runtime => !activeRuntimeIds.has(runtime.runtimeId) && runtime.runtimeId !== currentRuntime?.runtimeId);
+
+		if (suggestedRuntimes.length > 0) {
+			runtimeItems.push({
+				type: 'separator',
+				label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
+			});
+
+			suggestedRuntimes.forEach(runtime => {
+				runtimeItems.push({
+					id: runtime.runtimeId,
+					label: runtime.runtimeName,
+					detail: runtime.runtimePath,
+					iconPath: {
+						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+					}
+				});
+			});
+		}
 	}
 
 
@@ -434,32 +457,70 @@ const selectNewLanguageRuntime = async (
 		const language = group.primaryRuntime.languageName;
 		// Add separator with language name.
 		runtimeItems.push({ type: 'separator', label: language });
-		// Add primary runtime first.
-		if (group.primaryRuntime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(group.primaryRuntime.runtimeId)) {
-			runtimeItems.push({
-				id: group.primaryRuntime.runtimeId,
-				label: group.primaryRuntime.runtimeName,
-				detail: group.primaryRuntime.runtimePath,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
-				},
-				picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-			});
-		}
-		// Follow with alternate runtimes.
-		group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
+		// Group runtimes by environment type
+		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
+
+
+		// Follow with alternate runtimes in their environment type groups
 		group.alternateRuntimes.forEach(runtime => {
 			if (runtime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(runtime.runtimeId)) {
-				runtimeItems.push({
-					id: runtime.runtimeId,
-					label: runtime.runtimeName,
-					detail: runtime.runtimePath,
-					iconPath: {
-						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-					},
-					picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-				});
+				const envType = `${runtime.runtimeSource}`;
+				if (!runtimesByEnvType.has(envType)) {
+					runtimesByEnvType.set(envType, []);
+				}
+				runtimesByEnvType.get(envType)!.push(runtime);
 			}
+
+		});
+		// Add items for each environment type
+		const sortedEnvTypes = Array.from(runtimesByEnvType.keys()).sort();
+
+
+		sortedEnvTypes.forEach(envType => {
+			runtimeItems.push({ type: 'separator', label: envType });
+			// Add runtimes for this environment type
+			runtimesByEnvType.get(envType)!
+				.sort((a, b) => {
+					// Extract version numbers from runtime names if they exist
+					const aMatch = a.runtimeName.match(/(\d+\.\d+\.\d+)/);
+					const bMatch = b.runtimeName.match(/(\d+\.\d+\.\d+)/);
+
+					// If both have version numbers, compare them
+					if (aMatch && bMatch) {
+						const aVersion = aMatch[1].split('.').map(Number);
+						const bVersion = bMatch[1].split('.').map(Number);
+
+						// Compare major version (decreasing order)
+						if (aVersion[0] !== bVersion[0]) {
+							return bVersion[0] - aVersion[0];
+						}
+
+						// Compare minor version (decreasing order)
+						if (aVersion[1] !== bVersion[1]) {
+							return bVersion[1] - aVersion[1];
+						}
+
+						// Compare patch version (decreasing order)
+						if (aVersion[2] !== bVersion[2]) {
+							return bVersion[2] - aVersion[2];
+						}
+					}
+
+					// If versions are equal or not found, sort alphabetically
+					return a.runtimeName.localeCompare(b.runtimeName);
+				})
+				.forEach(runtime => {
+					runtimeItems.push({
+						id: runtime.runtimeId,
+						label: runtime.runtimeName,
+						detail: runtime.runtimePath,
+						iconPath: {
+							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+						},
+						picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+					});
+				});
+
 		});
 	});
 
