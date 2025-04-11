@@ -604,6 +604,7 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 				original: 'Clear Column Sorting'
 			},
 			positronActionBarOptions: {
+				controlType: 'button',
 				displayTitle: true,
 			},
 			category,
@@ -703,6 +704,7 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 				original: 'Open as Plain Text File'
 			},
 			positronActionBarOptions: {
+				controlType: 'button',
 				displayTitle: true,
 			},
 			category,

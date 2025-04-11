@@ -18,7 +18,7 @@ import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { useStateRef } from '../../../../base/browser/ui/react/useStateRef.js';
-import { isPositronActionBarDisplayOptions } from '../../../action/common/action.js';
+import { isPositronActionBarButtonOptions } from '../../../action/common/action.js';
 import { IAccessibilityService } from '../../../accessibility/common/accessibility.js';
 import { IModifierKeyStatus, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
 
@@ -137,7 +137,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 			checked={action.checked}
 			disabled={!action.enabled}
 			iconId={iconId}
-			label={isPositronActionBarDisplayOptions(menuItemAction?.positronActionBarOptions) && menuItemAction.positronActionBarOptions.displayTitle ?
+			label={isPositronActionBarButtonOptions(menuItemAction?.positronActionBarOptions) && menuItemAction.positronActionBarOptions.displayTitle ?
 				action.label :
 				undefined
 			}
