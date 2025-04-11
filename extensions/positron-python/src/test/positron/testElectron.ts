@@ -308,9 +308,9 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     try {
         const writer = fs.createWriteStream(downloadPath);
         dlResponse.pipe(writer);
-        await new Promise((resolve, reject) => {
-            writer.once('finish', resolve);
-            writer.once('error', reject);
+        await new Promise<void>((resolve, reject) => {
+            writer.once('finish', () => resolve());
+            writer.once('error', (err) => reject(err));
         });
 
         if (!(await fs.pathExists(installDir))) {
