@@ -120,7 +120,7 @@ test.describe('Interpreter: Override', {
 		await sessions.start('rAlt', { reuse: false });
 	});
 
-	test('Python - Can Override Intgerpreter Discovery', async function ({ app, userSettings, sessions }) {
+	test('Python - Can Override Interpreter Discovery', async function ({ app, userSettings, sessions }) {
 
 		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
 
