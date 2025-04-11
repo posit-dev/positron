@@ -400,6 +400,7 @@ suite('Positron - IPyWidgetsInstance', () => {
 			target_name: client.getClientType(),
 			data: {},
 			metadata: {},
+			buffers: [],
 		} as ToWebviewMessage]);
 
 		// Close the client.
