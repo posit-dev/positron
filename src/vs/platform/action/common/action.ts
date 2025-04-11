@@ -71,33 +71,36 @@ export interface ICommandActionSource {
 }
 
 // --- Start Positron ---
-export type PositronActionBarDisplayOptions = {
+export type PositronActionBarButtonOptions = {
+	controlType: 'button';
 	displayTitle: boolean;
 };
 
 export type PositronActionBarCheckboxOptions = {
+	controlType: 'checkbox';
 	checked?: ContextKeyExpression;
 };
 
 export type PositronActionBarToggleOptions = {
+	controlType: 'toggle';
 	toggled?: ContextKeyExpression;
 	leftTitle: string | ILocalizedString;
 	rightTitle: string | ILocalizedString;
 };
 
 export type PositronActionBarOptions =
-	PositronActionBarDisplayOptions |
+	PositronActionBarButtonOptions |
 	PositronActionBarCheckboxOptions |
 	PositronActionBarToggleOptions;
 
-export const isPositronActionBarDisplayOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarDisplayOptions =>
-	positronActionBarOptions !== undefined && (positronActionBarOptions as PositronActionBarDisplayOptions).displayTitle !== undefined;
+export const isPositronActionBarButtonOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarButtonOptions =>
+	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'button' && (positronActionBarOptions as PositronActionBarButtonOptions).displayTitle !== undefined;
 
 export const isPositronActionBarCheckboxOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarCheckboxOptions =>
-	positronActionBarOptions !== undefined && (positronActionBarOptions as PositronActionBarCheckboxOptions).checked !== undefined;
+	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'checkbox' && (positronActionBarOptions as PositronActionBarCheckboxOptions).checked !== undefined;
 
 export const isPositronActionBarToggleOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarToggleOptions =>
-	positronActionBarOptions !== undefined && (positronActionBarOptions as PositronActionBarToggleOptions).toggled !== undefined;
+	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'toggle' && (positronActionBarOptions as PositronActionBarToggleOptions).toggled !== undefined;
 // --- End Positron ---
 
 export interface ICommandAction {

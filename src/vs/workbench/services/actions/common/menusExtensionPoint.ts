@@ -693,33 +693,36 @@ namespace schema {
 	// --- commands contribution point
 
 	// --- Start Positron ---
-	export type IUserFriendlyActionBarDisplayOptions = {
+	export type IUserFriendlyActionBarButtonOptions = {
+		controlType: 'button';
 		displayTitle: boolean;
 	};
 
 	export type IUserFriendlyActionBarCheckboxOptions = {
+		controlType: 'checkbox';
 		checked: string;
 	};
 
 	export type IUserFriendlyActionBarToggleOptions = {
+		controlType: 'toggle';
 		toggled: string;
 		leftTitle: string | ILocalizedString;
 		rightTitle: string | ILocalizedString;
 	};
 
 	export type IUserFriendlyActionBarOptions =
-		IUserFriendlyActionBarDisplayOptions |
+		IUserFriendlyActionBarButtonOptions |
 		IUserFriendlyActionBarCheckboxOptions |
 		IUserFriendlyActionBarToggleOptions;
 
-	export const isActionBarDisplayOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarDisplayOptions =>
-		actionBarOptions !== undefined && (actionBarOptions as IUserFriendlyActionBarDisplayOptions).displayTitle !== undefined;
+	export const isActionBarButtonOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarButtonOptions =>
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'button' && (actionBarOptions as IUserFriendlyActionBarButtonOptions).displayTitle !== undefined;
 
 	export const isActionBarCheckboxOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarCheckboxOptions =>
-		actionBarOptions !== undefined && (actionBarOptions as IUserFriendlyActionBarCheckboxOptions).checked !== undefined;
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'checkbox' && (actionBarOptions as IUserFriendlyActionBarCheckboxOptions).checked !== undefined;
 
 	export const isActionBarToggleOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarToggleOptions =>
-		actionBarOptions !== undefined && (actionBarOptions as IUserFriendlyActionBarToggleOptions).toggled !== undefined;
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'toggle' && (actionBarOptions as IUserFriendlyActionBarToggleOptions).toggled !== undefined;
 	// --- End Positron ---
 
 	export interface IUserFriendlyCommand {
@@ -776,7 +779,7 @@ namespace schema {
 			return true;
 		}
 
-		if (isActionBarDisplayOptions(actionBarOptions)) {
+		if (isActionBarButtonOptions(actionBarOptions)) {
 			return true;
 		}
 
@@ -865,9 +868,13 @@ namespace schema {
 			},
 			// --- Start Positron ---
 			actionBarOptions: {
-				anyOf: [{
+				oneOf: [{
 					type: 'object',
 					properties: {
+						controlType: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.controlType', 'The type of the action bar control.'),
+							const: 'button',
+						},
 						displayTitle: {
 							description: localize('vscode.extension.contributes.commandType.actionBarOptions.displayTitle', 'A value which indicates whether to display the title on an action bar.'),
 							type: 'boolean'
@@ -877,6 +884,10 @@ namespace schema {
 				{
 					type: 'object',
 					properties: {
+						controlType: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.controlType', 'The type of the action bar control.'),
+							const: 'checkbox',
+						},
 						checked: {
 							description: localize('vscode.extension.contributes.commandType.actionBarOptions.checked', 'Condition which indicate whether the command is checked.'),
 							type: 'string'
@@ -886,6 +897,10 @@ namespace schema {
 				{
 					type: 'object',
 					properties: {
+						controlType: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.controlType', 'The type of the action bar control.'),
+							const: 'toggle',
+						},
 						toggled: {
 							description: localize('vscode.extension.contributes.commandType.actionBarOptions.toggled', 'Condition which indicate whether the command is toggled.'),
 							type: 'string'
@@ -1006,16 +1021,19 @@ commandsExtensionPoint.setHandler(extensions => {
 
 		// --- Start Positron ---
 		let positronActionBarOptions: PositronActionBarOptions | undefined;
-		if (schema.isActionBarDisplayOptions(actionBarOptions)) {
+		if (schema.isActionBarButtonOptions(actionBarOptions)) {
 			positronActionBarOptions = {
+				controlType: actionBarOptions.controlType,
 				displayTitle: actionBarOptions.displayTitle
 			};
 		} else if (schema.isActionBarCheckboxOptions(actionBarOptions)) {
 			positronActionBarOptions = {
+				controlType: actionBarOptions.controlType,
 				checked: ContextKeyExpr.deserialize(actionBarOptions.checked)
 			};
 		} else if (schema.isActionBarToggleOptions(actionBarOptions)) {
 			positronActionBarOptions = {
+				controlType: actionBarOptions.controlType,
 				toggled: ContextKeyExpr.deserialize(actionBarOptions.toggled),
 				leftTitle: actionBarOptions.leftTitle,
 				rightTitle: actionBarOptions.rightTitle

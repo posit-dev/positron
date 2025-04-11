@@ -24,7 +24,7 @@ import { ActionBarActionButton } from '../../../../platform/positronActionBar/br
 import { ActionBarCommandButton } from '../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
 import { ActionBarActionCheckbox } from '../../../../platform/positronActionBar/browser/components/actionBarActionCheckbox.js';
 import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
-import { isPositronActionBarCheckboxOptions, isPositronActionBarDisplayOptions, isPositronActionBarToggleOptions } from '../../../../platform/action/common/action.js';
+import { isPositronActionBarCheckboxOptions, isPositronActionBarButtonOptions, isPositronActionBarToggleOptions } from '../../../../platform/action/common/action.js';
 
 // Constants.
 const PADDING_LEFT = 8;
@@ -349,12 +349,19 @@ export class EditorActionBarFactory extends Disposable {
 				// Menu item action.
 				if (!processedActions.has(action.id)) {
 					processedActions.add(action.id);
-					if (!action.item.positronActionBarOptions || isPositronActionBarDisplayOptions(action.item.positronActionBarOptions)) {
+
+					// If no action bar options are specified, use the default action bar button.
+					if (!action.item.positronActionBarOptions) {
+						elements.push(<ActionBarActionButton action={action} />);
+					} else if (isPositronActionBarButtonOptions(action.item.positronActionBarOptions)) {
 						elements.push(<ActionBarActionButton action={action} />);
 					} else if (isPositronActionBarCheckboxOptions(action.positronActionBarOptions)) {
 						elements.push(<ActionBarActionCheckbox action={action} />);
 					} else if (isPositronActionBarToggleOptions(action.positronActionBarOptions)) {
 						// TODO
+					} else {
+						// This indicates an unknown control type.
+						console.warn(`EditorActionBarFactory: Unknown action type: ${action.item.positronActionBarOptions.controlType}`);
 					}
 				}
 			} else if (action instanceof SubmenuItemAction) {
