@@ -435,10 +435,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this._kernel = await this.createKernel();
         }
 
-        if (
-            this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console &&
-            !this._isExternallyManaged
-        ) {
+        if (this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console && !this._isExternallyManaged) {
             // Update the active environment in the Python extension.
             this._interpreterPathService.update(
                 undefined,
