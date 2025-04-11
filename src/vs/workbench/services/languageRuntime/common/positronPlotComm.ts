@@ -51,6 +51,19 @@ export interface PlotResult {
 	 */
 	mime_type: string;
 
+	/**
+	 * The render policy used for the plot
+   */
+	policy: RenderPolicy;
+}
+
+/**
+ * A rendered plot
+ */
+export interface RenderPolicy {
+	size: PlotSize;
+	pixel_ratio: number;
+	format: RenderFormat;
 }
 
 /**
@@ -181,4 +194,3 @@ export class PositronPlotComm extends PositronBaseComm {
 	 */
 	onDidShow: Event<ShowEvent>;
 }
-
