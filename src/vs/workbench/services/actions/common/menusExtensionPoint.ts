@@ -47,36 +47,6 @@ export const IGNORED_JUPYTER_COMMANDS = new Set([
 ]);
 // --- End Positron ---
 
-// --- Start Positron ---
-export type IUserFriendlyActionBarButtonOptions = {
-	controlType: 'button';
-	displayTitle: boolean;
-};
-
-export type IUserFriendlyActionBarCheckboxOptions = {
-	controlType: 'checkbox';
-	checked: string;
-};
-
-export type IUserFriendlyActionBarToggleOptions = {
-	controlType: 'toggle';
-	toggled: string;
-	leftTitle: string | ILocalizedString;
-	rightTitle: string | ILocalizedString;
-};
-
-export type IUserFriendlyActionBarOptions = IUserFriendlyActionBarButtonOptions | IUserFriendlyActionBarCheckboxOptions | IUserFriendlyActionBarToggleOptions;
-
-export const isActionBarButtonOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarButtonOptions =>
-	actionBarOptions !== undefined && actionBarOptions.controlType === 'button';
-
-export const isActionBarCheckboxOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarCheckboxOptions =>
-	actionBarOptions !== undefined && actionBarOptions.controlType === 'checkbox';
-
-export const isActionBarToggleOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarToggleOptions =>
-	actionBarOptions !== undefined && actionBarOptions.controlType === 'toggle';
-// --- End Positron ---
-
 interface IAPIMenu {
 	readonly key: string;
 	readonly id: MenuId;
@@ -722,6 +692,39 @@ namespace schema {
 
 	// --- commands contribution point
 
+	// --- Start Positron ---
+	export type IUserFriendlyActionBarButtonOptions = {
+		controlType: 'button';
+		displayTitle: boolean;
+	};
+
+	export type IUserFriendlyActionBarCheckboxOptions = {
+		controlType: 'checkbox';
+		checked: string;
+	};
+
+	export type IUserFriendlyActionBarToggleOptions = {
+		controlType: 'toggle';
+		toggled: string;
+		leftTitle: string | ILocalizedString;
+		rightTitle: string | ILocalizedString;
+	};
+
+	export type IUserFriendlyActionBarOptions =
+		IUserFriendlyActionBarButtonOptions |
+		IUserFriendlyActionBarCheckboxOptions |
+		IUserFriendlyActionBarToggleOptions;
+
+	export const isActionBarButtonOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarButtonOptions =>
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'button';
+
+	export const isActionBarCheckboxOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarCheckboxOptions =>
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'checkbox';
+
+	export const isActionBarToggleOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarToggleOptions =>
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'toggle';
+	// --- End Positron ---
+
 	export interface IUserFriendlyCommand {
 		command: string;
 		title: string | ILocalizedString;
@@ -1018,16 +1021,16 @@ commandsExtensionPoint.setHandler(extensions => {
 
 		// --- Start Positron ---
 		let positronActionBarOptions: PositronActionBarOptions | undefined;
-		if (isActionBarButtonOptions(actionBarOptions)) {
+		if (schema.isActionBarButtonOptions(actionBarOptions)) {
 			positronActionBarOptions = {
 				...actionBarOptions
 			};
-		} else if (isActionBarCheckboxOptions(actionBarOptions)) {
+		} else if (schema.isActionBarCheckboxOptions(actionBarOptions)) {
 			positronActionBarOptions = {
 				...actionBarOptions,
 				checked: ContextKeyExpr.deserialize(actionBarOptions.checked)
 			};
-		} else if (isActionBarToggleOptions(actionBarOptions)) {
+		} else if (schema.isActionBarToggleOptions(actionBarOptions)) {
 			positronActionBarOptions = {
 				...actionBarOptions,
 				toggled: ContextKeyExpr.deserialize(actionBarOptions.toggled)
