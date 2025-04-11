@@ -1395,7 +1395,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// `exit_code` was `0`, so we don't treat it as a crash. If the `exit_code` had not been
 		// `0`, then `onKernelExited()` would have upgraded the crash from `Unknown` to `Error`.
 		if (exit.reason !== RuntimeExitReason.Error) {
-			await session.cleanup();
+			if (exit.reason !== RuntimeExitReason.Restart) {
+				await session.cleanup();
+			}
 			return;
 		}
 
