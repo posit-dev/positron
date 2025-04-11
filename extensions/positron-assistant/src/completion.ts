@@ -21,6 +21,7 @@ import { createAzure } from '@ai-sdk/azure';
 import { loadSetting } from '@ai-sdk/provider-utils';
 import { GoogleAuth } from 'google-auth-library';
 import { createGoogleGenerativeAI } from '@ai-sdk/google';
+import { CopilotService } from './copilot.js';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -602,6 +603,49 @@ class AzureCompletion extends FimPromptCompletion {
 	}
 }
 
+export class CopilotCompletion implements vscode.InlineCompletionItemProvider {
+	public name;
+	public identifier;
+	private readonly _copilotService;
+
+	static source: positron.ai.LanguageModelSource = {
+		type: positron.PositronLanguageModelType.Completion,
+		provider: {
+			id: 'copilot',
+			displayName: 'GitHub Copilot'
+		},
+		supportedOptions: [],
+		defaults: {
+			name: 'GitHub Copilot',
+			model: 'github-copilot',
+		},
+	};
+
+	constructor(_config: ModelConfig) {
+		this.identifier = _config.id;
+		this.name = _config.name;
+		this._copilotService = CopilotService.instance();
+	}
+
+	async provideInlineCompletionItems(
+		document: vscode.TextDocument,
+		position: vscode.Position,
+		context: vscode.InlineCompletionContext,
+		token: vscode.CancellationToken
+	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined> {
+		return await this._copilotService.inlineCompletion(document, position, context, token);
+	}
+
+	handleDidPartiallyAcceptCompletionItem(completionItem: vscode.InlineCompletionItem, infoOrAcceptedLength: vscode.PartialAcceptInfo | number): void {
+		const acceptedLength = typeof infoOrAcceptedLength === 'number' ? infoOrAcceptedLength : infoOrAcceptedLength.acceptedLength;
+		this._copilotService.didPartiallyAcceptCompletionItem(completionItem, acceptedLength);
+	}
+
+	handleDidShowCompletionItem(completionItem: vscode.InlineCompletionItem, updatedInsertText: string): void {
+		this._copilotService.didShowCompletionItem(completionItem, updatedInsertText);
+	}
+}
+
 //#endregion
 //#region Module exports
 
@@ -610,6 +654,7 @@ export function newCompletionProvider(config: ModelConfig): vscode.InlineComplet
 		'anthropic': AnthropicCompletion,
 		'azure': AzureCompletion,
 		'bedrock': AWSCompletion,
+		'copilot': CopilotCompletion,
 		'deepseek': DeepSeekCompletion,
 		'google': GoogleCompletion,
 		'mistral': MistralCompletion,
@@ -632,6 +677,7 @@ export const completionModels = [
 	AnthropicCompletion,
 	AWSCompletion,
 	AzureCompletion,
+	CopilotCompletion,
 	DeepSeekCompletion,
 	MistralCompletion,
 	GoogleCompletion,
