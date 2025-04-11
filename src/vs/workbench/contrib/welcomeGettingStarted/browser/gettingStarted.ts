@@ -296,12 +296,14 @@ export class GettingStartedPage extends EditorPane {
 						badgeelement.parentElement?.setAttribute('aria-checked', 'true');
 						badgeelement.classList.remove(...ThemeIcon.asClassNameArray(gettingStartedUncheckedCodicon));
 						badgeelement.classList.add('complete', ...ThemeIcon.asClassNameArray(gettingStartedCheckedCodicon));
+						badgeelement.setAttribute('aria-label', localize('stepDone', "Checkbox for Step {0}: Completed", step.title));
 					}
 					else {
 						badgeelement.setAttribute('aria-checked', 'false');
 						badgeelement.parentElement?.setAttribute('aria-checked', 'false');
 						badgeelement.classList.remove('complete', ...ThemeIcon.asClassNameArray(gettingStartedCheckedCodicon));
 						badgeelement.classList.add(...ThemeIcon.asClassNameArray(gettingStartedUncheckedCodicon));
+						badgeelement.setAttribute('aria-label', localize('stepNotDone', "Checkbox for Step {0}: Not completed", step.title));
 					}
 				});
 			}
@@ -743,8 +745,8 @@ export class GettingStartedPage extends EditorPane {
 			const themeType = this.themeService.getColorTheme().type;
 			const videoPath = media.path[themeType];
 			const videoPoster = media.poster ? media.poster[themeType] : undefined;
-
-			const rawHTML = await this.detailsRenderer.renderVideo(videoPath, videoPoster);
+			const altText = media.altText ? media.altText : localize('videoAltText', "Video for {0}", stepToExpand.title);
+			const rawHTML = await this.detailsRenderer.renderVideo(videoPath, videoPoster, altText);
 			this.webview.setHtml(rawHTML);
 
 			let isDisposed = false;
@@ -755,7 +757,7 @@ export class GettingStartedPage extends EditorPane {
 				const themeType = this.themeService.getColorTheme().type;
 				const videoPath = media.path[themeType];
 				const videoPoster = media.poster ? media.poster[themeType] : undefined;
-				const body = await this.detailsRenderer.renderVideo(videoPath, videoPoster);
+				const body = await this.detailsRenderer.renderVideo(videoPath, videoPoster, altText);
 
 				if (!isDisposed) { // Make sure we weren't disposed of in the meantime
 					this.webview.setHtml(body);
@@ -1169,7 +1171,7 @@ export class GettingStartedPage extends EditorPane {
 		// --- Start Positron ---
 		// Removed the height-constrained class that hides the header so that product name and logo are always visible
 		this.container.classList.toggle('width-constrained', size.width <= 400);
-		this.container.classList.toggle('width-semi-constrained', size.width <= 800);
+		this.container.classList.toggle('width-semi-constrained', size.width <= 950);
 		// --- End Positron ---
 
 		this.categoriesPageScrollbar?.scanDomNode();
@@ -1351,6 +1353,7 @@ export class GettingStartedPage extends EditorPane {
 						container.appendChild(shortcutMessage);
 						const label = new KeybindingLabel(shortcutMessage, OS, { ...defaultKeybindingLabelStyles });
 						label.set(keybinding);
+						this.detailsPageDisposables.add(label);
 					}
 				}
 
@@ -1456,7 +1459,10 @@ export class GettingStartedPage extends EditorPane {
 							'data-done-step-id': step.id,
 							'x-dispatch': 'toggleStepCompletion:' + step.id,
 							'role': 'checkbox',
-							'aria-checked': step.done ? 'true' : 'false'
+							'aria-checked': step.done ? 'true' : 'false',
+							'aria-label': step.done
+								? localize('stepDone', "Checkbox for Step {0}: Completed", step.title)
+								: localize('stepNotDone', "Checkbox for Step {0}: Not completed", step.title),
 						});
 
 					const container = $('.step-description-container', { 'x-step-description-for': step.id });

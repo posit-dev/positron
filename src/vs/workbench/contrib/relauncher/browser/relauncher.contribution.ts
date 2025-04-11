@@ -22,6 +22,7 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IUserDataSyncEnablementService, IUserDataSyncService, SyncStatus } from '../../../../platform/userDataSync/common/userDataSync.js';
 import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/common/userDataSync.js';
+import { ChatConfiguration } from '../../chat/common/constants.js';
 
 interface IConfiguration extends IWindowsConfiguration {
 	// --- Start Positron ---
@@ -32,8 +33,10 @@ interface IConfiguration extends IWindowsConfiguration {
 	security?: { workspace?: { trust?: { enabled?: boolean } }; restrictUNCAccess?: boolean };
 	window: IWindowSettings;
 	workbench?: { enableExperiments?: boolean };
+	telemetry?: { feedback?: { enabled?: boolean } };
 	_extensionsGallery?: { enablePPE?: boolean };
 	accessibility?: { verbosity?: { debug?: boolean } };
+	chat?: { unifiedChatView?: boolean; useFileStorage?: boolean };
 }
 
 export class SettingsChangeRelauncher extends Disposable implements IWorkbenchContribution {
@@ -43,6 +46,7 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 		'window.nativeTabs',
 		'window.nativeFullScreen',
 		'window.clickThroughInactive',
+		'window.controlsStyle',
 		'update.mode',
 		'editor.accessibilitySupport',
 		'security.workspace.trust.enabled',
@@ -50,15 +54,19 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 		'_extensionsGallery.enablePPE',
 		'security.restrictUNCAccess',
 		// --- Start Positron ---
-		'accessibility.verbosity.debug',
 		'update.autoUpdate',
 		// --- End Positron ---
+		'accessibility.verbosity.debug',
+		ChatConfiguration.UnifiedChatView,
+		ChatConfiguration.UseFileStorage,
+		'telemetry.feedback.enabled'
 	];
 
 	private readonly titleBarStyle = new ChangeObserver<TitlebarStyle>('string');
 	private readonly nativeTabs = new ChangeObserver('boolean');
 	private readonly nativeFullScreen = new ChangeObserver('boolean');
 	private readonly clickThroughInactive = new ChangeObserver('boolean');
+	private readonly controlsStyle = new ChangeObserver('string');
 	private readonly updateMode = new ChangeObserver('string');
 	private accessibilitySupport: 'on' | 'off' | 'auto' | undefined;
 	private readonly workspaceTrustEnabled = new ChangeObserver('boolean');
@@ -66,6 +74,10 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 	private readonly enablePPEExtensionsGallery = new ChangeObserver('boolean');
 	private readonly restrictUNCAccess = new ChangeObserver('boolean');
 	private readonly accessibilityVerbosityDebug = new ChangeObserver('boolean');
+	private readonly unifiedChatView = new ChangeObserver('boolean');
+	private readonly useFileStorage = new ChangeObserver('boolean');
+	private readonly telemetryFeedbackEnabled = new ChangeObserver('boolean');
+
 	// --- Start Positron ---
 	private readonly autoUpdate = new ChangeObserver('boolean');
 	// --- End Positron ---
@@ -125,6 +137,9 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 			// macOS: Click through (accept first mouse)
 			processChanged(isMacintosh && this.clickThroughInactive.handleChange(config.window?.clickThroughInactive));
 
+			// Windows/Linux: Window controls style
+			processChanged(!isMacintosh && this.controlsStyle.handleChange(config.window?.controlsStyle));
+
 			// Update mode
 			processChanged(this.updateMode.handleChange(config.update?.mode));
 
@@ -148,6 +163,9 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 
 			// Debug accessibility verbosity
 			processChanged(this.accessibilityVerbosityDebug.handleChange(config?.accessibility?.verbosity?.debug));
+
+			processChanged(this.unifiedChatView.handleChange(config.chat?.unifiedChatView));
+			processChanged(this.useFileStorage.handleChange(config.chat?.useFileStorage));
 		}
 
 		// Experiments
@@ -155,6 +173,9 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 
 		// Profiles
 		processChanged(this.productService.quality !== 'stable' && this.enablePPEExtensionsGallery.handleChange(config._extensionsGallery?.enablePPE));
+
+		// Enable Feedback
+		processChanged(this.telemetryFeedbackEnabled.handleChange(config.telemetry?.feedback?.enabled));
 
 		if (askToRelaunch && changed && this.hostService.hasFocus) {
 			this.doConfirm(

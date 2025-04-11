@@ -12,6 +12,7 @@ const sendWorkspaceInfoLabel = escape(localize('sendWorkspaceInfo', "Include my 
 const sendExtensionsLabel = escape(localize('sendExtensions', "Include my enabled extensions"));
 const sendExperimentsLabel = escape(localize('sendExperiments', "Include A/B experiment info"));
 const sendExtensionData = escape(localize('sendExtensionData', "Include additional extension info"));
+const acknowledgementsLabel = escape(localize('acknowledgements', "I acknowledge that my VS Code version is not updated and this issue may be closed."));
 const reviewGuidanceLabel = localize( // intentionally not escaped because of its embedded tags
 	{
 		key: 'reviewGuidanceLabel',
@@ -28,6 +29,11 @@ const reviewGuidanceLabel = localize( // intentionally not escaped because of it
 );
 
 export default (): string => `
+<div id="update-banner" class="issue-reporter-update-banner hidden">
+	<span class="update-banner-text" id="update-banner-text">
+		<!-- To be dynamically filled -->
+	</span>
+</div>
 <div class="issue-reporter" id="issue-reporter">
 	<div id="english" class="input-group hidden">${escape(localize('completeInEnglish', "Please complete the form in English."))}</div>
 
@@ -157,6 +163,12 @@ export default (): string => `
 			<pre class="block-info hidden" style="user-select: text;">
 				<!-- To be dynamically filled -->
 			</pre>
+		</div>
+		<div class="block block-acknowledgements hidden" id="version-acknowledgements">
+			<input class="sendData" aria-label="${acknowledgementsLabel}" type="checkbox" id="includeAcknowledgement"/>
+			<label class="caption" for="includeAcknowledgement">
+				${acknowledgementsLabel}
+			</label>
 		</div>
 	</div>
 </div>`;

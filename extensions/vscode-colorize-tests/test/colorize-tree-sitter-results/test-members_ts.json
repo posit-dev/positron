@@ -1,7 +1,7 @@
 [
 	{
 		"c": "class",
-		"t": "storage.type",
+		"t": "storage.type.ts",
 		"r": {
 			"hc_black": "storage.type: #569CD6",
 			"positron_dark": "storage.type: #569CD6",
@@ -11,7 +11,7 @@
 	},
 	{
 		"c": "A2",
-		"t": "entity.name.type",
+		"t": "entity.name.type.ts entity.name.type.class.ts",
 		"r": {
 			"hc_black": "entity.name.type: #4EC9B0",
 			"positron_dark": "entity.name.type: #4EC9B0",
@@ -21,7 +21,7 @@
 	},
 	{
 		"c": "extends",
-		"t": "storage.modifier",
+		"t": "storage.modifier.ts",
 		"r": {
 			"hc_black": "storage.modifier: #569CD6",
 			"positron_dark": "storage.modifier: #569CD6",
@@ -31,7 +31,7 @@
 	},
 	{
 		"c": "B1",
-		"t": "entity.other.inherited-class",
+		"t": "variable.ts entity.other.inherited-class.ts",
 		"r": {
 			"hc_black": "entity.other.inherited-class: #4EC9B0",
 			"positron_dark": "entity.other.inherited-class: #4EC9B0",
@@ -41,7 +41,7 @@
 	},
 	{
 		"c": "{",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -51,7 +51,7 @@
 	},
 	{
 		"c": "public",
-		"t": "storage.modifier",
+		"t": "storage.modifier.ts",
 		"r": {
 			"hc_black": "storage.modifier: #569CD6",
 			"positron_dark": "storage.modifier: #569CD6",
@@ -61,7 +61,7 @@
 	},
 	{
 		"c": "count",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -71,7 +71,7 @@
 	},
 	{
 		"c": ":",
-		"t": "keyword.operator.type.annotation",
+		"t": "punctuation.delimiter.ts keyword.operator.type.annotation.ts",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -81,7 +81,7 @@
 	},
 	{
 		"c": "number",
-		"t": "support.type.primitive",
+		"t": "support.type.ts support.type.primitive.ts",
 		"r": {
 			"hc_black": "support.type: #4EC9B0",
 			"positron_dark": "support.type: #4EC9B0",
@@ -91,7 +91,7 @@
 	},
 	{
 		"c": "=",
-		"t": "keyword.operator.assignment",
+		"t": "keyword.operator.assignment.ts",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -101,7 +101,7 @@
 	},
 	{
 		"c": "9",
-		"t": "constant.numeric",
+		"t": "constant.numeric.ts",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -111,7 +111,7 @@
 	},
 	{
 		"c": ";",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -121,7 +121,7 @@
 	},
 	{
 		"c": "public",
-		"t": "storage.modifier",
+		"t": "storage.modifier.ts",
 		"r": {
 			"hc_black": "storage.modifier: #569CD6",
 			"positron_dark": "storage.modifier: #569CD6",
@@ -131,7 +131,7 @@
 	},
 	{
 		"c": "resolveNextGeneration",
-		"t": "entity.name.function",
+		"t": "variable.ts meta.definition.method.ts entity.name.function.ts",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -141,7 +141,7 @@
 	},
 	{
 		"c": "(",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -151,7 +151,7 @@
 	},
 	{
 		"c": "cell",
-		"t": "variable.parameter",
+		"t": "variable.ts variable.parameter.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -161,7 +161,7 @@
 	},
 	{
 		"c": ":",
-		"t": "keyword.operator.type.annotation",
+		"t": "punctuation.delimiter.ts keyword.operator.type.annotation.ts",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -171,7 +171,7 @@
 	},
 	{
 		"c": "A2",
-		"t": "entity.name.type",
+		"t": "entity.name.type.ts meta.type.annotation.ts entity.name.type.ts",
 		"r": {
 			"hc_black": "entity.name.type: #4EC9B0",
 			"positron_dark": "entity.name.type: #4EC9B0",
@@ -181,7 +181,7 @@
 	},
 	{
 		"c": ")",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -191,7 +191,7 @@
 	},
 	{
 		"c": "{",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -201,7 +201,7 @@
 	},
 	{
 		"c": "}",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -211,7 +211,7 @@
 	},
 	{
 		"c": "}",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",

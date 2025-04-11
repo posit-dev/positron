@@ -635,7 +635,7 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 		let compatibleExtension: IGalleryExtension | null;
 
 		const extensionsControlManifest = await this.getExtensionsControlManifest();
-		if (isMalicious(extension.identifier, extensionsControlManifest)) {
+		if (isMalicious(extension.identifier, extensionsControlManifest.malicious)) {
 			throw new ExtensionManagementError(nls.localize('malicious extension', "Can't install '{0}' extension since it was reported to be problematic.", extension.identifier.id), ExtensionManagementErrorCode.Malicious);
 		}
 

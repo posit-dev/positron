@@ -6,14 +6,13 @@
 		"outDir": "out",
 		"sourceMap": true,
 		"strict": true,
-		"typeRoots": [
-			"./node_modules/@types"
-		],
-		"rootDir": "src"
+		"typeRoots": ["./node_modules/@types"],
+		"rootDir": "src",
 	},
 	"include": [
 		"src/**/*",
 		"../../src/vscode-dts/vscode.proposed.chat*.d.ts",
+		"../../src/vscode-dts/vscode.proposed.languageModelDataPart.d.ts",
 		"../../src/vscode-dts/vscode.proposed.mappedEditsProvider.d.ts",
 		"../../src/vscode-dts/vscode.proposed.defaultChat*.d.ts",
 		"../../src/vscode-dts/vscode.proposed.inlineCompletions*.d.ts",

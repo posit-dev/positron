@@ -49,6 +49,9 @@
 		"extensions/**/dist/**": true,
 		"extensions/**/out/**": true,
 		"test/e2e/out/**": true,
+		"extensions/terminal-suggest/src/completions/upstream/**": true,
+		"test/smoke/out/**": true,
+		"test/automation/out/**": true,
 		"test/integration/browser/out/**": true
 	},
 	"files.readonlyExclude": {
@@ -157,6 +160,7 @@
 	"application.experimental.rendererProfiling": true,
 	"editor.experimental.asyncTokenization": true,
 	"editor.experimental.asyncTokenizationVerification": true,
+	"terminal.integrated.suggest.enabled": true,
 	"typescript.preferences.autoImportFileExcludePatterns": [
 		"@xterm/xterm",
 		"@xterm/headless",

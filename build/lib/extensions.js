@@ -76,9 +76,9 @@ const builtInExtensions_1 = require("./builtInExtensions");
 const bootstrapExtensions_1 = require("./bootstrapExtensions");
 const getVersion_1 = require("./getVersion");
 const fetch_1 = require("./fetch");
-// --- Start Positron ---
+// --- Start PWB: from Positron ---
 const util_1 = require("./util");
-// --- End Positron ---
+// --- End PWB: from Positron ---
 const root = path_1.default.dirname(path_1.default.dirname(__dirname));
 const commit = (0, getVersion_1.getVersion)(root);
 const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
@@ -165,6 +165,7 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
     const packageManger = extensionsWithNpmDeps.includes(packageJsonConfig.name) ?
         vsce.PackageManager.Npm :
         vsce.PackageManager.None;
+    // --- Start PWB: from Positron ---
     // Replace vsce.listFiles with listExtensionFiles to queue the work
     listExtensionFiles({ cwd: extensionPath, packageManager: packageManger, packagedDependencies }).then(fileNames => {
         const files = fileNames
@@ -244,13 +245,13 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
         console.error(packagedDependencies);
         result.emit('error', err);
     });
-    // --- End Positron ---
+    // --- End PWB: from Positron ---
     return result.pipe((0, stats_1.createStatsStream)(path_1.default.basename(extensionPath)));
 }
 function fromLocalNormal(extensionPath) {
     const vsce = require('@vscode/vsce');
     const result = event_stream_1.default.through();
-    // --- Start Positron ---
+    // --- Start PWB: from Positron ---
     // Replace vsce.listFiles with listExtensionFiles to queue the work
     listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Npm })
         .then(fileNames => {
@@ -265,7 +266,7 @@ function fromLocalNormal(extensionPath) {
         event_stream_1.default.readArray(files).pipe(result);
     })
         .catch(err => result.emit('error', err));
-    // --- End Positron ---
+    // --- End PWB: from Positron ---
     return result.pipe((0, stats_1.createStatsStream)(path_1.default.basename(extensionPath)));
 }
 const userAgent = 'VSCode Build';
@@ -742,7 +743,7 @@ async function buildExtensionMedia(isWatch, outputRoot) {
         outputRoot: outputRoot ? path_1.default.join(root, outputRoot, path_1.default.dirname(p)) : undefined
     })));
 }
-// --- Start Positron ---
+// --- Start PWB: from Positron ---
 // Node 20 consistently crashes when there are too many `vsce.listFiles`
 // operations in flight at once; these operations are expensive as they recurse
 // back into `yarn`. The code below serializes these operations when building
@@ -859,7 +860,7 @@ async function copyExtensionBinaries(outputRoot) {
             const srcLoc = path_1.default.resolve('extensions', bin.base, bin.from);
             const destLoc = path_1.default.resolve(outputRoot, bin.base, bin.to);
             return gulp_1.default.src(srcLoc).pipe(gulp_1.default.dest(destLoc));
-        }),
+        }), 
         // Restore the executable bit on the binaries that had it.
         util2.setExecutableBit(binaryMetadata
             .filter((bin) => bin.exe)
@@ -867,5 +868,5 @@ async function copyExtensionBinaries(outputRoot) {
         resolve();
     });
 }
-// --- End Positron ---
+// --- End PWB: from Positron ---
 //# sourceMappingURL=extensions.js.map

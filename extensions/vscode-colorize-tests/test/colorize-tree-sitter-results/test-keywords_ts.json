@@ -1,7 +1,7 @@
 [
 	{
 		"c": "export",
-		"t": "keyword.control",
+		"t": "keyword.control.ts",
 		"r": {
 			"hc_black": "keyword.control: #C586C0",
 			"positron_dark": "keyword.control: #C586C0",
@@ -11,7 +11,7 @@
 	},
 	{
 		"c": "var",
-		"t": "storage.type",
+		"t": "storage.type.ts",
 		"r": {
 			"hc_black": "storage.type: #569CD6",
 			"positron_dark": "storage.type: #569CD6",
@@ -21,7 +21,7 @@
 	},
 	{
 		"c": "foo",
-		"t": "entity.name.function",
+		"t": "variable.ts entity.name.function.ts",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -31,7 +31,7 @@
 	},
 	{
 		"c": "=",
-		"t": "keyword.operator.assignment",
+		"t": "keyword.operator.assignment.ts",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -41,7 +41,7 @@
 	},
 	{
 		"c": "(",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -51,7 +51,7 @@
 	},
 	{
 		"c": ")",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -61,7 +61,7 @@
 	},
 	{
 		"c": "=>",
-		"t": "storage.type",
+		"t": "storage.type.ts",
 		"r": {
 			"hc_black": "storage.type: #569CD6",
 			"positron_dark": "storage.type: #569CD6",
@@ -71,7 +71,7 @@
 	},
 	{
 		"c": "new",
-		"t": "keyword.operator.new",
+		"t": "new.expr.ts keyword.operator.new.ts",
 		"r": {
 			"hc_black": "keyword.operator.new: #569CD6",
 			"positron_dark": "keyword.operator.new: #569CD6",
@@ -81,7 +81,7 @@
 	},
 	{
 		"c": "RegExp",
-		"t": "entity.name.function",
+		"t": "new.expr.ts variable.ts entity.name.function.ts",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -91,7 +91,7 @@
 	},
 	{
 		"c": "(",
-		"t": "punctuation",
+		"t": "new.expr.ts punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -101,7 +101,7 @@
 	},
 	{
 		"c": "'",
-		"t": "string",
+		"t": "new.expr.ts string.quoted.single.ts punctuation.definition.string.begin.ts punctuation.definition.string.end.ts",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -111,7 +111,7 @@
 	},
 	{
 		"c": "'",
-		"t": "string",
+		"t": "new.expr.ts string.quoted.single.ts punctuation.definition.string.begin.ts punctuation.definition.string.end.ts",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -121,7 +121,7 @@
 	},
 	{
 		"c": ")",
-		"t": "punctuation",
+		"t": "new.expr.ts punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -131,7 +131,7 @@
 	},
 	{
 		"c": ";",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",

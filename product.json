@@ -30,6 +30,8 @@
 	"win32TunnelServiceMutex": "positron-tunnelservice",
 	"win32TunnelMutex": "positrontunnel",
 	"darwinBundleIdentifier": "co.posit.positron",
+	"darwinProfileUUID": "0501C5DF-0DC9-4217-9C18-A5595A125743",
+	"darwinProfilePayloadUUID": "BEA2CCD2-3F74-4174-9C0E-606A6F13B050",
 	"linuxIconName": "co.posit.positron",
 	"licenseFileName": "LICENSE.txt",
 	"reportIssueUrl": "https://github.com/posit-dev/positron/issues/new",

@@ -1,7 +1,7 @@
 [
 	{
 		"c": "/**\n * @typedef {{\n *   id: number,\n *   fn: !Function,\n *   context: (!Object|undefined)\n * }}\n * @private\n */",
-		"t": "comment",
+		"t": "comment.ts",
 		"r": {
 			"hc_black": "comment: #7CA668",
 			"positron_dark": "comment: #6A9955",
@@ -11,7 +11,7 @@
 	},
 	{
 		"c": "goog",
-		"t": "variable",
+		"t": "variable.ts variable.other.object.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -21,7 +21,7 @@
 	},
 	{
 		"c": ".",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -31,7 +31,7 @@
 	},
 	{
 		"c": "dom",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -41,7 +41,7 @@
 	},
 	{
 		"c": ".",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -51,7 +51,7 @@
 	},
 	{
 		"c": "animationFrame",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -61,7 +61,7 @@
 	},
 	{
 		"c": ".",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -71,7 +71,7 @@
 	},
 	{
 		"c": "Task_",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -81,7 +81,7 @@
 	},
 	{
 		"c": ";",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -91,7 +91,7 @@
 	},
 	{
 		"c": "/**\n * @typedef {{\n *   measureTask: goog.dom.animationFrame.Task_,\n *   mutateTask: goog.dom.animationFrame.Task_,\n *   state: (!Object|undefined),\n *   args: (!Array|undefined),\n *   isScheduled: boolean\n * }}\n * @private\n */",
-		"t": "comment",
+		"t": "comment.ts",
 		"r": {
 			"hc_black": "comment: #7CA668",
 			"positron_dark": "comment: #6A9955",
@@ -101,7 +101,7 @@
 	},
 	{
 		"c": "goog",
-		"t": "variable",
+		"t": "variable.ts variable.other.object.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -111,7 +111,7 @@
 	},
 	{
 		"c": ".",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -121,7 +121,7 @@
 	},
 	{
 		"c": "dom",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -131,7 +131,7 @@
 	},
 	{
 		"c": ".",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -141,7 +141,7 @@
 	},
 	{
 		"c": "animationFrame",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -151,7 +151,7 @@
 	},
 	{
 		"c": ".",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -161,7 +161,7 @@
 	},
 	{
 		"c": "TaskSet_",
-		"t": "variable",
+		"t": "variable.ts",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -171,7 +171,7 @@
 	},
 	{
 		"c": ";",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
