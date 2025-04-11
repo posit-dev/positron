@@ -17,6 +17,8 @@ import { IKeybindingRule, KeybindingsRegistry } from '../../keybinding/common/ke
 
 // --- Start Positron ---
 import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
+// eslint-disable-next-line no-duplicate-imports
+import { PositronActionBarOptions } from '../../action/common/action.js';
 // --- End Positron ---
 
 
@@ -527,10 +529,9 @@ export class MenuItemAction implements IAction {
 
 	// --- Start Positron ---
 	/**
-	 * Gets a value which indicates whether to display the title for the action when it appears on
-	 * an action bar.
+	 * PositronActionBarOptions controls how the menu item action is displayed in a PositronActionBar.
 	 */
-	readonly displayLabelOnActionBar?: boolean;
+	readonly positronActionBarOptions?: PositronActionBarOptions;
 	// --- End Positron ---
 
 	constructor(
@@ -549,7 +550,7 @@ export class MenuItemAction implements IAction {
 		this.checked = undefined;
 
 		// --- Start Positron ---
-		this.displayLabelOnActionBar = item.displayTitleOnActionBar;
+		this.positronActionBarOptions = item.positronActionBarOptions;
 		// --- End Positron ---
 
 		let icon: ThemeIcon | undefined;

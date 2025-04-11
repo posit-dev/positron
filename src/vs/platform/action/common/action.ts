@@ -70,6 +70,36 @@ export interface ICommandActionSource {
 	readonly title: string;
 }
 
+// --- Start Positron ---
+export type PositronActionBarDisplayOptions = {
+	displayTitleOnActionBar: boolean;
+};
+
+export type PositronActionBarCheckboxOptions = {
+	checked?: ContextKeyExpression;
+};
+
+export type PositronActionBarToggleOptions = {
+	toggled?: ContextKeyExpression;
+	leftTitle: string | ILocalizedString;
+	rightTitle: string | ILocalizedString;
+};
+
+export type PositronActionBarOptions =
+	PositronActionBarDisplayOptions |
+	PositronActionBarCheckboxOptions |
+	PositronActionBarToggleOptions;
+
+export const isPositronActionBarDisplayOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarDisplayOptions =>
+	positronActionBarOptions !== undefined && (positronActionBarOptions as PositronActionBarDisplayOptions).displayTitleOnActionBar !== undefined;
+
+export const isPositronActionBarCheckboxOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarCheckboxOptions =>
+	positronActionBarOptions !== undefined && (positronActionBarOptions as PositronActionBarCheckboxOptions).checked !== undefined;
+
+export const isPositronActionBarToggleOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarToggleOptions =>
+	positronActionBarOptions !== undefined && (positronActionBarOptions as PositronActionBarToggleOptions).toggled !== undefined;
+// --- End Positron ---
+
 export interface ICommandAction {
 	id: string;
 	title: string | ICommandActionTitle;
@@ -99,10 +129,9 @@ export interface ICommandAction {
 
 	// --- Start Positron
 	/**
-	 * Gets or sets a value which indicates whether to display the title for the action when it
-	 * appears on an action bar.
+	 * PositronActionBarOptions controls how the command action is displayed in a PositronActionBar.
 	 */
-	displayTitleOnActionBar?: boolean;
+	positronActionBarOptions?: PositronActionBarOptions;
 	// --- End Positron
 }
 

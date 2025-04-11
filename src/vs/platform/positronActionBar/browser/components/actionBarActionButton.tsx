@@ -18,6 +18,7 @@ import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { useStateRef } from '../../../../base/browser/ui/react/useStateRef.js';
+import { isPositronActionBarDisplayOptions } from '../../../action/common/action.js';
 import { IAccessibilityService } from '../../../accessibility/common/accessibility.js';
 import { IModifierKeyStatus, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
 
@@ -128,13 +129,6 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 	const iconIdResult = action.class?.match(CODICON_ID);
 	const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
 
-	// Get the label to display on the action bar button.
-	const label = menuItemAction ?
-		menuItemAction.displayLabelOnActionBar ?
-			action.label :
-			undefined :
-		undefined;
-
 	// Render.
 	return (
 		<ActionBarButton
@@ -143,7 +137,10 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 			checked={action.checked}
 			disabled={!action.enabled}
 			iconId={iconId}
-			label={label}
+			label={isPositronActionBarDisplayOptions(menuItemAction?.positronActionBarOptions) && menuItemAction.positronActionBarOptions.displayTitleOnActionBar ?
+				action.label :
+				undefined
+			}
 			tooltip={actionTooltip(
 				context.contextKeyService,
 				context.keybindingService,
