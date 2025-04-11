@@ -173,6 +173,7 @@ export class CopilotService implements vscode.Disposable {
 		const response = await client.sendRequest(SignInRequest.type, {});
 
 		if ('status' in response && 'user' in response) {
+			vscode.window.showInformationMessage(vscode.l10n.t('Already signed in to GitHub Copilot as {0}.', response.user));
 			return;
 		}
 
