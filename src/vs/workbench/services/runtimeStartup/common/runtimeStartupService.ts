@@ -51,6 +51,9 @@ export interface SerializedSessionMetadata {
 
 	/// The working directory of the runtime session, at the time it was serialized.
 	workingDirectory: string;
+
+	/// The ID of the window in which the session was last used.
+	localWindowId: string;
 }
 
 /**
