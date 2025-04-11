@@ -106,6 +106,13 @@ export interface IChatResponseFragment {
 	part: IChatResponsePart;
 }
 
+// --- Start Positron ---
+export interface IPositronChatProvider {
+	readonly id: string;
+	readonly displayName: string;
+}
+// --- End Positron ---
+
 export interface ILanguageModelChatMetadata {
 	readonly extension: ExtensionIdentifier;
 
@@ -114,6 +121,9 @@ export interface ILanguageModelChatMetadata {
 	readonly vendor: string;
 	readonly version: string;
 	readonly family: string;
+	// --- Start Positron ---
+	readonly providerName?: string;
+	// --- End Positron ---
 	readonly maxInputTokens: number;
 	readonly maxOutputTokens: number;
 	readonly targetExtensions?: string[];

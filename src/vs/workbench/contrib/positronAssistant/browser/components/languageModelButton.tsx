@@ -58,6 +58,7 @@ export const LanguageModelIcon = (props: { provider: string }) => {
 			case 'error':
 				return <div className={`language-model icon button-icon codicon codicon-error`} />;
 			case 'echo':
+			case 'test':
 				return <div className={`language-model icon button-icon codicon codicon-info`} />;
 			default:
 				return null;
