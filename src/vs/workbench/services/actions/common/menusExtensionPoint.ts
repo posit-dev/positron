@@ -15,7 +15,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { index } from '../../../../base/common/arrays.js';
 import { isProposedApiEnabled } from '../../extensions/common/extensions.js';
-import { ILocalizedString } from '../../../../platform/action/common/action.js';
+import { IBlowItUp, ILocalizedString } from '../../../../platform/action/common/action.js';
 import { IExtensionFeatureTableRenderer, IExtensionFeaturesRegistry, IRenderedData, IRowData, ITableData, Extensions as ExtensionFeaturesExtensions } from '../../extensionManagement/common/extensionFeatures.js';
 import { IExtensionManifest, IKeyBinding } from '../../../../platform/extensions/common/extensions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -25,6 +25,8 @@ import { MarkdownString } from '../../../../base/common/htmlContent.js';
 import { ResolvedKeybinding } from '../../../../base/common/keybindings.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ApiProposalName } from '../../../../platform/extensions/common/extensionsApiProposals.js';
+
+let d: IBlowItUp;
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
