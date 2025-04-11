@@ -158,8 +158,24 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	constructor(
 		private readonly _commProxy: PositronPlotCommProxy,
 		private _sizingPolicy: IPositronPlotSizingPolicy,
-		public readonly metadata: IPositronPlotMetadata) {
+		public readonly metadata: IPositronPlotMetadata
+	) {
 		super();
+		// If the plot comes with a pre-rendering, set it as the last render. This
+		// will be picked up automatically by the plot instance component. This is
+		// also used to bypass render request if the pre-rendering render policy
+		// (size, pixel ratio, and format) matches.
+		if (metadata.pre_render) {
+			const preRender = metadata.pre_render;
+			const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
+
+			this._lastRender = {
+				uri,
+				size: preRender.policy.size,
+				pixel_ratio: preRender.policy.pixel_ratio,
+				renderTimeMs: 0,
+			};
+		}
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;
