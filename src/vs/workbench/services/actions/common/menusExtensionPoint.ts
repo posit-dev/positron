@@ -1023,20 +1023,17 @@ commandsExtensionPoint.setHandler(extensions => {
 		let positronActionBarOptions: PositronActionBarOptions | undefined;
 		if (schema.isActionBarButtonOptions(actionBarOptions)) {
 			positronActionBarOptions = {
-				controlType: actionBarOptions.controlType,
-				displayTitle: actionBarOptions.displayTitle
+				...actionBarOptions
 			};
 		} else if (schema.isActionBarCheckboxOptions(actionBarOptions)) {
 			positronActionBarOptions = {
-				controlType: actionBarOptions.controlType,
+				...actionBarOptions,
 				checked: ContextKeyExpr.deserialize(actionBarOptions.checked)
 			};
 		} else if (schema.isActionBarToggleOptions(actionBarOptions)) {
 			positronActionBarOptions = {
-				controlType: actionBarOptions.controlType,
-				toggled: ContextKeyExpr.deserialize(actionBarOptions.toggled),
-				leftTitle: actionBarOptions.leftTitle,
-				rightTitle: actionBarOptions.rightTitle
+				...actionBarOptions,
+				toggled: ContextKeyExpr.deserialize(actionBarOptions.toggled)
 			};
 		} else {
 			positronActionBarOptions = undefined;
