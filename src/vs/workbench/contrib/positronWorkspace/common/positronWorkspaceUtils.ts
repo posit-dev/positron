@@ -4,37 +4,37 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ExplorerItem } from '../../files/common/explorerModel.js';
-import { DirectoryItem } from './interfaces/positronWorkspaceService.js';
+import { SortOrder } from '../../files/common/files.js';
+import { DirectoryItem, DirectoryItemInfo } from './interfaces/positronWorkspaceService.js';
 
 /**
  * Converts an explorer item to the directory item format
  * @param item The explorer item to convert
  * @returns A directory item array representing the file tree in the workspace
  */
-export function constructDirectoryTree(item: ExplorerItem): DirectoryItem[] {
-	const result: DirectoryItem[] = [];
+export async function constructDirectoryTree(item: ExplorerItem, sortOrder: SortOrder): Promise<DirectoryItem[]> {
+	const itemInfo: DirectoryItemInfo = {
+		name: item.name
+	};
 
-	if (item.isDirectory) {
-		const children: DirectoryItem[] = [];
-		const sortedChildren = [...item.children.values()].sort((a, b) => {
-			// Sort directories before files
-			if (a.isDirectory !== b.isDirectory) {
-				return a.isDirectory ? -1 : 1;
-			}
-			// Sort alphabetically
-			return a.name.localeCompare(b.name);
-		});
-
-		// Construct the directory tree for each child
-		for (const child of sortedChildren) {
-			const childEntries = constructDirectoryTree(child);
-			children.push(...childEntries);
-		}
-	} else {
-		// Add files directly
-		result.push(item.name);
+	if (item.isExcluded) {
+		itemInfo.isExcluded = item.isExcluded;
 	}
 
-	return result;
+	if (item.isDirectory) {
+		if (!item.hasChildren) {
+			return [[itemInfo, []]];
+		}
+		const children: DirectoryItem[] = [];
+		const itemChildren = await item.fetchChildren(sortOrder);
+		for (const child of itemChildren) {
+			const childEntries = await constructDirectoryTree(child, sortOrder);
+			children.push(...childEntries);
+		}
+		return [[itemInfo, children]];
+	} else {
+		// For files, return just the info wrapped as a single-element array
+		return [itemInfo];
+	}
 }
 

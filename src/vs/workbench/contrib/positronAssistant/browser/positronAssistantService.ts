@@ -17,7 +17,7 @@ import { ILayoutService } from '../../../../platform/layout/browser/layoutServic
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { IPositronWorkspaceService } from '../../positronWorkspace/common/interfaces/positronWorkspaceService.js';
+import { IPositronWorkspaceService } from '../../positronWorkspace/browser/positronWorkspaceService.js';
 
 /**
  * PositronAssistantService class.
@@ -87,8 +87,8 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		return isPlotVisible ? plot.lastRender.uri : undefined;
 	}
 
-	getProjectTree(): Promise<object> {
-		return this._positronWorkspaceService.getProjectTree();
+	async getProjectTree(): Promise<object> {
+		return await this._positronWorkspaceService.getProjectTree();
 	}
 
 	addLanguageModelConfig(source: IPositronLanguageModelSource): void {

@@ -61,7 +61,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	}
 
 	async getProjectTree(): Promise<object> {
-		return this._proxy.$getProjectTree();
+		return await this._proxy.$getProjectTree();
 	}
 
 	async getPositronChatContext(request: vscode.ChatRequest): Promise<IPositronChatContext> {

@@ -3,12 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
+/**
+ * Represents a file or directory in the workspace.
+ * The name is the file or directory name, and isExcluded indicates if the item is excluded from the workspace.
+ */
+export type DirectoryItemInfo = {
+	name: string;
+	isExcluded?: boolean;
+};
 
 /**
- * Represents either a file (string) or a directory (tuple with name and children).
+ * Represents either a file (DirectoryItemInfo) or a directory (tuple with DirectoryItemInfo and children).
  */
-export type DirectoryItem = string | [string, DirectoryItem[]];
+export type DirectoryItem = DirectoryItemInfo | [DirectoryItemInfo, DirectoryItem[]];
 
 /**
  * Result of workspace tree query.
@@ -17,18 +24,4 @@ export interface IWorkspaceTreeResult {
 	workspaceTrees: DirectoryItem[][];
 	errors?: string;
 	info?: string;
-}
-
-export const POSITRON_WORKSPACE_SERVICE_ID = 'positronWorkspaceService';
-
-export const IPositronWorkspaceService = createDecorator<IPositronWorkspaceService>(POSITRON_WORKSPACE_SERVICE_ID);
-
-export interface IPositronWorkspaceService {
-	readonly _serviceBrand: undefined;
-
-	/**
-	 * Gets the directory tree of the current workspace.
-	 * @returns A promise that resolves to an object containing the directory tree of the workspace
-	 */
-	getProjectTree(): Promise<IWorkspaceTreeResult>;
 }

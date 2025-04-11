@@ -8,7 +8,7 @@ import { registerSingleton, InstantiationType } from '../../../../platform/insta
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IExplorerService } from '../../files/browser/files.js';
-import { DirectoryItem, IWorkspaceTreeResult } from '../common/interfaces/positronWorkspaceService.js';
+import { DirectoryItem } from '../common/interfaces/positronWorkspaceService.js';
 import { constructDirectoryTree } from '../common/positronWorkspaceUtils.js';
 
 export const POSITRON_WORKSPACE_SERVICE_ID = 'positronWorkspaceService';
@@ -22,7 +22,7 @@ export interface IPositronWorkspaceService {
 	 * Gets the directory tree of the current workspace.
 	 * @returns A promise that resolves to an object containing the directory tree of the workspace
 	 */
-	getProjectTree(): Promise<IWorkspaceTreeResult>;
+	getProjectTree(): Promise<object>;
 }
 
 export class PositronWorkspaceService extends Disposable implements IPositronWorkspaceService {
@@ -39,7 +39,7 @@ export class PositronWorkspaceService extends Disposable implements IPositronWor
 	 * Gets the directory tree of the current workspace.
 	 * @returns A promise that resolves to an object containing the directory tree of the workspace
 	 */
-	async getProjectTree(): Promise<IWorkspaceTreeResult> {
+	async getProjectTree(): Promise<object> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
 			return {
@@ -51,6 +51,7 @@ export class PositronWorkspaceService extends Disposable implements IPositronWor
 		const workspaceTrees: DirectoryItem[][] = [];
 		const treeErrors: string[] = [];
 		const treeInfo: string[] = [];
+		const sortOrder = this._explorerService.sortOrderConfiguration.sortOrder;
 
 		for (const workspaceFolder of workspaceFolders) {
 			const explorerRoot = this._explorerService.findClosestRoot(workspaceFolder.uri);
@@ -59,11 +60,8 @@ export class PositronWorkspaceService extends Disposable implements IPositronWor
 				continue;
 			}
 			try {
-				const tree = constructDirectoryTree(explorerRoot);
+				const tree = await constructDirectoryTree(explorerRoot, sortOrder);
 				workspaceTrees.push(tree);
-				if (explorerRoot.isExcluded) {
-					treeInfo.push(`Folder ${workspaceFolder.name} is excluded from the workspace.`);
-				}
 			} catch (error) {
 				treeErrors.push(`Failed to generate tree for ${workspaceFolder.name}: ${error}`);
 			}
