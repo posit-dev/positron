@@ -10,13 +10,13 @@ import './actionBarActionButton.css';
 import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
+import { ActionBarButton } from './actionBarButton.js';
 import { IAction } from '../../../../base/common/actions.js';
 import { MenuItemAction } from '../../../actions/common/actions.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { actionTooltip, toMenuActionItem } from '../../common/helpers.js';
+import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
-import { ActionBarButton, ActionBarButtonProps } from './actionBarButton.js';
 import { useStateRef } from '../../../../base/browser/ui/react/useStateRef.js';
 import { IAccessibilityService } from '../../../accessibility/common/accessibility.js';
 import { IModifierKeyStatus, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
@@ -89,14 +89,12 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
-	// Menu action item.
-	const menuActionItem = toMenuActionItem(props.action);
+	// Get the menu item action.
+	const menuItemAction = toMenuItemAction(props.action);
 
 	// State hooks.
 	const [, setMouseInside, mouseInsideRef] = useStateRef(false);
-	const [useAlternativeAction, setUseAlternativeAction] = useState(
-		shouldUseAlternativeAction(context.accessibilityService, menuActionItem)
-	);
+	const [useAlternativeAction, setUseAlternativeAction] = useState(shouldUseAlternativeAction(context.accessibilityService, menuItemAction));
 
 	// Main use effect.
 	useEffect(() => {
@@ -108,7 +106,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 		disposableStore.add(modifierKeyEmitter.event(modifierKeyStatus => {
 			setUseAlternativeAction(shouldUseAlternativeAction(
 				context.accessibilityService,
-				menuActionItem,
+				menuItemAction,
 				mouseInsideRef.current,
 				modifierKeyStatus
 			));
@@ -116,56 +114,51 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [context.accessibilityService, menuActionItem, mouseInsideRef]);
+	}, [context.accessibilityService, menuItemAction, mouseInsideRef]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
 
 	// Get the action we're going to render.
-	const action = menuActionItem &&
-		useAlternativeAction &&
-		menuActionItem.alt?.enabled ? menuActionItem.alt : props.action;
+	const action = menuItemAction && useAlternativeAction && menuItemAction.alt?.enabled ?
+		menuItemAction.alt :
+		props.action;
 
-	// Build the dynamic properties.
-	const dynamicProps = ((): ActionBarButtonProps => {
-		// Extract the icon ID from the action's class.
-		const iconIdResult = action.class?.match(CODICON_ID);
-		const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
+	// Extract the icon ID from the action's class.
+	const iconIdResult = action.class?.match(CODICON_ID);
+	const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
 
-		// Return the properties.
-		return {
-			ariaLabel: action.label ?? action.tooltip,
-			iconId: iconId,
-			tooltip: actionTooltip(
-				context.contextKeyService,
-				context.keybindingService,
-				action,
-				!useAlternativeAction
-			),
-			text: action instanceof MenuItemAction ?
-				action.displayTitleOnActionBar ?
-					action.label :
-					undefined :
-				undefined,
-			checked: action.checked,
-			disabled: !action.enabled,
-			onMouseEnter: () => setMouseInside(true),
-			onMouseLeave: () => setMouseInside(false),
-			onPressed: async () => {
-				try {
-					await action.run();
-				} catch (error) {
-					console.log(error);
-				}
-			}
-		};
-	})();
+	// Get the label to display on the action bar button.
+	const label = menuItemAction ?
+		menuItemAction.displayLabelOnActionBar ?
+			action.label :
+			undefined :
+		undefined;
 
 	// Render.
 	return (
 		<ActionBarButton
 			ref={buttonRef}
-			{...dynamicProps}
+			ariaLabel={action.label ?? action.tooltip}
+			checked={action.checked}
+			disabled={!action.enabled}
+			iconId={iconId}
+			label={label}
+			tooltip={actionTooltip(
+				context.contextKeyService,
+				context.keybindingService,
+				action,
+				!useAlternativeAction
+			)}
+			onMouseEnter={() => setMouseInside(true)}
+			onMouseLeave={() => setMouseInside(false)}
+			onPressed={async () => {
+				try {
+					await action.run();
+				} catch (error) {
+					console.log(error);
+				}
+			}}
 		/>
 	);
 };

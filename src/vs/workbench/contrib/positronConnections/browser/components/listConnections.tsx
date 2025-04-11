@@ -201,7 +201,7 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 						<ActionBarButton
 							align='left'
 							iconId='positron-new-connection'
-							text={localize('positron.listConnections.newConnection', 'New Connection')}
+							label={localize('positron.listConnections.newConnection', 'New Connection')}
 							onPressed={() => {
 								props.onNewConnection();
 							}}
@@ -212,7 +212,7 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 							align='right'
 							disabled={props.onDeleteConnection === undefined}
 							iconId='close'
-							text={localize('positron.listConnections.deleteConnection', 'Delete Connection')}
+							label={localize('positron.listConnections.deleteConnection', 'Delete Connection')}
 							onPressed={props.onDeleteConnection}
 						/>
 					</ActionBarRegion>
