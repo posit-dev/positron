@@ -102,6 +102,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The IPykernel bundle paths */
     private _ipykernelBundle: IpykernelBundle;
 
+    /** The Runtime is externally managed. eg. a reticulate runtime */
+    private _isExternallyManaged: boolean;
+
     dynState: positron.LanguageRuntimeDynState;
 
     onDidReceiveRuntimeMessage = this._messageEmitter.event;
@@ -127,6 +130,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
         this._pythonPath = extraData.pythonPath;
         this._ipykernelBundle = extraData.ipykernelBundle;
+        this._isExternallyManaged = extraData.externallyManaged ?? false;
 
         this._lspQueue = new PQueue({ concurrency: 1 });
 
@@ -433,8 +437,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         if (
             this.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console &&
-            // startKernel being present implies a session that is not known to the Python extension
-            !this.kernelSpec?.startKernel
+            !this._isExternallyManaged
         ) {
             // Update the active environment in the Python extension.
             this._interpreterPathService.update(
