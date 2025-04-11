@@ -4,18 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Represents a file or directory in the workspace.
- * The name is the file or directory name, and isExcluded indicates if the item is excluded from the workspace.
+ * Represents either a file (string) or a directory (tuple with string and children).
  */
-export type DirectoryItemInfo = {
-	name: string;
-	isExcluded?: boolean;
-};
-
-/**
- * Represents either a file (DirectoryItemInfo) or a directory (tuple with DirectoryItemInfo and children).
- */
-export type DirectoryItem = DirectoryItemInfo | [DirectoryItemInfo, DirectoryItem[]];
+export type DirectoryItem = string | [string, DirectoryItem[]];
 
 /**
  * Result of workspace tree query.

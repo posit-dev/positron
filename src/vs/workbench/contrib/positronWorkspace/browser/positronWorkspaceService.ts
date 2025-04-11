@@ -61,6 +61,9 @@ export class PositronWorkspaceService extends Disposable implements IPositronWor
 			}
 			try {
 				const tree = await constructDirectoryTree(explorerRoot, sortOrder);
+				if (!tree) {
+					continue;
+				}
 				workspaceTrees.push(tree);
 			} catch (error) {
 				treeErrors.push(`Failed to generate tree for ${workspaceFolder.name}: ${error}`);
