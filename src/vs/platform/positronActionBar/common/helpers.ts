@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,11 +12,11 @@ import { IContextKeyService } from '../../contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../keybinding/common/keybinding.js';
 
 /**
- * Gets a menu action item from an action.
+ * Gets a menu item action from an action.
  * @param action The action.
- * @returns The menu action item, or undefined if the action is not a menu item action.
+ * @returns The menu item action, or undefined if the action is not a menu item action.
  */
-export const toMenuActionItem = (action: IAction) =>
+export const toMenuItemAction = (action: IAction) =>
 	action instanceof MenuItemAction ? action : undefined;
 
 /**
@@ -48,15 +48,15 @@ export const actionTooltip = (
 		tooltip;
 
 	// Add the alt keybinding and label to the formatted tooltip.
-	const menuActionItem = toMenuActionItem(action);
-	if (includeAlternativeAction && menuActionItem && menuActionItem.alt?.enabled) {
+	const menuItemAction = toMenuItemAction(action);
+	if (includeAlternativeAction && menuItemAction && menuItemAction.alt?.enabled) {
 		// Get the alt keybinding, alt keybinding label, and alt tooltip.
 		const altKeybinding = keybindingService.lookupKeybinding(
-			menuActionItem.alt.id,
+			menuItemAction.alt.id,
 			contextKeyService
 		);
 		const altKeybindingLabel = altKeybinding && altKeybinding.getLabel();
-		const altTooltip = menuActionItem.alt.tooltip || menuActionItem.alt.label;
+		const altTooltip = menuItemAction.alt.tooltip || menuItemAction.alt.label;
 
 		// Update the formatted tooltip.
 		formattedTooltip = localize(

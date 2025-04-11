@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -65,16 +65,16 @@
 	align-items: center;
 }
 
-.action-bar-button-text {
-	margin-right: 4px;
+.action-bar-button-label {
 	display: flex;
 	font-size: 12px;
 	overflow: hidden;
+	margin-right: 4px;
 	white-space: nowrap;
 	text-overflow: ellipsis;
 }
 
-.action-bar-button.border .action-bar-button-text {
+.action-bar-button.border .action-bar-button-label {
 	margin-right: 6px;
 }
 
@@ -83,7 +83,7 @@
 	max-height: 100%;
 }
 
-.disabled .action-bar-button-text {
+.disabled .action-bar-button-label {
 	color: var(--positronActionBar-disabledForeground);
 }
 

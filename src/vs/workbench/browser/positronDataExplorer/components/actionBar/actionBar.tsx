@@ -12,13 +12,13 @@ import React, { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
+import { LayoutMenuButton } from './components/layoutMenuButton.js';
 import { isAuxiliaryWindow } from '../../../../../base/browser/window.js';
+import { usePositronDataExplorerContext } from '../../positronDataExplorerContext.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { usePositronDataExplorerContext } from '../../positronDataExplorerContext.js';
-import { LayoutMenuButton } from './components/layoutMenuButton.js';
 
 /**
  * Constants.
@@ -69,7 +69,7 @@ export const ActionBar = () => {
 						<ActionBarButton
 							ariaLabel={clearSortButtonDescription}
 							iconId='positron-clear-sorting'
-							text={clearSortButtonTitle}
+							label={clearSortButtonTitle}
 							tooltip={clearSortButtonDescription}
 							onPressed={async () =>
 								await context.instance.tableDataDataGridInstance.

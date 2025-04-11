@@ -18,10 +18,10 @@ const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
 const CURRENT_VARIABLES_GROUP = '.variables-instance[style*="z-index: 1"]';
 const VARIABLES_NAME_COLUMN = `${CURRENT_VARIABLES_GROUP} .variable-item .name-column`;
-const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
+const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-label';
 const VARIABLE_CHEVRON_ICON = '.gutter .expand-collapse-icon';
 const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
-const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-button-text';
+const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-button-label';
 
 /*
  *  Reuseable Positron variables functionality for tests to leverage.

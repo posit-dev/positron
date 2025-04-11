@@ -530,7 +530,7 @@ export class MenuItemAction implements IAction {
 	 * Gets a value which indicates whether to display the title for the action when it appears on
 	 * an action bar.
 	 */
-	readonly displayTitleOnActionBar?: boolean;
+	readonly displayLabelOnActionBar?: boolean;
 	// --- End Positron ---
 
 	constructor(
@@ -549,7 +549,7 @@ export class MenuItemAction implements IAction {
 		this.checked = undefined;
 
 		// --- Start Positron ---
-		this.displayTitleOnActionBar = item.displayTitleOnActionBar;
+		this.displayLabelOnActionBar = item.displayTitleOnActionBar;
 		// --- End Positron ---
 
 		let icon: ThemeIcon | undefined;

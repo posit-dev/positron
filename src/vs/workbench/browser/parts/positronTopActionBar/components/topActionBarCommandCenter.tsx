@@ -67,7 +67,7 @@ export const TopActionBarCommandCenter = () => {
 			</div>
 			<div className='center'>
 				<button ref={searchRef} className='search' onClick={(e) => clickHandler(e)}>
-					<div className='action-bar-button-text'>Search</div>
+					<div className='action-bar-button-label'>Search</div>
 				</button>
 			</div>
 			<div className='right'>

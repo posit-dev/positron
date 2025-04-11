@@ -695,6 +695,7 @@ namespace schema {
 		category?: string | ILocalizedString;
 		icon?: IUserFriendlyIcon;
 		// --- Start Positron ---
+		toggled?: string;
 		displayTitleOnActionBar?: boolean;
 		// --- End Positron ---
 	}
@@ -727,6 +728,10 @@ namespace schema {
 			return false;
 		}
 		// --- Start Positron ---
+		if (command.toggled && typeof command.toggled !== 'string') {
+			collector.error(localize('optstring', "property `{0}` can be omitted or must be of type `string`", 'toggled'));
+			return false;
+		}
 		if (!isValidOptionalBoolean('displayTitleOnActionBar', command.displayTitleOnActionBar, collector)) {
 			return false;
 		}
@@ -817,6 +822,10 @@ namespace schema {
 				}]
 			},
 			// --- Start Positron ---
+			toggled: {
+				description: localize('vscode.extension.contributes.commandType.toggled', '(Optional) Condition which determines whether the command is toggled in the UI (menu and keybindings).'),
+				type: 'string'
+			},
 			displayTitleOnActionBar: {
 				description: localize('vscode.extension.contributes.commandType.displayTitleOnActionBar', '(Optional) A value which indicates whether to display the title when the command appears on an action bar.'),
 				type: 'boolean'
@@ -868,8 +877,8 @@ commandsExtensionPoint.setHandler(extensions => {
 		// --- End Positron ---
 
 		// --- Start Positron ---
-		// Add displayTitleOnActionBar.
-		const { icon, enablement, category, title, shortTitle, command, displayTitleOnActionBar } = userFriendlyCommand;
+		// Add toggled and displayTitleOnActionBar.
+		const { icon, enablement, category, title, shortTitle, command, toggled, displayTitleOnActionBar } = userFriendlyCommand;
 		// --- End Positron ---
 
 		let absoluteIcon: { dark: URI; light?: URI } | ThemeIcon | undefined;
@@ -903,6 +912,7 @@ commandsExtensionPoint.setHandler(extensions => {
 			precondition: ContextKeyExpr.deserialize(enablement),
 			icon: absoluteIcon,
 			// --- Start Positron ---
+			toggled: ContextKeyExpr.deserialize(toggled),
 			displayTitleOnActionBar
 			// --- End Positron ---
 		}));

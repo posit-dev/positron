@@ -22,6 +22,7 @@ import { ActionBarSeparator } from '../../../../platform/positronActionBar/brows
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ActionBarActionButton } from '../../../../platform/positronActionBar/browser/components/actionBarActionButton.js';
 import { ActionBarCommandButton } from '../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
+import { ActionBarActionCheckbox } from '../../../../platform/positronActionBar/browser/components/actionBarActionCheckbox.js';
 import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
 
 // Constants.
@@ -347,7 +348,12 @@ export class EditorActionBarFactory extends Disposable {
 				// Menu item action.
 				if (!processedActions.has(action.id)) {
 					processedActions.add(action.id);
-					elements.push(<ActionBarActionButton action={action} />);
+					// TODO softwarenerd: Add properties for checkbox vs toggle.
+					if (action.item.toggled) {
+						elements.push(<ActionBarActionCheckbox action={action} />);
+					} else {
+						elements.push(<ActionBarActionButton action={action} />);
+					}
 				}
 			} else if (action instanceof SubmenuItemAction) {
 				// Process the action.
