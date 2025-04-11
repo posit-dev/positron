@@ -7,30 +7,40 @@
 import './actionBarToggle.css';
 
 // React.
-import React, { useRef, useState } from 'react';
+import React, { forwardRef, PropsWithChildren, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * ActionBarToggleProps interface.
  */
 interface ActionBarToggleProps {
-	toggled?: boolean;
-	untoggledLabel: string;
-	toggledLabel: string;
-	onChanged: (toggled: boolean) => void;
+	readonly ariaLabel?: string;
+	readonly leftTitle: string;
+	readonly rightTitle: string;
+	readonly toggled?: boolean;
+	readonly tooltip?: string | (() => string | undefined);
+	readonly onChanged: (toggled: boolean) => void;
 }
 
 /**
  * ActionBarToggle component.
  * @param props An ActionBarToggleProps that contains the component properties.
+ * @param ref A ref to the HTMLButtonElement.
  * @returns The rendered component.
  */
-export const ActionBarToggle = (props: ActionBarToggleProps) => {
+export const ActionBarToggle = forwardRef<
+	HTMLButtonElement,
+	PropsWithChildren<ActionBarToggleProps>
+>((props, ref) => {
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+
+	// Imperative handle to ref.
+	useImperativeHandle(ref, () => buttonRef.current);
 
 	// State hooks.
 	const [id] = useState(generateUuid());
@@ -49,10 +59,10 @@ export const ActionBarToggle = (props: ActionBarToggleProps) => {
 	// Render.
 	return (
 		<div className='action-bar-toggle'>
-			<button ref={buttonRef} className='toggle-button' id={id} tabIndex={0} onClick={clickHandler}>
-				<div>Left</div>
-				<div>Right</div>
+			<button ref={buttonRef} aria-label={props.ariaLabel} className='toggle-container' id={id} tabIndex={0} onClick={clickHandler}>
+				<div aria-label={props.leftTitle} className={positronClassNames('toggle-button', 'left', { 'highlighted': !toggled })}>{props.leftTitle}</div>
+				<div aria-label={props.rightTitle} className={positronClassNames('toggle-button', 'right', { 'highlighted': toggled })}>{props.rightTitle}</div>
 			</button>
 		</div>
 	);
-};
+});

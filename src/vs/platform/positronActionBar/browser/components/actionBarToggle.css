@@ -4,37 +4,50 @@
  *--------------------------------------------------------------------------------------------*/
 
 .action-bar-toggle {
-	gap: 6px;
 	display: flex;
-	margin: 0 4px;
 	font-size: 12px;
 	align-items: center;
 	flex-direction: row;
 }
 
-.action-bar-toggle .toggle-button {
-	height: 16px;
+.action-bar-toggle .toggle-container {
+	height: 22px;
 	border: none;
-	display: flex;
+	display: grid;
+	padding: 0 1.0px;
 	cursor: pointer;
-	border-radius: 3px;
-	justify-content: center;
-	background-color: lightgray;
-	color: var(--positronActionBar-foreground);
-	border: 1px solid var(--vscode-positronModalDialog-checkboxBorder);
+	border-radius: 6px;
+	align-items: center;
+	grid-template-columns: [left] 1fr [right] 1fr [end];
+	background-color: var(--positronActionBar-hoverBackground);
 }
 
-.action-bar-checkbox .checkbox-button:focus {
+.action-bar-toggle .toggle-container:focus {
 	outline: none !important;
 }
 
-.action-bar-checkbox .checkbox-button:focus-visible {
+.action-bar-toggle .toggle-container:focus-visible {
 	outline-offset: 2px;
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
-.action-bar-checkbox .checkbox-button .check-indicator {
-	font-weight: bold;
-	font-size: 12px !important;
-	color: var(--positronActionBar-foreground);
+.action-bar-toggle .toggle-container .toggle-button {
+	display: flex;
+	height: 20px;
+	padding: 0 6px;
+	border-radius: 6px;
+	align-items: center;
+	justify-content: center;
+}
+
+.action-bar-toggle .toggle-container .toggle-button.highlighted {
+	background-color: var(--positronActionBar-background);
+}
+
+.action-bar-toggle .toggle-container .toggle-button.left {
+	grid-column: left / right;
+}
+
+.action-bar-toggle .toggle-container .toggle-button.right {
+	grid-column: right / end;
 }

@@ -4,40 +4,40 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
-import './actionBarActionCheckbox.css';
+import './actionBarActionToggle.css';
 
 // React.
 import React, { useRef } from 'react';
 
 // Other imports.
-import { ActionBarCheckbox } from './actionBarCheckbox.js';
+import { ActionBarToggle } from './actionBarToggle.js';
 import { IAction } from '../../../../base/common/actions.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
-import { isPositronActionBarCheckboxOptions, PositronActionBarOptions } from '../../../action/common/action.js';
+import { isLocalizedString, isPositronActionBarToggleOptions, PositronActionBarOptions } from '../../../action/common/action.js';
 
 /**
- * Gets the Positron action bar checkbox options.
+ * Gets the Positron action bar toggle options.
  * @param positronActionBarOptions The Positron action bar options.
- * @returns The Positron action bar checkbox options or undefined.
+ * @returns The Positron action bar toggle options or undefined.
  */
-export const toPositronActionBarCheckboxOptions = (positronActionBarOptions?: PositronActionBarOptions) =>
-	isPositronActionBarCheckboxOptions(positronActionBarOptions) ? positronActionBarOptions : undefined;
+export const toPositronActionBarToggleOptions = (positronActionBarOptions?: PositronActionBarOptions) =>
+	isPositronActionBarToggleOptions(positronActionBarOptions) ? positronActionBarOptions : undefined;
 
 /**
- * ActionBarActionCheckboxProps interface.
+ * ActionBarActionToggleProps interface.
  */
-interface ActionBarActionCheckboxProps {
+interface ActionBarActionToggleProps {
 	readonly action: IAction;
 }
 
 /**
- * ActionBarActionCheckbox component.
- * @param props An ActionBarActionCheckboxProps that contains the component properties.
+ * ActionBarActionToggle component.
+ * @param props An ActionBarActionToggleProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => {
+export const ActionBarActionToggle = (props: ActionBarActionToggleProps) => {
 	// Context hooks.
 	const context = usePositronActionBarContext();
 
@@ -53,19 +53,20 @@ export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => 
 		return null;
 	}
 
-	// Get the Positron action bar checkbox options.
-	const positronActionBarCheckboxOptions = toPositronActionBarCheckboxOptions(menuItemAction.positronActionBarOptions);
-	if (!positronActionBarCheckboxOptions) {
+	// Get the Positron action bar toggle options.
+	const positronActionBarToggleOptions = toPositronActionBarToggleOptions(menuItemAction.positronActionBarOptions);
+	if (!positronActionBarToggleOptions) {
 		return null;
 	}
 
 	// Render.
 	return (
-		<ActionBarCheckbox
+		<ActionBarToggle
 			ref={buttonRef}
 			ariaLabel={props.action.label ?? props.action.tooltip}
-			checked={context.contextKeyService.contextMatchesRules(positronActionBarCheckboxOptions.checked)}
-			label={menuItemAction?.label ?? props.action.label}
+			leftTitle={isLocalizedString(positronActionBarToggleOptions.leftTitle) ? positronActionBarToggleOptions.leftTitle.value : positronActionBarToggleOptions.leftTitle}
+			rightTitle={isLocalizedString(positronActionBarToggleOptions.rightTitle) ? positronActionBarToggleOptions.rightTitle.value : positronActionBarToggleOptions.rightTitle}
+			toggled={context.contextKeyService.contextMatchesRules(positronActionBarToggleOptions.toggled)}
 			tooltip={actionTooltip(
 				context.contextKeyService,
 				context.keybindingService,

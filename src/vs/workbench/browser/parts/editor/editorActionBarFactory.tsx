@@ -21,6 +21,7 @@ import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/
 import { ActionBarSeparator } from '../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ActionBarActionButton } from '../../../../platform/positronActionBar/browser/components/actionBarActionButton.js';
+import { ActionBarActionToggle } from '../../../../platform/positronActionBar/browser/components/actionBarActionToggle.js';
 import { ActionBarCommandButton } from '../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
 import { ActionBarActionCheckbox } from '../../../../platform/positronActionBar/browser/components/actionBarActionCheckbox.js';
 import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
@@ -358,7 +359,7 @@ export class EditorActionBarFactory extends Disposable {
 					} else if (isPositronActionBarCheckboxOptions(action.positronActionBarOptions)) {
 						elements.push(<ActionBarActionCheckbox action={action} />);
 					} else if (isPositronActionBarToggleOptions(action.positronActionBarOptions)) {
-						// TODO
+						elements.push(<ActionBarActionToggle action={action} />);
 					} else {
 						// This indicates an unknown control type.
 						console.warn(`EditorActionBarFactory: Unknown action type: ${action.item.positronActionBarOptions.controlType}`);

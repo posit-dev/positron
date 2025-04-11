@@ -34,9 +34,6 @@ export const ActionBarCheckbox = forwardRef<
 	HTMLButtonElement,
 	PropsWithChildren<ActionBarCheckboxProps>
 >((props, ref) => {
-	// Context hooks.
-	// const context = usePositronActionBarContext();
-
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
