@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -134,6 +134,9 @@ export class PositronWidgetManager extends ManagerBase implements base.IWidgetMa
 					target_name: message.target_name,
 					data: message.data as JSONObject,
 				},
+				// Sometimes these buffers are not aligned, so we need to convert them to Uint8Arrays to avoid mangled data.
+				// This is handeled by the Comm class for subsequent messages.
+				buffers: message.buffers?.map(buffer => new Uint8Array(buffer.buffer)),
 				// This is expected to at least contain the backend widget protocol 'version', which
 				// should match the frontend version.
 				metadata: message.metadata as JSONObject,
