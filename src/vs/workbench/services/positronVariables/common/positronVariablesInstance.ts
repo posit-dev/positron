@@ -401,6 +401,13 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		}
 	}
 
+	/**
+	 * Has filter text
+	 */
+	hasFilterText(): boolean {
+		return this._filterText !== '';
+	}
+
 	//#endregion IPositronVariablesInstance Implementation
 
 	//#region Public Methods
