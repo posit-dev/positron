@@ -98,6 +98,7 @@ test.describe('Interpreter: Override', {
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
+		await userSettings.set([['python.interpreters.override', '["/home/runner/scratch/python-env"]']], true);
 		await userSettings.set([['r.interpreters.override', '["/opt/R/4.4.2"]']], true);
 	});
 
@@ -115,29 +116,30 @@ test.describe('Interpreter: Override', {
 		} catch (e) {
 			// Success = interpreter was correctly overriden
 		}
-
 		await app.code.driver.page.keyboard.press('Escape');
+		await sessions.start('rAlt', { reuse: false });
 	});
 
-	// test('Python - Can Exclude an Interpreter', async function ({ app, userSettings, sessions }) {
+	test('Python - Can Override Intgerpreter Discovery', async function ({ app, userSettings, sessions }) {
 
-	// 	const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
+		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
 
-	// 	if (!alternatePython) {
-	// 		return fail('Alternate Python version not set');
-	// 	}
+		if (!alternatePython) {
+			return fail('Alternate Python version not set');
+		}
 
-	// 	const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
-	// 	await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
+		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
+		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
 
-	// 	try {
-	// 		await sessions.start('pythonAlt', { reuse: false });
-	// 		fail(failMessage);
-	// 	} catch {
-	// 		// Success = interpreter was correctly excluded
-	// 	}
+		try {
+			await sessions.start('python', { reuse: false });
+			fail('selectInterpreter was supposed to fail as ~/.pyenv was overriden');
+		} catch {
+			// Success = interpreter was correctly overriden
+		}
 
-	// 	await app.code.driver.page.keyboard.press('Escape');
-	// });
+		await app.code.driver.page.keyboard.press('Escape');
+		await sessions.start('pythonAlt', { reuse: false });
+	});
 
 });
