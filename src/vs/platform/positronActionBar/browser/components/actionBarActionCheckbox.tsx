@@ -15,7 +15,7 @@ import { IAction } from '../../../../base/common/actions.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
-import { isICommandActionToggleInfo } from '../../../action/common/action.js';
+import { isPositronActionBarCheckboxOptions } from '../../../action/common/action.js';
 
 /**
  * ActionBarActionCheckboxProps interface.
@@ -42,32 +42,16 @@ export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
 
-	// Get the checked state.
-	let checked: boolean | undefined;
-	if (!menuItemAction) {
-		checked = props.action.checked;
-	} else {
-		if (isICommandActionToggleInfo(menuItemAction.item.toggled)) {
-			checked = context.contextKeyService.contextMatchesRules(menuItemAction.item.toggled.condition);
-		} else {
-			checked = context.contextKeyService.contextMatchesRules(menuItemAction.item.toggled);
-		}
-	}
-
-	// Get the label to display on the action bar button.
-	const label = menuItemAction ?
-		menuItemAction.displayLabelOnActionBar ?
-			menuItemAction.label :
-			undefined :
-		undefined;
-
 	// Render.
 	return (
 		<ActionBarCheckbox
 			ref={buttonRef}
 			ariaLabel={props.action.label ?? props.action.tooltip}
-			checked={checked}
-			label={label}
+			checked={isPositronActionBarCheckboxOptions(menuItemAction?.item.positronActionBarOptions) ?
+				context.contextKeyService.contextMatchesRules(menuItemAction.item.positronActionBarOptions.checked) :
+				props.action.checked
+			}
+			label={menuItemAction?.label ?? props.action.label}
 			tooltip={actionTooltip(
 				context.contextKeyService,
 				context.keybindingService,
