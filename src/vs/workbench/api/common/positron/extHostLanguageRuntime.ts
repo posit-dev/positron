@@ -10,7 +10,7 @@ import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
-import { RuntimeClientState, RuntimeClientType, RuntimeExitReason } from './extHostTypes.positron.js';
+import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -551,11 +551,8 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			// Notify the main thread that the session has ended
 			this._proxy.$emitLanguageRuntimeExit(handle, exit);
 
-			// If the session isn't exiting in order to restart, then we need
-			// to clean up its resources.
-			if (exit.reason !== RuntimeExitReason.Restart) {
-				session.dispose();
-			}
+			// The main thread will handle the session cleanup
+			// by calling the `$cleanupLanguageRuntime` method.
 
 			// Note that we don't remove the session from the list of sessions;
 			// that would invalidate the handles of all subsequent sessions
@@ -629,6 +626,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			throw new Error(`Cannot restart runtime: session handle '${handle}' not found or no longer valid.`);
 		}
 		return this._runtimeSessions[handle].start();
+	}
+
+	async $cleanupLanguageRuntime(handle: number): Promise<void> {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot cleanup runtime: session handle '${handle}' not found or no longer valid.`);
+		}
+		// Dispose session to cleanup kernel, LSP, etc.
+		await this._runtimeSessions[handle].dispose();
 	}
 
 	$showOutputLanguageRuntime(handle: number, channel?: positron.LanguageRuntimeSessionChannel): void {

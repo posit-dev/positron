@@ -92,6 +92,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		this._register(this.onDidChangeRuntimeState(state => this._currentState = state));
 	}
 
+	cleanup(): Thenable<void> {
+		throw new Error('Method not implemented.');
+	}
+
 	getRuntimeState(): RuntimeState {
 		return this._currentState;
 	}

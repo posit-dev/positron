@@ -1395,6 +1395,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// `exit_code` was `0`, so we don't treat it as a crash. If the `exit_code` had not been
 		// `0`, then `onKernelExited()` would have upgraded the crash from `Unknown` to `Error`.
 		if (exit.reason !== RuntimeExitReason.Error) {
+			if (exit.reason !== RuntimeExitReason.Restart) {
+				await session.cleanup();
+			}
 			return;
 		}
 
@@ -1407,16 +1410,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Wait a beat, then start the runtime.
 			await new Promise<void>(resolve => setTimeout(resolve, 250));
 
-			await this._runtimeSessionService.startNewRuntimeSession(
-				session.runtimeMetadata.runtimeId,
-				session.metadata.sessionName,
-				session.metadata.sessionMode,
-				session.metadata.notebookUri,
-				`The runtime exited unexpectedly and is being restarted automatically.`,
-				RuntimeStartMode.Restarting,
-				false);
+			await this._runtimeSessionService.restartSession(
+				session.sessionId,
+				`The runtime exited unexpectedly and is being restarted automatically.`
+			);
+
 			action = 'and was automatically restarted';
 		} else {
+			await session.cleanup();
 			action = 'and was not automatically restarted';
 		}
 

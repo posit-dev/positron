@@ -553,6 +553,11 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
 	}
 
+	async cleanup(): Promise<void> {
+		// No check for state here; we can clean up the runtime at any time.
+		return this._proxy.$cleanupLanguageRuntime(this.handle);
+	}
+
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
 		return this._proxy.$showOutputLanguageRuntime(this.handle, channel);
 	}
