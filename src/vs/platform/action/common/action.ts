@@ -94,13 +94,13 @@ export type PositronActionBarOptions =
 	PositronActionBarToggleOptions;
 
 export const isPositronActionBarButtonOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarButtonOptions =>
-	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'button' && (positronActionBarOptions as PositronActionBarButtonOptions).displayTitle !== undefined;
+	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'button';
 
 export const isPositronActionBarCheckboxOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarCheckboxOptions =>
-	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'checkbox' && (positronActionBarOptions as PositronActionBarCheckboxOptions).checked !== undefined;
+	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'checkbox';
 
 export const isPositronActionBarToggleOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarToggleOptions =>
-	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'toggle' && (positronActionBarOptions as PositronActionBarToggleOptions).toggled !== undefined;
+	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'toggle';
 // --- End Positron ---
 
 export interface ICommandAction {

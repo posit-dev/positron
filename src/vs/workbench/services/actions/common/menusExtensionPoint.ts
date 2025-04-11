@@ -716,13 +716,13 @@ namespace schema {
 		IUserFriendlyActionBarToggleOptions;
 
 	export const isActionBarButtonOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarButtonOptions =>
-		actionBarOptions !== undefined && actionBarOptions.controlType === 'button' && (actionBarOptions as IUserFriendlyActionBarButtonOptions).displayTitle !== undefined;
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'button';
 
 	export const isActionBarCheckboxOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarCheckboxOptions =>
-		actionBarOptions !== undefined && actionBarOptions.controlType === 'checkbox' && (actionBarOptions as IUserFriendlyActionBarCheckboxOptions).checked !== undefined;
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'checkbox';
 
 	export const isActionBarToggleOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarToggleOptions =>
-		actionBarOptions !== undefined && actionBarOptions.controlType === 'toggle' && (actionBarOptions as IUserFriendlyActionBarToggleOptions).toggled !== undefined;
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'toggle';
 	// --- End Positron ---
 
 	export interface IUserFriendlyCommand {
