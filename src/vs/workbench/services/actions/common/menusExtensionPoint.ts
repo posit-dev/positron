@@ -694,7 +694,7 @@ namespace schema {
 
 	// --- Start Positron ---
 	export type IUserFriendlyActionBarDisplayOptions = {
-		displayTitleOnActionBar: boolean;
+		displayTitle: boolean;
 	};
 
 	export type IUserFriendlyActionBarCheckboxOptions = {
@@ -713,7 +713,7 @@ namespace schema {
 		IUserFriendlyActionBarToggleOptions;
 
 	export const isActionBarDisplayOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarDisplayOptions =>
-		actionBarOptions !== undefined && (actionBarOptions as IUserFriendlyActionBarDisplayOptions).displayTitleOnActionBar !== undefined;
+		actionBarOptions !== undefined && (actionBarOptions as IUserFriendlyActionBarDisplayOptions).displayTitle !== undefined;
 
 	export const isActionBarCheckboxOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarCheckboxOptions =>
 		actionBarOptions !== undefined && (actionBarOptions as IUserFriendlyActionBarCheckboxOptions).checked !== undefined;
@@ -868,8 +868,8 @@ namespace schema {
 				anyOf: [{
 					type: 'object',
 					properties: {
-						displayTitleOnActionBar: {
-							description: localize('vscode.extension.contributes.commandType.actionBarOptions.displayTitleOnActionBar', 'A value which indicates whether to display the title on an action bar.'),
+						displayTitle: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.displayTitle', 'A value which indicates whether to display the title on an action bar.'),
 							type: 'boolean'
 						}
 					}
@@ -1008,7 +1008,7 @@ commandsExtensionPoint.setHandler(extensions => {
 		let positronActionBarOptions: PositronActionBarOptions | undefined;
 		if (schema.isActionBarDisplayOptions(actionBarOptions)) {
 			positronActionBarOptions = {
-				displayTitleOnActionBar: actionBarOptions.displayTitleOnActionBar
+				displayTitle: actionBarOptions.displayTitle
 			};
 		} else if (schema.isActionBarCheckboxOptions(actionBarOptions)) {
 			positronActionBarOptions = {

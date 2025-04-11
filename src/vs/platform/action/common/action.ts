@@ -72,7 +72,7 @@ export interface ICommandActionSource {
 
 // --- Start Positron ---
 export type PositronActionBarDisplayOptions = {
-	displayTitleOnActionBar: boolean;
+	displayTitle: boolean;
 };
 
 export type PositronActionBarCheckboxOptions = {
@@ -91,7 +91,7 @@ export type PositronActionBarOptions =
 	PositronActionBarToggleOptions;
 
 export const isPositronActionBarDisplayOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarDisplayOptions =>
-	positronActionBarOptions !== undefined && (positronActionBarOptions as PositronActionBarDisplayOptions).displayTitleOnActionBar !== undefined;
+	positronActionBarOptions !== undefined && (positronActionBarOptions as PositronActionBarDisplayOptions).displayTitle !== undefined;
 
 export const isPositronActionBarCheckboxOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarCheckboxOptions =>
 	positronActionBarOptions !== undefined && (positronActionBarOptions as PositronActionBarCheckboxOptions).checked !== undefined;

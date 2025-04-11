@@ -137,7 +137,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 			checked={action.checked}
 			disabled={!action.enabled}
 			iconId={iconId}
-			label={isPositronActionBarDisplayOptions(menuItemAction?.positronActionBarOptions) && menuItemAction.positronActionBarOptions.displayTitleOnActionBar ?
+			label={isPositronActionBarDisplayOptions(menuItemAction?.positronActionBarOptions) && menuItemAction.positronActionBarOptions.displayTitle ?
 				action.label :
 				undefined
 			}
