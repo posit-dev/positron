@@ -128,7 +128,6 @@ test.describe('Interpreter: Override', {
 			return fail('Alternate Python version not set');
 		}
 
-		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
 		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
 
 		try {
