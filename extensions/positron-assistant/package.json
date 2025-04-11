@@ -45,6 +45,18 @@
         "title": "%commands.configureModels.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.copilot.signin",
+        "title": "%commands.copilot.signin.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && config.positron.assistant.copilot.enable"
+      },
+      {
+        "command": "positron-assistant.copilot.signout",
+        "title": "%commands.copilot.signout.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && config.positron.assistant.copilot.enable"
       }
     ],
     "languageModels": [
@@ -138,7 +150,9 @@
   "scripts": {
     "vscode:prepublish": "npm run compile",
     "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts"
+    "lint": "eslint src --ext ts",
+    "install-copilot-language-server": "ts-node scripts/install-copilot-language-server.ts",
+    "postinstall": "ts-node scripts/post-install.ts"
   },
   "devDependencies": {
     "@ai-sdk/amazon-bedrock": "^1.1.6",
@@ -157,11 +171,14 @@
     "eslint": "^9.13.0",
     "google-auth-library": "^9.15.1",
     "ollama-ai-provider": "^1.1.0",
+    "ts-node": "^10.9.2",
     "typescript": "^5.6.2",
     "typescript-eslint": "^8.11.0",
     "zod": "^3.24.1"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0"
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@github/copilot-language-server": "^1.286.0",
+    "vscode-languageclient": "^9.0.1"
   }
 }
