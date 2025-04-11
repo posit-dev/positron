@@ -9,6 +9,16 @@ import { ThemeIcon } from '../../../base/common/themables.js';
 import { Categories } from './actionCommonCategories.js';
 import { ICommandMetadata } from '../../commands/common/commands.js';
 
+export interface IBlowItUp {
+	id: string;
+	title: string | ILocalizedString;
+	tooltip?: string | ILocalizedString;
+	icon?: Icon;
+	precondition?: ContextKeyExpression;
+	enabled?: boolean;
+	run(...args: any[]): any;
+}
+
 export interface ILocalizedString {
 
 	/**
