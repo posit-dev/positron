@@ -27,6 +27,7 @@ import { PositronTestServiceAccessor, positronWorkbenchInstantiationService } fr
 import { INotebookRendererInfo, INotebookStaticPreloadInfo } from '../../../notebook/common/notebookCommon.js';
 import { NotebookOutputRendererInfo } from '../../../notebook/common/notebookOutputRenderer.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 
 class TestNotebookService implements Partial<INotebookService> {
 	getRenderers(): INotebookRendererInfo[] {
@@ -246,6 +247,40 @@ suite('Positron - IPyWidgetsInstance constructor', () => {
 		assert.deepStrictEqual(messaging.messagesToWebview, [{ type: 'initialize_result' }]);
 	});
 
+	test('forwards comm_open with buffers when client is created via session.createClient', async () => {
+		// Create instance and clear initial messages
+		await createIPyWidgetsInstance();
+		messaging.messagesToWebview.length = 0; // Clear initialize_result message
+
+		// Make some sample client data
+		const clientId = 'new-widget-client-id';
+		const clientType = RuntimeClientType.IPyWidget;
+		const messageData = { initial_state: 'some_value' };
+		const messageMetadata = { source: 'test' };
+		const messageBuffers = [
+			VSBuffer.wrap(new Uint8Array([1, 2, 3])),
+			VSBuffer.wrap(new Uint8Array([4, 5]))
+		];
+
+		// Act: Call session.createClient to simulate client creation and trigger the event
+		await session.createClient(
+			clientType,
+			messageData,
+			messageMetadata,
+			clientId,
+			messageBuffers
+		);
+		await timeout(0);
+
+		// Sanity check: only one message should be sent.
+		assert.strictEqual(messaging.messagesToWebview.length, 1, 'Expected exactly one message (comm_open) to be sent to the webview');
+		const sentMessage = messaging.messagesToWebview[0];
+
+		// The message should be comm_open and contain the correct buffers.
+		assert.strictEqual(sentMessage.type, 'comm_open', 'Expected message type to be comm_open');
+		assert.deepStrictEqual(sentMessage.buffers, messageBuffers, 'Expected buffers to be passed correctly in the comm_open message');
+	});
+
 	test('initialized session, one ipywidget client', async () => {
 		const client = await session.createClient(RuntimeClientType.IPyWidget, {}, {}, 'test-client-id');
 
@@ -365,6 +400,7 @@ suite('Positron - IPyWidgetsInstance', () => {
 			target_name: client.getClientType(),
 			data: {},
 			metadata: {},
+			buffers: [],
 		} as ToWebviewMessage]);
 
 		// Close the client.

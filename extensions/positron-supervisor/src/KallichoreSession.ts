@@ -1526,7 +1526,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	handleJupyterMessage(data: any) {
 		// Deserialize the message buffers from base64, if any
-		if (data.buffers) {
+		if (data.buffers?.length > 0) {
 			data.buffers = data.buffers.map((b: string) => {
 				return Buffer.from(b, 'base64');
 			});
