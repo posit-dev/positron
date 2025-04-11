@@ -38,6 +38,12 @@ declare module 'vscode' {
 
 		readonly vendor: string;
 
+		// --- Start Positron ---
+		/**
+		 * Human-readable name of the language model provider.
+		 */
+		readonly providerName?: string;
+		// --- End Positron ---
 		/**
 		 * Human-readable name of the language model.
 		 */

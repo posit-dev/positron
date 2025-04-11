@@ -31,7 +31,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	};
 
 	constructor(private readonly _config: ModelConfig) {
-		this.name = _config.name;
+		this.name = AnthropicLanguageModel.source.defaults.name;
 		this.provider = _config.provider;
 		this.identifier = _config.id;
 		this._client = new Anthropic({
@@ -89,6 +89,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			}
 			throw error;
 		}
+	}
+
+	getProviderDisplayName(): string {
+		return AnthropicLanguageModel.source.provider.displayName;
 	}
 
 	private onContentBlock(block: Anthropic.Messages.ContentBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {

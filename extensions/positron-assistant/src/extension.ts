@@ -123,6 +123,7 @@ function registerModelWithAPI(languageModel: positron.ai.LanguageModelChatProvid
 		const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
 			name: languageModel.name,
 			family: languageModel.provider,
+			providerName: languageModel.getProviderDisplayName(),
 			vendor: context.extension.packageJSON.publisher,
 			version: context.extension.packageJSON.version,
 			maxInputTokens: 0,

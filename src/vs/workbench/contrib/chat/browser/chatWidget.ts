@@ -510,7 +510,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		// --- Start Positron ---
 		this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl, this.inputPart));
 		this.actionBarContainer.render(this.container);
-		this.actionBarContainer.onModelSelect((newLanguageModel) => this.inputPart.modelPickerDelegate.setModel(newLanguageModel));
+		this.actionBarContainer.onProviderSelected((provider) => this.inputPart.currentProvider = provider);
 		// --- End Positron ---
 
 		// Do initial render

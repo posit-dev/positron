@@ -20,7 +20,7 @@ import { IContextMenuService } from '../../../../../platform/contextview/browser
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
-import { ILanguageModelsService, ILanguageModelChatMetadataAndIdentifier } from '../../common/languageModels.js';
+import { ILanguageModelsService, IPositronChatProvider } from '../../common/languageModels.js';
 import { PositronChatContextProvider } from './chatContext.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ChatInputPart } from '../chatInputPart.js';
@@ -28,9 +28,8 @@ import { ChatInputPart } from '../chatInputPart.js';
 export class ChatActionBarControl extends Disposable {
 	private _container?: HTMLElement;
 	private _positronReactRenderer?: PositronReactRenderer;
-	private _currentLanguageModel!: ILanguageModelChatMetadataAndIdentifier;
-	private readonly _onChangeLanguageModel = this._register(new Emitter<ILanguageModelChatMetadataAndIdentifier>());
-	readonly onModelSelect = this._onChangeLanguageModel.event;
+	private readonly _onChangeLanguageModel = this._register(new Emitter<IPositronChatProvider | undefined>());
+	readonly onProviderSelected = this._onChangeLanguageModel.event;
 
 	constructor(
 		private readonly _chatInput: ChatInputPart,
@@ -68,10 +67,8 @@ export class ChatActionBarControl extends Disposable {
 					modelService={this._modelService}
 				>
 					<ChatActionBar
-						currentModel={this._currentLanguageModel}
 						width={this._container.parentElement?.clientWidth ?? 150}
 						onModelSelect={(newLanguageModel) => {
-							this._currentLanguageModel = newLanguageModel;
 							this._onChangeLanguageModel.fire(newLanguageModel);
 						}}
 					/>

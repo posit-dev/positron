@@ -172,6 +172,9 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 			vendor: metadata.vendor ?? ExtensionIdentifier.toKey(extension.identifier),
 			name: metadata.name ?? '',
 			family: metadata.family ?? '',
+			// --- Start Positron ---
+			providerName: metadata.providerName ?? metadata.family,
+			// --- End Positron ---
 			version: metadata.version,
 			maxInputTokens: metadata.maxInputTokens,
 			maxOutputTokens: metadata.maxOutputTokens,

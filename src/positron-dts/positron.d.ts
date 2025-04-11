@@ -1794,6 +1794,8 @@ declare module 'positron' {
 			 * Returns an error if the connection fails.
 			 */
 			resolveConnection(token: vscode.CancellationToken): Thenable<Error | undefined>;
+
+			getProviderDisplayName(): string;
 		}
 
 		/**
