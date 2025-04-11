@@ -66,6 +66,8 @@ export interface IPositronLanguageModelConfig {
 	numCtx?: number;
 }
 
+export type PositronLanguageModelToolResult = object;
+
 //#endregion
 //#region Assistant Service
 
@@ -92,6 +94,11 @@ export interface IPositronAssistantService {
 	 * Get the currently visible plot as a URI.
 	 */
 	getCurrentPlotUri(): string | undefined;
+
+	/**
+	 * Get a JSON representation of the current workspace tree.
+	 */
+	getProjectTree(): Promise<object>;
 
 	/**
 	 * Show the language model configuration modal.

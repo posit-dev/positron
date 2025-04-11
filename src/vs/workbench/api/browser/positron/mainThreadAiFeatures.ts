@@ -71,6 +71,13 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
+	 * Respond to a request from the extension host to send the current plot data.
+	 */
+	async $getProjectTree(): Promise<object> {
+		return await this._positronAssistantService.getProjectTree();
+	}
+
+	/**
 	 * Respond to a request from the extension host to send a progress part to the chat response.
 	 */
 	$responseProgress(sessionId: string, content: IChatProgressDto): void {

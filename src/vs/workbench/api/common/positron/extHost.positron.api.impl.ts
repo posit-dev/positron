@@ -243,6 +243,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getCurrentPlotUri(): Thenable<string | undefined> {
 				return extHostAiFeatures.getCurrentPlotUri();
 			},
+			getProjectTree(): Thenable<object> {
+				return extHostAiFeatures.getProjectTree();
+			},
 			showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): Thenable<void> {
 				return extHostAiFeatures.showLanguageModelConfig(sources, onAction);
 			},
