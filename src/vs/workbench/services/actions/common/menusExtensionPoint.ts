@@ -15,7 +15,7 @@ import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.j
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { index } from '../../../../base/common/arrays.js';
 import { isProposedApiEnabled } from '../../extensions/common/extensions.js';
-import { IBlowItUp, ILocalizedString } from '../../../../platform/action/common/action.js';
+import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { IExtensionFeatureTableRenderer, IExtensionFeaturesRegistry, IRenderedData, IRowData, ITableData, Extensions as ExtensionFeaturesExtensions } from '../../extensionManagement/common/extensionFeatures.js';
 import { IExtensionManifest, IKeyBinding } from '../../../../platform/extensions/common/extensions.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -26,11 +26,9 @@ import { ResolvedKeybinding } from '../../../../base/common/keybindings.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ApiProposalName } from '../../../../platform/extensions/common/extensionsApiProposals.js';
 
-let d: IBlowItUp;
-
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { PositronActionBarOptions } from '../../../../platform/action/common/action.js';
+import { PositronActionBarOptions, PositronActionBarButtonOptions, PositronActionBarCheckboxOptions, PositronActionBarToggleOptions } from '../../../../platform/action/common/action.js';
 // --- End Positron ---
 
 // --- Start Positron ---
@@ -695,21 +693,14 @@ namespace schema {
 	// --- commands contribution point
 
 	// --- Start Positron ---
-	export type IUserFriendlyActionBarButtonOptions = {
-		controlType: 'button';
-		displayTitle: boolean;
-	};
+	export type IUserFriendlyActionBarButtonOptions = PositronActionBarButtonOptions;
 
-	export type IUserFriendlyActionBarCheckboxOptions = {
-		controlType: 'checkbox';
+	export type IUserFriendlyActionBarCheckboxOptions = Omit<PositronActionBarCheckboxOptions, 'checked'> & {
 		checked: string;
 	};
 
-	export type IUserFriendlyActionBarToggleOptions = {
-		controlType: 'toggle';
+	export type IUserFriendlyActionBarToggleOptions = Omit<PositronActionBarToggleOptions, 'toggled'> & {
 		toggled: string;
-		leftTitle: string | ILocalizedString;
-		rightTitle: string | ILocalizedString;
 	};
 
 	export type IUserFriendlyActionBarOptions =
