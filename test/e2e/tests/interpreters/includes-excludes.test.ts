@@ -117,7 +117,6 @@ test.describe('Interpreter: Override', {
 			// Success = interpreter was correctly overriden
 		}
 		await app.code.driver.page.keyboard.press('Escape');
-		await sessions.start('rAlt', { reuse: false });
 	});
 
 	test('Python - Can Override Interpreter Discovery', async function ({ app, userSettings, sessions }) {
@@ -136,7 +135,6 @@ test.describe('Interpreter: Override', {
 		}
 
 		await app.code.driver.page.keyboard.press('Escape');
-		await sessions.start('pythonAlt', { reuse: false });
 	});
 
 });
