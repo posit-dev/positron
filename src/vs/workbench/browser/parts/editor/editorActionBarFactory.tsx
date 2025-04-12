@@ -349,20 +349,21 @@ export class EditorActionBarFactory extends Disposable {
 			} else if (action instanceof MenuItemAction) {
 				// Menu item action.
 				if (!processedActions.has(action.id)) {
+					// Add the action to the processed actions.
 					processedActions.add(action.id);
 
 					// If no action bar options are specified, use the default action bar button.
-					if (!action.item.positronActionBarOptions) {
+					if (!action.positronActionBarOptions) {
 						elements.push(<ActionBarActionButton action={action} />);
-					} else if (isPositronActionBarButtonOptions(action.item.positronActionBarOptions)) {
+					} else if (isPositronActionBarButtonOptions(action.positronActionBarOptions)) {
 						elements.push(<ActionBarActionButton action={action} />);
 					} else if (isPositronActionBarCheckboxOptions(action.positronActionBarOptions)) {
 						elements.push(<ActionBarActionCheckbox action={action} />);
 					} else if (isPositronActionBarToggleOptions(action.positronActionBarOptions)) {
 						elements.push(<ActionBarActionToggle action={action} />);
 					} else {
-						// This indicates an unknown control type.
-						console.warn(`EditorActionBarFactory: Unknown action type: ${action.item.positronActionBarOptions.controlType}`);
+						// This indicates an unknown positronActionBarOptions.
+						console.warn('EditorActionBarFactory: Unknown positronActionBarOptions');
 					}
 				}
 			} else if (action instanceof SubmenuItemAction) {
