@@ -5,6 +5,7 @@
 
 .action-bar-toggle {
 	display: flex;
+	margin: 0 4px;
 	font-size: 12px;
 	align-items: center;
 	flex-direction: row;
