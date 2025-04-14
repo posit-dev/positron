@@ -39,7 +39,9 @@ import { buttonSecondaryBackground, buttonSecondaryForeground, buttonSecondaryHo
 import { asCssVariable } from '../../../../platform/theme/common/colorUtils.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { checkModeOption } from '../common/chat.js';
-import { IChatAgentCommand, IChatAgentData, IChatAgentService, IChatWelcomeMessageContent, isChatWelcomeMessageContent } from '../common/chatAgents.js';
+// --- Start Positron ---
+import { IChatAgentCommand, IChatAgentData, IChatAgentService } from '../common/chatAgents.js';
+// --- End Positron ---
 import { ChatContextKeys } from '../common/chatContextKeys.js';
 import { applyingChatEditsFailedContextKey, decidedChatEditingResourceContextKey, hasAppliedChatEditsContextKey, hasUndecidedChatEditingResourceContextKey, IChatEditingService, IChatEditingSession, inChatEditingSessionContextKey, WorkingSetEntryState } from '../common/chatEditingService.js';
 import { ChatPauseState, IChatModel, IChatRequestVariableEntry, IChatResponseModel } from '../common/chatModel.js';
@@ -61,6 +63,11 @@ import './media/chat.css';
 import './media/chatAgentHover.css';
 import './media/chatViewWelcome.css';
 import { ChatViewWelcomePart } from './viewsWelcome/chatViewWelcomeController.js';
+
+// --- Start Positron ---
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { ILanguageModelsService } from '../common/languageModels.js';
+// --- End Positron ---
 
 const $ = dom.$;
 
@@ -151,7 +158,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private listContainer!: HTMLElement;
 	private container!: HTMLElement;
 	private welcomeMessageContainer!: HTMLElement;
-	private persistedWelcomeMessage: IChatWelcomeMessageContent | undefined;
+	// --- Start Positron ---
+	// private persistedWelcomeMessage: IChatWelcomeMessageContent | undefined;
+	// --- End Positron ---
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
 
 	private bodyDimension: dom.Dimension | undefined;
@@ -247,6 +256,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@IChatEditingService chatEditingService: IChatEditingService,
 		@IStorageService private readonly storageService: IStorageService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
+		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
 	) {
 		super();
 
@@ -411,12 +421,18 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			return null;
 		}));
 
-		const loadedWelcomeContent = storageService.getObject(`${PersistWelcomeMessageContentKey}.${this.location}`, StorageScope.APPLICATION);
-		if (isChatWelcomeMessageContent(loadedWelcomeContent)) {
-			this.persistedWelcomeMessage = loadedWelcomeContent;
-		}
+		// --- Start Positron ---
+		// const loadedWelcomeContent = storageService.getObject(`${PersistWelcomeMessageContentKey}.${this.location}`, StorageScope.APPLICATION);
+		// if (isChatWelcomeMessageContent(loadedWelcomeContent)) {
+		// 	this.persistedWelcomeMessage = loadedWelcomeContent;
+		// }
+		// --- End Positron ---
 
 		this._register(this.onDidChangeParsedInput(() => this.updateChatInputContext()));
+
+		this._register(this.languageModelsService.onDidChangeLanguageModels(() => {
+			this.renderWelcomeViewContentIfNeeded();
+		}));
 	}
 
 	private _lastSelectedAgent: IChatAgentData | undefined;
@@ -620,35 +636,76 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		}
 	}
 
+	// --- Start Positron ---
 	private renderWelcomeViewContentIfNeeded() {
 		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
 			return;
 		}
 
 		const numItems = this.viewModel?.getItems().length ?? 0;
-		const defaultAgent = this.chatAgentService.getDefaultAgent(this.location, this.input.currentMode);
-		const welcomeContent = defaultAgent?.metadata.welcomeMessageContent ?? this.persistedWelcomeMessage;
-		if (welcomeContent && !numItems && (this.welcomeMessageContainer.children.length === 0 || this.chatService.unifiedViewEnabled)) {
-			dom.clearNode(this.welcomeMessageContainer);
-			const tips = this.viewOptions.supportsAdditionalParticipants
-				? new MarkdownString(localize('chatWidget.tips', "{0} or type {1} to attach context\n\n{2} to chat with extensions\n\nType {3} to use commands", '$(attach)', '#', '$(mention)', '/'), { supportThemeIcons: true })
-				: new MarkdownString(localize('chatWidget.tips.withoutParticipants', "{0} or type {1} to attach context", '$(attach)', '#'), { supportThemeIcons: true });
-			this.welcomePart.value = this.instantiationService.createInstance(
-				ChatViewWelcomePart,
-				{ ...welcomeContent, tips, },
-				{
-					location: this.location,
-					isWidgetAgentWelcomeViewContent: this.input?.currentMode === ChatMode.Agent
-				}
-			);
-			dom.append(this.welcomeMessageContainer, this.welcomePart.value.element);
+		let welcomeText;
+
+		// Show an extra configuration link if there are no configured models yet
+		if (this.languageModelsService.getLanguageModelIds().length === 0) {
+			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model");
+			// create a multi-line message
+			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n");
+			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.addModelConfiguration)`;
+		} else {
+			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
+			welcomeText = localize('positronAssistant.welcomeMessageReady', `Positron Assistant is an AI coding companion designed to accelerate and enhance your data science projects.
+
+Click on or type $(mention) to work with Chat Participants in Positron Assistant.
+
+Click on $(attach) or type \`#\` to add context, such as files to your Positron Assistant chat.
+
+Type \`/\` to use predefined quick commands such as \`/help\` or \`/quarto\`.
+
+The {guide-link} explains the possibilities and capabilities of Positron Assistant.
+
+Always verify results. AI assistants can sometimes produce incorrect code.`);
+			welcomeText = welcomeText.replace('{guide-link}', `\n\n[${guideLinkMessage}](https://positron.posit.co)`);
 		}
+
+		dom.clearNode(this.welcomeMessageContainer);
+		this.welcomePart.value = this.instantiationService.createInstance(
+			ChatViewWelcomePart,
+			{
+				icon: ThemeIcon.fromId('positron-assistant'),
+				title: localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant"),
+				message: new MarkdownString(welcomeText, { supportThemeIcons: true, isTrusted: true }),
+			},
+			{
+				location: this.location,
+				isWidgetAgentWelcomeViewContent: this.input?.currentMode === ChatMode.Agent
+			}
+		);
+		dom.append(this.welcomeMessageContainer, this.welcomePart.value.element);
+
+		// const defaultAgent = this.chatAgentService.getDefaultAgent(this.location, this.input.currentMode);
+		// const welcomeContent = defaultAgent?.metadata.welcomeMessageContent ?? this.persistedWelcomeMessage;
+		// if (welcomeContent && !numItems && (this.welcomeMessageContainer.children.length === 0 || this.chatService.unifiedViewEnabled)) {
+		// 	dom.clearNode(this.welcomeMessageContainer);
+		// 	const tips = this.viewOptions.supportsAdditionalParticipants
+		// 		? new MarkdownString(localize('chatWidget.tips', "{0} or type {1} to attach context\n\n{2} to chat with extensions\n\nType {3} to use commands", '$(attach)', '#', '$(mention)', '/'), { supportThemeIcons: true })
+		// 		: new MarkdownString(localize('chatWidget.tips.withoutParticipants', "{0} or type {1} to attach context", '$(attach)', '#'), { supportThemeIcons: true });
+		// 	this.welcomePart.value = this.instantiationService.createInstance(
+		// 		ChatViewWelcomePart,
+		// 		{ ...welcomeContent, tips, },
+		// 		{
+		// 			location: this.location,
+		// 			isWidgetAgentWelcomeViewContent: this.input?.currentMode === ChatMode.Agent
+		// 		}
+		// 	);
+		// 	dom.append(this.welcomeMessageContainer, this.welcomePart.value.element);
+		// }
 
 		if (this.viewModel) {
 			dom.setVisibility(numItems === 0, this.welcomeMessageContainer);
 			dom.setVisibility(numItems !== 0, this.listContainer);
 		}
 	}
+	// --- End Positron ---
 
 	private async renderChatEditingSessionState() {
 		if (!this.inputPart) {
