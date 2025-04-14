@@ -472,7 +472,11 @@ use serde::Serialize;
 				return yield `pub type ${snakeCaseToSentenceCase(name)} = serde_json::Value;\n\n`;
 			}
 
-			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+			if (o.rust?.copy === true) {
+				yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+			} else {
+				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+			}
 			yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
 
 			for (let i = 0; i < props.length; i++) {
@@ -510,7 +514,7 @@ use serde::Serialize;
 				yield formatComment(`/// `,
 					`Possible values for ` +
 					snakeCaseToSentenceCase(context[0]));
-				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
+				yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
 				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
 			} else {
 				// Enum field within another interface
