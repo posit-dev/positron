@@ -167,14 +167,18 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// (size, pixel ratio, and format) matches.
 		if (metadata.pre_render) {
 			const preRender = metadata.pre_render;
-			const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
 
-			this._lastRender = {
-				uri,
-				size: preRender.policy.size,
-				pixel_ratio: preRender.policy.pixel_ratio,
-				renderTimeMs: 0,
-			};
+			// The policy should normally be defined in a pre-render result but we
+			// check just in case
+			if (preRender.policy) {
+				const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
+				this._lastRender = {
+					uri,
+					size: preRender.policy.size,
+					pixel_ratio: preRender.policy.pixel_ratio,
+					renderTimeMs: 0,
+				};
+			}
 		}
 
 		// Connect close emitter event

@@ -67,8 +67,7 @@
 					"name": "format",
 					"description": "The requested plot format",
 					"schema": {
-						"type": "string",
-						"enum": ["png", "jpeg", "svg", "pdf", "tiff"]
+						"$ref": "#/components/schemas/render_format"
 					}
 				}
 			],
@@ -85,6 +84,10 @@
 						"mime_type": {
 							"description": "The MIME type of the plot data",
 							"type": "string"
+						},
+						"policy": {
+							"description": "The policy used to render the plot",
+							"$ref": "#/components/schemas/render_policy"
 						}
 					},
 					"required": [
@@ -116,10 +119,38 @@
 					"width"
 				]
 			},
+			"render_format":{
+				"description": "The requested plot format",
+				"type": "string",
+				"enum": ["png", "jpeg", "svg", "pdf", "tiff"]
+			},
 			"plot_unit": {
 				"type": "string",
 				"description": "The unit of measurement of a plot's dimensions",
 				"enum": ["pixels", "inches"]
+			},
+			"render_policy": {
+				"type": "object",
+				"description": "The policy used to render the plot",
+				"properties": {
+					"size": {
+						"description": "Plot size of the render policy",
+						"$ref": "#/components/schemas/plot_size"
+					},
+					"pixel_ratio": {
+						"description": "The pixel ratio of the display device",
+						"type": "number"
+					},
+					"format": {
+						"description": "Format of the render policy",
+						"$ref": "#/components/schemas/render_format"
+					}
+				},
+				"required": [
+					"size",
+					"pixel_ratio",
+					"format"
+				]
 			}
 		}
 	}
