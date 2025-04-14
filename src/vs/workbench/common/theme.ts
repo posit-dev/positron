@@ -979,10 +979,10 @@ export const POSITRON_TOP_ACTION_BAR_HOVER_BACKGROUND = registerColor('positronT
 
 // Positron top action bar text input background color.
 export const POSITRON_TOP_ACTION_BAR_TEXT_INPUT_BACKGROUND = registerColor('positronTopActionBar.textInputBackground', {
-	dark: '#3a3d41',
-	light: '#ffffff',
-	hcDark: '#3a3d41',
-	hcLight: '#ffffff'
+	dark: editorBackground,
+	light: editorBackground,
+	hcDark: editorBackground,
+	hcLight: editorBackground
 }, localize('positronTopActionBar.textInputBackground', "Positron top action bar text input background color."));
 
 // Positron top action bar text input border color.
