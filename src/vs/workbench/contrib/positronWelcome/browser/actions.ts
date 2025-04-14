@@ -3,21 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as platform from '../../../../base/common/platform.js';
-import { URI } from '../../../../base/common/uri.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { localize } from '../../../../nls.js';
 import { Action2 } from '../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ConfigurationTarget } from '../../../../platform/configuration/common/configuration.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { DiffEditorInput } from '../../../common/editor/diffEditorInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { COMPARE_WITH_SAVED_COMMAND_ID } from '../../files/browser/fileConstants.js';
-import { setImportWasPrompted } from './helpers.js';
+import { getCodeSettingsPath, setImportWasPrompted } from './helpers.js';
 
 export class PositronImportSettings extends Action2 {
 	/**
@@ -37,6 +38,7 @@ export class PositronImportSettings extends Action2 {
 			},
 			category: 'Preferences',
 			f1: true,
+			precondition: ContextKeyExpr.equals('positron.settingsImport.hasCodeSettings', true),
 		});
 	}
 
@@ -50,16 +52,18 @@ export class PositronImportSettings extends Action2 {
 		const prefService = accessor.get(IPreferencesService);
 		const fileService = accessor.get(IFileService);
 		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+		const loggingService = accessor.get(ILogService);
 
 		const positronSettingsPath = await prefService.getEditableSettingsURI(ConfigurationTarget.USER);
 		if (!positronSettingsPath) {
-			alert('No Positron settings found');
+			loggingService.warn('No Positron settings found');
 			return;
 		}
 
-		const codeSettingsPath = await this.getCodeSettingsPath(pathService);
+		const codeSettingsPath = await getCodeSettingsPath(pathService);
 		if (!codeSettingsPath) {
-			alert('No Visual Studio Code settings found');
+			loggingService.warn('No Visual Studio Code settings found');
 			return;
 		}
 
@@ -79,38 +83,26 @@ export class PositronImportSettings extends Action2 {
 				}
 			}
 		}
-	}
 
-
-	private async getCodeSettingsPath(pathService: IPathService): Promise<URI> {
-		const path = await pathService.path;
-		const homedir = await pathService.userHome();
-
-		let appDataPath: URI;
-		switch (platform.OS) {
-			case platform.OperatingSystem.Windows:
-				if (process.env['APPDATA']) {
-					appDataPath = URI.parse(process.env['APPDATA']);
-				} else {
-					const userProfile = process.env['USERPROFILE'];
-					if (typeof userProfile !== 'string') {
-						throw new Error('Windows: Unexpected undefined %USERPROFILE% environment variable');
+		notificationService.prompt(
+			Severity.Info,
+			localize('positronImportSettingsPrompt', "Settings imported from Visual Studio Code"),
+			[
+				{
+					label: localize('positronImportSettingsAcceptLabel', "Accept"), run: async () => {
+						await editor?.save(10101010101);
+						await editor?.dispose();
 					}
+				},
+				{
+					label: localize('positronImportSettingsRejecttLabel', "Reject"), run: async () => {
+						await editor?.dispose();
 
-					appDataPath = URI.parse(path.join(userProfile, 'AppData', 'Roaming'));
-				}
-				break;
-			case platform.OperatingSystem.Macintosh:
-				appDataPath = homedir.with({ path: path.join(homedir.path, 'Library', 'Application Support') });
-				break;
-			case platform.OperatingSystem.Linux:
-				appDataPath = process.env['XDG_CONFIG_HOME'] ? URI.parse(process.env['XDG_CONFIG_HOME']) : homedir.with({ path: path.join(homedir.path, '.config') });
-				break;
-			default:
-				throw new Error('Platform not supported');
-		}
+					}
+				},
+			]
+		);
 
-		return appDataPath.with({ path: path.join(appDataPath.path, 'Code', 'User', 'settings.json') });
 	}
 }
 

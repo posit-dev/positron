@@ -3,11 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { INotificationService, NeverShowAgainScope, Severity } from '../../../../platform/notification/common/notification.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings } from './actions.js';
-
+import * as platform from '../../../../base/common/platform.js';
 
 const wasPromptedKey = 'positron.welcome.promptedImport';
 
@@ -62,4 +64,35 @@ export async function promptImport(
 			onCancel: () => { },
 		}
 	);
+}
+
+export async function getCodeSettingsPath(pathService: IPathService): Promise<URI> {
+	const path = await pathService.path;
+	const homedir = await pathService.userHome();
+
+	let appDataPath: URI;
+	switch (platform.OS) {
+		case platform.OperatingSystem.Windows:
+			if (process.env['APPDATA']) {
+				appDataPath = URI.parse(process.env['APPDATA']);
+			} else {
+				const userProfile = process.env['USERPROFILE'];
+				if (typeof userProfile !== 'string') {
+					throw new Error('Windows: Unexpected undefined %USERPROFILE% environment variable');
+				}
+
+				appDataPath = URI.parse(path.join(userProfile, 'AppData', 'Roaming'));
+			}
+			break;
+		case platform.OperatingSystem.Macintosh:
+			appDataPath = homedir.with({ path: path.join(homedir.path, 'Library', 'Application Support') });
+			break;
+		case platform.OperatingSystem.Linux:
+			appDataPath = process.env['XDG_CONFIG_HOME'] ? URI.parse(process.env['XDG_CONFIG_HOME']) : homedir.with({ path: path.join(homedir.path, '.config') });
+			break;
+		default:
+			throw new Error('Platform not supported');
+	}
+
+	return appDataPath.with({ path: path.join(appDataPath.path, 'Code', 'User', 'settings.json') });
 }
