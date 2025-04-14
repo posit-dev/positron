@@ -19,7 +19,7 @@ const NOTIFICATION_TOAST = '.notification-toast';
  */
 export class Popups {
 
-	toastLocator = this.code.driver.page.locator(NOTIFICATION_TOAST);
+	public toastLocator = this.code.driver.page.locator(NOTIFICATION_TOAST);
 
 	constructor(private code: Code) { }
 
