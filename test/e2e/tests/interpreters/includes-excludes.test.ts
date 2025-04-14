@@ -105,8 +105,8 @@ test.describe('Interpreter: Override', {
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['python.interpreters.override', '["/home/runner/scratch/python-env"]']], true);
-		await userSettings.set([['positron.r.interpreters.override', '["/opt/R/4.4.2/bin/R"]']], true);
+		await userSettings.set([['python.interpreters.override', '["/home/runner/scratch/python-env"]'],
+		['positron.r.interpreters.override', '["/opt/R/4.4.2/bin/R"]']], true);
 	});
 
 	test('R - Can Override Interpreter Discovery', async function ({ app, sessions }) {
