@@ -16,13 +16,11 @@ import { NotebookOutputWebview } from './notebookOutputWebview.js';
 import { INotebookOutputWebview, IPositronNotebookOutputWebviewService } from './notebookOutputWebviewService.js';
 import { IWebviewService, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { asWebviewUri } from '../../webview/common/webview.js';
-import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { ILanguageRuntimeMessageWebOutput } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { dirname } from '../../../../base/common/resources.js';
 import { INotebookRendererMessagingService } from '../../notebook/common/notebookRendererMessagingService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { handleWebviewLinkClicksInjection } from './downloadUtils.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { webviewMessageCodeString } from '../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 
@@ -45,7 +43,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		@IWebviewService private readonly _webviewService: IWebviewService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
-		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookRendererMessagingService private readonly _notebookRendererMessagingService: INotebookRendererMessagingService,
 		@ILogService private _logService: ILogService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService
@@ -147,7 +144,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		for (const mimeType of Object.keys(output.data)) {
 			// Don't use a renderer for non-widget MIME types
 			if (mimeType === 'text/plain' ||
-				mimeType === 'text/html' ||
 				mimeType === 'image/png') {
 				continue;
 			}
@@ -159,18 +155,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 					runtimeId: runtime.sessionId,
 					displayMessageInfo: { mimeType, renderer, output },
 					viewType,
-				});
-			}
-		}
-
-		// If no dedicated renderer is found, check to see if there is a raw
-		// HTML representation of the output.
-		for (const mimeType of Object.keys(output.data)) {
-			if (mimeType === 'text/html') {
-				return this.createRawHtmlOutput({
-					id,
-					runtimeOrSessionId: runtime,
-					html: output.data[mimeType],
 				});
 			}
 		}
@@ -392,70 +376,6 @@ export class PositronNotebookOutputWebviewService implements IPositronNotebookOu
 		});
 
 		return notebookOutputWebview;
-	}
-
-	async createRawHtmlOutput({ id, html, runtimeOrSessionId }: {
-		id: string;
-		html: string;
-		runtimeOrSessionId: ILanguageRuntimeSession | string;
-	}): Promise<INotebookOutputWebview> {
-
-		// Load the Jupyter extension. Many notebook HTML outputs have a dependency on jQuery,
-		// which is provided by the Jupyter extension.
-		const jupyterExtension = await this._extensionService.getExtension('ms-toolsai.jupyter');
-		if (!jupyterExtension) {
-			return Promise.reject(`Jupyter extension 'ms-toolsai.jupyter' not found`);
-		}
-
-		// Create the metadata for the webview
-		const webviewInitInfo: WebviewInitInfo = {
-			// Use the active window's origin. All webviews with the same origin will reuse the same
-			// service worker.
-			origin: DOM.getActiveWindow().origin,
-			contentOptions: {
-				allowScripts: true,
-				localResourceRoots: [jupyterExtension.extensionLocation]
-			},
-			options: {},
-			title: '',
-			// Sometimes we don't have an active runtime (e.g. rendering html for a notebook pre
-			// runtime start) so we can't get the extension id from the runtime.
-			extension: typeof runtimeOrSessionId === 'string' ? undefined : { id: runtimeOrSessionId.runtimeMetadata.extensionId }
-		};
-
-		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
-
-		// Form the path to the jQuery library and inject it into the HTML
-		const jQueryPath = asWebviewUri(
-			jupyterExtension.extensionLocation.with({
-				path: jupyterExtension.extensionLocation.path +
-					'/out/node_modules/jquery/dist/jquery.min.js'
-			}));
-
-		webview.setHtml(`
-<script src='${jQueryPath}'></script>
-${PositronNotebookOutputWebviewService.CssAddons}
-${html}
-<script>
-const vscode = acquireVsCodeApi();
-window.onload = function() {
-	vscode.postMessage({
-		__vscode_notebook_message: true,
-		type: 'positronRenderComplete',
-	});
-
-	${handleWebviewLinkClicksInjection};
-};
-</script>`);
-
-		return this._instantiationService.createInstance(
-			NotebookOutputWebview,
-			{
-				id,
-				sessionId: typeof runtimeOrSessionId === 'string' ? runtimeOrSessionId : runtimeOrSessionId.sessionId,
-				webview
-			}
-		);
 	}
 
 	/**
