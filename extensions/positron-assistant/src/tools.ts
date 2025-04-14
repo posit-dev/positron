@@ -14,7 +14,6 @@ export enum PositronAssistantToolName {
 	ExecuteCode = 'executeCode',
 	GetPlot = 'getPlot',
 	SelectionEdit = 'selectionEdit',
-	GetProjectTree = 'getProjectTree',
 }
 
 /**
@@ -254,25 +253,6 @@ export function registerAssistantTools(
 	});
 
 	context.subscriptions.push(getPlotTool);
-
-	const getProjectTreeTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.GetProjectTree, {
-		prepareInvocation: async (options, token) => {
-			return {
-				// The message shown when the code is actually executing.
-				// Positron appends '...' to this message.
-				invocationMessage: vscode.l10n.t('Constructing project tree'),
-				pastTenseMessage: vscode.l10n.t('Constructed project tree.'),
-			};
-		},
-		invoke: async (options, token) => {
-			const projectTree = await positron.ai.getProjectTree();
-			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(JSON.stringify(projectTree))
-			]);
-		}
-	});
-
-	context.subscriptions.push(getProjectTreeTool);
 }
 
 /**

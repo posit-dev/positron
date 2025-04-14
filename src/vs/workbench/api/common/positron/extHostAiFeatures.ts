@@ -60,10 +60,6 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$getCurrentPlotUri();
 	}
 
-	async getProjectTree(): Promise<object> {
-		return await this._proxy.$getProjectTree();
-	}
-
 	async getPositronChatContext(request: vscode.ChatRequest): Promise<IPositronChatContext> {
 		const agentRequest: IChatRequestData = {
 			location: typeConvert.ChatLocation.from(request.location),

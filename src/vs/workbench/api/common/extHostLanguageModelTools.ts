@@ -37,6 +37,7 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 			for (const tool of tools) {
 				this._allTools.set(tool.id, revive(tool));
 			}
+			console.log(`[DEBUG SHARON] ExtHostLanguageModelTools: got ${JSON.stringify(tools)} tools`);
 		});
 
 		this._toolInputProcessors.set(EditToolData.id, new EditToolInputProcessor());
@@ -90,6 +91,8 @@ export class ExtHostLanguageModelTools implements ExtHostLanguageModelToolsShape
 	}
 
 	getTools(extension: IExtensionDescription): vscode.LanguageModelToolInformation[] {
+		console.log(`[DEBUG SHARON] all tools: ${JSON.stringify(Array.from(this._allTools.values()))}`);
+
 		return Array.from(this._allTools.values())
 			.map(tool => typeConvert.LanguageModelToolDescription.to(tool))
 			.filter(tool => {

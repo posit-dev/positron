@@ -8,6 +8,7 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { ILanguageModelToolsService } from '../../common/languageModelToolsService.js';
 import { EditTool, EditToolData } from './editFileTool.js';
+import { ProjectTreeTool, ProjectTreeToolData } from './projectTreeTool.js';
 
 export class BuiltinToolsContribution extends Disposable implements IWorkbenchContribution {
 
@@ -22,6 +23,12 @@ export class BuiltinToolsContribution extends Disposable implements IWorkbenchCo
 		const editTool = instantiationService.createInstance(EditTool);
 		this._register(toolsService.registerToolData(EditToolData));
 		this._register(toolsService.registerToolImplementation(EditToolData.id, editTool));
+
+		// --- Start Positron ---
+		const projectTreeTool = instantiationService.createInstance(ProjectTreeTool);
+		this._register(toolsService.registerToolData(ProjectTreeToolData));
+		this._register(toolsService.registerToolImplementation(ProjectTreeToolData.id, projectTreeTool));
+		// --- End Positron ---
 	}
 }
 

@@ -96,11 +96,6 @@ export interface IPositronAssistantService {
 	getCurrentPlotUri(): string | undefined;
 
 	/**
-	 * Get a JSON representation of the current workspace tree.
-	 */
-	getProjectTree(): Promise<object>;
-
-	/**
 	 * Show the language model configuration modal.
 	 */
 	showLanguageModelModalDialog(
