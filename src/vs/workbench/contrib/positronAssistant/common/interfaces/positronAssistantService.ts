@@ -66,8 +66,6 @@ export interface IPositronLanguageModelConfig {
 	numCtx?: number;
 }
 
-export type PositronLanguageModelToolResult = object;
-
 //#endregion
 //#region Assistant Service
 

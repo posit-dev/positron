@@ -8,7 +8,10 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { ILanguageModelToolsService } from '../../common/languageModelToolsService.js';
 import { EditTool, EditToolData } from './editFileTool.js';
+
+// --- Start Positron ---
 import { ProjectTreeTool, ProjectTreeToolData } from './projectTreeTool.js';
+// --- End Positron ---
 
 export class BuiltinToolsContribution extends Disposable implements IWorkbenchContribution {
 
