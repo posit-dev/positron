@@ -152,7 +152,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	 * @param outputs Array of output objects containing mime types to check
 	 * @returns The type of webview message ('display', 'preload') or null if not handled
 	 */
-	static getWebviewMessageType(outputs: { mime: string }[]): NotebookPreloadOutputResults['preloadMessageType'] | 'html' | null {
+	static getWebviewMessageType(outputs: { mime: string }[]): NotebookPreloadOutputResults['preloadMessageType'] | null {
 		const mimeTypes = outputs.map(output => output.mime);
 		if (isWebviewDisplayMessage(mimeTypes)) {
 			return 'display';
@@ -160,9 +160,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		if (isWebviewReplayMessage(mimeTypes)) {
 			return 'preload';
 		}
-		if (mimeTypes.includes('text/html')) {
-			return 'html';
-		}
+
 		return null;
 	}
 
@@ -211,7 +209,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		// Preload messages contain setup code or dependencies that need to be stored
 		// for future webviews but don't need to be displayed themselves
 		notebookMessages.push(runtimeOutput);
-		return { preloadMessageType: messageType as 'preload' };
+		return { preloadMessageType: messageType };
 	}
 	/**
 	 * Create a plot client for a display message by replaying all the associated previous messages.
