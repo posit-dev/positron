@@ -131,6 +131,9 @@ class ToggleChatModeAction extends Action2 {
 					order: 1,
 					// Either in edits with agent mode available, or in unified chat view
 					when: ContextKeyExpr.and(
+						// --- Start Positron ---
+						ChatContextKeys.editEnabled,
+						// --- End Positron ---
 						ChatContextKeys.enabled,
 						ContextKeyExpr.or(
 							ContextKeyExpr.and(
