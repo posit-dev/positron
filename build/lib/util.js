@@ -210,7 +210,7 @@ function stripSourceMappingURL() {
     }));
     return event_stream_1.default.duplex(input, output);
 }
-// --- Start Positron ---
+// --- Start PWB: from positron ---
 /**
  * Strips and/or modifies import statements. This function only runs on
  * development builds, and helps make it possible to use the same set of source
@@ -268,7 +268,7 @@ class PromiseHandles {
     }
 }
 exports.PromiseHandles = PromiseHandles;
-// --- End Positron ---
+// --- End PWB: from positron ---
 /** Splits items in the stream based on the predicate, sending them to onTrue if true, or onFalse otherwise */
 function $if(test, onTrue, onFalse = event_stream_1.default.through()) {
     if (typeof test === 'boolean') {

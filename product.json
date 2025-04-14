@@ -256,6 +256,17 @@
 				},
 				"publisherDisplayName": "Quarto"
 			}
+		},
+		{
+			"name": "posit.air-vscode",
+			"version": "0.10.0",
+			"repo": "https://github.com/posit-dev/air",
+			"metadata": {
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Air - R Language Support",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+			},
+			"publisherDisplayName": "Posit Software, PBC"
 		}
 	],
 	"extensionsGallery": {

@@ -76,9 +76,10 @@ const builtInExtensions_1 = require("./builtInExtensions");
 const bootstrapExtensions_1 = require("./bootstrapExtensions");
 const getVersion_1 = require("./getVersion");
 const fetch_1 = require("./fetch");
-// --- Start Positron ---
+// --- Start PWB: from Positron ---
 const util_1 = require("./util");
-// --- End Positron ---
+const os_1 = __importDefault(require("os"));
+// --- End PWB: from Positron ---
 const root = path_1.default.dirname(path_1.default.dirname(__dirname));
 const commit = (0, getVersion_1.getVersion)(root);
 const sourceMappingURLBase = `https://main.vscode-cdn.net/sourcemaps/${commit}`;
@@ -244,13 +245,13 @@ function fromLocalWebpack(extensionPath, webpackConfigFileName, disableMangle) {
         console.error(packagedDependencies);
         result.emit('error', err);
     });
-    // --- End Positron ---
+    // --- End PWB: from Positron ---
     return result.pipe((0, stats_1.createStatsStream)(path_1.default.basename(extensionPath)));
 }
 function fromLocalNormal(extensionPath) {
     const vsce = require('@vscode/vsce');
     const result = event_stream_1.default.through();
-    // --- Start Positron ---
+    // --- Start PWB: from Positron ---
     // Replace vsce.listFiles with listExtensionFiles to queue the work
     listExtensionFiles({ cwd: extensionPath, packageManager: vsce.PackageManager.Npm })
         .then(fileNames => {
@@ -265,7 +266,7 @@ function fromLocalNormal(extensionPath) {
         event_stream_1.default.readArray(files).pipe(result);
     })
         .catch(err => result.emit('error', err));
-    // --- End Positron ---
+    // --- End PWB: from Positron ---
     return result.pipe((0, stats_1.createStatsStream)(path_1.default.basename(extensionPath)));
 }
 const userAgent = 'VSCode Build';
@@ -275,50 +276,90 @@ const baseHeaders = {
     'X-Market-User-Id': '291C1CD0-051A-4123-9B4B-30D60EF52EE2',
 };
 // --- Start Positron ---
+function getPlatformDownloads(bootstrap) {
+    // return both architectures for mac universal installer
+    if (bootstrap && process.platform === 'darwin') {
+        return ['darwin-x64', 'darwin-arm64'];
+    }
+    switch (os_1.default.arch()) {
+        case 'arm64':
+            return [`${process.platform}-arm64`];
+        case 'x64':
+        case 'x86_64':
+            return [`${process.platform}-x64`];
+        default:
+            throw new Error(`Unsupported architecture: ${os_1.default.arch()}`);
+    }
+}
+function createPlatformSpecificUrl(serviceUrl, publisher, name, version, platformDownload) {
+    return `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${publisher}.${name}-${version}@${platformDownload}.vsix`;
+}
+function getArchFromPlatformId(platformId) {
+    if (platformId.includes('arm64')) {
+        return 'arm64';
+    }
+    else if (platformId.includes('x64')) {
+        return 'x64';
+    }
+    return 'unknown';
+}
 function fromMarketplace(serviceUrl, { name: extensionName, version, sha256, metadata }, bootstrap = false) {
     // --- End Positron ---
     const json = require('gulp-json-editor');
     const [publisher, name] = extensionName.split('.');
     // --- Start Positron ---
-    let url;
+    let urls;
+    let platformDownloads = [];
     if (metadata.multiPlatformServiceUrl) {
-        let platformDownload;
-        switch (process.platform) {
-            case 'darwin':
-                platformDownload = 'darwin-arm64';
-                break;
-            case 'win32':
-                platformDownload = 'win32-x64';
-                break;
-            case 'linux':
-                platformDownload = 'linux-x64';
-                break;
-            default:
-                throw new Error('Unsupported platform');
-        }
-        ;
-        url = `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${extensionName}-${version}@${platformDownload}.vsix`;
+        platformDownloads = getPlatformDownloads(bootstrap);
+        urls = platformDownloads.map(platformDownload => createPlatformSpecificUrl(serviceUrl, publisher, name, version, platformDownload));
+        (0, fancy_log_1.default)('Downloading multi-platform extension:', ansi_colors_1.default.yellow(`${extensionName}@${version}`), `for ${platformDownloads.join(', ')}...`);
     }
     else {
-        url = `${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`;
+        urls = [`${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`];
+        (0, fancy_log_1.default)('Downloading extension:', ansi_colors_1.default.yellow(`${extensionName}@${version}`), '...');
     }
     // --- End Positron ---
-    (0, fancy_log_1.default)('Downloading extension:', ansi_colors_1.default.yellow(`${extensionName}@${version}`), '...');
     const packageJsonFilter = (0, gulp_filter_1.default)('package.json', { restore: true });
     // --- Start Positron ---
     if (bootstrap) {
-        return (0, fetch_1.fetchUrls)('', {
-            base: url,
-            nodeFetchOptions: {
-                headers: baseHeaders
-            },
-            checksumSha256: sha256
-        })
-            .pipe((0, gulp_buffer_1.default)());
+        if (urls.length > 1) {
+            if (process.platform !== 'darwin') {
+                (0, fancy_log_1.default)('Developer error: Unexpected number of URLS for bootstrap extension.');
+            }
+            return event_stream_1.default.merge(...urls.map((url, index) => {
+                const platformId = platformDownloads[index];
+                const arch = getArchFromPlatformId(platformId);
+                (0, fancy_log_1.default)('Downloading bootstrap extension for architecture:', ansi_colors_1.default.yellow(arch));
+                return (0, fetch_1.fetchUrls)('', {
+                    base: url,
+                    nodeFetchOptions: { headers: baseHeaders },
+                    checksumSha256: sha256
+                })
+                    .pipe((0, gulp_buffer_1.default)())
+                    .pipe((0, gulp_rename_1.default)(p => {
+                    // Add architecture folder to the path
+                    p.dirname = arch;
+                }));
+            }));
+        }
+        else {
+            return (0, fetch_1.fetchUrls)('', {
+                base: urls[0],
+                nodeFetchOptions: {
+                    headers: baseHeaders
+                },
+                checksumSha256: sha256
+            })
+                .pipe((0, gulp_buffer_1.default)());
+        }
     }
     else {
+        if (urls.length > 1) {
+            (0, fancy_log_1.default)(`Developer error: Unexpected number of URLS for built-in extension.`);
+        }
         return (0, fetch_1.fetchUrls)('', {
-            base: url,
+            base: urls[0],
             nodeFetchOptions: {
                 headers: baseHeaders
             },
@@ -742,7 +783,7 @@ async function buildExtensionMedia(isWatch, outputRoot) {
         outputRoot: outputRoot ? path_1.default.join(root, outputRoot, path_1.default.dirname(p)) : undefined
     })));
 }
-// --- Start Positron ---
+// --- Start PWB: from Positron ---
 // Node 20 consistently crashes when there are too many `vsce.listFiles`
 // operations in flight at once; these operations are expensive as they recurse
 // back into `yarn`. The code below serializes these operations when building
@@ -859,7 +900,7 @@ async function copyExtensionBinaries(outputRoot) {
             const srcLoc = path_1.default.resolve('extensions', bin.base, bin.from);
             const destLoc = path_1.default.resolve(outputRoot, bin.base, bin.to);
             return gulp_1.default.src(srcLoc).pipe(gulp_1.default.dest(destLoc));
-        }),
+        }), 
         // Restore the executable bit on the binaries that had it.
         util2.setExecutableBit(binaryMetadata
             .filter((bin) => bin.exe)
@@ -867,5 +908,5 @@ async function copyExtensionBinaries(outputRoot) {
         resolve();
     });
 }
-// --- End Positron ---
+// --- End PWB: from Positron ---
 //# sourceMappingURL=extensions.js.map

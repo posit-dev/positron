@@ -71,39 +71,99 @@ function isUpToDate(extension) {
     if (!fs.existsSync(bootstrapDir)) {
         return false;
     }
-    const files = fs.readdirSync(bootstrapDir);
-    const matchingFiles = files.filter(f => regex.test(f));
-    for (const vsixPath of matchingFiles) {
-        try {
-            const match = vsixPath.match(regex);
-            const diskVersion = match ? match[1] : null;
-            if (diskVersion !== extension.version) {
-                log(`[extensions]`, `Outdated version detected, deleting ${vsixPath}`);
-                fs.unlinkSync(path.join(bootstrapDir, vsixPath));
+    const isMultiArch = process.platform === 'darwin' && extension.metadata?.multiPlatformServiceUrl;
+    if (isMultiArch) {
+        const archDirs = ['arm64', 'x64'];
+        for (const arch of archDirs) {
+            const archDir = path.join(bootstrapDir, arch);
+            if (!fs.existsSync(archDir)) {
+                log(`[extensions]`, `Architecture folder ${archDir} does not exist`);
+                return false;
             }
-            else {
-                log(`[extensions]`, `Found up-to-date extension: ${vsixPath}`);
-                return true;
+            const archFiles = fs.readdirSync(archDir);
+            const matchingArchFiles = archFiles.filter(f => regex.test(f));
+            if (matchingArchFiles.length === 0) {
+                log(`[extensions]`, `No matching extensions in ${arch} directory`);
+                return false;
+            }
+            let archUpToDate = false;
+            for (const vsixPath of matchingArchFiles) {
+                try {
+                    const match = vsixPath.match(regex);
+                    const diskVersion = match ? match[1] : null;
+                    if (diskVersion !== extension.version) {
+                        log(`[extensions]`, `Outdated version detected in ${arch}, deleting ${vsixPath}`);
+                        fs.unlinkSync(path.join(archDir, vsixPath));
+                    }
+                    else {
+                        log(`[extensions]`, `Found up-to-date extension in ${arch}: ${vsixPath}`);
+                        archUpToDate = true;
+                    }
+                }
+                catch (err) {
+                    log(`[extensions]`, `Error checking version of ${vsixPath} in ${arch}`, err);
+                    return false;
+                }
+            }
+            if (!archUpToDate) {
+                return false;
             }
         }
-        catch (err) {
-            log(`[extensions]`, `Error checking version of ${vsixPath}`, err);
-            return false;
-        }
+        return true;
     }
-    return false;
+    else {
+        const files = fs.readdirSync(bootstrapDir);
+        const matchingFiles = files.filter(f => regex.test(f));
+        for (const vsixPath of matchingFiles) {
+            try {
+                const match = vsixPath.match(regex);
+                const diskVersion = match ? match[1] : null;
+                if (diskVersion !== extension.version) {
+                    log(`[extensions]`, `Outdated version detected, deleting ${vsixPath}`);
+                    fs.unlinkSync(path.join(bootstrapDir, vsixPath));
+                }
+                else {
+                    log(`[extensions]`, `Found up-to-date extension: ${vsixPath}`);
+                    return true;
+                }
+            }
+            catch (err) {
+                log(`[extensions]`, `Error checking version of ${vsixPath}`, err);
+                return false;
+            }
+        }
+        return false;
+    }
 }
 function getExtensionDownloadStream(extension) {
     const url = extension.metadata.multiPlatformServiceUrl || productjson.extensionsGallery?.serviceUrl;
-    return (url ? ext.fromMarketplace(url, extension, true) : ext.fromGithub(extension))
-        .pipe((0, gulp_rename_1.default)(p => { p.basename = `${extension.name}-${extension.version}.vsix`; }));
+    const stream = url ? ext.fromMarketplace(url, extension, true) : ext.fromGithub(extension);
+    return stream.pipe((0, gulp_rename_1.default)(p => {
+        if (p.basename === 'x64' || p.basename === 'arm64') {
+            p.dirname = path.join(p.dirname || '', p.basename);
+        }
+        p.basename = `${extension.name}-${extension.version}.vsix`;
+    }));
 }
 function getBootstrapExtensionStream(extension) {
     // if the extension exists on disk, use those files instead of downloading anew
     if (isUpToDate(extension)) {
         log('[extensions]', `${extension.name}@${extension.version} up to date`, ansiColors.green('✔︎'));
         return vfs.src(['**'], { cwd: getExtensionPath(extension), dot: true })
-            .pipe((0, gulp_rename_1.default)(p => p.dirname = `${extension.name}/${p.dirname}`));
+            .pipe((0, gulp_rename_1.default)(p => {
+            if (p.dirname === undefined) {
+                p.dirname = `${extension.name}/${p.dirname}`;
+                return;
+            }
+            const dirParts = p.dirname.split(path.sep);
+            const isArchDir = dirParts[0] === 'arm64' || dirParts[0] === 'x64';
+            if (isArchDir) {
+                p.dirname = `${dirParts[0]}/${extension.name}/${dirParts.slice(1).join(path.sep)}`;
+            }
+            else {
+                p.dirname = `${extension.name}/${p.dirname}`;
+            }
+        }));
     }
     return getExtensionDownloadStream(extension);
 }
