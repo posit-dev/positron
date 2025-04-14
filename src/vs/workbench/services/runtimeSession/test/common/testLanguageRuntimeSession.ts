@@ -13,6 +13,7 @@ import { IRuntimeClientEvent } from '../../../languageRuntime/common/languageRun
 import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/testRuntimeClientInstance.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { TestUiClientInstance } from '../../../languageRuntime/test/common/testUiClientInstance.js';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 
 export class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeSession {
 	private readonly _onDidChangeRuntimeState = this._register(new Emitter<RuntimeState>());
@@ -140,7 +141,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	}
 
 	async createClient(
-		type: RuntimeClientType, params: any, metadata?: any, id?: string
+		type: RuntimeClientType, params: any, metadata?: any, id?: string, buffers?: VSBuffer[]
 	): Promise<TestRuntimeClientInstance> {
 		const client = type === RuntimeClientType.Ui ?
 			new TestUiClientInstance(id ?? generateUuid()) :
@@ -163,7 +164,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 					parent_id: '',
 					type: LanguageRuntimeMessageType.CommOpen,
 					when: new Date().toISOString(),
-					buffers: [],
+					buffers: buffers ?? [],
 				}
 			}
 		);
