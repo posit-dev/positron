@@ -1404,6 +1404,7 @@ export class MainThreadLanguageRuntime
 				session.markExited();
 				const exit: ILanguageRuntimeExit = {
 					runtime_name: session.runtimeMetadata.runtimeName,
+					session_name: session.metadata.sessionName,
 					exit_code: 0,
 					reason: RuntimeExitReason.ExtensionHost,
 					message: 'Extension host is shutting down'
