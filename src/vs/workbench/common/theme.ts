@@ -915,10 +915,10 @@ export const POSITRON_TOP_ACTION_BAR_LOGO_BACKGROUND = registerColor('positronTo
 
 // Positron top action bar border color.
 export const POSITRON_TOP_ACTION_BAR_BORDER = registerColor('positronTopActionBar.border', {
-	dark: '#252527',
-	light: '#cbd0d5',
-	hcDark: contrastBorder,
-	hcLight: contrastBorder
+	dark: selectBorder,
+	light: selectBorder,
+	hcDark: selectBorder,
+	hcLight: selectBorder
 }, localize('positronTopActionBar.border', "Positron top action bar border color."));
 
 // Positron top action bar background color.
