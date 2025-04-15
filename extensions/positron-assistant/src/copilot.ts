@@ -94,6 +94,9 @@ export function registerCopilotService(context: ExtensionContext) {
 	context.subscriptions.push(copilotService);
 }
 
+export const COPILOT_SIGNIN_COMMAND = 'positron-assistant.copilot.signin';
+export const COPILOT_SIGNOUT_COMMAND = 'positron-assistant.copilot.signout';
+
 export class CopilotService implements vscode.Disposable {
 	private readonly _disposables: vscode.Disposable[] = [];
 
@@ -128,10 +131,10 @@ export class CopilotService implements vscode.Disposable {
 	/** Register Copilot commands. */
 	private registerCommands() {
 		this._disposables.push(
-			vscode.commands.registerCommand('positron-assistant.copilot.signin', async () => {
+			vscode.commands.registerCommand(COPILOT_SIGNIN_COMMAND, async () => {
 				await this.signIn();
 			}),
-			vscode.commands.registerCommand('positron-assistant.copilot.signout', async () => {
+			vscode.commands.registerCommand(COPILOT_SIGNOUT_COMMAND, async () => {
 				await this.signOut();
 			})
 		);
