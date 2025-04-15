@@ -20,7 +20,7 @@ type DirectoryItem = string | [string, DirectoryItem[]];
 const projectTreeModelDescription = `
 This tool retrieves the project tree of the current workspace as a JSON object.
 The project tree is represented as a nested array, where each entry can be either a file (string) or a directory (tuple with the directory name and an array of its children).
-The tool ignores certain files and directories based on predefined rules.
+The tool ignores node_modules, __pycache__, dist directories, certain files like .DS_Store, Thumbs.db, and desktop.ini. and files with certain extensions like *.o, *.a, *.so, *.pyo.
 This tool does not provide information for specific files or directories, but rather gives an overview of the entire project structure.
 This tool only needs to be called once per conversation, unless files or directories are added, removed, moved, or renamed in the workspace.
 `;
@@ -71,9 +71,12 @@ export class ProjectTreeTool implements IToolImpl {
 			}
 		}
 
+		if (treeErrors.length > 0) {
+			throw new Error(`Errors occurred while generating the project tree:\n${treeErrors.join('\n')}`);
+		}
+
 		return {
 			content: workspaceTrees.map(dirTree => ({ kind: 'text', value: JSON.stringify(dirTree) })),
-			toolResultMessage: treeErrors.length > 0 ? treeErrors.join('\n') : undefined
 		};
 	}
 }
