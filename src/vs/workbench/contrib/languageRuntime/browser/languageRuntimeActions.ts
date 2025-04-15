@@ -456,15 +456,17 @@ const selectNewLanguageRuntime = async (
 			// Add runtimes for this environment type
 			runtimesByEnvType.get(envType)!
 				.sort((a, b) => {
-					// Extract version numbers from runtime names if they exist
-					const aMatch = a.runtimeName.match(/(\d+\.\d+\.\d+)/);
-					const bMatch = b.runtimeName.match(/(\d+\.\d+\.\d+)/);
-
 					// If both have version numbers, compare them
-					if (aMatch && bMatch) {
-						const aVersion = aMatch[1].split('.').map(Number);
-						const bVersion = bMatch[1].split('.').map(Number);
+					if (a.languageVersion && b.languageVersion) {
+						const aVersion = a.languageVersion.split('.').map(Number);
+						const bVersion = b.languageVersion.split('.').map(Number);
 
+						if (!a.extraRuntimeData.supported) {
+							return 1;
+						}
+						if (!b.extraRuntimeData.supported) {
+							return -1;
+						}
 						// Compare major version (decreasing order)
 						if (aVersion[0] !== bVersion[0]) {
 							return bVersion[0] - aVersion[0];
