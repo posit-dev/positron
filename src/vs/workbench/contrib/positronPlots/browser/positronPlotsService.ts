@@ -637,7 +637,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					session_id: session.sessionId,
 					parent_id: event.message.parent_id,
 					code,
-					pre_render: data.pre_render,
+					pre_render: data?.pre_render,
 				};
 
 				// Register the plot client
