@@ -15,7 +15,6 @@ import { UiFrontendEvent } from '../../../services/languageRuntime/common/positr
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { isWebviewDisplayMessage, isWebviewReplayMessage } from './utils.js';
 import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
-import { buildWebviewHTML, webviewMessageCodeString } from './notebookOutputUtils.js';
 
 /**
  * Format of output from a notebook cell
@@ -153,7 +152,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 	 * @param outputs Array of output objects containing mime types to check
 	 * @returns The type of webview message ('display', 'preload') or null if not handled
 	 */
-	static getWebviewMessageType(outputs: { mime: string }[]): NotebookPreloadOutputResults['preloadMessageType'] | 'html' | null {
+	static getWebviewMessageType(outputs: { mime: string }[]): NotebookPreloadOutputResults['preloadMessageType'] | null {
 		const mimeTypes = outputs.map(output => output.mime);
 		if (isWebviewDisplayMessage(mimeTypes)) {
 			return 'display';
@@ -161,9 +160,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		if (isWebviewReplayMessage(mimeTypes)) {
 			return 'preload';
 		}
-		if (mimeTypes.includes('text/html')) {
-			return 'html';
-		}
+
 		return null;
 	}
 
@@ -209,41 +206,10 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 			};
 		}
 
-		// We also want to send plain (non preload reliant) html messages to output.
-		if (messageType === 'html') {
-			return {
-				preloadMessageType: 'display',
-				webview: this._handleHtmlOutput(instance, outputId, outputs)
-			};
-		}
-
 		// Preload messages contain setup code or dependencies that need to be stored
 		// for future webviews but don't need to be displayed themselves
 		notebookMessages.push(runtimeOutput);
 		return { preloadMessageType: messageType };
-	}
-
-	/**
-	 * Create a webview for a plain html output.
-	 */
-	private async _handleHtmlOutput(instance: IPositronNotebookInstance, outputId: NotebookOutput['outputId'], outputs: NotebookOutput['outputs']) {
-
-		// Get the output with mime type of html
-		const htmlOutput = outputs.find(output => output.mime === 'text/html');
-		if (!htmlOutput) {
-			throw new Error('Expected HTML output');
-		}
-
-		const notebookWebview = await this._notebookOutputWebviewService.createRawHtmlOutput({
-			id: outputId,
-			runtimeOrSessionId: instance.id,
-			html: buildWebviewHTML({
-				content: htmlOutput.data.toString(),
-				script: webviewMessageCodeString,
-			})
-		});
-
-		return notebookWebview;
 	}
 	/**
 	 * Create a plot client for a display message by replaying all the associated previous messages.

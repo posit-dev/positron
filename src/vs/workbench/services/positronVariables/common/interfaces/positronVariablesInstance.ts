@@ -154,6 +154,18 @@ export interface IPositronVariablesInstance {
 	setFilterText(filterText: string): void;
 
 	/**
+	 * Has a filter text enabled
+	 * @returns true if there's a filter string active for the instance
+	 */
+	hasFilterText(): boolean;
+
+	/**
+	 * Gets the filter text.
+	 * @returns The filter text.
+	 */
+	getFilterText(): string;
+
+	/**
 	 * Focuses element in the variable tree.
 	 */
 	focusElement(): void;

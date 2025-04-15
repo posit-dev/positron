@@ -2281,27 +2281,27 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private formatExit(exit: ILanguageRuntimeExit): string {
 		switch (exit.reason) {
 			case RuntimeExitReason.ForcedQuit:
-				return localize('positronConsole.exit.forcedQuit', "{0} was forced to quit.", exit.runtime_name);
+				return localize('positronConsole.exit.forcedQuit', "{0} was forced to quit.", exit.session_name);
 
 			case RuntimeExitReason.Restart:
-				return localize('positronConsole.exit.restart', "{0} exited (preparing for restart)", exit.runtime_name);
+				return localize('positronConsole.exit.restart', "{0} exited (preparing for restart)", exit.session_name);
 
 			case RuntimeExitReason.Shutdown:
 			case RuntimeExitReason.SwitchRuntime:
-				return localize('positronConsole.exit.shutdown', "{0} shut down successfully.", exit.runtime_name);
+				return localize('positronConsole.exit.shutdown', "{0} shut down successfully.", exit.session_name);
 
 			case RuntimeExitReason.Error:
-				return localize('positronConsole.exit.error', "{0} exited unexpectedly: {1}", exit.runtime_name, this.formatExitCode(exit.exit_code));
+				return localize('positronConsole.exit.error', "{0} exited unexpectedly: {1}", exit.session_name, this.formatExitCode(exit.exit_code));
 
 			case RuntimeExitReason.StartupFailed:
-				return localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", exit.runtime_name, exit.exit_code);
+				return localize('positronConsole.exit.startupFailed', "{0} failed to start up (exit code {1})", exit.session_name, exit.exit_code);
 
 			case RuntimeExitReason.ExtensionHost:
-				return localize('positronConsole.exit.extensionHost', "{0} was disconnected from the extension host.", exit.runtime_name);
+				return localize('positronConsole.exit.extensionHost', "{0} was disconnected from the extension host.", exit.session_name);
 
 			default:
 			case RuntimeExitReason.Unknown:
-				return localize('positronConsole.exit.unknown', "{0} exited (exit code {1})", exit.runtime_name, exit.exit_code);
+				return localize('positronConsole.exit.unknown', "{0} exited (exit code {1})", exit.session_name, exit.exit_code);
 		}
 	}
 
