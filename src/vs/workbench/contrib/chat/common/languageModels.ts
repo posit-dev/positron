@@ -335,11 +335,14 @@ export class LanguageModelsService implements ILanguageModelsService {
 		this._onDidChangeProviders.fire({ added: [{ identifier, metadata: provider.metadata }] });
 		this.updateUserSelectableModelsContext();
 		return toDisposable(() => {
-			this.updateUserSelectableModelsContext();
+			// --- Start Positron ---
+			// Reverse order so that the context update is performed after changing the state
 			if (this._providers.delete(identifier)) {
 				this._onDidChangeProviders.fire({ removed: [identifier] });
 				this._logService.trace('[LM] UNregistered language model chat', identifier, provider.metadata);
 			}
+			this.updateUserSelectableModelsContext();
+			// --- End Positron ---
 		});
 	}
 
