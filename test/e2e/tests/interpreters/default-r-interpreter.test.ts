@@ -40,16 +40,18 @@ test.describe('Default Interpreters - R', {
 
 		await runCommand('workbench.action.reloadWindow');
 
-		await app.code.wait(20000);
+		await expect(async () => {
 
-		const { name, path } = await sessions.getMetadata();
+			const { name, path } = await sessions.getMetadata();
 
-		// Local debugging sample:
-		// expect(name).toContain('R 4.3.3');
-		// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
+			// Local debugging sample:
+			// expect(name).toContain('R 4.3.3');
+			// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
 
-		// hidden CI interpreter:
-		expect(name).toMatch(/R 4\.4\.1/);
-		expect(path).toMatch(/R-4\.4\.1\/bin\/R/);
+			// hidden CI interpreter:
+			expect(name).toMatch(/R 4\.4\.1/);
+			expect(path).toMatch(/R-4\.4\.1\/bin\/R/);
+
+		}).toPass({ timeout: 60000 });
 	});
 });

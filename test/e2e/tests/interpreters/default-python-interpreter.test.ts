@@ -41,17 +41,18 @@ test.describe('Default Interpreters - Python', {
 	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand, sessions }) {
 
 		await runCommand('workbench.action.reloadWindow');
+		await expect(async () => {
 
-		await app.code.wait(20000);
+			const { name, path } = await sessions.getMetadata();
 
-		const { name, path } = await sessions.getMetadata();
+			// Local debugging sample:
+			// expect(name).toMatch(/Python 3\.13\.0/);
+			// expect(path).toMatch(/.pyenv\/versions\/3.13.0\/bin\/python/);
 
-		// Local debugging sample:
-		// expect(name).toMatch(/Python 3\.13\.0/);
-		// expect(path).toMatch(/.pyenv\/versions\/3.13.0\/bin\/python/);
+			// hidden CI interpreter:
+			expect(name).toMatch(/Python 3\.12\.10/);
+			expect(path).toMatch(/python-env\/bin\/python/);
 
-		// hidden CI interpreter:
-		expect(name).toMatch(/Python 3\.12\.10/);
-		expect(path).toMatch(/python-env\/bin\/python/);
+		}).toPass({ timeout: 60000 });
 	});
 });
