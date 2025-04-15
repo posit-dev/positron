@@ -345,7 +345,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	private updateUserSelectableModelsContext() {
 		// This context key to enable the picker is set when there is a default model, and there is at least one other model that is user selectable
-		const hasUserSelectableModels = Array.from(this._providers.values()).some(p => p.metadata.isUserSelectable && !p.metadata.isDefault);
+		const hasUserSelectableModels = Array.from(this._providers.values()).some(p => p.metadata.isUserSelectable);
 		const hasDefaultModel = Array.from(this._providers.values()).some(p => p.metadata.isDefault);
 		this._hasUserSelectableModels.set(hasUserSelectableModels && hasDefaultModel);
 	}
