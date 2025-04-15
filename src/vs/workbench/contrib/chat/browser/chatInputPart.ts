@@ -568,11 +568,16 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			this.setValue(state.inputValue, false);
 		}
 
-		if (state.inputState?.chatMode) {
+		// --- Start Positron ---
+		const enableChatSwitch = this.configurationService.getValue<boolean>('positron.assistant.chatSwitch');
+		if (!enableChatSwitch) {
+			this.setChatMode(ChatMode.Ask);
+		} else if (state.inputState?.chatMode) {
 			this.setChatMode(state.inputState.chatMode);
 		} else if (this.location === ChatAgentLocation.EditingSession) {
 			this.setChatMode(ChatMode.Edit);
 		}
+		// --- End Positron ---
 	}
 
 	logInputHistory(): void {
