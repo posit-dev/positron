@@ -26,6 +26,64 @@ export interface CallMethodResult {
 }
 
 /**
+ * The size of a plot
+ */
+export interface PlotSize {
+	/**
+	 * The plot's height, in pixels
+	 */
+	height: number;
+
+	/**
+	 * The plot's width, in pixels
+	 */
+	width: number;
+
+}
+
+/**
+ * The policy used to render the plot
+ */
+export interface RenderPolicy {
+	/**
+	 * Plot size of the render policy
+	 */
+	size: PlotSize;
+
+	/**
+	 * The pixel ratio of the display device
+	 */
+	pixel_ratio: number;
+
+	/**
+	 * Format of the render policy
+	 */
+	format: RenderFormat;
+
+}
+
+/**
+ * Possible values for RenderFormat
+ */
+export enum RenderFormat {
+	Png = 'png',
+	Jpeg = 'jpeg',
+	Svg = 'svg',
+	Pdf = 'pdf',
+	Tiff = 'tiff'
+}
+
+/**
+ * Parameters for the DidChangePlotsRenderSettings method.
+ */
+export interface DidChangePlotsRenderSettingsParams {
+	/**
+	 * Plot rendering settings
+	 */
+	settings: RenderPolicy;
+}
+
+/**
  * Parameters for the CallMethod method.
  */
 export interface CallMethodParams {
@@ -793,6 +851,7 @@ export enum UiFrontendRequest {
 }
 
 export enum UiBackendRequest {
+	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 	CallMethod = 'call_method'
 }
 
@@ -813,6 +872,21 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
 		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'title', 'is_plot', 'height']);
 		this.onDidClearWebviewPreloads = super.createEventEmitter('clear_webview_preloads', []);
+	}
+
+	/**
+	 * Notification that the settings to render a plot (i.e. the plot size)
+	 * have changed.
+	 *
+	 * Typically fired when the plot component has been resized by the user.
+	 * This notification is useful to produce accurate pre-renderings of
+	 * plots.
+	 *
+	 * @param settings Plot rendering settings
+	 *
+	 */
+	didChangePlotsRenderSettings(settings: RenderPolicy): Promise<void> {
+		return super.performRpc('did_change_plots_render_settings', ['settings'], [settings]);
 	}
 
 	/**
