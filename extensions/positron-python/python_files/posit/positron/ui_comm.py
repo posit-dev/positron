@@ -17,8 +17,58 @@ from typing import Any, List, Literal, Optional, Union
 
 from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
+
+@enum.unique
+class RenderFormat(str, enum.Enum):
+    """
+    Possible values for RenderFormat
+    """
+
+    Png = "png"
+
+    Jpeg = "jpeg"
+
+    Svg = "svg"
+
+    Pdf = "pdf"
+
+    Tiff = "tiff"
+
+
 Param = Any
 CallMethodResult = Any
+
+
+class PlotSize(BaseModel):
+    """
+    The size of a plot
+    """
+
+    height: StrictInt = Field(
+        description="The plot's height, in pixels",
+    )
+
+    width: StrictInt = Field(
+        description="The plot's width, in pixels",
+    )
+
+
+class RenderPolicy(BaseModel):
+    """
+    The policy used to render the plot
+    """
+
+    size: PlotSize = Field(
+        description="Plot size of the render policy",
+    )
+
+    pixel_ratio: Union[StrictInt, StrictFloat] = Field(
+        description="The pixel ratio of the display device",
+    )
+
+    format: RenderFormat = Field(
+        description="Format of the render policy",
+    )
 
 
 class EditorContext(BaseModel):
@@ -141,6 +191,39 @@ class UiBackendRequest(str, enum.Enum):
     CallMethod = "call_method"
 
 
+class DidChangePlotsRenderSettingsParams(BaseModel):
+    """
+    Typically fired when the plot component has been resized by the user.
+    This notification is useful to produce accurate pre-renderings of
+    plots.
+    """
+
+    settings: RenderPolicy = Field(
+        description="Plot rendering settings",
+    )
+
+
+class DidChangePlotsRenderSettingsRequest(BaseModel):
+    """
+    Typically fired when the plot component has been resized by the user.
+    This notification is useful to produce accurate pre-renderings of
+    plots.
+    """
+
+    params: DidChangePlotsRenderSettingsParams = Field(
+        description="Parameters to the DidChangePlotsRenderSettings method",
+    )
+
+    method: Literal[UiBackendRequest.DidChangePlotsRenderSettings] = Field(
+        description="The JSON-RPC method name (did_change_plots_render_settings)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class CallMethodParams(BaseModel):
     """
     Unlike other RPC methods, `call_method` calls into methods implemented
@@ -180,7 +263,10 @@ class CallMethodRequest(BaseModel):
 
 class UiBackendMessageContent(BaseModel):
     comm_id: str
-    data: CallMethodRequest
+    data: Union[
+        DidChangePlotsRenderSettingsRequest,
+        CallMethodRequest,
+    ] = Field(..., discriminator="method")
 
 
 @enum.unique
@@ -467,6 +553,10 @@ class ShowHtmlFileParams(BaseModel):
     )
 
 
+PlotSize.update_forward_refs()
+
+RenderPolicy.update_forward_refs()
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -476,6 +566,10 @@ Position.update_forward_refs()
 Selection.update_forward_refs()
 
 Range.update_forward_refs()
+
+DidChangePlotsRenderSettingsParams.update_forward_refs()
+
+DidChangePlotsRenderSettingsRequest.update_forward_refs()
 
 CallMethodParams.update_forward_refs()
 
