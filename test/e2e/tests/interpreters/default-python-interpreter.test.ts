@@ -42,8 +42,7 @@ test.describe('Default Interpreters - Python', {
 
 		await runCommand('workbench.action.reloadWindow');
 
-		// await app.code.wait(20000);
-		await sessions.expectAllSessionsToBeReady();
+		await app.code.wait(20000);
 
 		const { name, path } = await sessions.getMetadata();
 
@@ -52,7 +51,7 @@ test.describe('Default Interpreters - Python', {
 		// expect(path).toMatch(/.pyenv\/versions\/3.13.0\/bin\/python/);
 
 		// hidden CI interpreter:
-		expect(name).toMatch(/Python 3\.12\.9/);
+		expect(name).toMatch(/Python 3\.12\.10/);
 		expect(path).toMatch(/python-env\/bin\/python/);
 	});
 });

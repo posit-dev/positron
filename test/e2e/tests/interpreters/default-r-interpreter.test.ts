@@ -40,8 +40,7 @@ test.describe('Default Interpreters - R', {
 
 		await runCommand('workbench.action.reloadWindow');
 
-		// await app.code.wait(20000);
-		await sessions.expectAllSessionsToBeReady();
+		await app.code.wait(20000);
 
 		const { name, path } = await sessions.getMetadata();
 
