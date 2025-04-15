@@ -15,15 +15,24 @@ import { IToolInputProcessor } from '../../common/tools/tools.js';
 /**
  * Represents either a file (string) or a directory (tuple with string and children).
  */
-export type DirectoryItem = string | [string, DirectoryItem[]];
+type DirectoryItem = string | [string, DirectoryItem[]];
+
+const projectTreeModelDescription = `
+This tool retrieves the project tree of the current workspace as a JSON object.
+The project tree is represented as a nested array, where each entry can be either a file (string) or a directory (tuple with the directory name and an array of its children).
+The tool ignores certain files and directories based on predefined rules.
+This tool does not provide information for specific files or directories, but rather gives an overview of the entire project structure.
+This tool only needs to be called once per conversation, unless files or directories are added, removed, moved, or renamed in the workspace.
+`;
 
 export const ExtensionProjectTreeId = 'positron_getProjectTree';
 export const InternalProjectTreeId = `${ExtensionProjectTreeId}_internal`;
 export const ProjectTreeToolData: IToolData = {
 	id: InternalProjectTreeId,
 	displayName: localize('chat.tools.getProjectTree', "Get Project Tree"),
-	modelDescription: `Construct a tree of the directories and files in the project.`,
-	tags: ['positron-assistant']
+	modelDescription: projectTreeModelDescription,
+	tags: ['positron-assistant'],
+	canBeReferencedInPrompt: false,
 };
 
 export class ProjectTreeTool implements IToolImpl {
