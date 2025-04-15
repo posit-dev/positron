@@ -154,17 +154,17 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		new RadioButtonItem({
 			identifier: 'oauth',
 			title: localize('positron.newConnectionModalDialog.oauth', "OAuth"),
-			disabled: true,
+			disabled: source.provider.id !== 'copilot',
 		}),
 		new RadioButtonItem({
 			identifier: 'apiKey',
 			title: localize('positron.newConnectionModalDialog.apiKey', "API Key"),
-			disabled: false,
+			disabled: source.provider.id === 'copilot',
 		}),
 	];
 
 	const providers = props.sources
-		.filter(source => source.type === 'chat')
+		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot'))
 		.sort((a, b) => {
 			return a.provider.displayName.localeCompare(b.provider.displayName);
 		})
@@ -386,7 +386,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				<div className='language-model-authentication-method-container'>
 					<RadioGroup
 						entries={authMethodRadioButtons}
-						initialSelectionId='apiKey'
+						initialSelectionId={source.provider.id === 'copilot' ? 'oauth' : 'apiKey'}
 						name='authMethod'
 						onSelectionChanged={(authMethod) => {
 							// setAuthMethod(authMethod);

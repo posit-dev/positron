@@ -110,11 +110,11 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	}
 
 	getSupportedProviders(): string[] {
-		const providers = ['anthropic'];
+		const providers = ['anthropic', 'copilot'];
 		const useTestModels = this._configurationService.getValue<boolean>('positron.assistant.testModels');
 
 		if (useTestModels) {
-			providers.push('bedrock', 'error', 'echo', 'google', 'copilot');
+			providers.push('bedrock', 'error', 'echo', 'google');
 		}
 		return providers;
 	}
