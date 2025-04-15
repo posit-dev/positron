@@ -18,9 +18,9 @@ import { IToolInputProcessor } from '../../common/tools/tools.js';
 type DirectoryItem = string | [string, DirectoryItem[]];
 
 const projectTreeModelDescription = `
-This tool retrieves the project tree of the current workspace as a JSON object.
+This tool lists the project tree of the current workspace as a JSON object.
 The project tree is represented as a nested array, where each entry can be either a file (string) or a directory (tuple with the directory name and an array of its children).
-The tool ignores node_modules, __pycache__, dist directories, certain files like .DS_Store, Thumbs.db, and desktop.ini. and files with certain extensions like *.o, *.a, *.so, *.pyo.
+This tool ignores node_modules, __pycache__, dist directories, certain files like .DS_Store, Thumbs.db, and desktop.ini. and files with certain extensions like *.o, *.a, *.so, *.pyo.
 This tool does not provide information for specific files or directories, but rather gives an overview of the entire project structure.
 This tool only needs to be called once per conversation, unless files or directories are added, removed, moved, or renamed in the workspace.
 `;
@@ -122,6 +122,7 @@ const isIgnoredFile = (fileName: string): boolean => {
  * @returns A directory item array representing the file tree in the workspace
  */
 export async function constructDirectoryTree(item: ExplorerItem, sortOrder: SortOrder): Promise<DirectoryItem[] | undefined> {
+	// TODO: add in support for checking ignore files (e.g., .gitignore) and `files.exclude` setting
 	if (item.isDirectory) {
 		if (isIgnoredDirectory(item.name)) {
 			return undefined;
