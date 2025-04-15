@@ -409,57 +409,33 @@ const selectNewLanguageRuntime = async (
 	// Generate quick pick items for runtimes.
 	const runtimeItems: QuickPickItem[] = [];
 
-	if (activeRuntimes.length > 0) {
-		// Add a separator for active sessions.
+	// Add separator for suggested runtimes (can be primary runtime)
+	const suggestedRuntimes = interpreterGroups
+		.map(group => group.primaryRuntime);
+
+	if (suggestedRuntimes.length > 0) {
 		runtimeItems.push({
 			type: 'separator',
-			label: localize('positron.languageRuntime.projectRuntimes', 'Project')
+			label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
 		});
-		// Add active runtimes first and foremost.
-		activeRuntimes.forEach(runtime => {
+
+		suggestedRuntimes.forEach(runtime => {
 			runtimeItems.push({
 				id: runtime.runtimeId,
 				label: runtime.runtimeName,
 				detail: runtime.runtimePath,
 				iconPath: {
 					dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-				},
-				picked: true
+				}
 			});
 		});
-
-		// Add separator for suggested runtimes (if not already in the active runtimes)
-		const suggestedRuntimes = interpreterGroups
-			.map(group => group.primaryRuntime)
-			.filter(runtime => !activeRuntimeIds.has(runtime.runtimeId) && runtime.runtimeId !== currentRuntime?.runtimeId);
-
-		if (suggestedRuntimes.length > 0) {
-			runtimeItems.push({
-				type: 'separator',
-				label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
-			});
-
-			suggestedRuntimes.forEach(runtime => {
-				runtimeItems.push({
-					id: runtime.runtimeId,
-					label: runtime.runtimeName,
-					detail: runtime.runtimePath,
-					iconPath: {
-						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-					}
-				});
-			});
-		}
 	}
+	// }
 
 
 	interpreterGroups.forEach(group => {
-		const language = group.primaryRuntime.languageName;
-		// Add separator with language name.
-		runtimeItems.push({ type: 'separator', label: language });
 		// Group runtimes by environment type
 		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
-
 
 		// Follow with alternate runtimes in their environment type groups
 		group.alternateRuntimes.forEach(runtime => {
@@ -474,7 +450,6 @@ const selectNewLanguageRuntime = async (
 		});
 		// Add items for each environment type
 		const sortedEnvTypes = Array.from(runtimesByEnvType.keys()).sort();
-
 
 		sortedEnvTypes.forEach(envType => {
 			runtimeItems.push({ type: 'separator', label: envType });
