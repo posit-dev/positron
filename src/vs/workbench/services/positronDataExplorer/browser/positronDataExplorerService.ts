@@ -68,7 +68,7 @@ class DataExplorerRuntime extends Disposable {
 		private readonly _notificationService: INotificationService,
 		private readonly _session: ILanguageRuntimeSession
 	) {
-		// Call the disposable constrcutor.
+		// Call the disposable constructor.
 		super();
 
 		/**

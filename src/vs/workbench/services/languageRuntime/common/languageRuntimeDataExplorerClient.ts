@@ -10,7 +10,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { ArraySelection, BackendState, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from './positronDataExplorerComm.js';
 
 /**
- * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
+ * TableSchemaSearchResult interface. This is here temporarily until searching the table schema
  * becomespart of the PositronDataExplorerComm.
  */
 export interface TableSchemaSearchResult {
@@ -272,7 +272,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Get the current active state of the data explorer backend.
-	 * @returns A promose that resolves to the current backend state.
+	 * @returns A promise that resolves to the current backend state.
 	 */
 	async getBackendState(): Promise<BackendState> {
 		if (this._backendPromise) {
@@ -402,7 +402,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 	/**
 	 * Request a batch of column profiles
-	 * @param profiles An array of profile types and colum indexes
+	 * @param profiles An array of profile types and column indexes
 	 * @returns A Promise<Array<ColumnProfileResult>> that resolves when the operation is complete.
 	 */
 	async getColumnProfiles(
