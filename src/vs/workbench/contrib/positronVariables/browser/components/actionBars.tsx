@@ -7,7 +7,7 @@
 import './actionBars.css';
 
 // React.
-import React, { PropsWithChildren, useEffect, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -15,7 +15,7 @@ import { PositronActionBar } from '../../../../../platform/positronActionBar/bro
 import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
-import { ActionBarFilter } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
+import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { SortingMenuButton } from './sortingMenuButton.js';
 import { GroupingMenuButton } from './groupingMenuButton.js';
@@ -55,10 +55,23 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const positronVariablesContext = usePositronVariablesContext();
 
 	// State hooks.
-	const [filterText, setFilterText] = useState('');
+	const [filterText, setFilterText] = useState(positronVariablesContext.activePositronVariablesInstance?.getFilterText() ?? '');
+	const filterRef = useRef<ActionBarFilterHandle>(null);
+	const prevActiveInstance = useRef(positronVariablesContext.activePositronVariablesInstance);
 
 	// Find text change handler.
 	useEffect(() => {
+
+		const instanceChanged = positronVariablesContext.activePositronVariablesInstance !== prevActiveInstance.current;
+
+		if (instanceChanged) {
+			prevActiveInstance.current = positronVariablesContext.activePositronVariablesInstance;
+			// This will trigger a setFilterText, which causes this effect to re-run.
+			// However it will be a no-op since the filter text is already set in the variable instance.
+			filterRef.current?.setFilterText(positronVariablesContext.activePositronVariablesInstance?.getFilterText() ?? '');
+			return;
+		}
+
 		if (filterText === '') {
 			positronVariablesContext.activePositronVariablesInstance?.setFilterText('');
 			return;
@@ -71,7 +84,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 			}, kFilterTimeout);
 
 			// Clear the find timeout.
-			return () => clearTimeout(filterTimeout);
+			return () => clearTimeout(filterTimeout)
 		}
 	}, [filterText, positronVariablesContext.activePositronVariablesInstance]);
 
@@ -158,6 +171,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarFilter
+							ref={filterRef}
 							initialFilterText={filterText}
 							width={150}
 							onFilterTextChanged={filterText => setFilterText(filterText)} />
