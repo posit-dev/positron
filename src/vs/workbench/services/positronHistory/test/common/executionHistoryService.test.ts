@@ -136,10 +136,6 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	restartExitedRuntimeSession(_session: ILanguageRuntimeSession, _activate: boolean): Promise<void> {
-		throw new Error('Method not implemented.');
-	}
-
 	getActiveSession(_sessionId: string): any {
 		throw new Error('Method not implemented.');
 	}
