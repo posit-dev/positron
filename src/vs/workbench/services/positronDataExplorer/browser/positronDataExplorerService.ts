@@ -66,7 +66,8 @@ class DataExplorerRuntime extends Disposable {
 	 */
 	constructor(
 		private readonly _notificationService: INotificationService,
-		private readonly _session: ILanguageRuntimeSession
+		private readonly _session: ILanguageRuntimeSession,
+		private readonly _configurationService: IConfigurationService
 	) {
 		// Call the disposable constructor.
 		super();
@@ -83,7 +84,7 @@ class DataExplorerRuntime extends Disposable {
 
 				// Create and register the DataExplorerClientInstance for the client instance.
 				const commInstance = new PositronDataExplorerComm(e.client);
-				const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
+				const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance, this._configurationService);
 				this._register(dataExplorerClientInstance);
 
 				// Add the onDidClose event handler on the DataExplorerClientInstance,
@@ -325,7 +326,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 		// TODO: error handling if opening the file failed
 
-		const client = new DataExplorerClientInstance(backend);
+		const client = new DataExplorerClientInstance(backend, this._configurationService);
 		this.registerDataExplorerClient('duckdb', client);
 	}
 
@@ -350,7 +351,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 				// If we don't have a Data Explorer client instance, create one and open the editor.
 				if (!existingInstance) {
 					const commInstance = new PositronDataExplorerComm(client);
-					const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
+					const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance, this._configurationService);
 					this.openEditor(session.runtimeMetadata.languageName, dataExplorerClientInstance);
 				}
 			}
@@ -358,7 +359,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		}
 
 		// Create and add the data explorer runtime.
-		const dataExplorerRuntime = new DataExplorerRuntime(this._notificationService, session);
+		const dataExplorerRuntime = new DataExplorerRuntime(this._notificationService, session, this._configurationService);
 		this._dataExplorerRuntimes.set(session.sessionId, dataExplorerRuntime);
 
 		// Add the onDidOpenDataExplorerClient event handler.

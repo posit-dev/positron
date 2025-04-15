@@ -9,6 +9,12 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ArraySelection, BackendState, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from './positronDataExplorerComm.js';
 
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { localize } from '../../../../nls.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
+import { ConfigurationScope, Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { positronConfigurationNodeBase } from './languageRuntime.js';
+
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the table schema
  * becomespart of the PositronDataExplorerComm.
@@ -187,17 +193,14 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Creates a new data explorer client instance.
 	 * @param backendClient The data explorer backend client instance.
 	 */
-	constructor(backendClient: IDataExplorerBackendClient) {
+	constructor(
+		backendClient: IDataExplorerBackendClient,
+		configurationService: IConfigurationService
+	) {
 		// Call the disposable constructor.
 		super();
 
-		this._dataFormatOptions = {
-			large_num_digits: 2,
-			small_num_digits: 4,
-			max_integral_digits: 7,
-			max_value_length: 1000,
-			thousands_sep: '',
-		};
+		this._dataFormatOptions = mapScipenToFormatOptions(getExplorerScipen(configurationService));
 
 		this._profileFormatOptions = {
 			large_num_digits: 2,
@@ -553,3 +556,52 @@ export class DataExplorerClientInstance extends Disposable {
 
 	//#endregion Public Events
 }
+
+function mapScipenToFormatOptions(scipen: number): FormatOptions {
+	const clamped = Math.max(-10, Math.min(scipen, 20)); // avoid extreme values
+
+	const max_integral_digits =
+		clamped >= 10 ? 99 : Math.max(4, 12 + clamped); // prefer fixed-point for high scipen
+
+	const small_num_digits =
+		clamped <= -5 ? 0 : Math.max(2, 3 + clamped); // fewer digits for scientific lean
+
+	return {
+		large_num_digits: 2,
+		small_num_digits,
+		max_integral_digits,
+		max_value_length: 1000,
+		thousands_sep: ''
+	};
+}
+
+// Key for the configuration setting
+const EXPLORER_SCIPEN_KEY =
+	'explorer.scipen';
+
+function getExplorerScipen(configurationService: IConfigurationService): number {
+	const value = configurationService.getValue<number>('explorer.scipen');
+	if (typeof value === 'number' && Number.isFinite(value)) {
+		return Math.round(value);
+	}
+	return 0;
+}
+
+// Register the configuration setting
+const configurationRegistry = Registry.as<IConfigurationRegistry>(
+	Extensions.Configuration
+);
+configurationRegistry.registerConfiguration({ // for scipen
+	...positronConfigurationNodeBase,
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	properties: {
+		[EXPLORER_SCIPEN_KEY]: {
+			type: 'number',
+			default: 0,
+			markdownDescription: localize(
+				'explorer.scipen',
+				'Controls the bias toward fixed-point notation in the Data Explorer. Higher values favor fixed-point; lower values favor scientific notation. Mirrors the effect of `options(scipen)` in R.'
+			),
+		},
+	},
+});
