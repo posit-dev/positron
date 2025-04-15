@@ -875,6 +875,7 @@ class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 		ipykernelBundle: {
 			disabledReason: 'Cannot bundle ipykernel for reticulate sessions',
 		},
+		externallyManaged: true,
 	};
 	base64EncodedIconSvg: string | undefined;
 	constructor() {

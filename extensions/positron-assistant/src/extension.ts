@@ -11,6 +11,7 @@ import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { createParticipants } from './participants';
 import { registerAssistantTools } from './tools.js';
+import { registerCopilotService } from './copilot.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -192,6 +193,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	const storage = vscode.env.uiKind === vscode.UIKind.Web ?
 		new GlobalSecretStorage(context) :
 		new EncryptedSecretStorage(context);
+
+	// Register Copilot service
+	registerCopilotService(context);
 
 	// Register chat participants
 	const participants = registerParticipants(context);

@@ -459,7 +459,7 @@ class PositronJediLanguageServer(JediLanguageServer):
             else:
                 self._stop_event.set()
                 self._server_thread.join(timeout=5)
-                if self._server_thread.is_alive():
+                if self._server_thread is not None and self._server_thread.is_alive():
                     logger.warning("LSP server thread did not exit after 5 seconds, dropping it")
 
         # Start Jedi LSP as an asyncio TCP server in a separate thread.

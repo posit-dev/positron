@@ -60,10 +60,14 @@ test.describe('Interpreter: Excludes', {
 			return fail('Alternate R version not set');
 		}
 
+		const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded';
 		try {
 			await sessions.start('rAlt', { reuse: false });
-			fail('selectInterpreter was supposed to fail as /opt/R/4.4.2 was excluded');
+			fail(failMessage);
 		} catch (e) {
+			if (e instanceof Error && e.message.includes(failMessage)) {
+				fail(failMessage);
+			}
 			// Success = interpreter was correctly excluded
 		}
 
@@ -84,8 +88,65 @@ test.describe('Interpreter: Excludes', {
 		try {
 			await sessions.start('pythonAlt', { reuse: false });
 			fail(failMessage);
-		} catch {
+		} catch (e) {
+			if (e instanceof Error && e.message.includes(failMessage)) {
+				fail(failMessage);
+			}
 			// Success = interpreter was correctly excluded
+		}
+
+		await app.code.driver.page.keyboard.press('Escape');
+	});
+
+});
+
+test.describe('Interpreter: Override', {
+	tag: [tags.INTERPRETER, tags.WEB]
+}, () => {
+
+	test.beforeAll(async function ({ userSettings }) {
+		await userSettings.set([['python.interpreters.override', '["/home/runner/scratch/python-env"]'],
+		['positron.r.interpreters.override', '["/opt/R/4.4.2/bin/R"]']], true);
+	});
+
+	test('R - Can Override Interpreter Discovery', async function ({ app, sessions }) {
+
+		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
+
+		if (!alternateR) {
+			return fail('Alternate R version not set');
+		}
+
+		const failMessage = 'selectInterpreter was supposed to fail as /opt/R/4.4.2 was overriden';
+		try {
+			await sessions.start('r', { reuse: false });
+			fail(failMessage);
+		} catch (e) {
+			if (e instanceof Error && e.message.includes(failMessage)) {
+				fail(failMessage);
+			}
+			// Success = interpreter was correctly overriden
+		}
+		await app.code.driver.page.keyboard.press('Escape');
+	});
+
+	test('Python - Can Override Interpreter Discovery', async function ({ app, userSettings, sessions }) {
+
+		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
+
+		if (!alternatePython) {
+			return fail('Alternate Python version not set');
+		}
+
+		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was overriden';
+		try {
+			await sessions.start('python', { reuse: false });
+			fail(failMessage);
+		} catch (e) {
+			if (e instanceof Error && e.message.includes(failMessage)) {
+				fail(failMessage);
+			}
+			// Success = interpreter was correctly overriden
 		}
 
 		await app.code.driver.page.keyboard.press('Escape');

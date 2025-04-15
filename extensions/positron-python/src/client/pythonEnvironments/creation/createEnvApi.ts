@@ -111,7 +111,14 @@ export function registerCreateEnvironmentFeatures(
                     }
                 } else {
                     const providers = _createEnvironmentProviders.getAll();
-                    return handleCreateEnvironmentCommand(providers, options);
+                    // --- Start Positron ---
+                    // register new path
+                    const env = await handleCreateEnvironmentCommand(providers, options);
+                    if (env?.path) {
+                        await pythonRuntimeManager.selectLanguageRuntimeFromPath(env.path, true);
+                    }
+                    return env;
+                    // --- End Positron ---
                 }
                 return undefined;
             },

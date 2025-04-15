@@ -48,6 +48,7 @@ export class TestLanguageRuntimeSession implements Partial<positron.LanguageRunt
 		setTimeout(() => {
 			this._onDidEndSession.fire({
 				runtime_name: this.runtimeMetadata.runtimeName,
+				session_name: this.metadata.sessionName,
 				exit_code: 0,
 				reason: exitReason,
 				message: '',

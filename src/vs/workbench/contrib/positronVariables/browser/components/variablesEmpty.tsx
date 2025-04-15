@@ -11,6 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { usePositronVariablesContext } from '../positronVariablesContext.js';
 
 // VariablesEmptyProps interface.
 interface VariablesEmptyProps {
@@ -21,6 +22,7 @@ interface VariablesEmptyProps {
  * Localized strings.
  */
 const title = localize('positron.noVariablesCreated', 'No variables have been created.');
+const titleFilter = localize('positron.noVariables.filter', 'No variables match the current filter.');
 
 /**
  * VariablesEmpty component.
@@ -28,10 +30,14 @@ const title = localize('positron.noVariablesCreated', 'No variables have been cr
  * @returns The rendered component.
  */
 export const VariablesEmpty = (props: VariablesEmptyProps) => {
+
+	const context = usePositronVariablesContext();
+	const hasFilter = context.activePositronVariablesInstance?.hasFilterText();
+
 	return <div className='variables-empty'>
 		{props.initializing ?
 			<div className='title'>...</div> :
-			<div className='title'>{title}</div>
+			<div className='title'>{hasFilter ? titleFilter : title}</div>
 		}
 	</div>;
 };

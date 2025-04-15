@@ -1,7 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import { VSBuffer } from '../../../../base/common/buffer.js';
 
 /**
  * Request the runtime to close a comm.
@@ -99,6 +101,7 @@ export interface ICommOpenToWebview {
 	comm_id: string;
 	target_name: string;
 	data: unknown;
+	buffers?: Array<VSBuffer>;
 	metadata: unknown;
 }
 
