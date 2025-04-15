@@ -409,7 +409,7 @@ const selectNewLanguageRuntime = async (
 	// Generate quick pick items for runtimes.
 	const runtimeItems: QuickPickItem[] = [];
 
-	// Add separator for suggested runtimes (can be primary runtime)
+	// Add separator for suggested runtimes
 	const suggestedRuntimes = interpreterGroups
 		.map(group => group.primaryRuntime);
 
@@ -430,14 +430,12 @@ const selectNewLanguageRuntime = async (
 			});
 		});
 	}
-	// }
 
 
 	interpreterGroups.forEach(group => {
 		// Group runtimes by environment type
 		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
 
-		// Follow with alternate runtimes in their environment type groups
 		group.alternateRuntimes.forEach(runtime => {
 			if (runtime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(runtime.runtimeId)) {
 				const envType = `${runtime.runtimeSource}`;
@@ -448,12 +446,12 @@ const selectNewLanguageRuntime = async (
 			}
 
 		});
-		// Add items for each environment type
-		const sortedEnvTypes = Array.from(runtimesByEnvType.keys()).sort();
 
-		sortedEnvTypes.forEach(envType => {
+		const envTypes = Array.from(runtimesByEnvType.keys());
+
+		// Sort runtimes by version (decreasing), then alphabetically
+		envTypes.forEach(envType => {
 			runtimeItems.push({ type: 'separator', label: envType });
-			// Add runtimes for this environment type
 			runtimesByEnvType.get(envType)!
 				.sort((a, b) => {
 					// If both have version numbers, compare them
@@ -461,23 +459,24 @@ const selectNewLanguageRuntime = async (
 						const aVersion = a.languageVersion.split('.').map(Number);
 						const bVersion = b.languageVersion.split('.').map(Number);
 
+						// Always list unsupported versions last
 						if (!a.extraRuntimeData.supported) {
 							return 1;
 						}
 						if (!b.extraRuntimeData.supported) {
 							return -1;
 						}
-						// Compare major version (decreasing order)
+						// Compare major version
 						if (aVersion[0] !== bVersion[0]) {
 							return bVersion[0] - aVersion[0];
 						}
 
-						// Compare minor version (decreasing order)
+						// Compare minor version
 						if (aVersion[1] !== bVersion[1]) {
 							return bVersion[1] - aVersion[1];
 						}
 
-						// Compare patch version (decreasing order)
+						// Compare patch version
 						if (aVersion[2] !== bVersion[2]) {
 							return bVersion[2] - aVersion[2];
 						}
