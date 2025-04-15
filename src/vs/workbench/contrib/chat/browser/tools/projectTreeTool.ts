@@ -7,10 +7,10 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExplorerService } from '../../../files/browser/files.js';
-import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../languageModelToolsService.js';
+import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
 import { ExplorerItem } from '../../../files/common/explorerModel.js';
 import { SortOrder } from '../../../files/common/files.js';
-import { IToolInputProcessor } from './tools.js';
+import { IToolInputProcessor } from '../../common/tools/tools.js';
 
 /**
  * Represents either a file (string) or a directory (tuple with string and children).

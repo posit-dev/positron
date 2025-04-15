@@ -10,7 +10,10 @@ import { ILanguageModelToolsService } from '../../common/languageModelToolsServi
 import { EditTool, EditToolData } from './editFileTool.js';
 
 // --- Start Positron ---
-import { ProjectTreeTool, ProjectTreeToolData } from './projectTreeTool.js';
+/**
+ * src/vs/workbench/contrib/chat/browser/tools/tools.ts is derived from this file.
+ * Please keep the two files in sync with any core changes.
+ */
 // --- End Positron ---
 
 export class BuiltinToolsContribution extends Disposable implements IWorkbenchContribution {
@@ -26,12 +29,6 @@ export class BuiltinToolsContribution extends Disposable implements IWorkbenchCo
 		const editTool = instantiationService.createInstance(EditTool);
 		this._register(toolsService.registerToolData(EditToolData));
 		this._register(toolsService.registerToolImplementation(EditToolData.id, editTool));
-
-		// --- Start Positron ---
-		const projectTreeTool = instantiationService.createInstance(ProjectTreeTool);
-		this._register(toolsService.registerToolData(ProjectTreeToolData));
-		this._register(toolsService.registerToolImplementation(ProjectTreeToolData.id, projectTreeTool));
-		// --- End Positron ---
 	}
 }
 
