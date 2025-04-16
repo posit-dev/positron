@@ -403,9 +403,6 @@ const selectNewLanguageRuntime = async (
 		activeRuntimes.unshift(currentRuntime);
 	}
 
-	// Create a set of active runtime IDs for quick comparison.
-	const activeRuntimeIds = new Set(activeRuntimes.map(runtime => runtime.runtimeId));
-
 	// Generate quick pick items for runtimes.
 	const runtimeItems: QuickPickItem[] = [];
 
@@ -426,7 +423,8 @@ const selectNewLanguageRuntime = async (
 				detail: runtime.runtimePath,
 				iconPath: {
 					dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-				}
+				},
+				neverShowWhenFiltered: true
 			});
 		});
 	}
@@ -435,15 +433,14 @@ const selectNewLanguageRuntime = async (
 	interpreterGroups.forEach(group => {
 		// Group runtimes by environment type
 		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
+		const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
 
-		group.alternateRuntimes.forEach(runtime => {
-			if (runtime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(runtime.runtimeId)) {
-				const envType = `${runtime.runtimeSource}`;
-				if (!runtimesByEnvType.has(envType)) {
-					runtimesByEnvType.set(envType, []);
-				}
-				runtimesByEnvType.get(envType)!.push(runtime);
+		allRuntimes.forEach(runtime => {
+			const envType = `${runtime.runtimeSource}`;
+			if (!runtimesByEnvType.has(envType)) {
+				runtimesByEnvType.set(envType, []);
 			}
+			runtimesByEnvType.get(envType)!.push(runtime);
 
 		});
 
@@ -494,6 +491,7 @@ const selectNewLanguageRuntime = async (
 							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 						},
 						picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+						neverShowWhenFiltered: false
 					});
 				});
 
