@@ -236,9 +236,18 @@ export class VariablesClientInstance extends Disposable {
 					// Wait until the runtime is ready to receive the request
 					await new Promise<void>(resolve => {
 						const disposable = this.onDidChangeRuntimeState(state => {
-							if (state === RuntimeState.Idle) {
-								disposable.dispose();
-								resolve();
+							switch (state) {
+								case RuntimeState.Idle:
+									disposable.dispose();
+									resolve();
+									break;
+								case RuntimeState.Busy:
+								case RuntimeState.Interrupting:
+									// The runtime is busy; wait for it to become idle
+									break;
+								default:
+									disposable.dispose();
+									throw new Error('Runtime is not ready to receive the request');
 							}
 						});
 					});
