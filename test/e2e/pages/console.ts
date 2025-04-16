@@ -215,18 +215,41 @@ export class Console {
 
 	async pasteInMonaco(
 		locator: Locator,
-		text: string
+		text: string,
+		maxRetries = 3
 	): Promise<void> {
+		const textarea = locator.locator('textarea');
 
-		await locator.locator('textarea').evaluate(async (element, evalText) => {
-			const clipboardData = new DataTransfer();
-			clipboardData.setData('text/plain', evalText);
-			const clipboardEvent = new ClipboardEvent('paste', {
-				clipboardData,
-			});
-			element.dispatchEvent(clipboardEvent);
-		}, text);
+		for (let attempt = 1; attempt <= maxRetries; attempt++) {
+			// Attempt paste
+			await textarea.evaluate(async (element, evalText) => {
+				const clipboardData = new DataTransfer();
+				clipboardData.setData('text/plain', evalText);
+				const clipboardEvent = new ClipboardEvent('paste', {
+					clipboardData,
+				});
+				element.dispatchEvent(clipboardEvent);
+			}, text);
+
+			// Allow time for paste to register
+			await locator.page().waitForTimeout(100);
+
+			// Check if paste succeeded
+			const pastedValue = await textarea.evaluate(el => (el as HTMLTextAreaElement).value);
+
+			if (pastedValue.includes(text)) {
+				return; // Success
+			}
+
+			if (attempt < maxRetries) {
+				await locator.page().waitForTimeout(100);
+			} else {
+				throw new Error('Paste failed after multiple retries');
+			}
+		}
 	}
+
+
 
 	getLastClickableLink() {
 		return this.activeConsole.locator('.output-run-hyperlink').last();
