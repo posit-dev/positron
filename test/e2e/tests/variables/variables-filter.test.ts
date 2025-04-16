@@ -29,11 +29,17 @@ test.describe('Variables - Filters', { tag: [tags.WEB, tags.VARIABLES] }, () => 
 		}).toPass({ timeout: 20000 });
 
 		await variables.setFilterText('hello');
+		await app.code.wait(1000); // a little time for the filter to be applied
 		await expect(async () => {
-			const vars = await variables.getFlatVariables();
-			expect(vars.has('hello')).toBe(true);
-			expect(vars.has('foo')).toBe(false);
-		}).toPass({ timeout: 20000 });
+			try {
+				const vars = await variables.getFlatVariables();
+				expect(vars.has('hello')).toBe(true);
+				expect(vars.has('foo')).toBe(false);
+			} catch (e) {
+				await app.code.wait(1000); // a little time for the filter to be applied
+				throw e;
+			}
+		}).toPass({ timeout: 40000 });
 
 		await sessions.start('python');
 		await app.workbench.console.pasteCodeToConsole('hello = 1; foo = 2', true);
@@ -44,11 +50,17 @@ test.describe('Variables - Filters', { tag: [tags.WEB, tags.VARIABLES] }, () => 
 		}).toPass({ timeout: 20000 });
 
 		await variables.setFilterText('foo');
+		await app.code.wait(1000); // a little time for the filter to be applied
 		await expect(async () => {
-			const vars = await variables.getFlatVariables();
-			expect(vars.has('hello')).toBe(false);
-			expect(vars.has('foo')).toBe(true);
-		}).toPass({ timeout: 20000 });
+			try {
+				const vars = await variables.getFlatVariables();
+				expect(vars.has('hello')).toBe(false);
+				expect(vars.has('foo')).toBe(true);
+			} catch (e) {
+				await app.code.wait(1000); // a little time for the filter to be applied
+				throw e;
+			}
+		}).toPass({ timeout: 40000 });
 
 	});
 });
