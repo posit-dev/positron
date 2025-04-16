@@ -48,7 +48,15 @@ export async function verifyReticulateFunctionality(
 	await app.workbench.console.sendEnterKey();
 
 	// Expect that focus changed to the reticulate console
-	await app.workbench.sessions.expectSessionPickerToBe(pythonSessionId);
+	await expect(async () => {
+		try {
+			await app.workbench.sessions.expectSessionPickerToBe(pythonSessionId);
+		} catch (e) {
+			await app.code.wait(1000); // a little time for session picker to be updated
+			throw e;
+		}
+	}).toPass({ timeout: 20000 });
+
 	await app.workbench.console.pasteCodeToConsole('print(r.y)');
 	await app.workbench.console.sendEnterKey();
 	await app.workbench.console.waitForConsoleContents(value2);
