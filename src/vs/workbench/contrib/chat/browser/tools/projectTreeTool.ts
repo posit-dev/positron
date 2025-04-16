@@ -30,6 +30,7 @@ export const InternalProjectTreeId = `${ExtensionProjectTreeId}_internal`;
 export const ProjectTreeToolData: IToolData = {
 	id: InternalProjectTreeId,
 	displayName: localize('chat.tools.getProjectTree', "Get Project Tree"),
+	source: { type: 'internal' },
 	modelDescription: projectTreeModelDescription,
 	tags: ['positron-assistant'],
 	canBeReferencedInPrompt: false,
