@@ -21,8 +21,12 @@ const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
+const CODE_BOX = 'div.view-lines.monaco-mouse-cursor-text[role="presentation"][aria-hidden="true"]';
+const RUN_BUTTON = 'a.action-label.codicon.codicon-play[role="button"][aria-label="Run in Console"]';
 // const OATH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
+const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
+const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label="Send and Dispatch (Enter)"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -115,5 +119,17 @@ export class Assistant {
 	async verifySignInButtonVisible(timeout: number = 15000) {
 		await expect(this.code.driver.page.locator(SIGN_IN_BUTTON)).toBeVisible({ timeout });
 		await expect(this.code.driver.page.locator(SIGN_IN_BUTTON)).toHaveText('Sign in', { timeout });
+	}
+
+	async enterChatMessage(message: string) {
+		const chatInput = this.code.driver.page.locator(CHAT_INPUT);
+		await chatInput.waitFor({ state: 'visible' });
+		await chatInput.fill(message);
+		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).click();
+	}
+
+	async clickChatCodeRunButton(codeblock: string) {
+		await expect(this.code.driver.page.locator(CODE_BOX)).toHaveText(codeblock, { timeout: 15000 });
+		await this.code.driver.page.locator(RUN_BUTTON).click();
 	}
 }

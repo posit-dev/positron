@@ -56,5 +56,18 @@ test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] 
 		await app.code.driver.page.locator('.chat-widget > .interactive-session').isVisible();
 	});
 
+	test('Python: Verify Chat can run code', async function ({ app, python }) {
+		await app.workbench.assistant.openPositronAssistantChat();
+		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.assistant.selectModelProvider('echo');
+		await app.workbench.assistant.clickSignInButton();
+		await app.workbench.assistant.clickDoneButton();
+		await app.workbench.assistant.enterChatMessage('Send Python Code');
+		await app.code.wait(10000);
+		// TODO: Hover and the click on the run button
+
+	});
+
+
 });
 
