@@ -421,7 +421,9 @@ export class InlineChatEnabler {
 
 		const updateAgent = () => {
 			const agent = chatAgentService.getDefaultAgent(ChatAgentLocation.Editor);
-			if (agent?.id === 'github.copilot.editor' || agent?.id === 'setup.editor') {
+			// --- Start Positron ---
+			if (agent?.id === 'github.copilot.editor' || agent?.id === 'setup.editor' || agent?.id === 'positron.positron-assistant') {
+				// --- End Positron ---
 				this._ctxHasProvider.set(true);
 				this._ctxHasProvider2.reset();
 			} else if (agent?.id === 'github.copilot.editingSessionEditor') {
