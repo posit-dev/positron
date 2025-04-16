@@ -53,9 +53,10 @@ export const ActionBarActionToggle = (props: ActionBarActionToggleProps) => {
 		return null;
 	}
 
-	// Get the Positron action bar toggle options.
+	// Get the Positron action bar toggle options. This must be defined and the toggled context ket expression must be defined.
+	// If this is not the case, render nothing. This prevents the toggle from being rendered when its initial state isn't know.
 	const positronActionBarToggleOptions = toPositronActionBarToggleOptions(menuItemAction.positronActionBarOptions);
-	if (!positronActionBarToggleOptions) {
+	if (!positronActionBarToggleOptions || !positronActionBarToggleOptions.toggled) {
 		return null;
 	}
 

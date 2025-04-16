@@ -7,7 +7,7 @@
 import './actionBarToggle.css';
 
 // React.
-import React, { forwardRef, PropsWithChildren, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, PropsWithChildren, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -45,6 +45,11 @@ export const ActionBarToggle = forwardRef<
 	// State hooks.
 	const [id] = useState(generateUuid());
 	const [toggled, setToggled] = useState(props.toggled ?? false);
+
+	// Effect hook to update the toggled state when the prop changes.
+	useEffect(() => {
+		setToggled(props.toggled ?? false);
+	}, [props.toggled]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
