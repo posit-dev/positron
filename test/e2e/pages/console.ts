@@ -234,11 +234,19 @@ export class Console {
 			// Allow time for paste to register
 			await locator.page().waitForTimeout(100);
 
-			// Check if paste succeeded
-			const pastedValue = await textarea.evaluate(el => (el as HTMLTextAreaElement).value);
+			function normalize(text: string): string {
+				return text
+					.normalize('NFKC') // Normalize Unicode (optional but good when working with special chars)
+					.replace(/\s+/g, '') // Remove all whitespace
+					.replace(/\u00a0/g, '') // Remove non-breaking spaces
+					.replace(/[^\x20-\x7E]/g, '') // Remove not printable ASCII
+					.trim();
+			}
 
-			if (pastedValue.includes(text)) {
-				return; // Success
+			const visibleText = await locator.evaluate(el => el.textContent || '');
+
+			if (normalize(visibleText).includes(normalize(text))) {
+				return; // Paste succeeded
 			}
 
 			if (attempt < maxRetries) {
