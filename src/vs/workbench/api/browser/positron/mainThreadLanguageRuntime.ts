@@ -44,6 +44,7 @@ import { IPositronConnectionsService } from '../../../services/positronConnectio
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 import { basename } from '../../../../base/common/resources.js';
+import { RuntimeOnlineState } from '../../common/extHostTypes.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -306,6 +307,9 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	emitDidReceiveRuntimeMessageState(languageRuntimeMessageState: ILanguageRuntimeMessageState) {
+		for (const client of this.clientInstances) {
+			client.updatePendingRpcState(languageRuntimeMessageState);
+		}
 		this._onDidReceiveRuntimeMessageStateEmitter.fire(languageRuntimeMessageState);
 	}
 
@@ -959,16 +963,58 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 }
 
+enum PendingRpcStatus {
+	/**
+	 * The RPC was sent to the server but kernel, but the kernel didn't start working on it yet.
+	 */
+	Pending,
+	/**
+	 * The Kernel sent a state message with the RPC ID (as the parent id) and state 'Busy'
+	 * indicating that it has started handling the RPC.
+	 */
+	Executing,
+	/**
+	 * The Kernel sent a state message with the RPC ID (as the parent id) and status 'Idle'
+	 * indicating that it has finished handling the RPC.
+	 * Note: Completed means that the server finished processing the RPC, but it doesn't
+	 * mean that the RPC was successful. The promise may still be rejected.
+	 */
+	Completed,
+	/***
+	 * The Kernel closed before the RPC was completed.
+	 */
+	Error,
+}
+
 /**
  * Represents a pending RPC call that has been sent to the server side of a
  * comm.
  */
 class PendingRpc<T> {
 	public readonly promise: DeferredPromise<IRuntimeClientOutput<T>>;
+
+	private readonly _onDidChangeStatus = new Emitter<PendingRpcStatus>();
+	private _status: PendingRpcStatus = PendingRpcStatus.Pending;
+
+	/**
+	 * Can be used to check if the RPC is waiting to execute, or if it has already started.
+	 */
+	public readonly onDidChangeStatus: Event<PendingRpcStatus> = this._onDidChangeStatus.event;
+
+
 	constructor(
 		public readonly responseKeys: Array<string>
 	) {
 		this.promise = new DeferredPromise<IRuntimeClientOutput<T>>();
+	}
+
+	public setStatus(status: PendingRpcStatus): void {
+		this._status = status;
+		this._onDidChangeStatus.fire(status);
+	}
+
+	public get getStatus(): PendingRpcStatus {
+		return this._status;
 	}
 }
 
@@ -1019,7 +1065,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 *
 	 * @param request The request to send to the server.
 	 * @param timeout Timeout in milliseconds after which to error if the server
-	 *   does not respond.
+	 *   does not respond. If <= 0 the promise will never timeout.
 	 * @param responseKeys Optional list of keys; if specified, at least one
 	 *   must be present in the response. This helps distinguish RPC responses
 	 *   from other messages that have the request as the parent ID.
@@ -1033,6 +1079,27 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		const pending = new PendingRpc<T>(responseKeys);
 		this._pendingRpcs.set(messageId, pending);
 
+		// When the status becomes complete, we wait a maximum of 5s for the
+		// promise to be resolved, otherwise we reject it.
+		const statusListener = pending.onDidChangeStatus((status) => {
+			if (status === PendingRpcStatus.Completed) {
+				const timeout = 5000;
+				setTimeout(() => {
+					if (pending.promise.isSettled) {
+						return;
+					}
+					const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
+					pending.promise.error(new Error(`RPC request completed, but response failed after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
+					this._pendingRpcs.delete(messageId);
+				}, timeout);
+			}
+		});
+
+		// When the promise resolves/rejects we dispose of the listener
+		pending.promise.p.finally(() => {
+			statusListener.dispose();
+		});
+
 		// Send the message to the server side.
 		this._proxy.$sendClientMessage(this._handle, this._id, messageId, request);
 
@@ -1040,17 +1107,19 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
 
 		// Start a timeout to reject the promise if the server doesn't respond.
-		setTimeout(() => {
-			// If the promise has already been resolved, do nothing.
-			if (pending.promise.isSettled) {
-				return;
-			}
+		if (timeout > 0) {
+			setTimeout(() => {
+				// If the promise has already been resolved, do nothing.
+				if (pending.promise.isSettled) {
+					return;
+				}
 
-			// Otherwise, reject the promise and remove it from the list of pending RPCs.
-			const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
-			pending.promise.error(new Error(`RPC timed out after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
-			this._pendingRpcs.delete(messageId);
-		}, timeout);
+				// Otherwise, reject the promise and remove it from the list of pending RPCs.
+				const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
+				pending.promise.error(new Error(`RPC timed out after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
+				this._pendingRpcs.delete(messageId);
+			}, timeout);
+		}
 
 		// Return a promise that will be resolved when the server responds.
 		return pending.promise.p;
@@ -1064,6 +1133,27 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 */
 	async performRpc<T>(request: Input, timeout: number, responseKeys: Array<string> = []): Promise<T> {
 		return (await this.performRpcWithBuffers<T>(request, timeout, responseKeys)).data;
+	}
+
+	updatePendingRpcState(message: ILanguageRuntimeMessageState): void {
+		// Check to see if the message is related to a pending RPC.
+		if (this._pendingRpcs.has(message.parent_id)) {
+			const pending = this._pendingRpcs.get(message.parent_id)!;
+			switch (message.state) {
+				case RuntimeOnlineState.Busy:
+					// The server is busy processing the RPC; update the status.
+					pending.setStatus(PendingRpcStatus.Executing);
+					break;
+				case RuntimeOnlineState.Idle:
+					// The server is idle; update the status.
+					pending.setStatus(PendingRpcStatus.Completed);
+					break;
+				case RuntimeOnlineState.Starting:
+					// This is probably impossible to happen. In this case
+					// we shouldn't change the RPC state.
+					break;
+			}
+		}
 	}
 
 	/**
@@ -1138,6 +1228,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	public override dispose(): void {
 		// Cancel any pending RPCs
 		for (const pending of this._pendingRpcs.values()) {
+			pending.setStatus(PendingRpcStatus.Error);
 			pending.promise.error('The language runtime exited before the RPC completed.');
 		}
 
