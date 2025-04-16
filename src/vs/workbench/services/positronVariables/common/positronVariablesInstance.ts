@@ -48,7 +48,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Gets or sets the runtime disposable store. This contains things that are disposed when a
 	 * runtime is detached.
 	 */
-	private readonly _runtimeDisposableStore = this._register(new DisposableStore());
+	private _runtimeDisposableStore = this._register(new DisposableStore());
 
 	/**
 	 * Gets or sets the variable items map.
