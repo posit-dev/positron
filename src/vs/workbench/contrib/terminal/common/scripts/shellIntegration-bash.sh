@@ -243,7 +243,7 @@ __trackMissingEnvVarsAA() {
 	if [ "$use_associative_array" = 1 ]; then
 		declare -A currentEnvMap
 		while IFS= read -r line; do
-			if [[ "$line" == *"="*]]; then
+			if [[ "$line" == *"="* ]]; then
 				local key="${line%%=*}"
 				local value="${line#*=}"
 				currentEnvMap["$key"]="$value"
