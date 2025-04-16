@@ -18,6 +18,6 @@
 	outline: none !important;
 }
 
-.positron-variables .variables-core .monaco-progress-container {
+#variables-progress > .monaco-progress-container {
 	top: 0px;
 }
