@@ -58,8 +58,6 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			}
 
 			registerModelWithAPI(languageModel, modelConfig, context);
-		} else if (modelConfig.type === 'completion') {
-
 		}
 	} catch (e) {
 		vscode.window.showErrorMessage(
