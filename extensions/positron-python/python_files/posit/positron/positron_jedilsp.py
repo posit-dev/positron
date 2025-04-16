@@ -452,9 +452,15 @@ class PositronJediLanguageServer(JediLanguageServer):
         # We reset it here, so we allow the server to start again.
         self.lsp._shutdown = False  # noqa: SLF001
 
-        if self._server_thread is not None:
-            logger.warning("LSP server thread was not properly shutdown")
-            return
+        if self._server_thread is not None and self._server_thread.is_alive():
+            logger.warning("An LSP server thread already exists, shutting it down")
+            if self._stop_event is None:
+                logger.warning("No stop event was set, dropping the thread")
+            else:
+                self._stop_event.set()
+                self._server_thread.join(timeout=5)
+                if self._server_thread is not None and self._server_thread.is_alive():
+                    logger.warning("LSP server thread did not exit after 5 seconds, dropping it")
 
         # Start Jedi LSP as an asyncio TCP server in a separate thread.
         logger.info("Starting LSP server thread")

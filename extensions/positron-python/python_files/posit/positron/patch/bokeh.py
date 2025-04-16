@@ -85,7 +85,7 @@ def hide_glyph_renderer_output():
     try:
         from bokeh.models import Model
 
-        del Model._repr_html_
+        del Model._repr_html_  # type: ignore
 
-    except ImportError:
+    except (ImportError, AttributeError):
         return

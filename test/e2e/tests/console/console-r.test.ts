@@ -17,6 +17,14 @@ test.describe('Console Pane: R', {
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
+	test('R - Verify cat from .Rprofile', {
+		tag: [tags.WIN]
+	}, async function ({ app, r }) {
+		await expect(async () => {
+			await app.workbench.console.waitForConsoleContents('cat from .Rprofile');
+		}).toPass();
+	});
+
 	test('R - Verify cancel button on console bar', {
 		tag: [tags.WIN]
 	}, async function ({ app, r }) {

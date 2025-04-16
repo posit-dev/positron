@@ -403,20 +403,20 @@ const selectNewLanguageRuntime = async (
 		activeRuntimes.unshift(currentRuntime);
 	}
 
-	// Create a set of active runtime IDs for quick comparison.
-	const activeRuntimeIds = new Set(activeRuntimes.map(runtime => runtime.runtimeId));
-
 	// Generate quick pick items for runtimes.
 	const runtimeItems: QuickPickItem[] = [];
 
-	if (activeRuntimes.length > 0) {
-		// Add a separator for active sessions.
+	// Add separator for suggested runtimes
+	const suggestedRuntimes = interpreterGroups
+		.map(group => group.primaryRuntime);
+
+	if (suggestedRuntimes.length > 0) {
 		runtimeItems.push({
 			type: 'separator',
-			label: localize('positron.languageRuntime.projectRuntimes', 'Project')
+			label: localize('positron.languageRuntime.suggestedRuntimes', 'Suggested')
 		});
-		// Add active runtimes first and foremost.
-		activeRuntimes.forEach(runtime => {
+
+		suggestedRuntimes.forEach(runtime => {
 			runtimeItems.push({
 				id: runtime.runtimeId,
 				label: runtime.runtimeName,
@@ -424,42 +424,77 @@ const selectNewLanguageRuntime = async (
 				iconPath: {
 					dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
 				},
-				picked: true
+				neverShowWhenFiltered: true
 			});
 		});
 	}
 
 
 	interpreterGroups.forEach(group => {
-		const language = group.primaryRuntime.languageName;
-		// Add separator with language name.
-		runtimeItems.push({ type: 'separator', label: language });
-		// Add primary runtime first.
-		if (group.primaryRuntime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(group.primaryRuntime.runtimeId)) {
-			runtimeItems.push({
-				id: group.primaryRuntime.runtimeId,
-				label: group.primaryRuntime.runtimeName,
-				detail: group.primaryRuntime.runtimePath,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${group.primaryRuntime.base64EncodedIconSvg}`),
-				},
-				picked: (group.primaryRuntime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-			});
-		}
-		// Follow with alternate runtimes.
-		group.alternateRuntimes.sort((a, b) => a.runtimeName.localeCompare(b.runtimeName));
-		group.alternateRuntimes.forEach(runtime => {
-			if (runtime.runtimeId !== currentRuntime?.runtimeId && !activeRuntimeIds.has(runtime.runtimeId)) {
-				runtimeItems.push({
-					id: runtime.runtimeId,
-					label: runtime.runtimeName,
-					detail: runtime.runtimePath,
-					iconPath: {
-						dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
-					},
-					picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
-				});
+		// Group runtimes by environment type
+		const runtimesByEnvType = new Map<string, ILanguageRuntimeMetadata[]>();
+		const allRuntimes = [group.primaryRuntime, ...group.alternateRuntimes];
+
+		allRuntimes.forEach(runtime => {
+			const envType = `${runtime.runtimeSource}`;
+			if (!runtimesByEnvType.has(envType)) {
+				runtimesByEnvType.set(envType, []);
 			}
+			runtimesByEnvType.get(envType)!.push(runtime);
+
+		});
+
+		const envTypes = Array.from(runtimesByEnvType.keys());
+
+		// Sort runtimes by version (decreasing), then alphabetically
+		envTypes.forEach(envType => {
+			runtimeItems.push({ type: 'separator', label: envType });
+			runtimesByEnvType.get(envType)!
+				.sort((a, b) => {
+					// If both have version numbers, compare them
+					if (a.languageVersion && b.languageVersion) {
+						const aVersion = a.languageVersion.split('.').map(Number);
+						const bVersion = b.languageVersion.split('.').map(Number);
+
+						// Always list unsupported versions last
+						if (!a.extraRuntimeData.supported) {
+							return 1;
+						}
+						if (!b.extraRuntimeData.supported) {
+							return -1;
+						}
+						// Compare major version
+						if (aVersion[0] !== bVersion[0]) {
+							return bVersion[0] - aVersion[0];
+						}
+
+						// Compare minor version
+						if (aVersion[1] !== bVersion[1]) {
+							return bVersion[1] - aVersion[1];
+						}
+
+						// Compare patch version
+						if (aVersion[2] !== bVersion[2]) {
+							return bVersion[2] - aVersion[2];
+						}
+					}
+
+					// If versions are equal or not found, sort alphabetically
+					return a.runtimeName.localeCompare(b.runtimeName);
+				})
+				.forEach(runtime => {
+					runtimeItems.push({
+						id: runtime.runtimeId,
+						label: runtime.runtimeName,
+						detail: runtime.runtimePath,
+						iconPath: {
+							dark: URI.parse(`data:image/svg+xml;base64, ${runtime.base64EncodedIconSvg}`),
+						},
+						picked: (runtime.runtimeId === runtimeSessionService.foregroundSession?.runtimeMetadata.runtimeId),
+						neverShowWhenFiltered: false
+					});
+				});
+
 		});
 	});
 
@@ -953,7 +988,7 @@ export function registerLanguageRuntimeActions() {
 				{
 					// Otherwise, this was probably executed by an extension.
 					source: CodeAttributionSource.Extension,
-				}
+				};
 
 			consoleService.executeCode(
 				args.langId, args.code, attribution, !!args.focus, true /* execute the code even if incomplete */);

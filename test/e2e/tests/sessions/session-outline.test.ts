@@ -17,10 +17,6 @@ test.describe('Session: Outline', {
 	tag: [tags.WEB, tags.WIN, tags.SESSIONS, tags.OUTLINE, tags.CRITICAL]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['console.multipleConsoleSessions', 'true']], true);
-	});
-
 	test.beforeAll(async function ({ app, openFile }) {
 		const { variables, outline } = app.workbench;
 

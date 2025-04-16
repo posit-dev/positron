@@ -39,8 +39,11 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
      */
     onDidCreateSession: Event<PythonRuntimeSession>;
 
-    registerLanguageRuntimeFromPath(pythonPath: string): Promise<positron.LanguageRuntimeMetadata | undefined>;
-    selectLanguageRuntimeFromPath(pythonPath: string): Promise<void>;
+    registerLanguageRuntimeFromPath(
+        pythonPath: string,
+        recreateRuntime?: boolean,
+    ): Promise<positron.LanguageRuntimeMetadata | undefined>;
+    selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<void>;
 }
 
 /**
@@ -388,10 +391,32 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
      * @param pythonPath The path to the Python interpreter.
      * @returns Promise that resolves when the runtime is registered.
      */
-    async registerLanguageRuntimeFromPath(pythonPath: string): Promise<positron.LanguageRuntimeMetadata | undefined> {
+    async registerLanguageRuntimeFromPath(
+        pythonPath: string,
+        recreateRuntime?: boolean,
+    ): Promise<positron.LanguageRuntimeMetadata | undefined> {
         const alreadyRegisteredRuntime = this.registeredPythonRuntimes.get(pythonPath);
         if (alreadyRegisteredRuntime) {
-            return alreadyRegisteredRuntime;
+            if (!recreateRuntime) {
+                return alreadyRegisteredRuntime;
+            }
+
+            const sessions = await positron.runtime.getActiveSessions();
+            // Find any active sessions using this runtime
+            const sessionsToShutdown = sessions.filter((session) => {
+                const sessionRuntime = session.runtimeMetadata.extraRuntimeData;
+                return sessionRuntime.pythonPath === pythonPath;
+            });
+
+            // Shut down all sessions for this runtime before recreating it
+            if (sessionsToShutdown.length > 0) {
+                traceInfo(`Shutting down ${sessionsToShutdown.length} sessions using Python runtime at ${pythonPath}`);
+                await Promise.all(
+                    sessionsToShutdown.map((session) => session.shutdown(positron.RuntimeExitReason.Shutdown)),
+                );
+                // Remove the runtime from our registry so we can recreate it
+                this.registeredPythonRuntimes.delete(pythonPath);
+            }
         }
 
         // Get the interpreter corresponding to the new runtime.
@@ -416,8 +441,8 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
      * @param pythonPath The path to the Python interpreter.
      * @returns Promise that resolves when the runtime is selected.
      */
-    async selectLanguageRuntimeFromPath(pythonPath: string): Promise<void> {
-        await this.registerLanguageRuntimeFromPath(pythonPath);
+    async selectLanguageRuntimeFromPath(pythonPath: string, recreateRuntime?: boolean): Promise<void> {
+        await this.registerLanguageRuntimeFromPath(pythonPath, recreateRuntime);
         const runtimeMetadata = this.registeredPythonRuntimes.get(pythonPath);
         if (runtimeMetadata) {
             await positron.runtime.selectLanguageRuntime(runtimeMetadata.runtimeId);

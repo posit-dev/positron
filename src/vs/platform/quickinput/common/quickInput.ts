@@ -54,6 +54,9 @@ export interface IQuickPickItem {
 	indented?: boolean;
 	/** Defauls to true with `IQuickPick.canSelectMany`, can be false to disable picks for a single item */
 	pickable?: boolean;
+  // --- Start Positron ---
+	neverShowWhenFiltered?: boolean;
+  // --- End Positron ---
 }
 
 export interface IQuickPickSeparator {

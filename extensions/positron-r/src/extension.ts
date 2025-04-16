@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 
 import { registerCommands } from './commands';
-import { registerFormatter } from './formatting';
 import { providePackageTasks } from './tasks';
 import { setContexts } from './contexts';
 import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
@@ -32,9 +31,6 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Register commands.
 	registerCommands(context, rRuntimeManager);
-
-	// Register formatter.
-	registerFormatter(context);
 
 	// Register LLM tools.
 	registerRLanguageModelTools(context);

@@ -9,6 +9,13 @@ import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { ILanguageModelToolsService } from '../../common/languageModelToolsService.js';
 import { EditTool, EditToolData } from './editFileTool.js';
 
+// --- Start Positron ---
+/**
+ * src/vs/workbench/contrib/chat/browser/tools/tools.ts is derived from this file.
+ * Please keep the two files in sync with any core changes.
+ */
+// --- End Positron ---
+
 export class BuiltinToolsContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'chat.builtinTools';
