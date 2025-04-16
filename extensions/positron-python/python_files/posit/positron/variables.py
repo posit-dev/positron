@@ -22,6 +22,7 @@ from .utils import (
     get_qualname,
 )
 from .variables_comm import (
+    AsyncClearRequest,
     ClearRequest,
     ClipboardFormatFormat,
     ClipboardFormatRequest,
@@ -31,6 +32,7 @@ from .variables_comm import (
     InspectRequest,
     ListRequest,
     RefreshParams,
+    ReturnAsyncClearParams,
     UpdateParams,
     Variable,
     VariableKind,
@@ -90,7 +92,10 @@ def _resolve_value_from_path(context: Any, path: Iterable[str]) -> Any:
 
 
 class VariablesService:
-    def __init__(self, kernel: PositronIPyKernel) -> None:
+    def __init__(
+        self,
+        kernel: PositronIPyKernel,
+    ) -> None:
         self.kernel = kernel
 
         self._comm: PositronComm | None = None
@@ -121,6 +126,11 @@ class VariablesService:
 
         elif isinstance(request, ClearRequest):
             self._delete_all_vars(raw_msg)
+
+        elif isinstance(request, AsyncClearRequest):
+            callback_id = request.params.callback_id
+            create_task(self._async_delete_all_vars(callback_id, raw_msg), self._pending_tasks)
+            self._send_result({})  # Notify the frontend that the request is scheduled.
 
         elif isinstance(request, DeleteRequest):
             self._delete_vars(request.params.names, raw_msg)
@@ -487,6 +497,15 @@ class VariablesService:
         # Notify the frontend that the request is complete.
         # Note that this must be received before the update/refresh event from the async task.
         self._send_result({})
+
+    async def _async_delete_all_vars(self, callback_id: str, parent: dict[str, Any]) -> None:
+        msg = ReturnAsyncClearParams(callback_id=callback_id)
+        try:
+            await self._soft_reset(parent)
+        except Exception as err:
+            logger.error("Error deleting all variables: %s", err, exc_info=True)
+            msg.error_message = str(err)
+        self._send_event(VariablesFrontendEvent.ReturnAsyncClear, msg.dict())
 
     async def _soft_reset(self, parent: dict[str, Any]) -> None:
         """Use %reset with the soft switch to delete all user defined variables from the environment."""

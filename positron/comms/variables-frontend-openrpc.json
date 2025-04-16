@@ -79,6 +79,29 @@
 					}
 				}
 			]
+		},
+		{
+			"name": "return_async_clear",
+			"summary": "Return async clear result",
+			"description": "Returns the result of an async clear operation.",
+			"params": [
+				{
+					"name": "callback_id",
+					"description": "The callback ID that was used to send the async clear request.",
+					"required": true,
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "error_message",
+					"description": "Optional error message if something failed to compute",
+					"required": false,
+					"schema": {
+						"type": "string"
+					}
+				}
+			]
 		}
 	]
 }

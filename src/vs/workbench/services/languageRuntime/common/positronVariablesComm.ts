@@ -172,6 +172,21 @@ export interface ClearParams {
 }
 
 /**
+ * Parameters for the AsyncClear method.
+ */
+export interface AsyncClearParams {
+	/**
+	 * A callback_id used to identify the request.
+	 */
+	callback_id: string;
+
+	/**
+	 * Whether to clear hidden objects in addition to normal variables
+	 */
+	include_hidden_objects: boolean;
+}
+
+/**
  * Parameters for the Delete method.
  */
 export interface DeleteParams {
@@ -264,6 +279,21 @@ export interface RefreshParams {
 }
 
 /**
+ * Parameters for the ReturnAsyncClear method.
+ */
+export interface ReturnAsyncClearParams {
+	/**
+	 * The callback ID that was used to send the async clear request.
+	 */
+	callback_id: string;
+
+	/**
+	 * Optional error message if something failed to compute
+	 */
+	error_message?: string;
+}
+
+/**
  * Event: Update variables
  */
 export interface UpdateEvent {
@@ -312,14 +342,32 @@ export interface RefreshEvent {
 
 }
 
+/**
+ * Event: Return async clear result
+ */
+export interface ReturnAsyncClearEvent {
+	/**
+	 * The callback ID that was used to send the async clear request.
+	 */
+	callback_id: string;
+
+	/**
+	 * Optional error message if something failed to compute
+	 */
+	error_message?: string;
+
+}
+
 export enum VariablesFrontendEvent {
 	Update = 'update',
-	Refresh = 'refresh'
+	Refresh = 'refresh',
+	ReturnAsyncClear = 'return_async_clear'
 }
 
 export enum VariablesBackendRequest {
 	List = 'list',
 	Clear = 'clear',
+	AsyncClear = 'async_clear',
 	Delete = 'delete',
 	Inspect = 'inspect',
 	ClipboardFormat = 'clipboard_format',
@@ -334,6 +382,7 @@ export class PositronVariablesComm extends PositronBaseComm {
 		super(instance, options);
 		this.onDidUpdate = super.createEventEmitter('update', ['assigned', 'unevaluated', 'removed', 'version']);
 		this.onDidRefresh = super.createEventEmitter('refresh', ['variables', 'length', 'version']);
+		this.onDidReturnAsyncClear = super.createEventEmitter('return_async_clear', ['callback_id', 'error_message']);
 	}
 
 	/**
@@ -359,6 +408,20 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 */
 	clear(includeHiddenObjects: boolean): Promise<void> {
 		return super.performRpc('clear', ['include_hidden_objects'], [includeHiddenObjects]);
+	}
+
+	/**
+	 * Asynchronously Clear all variables
+	 *
+	 * Clears (deletes) all variables in the current session.
+	 *
+	 * @param callbackId A callback_id used to identify the request.
+	 * @param includeHiddenObjects Whether to clear hidden objects in
+	 * addition to normal variables
+	 *
+	 */
+	asyncClear(callbackId: string, includeHiddenObjects: boolean): Promise<void> {
+		return super.performRpc('async_clear', ['callback_id', 'include_hidden_objects'], [callbackId, includeHiddenObjects]);
 	}
 
 	/**
@@ -433,5 +496,11 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 * the backend.
 	 */
 	onDidRefresh: Event<RefreshEvent>;
+	/**
+	 * Return async clear result
+	 *
+	 * Returns the result of an async clear operation.
+	 */
+	onDidReturnAsyncClear: Event<ReturnAsyncClearEvent>;
 }
 

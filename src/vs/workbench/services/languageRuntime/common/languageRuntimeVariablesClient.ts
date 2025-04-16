@@ -3,11 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { generateUuid } from '../../../../base/common/uuid.js';
+import { DeferredPromise } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from './positronVariablesComm.js';
+import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, ReturnAsyncClearEvent, UpdateEvent, Variable } from './positronVariablesComm.js';
+import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 
 /**
  * Represents a variable in a language runtime; wraps the raw data format with additional metadata
@@ -123,6 +126,13 @@ export class PositronVariablesUpdate {
 	}
 }
 
+export enum VariablesClientStatus {
+	Idle,
+	Computing,
+	Disconnected,
+	Error
+}
+
 /**
  * The client-side interface to a variables (a set of named variables) inside
  * a language runtime.
@@ -143,6 +153,32 @@ export class VariablesClientInstance extends Disposable {
 	public clientState: ISettableObservable<RuntimeClientState>;
 
 	/**
+	 * The current status of the client instance.
+	 */
+	public status: VariablesClientStatus = VariablesClientStatus.Idle;
+
+	/**
+	 * Promises for asynchronous tasks requested of the backend, keyed by callback ID.
+	 */
+	private readonly _asyncTasks = new Map<string, DeferredPromise<any>>();
+
+	/**
+	 * The number of pending tasks that are currently running.
+	 */
+	private _numPendingTasks = 0;
+
+	/**
+	 * The onDidStatusUpdate event emitter.
+	 */
+	private readonly _onDidChangeStatusEmitter = this._register(new Emitter<VariablesClientStatus>());
+
+	/**
+	 * Current state of the runtime (idle, busy, etc)
+	 */
+	public runtimeState: RuntimeState = RuntimeState.Offline;
+	private readonly _onDidChangeRuntimeStateEmitter = this._register(new Emitter<RuntimeState>());
+
+	/**
 	 * Ceate a new variable client instance.
 	 *
 	 * @param client The client instance to use to communicate with the back end.
@@ -155,6 +191,19 @@ export class VariablesClientInstance extends Disposable {
 
 		// Connect the client instance to the back end
 		this.connectClient(this._comm);
+
+		// Register the onDidReturnAsyncClear event handler.
+		this._register(this._comm.onDidReturnAsyncClear(async (e: ReturnAsyncClearEvent) => {
+			if (this._asyncTasks.has(e.callback_id)) {
+				const promise = this._asyncTasks.get(e.callback_id);
+				if (e.error_message) {
+					promise?.error(new Error(e.error_message));
+				} else {
+					promise?.complete(e);
+				}
+				this._asyncTasks.delete(e.callback_id);
+			}
+		}));
 	}
 
 	// Public methods --------------------------------------------------
@@ -172,6 +221,43 @@ export class VariablesClientInstance extends Disposable {
 	 */
 	public async requestClear(includeHiddenObjects: boolean): Promise<void> {
 		return this._comm.clear(includeHiddenObjects);
+	}
+
+	/**
+	 * Requests a asynchronous clear of all variables.
+	 */
+	public async requestAsyncClear(includeHiddenObjects: boolean): Promise<ReturnAsyncClearEvent> {
+		const callbackId = generateUuid();
+		const promise = new DeferredPromise<ReturnAsyncClearEvent>();
+		this._asyncTasks.set(callbackId, promise);
+		return this.runBackendTask(
+			async () => {
+				if (this.runtimeState !== RuntimeState.Idle) {
+					// Wait until the runtime is ready to receive the request
+					await new Promise<void>(resolve => {
+						const disposable = this.onDidChangeRuntimeState(state => {
+							if (state === RuntimeState.Idle) {
+								disposable.dispose();
+								resolve();
+							}
+						});
+					});
+				}
+				await this._comm.asyncClear(callbackId, includeHiddenObjects);
+				const timeout = 60000;
+				setTimeout(() => {
+					if (promise.isSettled) {
+						return;
+					}
+					const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
+					promise.error(new Error(`request_async_clear timed out after ${timeoutSeconds} seconds`));
+					this._asyncTasks.delete(callbackId);
+				}, timeout);
+
+				return promise.p;
+			},
+			() => ({ 'callback_id': callbackId, 'error_message': 'Client disconnected' })
+		);
 	}
 
 	/**
@@ -222,6 +308,14 @@ export class VariablesClientInstance extends Disposable {
 		await this._comm.view(path);
 	}
 
+	/**
+	 * Set the runtime state
+	 */
+	public setRuntimeState(state: RuntimeState) {
+		this.runtimeState = state;
+		this._onDidChangeRuntimeStateEmitter.fire(state);
+	}
+
 	// Private methods -------------------------------------------------
 
 	/**
@@ -244,4 +338,38 @@ export class VariablesClientInstance extends Disposable {
 				e, this._comm));
 		}));
 	}
+
+	private async runBackendTask<Type, F extends () => Promise<Type>,
+		Alt extends () => Type>(task: F, disconnectedResult: Alt) {
+		if (this.status === VariablesClientStatus.Disconnected) {
+			return disconnectedResult();
+		}
+		this._numPendingTasks += 1;
+		this.setStatus(VariablesClientStatus.Computing);
+		try {
+			return await task();
+		} finally {
+			this._numPendingTasks -= 1;
+			if (this._numPendingTasks === 0) {
+				this.setStatus(VariablesClientStatus.Idle);
+			}
+		}
+	}
+
+	private setStatus(status: VariablesClientStatus) {
+		this.status = status;
+		this._onDidChangeStatusEmitter.fire(status);
+	}
+
+	// Public events
+
+	/**
+	 * Event that fires when the status has been updated.
+	 */
+	public onDidChangeStatus = this._onDidChangeStatusEmitter.event;
+
+	/**
+	 * Event that fires when the runtime state changed.
+	 */
+	public onDidChangeRuntimeState = this._onDidChangeRuntimeStateEmitter.event;
 }

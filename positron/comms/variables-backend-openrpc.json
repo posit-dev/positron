@@ -55,6 +55,28 @@
 			"result": {}
 		},
 		{
+			"name": "async_clear",
+			"summary": "Asynchronously Clear all variables",
+			"description": "Clears (deletes) all variables in the current session.",
+			"params": [
+				{
+					"name": "callback_id",
+					"description": "A callback_id used to identify the request.",
+					"schema": {
+						"type": "string"
+					}
+				},
+				{
+					"name": "include_hidden_objects",
+					"description": "Whether to clear hidden objects in addition to normal variables",
+					"schema": {
+						"type": "boolean"
+					}
+				}
+			],
+			"result": {}
+		},
+		{
 			"name": "delete",
 			"summary": "Deletes a set of named variables",
 			"description": "Deletes the named variables from the current session.",
