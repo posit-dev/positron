@@ -51,7 +51,10 @@ export interface IQuickPickItem {
 	 */
 	disabled?: boolean;
 	alwaysShow?: boolean;
+	// --- Start Positron ---
+	// added to filter out "Suggested" runtimes
 	neverShowWhenFiltered?: boolean;
+	// --- End Positron ---
 }
 
 export interface IQuickPickSeparator {
