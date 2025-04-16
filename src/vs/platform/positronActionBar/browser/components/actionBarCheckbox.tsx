@@ -7,7 +7,7 @@
 import './actionBarCheckbox.css';
 
 // React.
-import React, { forwardRef, PropsWithChildren, useImperativeHandle, useRef, useState } from 'react';
+import React, { forwardRef, PropsWithChildren, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { generateUuid } from '../../../../base/common/uuid.js';
@@ -43,6 +43,11 @@ export const ActionBarCheckbox = forwardRef<
 	// State hooks.
 	const [id] = useState(generateUuid());
 	const [checked, setChecked] = useState(props.checked ?? false);
+
+	// Effect hook to update the checked state when the prop changes.
+	useEffect(() => {
+		setChecked(props.checked ?? false);
+	}, [props.checked]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);

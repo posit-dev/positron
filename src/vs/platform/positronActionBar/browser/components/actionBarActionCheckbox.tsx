@@ -53,9 +53,10 @@ export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => 
 		return null;
 	}
 
-	// Get the Positron action bar checkbox options.
+	// Get the Positron action bar checkbox options. This must be defined and the checked context ket expression must be defined.
+	// If this is not the case, render nothing. This prevents the checkbox from being rendered when its initial state isn't know.
 	const positronActionBarCheckboxOptions = toPositronActionBarCheckboxOptions(menuItemAction.positronActionBarOptions);
-	if (!positronActionBarCheckboxOptions) {
+	if (!positronActionBarCheckboxOptions || !positronActionBarCheckboxOptions.checked) {
 		return null;
 	}
 
