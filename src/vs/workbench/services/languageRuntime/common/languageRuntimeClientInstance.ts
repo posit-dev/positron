@@ -7,6 +7,7 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { ILanguageRuntimeMessageState } from './languageRuntimeService.js';
 
 /**
  * The possible states for a language runtime client instance. These
@@ -87,4 +88,5 @@ export interface IRuntimeClientInstance<Input, Output> extends Disposable {
 	sendMessage(message: any): void;
 	messageCounter: ISettableObservable<number>;
 	clientState: ISettableObservable<RuntimeClientState>;
+	updatePendingRpcState(message: ILanguageRuntimeMessageState): void;
 }
