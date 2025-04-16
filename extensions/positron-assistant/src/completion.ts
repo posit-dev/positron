@@ -614,10 +614,11 @@ export class CopilotCompletion implements vscode.InlineCompletionItemProvider {
 			id: 'copilot',
 			displayName: 'GitHub Copilot'
 		},
-		supportedOptions: [],
+		supportedOptions: ['oauth'],
 		defaults: {
 			name: 'GitHub Copilot',
 			model: 'github-copilot',
+			oauth: true,
 		},
 	};
 

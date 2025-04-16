@@ -50,6 +50,7 @@ export interface IPositronLanguageModelSource {
 	supportedOptions: PositronLanguageModelOptions[];
 	defaults: Omit<IPositronLanguageModelConfig, 'provider' | 'type'>;
 	signedIn?: boolean;
+	authMethods?: string[];
 }
 
 export interface IPositronLanguageModelConfig {
@@ -59,6 +60,7 @@ export interface IPositronLanguageModelConfig {
 	model: string;
 	baseUrl?: string;
 	apiKey?: string;
+	oauth?: boolean;
 	toolCalls?: boolean;
 	resourceName?: string;
 	project?: string;

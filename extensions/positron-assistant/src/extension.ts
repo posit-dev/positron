@@ -7,11 +7,11 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
 import { newLanguageModel } from './models';
-import { newCompletionProvider, registerHistoryTracking } from './completion';
+import { CopilotCompletion, newCompletionProvider, registerHistoryTracking } from './completion';
 import { editsProvider } from './edits';
 import { createParticipants } from './participants';
 import { registerAssistantTools } from './tools.js';
-import { registerCopilotService } from './copilot.js';
+import { COPILOT_SIGNIN_COMMAND, registerCopilotService } from './copilot.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -49,14 +49,18 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		const languageModel = newLanguageModel(modelConfig);
-		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
+		if (modelConfig.type === 'chat') {
+			const languageModel = newLanguageModel(modelConfig);
+			const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
 
-		if (error) {
-			throw new Error(error.message);
+			if (error) {
+				throw new Error(error.message);
+			}
+
+			registerModelWithAPI(languageModel, modelConfig, context);
+		} else if (modelConfig.type === 'completion') {
+
 		}
-
-		registerModelWithAPI(languageModel, modelConfig, context);
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])

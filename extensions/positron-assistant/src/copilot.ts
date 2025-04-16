@@ -132,10 +132,10 @@ export class CopilotService implements vscode.Disposable {
 	private registerCommands() {
 		this._disposables.push(
 			vscode.commands.registerCommand(COPILOT_SIGNIN_COMMAND, async () => {
-				await this.signIn();
+				return await this.signIn();
 			}),
 			vscode.commands.registerCommand(COPILOT_SIGNOUT_COMMAND, async () => {
-				await this.signOut();
+				return await this.signOut();
 			})
 		);
 	}
@@ -164,7 +164,7 @@ export class CopilotService implements vscode.Disposable {
 	/**
 	 * Prompt the user to sign in to Copilot if they aren't already signed in.
 	 */
-	private async signIn(): Promise<void> {
+	private async signIn(): Promise<boolean> {
 		// HACK: Register the Copilot completion item provider.
 		// This is a temporary workaround until the configuration UI supports
 		// Copilot completions. It should be safe for now since the sign in
@@ -177,7 +177,7 @@ export class CopilotService implements vscode.Disposable {
 
 		if ('status' in response && 'user' in response) {
 			vscode.window.showInformationMessage(vscode.l10n.t('Already signed in to GitHub Copilot as {0}.', response.user));
-			return;
+			return true;
 		}
 
 		await vscode.env.clipboard.writeText(response.userCode);
@@ -188,7 +188,10 @@ export class CopilotService implements vscode.Disposable {
 			'Cancel');
 
 		if (shouldLogin) {
-			await client.sendRequest(ExecuteCommandRequest.type, response.command);
+			const result = await client.sendRequest(ExecuteCommandRequest.type, response.command);
+			return true;
+		} else {
+			return false;
 		}
 	}
 
@@ -208,9 +211,20 @@ export class CopilotService implements vscode.Disposable {
 	}
 
 	/** Sign out of Copilot. */
-	private async signOut(): Promise<void> {
+	private async signOut(): Promise<boolean> {
 		const client = this.client();
-		await client.sendRequest(SignOutRequest.type, {});
+
+		try {
+			const result = await client.sendRequest(SignOutRequest.type, {});
+			return true;
+		} catch (error) {
+			if (error instanceof Error) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to sign out of GitHub Copilot: {0}', error.message));
+			} else {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to sign out of GitHub Copilot.'));
+			}
+			return false;
+		}
 	}
 
 	async inlineCompletion(

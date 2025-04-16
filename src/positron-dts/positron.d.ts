@@ -1839,6 +1839,7 @@ declare module 'positron' {
 			}[keyof LanguageModelConfig], undefined>[];
 			defaults: LanguageModelConfigOptions;
 			signedIn?: boolean;
+			authMethods?: string[];
 		}
 
 		/**
@@ -1857,6 +1858,7 @@ declare module 'positron' {
 			model: string;
 			baseUrl?: string;
 			apiKey?: string;
+			oauth?: boolean;
 			toolCalls?: boolean;
 			resourceName?: string;
 			project?: string;

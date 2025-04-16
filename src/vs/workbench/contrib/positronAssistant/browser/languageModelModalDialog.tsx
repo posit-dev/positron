@@ -27,6 +27,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { LanguageModelConfigComponent } from './components/languageModelConfigComponent.js';
 import { RadioButtonItem } from '../../../browser/positronComponents/positronModalDialog/components/radioButton.js';
 import { RadioGroup } from '../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
+import { IDisposable } from '../../../../base/common/lifecycle.js';
 
 export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
@@ -113,15 +114,18 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [numCtx, setNumCtx] = React.useState<number | undefined>(defaultSource.defaults.numCtx);
 	const [model, setModel] = React.useState<string>(defaultSource.defaults.model);
 	const [name, setName] = React.useState<string>(defaultSource.defaults.name);
+	const [authMethod, setAuthMethod] = React.useState<string>('apiKey');
 	const [showProgress, setShowProgress] = React.useState(false);
 	const [errorMessage, setError] = React.useState<string>();
 
 	useEffect(() => {
 		setSource(defaultSource);
-	}, [type, defaultSource]);
+		setAuthMethod(defaultSource.defaults.oauth ? 'oauth' : 'apiKey')
+	}, [defaultSource]);
 
 	useEffect(() => {
-		props.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
+		const disposables: IDisposable[] = [];
+		disposables.push(props.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
 			// find newSource in props.sources and update it
 			const index = props.sources.findIndex(source => source.provider.id === newSource.provider.id);
 			const mergedSource = { ...source, ...newSource, supportedOptions: source.supportedOptions };
@@ -134,7 +138,9 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				setSource(mergedSource);
 			}
 
-		});
+		}));
+
+		return () => { disposables.forEach(d => d.dispose()); }
 	}, [props.positronAssistantService, props.sources, source]);
 
 	useEffect(() => {
@@ -147,19 +153,25 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		setLocation(source.defaults.location);
 		setToolCalls(source.defaults.toolCalls);
 		setNumCtx(source.defaults.numCtx);
-
 	}, [source]);
+
+	useEffect(() => {
+		if (source.defaults.oauth !== undefined) {
+			const authMethod = source.defaults.oauth ? 'oauth' : 'apiKey';
+			setAuthMethod(authMethod);
+		}
+	}, [source.defaults.oauth]);
 
 	const authMethodRadioButtons: RadioButtonItem[] = [
 		new RadioButtonItem({
 			identifier: 'oauth',
 			title: localize('positron.newConnectionModalDialog.oauth', "OAuth"),
-			disabled: source.provider.id !== 'copilot',
+			disabled: !source.supportedOptions.includes('oauth'),
 		}),
 		new RadioButtonItem({
 			identifier: 'apiKey',
 			title: localize('positron.newConnectionModalDialog.apiKey', "API Key"),
-			disabled: source.provider.id === 'copilot',
+			disabled: !source.supportedOptions.includes('apiKey'),
 		}),
 	];
 
@@ -211,14 +223,25 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		setShowProgress(true);
 		setError(undefined);
 		if (providerConfig) {
-			props.onAction(
-				providerConfig,
-				source.signedIn ? 'delete' : 'save')
-				.catch((e) => {
-					setError(e.message);
-				}).finally(() => {
-					setShowProgress(false);
-				});
+			if (authMethod === 'apiKey') {
+				props.onAction(
+					providerConfig,
+					source.signedIn ? 'delete' : 'save')
+					.catch((e) => {
+						setError(e.message);
+					}).finally(() => {
+						setShowProgress(false);
+					});
+			} else {
+				props.onAction(
+					providerConfig,
+					source.signedIn ? 'oauth-signout' : 'oauth-signin')
+					.catch((e) => {
+						setError(e.message);
+					}).finally(() => {
+						setShowProgress(false);
+					});
+			}
 		} else {
 			setShowProgress(false);
 			setError(localize('positron.newConnectionModalDialog.incompleteConfig', 'The configuration is incomplete.'));
@@ -386,10 +409,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				<div className='language-model-authentication-method-container'>
 					<RadioGroup
 						entries={authMethodRadioButtons}
-						initialSelectionId={source.provider.id === 'copilot' ? 'oauth' : 'apiKey'}
+						initialSelectionId={authMethod}
 						name='authMethod'
 						onSelectionChanged={(authMethod) => {
-							// setAuthMethod(authMethod);
+							setAuthMethod(authMethod);
 						}}
 					/>
 				</div>
@@ -400,6 +423,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 						setProviderConfig(config);
 					}}
 					onSignIn={onSignIn}
+					signingIn={showProgress}
 				/>
 				{showProgress &&
 					<ProgressBar />
