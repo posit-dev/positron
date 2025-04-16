@@ -14,7 +14,21 @@
   "activationEvents": [],
   "main": "./out/extension.js",
   "contributes": {
-    "commands": []
+    "views": {
+      "positron-connections": [
+        {
+          "id": "positron-catalog-explorer",
+          "name": "Catalog Explorer",
+          "when": "isPositron"
+        }
+      ]
+    },
+    "viewsWelcome": [
+      {
+        "view": "positron-catalog-explorer",
+        "contents": "Explore tables, views, and more in Databricks Unity Catalog, AWS Glue, Azure Data Lake Storage, or any Apache Iceberg-compatible catalog.\n[Configure a Catalog](command:positron-catalog-explorer.addCatalog)"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run compile",
