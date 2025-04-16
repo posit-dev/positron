@@ -988,7 +988,7 @@ export function registerLanguageRuntimeActions() {
 				{
 					// Otherwise, this was probably executed by an extension.
 					source: CodeAttributionSource.Extension,
-				}
+				};
 
 			consoleService.executeCode(
 				args.langId, args.code, attribution, !!args.focus, true /* execute the code even if incomplete */);
