@@ -244,16 +244,6 @@ export class VariablesClientInstance extends Disposable {
 					});
 				}
 				await this._comm.asyncClear(callbackId, includeHiddenObjects);
-				const timeout = 60000;
-				setTimeout(() => {
-					if (promise.isSettled) {
-						return;
-					}
-					const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
-					promise.error(new Error(`request_async_clear timed out after ${timeoutSeconds} seconds`));
-					this._asyncTasks.delete(callbackId);
-				}, timeout);
-
 				return promise.p;
 			},
 			() => ({ 'callback_id': callbackId, 'error_message': 'Client disconnected' })
