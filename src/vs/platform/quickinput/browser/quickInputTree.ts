@@ -1409,7 +1409,9 @@ export class QuickInputTree extends Disposable {
 					element.labelHighlights = labelHighlights;
 					element.descriptionHighlights = descriptionHighlights;
 					element.detailHighlights = detailHighlights;
+					// --- Start Positron ---
 					element.hidden = element.item.neverShowWhenFiltered || false;
+					// --- End Positron ---
 				} else {
 					element.labelHighlights = undefined;
 					element.descriptionHighlights = undefined;
