@@ -15,6 +15,7 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { ILanguageModelToolsService } from '../../common/languageModelToolsService.js';
 import { ProjectTreeTool, ProjectTreeToolData } from '../../browser/tools/projectTreeTool.js';
+import { TextSearchTool, TextSearchToolData } from './textSearchTool.js';
 
 export class PositronBuiltinToolsContribution extends Disposable implements IWorkbenchContribution {
 
@@ -29,5 +30,9 @@ export class PositronBuiltinToolsContribution extends Disposable implements IWor
 		const projectTreeTool = instantiationService.createInstance(ProjectTreeTool);
 		this._register(toolsService.registerToolData(ProjectTreeToolData));
 		this._register(toolsService.registerToolImplementation(ProjectTreeToolData.id, projectTreeTool));
+
+		const textSearchTool = instantiationService.createInstance(TextSearchTool);
+		this._register(toolsService.registerToolData(TextSearchToolData));
+		this._register(toolsService.registerToolImplementation(TextSearchToolData.id, textSearchTool));
 	}
 }
