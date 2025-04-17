@@ -688,7 +688,7 @@ export class Sessions {
 			}
 
 			await expect(this.metadataDialog).toBeVisible();
-		}, 'Open the Metadata Dialog').toPass();
+		}, 'Open the Metadata Dialog').toPass({ timeout: 3000 });
 	}
 
 	// -- Verifications --

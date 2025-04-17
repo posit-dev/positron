@@ -29,7 +29,6 @@ test.describe('Default Interpreters - Python', {
 		// hidden interpreter (Conda)
 		await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], true);
 
-		await deletePositronHistoryFiles();
 	});
 
 	test.afterAll(async function ({ cleanup }) {

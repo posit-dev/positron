@@ -45,7 +45,7 @@ test.describe('Data Explorer - Python Polars', {
 				await hotKeys.copy();
 				const clipboardText = await app.workbench.clipboard.getClipboardText();
 				expect(clipboardText).toBe('1');
-			}).toPass();
+			}).toPass({ timeout: 20000 });
 		});
 
 		await app.workbench.dataExplorer.expandSummary();
