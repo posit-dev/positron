@@ -64,7 +64,7 @@ export const ActionBarToggle = forwardRef<
 	// Render.
 	return (
 		<div className='action-bar-toggle'>
-			<button ref={buttonRef} aria-label={props.ariaLabel} className='toggle-container' id={id} tabIndex={0} onClick={clickHandler}>
+			<button ref={buttonRef} aria-checked={toggled} aria-label={props.ariaLabel} className='toggle-container' id={id} tabIndex={0} onClick={clickHandler}>
 				<div aria-label={props.leftTitle} className={positronClassNames('toggle-button', 'left', { 'highlighted': !toggled })}>{props.leftTitle}</div>
 				<div aria-label={props.rightTitle} className={positronClassNames('toggle-button', 'right', { 'highlighted': toggled })}>{props.rightTitle}</div>
 			</button>
