@@ -8,10 +8,7 @@ import * as positron from 'positron';
 import * as path from 'path';
 
 import { ExtensionContext } from 'vscode';
-import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
-import { ModelConfig } from './config.js';
-import { CopilotCompletion } from './completion.js';
-import { randomUUID } from 'crypto';
+import { Command, Executable, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { platform } from 'os';
 
 interface EditorPluginInfo {
@@ -94,6 +91,9 @@ export function registerCopilotService(context: ExtensionContext) {
 	context.subscriptions.push(copilotService);
 }
 
+export const COPILOT_SIGNIN_COMMAND = 'positron-assistant.copilot.signin';
+export const COPILOT_SIGNOUT_COMMAND = 'positron-assistant.copilot.signout';
+
 export class CopilotService implements vscode.Disposable {
 	private readonly _disposables: vscode.Disposable[] = [];
 
@@ -128,11 +128,11 @@ export class CopilotService implements vscode.Disposable {
 	/** Register Copilot commands. */
 	private registerCommands() {
 		this._disposables.push(
-			vscode.commands.registerCommand('positron-assistant.copilot.signin', async () => {
-				await this.signIn();
+			vscode.commands.registerCommand(COPILOT_SIGNIN_COMMAND, async () => {
+				return await this.signIn();
 			}),
-			vscode.commands.registerCommand('positron-assistant.copilot.signout', async () => {
-				await this.signOut();
+			vscode.commands.registerCommand(COPILOT_SIGNOUT_COMMAND, async () => {
+				return await this.signOut();
 			})
 		);
 	}
@@ -161,20 +161,13 @@ export class CopilotService implements vscode.Disposable {
 	/**
 	 * Prompt the user to sign in to Copilot if they aren't already signed in.
 	 */
-	private async signIn(): Promise<void> {
-		// HACK: Register the Copilot completion item provider.
-		// This is a temporary workaround until the configuration UI supports
-		// Copilot completions. It should be safe for now since the sign in
-		// command is only enabled when the hidden `positron.assistant.copilot.enable`
-		// setting is enabled.
-		this.registerInlineCompletionItemProvider();
-
+	private async signIn(): Promise<boolean> {
 		const client = this.client();
 		const response = await client.sendRequest(SignInRequest.type, {});
 
 		if ('status' in response && 'user' in response) {
 			vscode.window.showInformationMessage(vscode.l10n.t('Already signed in to GitHub Copilot as {0}.', response.user));
-			return;
+			return true;
 		}
 
 		await vscode.env.clipboard.writeText(response.userCode);
@@ -185,29 +178,26 @@ export class CopilotService implements vscode.Disposable {
 			'Cancel');
 
 		if (shouldLogin) {
-			await client.sendRequest(ExecuteCommandRequest.type, response.command);
+			return true;
+		} else {
+			return false;
 		}
 	}
 
-	private registerInlineCompletionItemProvider(): void {
-		const modelConfig: ModelConfig = {
-			apiKey: '',
-			id: randomUUID(),
-			type: CopilotCompletion.source.type,
-			model: CopilotCompletion.source.defaults.model,
-			name: CopilotCompletion.source.defaults.name,
-			provider: CopilotCompletion.source.provider.id,
-		};
-		const provider = new CopilotCompletion(modelConfig);
-		this._disposables.push(
-			vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, provider)
-		);
-	}
-
 	/** Sign out of Copilot. */
-	private async signOut(): Promise<void> {
+	private async signOut(): Promise<boolean> {
 		const client = this.client();
-		await client.sendRequest(SignOutRequest.type, {});
+
+		try {
+			return true;
+		} catch (error) {
+			if (error instanceof Error) {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to sign out of GitHub Copilot: {0}', error.message));
+			} else {
+				vscode.window.showErrorMessage(vscode.l10n.t('Failed to sign out of GitHub Copilot.'));
+			}
+			return false;
+		}
 	}
 
 	async inlineCompletion(

@@ -14,6 +14,7 @@ import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/
 interface LanguageModelConfigComponentProps {
 	provider: LanguageModelUIConfiguration,
 	source: IPositronLanguageModelSource,
+	signingIn?: boolean,
 	onChange: (config: IPositronLanguageModelConfig) => void,
 	onSignIn: () => void,
 }
@@ -27,6 +28,9 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 			case 'google':
 				return localize('positron.newConnectionModalDialog.googleTos',
 					"By using Gemini, you agree to abide by their [Terms of Service](https://gemini.google/policy-guidelines).");
+			case 'copilot':
+				return localize('positron.newConnectionModalDialog.copilotTos',
+					"By using Github Copilot, you agree to abide by their [Terms of Service](https://github.com/customer-terms/github-copilot-product-specific-terms)");
 			default:
 				return '';
 		}
@@ -39,7 +43,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 					props.onChange({ ...props.provider, apiKey: newApiKey });
 				}} onSignIn={props.onSignIn} />
 			)}
-			<SignInButton signedIn={props.source.signedIn} onSignIn={props.onSignIn} />
+			<SignInButton signedIn={props.source.signedIn} onSignIn={props.onSignIn} signingIn={props.signingIn} />
 		</div>
 		<div className='language-model-dialog-tos' id='model-tos'>
 			<EmbeddedLink>{getTos(props.provider.provider)}</EmbeddedLink>
@@ -61,8 +65,8 @@ const ApiKey = (props: { apiKey?: string, signedIn?: boolean, onChange: (newApiK
 	</>)
 }
 
-const SignInButton = (props: { signedIn?: boolean, onSignIn: () => void }) => {
-	return <Button className='language-model button sign-in' onPressed={props.onSignIn}>
+const SignInButton = (props: { signedIn?: boolean, signingIn?: boolean, onSignIn: () => void }) => {
+	return <Button className='language-model button sign-in' onPressed={props.onSignIn} disabled={props.signingIn}>
 		{(() => {
 			if (props.signedIn) {
 				return localize('positron.newConnectionModalDialog.signOut', "Sign out");

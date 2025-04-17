@@ -7,7 +7,7 @@
 import './radioGroup.css';
 
 // React.
-import React, { PropsWithChildren, useState } from 'react';
+import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { RadioButton, RadioButtonItem } from './radioButton.js';
@@ -39,6 +39,10 @@ export const RadioGroup = (props: PropsWithChildren<RadioGroupProps>) => {
 		setCurrentSelection(identifier);
 		props.onSelectionChanged(identifier);
 	};
+
+	useEffect(() => {
+		setCurrentSelection(props.initialSelectionId);
+	}, [props.initialSelectionId]);
 
 	// Render.
 	return (
