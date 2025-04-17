@@ -24,7 +24,7 @@ test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] 
 	});
 
 	test.skip('Antropic: Verfy Bad API key results in error', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7255' }]
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7291' }]
 	}, async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.clickAddModelButton();
