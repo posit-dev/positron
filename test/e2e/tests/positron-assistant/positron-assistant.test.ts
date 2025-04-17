@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
+test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
 	test.beforeAll('How to set User Settings', async function ({ userSettings }) {
 		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
 		await userSettings.set([['positron.assistant.enable', 'true'],
