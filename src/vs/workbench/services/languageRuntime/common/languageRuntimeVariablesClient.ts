@@ -21,7 +21,7 @@ class PositronVariablesCommWrapper extends PositronVariablesComm {
 	) {
 		super(instance, options);
 		this.status = observableValue<VariablesClientStatus>(
-			`variables-comm-statu-${instance.getClientId()}`,
+			`variables-comm-status-${instance.getClientId()}`,
 			VariablesClientStatus.Disconnected
 		);
 	}
