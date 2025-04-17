@@ -142,16 +142,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		// Save handle
 		this.handle = initialState.handle;
 		this.dynState = {
-			currentWorkingDirectory: '',
 			busy: false,
+			// If the session is a notebook session, set the current notebook URI
+			// to dynamic data so that it can be displayed in the UI.
+			currentNotebookUri: metadata.notebookUri || undefined,
+			currentWorkingDirectory: '',
 			...initialState.dynState,
 		};
-
-		// If the session is a notebook session, set the current notebook URI
-		// to dynamic data so that it can be displayed in the UI.
-		if (metadata.notebookUri) {
-			this.dynState.currentNotebookUri = metadata.notebookUri;
-		}
 
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
