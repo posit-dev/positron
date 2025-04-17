@@ -62,7 +62,7 @@ export const ActionBarCheckbox = forwardRef<
 	// Render.
 	return (
 		<div className='action-bar-checkbox'>
-			<button ref={buttonRef} aria-checked='false' className='checkbox-button' id={id} role='checkbox' tabIndex={0} onClick={clickHandler}>
+			<button ref={buttonRef} aria-checked={checked} className='checkbox-button' id={id} role='checkbox' tabIndex={0} onClick={clickHandler}>
 				{checked && <div className='check-indicator codicon codicon-check' />}
 			</button>
 			<label htmlFor={id}>{props.label}</label>
