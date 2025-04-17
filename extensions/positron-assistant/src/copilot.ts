@@ -8,10 +8,7 @@ import * as positron from 'positron';
 import * as path from 'path';
 
 import { ExtensionContext } from 'vscode';
-import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
-import { ModelConfig } from './config.js';
-import { CopilotCompletion } from './completion.js';
-import { randomUUID } from 'crypto';
+import { Command, Executable, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { platform } from 'os';
 
 interface EditorPluginInfo {
@@ -181,26 +178,10 @@ export class CopilotService implements vscode.Disposable {
 			'Cancel');
 
 		if (shouldLogin) {
-			const result = await client.sendRequest(ExecuteCommandRequest.type, response.command);
 			return true;
 		} else {
 			return false;
 		}
-	}
-
-	private registerInlineCompletionItemProvider(): void {
-		const modelConfig: ModelConfig = {
-			apiKey: '',
-			id: randomUUID(),
-			type: CopilotCompletion.source.type,
-			model: CopilotCompletion.source.defaults.model,
-			name: CopilotCompletion.source.defaults.name,
-			provider: CopilotCompletion.source.provider.id,
-		};
-		const provider = new CopilotCompletion(modelConfig);
-		this._disposables.push(
-			vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, provider)
-		);
 	}
 
 	/** Sign out of Copilot. */
@@ -208,7 +189,6 @@ export class CopilotService implements vscode.Disposable {
 		const client = this.client();
 
 		try {
-			const result = await client.sendRequest(SignOutRequest.type, {});
 			return true;
 		} catch (error) {
 			if (error instanceof Error) {
