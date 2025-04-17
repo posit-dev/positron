@@ -138,7 +138,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 	// Register with VS Code completions API
 	else if (modelConfig.type === 'completion') {
 		const completionProvider = newCompletionProvider(modelConfig);
-		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider);
+		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: modelConfig.name });
 		modelDisposables.push(complDisp);
 	}
 
