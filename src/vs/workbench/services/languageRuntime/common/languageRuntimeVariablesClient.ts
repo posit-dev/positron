@@ -243,7 +243,7 @@ export class VariablesClientInstance extends Disposable {
 	 * Requests that the variables client clear all variables.
 	 */
 	public async requestClear(includeHiddenObjects: boolean): Promise<void> {
-		return await this._comm.clear(includeHiddenObjects);
+		return this._comm.clear(includeHiddenObjects);
 	}
 
 	/**
