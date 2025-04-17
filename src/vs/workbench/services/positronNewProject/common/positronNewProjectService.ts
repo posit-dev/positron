@@ -424,18 +424,17 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
 				// specified interpreter is not considered to be a Global Python installation).
 				const createEnvCommand = 'python.createEnvironmentAndRegister';
-				const createEnv = async () => {
-					return await this._commandService.executeCommand(
-						createEnvCommand,
-						{
-							workspaceFolder,
-							providerId: provider,
-							interpreterPath,
-							condaPythonVersion,
-							selectEnvironment: true
-						}
-					);
-				};
+				const createEnv = async () => this._commandService.executeCommand(
+					createEnvCommand,
+					{
+						workspaceFolder,
+						providerId: provider,
+						interpreterPath,
+						condaPythonVersion,
+						selectEnvironment: true
+					}
+				);
+
 
 				const pythonExtensionReady = async (): Promise<boolean> => {
 					// Use a DisposableStore to manage the lifetime of the event listener.
