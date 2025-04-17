@@ -22,6 +22,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { IExtensionService } from '../../extensions/common/extensions.js';
 
 /**
  * PositronNewProjectService class.
@@ -57,6 +58,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	constructor(
 		@IWorkspaceContextService private readonly _contextService: IWorkspaceContextService,
 		@ICommandService private readonly _commandService: ICommandService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IFileService private readonly _fileService: IFileService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -415,6 +417,27 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					this._notificationService.warn(message);
 					this._removePendingInitTask(NewProjectTask.PythonEnvironment);
 					return;
+				}
+
+				const pythonExtensionReady = async () => {
+					return new Promise<boolean>((resolve) => {
+						const timeout = setTimeout(() => {
+							resolve(false); // Timed out, return false
+						}, 1000);
+
+						this._extensionService.onDidChangeExtensionsStatus((statuses) => {
+							if (statuses.some((status) => status.value === 'ms-python.python')) {
+								clearTimeout(timeout);
+								resolve(true); // Extension found, return true
+							}
+						});
+					});
+				};
+
+				if (!await pythonExtensionReady()) {
+					const message = this._failedPythonEnvMessage('Python extension not found.');
+					this._logService.error(message);
+					this._notificationService.warn(message);
 				}
 
 				// Create the Python environment
