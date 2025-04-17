@@ -46,6 +46,7 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 				progressBar.done();
 				progressBar.dispose();
 				progressBar = undefined;
+				progressRef.current?.replaceChildren();
 			}
 		}
 
