@@ -100,10 +100,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// This map is keyed by the runtimeId (metadata.runtimeId) of the session.
 	private readonly _consoleSessionsByRuntimeId = new Map<string, ILanguageRuntimeSession[]>();
 
-	// A map of the number of sessions created per runtime ID. This is used to
-	// make each session name unique.
-	private readonly _consoleSessionCounterByRuntimeId = new Map<string, number>();
-
 	// A map of the last active console session per langauge.
 	// We can have multiple console sessions per language,
 	// and this map provides access to the session that was
@@ -1447,26 +1443,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw err;
 		}
 
-		// Determine if the console session name should be appended with a session count to make it unique.
-		let updatedSessionName = sessionName;
-		if (sessionMode === LanguageRuntimeSessionMode.Console) {
-			let sessionCount = this._consoleSessionCounterByRuntimeId.get(runtimeMetadata.runtimeId);
-			if (sessionCount) {
-				// Increment the session count for the runtime and append it to the session name.
-				sessionCount++;
-				this._consoleSessionCounterByRuntimeId.set(runtimeMetadata.runtimeId, sessionCount);
-				updatedSessionName = `${sessionName} - ${sessionCount}`;
-			} else {
-				// Initialize the session count for the runtime.
-				// The first session for a runtime does not append this count to the session name.
-				this._consoleSessionCounterByRuntimeId.set(runtimeMetadata.runtimeId, 1);
-			}
-		}
-
 		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
-			sessionName: updatedSessionName,
+			sessionName,
 			sessionMode,
 			notebookUri,
 			createdTimestamp: Date.now(),
