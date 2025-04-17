@@ -1,0 +1,40 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.action-bar-checkbox {
+	gap: 6px;
+	display: flex;
+	margin: 0 4px;
+	font-size: 12px;
+	align-items: center;
+}
+
+.action-bar-checkbox .checkbox-button {
+	width: 16px;
+	height: 16px;
+	border: none;
+	display: flex;
+	cursor: pointer;
+	border-radius: 3px;
+	justify-content: center;
+	background-color: transparent;
+	color: var(--positronActionBar-foreground);
+	border: 1px solid var(--positronActionBar-checkboxBorder);
+}
+
+.action-bar-checkbox .checkbox-button:focus {
+	outline: none !important;
+}
+
+.action-bar-checkbox .checkbox-button:focus-visible {
+	outline-offset: 2px;
+	outline: 1px solid var(--vscode-focusBorder);
+}
+
+.action-bar-checkbox .checkbox-button .check-indicator {
+	font-weight: bold;
+	font-size: 12px !important;
+	color: var(--positronActionBar-foreground);
+}

@@ -1143,6 +1143,14 @@ export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positron
 	hcLight: null
 }, localize('positronSideActionBar.hoverBackground', "Positron side action bar hover background color."));
 
+// Positron side action bar checkbox border color.
+export const POSITRON_SIDE_ACTION_BAR_CHECKBOX_BORDER = registerColor('positronSideActionBar.checkboxBorder', {
+	dark: '#292f32',
+	light: '#a6a6a6',
+	hcDark: checkboxBorder,
+	hcLight: checkboxBorder
+}, localize('positronSideActionBar.checkboxBorder', "Positron side action bar checkbox border."));
+
 // Positron side action bar text input background color.
 export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BACKGROUND = registerColor('positronSideActionBar.textInputBackground', {
 	dark: '#000000',

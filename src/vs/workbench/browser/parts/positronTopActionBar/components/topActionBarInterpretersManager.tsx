@@ -193,7 +193,7 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 			ariaLabel={CommandCenter.title(command)}
 			border={true}
 			commandId={command}
-			text={labelText}
+			label={labelText}
 			{
 			...(
 				activeSession

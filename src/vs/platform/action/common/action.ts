@@ -70,6 +70,39 @@ export interface ICommandActionSource {
 	readonly title: string;
 }
 
+// --- Start Positron ---
+export type PositronActionBarButtonOptions = {
+	controlType: 'button';
+	displayTitle: boolean;
+};
+
+export type PositronActionBarCheckboxOptions = {
+	controlType: 'checkbox';
+	checked?: ContextKeyExpression;
+};
+
+export type PositronActionBarToggleOptions = {
+	controlType: 'toggle';
+	toggled?: ContextKeyExpression;
+	leftTitle: string | ILocalizedString;
+	rightTitle: string | ILocalizedString;
+};
+
+export type PositronActionBarOptions =
+	PositronActionBarButtonOptions |
+	PositronActionBarCheckboxOptions |
+	PositronActionBarToggleOptions;
+
+export const isPositronActionBarButtonOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarButtonOptions =>
+	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'button';
+
+export const isPositronActionBarCheckboxOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarCheckboxOptions =>
+	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'checkbox';
+
+export const isPositronActionBarToggleOptions = (positronActionBarOptions?: PositronActionBarOptions): positronActionBarOptions is PositronActionBarToggleOptions =>
+	positronActionBarOptions !== undefined && positronActionBarOptions.controlType === 'toggle';
+// --- End Positron ---
+
 export interface ICommandAction {
 	id: string;
 	title: string | ICommandActionTitle;
@@ -99,10 +132,9 @@ export interface ICommandAction {
 
 	// --- Start Positron
 	/**
-	 * Gets or sets a value which indicates whether to display the title for the action when it
-	 * appears on an action bar.
+	 * PositronActionBarOptions controls how the command action is displayed in a PositronActionBar.
 	 */
-	displayTitleOnActionBar?: boolean;
+	positronActionBarOptions?: PositronActionBarOptions;
 	// --- End Positron
 }
 
