@@ -247,6 +247,13 @@ export enum RuntimeExitReason {
 	/** The runtime exited because of an error, most often a crash. */
 	Error = 'error',
 
+	/**
+	 * The runtime session was transferred somewhere else. This happens when
+	 * it is loaded into a different Positron window; it 'exits' from the
+	 * old window and is reconnected in the new window.
+	 */
+	Transferred = 'transferred',
+
 	/** The runtime exited because the extension hosting it was stopped. */
 	ExtensionHost = 'extensionHost',
 
