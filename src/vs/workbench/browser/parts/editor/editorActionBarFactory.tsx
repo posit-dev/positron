@@ -415,7 +415,7 @@ export class EditorActionBarFactory extends Disposable {
 									false
 								)}
 								iconId={iconId}
-								text={iconId ? undefined : firstAction.label}
+								label={iconId ? undefined : firstAction.label}
 								tooltip={actionTooltip(
 									this._contextKeyService,
 									this._keybindingService,
