@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -12,7 +12,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from './positronNewProject.js';
 import { Event } from '../../../../base/common/event.js';
-import { Barrier } from '../../../../base/common/async.js';
+import { Barrier, raceTimeout } from '../../../../base/common/async.js';
 import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
@@ -419,19 +419,37 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					return;
 				}
 
-				const pythonExtensionReady = async () => {
-					return new Promise<boolean>((resolve) => {
-						const timeout = setTimeout(() => {
-							resolve(false); // Timed out, return false
-						}, 1000);
+				const pythonExtensionReady = async (): Promise<boolean> => {
+					// Use a DisposableStore to manage the lifetime of the event listener.
+					const store = new DisposableStore();
+					try {
+						// Create a promise that resolves when the Python extension status indicates readiness.
+						const extensionReadyPromise = new Promise<true>(resolve => {
+							// Listen for extension status changes.
+							const listener = this._extensionService.onDidChangeExtensionsStatus((statuses) => {
+								if (statuses.some((status) => status.value === 'ms-python.python')) {
+									resolve(true); // Resolve the promise when the extension is ready.
+								}
+							});
+							// Add the listener to the store so it gets disposed automatically
+							// when the store is disposed (either on timeout or normal completion).
+							store.add(listener);
 
-						this._extensionService.onDidChangeExtensionsStatus((statuses) => {
-							if (statuses.some((status) => status.value === 'ms-python.python')) {
-								clearTimeout(timeout);
-								resolve(true); // Extension found, return true
-							}
+							// TODO: Consider adding an immediate check here in case the extension is already ready
+
 						});
-					});
+
+						// Race the extension readiness promise against a 1-second timeout.
+						// The `onTimeout` callback ensures the listener is disposed if the timeout occurs first.
+						const result = await raceTimeout(extensionReadyPromise, 1000, () => store.dispose());
+
+						// `raceTimeout` returns the promise's result (true) if it wins, or undefined if it times out.
+						return result === true;
+					} finally {
+						// Ensure the store (and the listener) is disposed if the promise resolved normally
+						// or if any error occurred during the race.
+						store.dispose();
+					}
 				};
 
 				if (!await pythonExtensionReady()) {
