@@ -46,7 +46,6 @@ import { IUriIdentityService } from '../../../../platform/uriIdentity/common/uri
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IUserDataProfilesService } from '../../../../platform/userDataProfile/common/userDataProfile.js';
 import { IMarkdownString, MarkdownString } from '../../../../base/common/htmlContent.js';
-import { joinPath } from '../../../../base/common/resources.js';
 import { verifiedPublisherIcon } from './extensionsIcons.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { IStringDictionary } from '../../../../base/common/collections.js';
@@ -835,7 +834,7 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 		const untrustedExtensionManifests: IExtensionManifest[] = [];
 		const manifestsToGetOtherUntrustedPublishers: IExtensionManifest[] = [];
 		for (const { extension, manifest, checkForPackAndDependencies } of extensions) {
-			if (!this.isPublisherTrusted(extension)) {
+			if (!extension.private && !this.isPublisherTrusted(extension)) {
 				untrustedExtensions.push(extension);
 				untrustedExtensionManifests.push(manifest);
 				if (checkForPackAndDependencies) {
@@ -881,9 +880,10 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 			}
 		};
 
-		const getPublisherLink = ({ publisherDisplayName, publisher }: { publisherDisplayName: string; publisher: string }) => {
-			return `[${publisherDisplayName}](${joinPath(URI.parse(this.productService.extensionsGallery!.publisherUrl), publisher)})`;
+		const getPublisherLink = ({ publisherDisplayName, publisherLink }: { publisherDisplayName: string; publisherLink?: string }) => {
+			return publisherLink ? `[${publisherDisplayName}](${publisherLink})` : publisherDisplayName;
 		};
+
 		const unverifiedLink = 'https://aka.ms/vscode-verify-publisher';
 
 		const title = allPublishers.length === 1
@@ -898,7 +898,7 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 			const extension = untrustedExtensions[0];
 			const manifest = untrustedExtensionManifests[0];
 			if (otherUntrustedPublishers.length) {
-				customMessage.appendMarkdown(localize('extension published by message', "The extension {0} is published by {1}.", `[${extension.displayName}](${this.productService.extensionsGallery!.itemUrl}?itemName=${extension.identifier.id})`, getPublisherLink(extension)));
+				customMessage.appendMarkdown(localize('extension published by message', "The extension {0} is published by {1}.", `[${extension.displayName}](${extension.detailsLink})`, getPublisherLink(extension)));
 				customMessage.appendMarkdown('&nbsp;');
 				const commandUri = URI.parse(`command:extension.open?${encodeURIComponent(JSON.stringify([extension.identifier.id, manifest.extensionPack?.length ? 'extensionPack' : 'dependencies']))}`).toString();
 				if (otherUntrustedPublishers.length === 1) {
@@ -909,10 +909,10 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 				customMessage.appendMarkdown('&nbsp;');
 				customMessage.appendMarkdown(localize('firstTimeInstallingMessage', "This is the first time you're installing extensions from these publishers."));
 			} else {
-				customMessage.appendMarkdown(localize('message1', "The extension {0} is published by {1}. This is the first extension you're installing from this publisher.", `[${extension.displayName}](${this.productService.extensionsGallery!.itemUrl}?itemName=${extension.identifier.id})`, getPublisherLink(extension)));
+				customMessage.appendMarkdown(localize('message1', "The extension {0} is published by {1}. This is the first extension you're installing from this publisher.", `[${extension.displayName}](${extension.detailsLink})`, getPublisherLink(extension)));
 			}
 		} else {
-			customMessage.appendMarkdown(localize('multiInstallMessage', "This is the first time you're installing extensions from publishers {0} and {1}.", allPublishers.slice(0, allPublishers.length - 1).map(p => getPublisherLink(p)).join(', '), getPublisherLink(allPublishers[allPublishers.length - 1])));
+			customMessage.appendMarkdown(localize('multiInstallMessage', "This is the first time you're installing extensions from publishers {0} and {1}.", getPublisherLink(allPublishers[0]), getPublisherLink(allPublishers[allPublishers.length - 1])));
 		}
 
 		if (verifiedPublishers.length || unverfiiedPublishers.length === 1) {
@@ -958,7 +958,7 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 
 	}
 
-	private async getOtherUntrustedPublishers(manifests: IExtensionManifest[]): Promise<{ publisher: string; publisherDisplayName: string; publisherDomain?: { link: string; verified: boolean } }[]> {
+	private async getOtherUntrustedPublishers(manifests: IExtensionManifest[]): Promise<{ publisher: string; publisherDisplayName: string; publisherLink?: string; publisherDomain?: { link: string; verified: boolean } }[]> {
 		const extensionIds = new Set<string>();
 		for (const manifest of manifests) {
 			for (const id of [...(manifest.extensionPack ?? []), ...(manifest.extensionDependencies ?? [])]) {
@@ -979,7 +979,7 @@ export class ExtensionManagementService extends Disposable implements IWorkbench
 		await this.getDependenciesAndPackedExtensionsRecursively([...extensionIds], extensions, CancellationToken.None);
 		const publishers = new Map<string, IGalleryExtension>();
 		for (const [, extension] of extensions) {
-			if (this.isPublisherTrusted(extension)) {
+			if (extension.private || this.isPublisherTrusted(extension)) {
 				continue;
 			}
 			publishers.set(extension.publisherDisplayName, extension);
@@ -1465,6 +1465,7 @@ class WorkspaceExtensionsManagementService extends Disposable {
 			updated: !!extension.metadata?.updated,
 			pinned: !!extension.metadata?.pinned,
 			isWorkspaceScoped: true,
+			private: false,
 			source: 'resource',
 			size: extension.metadata?.size ?? 0,
 		};

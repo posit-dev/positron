@@ -40,6 +40,7 @@ import { validatePositronExtensionManifest } from '../../extensions/common/posit
 // --- End Positron ---
 //
 export type ManifestMetadata = Partial<{
+	targetPlatform: TargetPlatform;
 	installedTimestamp: number;
 	size: number;
 }>;
@@ -726,6 +727,7 @@ class ExtensionsScanner extends Disposable {
 			metadata = {
 				installedTimestamp: manifest.__metadata.installedTimestamp,
 				size: manifest.__metadata.size,
+				targetPlatform: manifest.__metadata.targetPlatform,
 			};
 		}
 
