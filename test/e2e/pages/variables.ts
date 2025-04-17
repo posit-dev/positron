@@ -80,6 +80,11 @@ export class Variables {
 		});
 	}
 
+	async hasProgressBar(): Promise<boolean> {
+		const progressBar = this.code.driver.page.locator('.variables-core .monaco-progress-container');
+		return await progressBar.isVisible();
+	}
+
 	/**
 	 * Action: Show or hide the secondary side bar (variables pane).
 	 * @param action show or hide the secondary side bar
@@ -189,6 +194,10 @@ export class Variables {
 
 	async clickSessionLink() {
 		await this.code.driver.page.getByLabel('Active View Switcher').getByText('Session').click();
+	}
+
+	async clickDeleteAllVariables() {
+		await this.code.driver.page.getByLabel('Delete all objects').click();
 	}
 
 	/**

@@ -12,6 +12,7 @@ const POSITRON_MODAL_DIALOG_BOX_OK = '.positron-modal-dialog-box .ok-cancel-acti
 const POSITRON_MODAL_DIALOG_BOX_CANCEL = '.positron-modal-dialog-box .ok-cancel-action-bar .positron-button.action-bar-button:not(.default)';
 const POSITRON_MODAL_DIALOG_BOX_TITLE = '.positron-modal-dialog-box .simple-title-bar-title';
 const POSITRON_MODAL_DIALOG_POPUP_OPTION = '.positron-modal-popup .positron-modal-popup-children';
+const POSITRON_MODAL_DIALOG_DELETE = '.positron-modal-dialog-box .action-bar-button.default';
 const NOTIFICATION_TOAST = '.notification-toast';
 
 /*
@@ -37,9 +38,20 @@ export class Popups {
 			this.code.logger.log('Checking for modal dialog box');
 			// fail fast if the modal is not present
 			await expect(this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX)).toBeVisible();
-			await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX_OK).click();
+			await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_DELETE).click();
 		} catch {
 			this.code.logger.log('Did not find modal dialog box');
+		}
+	}
+
+	async confirmDeleteModalDialog() {
+		try {
+			this.code.logger.log('Checking for confirm delete modal dialog box');
+			// fail fast if the modal is not present
+			await expect(this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX)).toBeVisible();
+			await this.code.driver.page.locator(POSITRON_MODAL_DIALOG_DELETE).click();
+		} catch {
+			this.code.logger.log('Did not find confirm delete modal dialog box');
 		}
 	}
 
