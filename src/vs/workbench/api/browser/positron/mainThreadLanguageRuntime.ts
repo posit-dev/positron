@@ -1370,13 +1370,13 @@ export class MainThreadLanguageRuntime
 		this._disposables.add(
 			this._positronConsoleService.onDidExecuteCode(
 				(event) => {
-					this._proxy.$notifyCodeExecuted(event)
+					this._proxy.$notifyCodeExecuted(event);
 				}
 			));
 		this._disposables.add(
 			this._runtimeNotebookKernelService.onDidExecuteCode(
 				(event) => {
-					this._proxy.$notifyCodeExecuted(event)
+					this._proxy.$notifyCodeExecuted(event);
 				}
 			));
 
@@ -1534,7 +1534,7 @@ export class MainThreadLanguageRuntime
 			metadata: {
 				extensionId: extensionId,
 			}
-		}
+		};
 
 		return this._positronConsoleService.executeCode(
 			languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
