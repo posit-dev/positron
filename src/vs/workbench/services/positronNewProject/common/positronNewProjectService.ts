@@ -419,6 +419,24 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					return;
 				}
 
+				// Create the Python environment
+				// Note: this command will show a quick pick to select the Python interpreter if the
+				// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
+				// specified interpreter is not considered to be a Global Python installation).
+				const createEnvCommand = 'python.createEnvironmentAndRegister';
+				const createEnv = async () => {
+					return await this._commandService.executeCommand(
+						createEnvCommand,
+						{
+							workspaceFolder,
+							providerId: provider,
+							interpreterPath,
+							condaPythonVersion,
+							selectEnvironment: true
+						}
+					);
+				};
+
 				const pythonExtensionReady = async (): Promise<boolean> => {
 					// Use a DisposableStore to manage the lifetime of the event listener.
 					const store = new DisposableStore();
@@ -434,9 +452,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 							// Add the listener to the store so it gets disposed automatically
 							// when the store is disposed (either on timeout or normal completion).
 							store.add(listener);
-
-							// TODO: Consider adding an immediate check here in case the extension is already ready
-
 						});
 
 						// Race the extension readiness promise against a 1-second timeout.
@@ -452,31 +467,25 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 					}
 				};
 
-				if (!await pythonExtensionReady()) {
-					const message = this._failedPythonEnvMessage('Python extension not found.');
-					this._logService.error(message);
-					this._notificationService.warn(message);
-				}
+				let result: CreateEnvironmentResult | undefined;
 
-				// Create the Python environment
-				// Note: this command will show a quick pick to select the Python interpreter if the
-				// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
-				// specified interpreter is not considered to be a Global Python installation).
-				const createEnvCommand = 'python.createEnvironmentAndRegister';
-				const result: CreateEnvironmentResult | undefined =
-					await this._commandService.executeCommand(
-						createEnvCommand,
-						{
-							workspaceFolder,
-							providerId: provider,
-							interpreterPath,
-							condaPythonVersion,
-							// Do not start the environment after creation. We'll install ipykernel
-							// first, then set the environment as the affiliated runtime, which will
-							// be automatically started by the runtimeStartupService.
-							selectEnvironment: false
-						}
-					);
+				// Attempt to create the environment
+				// If the Python extension is not ready, wait for it to be ready before retrying.
+				// The reason we just try instead of trying to check if the extension is ready via the
+				// extension service is that for some reason there is no way to check if the extension is
+				// ready, rather than just registered.
+				try {
+					result = await createEnv();
+				} catch (error) {
+					const extensionReady = await pythonExtensionReady();
+					if (!extensionReady) {
+						const message = this._failedPythonEnvMessage('Python extension not found.');
+						this._logService.error(message);
+						this._notificationService.warn(message);
+					}
+
+					result = await createEnv();
+				}
 
 				// Check if the environment was created successfully
 				if (!result || result.error || !result.path) {
