@@ -49,16 +49,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		if (modelConfig.type === 'chat') {
-			const languageModel = newLanguageModel(modelConfig);
-			const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
-
-			if (error) {
-				throw new Error(error.message);
-			}
-
-			registerModelWithAPI(languageModel, modelConfig, context);
-		}
+		registerModelWithAPI(modelConfig, context);
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
@@ -98,8 +89,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 				// TODO: Allow for setting a default in the configuration.
 				const isFirst = idx === 0;
 
-				const languageModel = newLanguageModel(config);
-				registerModelWithAPI(languageModel, config, context, isFirst);
+				registerModelWithAPI(config, context, isFirst);
 			});
 
 		// Set context for if we have chat models available for use
@@ -119,9 +109,16 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
  * @param modelConfig the language model's config
  * @param context the extension context
  */
-function registerModelWithAPI(languageModel: positron.ai.LanguageModelChatProvider, modelConfig: ModelConfig, context: vscode.ExtensionContext, isDefault = true) {
+async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, isDefault = true) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
+		const languageModel = newLanguageModel(modelConfig);
+		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
+
+		if (error) {
+			throw new Error(error.message);
+		}
+
 		const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
 			name: languageModel.name,
 			family: languageModel.provider,
@@ -133,17 +130,14 @@ function registerModelWithAPI(languageModel: positron.ai.LanguageModelChatProvid
 			isDefault: isDefault,
 		});
 		modelDisposables.push(modelDisp);
+		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
 	}
-
 	// Register with VS Code completions API
-	if (modelConfig.type === 'completion') {
+	else if (modelConfig.type === 'completion') {
 		const completionProvider = newCompletionProvider(modelConfig);
 		const complDisp = vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, completionProvider);
 		modelDisposables.push(complDisp);
 	}
-
-	const hasChatModels = modelConfig.type === 'chat';
-	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 }
 
 function registerParticipants(context: vscode.ExtensionContext) {

@@ -165,13 +165,6 @@ export class CopilotService implements vscode.Disposable {
 	 * Prompt the user to sign in to Copilot if they aren't already signed in.
 	 */
 	private async signIn(): Promise<boolean> {
-		// HACK: Register the Copilot completion item provider.
-		// This is a temporary workaround until the configuration UI supports
-		// Copilot completions. It should be safe for now since the sign in
-		// command is only enabled when the hidden `positron.assistant.copilot.enable`
-		// setting is enabled.
-		this.registerInlineCompletionItemProvider();
-
 		const client = this.client();
 		const response = await client.sendRequest(SignInRequest.type, {});
 
