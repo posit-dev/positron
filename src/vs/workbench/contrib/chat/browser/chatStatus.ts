@@ -38,6 +38,9 @@ import { IChatStatusItemService, ChatStatusEntry } from './chatStatusItemService
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { EditorResourceAccessor, SideBySideEditor } from '../../../common/editor.js';
 import { getCodeEditor } from '../../../../editor/browser/editorBrowser.js';
+// --- Start Positron ---
+import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
+// --- End Positron ---
 
 const gaugeBackground = registerColor('gauge.background', {
 	dark: inputValidationInfoBorder,
@@ -120,19 +123,29 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 	}
 
 	private async create(): Promise<void> {
-		const hidden = this.chatEntitlementService.sentiment === ChatSentiment.Disabled;
+		// --- Start Positron ---
+		// We only need the part that displays the status. No need to hide it based on the chat entitlement setting the right context keys
+		this.entry ||= this.statusbarService.addEntry(this.getEntryProps(), 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
 
-		if (!hidden) {
-			this.entry ||= this.statusbarService.addEntry(this.getEntryProps(), 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
+		// TODO@bpasero: remove this eventually
+		const completionsStatusId = `${defaultChat.extensionId}.status`;
+		this.statusbarService.updateEntryVisibility(completionsStatusId, false);
+		this.statusbarService.overrideEntry(completionsStatusId, { name: localize('codeCompletionsStatus', "Copilot Code Completions"), text: localize('codeCompletionsStatusText', "$(copilot) Completions") });
 
-			// TODO@bpasero: remove this eventually
-			const completionsStatusId = `${defaultChat.extensionId}.status`;
-			this.statusbarService.updateEntryVisibility(completionsStatusId, false);
-			this.statusbarService.overrideEntry(completionsStatusId, { name: localize('codeCompletionsStatus', "Copilot Code Completions"), text: localize('codeCompletionsStatusText', "$(copilot) Completions") });
-		} else {
-			this.entry?.dispose();
-			this.entry = undefined;
-		}
+		// const hidden = this.chatEntitlementService.sentiment === ChatSentiment.Disabled;
+
+		// if (!hidden) {
+		// 	this.entry ||= this.statusbarService.addEntry(this.getEntryProps(), 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
+
+		// 	// TODO@bpasero: remove this eventually
+		// 	const completionsStatusId = `${defaultChat.extensionId}.status`;
+		// 	this.statusbarService.updateEntryVisibility(completionsStatusId, false);
+		// 	this.statusbarService.overrideEntry(completionsStatusId, { name: localize('codeCompletionsStatus', "Copilot Code Completions"), text: localize('codeCompletionsStatusText', "$(copilot) Completions") });
+		// } else {
+		// 	this.entry?.dispose();
+		// 	this.entry = undefined;
+		// }
+		// --- End Positron ---
 	}
 
 	private registerListeners(): void {
@@ -263,6 +276,9 @@ class ChatStatusDashboard extends Disposable {
 	private readonly entryDisposables = this._register(new MutableDisposable());
 
 	constructor(
+		// --- Start Positron ---
+		@ILanguageFeaturesService private readonly languageFeaturesService: ILanguageFeaturesService,
+		// --- End Positron ---
 		@IChatEntitlementService private readonly chatEntitlementService: ChatEntitlementService,
 		@IChatStatusItemService private readonly chatStatusItemService: IChatStatusItemService,
 		@ICommandService private readonly commandService: ICommandService,
@@ -350,27 +366,45 @@ class ChatStatusDashboard extends Disposable {
 			}
 		}
 
-		// Settings
+		// --- Start Positron ---
+		// Completion Providers
 		{
-			addSeparator(localize('settingsTitle', "Settings"));
-
-			this.createSettings(this.element, disposables);
+			const providers = $('div.header', undefined, localize('completionProvidersTitle', "Completion Providers"));
+			this.element.appendChild(providers);
+			this.languageFeaturesService.inlineCompletionsProvider.allNoModel().forEach(provider => {
+				const name = provider.displayName;
+				if (name) {
+					// add an element to the container with the name
+					providers.append($('div', undefined, name));
+				}
+			});
 		}
+		// Remove settings related to Copilot extension
+
+		// Settings
+		// {
+		// 	addSeparator(localize('settingsTitle', "Settings"));
+
+		// 	this.createSettings(this.element, disposables);
+		// }
+
+
 
 		// New to Copilot / Signed out
-		{
-			const newUser = isNewUser(this.chatEntitlementService);
-			const signedOut = this.chatEntitlementService.entitlement === ChatEntitlement.Unknown;
-			if (newUser || signedOut) {
-				addSeparator(undefined);
+		// {
+		// 	const newUser = isNewUser(this.chatEntitlementService);
+		// 	const signedOut = this.chatEntitlementService.entitlement === ChatEntitlement.Unknown;
+		// 	if (newUser || signedOut) {
+		// 		addSeparator(undefined);
 
-				this.element.appendChild($('div.description', undefined, newUser ? localize('activateDescription', "Set up Copilot to use AI features.") : localize('signInDescription', "Sign in to use Copilot AI features.")));
+		// 		this.element.appendChild($('div.description', undefined, newUser ? localize('activateDescription', "Set up Copilot to use AI features.") : localize('signInDescription', "Sign in to use Copilot AI features.")));
 
-				const button = disposables.add(new Button(this.element, { ...defaultButtonStyles }));
-				button.label = newUser ? localize('activateCopilotButton', "Set up Copilot") : localize('signInToUseCopilotButton', "Sign in to use Copilot");
-				disposables.add(button.onDidClick(() => this.runCommandAndClose(newUser ? 'workbench.action.chat.triggerSetup' : () => this.chatEntitlementService.requests?.value.signIn())));
-			}
-		}
+		// 		const button = disposables.add(new Button(this.element, { ...defaultButtonStyles }));
+		// 		button.label = newUser ? localize('activateCopilotButton', "Set up Copilot") : localize('signInToUseCopilotButton', "Sign in to use Copilot");
+		// 		disposables.add(button.onDidClick(() => this.runCommandAndClose(newUser ? 'workbench.action.chat.triggerSetup' : () => this.chatEntitlementService.requests?.value.signIn())));
+		// 	}
+		// }
+		// --- End Positron ---
 
 		return this.element;
 	}
@@ -457,6 +491,8 @@ class ChatStatusDashboard extends Disposable {
 		return update;
 	}
 
+	// --- Start Positron ---
+	// @ts-ignore
 	private createSettings(container: HTMLElement, disposables: DisposableStore): HTMLElement {
 		const modeId = this.editorService.activeTextEditorLanguageId;
 		const settings = container.appendChild($('div.settings'));
@@ -480,6 +516,7 @@ class ChatStatusDashboard extends Disposable {
 
 		return settings;
 	}
+	// --- End Positron ---
 
 	private createSetting(container: HTMLElement, settingId: string, label: string, accessor: ISettingsAccessor, disposables: DisposableStore): Checkbox {
 		const checkbox = disposables.add(new Checkbox(label, Boolean(accessor.readSetting()), defaultCheckboxStyles));
