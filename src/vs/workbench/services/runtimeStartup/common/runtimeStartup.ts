@@ -189,15 +189,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 				if (exit.reason === RuntimeExitReason.Error) {
 					// Restart after a crash, if necessary
-					this.restartAfterCrash(session, exit).then(shouldCleanup => {
-						// Clean things up if requested.
-						if (shouldCleanup) {
-							session.cleanup();
-						}
-					});
-				} else if (exit.reason !== RuntimeExitReason.Restart) {
-					// If the session is not restarting, clean up the Ext Host side.
-					session.cleanup();
+					this.restartAfterCrash(session, exit);
 				}
 			}));
 		}));
