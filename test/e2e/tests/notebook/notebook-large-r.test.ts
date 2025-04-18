@@ -25,6 +25,8 @@ test.describe('Large R Notebook', {
 
 		await notebooks.runAllCells(120000);
 
+		await app.workbench.layouts.enterLayout('notebook');
+
 		await app.workbench.quickaccess.runCommand('notebook.focusTop');
 		await app.code.driver.page.locator('span').filter({ hasText: 'library(dplyr)' }).locator('span').first().click();
 
@@ -51,6 +53,6 @@ test.describe('Large R Notebook', {
 			}
 		}
 
-		expect(allFigures.length).toBeGreaterThan(10);
+		expect(allFigures.length).toBeGreaterThan(20);
 	});
 });

@@ -24,6 +24,8 @@ test.describe('Large Python Notebook', {
 
 		await notebooks.runAllCells(120000);
 
+		await app.workbench.layouts.enterLayout('notebook');
+
 		await app.workbench.quickaccess.runCommand('notebook.focusTop');
 		await app.code.driver.page.locator('span').filter({ hasText: 'import pandas as pd' }).locator('span').first().click();
 
