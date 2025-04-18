@@ -278,7 +278,7 @@ const baseHeaders = {
 // --- Start Positron ---
 function getPlatformDownloads(bootstrap) {
     // return both architectures for mac universal installer
-    if (bootstrap && process.platform === 'darwin') {
+    if (bootstrap && process.platform === 'darwin' && !process.env['VSCODE_DEV']) {
         return ['darwin-x64', 'darwin-arm64'];
     }
     switch (os_1.default.arch()) {
