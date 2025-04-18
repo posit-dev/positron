@@ -11,7 +11,7 @@
 	padding-left: 10px;
 	padding-right: 10px;
 	background-color: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
+	color: var(--vscode-button-foreground) !important;
 }
 
 .runtime-restart-button:hover {
