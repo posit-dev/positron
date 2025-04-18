@@ -7,6 +7,7 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { observableValue } from '../../../../../base/common/observable.js';
 import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientType } from '../../common/languageRuntimeClientInstance.js';
+import { ILanguageRuntimeMessageState } from '../../common/languageRuntimeService.js';
 
 export class TestRuntimeClientInstance extends Disposable implements IRuntimeClientInstance<any, any> {
 	private readonly _dataEmitter = this._register(new Emitter<IRuntimeClientOutput<any>>());
@@ -74,5 +75,9 @@ export class TestRuntimeClientInstance extends Disposable implements IRuntimeCli
 	/** Set the client's state. */
 	setClientState(state: RuntimeClientState): void {
 		this.clientState.set(state, undefined);
+	}
+
+	updatePendingRpcState(message: ILanguageRuntimeMessageState): void {
+		// No-op
 	}
 }
