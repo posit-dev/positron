@@ -49,7 +49,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		registerModelWithAPI(modelConfig, context);
+		await registerModelWithAPI(modelConfig, context);
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
@@ -82,15 +82,16 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 	}
 
 	try {
-		modelConfigs
-			.forEach((config, idx) => {
-				// We need at least one default and one non-default model for the dropdown to appear.
-				// For now, just set the first language model as default.
-				// TODO: Allow for setting a default in the configuration.
-				const isFirst = idx === 0;
+		let idx = 0;
+		for (const config of modelConfigs) {
+			// We need at least one default and one non-default model for the dropdown to appear.
+			// For now, just set the first language model as default.
+			// TODO: Allow for setting a default in the configuration.
+			const isFirst = idx === 0;
 
-				registerModelWithAPI(config, context, isFirst);
-			});
+			await registerModelWithAPI(config, context, isFirst);
+			idx++;
+		}
 
 		// Set context for if we have chat models available for use
 		const hasChatModels = modelConfigs.filter(config => config.type === 'chat').length > 0;
@@ -113,11 +114,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
 		const languageModel = newLanguageModel(modelConfig);
-		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
-
-		if (error) {
-			throw new Error(error.message);
-		}
+		await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
 
 		const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
 			name: languageModel.name,
