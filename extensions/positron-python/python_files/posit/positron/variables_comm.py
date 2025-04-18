@@ -171,6 +171,9 @@ class VariablesBackendRequest(str, enum.Enum):
     # Clear all variables
     Clear = "clear"
 
+    # Asynchronously Clear all variables
+    AsyncClear = "async_clear"
+
     # Deletes a set of named variables
     Delete = "delete"
 
@@ -220,6 +223,39 @@ class ClearRequest(BaseModel):
 
     method: Literal[VariablesBackendRequest.Clear] = Field(
         description="The JSON-RPC method name (clear)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class AsyncClearParams(BaseModel):
+    """
+    Clears (deletes) all variables in the current session.
+    """
+
+    callback_id: StrictStr = Field(
+        description="A callback_id used to identify the request.",
+    )
+
+    include_hidden_objects: StrictBool = Field(
+        description="Whether to clear hidden objects in addition to normal variables",
+    )
+
+
+class AsyncClearRequest(BaseModel):
+    """
+    Clears (deletes) all variables in the current session.
+    """
+
+    params: AsyncClearParams = Field(
+        description="Parameters to the AsyncClear method",
+    )
+
+    method: Literal[VariablesBackendRequest.AsyncClear] = Field(
+        description="The JSON-RPC method name (async_clear)",
     )
 
     jsonrpc: str = Field(
@@ -357,6 +393,7 @@ class VariablesBackendMessageContent(BaseModel):
     data: Union[
         ListRequest,
         ClearRequest,
+        AsyncClearRequest,
         DeleteRequest,
         InspectRequest,
         ClipboardFormatRequest,
@@ -375,6 +412,9 @@ class VariablesFrontendEvent(str, enum.Enum):
 
     # Refresh variables
     Refresh = "refresh"
+
+    # Return async clear result
+    ReturnAsyncClear = "return_async_clear"
 
 
 class UpdateParams(BaseModel):
@@ -417,6 +457,20 @@ class RefreshParams(BaseModel):
     )
 
 
+class ReturnAsyncClearParams(BaseModel):
+    """
+    Return async clear result
+    """
+
+    callback_id: StrictStr = Field(
+        description="The callback ID that was used to send the async clear request.",
+    )
+
+    error_message: Optional[StrictStr] = Field(
+        description="Optional error message if something failed to compute",
+    )
+
+
 VariableList.update_forward_refs()
 
 InspectedVariable.update_forward_refs()
@@ -430,6 +484,10 @@ ListRequest.update_forward_refs()
 ClearParams.update_forward_refs()
 
 ClearRequest.update_forward_refs()
+
+AsyncClearParams.update_forward_refs()
+
+AsyncClearRequest.update_forward_refs()
 
 DeleteParams.update_forward_refs()
 
@@ -450,3 +508,5 @@ ViewRequest.update_forward_refs()
 UpdateParams.update_forward_refs()
 
 RefreshParams.update_forward_refs()
+
+ReturnAsyncClearParams.update_forward_refs()

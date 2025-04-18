@@ -9,6 +9,7 @@ import { IVariableGroup } from './variableGroup.js';
 import { IVariableOverflow as IVariableOverflow } from './variableOverflow.js';
 import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeClientState } from '../../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { VariablesClientStatus } from '../../../languageRuntime/common/languageRuntimeVariablesClient.js';
 
 /**
  * PositronVariablesGrouping enumeration.
@@ -75,6 +76,11 @@ export interface IPositronVariablesInstance {
 	readonly state: RuntimeClientState;
 
 	/**
+	 * Gets the current status
+	 */
+	readonly status: VariablesClientStatus;
+
+	/**
 	 * Gets or sets the grouping.
 	 */
 	grouping: PositronVariablesGrouping;
@@ -99,6 +105,12 @@ export interface IPositronVariablesInstance {
 	 * changes.
 	 */
 	readonly onDidChangeState: Event<RuntimeClientState>;
+
+	/**
+	 * Event that fires when the status of the underlying comm
+	 * changes.
+	 */
+	readonly onDidChangeStatus: Event<VariablesClientStatus>;
 
 	/**
 	 * The onFocusElement event.
