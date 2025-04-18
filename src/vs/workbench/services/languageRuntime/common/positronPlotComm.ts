@@ -51,6 +51,11 @@ export interface PlotResult {
 	 */
 	mime_type: string;
 
+	/**
+	 * The policy used to render the plot
+	 */
+	policy?: RenderPolicy;
+
 }
 
 /**
@@ -70,7 +75,28 @@ export interface PlotSize {
 }
 
 /**
- * Possible values for Format in Render
+ * The policy used to render the plot
+ */
+export interface RenderPolicy {
+	/**
+	 * Plot size of the render policy
+	 */
+	size: PlotSize;
+
+	/**
+	 * The pixel ratio of the display device
+	 */
+	pixel_ratio: number;
+
+	/**
+	 * Format of the render policy
+	 */
+	format: RenderFormat;
+
+}
+
+/**
+ * Possible values for RenderFormat
  */
 export enum RenderFormat {
 	Png = 'png',
