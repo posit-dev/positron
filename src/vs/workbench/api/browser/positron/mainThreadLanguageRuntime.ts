@@ -959,7 +959,12 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	static clientCounter = 0;
 
 	dispose(): void {
-		// Do nothing.
+		// Cleanup (dispose) the ExtHost side of the session.
+
+		// TODO @samclark2015: Is this the right logic?
+		// Can we confirm that this class is only disposed of when the
+		// console is deleted?
+		this.cleanup();
 	}
 }
 
