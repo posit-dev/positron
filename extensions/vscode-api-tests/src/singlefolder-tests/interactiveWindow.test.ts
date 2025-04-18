@@ -89,11 +89,7 @@ async function addCellAndRun(code: string, notebook: vscode.NotebookDocument) {
 		assert.strictEqual(notebookEditor.notebook.cellAt(0).kind, vscode.NotebookCellKind.Code);
 	});
 
-	// --- Start Positron ---
-	// Temporarily disabled until it's fixed upstream.
-	// See: https://github.com/posit-dev/positron/issues/2666.
-	test.skip('Interactive window scrolls after execute', async () => {
-		// --- End Positron ---
+	test('Interactive window scrolls after execute', async () => {
 		assert.ok(vscode.workspace.workspaceFolders);
 		const { notebookEditor } = await createInteractiveWindow(defaultKernel);
 

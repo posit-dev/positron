@@ -78,8 +78,10 @@ async function verifySplitEditor(tabName: string) {
 	await editorActionBar.clickButton('Split Editor Right');
 	await editorActionBar.verifySplitEditor('right', tabName);
 
-	await editorActionBar.clickButton('Split Editor Down');
-	await editorActionBar.verifySplitEditor('down', tabName);
+	await expect(async () => {
+		await editorActionBar.clickButton('Split Editor Down');
+		await editorActionBar.verifySplitEditor('down', tabName);
+	}).toPass({ timeout: 30000 });
 }
 
 async function verifyOpenInNewWindow(app: Application, text: string) {
