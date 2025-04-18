@@ -16,12 +16,9 @@ test.describe('Large Python Notebook', {
 	tag: [tags.NOTEBOOKS, tags.WIN]
 }, () => {
 
-	test.skip('Python - Large notebook execution', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7255' }]
-	}, async function ({ app, python }) {
-		test.setTimeout(480_000); // huge timeout because this is a heavy test
+	test('Python - Large notebook execution', async function ({ app, python }) {
+		test.slow();
 		const notebooks = app.workbench.notebooks;
-
 
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_py_notebook', 'spotify.ipynb'));
 		await notebooks.selectInterpreter('Python');
@@ -34,14 +31,9 @@ test.describe('Large Python Notebook', {
 		const allFigures: any[] = [];
 		const uniqueLocators = new Set<string>();
 
-		for (let i = 0; i < 6; i++) {
+		for (let i = 0; i < 12; i++) {
 
-			// the second param to wheel (y) seems to be ignored so we send
-			// more messages instead of one with a large y value
-			for (let j = 0; j < 100; j++) {
-				await app.code.driver.page.mouse.wheel(0, 1);
-				await app.code.driver.page.waitForTimeout(100);
-			}
+			await app.code.driver.page.keyboard.press('PageDown');
 
 			const figureLocator = app.workbench.notebooks.frameLocator.locator('.plot-container');
 			const figures = await figureLocator.all();
