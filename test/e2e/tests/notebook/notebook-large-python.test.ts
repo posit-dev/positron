@@ -10,8 +10,9 @@ test.use({
 	suiteId: __filename,
 });
 
+// test is too heavy for web
 test.describe('Large Python Notebook', {
-	tag: [tags.NOTEBOOKS, tags.WIN, tags.WEB]
+	tag: [tags.NOTEBOOKS, tags.WIN]
 }, () => {
 
 	test('Python - Large notebook execution', async function ({ app, python }) {

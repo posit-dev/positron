@@ -11,9 +11,9 @@ test.use({
 	snapshots: false
 });
 
-
+// test is too heavy for web
 test.describe('Large R Notebook', {
-	tag: [tags.NOTEBOOKS, tags.WIN, tags.WEB]
+	tag: [tags.NOTEBOOKS, tags.WIN]
 }, () => {
 
 	test('R - Large notebook execution', async function ({ app, r }) {
