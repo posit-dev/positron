@@ -16,9 +16,9 @@ import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerSer
 
 // Key for the configuration setting
 export const USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY =
-	'positron.dataExplorerSummaryCollapsed';
+	'explorer.summaryCollapsed';
 export const USE_POSITRON_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
-	'positron.dataExplorerSummaryLayout';
+	'explorer.summaryLayout';
 
 export function DataExplorerSummaryCollapseEnabled(
 	configurationService: IConfigurationService
@@ -52,7 +52,7 @@ configurationRegistry.registerConfiguration({ // for summary collapse
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'positron.enablePositronDataExplorerSummaryCollapse',
+				'explorer.enableSummaryCollapse',
 				'Collapse Data Explorer Summary Panel by default.'
 			),
 		},
@@ -67,7 +67,7 @@ configurationRegistry.registerConfiguration({ // for summary layout
 			default: 'left', // Default value (can be "left" or "right")
 			enum: ['left', 'right'], // Define possible values
 			markdownDescription: localize(
-				'positron.dataExplorerSummaryLayout',
+				'explorer.summaryLayout',
 				'Select the position of the Data Explorer Summary Panel (left or right).'
 			),
 		},
