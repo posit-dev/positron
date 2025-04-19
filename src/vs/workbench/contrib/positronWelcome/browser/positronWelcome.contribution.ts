@@ -1,0 +1,51 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
+import { PositronImportSettings, ResetPositronImportPrompt } from './actions.js';
+import { getCodeSettingsPath, promptImport } from './helpers.js';
+
+class PositronWelcomeContribution extends Disposable implements IWorkbenchContribution {
+	constructor(
+		@IStorageService private readonly storageService: IStorageService,
+		@INotificationService private readonly notificationService: INotificationService,
+		@ICommandService private readonly commandService: ICommandService,
+		@IPathService private readonly pathService: IPathService,
+		@IFileService private readonly fileService: IFileService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+	) {
+		super();
+
+		getCodeSettingsPath(this.pathService).then(async (codeSettingsPath) => {
+			const codeSettingsExist = await this.fileService.exists(codeSettingsPath);
+
+			this.contextKeyService.createKey('positron.settingsImport.hasCodeSettings', codeSettingsExist);
+			this.registerActions();
+
+			if (codeSettingsExist) {
+				promptImport(
+					this.storageService,
+					this.notificationService,
+					this.commandService,
+				);
+			}
+		});
+	}
+
+	private registerActions(): void {
+		this._register(registerAction2(PositronImportSettings));
+		this._register(registerAction2(ResetPositronImportPrompt));
+	}
+}
+
+registerWorkbenchContribution2('positron.welcome', PositronWelcomeContribution, WorkbenchPhase.Eventually);
