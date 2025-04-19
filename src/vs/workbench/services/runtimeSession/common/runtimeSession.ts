@@ -908,6 +908,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`and cannot be restarted.`);
 		}
 	}
+
 	/**
 	 * Interrupt a runtime session.
 	 *
@@ -922,6 +923,24 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			`Interrupting session ${formatLanguageRuntimeSession(session)}'`);
 
 		return session.interrupt();
+	}
+
+	/**
+	 * Update the name of a runtime session.
+	 *
+	 * @param sessionId The session ID of the runtime to update.
+	 * @param name The new name for the session.
+	 */
+	updateSessionName(sessionId: string, name: string): Promise<void> {
+		const session = this.getSession(sessionId);
+		if (!session) {
+			throw new Error(`No session with ID '${sessionId}' was found.`);
+		}
+		this._logService.info(
+			`Updating session name to ${name} for session ${formatLanguageRuntimeSession(session)}'`);
+
+		//@dhruvisompura TODO: figure out how to update the sessionName field in the session
+		return Promise.resolve();
 	}
 
 	/**

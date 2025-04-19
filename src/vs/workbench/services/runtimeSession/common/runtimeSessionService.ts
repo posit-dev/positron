@@ -485,6 +485,14 @@ export interface IRuntimeSessionService {
 	interruptSession(sessionId: string): Promise<void>;
 
 	/**
+	 * Update the name of a runtime session.
+	 *
+	 * @param sessionId The identifier of the session to update.
+	 * @param name The new name for the session.
+	 */
+	updateSessionName(sessionId: string, name: string): Promise<void>;
+
+	/**
 	 * Shutdown a runtime session for a notebook.
 	 *
 	 * @param notebookUri The notebook's URI.

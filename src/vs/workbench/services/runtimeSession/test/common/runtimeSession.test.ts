@@ -1125,4 +1125,18 @@ suite.skip('Positron - RuntimeSessionService', () => {
 		assert.strictEqual(returnedSessionId, undefined,
 			'Function should return undefined when no session exists for the old URI');
 	});
+
+	test('updateSessionName updates session name correctly', async () => {
+		// Create a new session
+		const session = await startConsole();
+		await waitForRuntimeState(session, RuntimeState.Ready);
+		assert.strictEqual(session.metadata.sessionName, 'test-session', 'Initial session name should match');
+
+		// Set a new name for the session
+		const newName = 'updated-session-name';
+		runtimeSessionService.updateSessionName(session.sessionId, newName);
+
+		// Verify the session's name has been updated
+		assert.strictEqual(session.metadata.sessionName, newName, 'Session name should be updated correctly');
+	});
 });

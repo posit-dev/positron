@@ -122,6 +122,10 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		}
 
 		try {
+			await positronConsoleContext.runtimeSessionService.updateSessionName(
+				positronConsoleInstance.sessionId,
+				newName
+			);
 			setNewSessionName(newName);
 		} catch (error) {
 			positronConsoleContext.notificationService.error(
