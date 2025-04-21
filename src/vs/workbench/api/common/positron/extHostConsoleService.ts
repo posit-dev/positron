@@ -45,13 +45,13 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		return this._proxy.$getConsoleWidth();
 	}
 
-	getConsoleForLanguage(id: string): positron.Console | undefined {
-		// find a console for this langauge id
+	getConsoleForLanguage(languageId: string): positron.Console | undefined {
+		// Find a console for this `languageId`
 		const extHostConsole = Array.from(this._extHostConsolesBySessionId.values())
-			.find(extHostConsole => extHostConsole.getLanguageId() === id);
+			.find(extHostConsole => extHostConsole.getLanguageId() === languageId);
 
 		if (!extHostConsole) {
-			// Console for this language `id` doesn't exist yet
+			// Console for this `languageId` doesn't exist yet
 			return undefined;
 		}
 
@@ -67,15 +67,15 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	}
 
 	// Called when a new console instance is started
-	$addConsole(id: string): void {
-		const extHostConsole = new ExtHostConsole(id, this._proxy, this._logService);
-		this._extHostConsolesBySessionId.set(id, extHostConsole);
+	$addConsole(sessionId: string): void {
+		const extHostConsole = new ExtHostConsole(sessionId, this._proxy, this._logService);
+		this._extHostConsolesBySessionId.set(sessionId, extHostConsole);
 	}
 
 	// Called when a console instance is removed
-	$removeConsole(id: string): void {
-		const extHostConsole = this._extHostConsolesBySessionId.get(id);
-		this._extHostConsolesBySessionId.delete(id);
+	$removeConsole(sessionId: string): void {
+		const extHostConsole = this._extHostConsolesBySessionId.get(sessionId);
+		this._extHostConsolesBySessionId.delete(sessionId);
 		// "Dispose" of an `ExtHostConsole`, ensuring that future API calls warn / error
 		dispose(extHostConsole);
 	}

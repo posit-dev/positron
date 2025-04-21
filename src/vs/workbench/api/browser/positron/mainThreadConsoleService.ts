@@ -65,13 +65,13 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		//
 		// this._disposables.add(
 		// 	this._positronConsoleService.onDidRemovePositronConsoleInstance((console) => {
-		// 		const id = console.session.sessionId;
+		// 		const sessionId = console.session.sessionId;
 		//
 		// 		// First update ext host
-		// 		this._proxy.$removeConsole(id);
+		// 		this._proxy.$removeConsole(sessionId);
 		//
 		// 		// Then update main thread
-		// 		this.removeConsole(id);
+		// 		this.removeConsole(sessionId);
 		// 	})
 		// )
 	}
@@ -80,9 +80,9 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		this._disposables.dispose();
 	}
 
-	private getConsoleForLanguage(id: string): MainThreadConsole | undefined {
+	private getConsoleForLanguage(languageId: string): MainThreadConsole | undefined {
 		return Array.from(this._mainThreadConsolesBySessionId.values())
-			.find(console => console.getLanguageId() === id);
+			.find(console => console.getLanguageId() === languageId);
 	}
 
 	private addConsole(sessionId: string, console: IPositronConsoleInstance) {
@@ -104,8 +104,9 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		return Promise.resolve(this._positronConsoleService.getConsoleWidth());
 	}
 
-	$tryPasteText(id: string, text: string): void {
-		const mainThreadConsole = this.getConsoleForLanguage(id);
+	$tryPasteText(sessionId: string, text: string): void {
+		// TODO!: This is very wrong!
+		const mainThreadConsole = this.getConsoleForLanguage(sessionId);
 
 		if (!mainThreadConsole) {
 			return;

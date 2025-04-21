@@ -14,14 +14,14 @@ export class ExtHostConsole {
 	private readonly _value: positron.Console;
 
 	constructor(
-		id: string,
+		sessionId: string,
 		proxy: MainThreadConsoleServiceShape,
 		logService: ILogService,
 	) {
 		// So we can access private fields later on
 		const that = this;
 
-		// Implement `Console` interface, scoped in such a way that we can access the `id`,
+		// Implement `Console` interface, scoped in such a way that we can access the `sessionId`,
 		// `proxy`, and `logService` at any time without requiring them as arguments
 		this._value = Object.freeze({
 			pasteText(text: string): void {
@@ -29,7 +29,7 @@ export class ExtHostConsole {
 					logService.warn('Console is closed/disposed.');
 					return;
 				}
-				proxy.$tryPasteText(id, text);
+				proxy.$tryPasteText(sessionId, text);
 			}
 		});
 	}
