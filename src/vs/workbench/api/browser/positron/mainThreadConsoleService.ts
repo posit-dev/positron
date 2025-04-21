@@ -80,11 +80,6 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		this._disposables.dispose();
 	}
 
-	private getConsoleForLanguage(languageId: string): MainThreadConsole | undefined {
-		return Array.from(this._mainThreadConsolesBySessionId.values())
-			.find(console => console.getLanguageId() === languageId);
-	}
-
 	private addConsole(sessionId: string, console: IPositronConsoleInstance) {
 		const mainThreadConsole = new MainThreadConsole(console);
 		this._mainThreadConsolesBySessionId.set(sessionId, mainThreadConsole);
@@ -104,9 +99,33 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		return Promise.resolve(this._positronConsoleService.getConsoleWidth());
 	}
 
+	/**
+	 * Get the session id of the active console for a particular language id
+	 *
+	 * @param languageId The language id to find a session id for.
+	 */
+	$getSessionIdForLanguage(languageId: string): Promise<string | undefined> {
+		// TODO: This is wrong in a multi-session world. It finds the
+		// first matching `languageId` in the map, but we likely want the "most
+		// recently activated and still alive" one. Reprex to prove it is wrong,
+		// which should eventually become a test:
+		// - Start R console 1
+		// - Start R console 2
+		// - Run `cli::cli_alert("{.run revdepcheck::cloud_summary()}")` in R
+		//   console 2 and click the hyperlink.
+		// - The pasted code will incorrectly end up in R console 1.
+
+		for (let [sessionId, console] of this._mainThreadConsolesBySessionId.entries()) {
+			if (console.getLanguageId() === languageId) {
+				return Promise.resolve(sessionId);
+			}
+		}
+
+		return Promise.resolve(undefined);
+	}
+
 	$tryPasteText(sessionId: string, text: string): void {
-		// TODO!: This is very wrong!
-		const mainThreadConsole = this.getConsoleForLanguage(sessionId);
+		const mainThreadConsole = this._mainThreadConsolesBySessionId.get(sessionId);
 
 		if (!mainThreadConsole) {
 			return;

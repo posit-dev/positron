@@ -45,13 +45,29 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		return this._proxy.$getConsoleWidth();
 	}
 
-	getConsoleForLanguage(languageId: string): positron.Console | undefined {
-		// Find a console for this `languageId`
-		const extHostConsole = Array.from(this._extHostConsolesBySessionId.values())
-			.find(extHostConsole => extHostConsole.getLanguageId() === languageId);
+	/**
+	 * Queries the main thread for the console that aligns with this
+	 * `languageId`.
+	 *
+	 * @param languageId The language id to find a console for.
+	 * @returns A promise that resolves to a `positron.Console` or `undefined`
+	 * if no console can be found.
+	 */
+	async getConsoleForLanguage(languageId: string): Promise<positron.Console | undefined> {
+		const sessionId = await this._proxy.$getSessionIdForLanguage(languageId);
+
+		if (!sessionId) {
+			// Main thread says there is no `sessionId` for this `languageId`
+			return undefined;
+		}
+
+		// Now find the console on the extension host side
+		const extHostConsole = this._extHostConsolesBySessionId.get(sessionId);
 
 		if (!extHostConsole) {
-			// Console for this `languageId` doesn't exist yet
+			// Extension host says there is no console for this `sessionId`
+			// (Should be extremely rare, if not impossible, for main thread and extension host to
+			// be out of sync here)
 			return undefined;
 		}
 
