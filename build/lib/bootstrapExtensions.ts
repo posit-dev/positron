@@ -165,7 +165,7 @@ export function getBootstrapExtensionStream(extension: IExtensionDefinition) {
 		return vfs.src(['**'], { cwd: getExtensionPath(extension), dot: true })
 			.pipe(rename(p => {
 				if (p.dirname === undefined) {
-					p.dirname = `${extension.name}/${p.dirname}`;
+					p.dirname = `${extension.name}`;
 					return;
 				}
 				const dirParts = p.dirname.split(path.sep);

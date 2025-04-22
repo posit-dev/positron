@@ -87,7 +87,7 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 			if (toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND) {
 				this.logService.debug(`No ${sourceType} extensions to install`, extensionsLocation.toString());
 			} else {
-				this.logService.error(`Error initializing ${sourceType}extensions `, error);
+				this.logService.error(`Error initializing ${sourceType} extensions `, error);
 			}
 			return;
 		}
