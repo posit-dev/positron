@@ -390,14 +390,13 @@ class ChatStatusDashboard extends Disposable {
 			const rendered = this.renderContributedChatStatusItem(entry);
 			this.element.appendChild(rendered.element);
 		}
-		// --- End Positron ---
 
 		// Settings
-		{
-			addSeparator(localize('settingsTitle', "Settings"));
+		// {
+		// 	addSeparator(localize('settingsTitle', "Settings"));
 
-			this.createSettings(this.element, disposables);
-		}
+		// 	this.createSettings(this.element, disposables);
+		// }
 
 
 		// --- Start Positron ---
@@ -503,6 +502,9 @@ class ChatStatusDashboard extends Disposable {
 		return update;
 	}
 
+	// --- Start Positron ---
+	// Removed Settings section since it doesn't change Positron Assistant
+	// @ts-ignore
 	private createSettings(container: HTMLElement, disposables: DisposableStore): HTMLElement {
 		const modeId = this.editorService.activeTextEditorLanguageId;
 		const settings = container.appendChild($('div.settings'));
@@ -526,6 +528,7 @@ class ChatStatusDashboard extends Disposable {
 
 		return settings;
 	}
+	// --- End Positron ---
 
 	private createSetting(container: HTMLElement, settingId: string, label: string, accessor: ISettingsAccessor, disposables: DisposableStore): Checkbox {
 		const checkbox = disposables.add(new Checkbox(label, Boolean(accessor.readSetting()), defaultCheckboxStyles));
