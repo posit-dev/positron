@@ -173,7 +173,7 @@ export const tocData: ITOCEntry<string> = {
 				// --- Start Positron ---
 				{
 					id: 'features/dataExplorer',
-					label: localize('dataExplorer', "Data Explorer"),
+					label: localize('positron.dataExplorer', "Data Explorer"),
 					settings: ['dataExplorer.*']
 				},
 				// --- End Positron ---
