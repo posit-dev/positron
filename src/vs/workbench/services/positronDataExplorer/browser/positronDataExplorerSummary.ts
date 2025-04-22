@@ -52,7 +52,7 @@ configurationRegistry.registerConfiguration({ // for summary collapse
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'explorer.enableSummaryCollapse',
+				'positron.enablePositronDataExplorerSummaryCollapse',
 				'Collapse Data Explorer Summary Panel by default.'
 			),
 		},
@@ -67,7 +67,7 @@ configurationRegistry.registerConfiguration({ // for summary layout
 			default: 'left', // Default value (can be "left" or "right")
 			enum: ['left', 'right'], // Define possible values
 			markdownDescription: localize(
-				'explorer.summaryLayout',
+				'positron.dataExplorerSummaryLayout',
 				'Select the position of the Data Explorer Summary Panel (left or right).'
 			),
 		},
