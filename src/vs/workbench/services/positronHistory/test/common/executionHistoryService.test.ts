@@ -432,6 +432,10 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 		this.metadata = createSessionMetadata(sessionId);
 	}
 
+	cleanup(): Thenable<void> {
+		throw new Error('Method not implemented.');
+	}
+
 	getLabel(): string {
 		return this.metadata.sessionName;
 	}

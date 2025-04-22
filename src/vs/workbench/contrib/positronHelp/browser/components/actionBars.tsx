@@ -193,7 +193,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{currentHelpTitle &&
 							<ActionBarMenuButton
 								actions={helpHistoryActions}
-								text={currentHelpTitle}
+								label={currentHelpTitle}
 								tooltip={tooltipHelpHistory}
 							/>
 						}

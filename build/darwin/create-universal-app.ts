@@ -60,6 +60,8 @@ const stashPatterns = [
 	'**/@vscode/node-addon-api/**',
 	'**/@parcel/node-addon-api/**',
 	'**/@parcel/**/watcher.node',
+	// Exclusions from positron-assistant
+	'**/resources/copilot/**',  // Copilot language server binary
 ];
 
 // Some generated files may end up being different in both distributions.
@@ -78,7 +80,6 @@ const reconciliationFiles = [
 	'Contents/Resources/app/out/vs/code/node/cliProcessMain.js',
 	'Contents/Resources/app/out/vs/code/electron-sandbox/processExplorer/processExplorerMain.js',
 	'Contents/Resources/app/out/vs/code/electron-utility/sharedProcess/sharedProcessMain.js',
-	'Contents/Resources/app/out/vs/workbench/contrib/notebook/common/services/notebookSimpleWorkerMain.js',
 	'Contents/Resources/app/out/vs/workbench/api/worker/extensionHostWorkerMain.js',
 	'Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js',
 	'Contents/Resources/app/out/vs/workbench/workbench.desktop.main.js',
@@ -179,6 +180,7 @@ async function main(buildDir?: string) {
 	const filesToSkip = [
 		'**/CodeResources',
 		'**/Credits.rtf',
+		'**/policies/{*.mobileconfig,**/*.plist}',
 		// TODO: Should we consider expanding this to other files in this area?
 		'**/node_modules/@parcel/node-addon-api/nothing.target.mk'
 	];

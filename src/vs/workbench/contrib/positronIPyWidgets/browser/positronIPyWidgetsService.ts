@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
@@ -323,6 +323,7 @@ export class IPyWidgetsInstance extends Disposable {
 				target_name: client.getClientType(),
 				data: message.data,
 				metadata: message.metadata,
+				buffers: message.buffers,
 			});
 		}));
 

@@ -95,7 +95,7 @@ export const ConsoleInstanceMenuButton = (props: ConsoleInstanceMenuButtonProps)
 	return (
 		<ActionBarMenuButton
 			actions={actions}
-			text={activeRuntimeLabel}
+			label={activeRuntimeLabel}
 		/>
 	);
 };
