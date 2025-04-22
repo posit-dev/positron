@@ -200,7 +200,7 @@ export class DataExplorerClientInstance extends Disposable {
 		// Call the disposable constructor.
 		super();
 
-		this._dataFormatOptions = mapScipenToFormatOptions(getExplorerScipen(configurationService));
+		this._dataFormatOptions = mapScipenToFormatOptions(getDataExplorerScipen(configurationService));
 
 		this._profileFormatOptions = {
 			large_num_digits: 2,
@@ -576,11 +576,11 @@ function mapScipenToFormatOptions(scipen: number): FormatOptions {
 }
 
 // Key for the configuration setting
-const EXPLORER_SCIPEN_KEY =
-	'explorer.scipen';
+const DATA_EXPLORER_SCIPEN_KEY =
+	'dataExplorer.scipen';
 
-function getExplorerScipen(configurationService: IConfigurationService): number {
-	const value = configurationService.getValue<number>('explorer.scipen');
+function getDataExplorerScipen(configurationService: IConfigurationService): number {
+	const value = configurationService.getValue<number>(DATA_EXPLORER_SCIPEN_KEY);
 	if (typeof value === 'number' && Number.isFinite(value)) {
 		return Math.round(value);
 	}
@@ -595,11 +595,11 @@ configurationRegistry.registerConfiguration({ // for scipen
 	...positronConfigurationNodeBase,
 	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
-		[EXPLORER_SCIPEN_KEY]: {
+		[DATA_EXPLORER_SCIPEN_KEY]: {
 			type: 'number',
 			default: 0,
 			markdownDescription: localize(
-				'explorer.scipen',
+				'positron.dataExplorer.scipen',
 				'Controls the bias toward fixed-point notation in the Data Explorer. Higher values favor fixed-point; lower values favor scientific notation. Mirrors the effect of `options(scipen)` in R.'
 			),
 		},
