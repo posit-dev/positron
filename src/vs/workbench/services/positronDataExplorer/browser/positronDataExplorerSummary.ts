@@ -15,16 +15,16 @@ import { positronConfigurationNodeBase } from '../../languageRuntime/common/lang
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
 
 // Key for the configuration setting
-export const USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY =
+export const USE_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY =
 	'dataExplorer.summaryCollapsed';
-export const USE_POSITRON_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
+export const USE_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
 	'dataExplorer.summaryLayout';
 
 export function DataExplorerSummaryCollapseEnabled(
 	configurationService: IConfigurationService
 ) {
 	return Boolean(
-		configurationService.getValue(USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY)
+		configurationService.getValue(USE_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY)
 	);
 }
 
@@ -32,7 +32,7 @@ export function DefaultDataExplorerSummaryLayout(
 	configurationService: IConfigurationService
 ) {
 	if (String(
-		configurationService.getValue(USE_POSITRON_DATA_EXPLORER_SUMMARY_LAYOUT_KEY)
+		configurationService.getValue(USE_DATA_EXPLORER_SUMMARY_LAYOUT_KEY)
 	) === 'left') {
 		return PositronDataExplorerLayout.SummaryOnLeft;
 	} else {
@@ -48,11 +48,11 @@ configurationRegistry.registerConfiguration({ // for summary collapse
 	...positronConfigurationNodeBase,
 	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
-		[USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY]: {
+		[USE_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY]: {
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'positron.enablePositronDataExplorerSummaryCollapse',
+				'positron.dataExplorerSummaryCollapsed',
 				'Collapse Data Explorer Summary Panel by default.'
 			),
 		},
@@ -62,7 +62,7 @@ configurationRegistry.registerConfiguration({ // for summary layout
 	...positronConfigurationNodeBase,
 	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
-		[USE_POSITRON_DATA_EXPLORER_SUMMARY_LAYOUT_KEY]: {
+		[USE_DATA_EXPLORER_SUMMARY_LAYOUT_KEY]: {
 			type: 'string',
 			default: 'left', // Default value (can be "left" or "right")
 			enum: ['left', 'right'], // Define possible values
