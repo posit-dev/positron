@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { UiRuntimeNotifications } from 'positron';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
@@ -15,6 +16,7 @@ import { RuntimeState } from '../../languageRuntime/common/languageRuntimeServic
 import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { ILanguageRuntimeGlobalEvent, ILanguageRuntimeSession, ILanguageRuntimeSessionManager, RuntimeClientType } from './runtimeSessionService.js';
+import { IPositronPlotsService } from '../../positronPlots/common/positronPlots.js';
 
 /**
  * Utility class for tracking the state and disposables associated with an
@@ -48,7 +50,8 @@ export class ActiveRuntimeSession extends Disposable {
 		private readonly _commandService: ICommandService,
 		private readonly _logService: ILogService,
 		private readonly _openerService: IOpenerService,
-		private readonly _configurationService: IConfigurationService
+		private readonly _configurationService: IConfigurationService,
+		private readonly _positronPlotsService: IPositronPlotsService
 	) {
 		super();
 
@@ -224,6 +227,24 @@ export class ActiveRuntimeSession extends Disposable {
 				}
 			});
 		}));
+
+		// Register UI notification handlers from frontend to backend for subscribed
+		// backends
+		const subscriptions = this.session.runtimeMetadata.uiSubscriptions;
+		if (subscriptions) {
+			for (const sub of subscriptions) {
+				switch (sub) {
+						case UiRuntimeNotifications.DidChangePlotsRenderSettings:
+						this._positronPlotsService.onDidChangePlotsRenderSettings((settings) => {
+							uiClient.didChangePlotsRenderSettings(settings);
+						});
+						break;
+					default:
+						this._logService.info(`Unknown subscription type: ${sub}`);
+						break;
+				}
+			}
+		}
 
 		return client.getClientId();
 	}

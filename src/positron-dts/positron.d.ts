@@ -470,7 +470,7 @@ declare module 'positron' {
 		 * Subscriptions to notifications from the UI. When subscribed, the frontend sends
 		 * notifications to the backend via the UI client.
 		 */
-  	uiSubscriptions?: UiRuntimeNotifications[];
+		uiSubscriptions?: UiRuntimeNotifications[];
 	}
 
 	/**

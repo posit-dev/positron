@@ -14,6 +14,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { isWeb } from '../../../../base/common/platform.js';
+import { PlotsRenderSettings } from '../../positronPlots/common/positronPlots.js';
 
 export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 
@@ -261,5 +262,20 @@ export class UiClientInstance extends Disposable {
 	 */
 	public getClientState(): RuntimeClientState {
 		return this._client.clientState.get();
+	}
+
+	/**
+	 * Notification that the settings to render a plot (i.e. the plot size)
+	 * have changed.
+	 *
+	 * Typically fired when the plot component has been resized by the user.
+	 * This notification is useful to produce accurate pre-renderings of
+	 * plots.
+	 *
+	 * @param settings Plot rendering settings
+	 *
+	 */
+	didChangePlotsRenderSettings(settings: PlotsRenderSettings): Promise<void> {
+		return this._comm.didChangePlotsRenderSettings(settings);
 	}
 }
