@@ -15,17 +15,15 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { CurrentWorkingDirectory } from './currentWorkingDirectory.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { ConsoleInstanceMenuButton } from './consoleInstanceMenuButton.js';
 import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { IsDevelopmentContext } from '../../../../../platform/contextkey/common/contextkeys.js';
 import { UiFrontendEvent } from '../../../../services/languageRuntime/common/positronUiComm.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
-import { RuntimeExitReason, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { ILanguageRuntimeSession, RuntimeStartMode } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { PositronDynamicActionBar, DynamicActionBarAction, DEFAULT_ACTION_BAR_BUTTON_WIDTH } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
 /**
@@ -59,8 +57,6 @@ const positronToggleTrace = localize('positronToggleTrace', "Toggle trace");
 const positronToggleWordWrap = localize('positronToggleWordWrap', "Toggle word wrap");
 const positronClearConsole = localize('positronClearConsole', "Clear console");
 const positronRestartConsole = localize('positronRestartConsole', "Restart console");
-const positronShutdownConsole = localize('positronShutdownConsole', "Shutdown console");
-const positronStartConsole = localize('positronStartConsole', "Start console");
 const positronDeleteConsole = localize('positronDeleteConsole', "Delete console");
 const positronOpenInEditor = localize('positronOpenInEditor', "Open in editor");
 
@@ -106,7 +102,6 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Constants.
 	const showDeveloperUI = IsDevelopmentContext.getValue(positronConsoleContext.contextKeyService);
-	const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(positronConsoleContext.configurationService);
 
 	// State hooks.
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] =
@@ -285,44 +280,6 @@ export const ActionBar = (props: ActionBarProps) => {
 		positronConsoleContext.activePositronConsoleInstance?.clearConsole();
 	};
 
-	// Power cycle (start or stop) console event handler.
-	const powerCycleConsoleHandler = async () => {
-		// Ensure we're acting on a valid console instance.
-		if (!positronConsoleContext.activePositronConsoleInstance) {
-			return;
-		}
-
-		// Get the current session the console is bound to and its state.
-		const consoleInstance = positronConsoleContext.activePositronConsoleInstance;
-		const session = consoleInstance.attachedRuntimeSession;
-
-		// If no session, treat state as uninitialized.
-		const state = session ? session.getRuntimeState() : RuntimeState.Uninitialized;
-
-		if (state === RuntimeState.Exited || state === RuntimeState.Uninitialized) {
-			const runtimeMetadata = consoleInstance.runtimeMetadata;
-			const sessionMetadata = consoleInstance.sessionMetadata;
-
-			// Start a new session if the current session has exited, or never
-			// started (e.g. retrying after a startup failure)
-			positronConsoleContext.runtimeSessionService.startNewRuntimeSession(
-				runtimeMetadata.runtimeId,
-				sessionMetadata.sessionName,
-				sessionMetadata.sessionMode,
-				sessionMetadata.notebookUri,
-				`User-requested new session from console action bar ` +
-				`after session ${sessionMetadata.sessionId} exited.`,
-				RuntimeStartMode.Starting,
-				false
-			);
-		} else {
-			// Shutdown the current session.
-			session?.shutdown(
-				RuntimeExitReason.Shutdown
-			);
-		}
-	};
-
 	// Restart console event handler.
 	const restartConsoleHandler = async () => {
 		if (!positronConsoleContext.activePositronConsoleInstance) {
@@ -361,25 +318,15 @@ export const ActionBar = (props: ActionBarProps) => {
 	};
 
 	// Left actions.
-	const leftActions: DynamicActionBarAction[] = [];
-
-	// Console instance menu button.
-	if (!multiSessionsEnabled) {
-		leftActions.push({
-			fixedWidth: 20,
-			text: positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionName,
-			separator: true,
-			component: <ConsoleInstanceMenuButton {...props} />
-		});
-	}
-
-	// Current working directory.
-	leftActions.push({
-		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
-		text: directoryLabel,
-		separator: false,
-		component: <CurrentWorkingDirectory directoryLabel={directoryLabel} />
-	});
+	const leftActions: DynamicActionBarAction[] = [
+		// Current working directory.
+		{
+			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+			text: directoryLabel,
+			separator: false,
+			component: <CurrentWorkingDirectory directoryLabel={directoryLabel} />
+		}
+	];
 
 	// Right actions.
 	const rightActions: DynamicActionBarAction[] = [];
@@ -410,24 +357,6 @@ export const ActionBar = (props: ActionBarProps) => {
 				>
 					<div className={'action-bar-button-icon	interrupt codicon codicon-positron-interrupt-runtime'} />
 				</ActionBarButton>
-			)
-		});
-	}
-
-	// Power action.
-	if (!multiSessionsEnabled) {
-		rightActions.push({
-			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
-			separator: false,
-			component: (
-				<ActionBarButton
-					align='right'
-					ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
-					disabled={!(canShutdown || canStart)}
-					icon={ThemeIcon.fromId('positron-power-button-thin')}
-					tooltip={canStart ? positronStartConsole : positronShutdownConsole}
-					onPressed={powerCycleConsoleHandler}
-				/>
 			)
 		});
 	}
@@ -480,13 +409,12 @@ export const ActionBar = (props: ActionBarProps) => {
 	}
 
 	// Console info action.
-	if (multiSessionsEnabled) {
-		rightActions.push({
-			fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
-			separator: true,
-			component: <ConsoleInstanceInfoButton />,
-		})
-	}
+	rightActions.push({
+		fixedWidth: DEFAULT_ACTION_BAR_BUTTON_WIDTH,
+		separator: true,
+		component: <ConsoleInstanceInfoButton />,
+	})
+
 
 	// Toggle trace action.
 	if (showDeveloperUI) {
