@@ -13,6 +13,7 @@ import { FileOperationResult, IFileService, IFileStat, toFileOperationResult } f
 import { getErrorMessage } from '../../../base/common/errors.js';
 import { existsSync, readFileSync, writeFileSync } from 'fs';
 import { Disposable } from '../../../base/common/lifecycle.js';
+import { getSystemArchitecture } from '../../../base/node/arch.js';
 
 export class PositronBootstrapExtensionsInitializer extends Disposable {
 
@@ -50,12 +51,18 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 
 	async installVSIXOnStartup(): Promise<void> {
 		await this.installDefaultVSIX();
+		await this.installArchitectureSpecificVSIX();
 		await this.installCustomVSIX();
 	}
 
 	private async installDefaultVSIX(): Promise<void> {
 		const extensionsLocation = this.getSystemVSIXPath();
-		await this.installVSIXFromLocation(extensionsLocation);
+		await this.installVSIXFromLocation(extensionsLocation, 'default');
+	}
+
+	private async installArchitectureSpecificVSIX(): Promise<void> {
+		const archLocation = this.getArchSpecificVSIXPath();
+		await this.installVSIXFromLocation(archLocation, 'arch-specific');
 	}
 
 	private async installCustomVSIX(): Promise<void> {
@@ -65,35 +72,35 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 			return;
 		}
 
-		await this.installVSIXFromLocation(customExtensionsLocation);
+		await this.installVSIXFromLocation(customExtensionsLocation, 'custom');
 	}
 
-	private async installVSIXFromLocation(extensionsLocation: URI): Promise<void> {
+	private async installVSIXFromLocation(extensionsLocation: URI, sourceType: string): Promise<void> {
 		let stat: IFileStat;
 		try {
 			stat = await this.fileService.resolve(extensionsLocation);
 			if (!stat.children) {
-				this.logService.debug('There are no extensions to install', extensionsLocation.toString());
+				this.logService.debug(`No ${sourceType} extensions to install`, extensionsLocation.toString());
 				return;
 			}
 		} catch (error) {
 			if (toFileOperationResult(error) === FileOperationResult.FILE_NOT_FOUND) {
-				this.logService.debug('There are no extensions to install', extensionsLocation.toString());
+				this.logService.debug(`No ${sourceType} extensions to install`, extensionsLocation.toString());
 			} else {
-				this.logService.error('Error initializing extensions ', error);
+				this.logService.error(`Error initializing ${sourceType}extensions `, error);
 			}
 			return;
 		}
 
 		const vsixFiles = stat.children.filter(child => child.name.endsWith('.vsix'));
 		if (vsixFiles.length === 0) {
-			this.logService.debug('There are no VSIX extension files to install', extensionsLocation.toString());
+			this.logService.debug(`No ${sourceType} VSIX extension files to install`, extensionsLocation.toString());
 			return;
 		}
 
 		const installedExtensions = await this.extensionManagementService.getInstalled();
 		await Promise.all(vsixFiles.map(async vsix => {
-			this.logService.info('Installing extension:', vsix.resource.toString());
+			this.logService.info(`Installing ${sourceType} extension:`, vsix.resource.toString());
 			try {
 				const vsixManifest: IExtensionManifest = await this.extensionManagementService.getManifest(vsix.resource);
 				const extensionId = vsixManifest.publisher + '.' + vsixManifest.name;
@@ -102,17 +109,17 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 				if (installedExtension) {
 					const installedVersion = installedExtension.manifest.version;
 					if (!this.isVSIXNewer(installedVersion, vsixManifest.version)) {
-						this.logService.info('Extension is already installed and is up to date:', vsix.resource.toString());
+						this.logService.info(`${sourceType} extension is already installed and is up to date:`, vsix.resource.toString());
 						return;
 					}
 				}
 				await this.extensionManagementService.install(vsix.resource, { donotIncludePackAndDependencies: true, keepExisting: false });
-				this.logService.info('Successfully installed extension:', vsix.resource.toString());
+				this.logService.info(`Successfully installed ${sourceType}extension:`, vsix.resource.toString());
 			} catch (error) {
-				this.logService.error('Error installing extension:', vsix.resource.toString(), getErrorMessage(error));
+				this.logService.error(`Error installing ${sourceType} extension:`, vsix.resource.toString(), getErrorMessage(error));
 			}
 		}));
-		this.logService.info('Bootstrapped extensions initialized', extensionsLocation.toString());
+		this.logService.info(`${sourceType} extensions initialized`, extensionsLocation.toString());
 
 	}
 
@@ -127,6 +134,11 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		return process.env['VSCODE_DEV']
 			? URI.file(join(this.environmentService.appRoot, '.build', 'bootstrapExtensions'))
 			: URI.file(join(this.environmentService.appRoot, 'extensions', 'bootstrap'));
+	}
+
+	private getArchSpecificVSIXPath(): URI {
+		const arch = getSystemArchitecture();
+		return URI.file(join(this.getSystemVSIXPath().fsPath, arch));
 	}
 
 	private getCustomVSIXPath(): URI | undefined {
