@@ -702,6 +702,12 @@ export interface ILanguageRuntimeMetadata {
 
 	/** Extra data supplied by the extension; not read by Positron */
 	readonly extraRuntimeData: any;
+
+	/**
+	 * Subscriptions to notifications from the UI. When subscribed, the frontend sends
+	 * notifications to the backend via the UI client.
+	 */
+	readonly uiSubscriptions?: UiRuntimeNotifications[];
 }
 
 /**
@@ -842,3 +848,7 @@ export interface ILanguageRuntimeService {
 	get startupPhase(): RuntimeStartupPhase;
 }
 
+export enum UiRuntimeNotifications {
+	/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
+	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
+}

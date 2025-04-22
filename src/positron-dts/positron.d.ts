@@ -465,6 +465,20 @@ declare module 'positron' {
 		 * when creating a new session from the metadata.
 		 */
 		extraRuntimeData: any;
+
+		/**
+		 * Subscriptions to notifications from the UI. When subscribed, the frontend sends
+		 * notifications to the backend via the UI client.
+		 */
+  	uiSubscriptions?: UiRuntimeNotifications[];
+	}
+
+	/**
+	 * UI notifications from frontend to backends.
+	 */
+	export enum UiRuntimeNotifications {
+		/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
+		DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 	}
 
 	export interface RuntimeSessionMetadata {
