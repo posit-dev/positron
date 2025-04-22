@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -12,7 +12,7 @@ import { IWorkspaceContextService } from '../../../../platform/workspace/common/
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from './positronNewProject.js';
 import { Event } from '../../../../base/common/event.js';
-import { Barrier, raceTimeout } from '../../../../base/common/async.js';
+import { Barrier } from '../../../../base/common/async.js';
 import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
@@ -22,7 +22,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
-import { IExtensionService } from '../../extensions/common/extensions.js';
 
 /**
  * PositronNewProjectService class.
@@ -58,7 +57,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	constructor(
 		@IWorkspaceContextService private readonly _contextService: IWorkspaceContextService,
 		@ICommandService private readonly _commandService: ICommandService,
-		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IFileService private readonly _fileService: IFileService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -424,67 +422,20 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				// specified Python interpreter is invalid for some reason (e.g. for Venv, if the
 				// specified interpreter is not considered to be a Global Python installation).
 				const createEnvCommand = 'python.createEnvironmentAndRegister';
-				const createEnv = async () => this._commandService.executeCommand(
-					createEnvCommand,
-					{
-						workspaceFolder,
-						providerId: provider,
-						interpreterPath,
-						condaPythonVersion,
-						selectEnvironment: true
-					}
-				);
-
-
-				const pythonExtensionReady = async (): Promise<boolean> => {
-					// Use a DisposableStore to manage the lifetime of the event listener.
-					const store = new DisposableStore();
-					try {
-						// Create a promise that resolves when the Python extension status indicates readiness.
-						const extensionReadyPromise = new Promise<true>(resolve => {
-							// Listen for extension status changes.
-							const listener = this._extensionService.onDidChangeExtensionsStatus((statuses) => {
-								if (statuses.some((status) => status.value === 'ms-python.python')) {
-									resolve(true); // Resolve the promise when the extension is ready.
-								}
-							});
-							// Add the listener to the store so it gets disposed automatically
-							// when the store is disposed (either on timeout or normal completion).
-							store.add(listener);
-						});
-
-						// Race the extension readiness promise against a 1-second timeout.
-						// The `onTimeout` callback ensures the listener is disposed if the timeout occurs first.
-						const result = await raceTimeout(extensionReadyPromise, 1000, () => store.dispose());
-
-						// `raceTimeout` returns the promise's result (true) if it wins, or undefined if it times out.
-						return result === true;
-					} finally {
-						// Ensure the store (and the listener) is disposed if the promise resolved normally
-						// or if any error occurred during the race.
-						store.dispose();
-					}
-				};
-
-				let result: CreateEnvironmentResult | undefined;
-
-				// Attempt to create the environment
-				// If the Python extension is not ready, wait for it to be ready before retrying.
-				// The reason we just try instead of trying to check if the extension is ready via the
-				// extension service is that for some reason there is no way to check if the extension is
-				// ready, rather than just registered.
-				try {
-					result = await createEnv();
-				} catch (error) {
-					const extensionReady = await pythonExtensionReady();
-					if (!extensionReady) {
-						const message = this._failedPythonEnvMessage('Python extension not found.');
-						this._logService.error(message);
-						this._notificationService.warn(message);
-					}
-
-					result = await createEnv();
-				}
+				const result: CreateEnvironmentResult | undefined =
+					await this._commandService.executeCommand(
+						createEnvCommand,
+						{
+							workspaceFolder,
+							providerId: provider,
+							interpreterPath,
+							condaPythonVersion,
+							// Do not start the environment after creation. We'll install ipykernel
+							// first, then set the environment as the affiliated runtime, which will
+							// be automatically started by the runtimeStartupService.
+							selectEnvironment: false
+						}
+					);
 
 				// Check if the environment was created successfully
 				if (!result || result.error || !result.path) {
