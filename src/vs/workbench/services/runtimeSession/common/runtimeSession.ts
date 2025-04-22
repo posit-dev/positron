@@ -25,6 +25,7 @@ import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
+import { IPositronPlotsService } from '../../positronPlots/common/positronPlots.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -159,7 +160,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@IUpdateService private readonly _updateService: IUpdateService
+		@IUpdateService private readonly _updateService: IUpdateService,
+		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
 	) {
 
 		super();
@@ -1635,8 +1637,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Save the new active session info.
-		const activeSession = new ActiveRuntimeSession(session, manager,
-			this._commandService, this._logService, this._openerService, this._configurationService);
+		const activeSession = new ActiveRuntimeSession(
+			session,
+		  manager,
+			this._commandService,
+	 	 	this._logService,
+			this._openerService,
+			this._configurationService,
+		  this._positronPlotsService
+		);
 		this._activeSessionsBySessionId.set(session.sessionId, activeSession);
 		this._register(activeSession);
 		this._register(activeSession.onDidReceiveRuntimeEvent(evt => {
