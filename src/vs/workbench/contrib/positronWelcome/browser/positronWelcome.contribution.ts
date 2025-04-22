@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { isWeb } from '../../../../base/common/platform.js';
 import { registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -25,6 +26,10 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 	) {
 		super();
+
+		if (isWeb) {
+			return;
+		}
 
 		getCodeSettingsPath(this.pathService).then(async (codeSettingsPath) => {
 			const codeSettingsExist = await this.fileService.exists(codeSettingsPath);

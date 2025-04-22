@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import type { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { localize } from '../../../../nls.js';
 import { Action2 } from '../../../../platform/actions/common/actions.js';
@@ -13,7 +14,6 @@ import { IFileService } from '../../../../platform/files/common/files.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
-import { DiffEditorInput } from '../../../common/editor/diffEditorInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
@@ -72,36 +72,68 @@ export class PositronImportSettings extends Action2 {
 			.then(content => content.value.toString());
 
 
-		await commandService.executeCommand(COMPARE_WITH_SAVED_COMMAND_ID, positronSettingsPath);
-		const editor = editorService.activeEditor;
-
-		if (editor instanceof DiffEditorInput) {
-			const model = editorService.activeTextEditorControl?.getModel();
-			if (model) {
-				if ('original' in model && 'modified' in model) {
-					model.modified.setValue('// Settings imported from Visual Studio Code\n' + codeSettingsContent);
-				}
-			}
+		if (await fileService.exists(positronSettingsPath)) {
+			await commandService.executeCommand(COMPARE_WITH_SAVED_COMMAND_ID, positronSettingsPath);
+		} else {
+			await fileService.createFile(positronSettingsPath);
+			await editorService.openEditor({
+				resource: positronSettingsPath
+			});
 		}
 
-		notificationService.prompt(
+		const editor = editorService.activeEditor;
+		const model = editorService.activeTextEditorControl?.getModel();
+
+		if (model && 'original' in model && 'modified' in model) {
+			model.modified.setValue('// Settings imported from Visual Studio Code\n' + codeSettingsContent);
+		} else if (model && 'setValue' in model) {
+			model.setValue('// Settings imported from Visual Studio Code\n' + codeSettingsContent);
+		}
+
+		const disposables: (IDisposable | undefined)[] = [];
+
+		const notification = notificationService.prompt(
 			Severity.Info,
-			localize('positronImportSettingsPrompt', "Settings imported from Visual Studio Code"),
+			localize('positronImportSettingsPrompt', "Save imported Visual Studio Code settings?"),
 			[
 				{
 					label: localize('positronImportSettingsAcceptLabel', "Accept"), run: async () => {
-						await editor?.save(10101010101);
+						await editor?.save(0);
 						await editor?.dispose();
+
+						disposables.forEach(d => d?.dispose());
 					}
 				},
 				{
 					label: localize('positronImportSettingsRejecttLabel', "Reject"), run: async () => {
 						await editor?.dispose();
 
+						disposables.forEach(d => d?.dispose());
 					}
 				},
 			]
 		);
+
+		disposables.push(
+			editorService.onDidCloseEditor(e => {
+				if (e.editor.editorId === editor?.editorId) {
+					notification.close();
+
+					disposables.forEach(d => d?.dispose());
+				}
+			})
+		);
+
+		disposables.push(
+			editor?.onDidChangeDirty(() => {
+				if (!editor.isDirty()) {
+					notification.close();
+
+					disposables.forEach(d => d?.dispose());
+				}
+			})
+		);
+
 
 	}
 }
