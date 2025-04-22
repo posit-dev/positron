@@ -212,9 +212,8 @@
   },
   "scripts": {
     "compile": "gulp compile-extension:positron-assistant",
-		"vscode:prepublish": "npm run compile",
-		"pretest": "npm run compile",
-		"test": "node ../../node_modules/mocha/bin/mocha out/test/**/*.test.js",
+    "vscode:prepublish": "npm run compile",
+    "pretest": "npm run compile",
     "install-copilot-language-server": "ts-node scripts/install-copilot-language-server.ts",
     "postinstall": "ts-node scripts/post-install.ts"
   },
