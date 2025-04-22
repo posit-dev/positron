@@ -23,6 +23,7 @@ export const InternalTextSearchToolId = `${ExtensionTextSearchToolId}_internal`;
 export const TextSearchToolData: IToolData = {
 	id: InternalTextSearchToolId,
 	displayName: localize('chat.tools.findTextInProject', "Find Text In Project"),
+	source: { type: 'internal' },
 	modelDescription: findTextInProjectModelDescription,
 	tags: ['positron-assistant'],
 	canBeReferencedInPrompt: false,
