@@ -40,7 +40,6 @@ import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, IL
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
-import { multipleConsoleSessionsFeatureEnabled } from '../../runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } from '../../positronHistory/common/executionHistoryService.js';
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -191,11 +190,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	//#region Private Properties
 
 	/**
-	 * A map of the Positron console instances by language ID.
-	 */
-	private readonly _positronConsoleInstancesByLanguageId = new Map<string, PositronConsoleInstance>();
-
-	/**
 	 * A map of the Positron console instances by session ID.
 	 */
 	private readonly _positronConsoleInstancesBySessionId = new Map<string, PositronConsoleInstance>();
@@ -250,7 +244,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * @param _viewsService The views service.
 	 */
 	constructor(
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
@@ -315,8 +308,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// Register the onWillStartSessiopn event handler so we start a new
 		// Positron console instance before a runtime starts up.
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
-			const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
-
 			// Ignore non-console sessions
 			if (e.session.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
 				return;
@@ -346,45 +337,28 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				return;
 			}
 
-			if (!multiSessionsEnabled) {
-				// If no instance exists, see if we can reuse an instance from an
-				// exited runtime with a matching language.
-				const positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(e.session.runtimeMetadata.languageId);
-				if (positronConsoleInstance && positronConsoleInstance.state === PositronConsoleState.Exited) {
-					this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.sessionId);
-					positronConsoleInstance.attachRuntimeSession(e.session, attachMode);
-					this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
-				} else {
-					// New runtime with a new language, so start a new Positron console instance.
-					this.startPositronConsoleInstance(e.session, attachMode, e.activate);
-				}
-			} else {
-				/**
-				 * Reuse an instance for the same runtime if we have one. This can happen when
-				 * - the extension host was disconnected and we have disconnected sessions that need to be
-				 * restored.
-				 * - A user initiated a shutdown for a console session and then started a session. A session
-				 * can be started again by (1) clicking the shutdown button again (known as "power-cycling")
-				 * or (2) creating a new session via another UI gesture.
-				 *
-				 * NOTE: This logic for re-using a console instance has issues!
-				 * - If a user attempts to start up a session for a specific console instance there is no
-				 * gaurantee the session will be attached to that console instance.
-				 * - If a user attempts to create a new console session while there is a console instance
-				 * whose session has exited, that console instance will be repurposed instead of creating
-				 * a new one. This is problematic because the user's intention was to creat a new console
-				 * instance for the new session.
-				 */
-				const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(e.session.sessionId);
+			/**
+			 * Reuse an instance for the same runtime if we have one. This needs to happen when
+			 * the extension host is disconnected and we have disconnected sessions that need to be
+			 * restored.
+			 *
+			 * NOTE: This logic for re-using a console instance has issues!
+			 * - If a user attempts to start a session for a specific console instance there is no
+			 * gaurantee the session will be attached to that console instance.
+			 * - If a user attempts to create a new console session while there is a console instance
+			 * whose session has exited, that console instance will be repurposed instead of creating
+			 * a new one. This is problematic because the user's intention was to creat a new console
+			 * instance with a new session.
+			 */
+			const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(e.session.sessionId);
 
-				if (positronConsoleInstance) {
-					this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.sessionId);
-					positronConsoleInstance.attachRuntimeSession(e.session, attachMode);
-					this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
-				} else {
-					// Create a new Positron console instance if we don't have a console instance we can reuse
-					this.startPositronConsoleInstance(e.session, attachMode, e.activate);
-				}
+			if (positronConsoleInstance) {
+				this._positronConsoleInstancesBySessionId.delete(positronConsoleInstance.sessionId);
+				positronConsoleInstance.attachRuntimeSession(e.session, attachMode);
+				this._positronConsoleInstancesBySessionId.set(e.session.sessionId, positronConsoleInstance);
+			} else {
+				// Create a new Positron console instance if we don't have a console instance we can reuse
+				this.startPositronConsoleInstance(e.session, attachMode, e.activate);
 			}
 		}));
 
@@ -560,8 +534,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string): Promise<string> {
-		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
-
 		// When code is executed in the console service, open the console view. This opens
 		// the relevant pane composite if needed.
 		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
@@ -595,22 +567,18 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		// Get the Positron console instance for the language ID.
 		let positronConsoleInstance: PositronConsoleInstance | undefined;
-		if (!multiSessionsEnabled) {
-			positronConsoleInstance = this._positronConsoleInstancesByLanguageId.get(languageId);
+		if (this._activePositronConsoleInstance?.runtimeMetadata.languageId === languageId) {
+			// Return the active console instance for the language if there is one
+			positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
+				this._activePositronConsoleInstance?.sessionId);
 		} else {
-			if (this._activePositronConsoleInstance?.runtimeMetadata.languageId === languageId) {
-				// Return the active console instance for the language if there is one
-				positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
-					this._activePositronConsoleInstance?.sessionId);
-			} else {
-				// Otherwise find the newest session for the languageId that is ready to use
-				positronConsoleInstance = Array.from(this._positronConsoleInstancesBySessionId.values())
-					.sort((a, b) => b.sessionMetadata.createdTimestamp - a.sessionMetadata.createdTimestamp)
-					.find(consoleInstance => {
-						return consoleInstance.runtimeMetadata.languageId === languageId &&
-							consoleInstance.state === PositronConsoleState.Ready;
-					});
-			}
+			// Otherwise find the newest session for the languageId that is ready to use
+			positronConsoleInstance = Array.from(this._positronConsoleInstancesBySessionId.values())
+				.sort((a, b) => b.sessionMetadata.createdTimestamp - a.sessionMetadata.createdTimestamp)
+				.find(consoleInstance => {
+					return consoleInstance.runtimeMetadata.languageId === languageId &&
+						consoleInstance.state === PositronConsoleState.Ready;
+				});
 		}
 
 		if (!positronConsoleInstance) {
@@ -682,22 +650,12 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		sessionMetadata: IRuntimeSessionMetadata,
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		activate: boolean): IPositronConsoleInstance {
-		const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(this._configurationService);
-
 		// Create the new Positron console instance.
 		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
 			PositronConsoleInstance,
 			sessionMetadata,
 			runtimeMetadata,
 		));
-
-		if (!multiSessionsEnabled) {
-			// Add the Positron console instance.
-			this._positronConsoleInstancesByLanguageId.set(
-				runtimeMetadata.languageId,
-				positronConsoleInstance
-			);
-		}
 
 		this._positronConsoleInstancesBySessionId.set(
 			sessionMetadata.sessionId,
@@ -799,10 +757,6 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			}
 		}
 		this._runtimeSessionService.foregroundSession = runtimeSession;
-
-		this._positronConsoleInstancesByLanguageId.delete(
-			consoleInstance.runtimeMetadata.languageId
-		);
 		this._positronConsoleInstancesBySessionId.delete(sessionId);
 
 		consoleInstance.dispose();
@@ -2257,9 +2211,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				!this._configurationService.getValue<boolean>('interpreters.restartOnCrash');
 
 			// In the case of a forced quit, normal shutdown, or unknown shutdown where the exit
-			// code was `0`, we don't attempt to automatically start the runtime again. In this
+			// code was `0`, we don't attempt to automatically start the session again. In this
 			// case, we add an activity item that shows a button the user can use to start the
-			// runtime manually.
+			// session manually.
 			const showRestartButton = exit.reason === RuntimeExitReason.ForcedQuit ||
 				exit.reason === RuntimeExitReason.Shutdown ||
 				exit.reason === RuntimeExitReason.Unknown ||
