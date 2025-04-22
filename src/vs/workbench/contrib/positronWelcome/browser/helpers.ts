@@ -43,8 +43,7 @@ export async function promptImport(
 				label: 'Import',
 				run: () => {
 					commandService.executeCommand(PositronImportSettings.ID);
-					// TODO @samclark2015: Uncomment this when the import command is implemented.
-					// setImportWasPrompted(storageService);
+					setImportWasPrompted(storageService);
 				},
 			},
 			// Dismisses notification, but will prompt again on next launch.
