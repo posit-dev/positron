@@ -408,6 +408,14 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		return this._filterText !== '';
 	}
 
+	/**
+	 * Gets the filter text.
+	 * @returns The filter text.
+	 */
+	getFilterText(): string {
+		return this._filterText;
+	}
+
 	//#endregion IPositronVariablesInstance Implementation
 
 	//#region Public Methods

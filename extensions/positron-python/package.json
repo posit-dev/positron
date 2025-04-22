@@ -71,6 +71,7 @@
         "Machine Learning"
     ],
     "activationEvents": [
+        "onCommand:python.createEnvironmentAndRegister",
         "onStartupFinished",
         "onDebugInitialConfigurations",
         "onLanguage:python",

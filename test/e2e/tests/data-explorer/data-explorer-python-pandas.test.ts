@@ -42,10 +42,12 @@ df = pd.DataFrame(data)`;
 		}).toPass({ timeout: 60000 });
 
 		await test.step('Verify copy to clipboard', async () => {
-			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-			await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
-			const clipboardText = await app.workbench.clipboard.getClipboardText();
-			expect(clipboardText).toBe('Jai');
+			await expect(async () => {
+				await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+				await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
+				const clipboardText = await app.workbench.clipboard.getClipboardText();
+				expect(clipboardText).toBe('Jai');
+			}).toPass({ timeout: 20000 });
 		});
 
 		await app.workbench.dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);

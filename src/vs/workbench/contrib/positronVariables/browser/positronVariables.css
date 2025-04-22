@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,6 +16,7 @@
 	--positronActionBar-foreground: var(--vscode-positronSideActionBar-foreground);
 	--positronActionBar-hoverBackground: var(--vscode-positronSideActionBar-hoverBackground);
 	--positronActionBar-disabledForeground: var(--vscode-positronSideActionBar-disabledForeground);
+	--positronActionBar-checkboxBorder: var(--vscode-positronSideActionBar-checkboxBorder);
 	--positronActionBar-textInputBackground: var(--vscode-positronSideActionBar-textInputBackground);
 	--positronActionBar-textInputBorder: var(--vscode-positronSideActionBar-textInputBorder);
 	--positronActionBar-textInputSelectionForeground: var(--vscode-positronSideActionBar-textInputSelectionForeground);

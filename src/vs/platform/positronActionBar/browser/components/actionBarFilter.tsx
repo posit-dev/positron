@@ -7,7 +7,7 @@
 import './actionBarFilter.css';
 
 // React.
-import React, { ChangeEvent, useRef, useState } from 'react';
+import React, { ChangeEvent, forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
@@ -22,12 +22,16 @@ interface ActionBarFilterProps {
 	onFilterTextChanged: (filterText: string) => void;
 }
 
+export interface ActionBarFilterHandle {
+	setFilterText: (text: string) => void;
+}
+
 /**
  * ActionBarFilter component.
  * @param props An ActionBarFilterProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBarFilter = (props: ActionBarFilterProps) => {
+export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilterProps>((props, ref) => {
 	// Reference hooks.
 	const inputRef = useRef<HTMLInputElement>(undefined!);
 
@@ -47,6 +51,14 @@ export const ActionBarFilter = (props: ActionBarFilterProps) => {
 		setFilterText('');
 		props.onFilterTextChanged('');
 	};
+
+	useImperativeHandle(ref, () => ({
+		setFilterText: (text: string) => {
+			setFilterText(text);
+			inputRef.current.value = text;
+			props.onFilterTextChanged(text);
+		}
+	}));
 
 	// Render.
 	return (
@@ -69,4 +81,4 @@ export const ActionBarFilter = (props: ActionBarFilterProps) => {
 			</div>
 		</div>
 	);
-};
+});

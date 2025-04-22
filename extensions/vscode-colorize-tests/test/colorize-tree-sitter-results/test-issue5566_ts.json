@@ -1,7 +1,7 @@
 [
 	{
 		"c": "function",
-		"t": "storage.type",
+		"t": "storage.type.ts",
 		"r": {
 			"hc_black": "storage.type: #569CD6",
 			"positron_dark": "storage.type: #569CD6",
@@ -11,7 +11,7 @@
 	},
 	{
 		"c": "foo3",
-		"t": "entity.name.function",
+		"t": "variable.ts entity.name.function.ts",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -21,7 +21,7 @@
 	},
 	{
 		"c": "(",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -31,7 +31,7 @@
 	},
 	{
 		"c": ")",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -41,7 +41,7 @@
 	},
 	{
 		"c": "{",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -51,7 +51,7 @@
 	},
 	{
 		"c": "const",
-		"t": "storage.type",
+		"t": "storage.type.ts",
 		"r": {
 			"hc_black": "storage.type: #569CD6",
 			"positron_dark": "storage.type: #569CD6",
@@ -61,7 +61,7 @@
 	},
 	{
 		"c": "foo",
-		"t": "entity.name.function",
+		"t": "variable.ts entity.name.function.ts",
 		"r": {
 			"hc_black": "entity.name.function: #DCDCAA",
 			"positron_dark": "entity.name.function: #DCDCAA",
@@ -71,7 +71,7 @@
 	},
 	{
 		"c": "=",
-		"t": "keyword.operator.assignment",
+		"t": "keyword.operator.assignment.ts",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -81,7 +81,7 @@
 	},
 	{
 		"c": "(",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -91,7 +91,7 @@
 	},
 	{
 		"c": ")",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -101,7 +101,7 @@
 	},
 	{
 		"c": ":",
-		"t": "keyword.operator.type.annotation",
+		"t": "punctuation.delimiter.ts keyword.operator.type.annotation.ts",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -111,7 +111,7 @@
 	},
 	{
 		"c": "any",
-		"t": "support.type.primitive",
+		"t": "support.type.ts support.type.primitive.ts",
 		"r": {
 			"hc_black": "support.type: #4EC9B0",
 			"positron_dark": "support.type: #4EC9B0",
@@ -121,7 +121,7 @@
 	},
 	{
 		"c": "=>",
-		"t": "storage.type",
+		"t": "storage.type.ts",
 		"r": {
 			"hc_black": "storage.type: #569CD6",
 			"positron_dark": "storage.type: #569CD6",
@@ -131,7 +131,7 @@
 	},
 	{
 		"c": "(",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -141,7 +141,7 @@
 	},
 	{
 		"c": "{",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -151,7 +151,7 @@
 	},
 	{
 		"c": "'",
-		"t": "string",
+		"t": "string.quoted.single.ts punctuation.definition.string.begin.ts",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -161,7 +161,7 @@
 	},
 	{
 		"c": "bar",
-		"t": "string",
+		"t": "string.quoted.single.ts",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -171,7 +171,7 @@
 	},
 	{
 		"c": "'",
-		"t": "string",
+		"t": "string.quoted.single.ts punctuation.definition.string.end.ts",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -181,7 +181,7 @@
 	},
 	{
 		"c": ":",
-		"t": "punctuation.delimiter",
+		"t": "punctuation.delimiter.ts",
 		"r": {
 			"dark_plus": "default: #D4D4D4",
 			"light_plus": "default: #000000",
@@ -197,7 +197,7 @@
 	},
 	{
 		"c": "'",
-		"t": "string",
+		"t": "string.quoted.single.ts punctuation.definition.string.begin.ts",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -207,7 +207,7 @@
 	},
 	{
 		"c": "baz",
-		"t": "string",
+		"t": "string.quoted.single.ts",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -217,7 +217,7 @@
 	},
 	{
 		"c": "'",
-		"t": "string",
+		"t": "string.quoted.single.ts punctuation.definition.string.end.ts",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -227,7 +227,7 @@
 	},
 	{
 		"c": "}",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -237,7 +237,7 @@
 	},
 	{
 		"c": ")",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -247,7 +247,7 @@
 	},
 	{
 		"c": "}",
-		"t": "punctuation",
+		"t": "punctuation.ts",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",

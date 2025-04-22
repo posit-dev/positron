@@ -43,6 +43,11 @@
 	align-items: center;
 }
 
+.language-model.button.disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 .language-model.button {
 	flex-direction: row;
 	align-items: center;

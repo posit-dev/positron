@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { ChatAgentLocation } from '../../../chat/common/chatAgents.js';
 import { Event } from '../../../../../base/common/event.js';
+import { ChatAgentLocation } from '../../../chat/common/constants.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
 export const IPositronAssistantService = createDecorator<IPositronAssistantService>('positronAssistantService');
@@ -50,6 +50,7 @@ export interface IPositronLanguageModelSource {
 	supportedOptions: PositronLanguageModelOptions[];
 	defaults: Omit<IPositronLanguageModelConfig, 'provider' | 'type'>;
 	signedIn?: boolean;
+	authMethods?: string[];
 }
 
 export interface IPositronLanguageModelConfig {
@@ -59,6 +60,7 @@ export interface IPositronLanguageModelConfig {
 	model: string;
 	baseUrl?: string;
 	apiKey?: string;
+	oauth?: boolean;
 	toolCalls?: boolean;
 	resourceName?: string;
 	project?: string;

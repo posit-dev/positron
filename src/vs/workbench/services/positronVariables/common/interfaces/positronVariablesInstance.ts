@@ -160,6 +160,12 @@ export interface IPositronVariablesInstance {
 	hasFilterText(): boolean;
 
 	/**
+	 * Gets the filter text.
+	 * @returns The filter text.
+	 */
+	getFilterText(): string;
+
+	/**
 	 * Focuses element in the variable tree.
 	 */
 	focusElement(): void;

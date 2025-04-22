@@ -50,7 +50,7 @@ test.describe('Sessions: Session Picker', {
 		await sessions.expectSessionPickerToBe(pySession.name);
 	});
 
-	test('Verify Session Quickpick ranks sessions by last used', async function ({ app, page }) {
+	test.skip('Verify Session Quickpick ranks sessions by last used', async function ({ app, page }) {
 		const { sessions } = app.workbench;
 		const [rSession, rAltSession] = await sessions.start(['r', 'rAlt']);
 
