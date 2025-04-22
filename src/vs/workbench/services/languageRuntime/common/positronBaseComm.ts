@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
+import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientStatus } from './languageRuntimeClientInstance.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
@@ -102,6 +102,11 @@ export class PositronBaseComm extends Disposable {
 	public readonly clientState: ISettableObservable<RuntimeClientState>;
 
 	/**
+	 * The current status of the client instance. Ie, are there pending RPC's?
+	 */
+	public readonly clientStatus: ISettableObservable<RuntimeClientStatus>;
+
+	/**
 	 * Create a new Positron com
 	 *
 	 * @param clientInstance The client instance to use for communication with the backend.
@@ -170,6 +175,9 @@ export class PositronBaseComm extends Disposable {
 
 		// Forward the client state from the client instance
 		this.clientState = clientInstance.clientState;
+
+		// Forward the client status from the client instance
+		this.clientStatus = clientInstance.clientStatus;
 	}
 
 	/**

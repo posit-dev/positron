@@ -12,13 +12,13 @@ import { VariableOverflow } from './classes/variableOverflow.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { sortVariableItemsByName, sortVariableItemsByRecent, sortVariableItemsBySize } from './helpers/utils.js';
-import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance, VariablesClientStatus } from '../../languageRuntime/common/languageRuntimeVariablesClient.js';
+import { PositronVariablesList, PositronVariablesUpdate, VariablesClientInstance } from '../../languageRuntime/common/languageRuntimeVariablesClient.js';
 import { VariableEntry, IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting } from './interfaces/positronVariablesInstance.js';
 import { VariableKind } from '../../languageRuntime/common/positronVariablesComm.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { PositronCommError } from '../../languageRuntime/common/positronBaseComm.js';
 import { localize } from '../../../../nls.js';
-import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { RuntimeClientState, RuntimeClientStatus } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
@@ -114,7 +114,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Similar to the above onDidChangeState, we have a separate emitter so we can attach
 	 * to the event before the comm has been set up.
 	 */
-	private readonly _onDidChangeStatusEmitter = this._register(new Emitter<VariablesClientStatus>());
+	private readonly _onDidChangeStatusEmitter = this._register(new Emitter<RuntimeClientStatus>());
 
 	/**
 	 * The _onFocusInput event emitter.
@@ -182,8 +182,9 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	/**
 	 * Gets the current status.
 	 */
-	get status(): VariablesClientStatus {
-		return this._variablesClient ? this._variablesClient.status.get() : VariablesClientStatus.Disconnected;
+	get status(): RuntimeClientStatus {
+		return this._variablesClient ?
+			this._variablesClient.clientStatus.get() : RuntimeClientStatus.Disconnected;
 	}
 
 	/**
@@ -256,7 +257,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	/**
 	 * onDidChangeStatus event.
 	 */
-	readonly onDidChangeStatus: Event<VariablesClientStatus> = this._onDidChangeStatusEmitter.event;
+	readonly onDidChangeStatus: Event<RuntimeClientStatus> = this._onDidChangeStatusEmitter.event;
 
 	/**
 	 * onFocusElement event.
@@ -540,7 +541,8 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 				this._onDidChangeStateEmitter.fire(state);
 			}));
 
-			this._runtimeDisposableStore.add(this._variablesClient.onDidChangeStatus(status => {
+			const onDidChangeStatusEvent = Event.fromObservable(this._variablesClient.clientStatus);
+			this._runtimeDisposableStore.add(onDidChangeStatusEvent(status => {
 				this._onDidChangeStatusEmitter.fire(status);
 			}));
 

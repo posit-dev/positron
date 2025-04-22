@@ -6,7 +6,7 @@
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { observableValue } from '../../../../../base/common/observable.js';
-import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientType } from '../../common/languageRuntimeClientInstance.js';
+import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientStatus, RuntimeClientType } from '../../common/languageRuntimeClientInstance.js';
 import { ILanguageRuntimeMessageState } from '../../common/languageRuntimeService.js';
 
 export class TestRuntimeClientInstance extends Disposable implements IRuntimeClientInstance<any, any> {
@@ -17,6 +17,7 @@ export class TestRuntimeClientInstance extends Disposable implements IRuntimeCli
 	readonly messageCounter = observableValue(`msg-counter`, 0);
 
 	readonly clientState = observableValue(`client-state`, RuntimeClientState.Uninitialized);
+	readonly clientStatus = observableValue(`client-status`, RuntimeClientStatus.Disconnected);
 
 	constructor(
 		private readonly _id: string,

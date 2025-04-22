@@ -16,8 +16,8 @@ import { PositronVariablesProps } from '../positronVariables.js';
 import { VariablesInstance } from './variablesInstance.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { VariablesClientStatus } from '../../../../services/languageRuntime/common/languageRuntimeVariablesClient.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
+import { RuntimeClientStatus } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 
 // VariablesCoreProps interface.
 interface VariablesCoreProps extends PositronVariablesProps {
@@ -67,14 +67,14 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 
 		if (positronVariablesContext.activePositronVariablesInstance) {
 			disposables.add(positronVariablesContext.activePositronVariablesInstance.onDidChangeStatus((status) => {
-				if (status === VariablesClientStatus.Computing) {
+				if (status === RuntimeClientStatus.Busy) {
 					setProgressBar();
 				} else {
 					clearProgressBar();
 				}
 			}));
 
-			if (positronVariablesContext.activePositronVariablesInstance.status === VariablesClientStatus.Computing) {
+			if (positronVariablesContext.activePositronVariablesInstance.status === RuntimeClientStatus.Busy) {
 				setProgressBar();
 			}
 		}

@@ -3,66 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Emitter, Event } from '../../../../base/common/event.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
-import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { PositronCommOptions } from './positronBaseComm.js';
-import { ClipboardFormatFormat, FormattedVariable, InspectedVariable, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable, VariableList, VariablesBackendRequest } from './positronVariablesComm.js';
-
-class PositronVariablesCommWrapper extends PositronVariablesComm {
-
-	private _numPendingTasks = 0;
-	public status: ISettableObservable<VariablesClientStatus>;
-
-	constructor(
-		instance: IRuntimeClientInstance<any, any>,
-		options?: PositronCommOptions<VariablesBackendRequest>,
-	) {
-		super(instance, options);
-		this.status = observableValue<VariablesClientStatus>(
-			`variables-comm-status-${instance.getClientId()}`,
-			VariablesClientStatus.Disconnected
-		);
-	}
-
-	override list(): Promise<VariableList> {
-		return this.performTask(() => super.list());
-	}
-
-	override clear(includeHiddenObjects: boolean): Promise<void> {
-		return this.performTask(() => super.clear(includeHiddenObjects));
-	}
-
-	override delete(names: Array<string>): Promise<Array<string>> {
-		return this.performTask(() => super.delete(names));
-	}
-
-	override inspect(path: Array<string>): Promise<InspectedVariable> {
-		return this.performTask(() => super.inspect(path));
-	}
-
-	override clipboardFormat(path: Array<string>, format: ClipboardFormatFormat): Promise<FormattedVariable> {
-		return this.performTask(() => super.clipboardFormat(path, format));
-	}
-
-	override view(path: Array<string>): Promise<string> {
-		return this.performTask(() => super.view(path));
-	}
-
-	private async performTask<T>(task: () => Promise<T>): Promise<T> {
-		this._numPendingTasks++;
-		this.status.set(VariablesClientStatus.Computing, undefined);
-		return await task()
-			.finally(() => {
-				this._numPendingTasks--;
-				if (this._numPendingTasks === 0) {
-					this.status.set(VariablesClientStatus.Idle, undefined);
-				}
-			});
-	}
-}
-
+import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientStatus } from './languageRuntimeClientInstance.js';
+import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from './positronVariablesComm.js';
 
 /**
  * Represents a variable in a language runtime; wraps the raw data format with additional metadata
@@ -178,36 +123,29 @@ export class PositronVariablesUpdate {
 	}
 }
 
-
-export enum VariablesClientStatus {
-	Idle,
-	Computing,
-	Disconnected,
-}
-
 /**
  * The client-side interface to a variables (a set of named variables) inside
  * a language runtime.
  */
 export class VariablesClientInstance extends Disposable {
 	/// The client instance; used to send messages to (and receive messages from) the back end
-	private _comm: PositronVariablesCommWrapper;
+	private _comm: PositronVariablesComm;
 
 	private _onDidReceiveListEmitter = new Emitter<PositronVariablesList>();
 	private _onDidReceiveUpdateEmitter = new Emitter<PositronVariablesUpdate>();
 
 	onDidReceiveList = this._onDidReceiveListEmitter.event;
 	onDidReceiveUpdate = this._onDidReceiveUpdateEmitter.event;
-	onDidChangeStatus: Event<VariablesClientStatus>;
 
 	/**
 	 * The state of the client instance.
 	 */
 	public clientState: ISettableObservable<RuntimeClientState>;
 
-	public get status() {
-		return this._comm.status;
-	}
+	/**
+	 * The status of the client instance
+	 */
+	public clientStatus: ISettableObservable<RuntimeClientStatus>;
 
 	/**
 	 * Ceate a new variable client instance.
@@ -218,12 +156,12 @@ export class VariablesClientInstance extends Disposable {
 		super();
 
 		// Clipboard formatting should have a small timeout.
-		this._comm = new PositronVariablesCommWrapper(client, {
+		this._comm = new PositronVariablesComm(client, {
 			clipboard_format: { timeout: 3000 }
 		});
 
 		this.clientState = client.clientState;
-		this.onDidChangeStatus = Event.fromObservable(this._comm.status);
+		this.clientStatus = client.clientStatus;
 
 		// Connect the client instance to the back end
 		this.connectClient(this._comm);
