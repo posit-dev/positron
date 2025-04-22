@@ -51,6 +51,9 @@ export const EditToolData: IToolData = {
 	displayName: localize('chat.tools.editFile', "Edit File"),
 	modelDescription: `Edit a file in the workspace. Use this tool once per file that needs to be modified, even if there are multiple changes for a file. Generate the "explanation" property first. ${codeInstructions}`,
 	source: { type: 'internal' },
+	// --- Start Positron ---
+	tags: ['positron-assistant'],
+	// --- End Positron ---
 	inputSchema: {
 		type: 'object',
 		properties: {
