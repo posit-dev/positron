@@ -369,26 +369,39 @@ class ChatStatusDashboard extends Disposable {
 		// --- Start Positron ---
 		// Completion Providers
 		{
-			const providers = $('div.header', undefined, localize('completionProvidersTitle', "Completion Providers"));
-			this.element.appendChild(providers);
+			const entry = {
+				id: 'positron-assistant.completionProviders',
+				label: localize('completionProvidersLabel', "Completion Providers"),
+				description: '',
+				detail: '',
+			}
 			this.languageFeaturesService.inlineCompletionsProvider.allNoModel().forEach(provider => {
 				const name = provider.displayName;
 				if (name) {
 					// add an element to the container with the name
-					providers.append($('div', undefined, name));
+					entry.description += `${name}\n`;
 				}
 			});
+
+			if (entry.description.length === 0) {
+				entry.description = localize('noCompletionProviders', "No completion providers available");
+			}
+
+			const rendered = this.renderContributedChatStatusItem(entry);
+			this.element.appendChild(rendered.element);
 		}
-		// Remove settings related to Copilot extension
+		// --- End Positron ---
 
 		// Settings
-		// {
-		// 	addSeparator(localize('settingsTitle', "Settings"));
+		{
+			addSeparator(localize('settingsTitle', "Settings"));
 
-		// 	this.createSettings(this.element, disposables);
-		// }
+			this.createSettings(this.element, disposables);
+		}
 
 
+		// --- Start Positron ---
+		// Remove Copilot
 
 		// New to Copilot / Signed out
 		// {
@@ -398,7 +411,6 @@ class ChatStatusDashboard extends Disposable {
 		// 		addSeparator(undefined);
 
 		// 		this.element.appendChild($('div.description', undefined, newUser ? localize('activateDescription', "Set up Copilot to use AI features.") : localize('signInDescription', "Sign in to use Copilot AI features.")));
-
 		// 		const button = disposables.add(new Button(this.element, { ...defaultButtonStyles }));
 		// 		button.label = newUser ? localize('activateCopilotButton', "Set up Copilot") : localize('signInToUseCopilotButton', "Sign in to use Copilot");
 		// 		disposables.add(button.onDidClick(() => this.runCommandAndClose(newUser ? 'workbench.action.chat.triggerSetup' : () => this.chatEntitlementService.requests?.value.signIn())));
@@ -491,8 +503,6 @@ class ChatStatusDashboard extends Disposable {
 		return update;
 	}
 
-	// --- Start Positron ---
-	// @ts-ignore
 	private createSettings(container: HTMLElement, disposables: DisposableStore): HTMLElement {
 		const modeId = this.editorService.activeTextEditorLanguageId;
 		const settings = container.appendChild($('div.settings'));
@@ -516,7 +526,6 @@ class ChatStatusDashboard extends Disposable {
 
 		return settings;
 	}
-	// --- End Positron ---
 
 	private createSetting(container: HTMLElement, settingId: string, label: string, accessor: ISettingsAccessor, disposables: DisposableStore): Checkbox {
 		const checkbox = disposables.add(new Checkbox(label, Boolean(accessor.readSetting()), defaultCheckboxStyles));
