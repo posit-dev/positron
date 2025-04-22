@@ -114,7 +114,7 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 					}
 				}
 				await this.extensionManagementService.install(vsix.resource, { donotIncludePackAndDependencies: true, keepExisting: false });
-				this.logService.info(`Successfully installed ${sourceType}extension:`, vsix.resource.toString());
+				this.logService.info(`Successfully installed ${sourceType} extension:`, vsix.resource.toString());
 			} catch (error) {
 				this.logService.error(`Error installing ${sourceType} extension:`, vsix.resource.toString(), getErrorMessage(error));
 			}
