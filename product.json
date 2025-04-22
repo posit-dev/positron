@@ -216,7 +216,6 @@
 		{
 			"name": "ms-python.debugpy",
 			"version": "2025.0.1",
-			"sha256sum": "b6c1639cc839b671125bf5511c36eeb0512744f693925c55c5401fe7a132a978",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -233,7 +232,6 @@
 		{
 			"name": "posit.publisher",
 			"version": "1.10.0",
-			"sha256sum": "32be8178b713656d5c532224dd7a4ce5eede7762ab87bf723e2b56ed8710cd1d",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -258,6 +256,17 @@
 				},
 				"publisherDisplayName": "Quarto"
 			}
+		},
+		{
+			"name": "posit.air-vscode",
+			"version": "0.10.0",
+			"repo": "https://github.com/posit-dev/air",
+			"metadata": {
+				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
+				"displayName": "Air - R Language Support",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+			},
+			"publisherDisplayName": "Posit Software, PBC"
 		}
 	],
 	"extensionsGallery": {
