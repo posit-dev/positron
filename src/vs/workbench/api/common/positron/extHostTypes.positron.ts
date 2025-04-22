@@ -382,3 +382,11 @@ export enum RenderFormat {
 	Pdf = 'pdf',
 	Tiff = 'tiff'
 }
+
+/**
+ * UI notifications from frontend to backends.
+ */
+export enum UiRuntimeNotifications {
+	/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
+	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
+}
