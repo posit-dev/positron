@@ -11,9 +11,6 @@ import { toLanguageModelChatMessage } from '../utils';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
-export const QUARTO_COMMAND = 'quarto';
-export const QUARTO_DESCRIPTION = vscode.l10n.t('Convert the conversation so far into a new Quarto document.');
-
 /**
  * Handler for the custom chat participant command `/quarto`.
  */

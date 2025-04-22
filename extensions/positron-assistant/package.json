@@ -19,6 +19,69 @@
     "inlineCompletionsAdditions"
   ],
   "contributes": {
+    "chatParticipants": [
+      {
+        "id": "positron.assistant.chat",
+        "name": "assistant",
+        "fullName": "Positron Assistant",
+        "description": "Ask Assistant",
+        "isSticky": false,
+        "isDefault": true,
+        "commands": [
+          {
+            "name": "quarto",
+            "description": "Convert the conversation so far into a new Quarto document."
+          }
+        ],
+        "locations": [
+          "panel"
+        ]
+      },
+      {
+        "id": "positron.assistant.terminal",
+        "name": "assistant",
+        "fullName": "Positron Assistant",
+        "description": "Ask Assistant",
+        "isSticky": false,
+        "isDefault": true,
+        "locations": [
+          "terminal"
+        ]
+      },
+      {
+        "id": "positron.assistant.editor",
+        "name": "assistant",
+        "fullName": "Positron Assistant",
+        "description": "Ask Assistant",
+        "isSticky": false,
+        "isDefault": true,
+        "locations": [
+          "editor"
+        ]
+      },
+      {
+        "id": "positron.assistant.notebook",
+        "name": "assistant",
+        "fullName": "Positron Assistant",
+        "description": "Ask Assistant",
+        "isSticky": false,
+        "isDefault": true,
+        "locations": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "positron.assistant.editingSessionEditor",
+        "name": "assistant",
+        "fullName": "Positron Assistant",
+        "description": "Edit files in your workspace",
+        "isSticky": false,
+        "isDefault": true,
+        "locations": [
+          "editing-session"
+        ]
+      }
+    ],
     "menus": {
       "chat/input": [
         {
@@ -117,7 +180,7 @@
       {
         "name": "executeCode",
         "displayName": "Execute Code",
-        "modelDescription": "Execute a piece of code in the specified programming language.",
+        "modelDescription": "Execute a piece of code in the specified programming language. Only use this tool if you absolutely need to execute code, otherwise reply directly to the user with markdown code snippets.",
         "canBeReferencedInPrompt": false,
         "inputSchema": {
           "type": "object",

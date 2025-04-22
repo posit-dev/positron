@@ -127,6 +127,12 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	public readonly identifier;
 	protected abstract model: ai.LanguageModelV1;
 
+	capabilities = {
+		vision: true,
+		toolCalling: true,
+		agentMode: true,
+	};
+
 	constructor(protected readonly _config: ModelConfig) {
 		this.identifier = _config.id;
 		this.name = _config.name;
