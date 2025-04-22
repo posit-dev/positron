@@ -16,9 +16,9 @@ import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerSer
 
 // Key for the configuration setting
 export const USE_POSITRON_DATA_EXPLORER_SUMMARY_COLLAPSED_KEY =
-	'explorer.summaryCollapsed';
+	'dataExplorer.summaryCollapsed';
 export const USE_POSITRON_DATA_EXPLORER_SUMMARY_LAYOUT_KEY =
-	'explorer.summaryLayout';
+	'dataExplorer.summaryLayout';
 
 export function DataExplorerSummaryCollapseEnabled(
 	configurationService: IConfigurationService
