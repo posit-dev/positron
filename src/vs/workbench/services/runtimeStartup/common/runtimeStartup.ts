@@ -193,8 +193,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					return;
 				}
 
-				// Ignore when sessions "exited" due to being transferred.
-				if (exit.reason === RuntimeExitReason.Transferred) {
+				// Ignore when sessions "exited" due to being transferred or restarted.
+				if (exit.reason === RuntimeExitReason.Transferred ||
+					exit.reason === RuntimeExitReason.Restart) {
 					return;
 				}
 
@@ -209,8 +210,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 							session.cleanup();
 						}
 					});
-				} else if (exit.reason !== RuntimeExitReason.Restart) {
-					// If the session is not restarting, clean up the Ext Host side.
+				} else {
+					// The session will not be restarted, so go ahead and clean
+					// up the Ext Host side.
 					session.cleanup();
 				}
 			}));
