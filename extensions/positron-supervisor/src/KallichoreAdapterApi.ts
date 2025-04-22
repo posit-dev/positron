@@ -677,7 +677,7 @@ export class KCApi implements PositronSupervisorApi {
 						await positron.window.showSimpleModalDialogMessage(
 							vscode.l10n.t('Interpreters Disconnected'),
 							vscode.l10n.t('This Positron session has been opened in another window. ' +
-								'Interpreters have been disconnected; reload the window to reconnect.'),
+								'As a result, interpreters have been disconnected in the current window. Reload this window to reconnect to your sessions.'),
 							vscode.l10n.t('Continue')
 						);
 					} finally {

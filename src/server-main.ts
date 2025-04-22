@@ -23,9 +23,12 @@ import { IServerAPI } from './vs/server/node/remoteExtensionHostAgentServer.js';
 // --- Start PWB ---
 import * as fs from 'fs';
 import * as https from 'https';
+// --- End PWB ---
+
+// --- Start Positron ---
 import { spawn } from 'child_process';
 import { getUserDataPath } from './vs/platform/environment/node/userDataPath.js';
-// --- End PWB ---
+// --- End Positron ---
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -336,6 +339,16 @@ async function startKernelSupervisor() {
 	}
 	if (fs.existsSync(logFile)) {
 		fs.unlinkSync(logFile);
+	}
+
+	// Create the user data dir
+	const userDataDir = path.dirname(connectionFile);
+	if (!fs.existsSync(userDataDir)) {
+		try {
+			fs.mkdirSync(userDataDir, { recursive: true });
+		} catch (err) {
+			console.error(`Failed to create user data directory for supervisor files: ${userDataDir}`, err);
+		}
 	}
 
 	// Pass the connection file path to the supervisor extension.
