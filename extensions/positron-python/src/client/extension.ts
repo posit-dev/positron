@@ -32,11 +32,11 @@ import { createDeferred } from './common/utils/async';
 import { Common } from './common/utils/localize';
 import { activateComponents, activateFeatures } from './extensionActivation';
 import { initializeStandard, initializeComponents, initializeGlobals } from './extensionInit';
-import { IServiceContainer } from './ioc/types';
+import { IServiceContainer, IServiceManager } from './ioc/types';
 import { sendErrorTelemetry, sendStartupTelemetry } from './startupTelemetry';
 import { IStartupDurations } from './types';
 import { runAfterActivation } from './common/utils/runAfterActivation';
-import { IInterpreterService } from './interpreter/contracts';
+import { IComponentAdapter, IInterpreterService } from './interpreter/contracts';
 import { PythonExtension } from './api/types';
 import { WorkspaceService } from './common/application/workspace';
 import { disposeAll } from './common/utils/resourceLifecycle';
@@ -57,6 +57,7 @@ durations.codeLoadingTime = stopWatch.elapsedTime;
 
 // These persist between activations:
 let activatedServiceContainer: IServiceContainer | undefined;
+let activatedServiceManager: IServiceManager | undefined;
 
 /////////////////////////////
 // public functions
@@ -71,10 +72,12 @@ export async function activate(context: IExtensionContext): Promise<PythonExtens
         const workspaceService = new WorkspaceService();
         context.subscriptions.push(
             workspaceService.onDidGrantWorkspaceTrust(async () => {
+                console.log('okok onDidGrantWorkspaceTrust');
                 await deactivate();
                 await activate(context);
             }),
         );
+        console.log('okok activate');
         [api, ready, serviceContainer] = await activateUnsafe(context, stopWatch, durations);
     } catch (ex) {
         // We want to completely handle the error
@@ -87,9 +90,11 @@ export async function activate(context: IExtensionContext): Promise<PythonExtens
 
     // --- Start Positron ---
 
+    console.log('okok starting activatePositron');
     activatePositron(serviceContainer)
         // Run in the background.
         .ignoreErrors();
+    console.log('okok activatePositron is done');
 
     // --- End Positron ---
 
@@ -101,8 +106,12 @@ export async function activate(context: IExtensionContext): Promise<PythonExtens
 
 export async function deactivate(): Promise<void> {
     // Make sure to shutdown anybody who needs it.
+    console.log('okok deactivate');
     if (activatedServiceContainer) {
         const disposables = activatedServiceContainer.get<IDisposableRegistry>(IDisposableRegistry);
+        // if (activatedServiceManager) {
+        //     disposables.push(activatedServiceManager);
+        // }
         await disposeAll(disposables);
         // Remove everything that is already disposed.
         while (disposables.pop());
@@ -127,13 +136,16 @@ async function activateUnsafe(
 
     //===============================================
     // activation starts here
+    console.log(`okok activateUnsafe 1`);
 
     // First we initialize.
     const ext = initializeGlobals(context);
     activatedServiceContainer = ext.legacyIOC.serviceContainer;
+    activatedServiceManager = ext.legacyIOC.serviceManager;
     // Note standard utils especially experiment and platform code are fundamental to the extension
     // and should be available before we activate anything else.Hence register them first.
     initializeStandard(ext);
+    console.log(`okok activateUnsafe 2`);
     // We need to activate experiments before initializing components as objects are created or not created based on experiments.
     const experimentService = activatedServiceContainer.get<IExperimentService>(IExperimentService);
     // This guarantees that all experiment information has loaded & all telemetry will contain experiment info.
@@ -142,13 +154,16 @@ async function activateUnsafe(
 
     // Then we finish activating.
     const componentsActivated = await activateComponents(ext, components, activationStopWatch);
+    console.log(`okok activateUnsafe 3`);
     activateFeatures(ext, components);
+    console.log(`okok activateUnsafe 4`);
 
     const nonBlocking = componentsActivated.map((r) => r.fullyReady);
     const activationPromise = (async () => {
         await Promise.all(nonBlocking);
     })();
 
+    console.log(`okok activateUnsafe 5`);
     //===============================================
     // activation ends here
 
@@ -177,6 +192,9 @@ async function activateUnsafe(
         components.pythonEnvs,
     );
     const proposedApi = buildProposedApi(components.pythonEnvs, ext.legacyIOC.serviceContainer);
+    console.log(`okok activateUnsafe 6`);
+    let ica = activatedServiceManager.tryGet<IComponentAdapter>(IComponentAdapter);
+    console.log(`okok activateUnsafe ica: ${ica?.austin()}`);
     return [{ ...api, ...proposedApi }, activationPromise, ext.legacyIOC.serviceContainer];
 }
 

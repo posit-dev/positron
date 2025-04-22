@@ -259,6 +259,7 @@ export interface IDiscoveryAPI {
      * @param path - Full path of Python executable or environment folder to resolve more information about
      */
     resolveEnv(path: string): Promise<PythonEnvInfo | undefined>;
+    austin(): boolean;
 }
 
 export interface IEmitter<E> {

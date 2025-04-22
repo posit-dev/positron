@@ -36,7 +36,7 @@ import {
     PythonGlobalEnvEvent,
     PythonWorkspaceEnvEvent,
 } from './base/locators/common/pythonWatcher';
-import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
+import { getWorkspaceFolders, isTrusted, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 
 // --- Start Positron ---
 import { isUvEnvironment } from './common/environmentManagers/uv';
@@ -330,6 +330,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     private _condaEnvDirs: string[] = [];
 
     constructor(private readonly finder: NativePythonFinder) {
+        console.log(`okok new NativePythonEnvironments with ${this.austin()}`);
         this._onProgress = new EventEmitter<ProgressNotificationEvent>();
         this._onChanged = new EventEmitter<PythonEnvCollectionChangedEvent>();
 
@@ -344,6 +345,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
 
     dispose(): void {
         this._disposables.forEach((d) => d.dispose());
+        console.log(`okok disposed NativePythonEnvironments with ${this.austin()}`);
     }
 
     refreshState: ProgressReportStage;
@@ -550,10 +552,16 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
 
     @cache(30_000, true)
     async resolveEnv(envPath?: string): Promise<PythonEnvInfo | undefined> {
+        if (envPath === '/Users/austin/proj/.venv/bin/python') {
+            console.log(`okok resolveEnv with ${this.austin()}`);
+        }
         if (envPath === undefined) {
             return undefined;
         }
         const native = await this.finder.resolve(envPath);
+        if (envPath === '/Users/austin/proj/.venv/bin/python') {
+            console.log(`okok native is ${validEnv(native)}`);
+        }
         if (native) {
             // --- Start Positron ---
             if (native.executable && (await isUvEnvironment(native.executable))) {
@@ -625,11 +633,21 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             this.removeEnv(e.executable);
         }
     }
+
+    austin() {
+        return this.finder.austin();
+    }
 }
 
 export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscoveryAPI & Disposable {
+    console.log('okok createNativeEnvironmentsApi start');
     const native = new NativePythonEnvironments(finder);
     native.triggerRefresh().ignoreErrors();
+    if (isTrusted()) {
+        console.log(`okok createNativeEnvironmentsApi with ${native.austin()} is trusted`);
+    } else {
+        console.log(`okok createNativeEnvironmentsApi with ${native.austin()} is not trusted`);
+    }
     return native;
 }
 

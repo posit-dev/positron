@@ -145,6 +145,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         this._installer = this.serviceContainer.get<IInstaller>(IInstaller);
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
+        console.log(`okok new session with ${this._interpreterService.austin()}`);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
     }
@@ -415,8 +416,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     }
 
     async start(): Promise<positron.LanguageRuntimeInfo> {
+        console.log(`okok start session with ${this._interpreterService.austin()}`);
         const interpreter = await this._interpreterService.getInterpreterDetails(this._pythonPath);
         if (!interpreter) {
+            console.log(`okok start session didnt work`);
             throw new Error(`Could not start runtime: failed to resolve interpreter ${this._pythonPath}`);
         }
 

@@ -61,6 +61,7 @@ export function shouldUseNativeLocator(): boolean {
  * Set up the Python environments component (during extension activation).'
  */
 export async function initialize(ext: ExtensionState): Promise<IDiscoveryAPI> {
+    console.log(`okok initialize start`);
     // Set up the legacy IOC container before api is created.
     initializeLegacyExternalDependencies(ext.legacyIOC.serviceContainer);
 
@@ -75,6 +76,7 @@ export async function initialize(ext: ExtensionState): Promise<IDiscoveryAPI> {
     }
 
     if (shouldUseNativeLocator()) {
+        console.log(`okok initialize took the native route`);
         const finder = getNativePythonFinder(ext.context);
         const api = createNativeEnvironmentsApi(finder);
         ext.disposables.push(api);

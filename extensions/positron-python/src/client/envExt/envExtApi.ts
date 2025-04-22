@@ -197,6 +197,9 @@ function hasChanged(old: PythonEnvInfo, newEnv: PythonEnvInfo): boolean {
 }
 
 class EnvExtApis implements IDiscoveryAPI, Disposable {
+    austin() {
+        return false;
+    }
     private _onProgress: EventEmitter<ProgressNotificationEvent>;
 
     private _onChanged: EventEmitter<PythonEnvCollectionChangedEvent>;

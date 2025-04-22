@@ -19,6 +19,9 @@ export type GetLocatorFunc = () => Promise<IDiscoveryAPI>;
  * Note that this is composed of sub-components.
  */
 class PythonEnvironments implements IDiscoveryAPI {
+    austin() {
+        return false;
+    }
     private locator!: IDiscoveryAPI;
 
     constructor(

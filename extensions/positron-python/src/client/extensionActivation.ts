@@ -84,11 +84,14 @@ export async function activateComponents(
     // activate them in parallel with the other components.
     // https://github.com/microsoft/vscode-python/issues/15380
     // These will go away eventually once everything is refactored into components.
+    console.log(`okok activateComponents start`);
     const legacyActivationResult = await activateLegacy(ext, startupStopWatch);
     const workspaceService = new WorkspaceService();
     if (!workspaceService.isTrusted) {
+        console.log(`okok activateComponents is not trusted`);
         return [legacyActivationResult];
     }
+    console.log(`okok activateComponents is trusted`);
     const promises: Promise<ActivationResult>[] = [
         // More component activations will go here
         // --- Start Positron ---

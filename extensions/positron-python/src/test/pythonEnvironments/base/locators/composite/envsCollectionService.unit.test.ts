@@ -53,6 +53,10 @@ class MockNativePythonFinder implements nativeFinder.NativePythonFinder {
     dispose() {
         /** noop */
     }
+
+    austin() {
+        return false;
+    }
 }
 
 suite('Python envs locator - Environments Collection', async () => {

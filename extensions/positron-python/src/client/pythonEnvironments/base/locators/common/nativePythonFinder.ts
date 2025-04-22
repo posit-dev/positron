@@ -103,6 +103,7 @@ export interface NativePythonFinder extends Disposable {
      * Used only for telemetry.
      */
     getCondaInfo(): Promise<NativeCondaInfo>;
+    austin(): boolean;
 }
 
 interface NativeLog {
@@ -419,6 +420,10 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
     async getCondaInfo(): Promise<NativeCondaInfo> {
         return this.connection.sendRequest<NativeCondaInfo>('condaInfo');
     }
+
+    austin() {
+        return true;
+    }
 }
 
 type ConfigurationOptions = {
@@ -503,7 +508,9 @@ function getPythonSettingAndUntildify<T>(name: string, scope?: Uri): T | undefin
 
 let _finder: NativePythonFinder | undefined;
 export function getNativePythonFinder(context?: IExtensionContext): NativePythonFinder {
+    console.log(`okok getNativePythonFinder start. finder cache: ${_finder?.austin()}`);
     if (!isTrusted()) {
+        console.log(`okok getNativePythonFinder is not trusted`);
         return {
             async *refresh() {
                 traceError('Python discovery not supported in untrusted workspace');
@@ -520,15 +527,20 @@ export function getNativePythonFinder(context?: IExtensionContext): NativePython
             dispose() {
                 // do nothing
             },
+            austin() {
+                return false;
+            },
         };
     }
     if (!_finder) {
+        console.log(`okok getNativePythonFinder create new finder`);
         const cacheDirectory = context ? getCacheDirectory(context) : undefined;
         _finder = new NativePythonFinderImpl(cacheDirectory);
         if (context) {
             context.subscriptions.push(_finder);
         }
     }
+    console.log(`okok getNativePythonFinder end. finder cache: ${_finder?.austin()}`);
     return _finder;
 }
 

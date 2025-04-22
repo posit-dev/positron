@@ -134,6 +134,7 @@ export class ServiceManager implements IServiceManager {
     }
 
     public dispose(): void {
+        console.log('okok disposing service manager');
         this.container.unbindAll();
         this.container.unload();
     }

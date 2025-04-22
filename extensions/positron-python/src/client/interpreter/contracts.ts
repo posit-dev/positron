@@ -52,6 +52,7 @@ export interface IComponentAdapter {
     getCondaEnvironment(interpreterPath: string): Promise<CondaEnvironmentInfo | undefined>;
 
     isMicrosoftStoreInterpreter(pythonPath: string): Promise<boolean>;
+    austin(): boolean;
 }
 
 export const ICondaService = Symbol('ICondaService');
@@ -94,6 +95,8 @@ export interface IInterpreterService {
     getInterpreterDetails(pythonPath: string, resoure?: Uri): Promise<undefined | PythonEnvironment>;
     refresh(resource: Resource): Promise<void>;
     initialize(): void;
+    austin(): boolean;
+    getInstanceId(): string;
 }
 
 export const IInterpreterDisplay = Symbol('IInterpreterDisplay');

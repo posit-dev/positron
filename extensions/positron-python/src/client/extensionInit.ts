@@ -98,6 +98,7 @@ export type Components = {
  * Initialize all components in the extension.
  */
 export async function initializeComponents(ext: ExtensionState): Promise<Components> {
+    console.log(`okok initializeComponents`);
     const pythonEnvs = await pythonEnvironments.initialize(ext);
 
     // Other component initializers go here.

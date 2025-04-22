@@ -33,6 +33,9 @@ import { IEnvsCollectionCache } from './envsCollectionCache';
  * A service which maintains the collection of known environments.
  */
 export class EnvsCollectionService extends PythonEnvsWatcher<PythonEnvCollectionChangedEvent> implements IDiscoveryAPI {
+    austin() {
+        return false;
+    }
     /** Keeps track of ongoing refreshes for various queries. */
     private refreshesPerQuery = new Map<PythonLocatorQuery | undefined, Deferred<void>>();
 

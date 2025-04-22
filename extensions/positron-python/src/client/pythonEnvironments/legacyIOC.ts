@@ -283,9 +283,14 @@ class ComponentAdapter implements IComponentAdapter {
         const envs = this.api.getEnvs(query);
         return envs.map(convertEnvInfo);
     }
+
+    austin() {
+        return this.api.austin();
+    }
 }
 
 export function registerNewDiscoveryForIOC(serviceManager: IServiceManager, api: IDiscoveryAPI): void {
+    console.log(`okok registerNewDiscoveryForIOC with ${api.austin()}`);
     serviceManager.addSingleton<ICondaService>(ICondaService, CondaService);
     serviceManager.addSingletonInstance<IComponentAdapter>(IComponentAdapter, new ComponentAdapter(api));
 }

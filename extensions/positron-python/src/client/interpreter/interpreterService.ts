@@ -104,6 +104,9 @@ export class InterpreterService implements Disposable, IInterpreterService {
         @inject(IServiceContainer) private serviceContainer: IServiceContainer,
         @inject(IComponentAdapter) private readonly pyenvs: IComponentAdapter,
     ) {
+        console.log(`okok InterpreterService constructor with ${this.austin()}, id = ${this.getInstanceId()}`);
+        // const disposables = this.serviceContainer.get<Disposable[]>(IDisposableRegistry);
+        // disposables.push(this);
         this.configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         this.interpreterPathService = this.serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this.onDidChangeInterpreters = pyenvs.onChanged;
@@ -214,6 +217,7 @@ export class InterpreterService implements Disposable, IInterpreterService {
     }
 
     public dispose(): void {
+        console.log(`okok InterpreterService dispose with ${this.austin()}, id = ${this.getInstanceId()}`);
         this.didChangeInterpreterEmitter.dispose();
         this.didChangeInterpreterInformation.dispose();
     }
@@ -321,5 +325,15 @@ export class InterpreterService implements Disposable, IInterpreterService {
                 })
                 .ignoreErrors();
         }
+    }
+
+    austin() {
+        return this.pyenvs.austin();
+    }
+
+    private readonly instanceId = `interpreter-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+
+    getInstanceId(): string {
+        return this.instanceId;
     }
 }
