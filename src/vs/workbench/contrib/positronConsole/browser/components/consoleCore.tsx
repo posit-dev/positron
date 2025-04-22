@@ -19,7 +19,6 @@ import { StartupStatus } from './startupStatus.js';
 import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ConsoleTabList } from './consoleTabList.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
-import { multipleConsoleSessionsFeatureEnabled } from '../../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 // Constants.
@@ -45,7 +44,6 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	// Hooks.
 	const positronConsoleContext = usePositronConsoleContext();
-	const multiSessionsEnabled = multipleConsoleSessionsFeatureEnabled(positronConsoleContext.configurationService);
 
 	// State hooks.
 	const [consoleWidth, setConsoleWidth] = useState(0);
@@ -125,55 +123,34 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 
 	// Render.
 	return (
-		<div className={positronClassNames('console-core', { 'console-tab-list': multiSessionsEnabled })}>
-			{multiSessionsEnabled &&
-				<>
-					<div style={{ height: props.height, width: consolePaneWidth }}>
-						<ActionBar {...props} showDeleteButton={positronConsoleContext.consoleSessionListCollapsed} />
-						{/* #6845 - Only render console instances when the console pane width is greater than 0. */}
-						{consolePaneWidth > 0 &&
-							<div className='console-instances-container'>
-								{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
-									<ConsoleInstance
-										key={positronConsoleInstance.sessionId}
-										active={positronConsoleInstance.sessionId === positronConsoleContext.activePositronConsoleInstance?.sessionId}
-										height={adjustedHeight}
-										positronConsoleInstance={positronConsoleInstance}
-										reactComponentContainer={props.reactComponentContainer}
-										width={consolePaneWidth}
-									/>
-								)}
-							</div>
-						}
-					</div>
-					{consoleTabListWidth > 0 &&
-						<VerticalSplitter
-							configurationService={positronConsoleContext.configurationService}
-							onBeginResize={handleBeginResize}
-							onResize={handleResize}
-						/>
-					}
-					{!positronConsoleContext.consoleSessionListCollapsed && consoleTabListWidth > 0 &&
-						<ConsoleTabList height={props.height} width={consoleTabListWidth} />
-					}
-				</>
-			}
-			{!multiSessionsEnabled &&
-				<>
-					<ActionBar {...props} />
-					<div className='console-instances-container' style={{ width: props.width, height: adjustedHeight }}>
+		<div className={positronClassNames('console-core')}>
+			<div style={{ height: props.height, width: consolePaneWidth }}>
+				<ActionBar {...props} showDeleteButton={positronConsoleContext.consoleSessionListCollapsed} />
+				{/* #6845 - Only render console instances when the console pane width is greater than 0. */}
+				{consolePaneWidth > 0 &&
+					<div className='console-instances-container'>
 						{positronConsoleContext.positronConsoleInstances.map(positronConsoleInstance =>
 							<ConsoleInstance
-								key={positronConsoleInstance.runtimeMetadata.languageId}
-								active={positronConsoleInstance === positronConsoleContext.activePositronConsoleInstance}
+								key={positronConsoleInstance.sessionId}
+								active={positronConsoleInstance.sessionId === positronConsoleContext.activePositronConsoleInstance?.sessionId}
 								height={adjustedHeight}
 								positronConsoleInstance={positronConsoleInstance}
 								reactComponentContainer={props.reactComponentContainer}
-								width={props.width}
+								width={consolePaneWidth}
 							/>
 						)}
 					</div>
-				</>
+				}
+			</div>
+			{consoleTabListWidth > 0 &&
+				<VerticalSplitter
+					configurationService={positronConsoleContext.configurationService}
+					onBeginResize={handleBeginResize}
+					onResize={handleResize}
+				/>
+			}
+			{!positronConsoleContext.consoleSessionListCollapsed && consoleTabListWidth > 0 &&
+				<ConsoleTabList height={props.height} width={consoleTabListWidth} />
 			}
 		</div>
 	);
