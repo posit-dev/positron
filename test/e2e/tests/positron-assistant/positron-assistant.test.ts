@@ -23,7 +23,7 @@ test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, 
 		await app.workbench.assistant.verifyAddModelButtonVisible();
 	});
 
-	test('Antropic: Verfy Bad API key results in error', async function ({ app }) {
+	test('Anthropic: Verify Bad API key results in error', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.clickAddModelButton();
 		await app.workbench.assistant.selectModelProvider('Anthropic');
