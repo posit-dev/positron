@@ -23,14 +23,14 @@
       {
         "id": "positron.assistant.chat",
         "name": "assistant",
-        "fullName": "Positron Assistant",
-        "description": "Ask Assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.ask.description%",
         "isSticky": false,
         "isDefault": true,
         "commands": [
           {
             "name": "quarto",
-            "description": "Convert the conversation so far into a new Quarto document."
+            "description": "%chatParticipants.commands.quarto.description%"
           }
         ],
         "locations": [
@@ -40,8 +40,8 @@
       {
         "id": "positron.assistant.terminal",
         "name": "assistant",
-        "fullName": "Positron Assistant",
-        "description": "Ask Assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.ask.description%",
         "isSticky": false,
         "isDefault": true,
         "locations": [
@@ -51,8 +51,8 @@
       {
         "id": "positron.assistant.editor",
         "name": "assistant",
-        "fullName": "Positron Assistant",
-        "description": "Ask Assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.ask.description%",
         "isSticky": false,
         "isDefault": true,
         "locations": [
@@ -62,8 +62,8 @@
       {
         "id": "positron.assistant.notebook",
         "name": "assistant",
-        "fullName": "Positron Assistant",
-        "description": "Ask Assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.ask.description%",
         "isSticky": false,
         "isDefault": true,
         "locations": [
@@ -73,8 +73,8 @@
       {
         "id": "positron.assistant.editingSessionEditor",
         "name": "assistant",
-        "fullName": "Positron Assistant",
-        "description": "Edit files in your workspace",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.edit.description%",
         "isSticky": false,
         "isDefault": true,
         "locations": [
