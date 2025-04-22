@@ -1453,6 +1453,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				exit_code: 0,
 				reason: positron.RuntimeExitReason.Transferred,
 				runtime_name: this.runtimeMetadata.runtimeName,
+				session_name: this.metadata.sessionName,
 				message: ''
 			};
 			this._exit.fire(exitEvent);
