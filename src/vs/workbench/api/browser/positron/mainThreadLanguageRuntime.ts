@@ -1083,13 +1083,17 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		// promise to be resolved, otherwise we reject it.
 		const statusListener = pending.onDidChangeStatus((status) => {
 			if (status === PendingRpcStatus.Completed) {
-				const timeout = 5000;
+				// Kernels might return the the result of an RPC slightly after the 'Idle' status is sent,
+				// so we need to wait a bit before rejecting the promise.
+				// This currently only happens with Ark/Amalthea. IPykernel always sends the RPC result before
+				// sending the 'Idle' status.
+				const timeout = 2000;
 				setTimeout(() => {
 					if (pending.promise.isSettled) {
 						return;
 					}
 					const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
-					pending.promise.error(new Error(`RPC request completed, but response failed after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
+					pending.promise.error(new Error(`RPC request completed, but response not received after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
 					this._pendingRpcs.delete(messageId);
 				}, timeout);
 			}
