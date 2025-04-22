@@ -114,7 +114,11 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
 		const languageModel = newLanguageModel(modelConfig);
-		await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
+		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
+
+		if (error) {
+			throw new Error(error.message);
+		}
 
 		const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
 			name: languageModel.name,
