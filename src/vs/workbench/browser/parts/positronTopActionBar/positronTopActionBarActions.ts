@@ -9,7 +9,6 @@ import { Categories } from '../../../../platform/action/common/actionCommonCateg
 import { PositronTopActionBarVisibleContext } from '../../../common/contextkeys.js';
 import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
-import { IPositronTopActionBarService } from '../../../services/positronTopActionBar/browser/positronTopActionBarService.js';
 
 /**
  * The PositronToggleTopActionBarVisibilityAction.
@@ -95,48 +94,3 @@ export class PositronFocusTopActionBarAction extends Action2 {
  * Register the PositronFocusTopActionBarAction.
  */
 registerAction2(PositronFocusTopActionBarAction);
-
-/**
- * The PositronShowStartInterpreterAction.
- */
-export class PositronShowStartInterpreterAction extends Action2 {
-	/**
-	 * The ID.
-	 */
-	static readonly ID = 'workbench.action.positron.showStartInterpreter';
-
-	/**
-	 * Constructor.
-	 */
-	constructor() {
-		super({
-			id: PositronShowStartInterpreterAction.ID,
-			title: { value: localize('positron.showStartInterpreter', "Show Start Interpreter"), original: 'Show Start Interpreter' },
-			category: Categories.View,
-			f1: true
-		});
-	}
-
-	/**
-	 * Runs the action.
-	 * @param accessor The ServicesAccessor.
-	 */
-	async run(accessor: ServicesAccessor): Promise<void> {
-		// Access the services we need.
-		const layoutService = accessor.get(IWorkbenchLayoutService);
-		const positronTopActionBarService = accessor.get(IPositronTopActionBarService);
-
-		// Make sure the top action bar is visible.
-		if (!layoutService.isVisible(Parts.POSITRON_TOP_ACTION_BAR_PART)) {
-			layoutService.setPartHidden(false, Parts.POSITRON_TOP_ACTION_BAR_PART);
-		}
-
-		// Show the start interpreter popup
-		positronTopActionBarService.showStartInterpreterPopup();
-	}
-}
-
-/**
- * Register the PositronShowStartInterpreterAction.
- */
-registerAction2(PositronShowStartInterpreterAction);
