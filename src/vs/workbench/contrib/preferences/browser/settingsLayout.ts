@@ -168,6 +168,13 @@ export const tocData: ITOCEntry<string> = {
 					label: localize('fileExplorer', "Explorer"),
 					settings: ['explorer.*', 'outline.*']
 				},
+				// --- Start Positron ---
+				{
+					id: 'features/dataExplorer',
+					label: localize('dataExplorer', "Data Explorer"),
+					settings: ['dataExplorer.*']
+				},
+				// --- End Positron ---
 				{
 					id: 'features/search',
 					label: localize('search', "Search"),
@@ -179,11 +186,6 @@ export const tocData: ITOCEntry<string> = {
 					settings: ['debug.*', 'launch']
 				},
 				// --- Start Positron ---
-				{
-					id: 'features/dataExplorer',
-					label: localize('dataExplorer', "Data Explorer"),
-					settings: ['dataExplorer.*']
-				},
 				{
 					id: 'features/environment',
 					label: localize('environment', "Environment"),
