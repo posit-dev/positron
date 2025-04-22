@@ -433,6 +433,10 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 		this.metadata = createSessionMetadata(sessionId);
 	}
 
+	cleanup(): Thenable<void> {
+		throw new Error('Method not implemented.');
+	}
+
 	getLabel(): string {
 		return this.metadata.sessionName;
 	}
@@ -912,6 +916,7 @@ suite('ExecutionHistoryService', () => {
 		// End session with shutdown reason
 		session.onDidEndSessionEmitter.fire({
 			runtime_name: 'test-runtime',
+			session_name: 'test-session',
 			exit_code: 0,
 			message: 'Session ended',
 			reason: RuntimeExitReason.Shutdown

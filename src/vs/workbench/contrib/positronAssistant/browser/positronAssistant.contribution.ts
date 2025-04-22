@@ -14,11 +14,11 @@ import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js
 import { ICodeBlockActionContext } from '../../chat/browser/codeBlockPart.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
-import { ChatAgentLocation } from '../../chat/common/chatAgents.js';
 import { ChatContextKeys } from '../../chat/common/chatContextKeys.js';
 import { RuntimeCodeExecutionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { ChatAgentLocation } from '../../chat/common/constants.js';
 
 class PositronAssistantContribution extends Disposable implements IWorkbenchContribution {
 	constructor(

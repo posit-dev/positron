@@ -27,6 +27,11 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { ApiProposalName } from '../../../../platform/extensions/common/extensionsApiProposals.js';
 
 // --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { PositronActionBarOptions, PositronActionBarButtonOptions, PositronActionBarCheckboxOptions, PositronActionBarToggleOptions } from '../../../../platform/action/common/action.js';
+// --- End Positron ---
+
+// --- Start Positron ---
 // TODO(seem): We can remove this if we eventually decide to unbundle vscode-jupyter.
 export const IGNORED_JUPYTER_COMMANDS = new Set([
 	// Disable commands that open an Interactive Window, since we have the Positron Console.
@@ -481,6 +486,13 @@ const apiMenus: IAPIMenu[] = [
 		key: 'searchPanel/aiResults/commands',
 		id: MenuId.SearchActionMenu,
 		description: localize('searchPanel.aiResultsCommands', "The commands that will contribute to the menu rendered as buttons next to the AI search title"),
+	},
+	{
+		key: 'chat/modelPicker',
+		id: MenuId.ChatModelPicker,
+		description: localize('menus.chatModelPicker', "The chat model picker dropdown menu"),
+		supportsSubmenus: false,
+		proposed: 'chatParticipantPrivate'
 	}
 ];
 
@@ -687,6 +699,32 @@ namespace schema {
 
 	// --- commands contribution point
 
+	// --- Start Positron ---
+	export type IUserFriendlyActionBarButtonOptions = PositronActionBarButtonOptions;
+
+	export type IUserFriendlyActionBarCheckboxOptions = Omit<PositronActionBarCheckboxOptions, 'checked'> & {
+		checked: string;
+	};
+
+	export type IUserFriendlyActionBarToggleOptions = Omit<PositronActionBarToggleOptions, 'toggled'> & {
+		toggled: string;
+	};
+
+	export type IUserFriendlyActionBarOptions =
+		IUserFriendlyActionBarButtonOptions |
+		IUserFriendlyActionBarCheckboxOptions |
+		IUserFriendlyActionBarToggleOptions;
+
+	export const isActionBarButtonOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarButtonOptions =>
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'button';
+
+	export const isActionBarCheckboxOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarCheckboxOptions =>
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'checkbox';
+
+	export const isActionBarToggleOptions = (actionBarOptions?: IUserFriendlyActionBarOptions): actionBarOptions is IUserFriendlyActionBarToggleOptions =>
+		actionBarOptions !== undefined && actionBarOptions.controlType === 'toggle';
+	// --- End Positron ---
+
 	export interface IUserFriendlyCommand {
 		command: string;
 		title: string | ILocalizedString;
@@ -694,6 +732,9 @@ namespace schema {
 		enablement?: string;
 		category?: string | ILocalizedString;
 		icon?: IUserFriendlyIcon;
+		// --- Start Positron ---
+		actionBarOptions?: IUserFriendlyActionBarOptions;
+		// --- End Positron ---
 	}
 
 	export type IUserFriendlyIcon = string | { light: string; dark: string };
@@ -723,8 +764,36 @@ namespace schema {
 		if (!isValidIcon(command.icon, collector)) {
 			return false;
 		}
+		// --- Start Positron ---
+		if (!isValidActionBarOptions(command.actionBarOptions)) {
+			collector.error(localize('invalidActionBarOptions', "property `{0}` can be omitted or must be of type `action bar options`", 'actionBarOptions'));
+			return false;
+		}
+		// --- End Positron ---
 		return true;
 	}
+
+	// --- Start Positron ---
+	function isValidActionBarOptions(actionBarOptions?: IUserFriendlyActionBarOptions): boolean {
+		if (!actionBarOptions) {
+			return true;
+		}
+
+		if (isActionBarButtonOptions(actionBarOptions)) {
+			return true;
+		}
+
+		if (isActionBarCheckboxOptions(actionBarOptions)) {
+			return true;
+		}
+
+		if (isActionBarToggleOptions(actionBarOptions)) {
+			return true;
+		}
+
+		return false;
+	}
+	// --- End Positron ---
 
 	function isValidIcon(icon: IUserFriendlyIcon | undefined, collector: ExtensionMessageCollector): boolean {
 		if (typeof icon === 'undefined') {
@@ -796,7 +865,88 @@ namespace schema {
 						}
 					}
 				}]
+			},
+			// --- Start Positron ---
+			actionBarOptions: {
+				oneOf: [{
+					type: 'object',
+					properties: {
+						controlType: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.controlType', 'The type of the action bar control.'),
+							const: 'button',
+						},
+						displayTitle: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.displayTitle', 'A value which indicates whether to display the title on an action bar.'),
+							type: 'boolean'
+						}
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						controlType: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.controlType', 'The type of the action bar control.'),
+							const: 'checkbox',
+						},
+						checked: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.checked', 'Condition which indicate whether the command is checked.'),
+							type: 'string'
+						}
+					}
+				},
+				{
+					type: 'object',
+					properties: {
+						controlType: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.controlType', 'The type of the action bar control.'),
+							const: 'toggle',
+						},
+						toggled: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.toggled', 'Condition which indicate whether the command is toggled.'),
+							type: 'string'
+						},
+						leftTitle: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.leftTitle', 'The title to show on the left side of the toggle button.'),
+							anyOf: [
+								{
+									type: 'string'
+								},
+								{
+									type: 'object',
+									properties: {
+										value: {
+											type: 'string'
+										},
+										original: {
+											type: 'string'
+										}
+									}
+								}
+							]
+						},
+						rightTitle: {
+							description: localize('vscode.extension.contributes.commandType.actionBarOptions.rightTitle', 'The title to show on the right side of the toggle button.'),
+							anyOf: [
+								{
+									type: 'string'
+								},
+								{
+									type: 'object',
+									properties: {
+										value: {
+											type: 'string'
+										},
+										original: {
+											type: 'string'
+										}
+									}
+								}
+							]
+						}
+					}
+				}]
 			}
+			// --- End Positron ---
 		}
 	};
 
@@ -842,7 +992,10 @@ commandsExtensionPoint.setHandler(extensions => {
 		}
 		// --- End Positron ---
 
-		const { icon, enablement, category, title, shortTitle, command } = userFriendlyCommand;
+		// --- Start Positron ---
+		// Add actionBarOptions.
+		const { icon, enablement, category, title, shortTitle, command, actionBarOptions } = userFriendlyCommand;
+		// --- End Positron ---
 
 		let absoluteIcon: { dark: URI; light?: URI } | ThemeIcon | undefined;
 		if (icon) {
@@ -865,6 +1018,28 @@ commandsExtensionPoint.setHandler(extensions => {
 				extension.collector.info(localize('dup0', "Command `{0}` already registered", userFriendlyCommand.command));
 			}
 		}
+
+		// --- Start Positron ---
+		let positronActionBarOptions: PositronActionBarOptions | undefined;
+		if (schema.isActionBarButtonOptions(actionBarOptions)) {
+			positronActionBarOptions = {
+				...actionBarOptions
+			};
+		} else if (schema.isActionBarCheckboxOptions(actionBarOptions)) {
+			positronActionBarOptions = {
+				...actionBarOptions,
+				checked: ContextKeyExpr.deserialize(actionBarOptions.checked)
+			};
+		} else if (schema.isActionBarToggleOptions(actionBarOptions)) {
+			positronActionBarOptions = {
+				...actionBarOptions,
+				toggled: ContextKeyExpr.deserialize(actionBarOptions.toggled)
+			};
+		} else {
+			positronActionBarOptions = undefined;
+		}
+		// --- End Positron ---
+
 		_commandRegistrations.add(MenuRegistry.addCommand({
 			id: command,
 			title,
@@ -873,7 +1048,10 @@ commandsExtensionPoint.setHandler(extensions => {
 			tooltip: title,
 			category,
 			precondition: ContextKeyExpr.deserialize(enablement),
-			icon: absoluteIcon
+			icon: absoluteIcon,
+			// --- Start Positron ---
+			positronActionBarOptions
+			// --- End Positron ---
 		}));
 	}
 

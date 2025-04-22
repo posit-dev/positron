@@ -98,7 +98,7 @@ export const TopActionBarOpenMenu = () => {
 			actions={actions}
 			iconFontSize={18}
 			iconId='folder-opened'
-			text={positronOpen}
+			label={positronOpen}
 			tooltip={positronOpenFileFolder}
 		/>
 	);

@@ -27,6 +27,8 @@ import { getIpykernelBundle, IpykernelBundle } from './ipykernel';
 export interface PythonRuntimeExtraData {
     pythonPath: string;
     ipykernelBundle?: IpykernelBundle;
+    externallyManaged?: boolean;
+    supported?: boolean;
 }
 
 export async function createPythonRuntimeMetadata(
@@ -136,6 +138,7 @@ export async function createPythonRuntimeMetadata(
     const extraRuntimeData: PythonRuntimeExtraData = {
         pythonPath: interpreter.path,
         ipykernelBundle,
+        supported: isVersionSupported(interpreter.version),
     };
 
     // Check the kernel supervisor's configuration; if it's  configured to

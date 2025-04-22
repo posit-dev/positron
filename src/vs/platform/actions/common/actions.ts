@@ -17,6 +17,8 @@ import { IKeybindingRule, KeybindingsRegistry } from '../../keybinding/common/ke
 
 // --- Start Positron ---
 import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
+// eslint-disable-next-line no-duplicate-imports
+import { PositronActionBarOptions } from '../../action/common/action.js';
 // --- End Positron ---
 
 
@@ -241,6 +243,7 @@ export class MenuId {
 	static readonly ChatExecuteSecondary = new MenuId('ChatExecuteSecondary');
 	static readonly ChatInput = new MenuId('ChatInput');
 	static readonly ChatInputSide = new MenuId('ChatInputSide');
+	static readonly ChatModelPicker = new MenuId('ChatModelPicker');
 	static readonly ChatEditingWidgetToolbar = new MenuId('ChatEditingWidgetToolbar');
 	static readonly ChatEditingEditorContent = new MenuId('ChatEditingEditorContent');
 	static readonly ChatEditingEditorHunk = new MenuId('ChatEditingEditorHunk');
@@ -527,10 +530,9 @@ export class MenuItemAction implements IAction {
 
 	// --- Start Positron ---
 	/**
-	 * Gets a value which indicates whether to display the title for the action when it appears on
-	 * an action bar.
+	 * PositronActionBarOptions controls how the menu item action is displayed in a PositronActionBar.
 	 */
-	readonly displayTitleOnActionBar?: boolean;
+	readonly positronActionBarOptions?: PositronActionBarOptions;
 	// --- End Positron ---
 
 	constructor(
@@ -549,7 +551,7 @@ export class MenuItemAction implements IAction {
 		this.checked = undefined;
 
 		// --- Start Positron ---
-		this.displayTitleOnActionBar = item.displayTitleOnActionBar;
+		this.positronActionBarOptions = item.positronActionBarOptions;
 		// --- End Positron ---
 
 		let icon: ThemeIcon | undefined;

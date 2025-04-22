@@ -61,6 +61,10 @@ export interface ILogger extends IDisposable {
 	flush(): void;
 }
 
+export function canLog(loggerLevel: LogLevel, messageLevel: LogLevel): boolean {
+	return loggerLevel !== LogLevel.Off && loggerLevel <= messageLevel;
+}
+
 export function log(logger: ILogger, level: LogLevel, message: string): void {
 	switch (level) {
 		case LogLevel.Trace: logger.trace(message); break;
@@ -240,7 +244,7 @@ export interface ILoggerService {
 	/**
 	 * Deregister the logger for the given resource.
 	 */
-	deregisterLogger(resource: URI): void;
+	deregisterLogger(idOrResource: URI | string): void;
 
 	/**
 	 * Get all registered loggers
@@ -271,7 +275,7 @@ export abstract class AbstractLogger extends Disposable implements ILogger {
 	}
 
 	protected checkLogLevel(level: LogLevel): boolean {
-		return this.level !== LogLevel.Off && this.level <= level;
+		return canLog(this.level, level);
 	}
 
 	protected canLog(level: LogLevel): boolean {
@@ -705,7 +709,8 @@ export abstract class AbstractLoggerService extends Disposable implements ILogge
 		}
 	}
 
-	deregisterLogger(resource: URI): void {
+	deregisterLogger(idOrResource: URI | string): void {
+		const resource = this.toResource(idOrResource);
 		const existing = this._loggers.get(resource);
 		if (existing) {
 			if (existing.logger) {

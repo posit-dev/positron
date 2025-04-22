@@ -88,6 +88,8 @@ import './mainThreadShare.js';
 import './mainThreadProfileContentHandlers.js';
 import './mainThreadAiRelatedInformation.js';
 import './mainThreadAiEmbeddingVector.js';
+import './mainThreadMcp.js';
+import './mainThreadChatStatus.js';
 
 // --- Begin Positron ---
 import './positron/mainThreadLanguageRuntime.js';

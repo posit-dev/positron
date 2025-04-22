@@ -201,8 +201,18 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// Update the set of workspace sessions
 				this.saveWorkspaceSessions(session.metadata.sessionId);
 
-				// Restart after a crash, if necessary
-				this.restartAfterCrash(session, exit);
+				if (exit.reason === RuntimeExitReason.Error) {
+					// Restart after a crash, if necessary
+					this.restartAfterCrash(session, exit).then(shouldCleanup => {
+						// Clean things up if requested.
+						if (shouldCleanup) {
+							session.cleanup();
+						}
+					});
+				} else if (exit.reason !== RuntimeExitReason.Restart) {
+					// If the session is not restarting, clean up the Ext Host side.
+					session.cleanup();
+				}
 			}));
 		}));
 
@@ -1440,21 +1450,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 *
 	 * @param session The session that exited.
 	 * @param exit The reason the session exited.
+	 * @returns True if the session should be cleaned up, or false if not.
 	 */
-	private async restartAfterCrash(session: ILanguageRuntimeSession, exit: ILanguageRuntimeExit) {
+	private async restartAfterCrash(session: ILanguageRuntimeSession, exit: ILanguageRuntimeExit): Promise<boolean> {
 		// Ignore if we are still starting up; if a runtime crashes or exits
 		// during startup, we'll usually try to start a better one instead of
 		// booting to a broken REPL.
 		if (this._startupPhase !== RuntimeStartupPhase.Complete) {
-			return;
-		}
-
-		// Ignore if the runtime exited for a Good Reason.
-		// If the reason is `Unknown`, then we don't know the reason for the exit, but the
-		// `exit_code` was `0`, so we don't treat it as a crash. If the `exit_code` had not been
-		// `0`, then `onKernelExited()` would have upgraded the crash from `Unknown` to `Error`.
-		if (exit.reason !== RuntimeExitReason.Error) {
-			return;
+			// We don't want to clean up the session if we're still starting up.
+			return false;
 		}
 
 		const restartOnCrash =
@@ -1466,16 +1470,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Wait a beat, then start the runtime.
 			await new Promise<void>(resolve => setTimeout(resolve, 250));
 
-			await this._runtimeSessionService.startNewRuntimeSession(
-				session.runtimeMetadata.runtimeId,
-				session.metadata.sessionName,
-				session.metadata.sessionMode,
-				session.metadata.notebookUri,
-				`The runtime exited unexpectedly and is being restarted automatically.`,
-				RuntimeStartMode.Restarting,
-				false);
+			await this._runtimeSessionService.restartSession(
+				session.sessionId,
+				`The runtime exited unexpectedly and is being restarted automatically.`
+			);
+
 			action = 'and was automatically restarted';
 		} else {
+			// If we're not going to restart, clean up the Ext Host.
 			action = 'and was not automatically restarted';
 		}
 
@@ -1497,6 +1499,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			},
 		]);
 
+		// If we didn't restart the session, we need to clean it up.
+		return !restartOnCrash;
 	}
 
 	/**

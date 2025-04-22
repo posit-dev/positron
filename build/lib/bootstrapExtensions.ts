@@ -35,23 +35,31 @@ function getExtensionPath(extension: IExtensionDefinition): string {
 
 function isUpToDate(extension: IExtensionDefinition): boolean {
 	const regex = new RegExp(`^${extension.name}-(\\d+\\.\\d+\\.\\d+)\\.vsix$`);
-	if (!fs.existsSync(path.join(root, '.build', 'bootstrapExtensions'))) {
-		return false;
-	}
-	const files = fs.readdirSync(path.join(root, '.build', 'bootstrapExtensions'));
-	const vsixPath = files.find(f => regex.test(f));
-
-	if (!vsixPath) {
+	const bootstrapDir = path.join(root, '.build', 'bootstrapExtensions');
+	if (!fs.existsSync(bootstrapDir)) {
 		return false;
 	}
 
-	try {
-		const match = vsixPath.match(regex);
-		const diskVersion = match ? match[1] : null;
-		return (diskVersion === extension.version);
-	} catch (err) {
-		return false;
+	const files = fs.readdirSync(bootstrapDir);
+	const matchingFiles = files.filter(f => regex.test(f));
+	for (const vsixPath of matchingFiles) {
+		try {
+			const match = vsixPath.match(regex);
+			const diskVersion = match ? match[1] : null;
+
+			if (diskVersion !== extension.version) {
+				log(`[extensions]`, `Outdated version detected, deleting ${vsixPath}`);
+				fs.unlinkSync(path.join(bootstrapDir, vsixPath));
+			} else {
+				log(`[extensions]`, `Found up-to-date extension: ${vsixPath}`);
+				return true;
+			}
+		} catch (err) {
+			log(`[extensions]`, `Error checking version of ${vsixPath}`, err);
+			return false;
+		}
 	}
+	return false;
 }
 
 function getExtensionDownloadStream(extension: IExtensionDefinition) {

@@ -18,10 +18,11 @@ const VARIABLE_NAMES = 'name-column';
 const VARIABLE_DETAILS = 'details-column';
 const CURRENT_VARIABLES_GROUP = '.variables-instance[style*="z-index: 1"]';
 const VARIABLES_NAME_COLUMN = `${CURRENT_VARIABLES_GROUP} .variable-item .name-column`;
-const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-text';
+const VARIABLES_INTERPRETER = '.positron-variables-container .action-bar-button-label';
 const VARIABLE_CHEVRON_ICON = '.gutter .expand-collapse-icon';
 const VARIABLE_INDENTED = '.name-column-indenter[style*="margin-left: 40px"]';
-const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-button-text';
+const VARIABLES_GROUP_SELECTOR = '.positron-variables-container .action-bar-button-label';
+const VARIABLES_FILTER_SELECTOR = '.positron-variables-container .action-bar-filter-input .text-input';
 
 /*
  *  Reuseable Positron variables functionality for tests to leverage.
@@ -40,7 +41,6 @@ export class Variables {
 		const variables = new Map<string, FlatVariables>();
 		await expect(this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).first()).toBeVisible();
 		const variableItems = await this.code.driver.page.locator(`${CURRENT_VARIABLES_GROUP} ${VARIABLE_ITEMS}`).all();
-
 		for (const item of variableItems) {
 			const nameElement = item.locator(`.${VARIABLE_NAMES}`).first();
 			const detailsElement = item.locator(`.${VARIABLE_DETAILS}`).first();
@@ -176,6 +176,10 @@ export class Variables {
 		const groupList = await this.code.driver.page.locator('a.action-menu-item').all();
 		const groupNames = await Promise.all(groupList.map(async (group) => group.innerText()));
 		return groupNames;
+	}
+
+	async setFilterText(filterText: string) {
+		await this.code.driver.page.locator(VARIABLES_FILTER_SELECTOR).fill(filterText);
 	}
 
 	async clickDatabaseIconForVariableRow(rowName: string) {

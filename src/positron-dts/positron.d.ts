@@ -195,6 +195,9 @@ declare module 'positron' {
 		/** Runtime name */
 		runtime_name: string;
 
+		/** Session name */
+		session_name: string;
+
 		/**
 		 * The process exit code, if the runtime is backed by a process. If the
 		 * runtime is not backed by a process, this should just be 0 for a
@@ -1843,6 +1846,7 @@ declare module 'positron' {
 			}[keyof LanguageModelConfig], undefined>[];
 			defaults: LanguageModelConfigOptions;
 			signedIn?: boolean;
+			authMethods?: string[];
 		}
 
 		/**
@@ -1861,6 +1865,7 @@ declare module 'positron' {
 			model: string;
 			baseUrl?: string;
 			apiKey?: string;
+			oauth?: boolean;
 			toolCalls?: boolean;
 			resourceName?: string;
 			project?: string;

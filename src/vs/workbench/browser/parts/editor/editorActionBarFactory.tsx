@@ -21,8 +21,11 @@ import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/
 import { ActionBarSeparator } from '../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ActionBarActionButton } from '../../../../platform/positronActionBar/browser/components/actionBarActionButton.js';
+import { ActionBarActionToggle } from '../../../../platform/positronActionBar/browser/components/actionBarActionToggle.js';
 import { ActionBarCommandButton } from '../../../../platform/positronActionBar/browser/components/actionBarCommandButton.js';
+import { ActionBarActionCheckbox } from '../../../../platform/positronActionBar/browser/components/actionBarActionCheckbox.js';
 import { IMenu, IMenuActionOptions, IMenuService, MenuId, MenuItemAction, SubmenuItemAction } from '../../../../platform/actions/common/actions.js';
+import { isPositronActionBarCheckboxOptions, isPositronActionBarButtonOptions, isPositronActionBarToggleOptions } from '../../../../platform/action/common/action.js';
 
 // Constants.
 const PADDING_LEFT = 8;
@@ -346,8 +349,22 @@ export class EditorActionBarFactory extends Disposable {
 			} else if (action instanceof MenuItemAction) {
 				// Menu item action.
 				if (!processedActions.has(action.id)) {
+					// Add the action to the processed actions.
 					processedActions.add(action.id);
-					elements.push(<ActionBarActionButton action={action} />);
+
+					// If no action bar options are specified, use the default action bar button.
+					if (!action.positronActionBarOptions) {
+						elements.push(<ActionBarActionButton action={action} />);
+					} else if (isPositronActionBarButtonOptions(action.positronActionBarOptions)) {
+						elements.push(<ActionBarActionButton action={action} />);
+					} else if (isPositronActionBarCheckboxOptions(action.positronActionBarOptions)) {
+						elements.push(<ActionBarActionCheckbox action={action} />);
+					} else if (isPositronActionBarToggleOptions(action.positronActionBarOptions)) {
+						elements.push(<ActionBarActionToggle action={action} />);
+					} else {
+						// This indicates an unknown positronActionBarOptions.
+						console.warn('EditorActionBarFactory: Unknown positronActionBarOptions');
+					}
 				}
 			} else if (action instanceof SubmenuItemAction) {
 				// Process the action.
@@ -398,7 +415,7 @@ export class EditorActionBarFactory extends Disposable {
 									false
 								)}
 								iconId={iconId}
-								text={iconId ? undefined : firstAction.label}
+								label={iconId ? undefined : firstAction.label}
 								tooltip={actionTooltip(
 									this._contextKeyService,
 									this._keybindingService,

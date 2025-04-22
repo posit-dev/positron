@@ -77,20 +77,5 @@ export interface IPositronNotebookOutputWebviewService {
 			viewType?: string;
 		}): Promise<INotebookOutputWebview | undefined>;
 
-	/**
-	 * Create a new raw HTML output webview.
-	 *
-	 * @param opts The options for the webview
-	 * @param opts.id A unique ID for this webview; typically the ID of the message
-	 *  that created it.
-	 * @param opts.runtimeOrSessionId The runtime that owns this webview. Can also be a string of the ID of the runtime.
-	 * @param opts.html The HTML content to render in the webview.
-	 * @returns A promise that resolves to the new webview of the desired type.
-	 */
-	createRawHtmlOutput(opts: {
-		id: string;
-		html: string;
-		runtimeOrSessionId: ILanguageRuntimeSession | string;
-	}): Promise<INotebookOutputWebview>;
 }
 

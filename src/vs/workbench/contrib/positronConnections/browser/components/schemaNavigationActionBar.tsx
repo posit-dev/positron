@@ -69,14 +69,14 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 						<ActionBarButton
 							align='left'
 							iconId='positron-disconnect-connection'
-							text={(() => localize('positron.schemaNavigationActionBar.disconnect', 'Disconnect'))()}
+							label={(() => localize('positron.schemaNavigationActionBar.disconnect', 'Disconnect'))()}
 							onPressed={() => props.onDisconnect()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
 							iconId='refresh'
-							text={(() => localize('positron.schemaNavigationActionBar.refresh', 'Refresh'))()}
+							label={(() => localize('positron.schemaNavigationActionBar.refresh', 'Refresh'))()}
 							onPressed={() => props.onRefresh()}
 						/>
 					</ActionBarRegion>

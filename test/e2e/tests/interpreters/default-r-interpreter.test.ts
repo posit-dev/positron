@@ -12,35 +12,46 @@ test.use({
 });
 
 // electron only for now - windows doesn't have hidden interpreters and for web the deletePositronHistoryFiles is not valid
-test.describe.skip('Default Interpreters - R', {
+test.describe('Default Interpreters - R', {
 	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
+	test.beforeAll(async function ({ app, userSettings }) {
 
-		// local debugging sample:
-		// await userSettings.set([['positron.r.interpreters.default', '"/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R"']], false);
-
-		// hidden CI interpreter:
-		await userSettings.set([['positron.r.interpreters.default', '"/home/runner/scratch/R-4.4.1/bin/R"']], false);
+		await app.workbench.settings.removeWorkspaceSettings(['interpreters.startupBehavior']);
 
 		await deletePositronHistoryFiles();
+
+		// local debugging sample:
+		// await userSettings.set([['positron.r.interpreters.default', '"/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R"']], true);
+
+		// hidden CI interpreter:
+		await userSettings.set([['positron.r.interpreters.default', '"/home/runner/scratch/R-4.4.1/bin/R"']], true);
+
+	});
+
+	test.afterAll(async function ({ cleanup }) {
+
+		await cleanup.discardAllChanges();
 
 	});
 
 	test('R - Add a default interpreter', async function ({ app, runCommand, sessions }) {
-		await sessions.expectAllSessionsToBeReady();
+
 		await runCommand('workbench.action.reloadWindow');
-		await sessions.expectAllSessionsToBeReady();
 
-		const { name, path } = await sessions.getMetadata();
+		await expect(async () => {
 
-		// Local debugging sample:
-		// expect(name).toContain('R 4.3.3');
-		// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
+			const { name, path } = await sessions.getMetadata();
 
-		// hidden CI interpreter:
-		expect(name).toMatch(/R 4\.4\.1/);
-		expect(path).toMatch(/R-4\.4\.1\/bin\/R/);
+			// Local debugging sample:
+			// expect(name).toContain('R 4.3.3');
+			// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
+
+			// hidden CI interpreter:
+			expect(name).toMatch(/R 4\.4\.1/);
+			expect(path).toMatch(/R-4\.4\.1\/bin\/R/);
+
+		}).toPass({ timeout: 60000 });
 	});
 });

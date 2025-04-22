@@ -29,31 +29,30 @@ type ActionBarButtonIconProps = {
 	readonly iconImageSrc?: string;
 	readonly iconHeight?: number;
 	readonly iconWidth?: number;
-
 };
 
 /**
  * ActionBarButtonCommonProps type
  */
 type ActionBarButtonCommonProps = {
-	readonly fadeIn?: boolean;
-	readonly text?: string;
-	readonly maxTextWidth?: number;
 	readonly align?: 'left' | 'right';
-	readonly tooltip?: string | (() => string | undefined);
-	readonly dataTestId?: string;
-	readonly dropdownTooltip?: string | (() => string | undefined);
-	readonly checked?: boolean;
-	readonly disabled?: boolean;
 	readonly ariaLabel?: string;
+	readonly border?: boolean;
+	readonly checked?: boolean;
+	readonly dataTestId?: string;
+	readonly disabled?: boolean;
 	readonly dropdownAriaLabel?: string;
 	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
-	readonly border?: boolean;
+	readonly dropdownTooltip?: string | (() => string | undefined);
+	readonly fadeIn?: boolean;
+	readonly label?: string;
+	readonly maxTextWidth?: number;
 	readonly mouseTrigger?: MouseTrigger;
+	readonly tooltip?: string | (() => string | undefined);
+	readonly onDropdownPressed?: () => void;
 	readonly onMouseEnter?: () => void;
 	readonly onMouseLeave?: () => void;
 	readonly onPressed?: () => void;
-	readonly onDropdownPressed?: () => void;
 }
 
 /**
@@ -94,7 +93,7 @@ export const ActionBarButton = forwardRef<
 	// Aria-hide the inner elements and promote the button text to an aria-label in order to
 	// avoid VoiceOver treating buttons as groups. See VSCode issue for more:
 	// https://github.com/microsoft/vscode/issues/181739#issuecomment-1779701917
-	const ariaLabel = props.ariaLabel ? props.ariaLabel : props.text;
+	const ariaLabel = props.ariaLabel ? props.ariaLabel : props.label;
 
 	/**
 	 * ActionBarButtonFace component.
@@ -129,15 +128,15 @@ export const ActionBarButton = forwardRef<
 						/>
 					</div>
 				}
-				{props.text &&
+				{props.label &&
 					<div
-						className='action-bar-button-text'
+						className='action-bar-button-label'
 						style={{
 							marginLeft: (props.iconId || props.iconImageSrc) ? 0 : 4,
 							maxWidth: optionalValue(props.maxTextWidth, 'none')
 						}}
 					>
-						{props.text}
+						{props.label}
 					</div>
 				}
 				{props.dropdownIndicator === 'enabled' &&
