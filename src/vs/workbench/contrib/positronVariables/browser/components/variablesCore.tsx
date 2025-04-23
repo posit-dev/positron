@@ -40,8 +40,14 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 		const disposables = new DisposableStore();
 
 		let progressBar: ProgressBar | undefined;
+		let debounceTimeout: NodeJS.Timeout | undefined;
 
 		const clearProgressBar = () => {
+			if (debounceTimeout) {
+				clearTimeout(debounceTimeout);
+				debounceTimeout = undefined;
+			}
+
 			if (progressBar) {
 				progressBar.done();
 				progressBar.dispose();
@@ -50,32 +56,40 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 			}
 		}
 
-		const setProgressBar = () => {
-			// No work to do if we don't have a progress bar.
-			if (!progressRef.current) {
-				return;
+		const setProgressBar = (timeout: number) => {
+			// If there's a progress bar already scheduled to appear we'll clean it up,
+			// and schedule a new one.
+			if (debounceTimeout) {
+				clearTimeout(debounceTimeout);
+				debounceTimeout = undefined;
 			}
 
-			// Before starting a new render, remove any existing progress bars. This prevents
-			// a buildup of progress bars when rendering multiple times and ensures the progress bar
-			// is removed when a new render is requested before the previous one completes.
-			progressRef.current.replaceChildren();
-			// Create the progress bar.
-			progressBar = new ProgressBar(progressRef.current);
-			progressBar.infinite();
+			debounceTimeout = setTimeout(() => {
+				// No work to do if we don't have a progress bar.
+				if (!progressRef.current) {
+					return;
+				}
+				// Before starting a new render, remove any existing progress bars. This prevents
+				// a buildup of progress bars when rendering multiple times and ensures the progress bar
+				// is removed when a new render is requested before the previous one completes.
+				progressRef.current.replaceChildren();
+				// Create the progress bar.
+				progressBar = new ProgressBar(progressRef.current);
+				progressBar.infinite();
+			}, timeout)
 		}
 
 		if (positronVariablesContext.activePositronVariablesInstance) {
 			disposables.add(positronVariablesContext.activePositronVariablesInstance.onDidChangeStatus((status) => {
 				if (status === RuntimeClientStatus.Busy) {
-					setProgressBar();
+					setProgressBar(500);
 				} else {
 					clearProgressBar();
 				}
 			}));
 
 			if (positronVariablesContext.activePositronVariablesInstance.status === RuntimeClientStatus.Busy) {
-				setProgressBar();
+				setProgressBar(100);
 			}
 		}
 
