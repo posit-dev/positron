@@ -1431,13 +1431,14 @@ declare module 'positron' {
 			okButtonTitle?: string): Thenable<null>;
 
 		/**
-		 * Get the `Console` for a runtime language `id`
+		 * Get the `Console` for a runtime `languageId`
 		 *
-		 * @param id The runtime language `id` to retrieve a `Console` for, i.e. 'r' or 'python'.
+		 * @param languageId The runtime language id to retrieve a `Console` for, i.e. 'r' or 'python'.
 		 *
-		 * @returns A `Console`, or `undefined` if no `Console` for that language exists.
+		 * @returns A Thenable that resolves to a `Console` or `undefined` if no `Console` for
+		 *   that `languageId` exists.
 		 */
-		export function getConsoleForLanguage(id: string): Console | undefined;
+		export function getConsoleForLanguage(languageId: string): Thenable<Console | undefined>;
 
 		/**
 		 * Fires when the width of the console input changes. The new width is passed as
@@ -1775,6 +1776,12 @@ declare module 'positron' {
 			name: string;
 			provider: string;
 			identifier: string;
+
+			readonly capabilities?: {
+				readonly vision?: boolean;
+				readonly toolCalling?: boolean;
+				readonly agentMode?: boolean;
+			};
 
 			/**
 			 * Handle a language model request with tool calls and streaming chat responses.

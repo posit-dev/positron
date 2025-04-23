@@ -8,8 +8,9 @@ import * as positron from 'positron';
 import * as path from 'path';
 
 import { ExtensionContext } from 'vscode';
-import { Command, Executable, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { platform } from 'os';
+import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 
 interface EditorPluginInfo {
 	name: string;
@@ -178,6 +179,7 @@ export class CopilotService implements vscode.Disposable {
 			'Cancel');
 
 		if (shouldLogin) {
+			await client.sendRequest(ExecuteCommandRequest.type, response.command);
 			return true;
 		} else {
 			return false;
@@ -189,6 +191,7 @@ export class CopilotService implements vscode.Disposable {
 		const client = this.client();
 
 		try {
+			await client.sendRequest(SignOutRequest.type, {});
 			return true;
 		} catch (error) {
 			if (error instanceof Error) {
@@ -282,7 +285,7 @@ export class CopilotLanguageClient implements vscode.Disposable {
 		this._disposables.push(outputChannel);
 
 		const clientOptions: LanguageClientOptions = {
-			documentSelector: [{ scheme: '*' }],
+			documentSelector: ALL_DOCUMENTS_SELECTOR,
 			progressOnInitialization: true,
 			outputChannel,
 			initializationOptions: {

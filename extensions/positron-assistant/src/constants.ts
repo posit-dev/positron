@@ -4,6 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import { DocumentSelector } from 'vscode-languageclient';
 
-// The extension root directory.
+/** The extension root directory. */
 export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
+
+/** Selects all documents. */
+export const ALL_DOCUMENTS_SELECTOR: DocumentSelector = [{ scheme: '*' }];

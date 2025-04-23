@@ -5,6 +5,14 @@
 
 import { IPositronConsoleInstance } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
+/**
+ * The main thread's view of a console instance
+ *
+ * Cousin to `ExtHostConsole`
+ *
+ * When the extension host requests console behavior from the main thread, it
+ * typically ends up here.
+ */
 export class MainThreadConsole {
 	constructor(
 		private readonly _console: IPositronConsoleInstance
