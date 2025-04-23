@@ -120,8 +120,6 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 		menuItemAction.alt :
 		props.action;
 
-	//brianlambert
-
 	// Render.
 	return (
 		<ActionBarButton
