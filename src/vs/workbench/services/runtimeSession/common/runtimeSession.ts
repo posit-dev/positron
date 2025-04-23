@@ -25,7 +25,7 @@ import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
-import { IPositronPlotsService } from '../../positronPlots/common/positronPlots.js';
+import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -148,6 +148,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidUpdateSessionNameEmitter =
 		this._register(new Emitter<ILanguageRuntimeSession>);
 
+	// The event emitter for the onDidStartUiClient event.
+	private readonly _onDidStartUiClientEmitter =
+		this._register(new Emitter<{ sessionId: string; uiClient: UiClientInstance }>());
+
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -161,7 +165,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IUpdateService private readonly _updateService: IUpdateService,
-		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
 	) {
 
 		super();
@@ -262,6 +265,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when a runtime is deleted.
 	readonly onDidDeleteRuntimeSession = this._onDidDeleteRuntimeSessionEmitter.event;
+
+	// An event that fires when a UI client has started in a session.
+	readonly onDidStartUiClient = this._onDidStartUiClientEmitter.event;
 
 	// The event emitter for the onDidUpdateNotebookSessionUri event.
 	private readonly _onDidUpdateNotebookSessionUriEmitter =
@@ -1644,12 +1650,16 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 	 	this._logService,
 			this._openerService,
 			this._configurationService,
-		  this._positronPlotsService
 		);
 		this._activeSessionsBySessionId.set(session.sessionId, activeSession);
 		this._register(activeSession);
 		this._register(activeSession.onDidReceiveRuntimeEvent(evt => {
 			this._onDidReceiveRuntimeEventEmitter.fire(evt);
+		}));
+
+		// Forwad UI client to interested services once it's available
+	 	activeSession.register(activeSession.onUiClientStarted(uiClient => {
+			this._onDidStartUiClientEmitter.fire({ sessionId: session.sessionId, uiClient });
 		}));
 
 		// Add the onDidChangeRuntimeState event handler.
