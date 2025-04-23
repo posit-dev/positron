@@ -25,7 +25,7 @@ configurationRegistry.registerConfiguration({
 			scope: ConfigurationScope.MACHINE,
 			type: 'boolean',
 			default: false,
-			description: nls.localize('keybindings.rstudioKeybindings', "Enable RStudio keybindings."),
+			description: nls.localize('keybindings.rstudioKeybindings', "Enable RStudio keybindings (requires restart)"),
 		},
 	}
 });
@@ -50,7 +50,11 @@ class PositronKeybindingsContribution extends Disposable {
 			this.registerRStudioKeybindings();
 		}
 
-		// Listen for changes to the configuration setting
+		// Listen for changes to the configuration setting.
+		//
+		// In practice it appears that updating the registry doesn't take effect
+		// until the next startup, so unfortunately this doesn't enable us to
+		// dynamically toggle the setting within a single Positron session.
 		this._register(
 			this._configurationService.onDidChangeConfiguration((e) => {
 				if (e.affectsConfiguration('workbench.keybindings.rstudioKeybindings')) {
@@ -58,6 +62,7 @@ class PositronKeybindingsContribution extends Disposable {
 					const rstudioKeybindingsEnabled =
 						this._configurationService.getValue('workbench.keybindings.rstudioKeybindings');
 					if (rstudioKeybindingsEnabled) {
+						// Register the key mappings
 						this.registerRStudioKeybindings();
 					} else {
 						// Unregister the key mappings by clearing the registrations
@@ -68,6 +73,9 @@ class PositronKeybindingsContribution extends Disposable {
 		);
 	}
 
+	/**
+	 * Registers the RStudio key mappings with the keybinding registry.
+	 */
 	private registerRStudioKeybindings() {
 		// Create new R file
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
@@ -132,7 +140,9 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'quarto.insertCodeCell',
 			weight: KeybindingWeight.WorkbenchContrib,
-			when: EditorContextKeys.editorTextFocus,
+			when: ContextKeyExpr.and(
+				EditorContextKeys.editorTextFocus,
+				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'quarto')),
 			primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyI
 		}));
 
@@ -191,7 +201,9 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'r.insertSection',
 			weight: KeybindingWeight.WorkbenchContrib,
-			when: EditorContextKeys.editorTextFocus,
+			when: ContextKeyExpr.and(
+				EditorContextKeys.editorTextFocus,
+				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'r')),
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyR
 		}));
 
@@ -199,6 +211,9 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'r.sourceCurrentFile',
 			weight: KeybindingWeight.WorkbenchContrib,
+			when: ContextKeyExpr.and(
+				EditorContextKeys.editorTextFocus,
+				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'r')),
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyS
 		}));
 
@@ -206,6 +221,9 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'r.sourceCurrentFileWithEcho',
 			weight: KeybindingWeight.WorkbenchContrib,
+			when: ContextKeyExpr.and(
+				EditorContextKeys.editorTextFocus,
+				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'r')),
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 		}));
 
