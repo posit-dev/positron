@@ -79,7 +79,6 @@ export class FileContentsTool implements IToolImpl {
 
 		return {
 			content: [{ kind: 'text', value: JSON.stringify({ contents: value, size, encoding, }) }],
-			toolResultMessage: `Retrieved file contents for ${uri.path}`,
 		};
 	}
 

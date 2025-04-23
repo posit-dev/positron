@@ -77,11 +77,10 @@ export class TextSearchTool implements IToolImpl {
 			pattern: textToFind
 		};
 		const query = this._queryBuilder.text(content, workspaceUris, queryOptions);
-		const { results, messages } = await this._searchService.textSearch(query, _token);
+		const { results } = await this._searchService.textSearch(query, _token);
 
 		return {
 			content: results.map(result => ({ kind: 'text', value: JSON.stringify(({ file: result.resource.path, results: result.results })) })),
-			toolResultMessage: messages.map(message => message.text).join('\n'),
 		};
 	}
 }
