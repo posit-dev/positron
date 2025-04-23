@@ -965,7 +965,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 enum PendingRpcStatus {
 	/**
-	 * The RPC was sent to the server but kernel, but the kernel didn't start working on it yet.
+	 * The RPC was sent to the kernel, but the kernel didn't start working on it yet.
 	 */
 	Pending,
 	/**
@@ -1103,11 +1103,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		// Add the promise to the list of pending RPCs.
 		const pending = new PendingRpc<T>(responseKeys);
 		this._pendingRpcs.set(messageId, pending);
-		if (this._pendingRpcs.size > 0) {
-			this.setClientStatus(RuntimeClientStatus.Busy);
-		}
+		this.setClientStatus(RuntimeClientStatus.Busy);
 
-		// When the status becomes complete, we wait a maximum of 5s for the
+		// When the status becomes complete, we wait a maximum of 2s for the
 		// promise to be resolved, otherwise we reject it.
 		const statusListener = pending.onDidChangeStatus((status) => {
 			if (status === PendingRpcStatus.Completed) {
