@@ -1017,6 +1017,11 @@ class PendingRpc<T> {
 	public getStatus(): PendingRpcStatus {
 		return this._status;
 	}
+
+	public error(error: Error): void {
+		this.setStatus(PendingRpcStatus.Error);
+		this.promise.error(error);
+	}
 }
 
 /**
@@ -1121,8 +1126,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 						return;
 					}
 					const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
-					pending.promise.error(new Error(`RPC request completed, but response not received after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
-					pending.setStatus(PendingRpcStatus.Error);
+					pending.error(new Error(`RPC request completed, but response not received after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
 					this.deletePendingRpc(messageId);
 				}, timeout);
 			}
@@ -1149,7 +1153,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 				// Otherwise, reject the promise and remove it from the list of pending RPCs.
 				const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
-				pending.promise.error(new Error(`RPC timed out after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
+				pending.error(new Error(`RPC timed out after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
 				this.deletePendingRpc(messageId);
 			}, timeout);
 		}
@@ -1277,8 +1281,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	public override dispose(): void {
 		// Cancel any pending RPCs
 		for (const [id, pending] of this._pendingRpcs) {
-			pending.setStatus(PendingRpcStatus.Error);
-			pending.promise.error('The language runtime exited before the RPC completed.');
+			pending.error(new Error('The language runtime exited before the RPC completed.'));
 			this.deletePendingRpc(id);
 		}
 
