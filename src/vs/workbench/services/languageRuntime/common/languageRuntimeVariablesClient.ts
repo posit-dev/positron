@@ -157,7 +157,13 @@ export class VariablesClientInstance extends Disposable {
 
 		// Clipboard formatting should have a small timeout.
 		this._comm = new PositronVariablesComm(client, {
-			clipboard_format: { timeout: 3000 }
+			clipboard_format: { timeout: 3000 },
+			// Explicitly never timeout the other requests
+			list: { timeout: undefined },
+			clear: { timeout: undefined },
+			delete: { timeout: undefined },
+			inspect: { timeout: undefined },
+			view: { timeout: undefined },
 		});
 
 		this.clientState = client.clientState;

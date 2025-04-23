@@ -55,9 +55,9 @@ export type PositronCommOptions<T extends string> = {
 export interface PositronCommRpcOptions {
 	/**
 	 * Timeout in milliseconds after which to error if the server does not respond.
-	 * Defaults to 5 seconds.
+	 * Defaults to 5 seconds. Undefined means no timeout.
 	 */
-	timeout: number;
+	timeout: number | undefined;
 }
 
 /**
@@ -243,7 +243,7 @@ export class PositronBaseComm extends Disposable {
 		let response = {} as any;
 		try {
 			// Check for explicitly set timeout in options, otherwise use the default.
-			const defaultTimeout = undefined;
+			const defaultTimeout = 5000; // 5 seconds
 			const timeout = (this.options?.[rpcName] && 'timeout' in this.options[rpcName])
 				? this.options[rpcName].timeout
 				: defaultTimeout;
