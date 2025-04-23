@@ -101,10 +101,6 @@ import { ChatImplicitContext } from './contrib/chatImplicitContext.js';
 import { ChatRelatedFiles } from './contrib/chatInputRelatedFilesContrib.js';
 import { resizeImage } from './imageUtils.js';
 
-// --- Start Positron ---
-import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
-// --- End Positron ---
-
 const $ = dom.$;
 
 const INPUT_EDITOR_MAX_HEIGHT = 250;
@@ -359,9 +355,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		@IChatAgentService private readonly agentService: IChatAgentService,
 		@IChatService private readonly chatService: IChatService,
 		@ISharedWebContentExtractorService private readonly sharedWebExtracterService: ISharedWebContentExtractorService,
-		// --- Start Positron ---
-		@IEnvironmentService private readonly environmentService: IEnvironmentService,
-		// --- End Positron ---
 	) {
 		super();
 
@@ -568,16 +561,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			this.setValue(state.inputValue, false);
 		}
 
-		// --- Start Positron ---
-		const enableChatSwitch = this.configurationService.getValue<boolean>('positron.assistant.chatSwitch');
-		if (!enableChatSwitch) {
-			this.setChatMode(ChatMode.Ask);
-		} else if (state.inputState?.chatMode) {
+		if (state.inputState?.chatMode) {
 			this.setChatMode(state.inputState.chatMode);
 		} else if (this.location === ChatAgentLocation.EditingSession) {
 			this.setChatMode(ChatMode.Edit);
 		}
-		// --- End Positron ---
 	}
 
 	logInputHistory(): void {
@@ -953,18 +941,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 						return this.instantiationService.createInstance(ModelPickerActionViewItem, action, this._currentLanguageModel, itemDelegate);
 					}
 				} else if (action.id === ToggleAgentModeActionId && action instanceof MenuItemAction) {
-					// --- Start Positron ---
-					// disable chat mode switcher until it's ready
-					// enables in dev mode by default
-					const enableChatSwitch = this.configurationService.getValue('positron.assistant.chatSwitch');
-					if ((!this.environmentService.isBuilt && enableChatSwitch === undefined) || enableChatSwitch) {
-						const delegate: IModePickerDelegate = {
-							getMode: () => this.currentMode,
-							onDidChangeMode: this._onDidChangeCurrentChatMode.event
-						};
-						return this.instantiationService.createInstance(ToggleChatModeActionViewItem, action, delegate);
-					}
-					// --- End Positron ---
+					const delegate: IModePickerDelegate = {
+						getMode: () => this.currentMode,
+						onDidChangeMode: this._onDidChangeCurrentChatMode.event
+					};
+					return this.instantiationService.createInstance(ToggleChatModeActionViewItem, action, delegate);
 				}
 
 				return undefined;

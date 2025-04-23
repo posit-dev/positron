@@ -1770,6 +1770,12 @@ declare module 'positron' {
 			provider: string;
 			identifier: string;
 
+			readonly capabilities?: {
+				readonly vision?: boolean;
+				readonly toolCalling?: boolean;
+				readonly agentMode?: boolean;
+			};
+
 			/**
 			 * Handle a language model request with tool calls and streaming chat responses.
 			 */

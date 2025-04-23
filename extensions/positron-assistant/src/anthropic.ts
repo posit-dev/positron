@@ -14,6 +14,12 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	provider: string;
 	identifier: string;
 
+	capabilities = {
+		vision: true,
+		toolCalling: true,
+		agentMode: true,
+	};
+
 	private readonly _client: Anthropic;
 
 	static source: positron.ai.LanguageModelSource = {
