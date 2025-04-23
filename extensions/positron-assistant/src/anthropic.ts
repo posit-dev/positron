@@ -73,6 +73,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			this.onContentBlock(contentBlock, progress);
 		});
 
+		stream.on('text', (textDelta) => {
+			this.onText(textDelta, progress);
+		});
+
 		try {
 			await stream.done();
 		} catch (error) {
@@ -99,24 +103,22 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 	private onContentBlock(block: Anthropic.Messages.ContentBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
 		switch (block.type) {
-			case 'text':
-				return this.onTextBlock(block, progress);
 			case 'tool_use':
 				return this.onToolUseBlock(block, progress);
 		}
-	}
-
-	private onTextBlock(contentBlock: Anthropic.Messages.TextBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
-		progress.report({
-			index: 0,
-			part: new vscode.LanguageModelTextPart(contentBlock.text),
-		});
 	}
 
 	private onToolUseBlock(block: Anthropic.Messages.ToolUseBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
 		progress.report({
 			index: 0,
 			part: new vscode.LanguageModelToolCallPart(block.id, block.name, block.input as any),
+		});
+	}
+
+	private onText(textDelta: string, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
+		progress.report({
+			index: 0,
+			part: new vscode.LanguageModelTextPart(textDelta),
 		});
 	}
 
