@@ -10,6 +10,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings } from './actions.js';
 import * as platform from '../../../../base/common/platform.js';
+import { localize } from '../../../../nls.js';
 
 const wasPromptedKey = 'positron.welcome.promptedImport';
 
@@ -35,12 +36,12 @@ export async function promptImport(
 	// The prompt will show up in the notification center.
 	notificationService.prompt(
 		Severity.Info,
-		`Import settings from Visual Studio Code into Positron`,
+		localize('positron.settingsImport.prompt', 'Import settings from Visual Studio Code into Positron'),
 		[
 			// Open the import settings command and set the import was prompted flag to true.
 			// This will prevent the prompt from showing up again.
 			{
-				label: 'Import',
+				label: localize('positron.settingsImport.import', 'Import'),
 				run: () => {
 					commandService.executeCommand(PositronImportSettings.ID);
 					setImportWasPrompted(storageService);
@@ -48,7 +49,7 @@ export async function promptImport(
 			},
 			// Dismisses notification, but will prompt again on next launch.
 			{
-				label: 'Later',
+				label: localize('positron.settingsImport.later', 'Later'),
 				run: () => { },
 			},
 		],

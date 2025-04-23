@@ -229,7 +229,6 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 	}
 }
 
-
 // Register the actions defined above.
 registerAction2(PositronNewProjectAction);
 registerAction2(PositronNewFolderAction);

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import type { IDisposable } from '../../../../base/common/lifecycle.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { localize } from '../../../../nls.js';
 import { Action2 } from '../../../../platform/actions/common/actions.js';
@@ -57,13 +57,13 @@ export class PositronImportSettings extends Action2 {
 
 		const positronSettingsPath = await prefService.getEditableSettingsURI(ConfigurationTarget.USER);
 		if (!positronSettingsPath) {
-			loggingService.warn('No Positron settings found');
+			loggingService.trace('No Positron settings found');
 			return;
 		}
 
 		const codeSettingsPath = await getCodeSettingsPath(pathService);
 		if (!codeSettingsPath) {
-			loggingService.warn('No Visual Studio Code settings found');
+			loggingService.trace('No Visual Studio Code settings found');
 			return;
 		}
 
@@ -90,7 +90,7 @@ export class PositronImportSettings extends Action2 {
 			model.setValue('// Settings imported from Visual Studio Code\n' + codeSettingsContent);
 		}
 
-		const disposables: (IDisposable | undefined)[] = [];
+		const disposables = new DisposableStore();
 
 		const notification = notificationService.prompt(
 			Severity.Info,
@@ -101,40 +101,38 @@ export class PositronImportSettings extends Action2 {
 						await editor?.save(0);
 						await editor?.dispose();
 
-						disposables.forEach(d => d?.dispose());
+						disposables.dispose();
 					}
 				},
 				{
 					label: localize('positronImportSettingsRejecttLabel', "Reject"), run: async () => {
 						await editor?.dispose();
 
-						disposables.forEach(d => d?.dispose());
+						disposables.dispose();
 					}
 				},
 			]
 		);
 
-		disposables.push(
+		disposables.add(
 			editorService.onDidCloseEditor(e => {
 				if (e.editor.editorId === editor?.editorId) {
 					notification.close();
-
-					disposables.forEach(d => d?.dispose());
+					disposables.dispose();
 				}
 			})
 		);
 
-		disposables.push(
-			editor?.onDidChangeDirty(() => {
-				if (!editor.isDirty()) {
-					notification.close();
-
-					disposables.forEach(d => d?.dispose());
-				}
-			})
-		);
-
-
+		if (editor) {
+			disposables.add(
+				editor.onDidChangeDirty(() => {
+					if (!editor.isDirty()) {
+						notification.close();
+						disposables.dispose();
+					}
+				})
+			);
+		}
 	}
 }
 
