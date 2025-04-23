@@ -23,21 +23,21 @@ export class PositronBuiltinToolsContribution extends Disposable implements IWor
 	static readonly ID = 'chat.positronBuiltinTools';
 
 	constructor(
-		@ILanguageModelToolsService toolsService: ILanguageModelToolsService,
-		@IInstantiationService instantiationService: IInstantiationService,
+		@ILanguageModelToolsService _toolsService: ILanguageModelToolsService,
+		@IInstantiationService _instantiationService: IInstantiationService,
 	) {
 		super();
 
-		const projectTreeTool = instantiationService.createInstance(ProjectTreeTool);
-		this._register(toolsService.registerToolData(ProjectTreeToolData));
-		this._register(toolsService.registerToolImplementation(ProjectTreeToolData.id, projectTreeTool));
+		const toolDescriptors = [
+			{ data: ProjectTreeToolData, ctor: ProjectTreeTool },
+			{ data: TextSearchToolData, ctor: TextSearchTool },
+			{ data: FileContentsToolData, ctor: FileContentsTool }
+		];
 
-		const textSearchTool = instantiationService.createInstance(TextSearchTool);
-		this._register(toolsService.registerToolData(TextSearchToolData));
-		this._register(toolsService.registerToolImplementation(TextSearchToolData.id, textSearchTool));
-
-		const fileContentsTool = instantiationService.createInstance(FileContentsTool);
-		this._register(toolsService.registerToolData(FileContentsToolData));
-		this._register(toolsService.registerToolImplementation(FileContentsToolData.id, fileContentsTool));
+		for (const { data, ctor } of toolDescriptors) {
+			const tool = _instantiationService.createInstance(ctor);
+			this._register(_toolsService.registerToolData(data));
+			this._register(_toolsService.registerToolImplementation(data.id, tool));
+		}
 	}
 }
