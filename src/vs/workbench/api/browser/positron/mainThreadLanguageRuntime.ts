@@ -1014,7 +1014,7 @@ class PendingRpc<T> {
 		this._onDidChangeStatus.fire(status);
 	}
 
-	public get getStatus(): PendingRpcStatus {
+	public getStatus(): PendingRpcStatus {
 		return this._status;
 	}
 }
