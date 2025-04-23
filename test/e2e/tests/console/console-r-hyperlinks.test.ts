@@ -62,15 +62,30 @@ test.describe('Console Pane: R Hyperlinks', {
 
 	});
 
-	test('R - Verify runnable code link', async function ({ app, r }) {
+	test('R - Verify automatically runnable code link', async function ({ app, r }) {
 
 		await app.workbench.console.pasteCodeToConsole('library(cli)', true);
 		await app.workbench.console.pasteCodeToConsole('txt <- "Is rlang installed? Run this to find out: {.run rlang::is_installed(\'rlang\')}"', true);
 		await app.workbench.console.pasteCodeToConsole('cli_text(txt)', true);
 
+		// Clicking automatically runs (rlang is an approved package)
 		await app.workbench.console.activeConsole.locator('span', { hasText: 'rlang::is_installed(\'rlang\')' }).nth(2).click();
 
 		await app.workbench.console.waitForConsoleContents('[1] TRUE', { timeout: 30000 });
+
+	});
+
+	test('R - Verify manually runnable code link', async function ({ app, r }) {
+
+		await app.workbench.console.pasteCodeToConsole('library(cli)', true);
+		await app.workbench.console.pasteCodeToConsole('txt <- "Is foofy alive? Run this to find out: {.run foofy::alive()}"', true);
+		await app.workbench.console.pasteCodeToConsole('cli_text(txt)', true);
+
+		// Clicking pastes to console (not safe to automatically run, but not known to be unsafe either)
+		await app.workbench.console.activeConsole.locator('span', { hasText: 'foofy::alive()' }).nth(2).click();
+
+		await app.workbench.console.waitForCurrentConsoleLineContents('foofy::alive()');
+		await app.workbench.console.clearInput();
 
 	});
 
@@ -80,6 +95,7 @@ test.describe('Console Pane: R Hyperlinks', {
 		await app.workbench.console.pasteCodeToConsole('txt <- "You can\'t click to run {.run utils::sessionInfo()}"', true);
 		await app.workbench.console.pasteCodeToConsole('cli_text(txt)', true);
 
+		// Clicking denies with toast message (base packages are unsafe)
 		await app.workbench.console.activeConsole.locator('span', { hasText: 'utils::sessionInfo()' }).nth(3).click();
 
 		await app.workbench.popups.toastLocator.locator('span', { hasText: 'Code hyperlink not recognized.' }).waitFor({ state: 'visible', timeout: 30000 });
@@ -93,6 +109,7 @@ test.describe('Console Pane: R Hyperlinks', {
 		await app.workbench.console.pasteCodeToConsole('txt <- "This should work: {.run stringr::str_c(\'hello, \', \'world\')}"', true);
 		await app.workbench.console.pasteCodeToConsole('cli_text(txt)', true);
 
+		// Clicking automatically runs (loaded packages can automatically run)
 		await app.workbench.console.activeConsole.locator('span', { hasText: 'stringr::str_c(\'hello, \', \'world\')' }).nth(2).click();
 
 		await app.workbench.console.waitForConsoleContents('[1] "hello, world"', { timeout: 30000 });

@@ -95,7 +95,23 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			throw new Error('Echo language model only supports text messages.');
 		}
 
-		for await (const i of message.content[0].text.split('')) {
+		const inputText = message.content[0].text;
+		let response: string;
+
+		// Check for known test commands and respond accordingly
+		if (inputText === 'Send Python Code') {
+			response = '```python\nfoo = 100\n```';
+		}
+		else if (inputText === 'Send R Code') {
+			response = '```r\nfoo <- 200\n```';
+		}
+		else {
+			// Default case: echo back the input message
+			response = inputText;
+		}
+
+		// Output the response character by character
+		for await (const i of response.split('')) {
 			await new Promise(resolve => setTimeout(resolve, 10));
 			progress.report({ index: 0, part: new vscode.LanguageModelTextPart(i) });
 			if (token.isCancellationRequested) {

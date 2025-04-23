@@ -45,13 +45,29 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		return this._proxy.$getConsoleWidth();
 	}
 
-	getConsoleForLanguage(id: string): positron.Console | undefined {
-		// find a console for this langauge id
-		const extHostConsole = Array.from(this._extHostConsolesBySessionId.values())
-			.find(extHostConsole => extHostConsole.getLanguageId() === id);
+	/**
+	 * Queries the main thread for the console that aligns with this
+	 * `languageId`.
+	 *
+	 * @param languageId The language id to find a console for.
+	 * @returns A promise that resolves to a `positron.Console` or `undefined`
+	 * if no console can be found.
+	 */
+	async getConsoleForLanguage(languageId: string): Promise<positron.Console | undefined> {
+		const sessionId = await this._proxy.$getSessionIdForLanguage(languageId);
+
+		if (!sessionId) {
+			// Main thread says there is no `sessionId` for this `languageId`
+			return undefined;
+		}
+
+		// Now find the console on the extension host side
+		const extHostConsole = this._extHostConsolesBySessionId.get(sessionId);
 
 		if (!extHostConsole) {
-			// Console for this language `id` doesn't exist yet
+			// Extension host says there is no console for this `sessionId`
+			// (Should be extremely rare, if not impossible, for main thread and extension host to
+			// be out of sync here)
 			return undefined;
 		}
 
@@ -67,15 +83,15 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	}
 
 	// Called when a new console instance is started
-	$addConsole(id: string): void {
-		const extHostConsole = new ExtHostConsole(id, this._proxy, this._logService);
-		this._extHostConsolesBySessionId.set(id, extHostConsole);
+	$addConsole(sessionId: string): void {
+		const extHostConsole = new ExtHostConsole(sessionId, this._proxy, this._logService);
+		this._extHostConsolesBySessionId.set(sessionId, extHostConsole);
 	}
 
 	// Called when a console instance is removed
-	$removeConsole(id: string): void {
-		const extHostConsole = this._extHostConsolesBySessionId.get(id);
-		this._extHostConsolesBySessionId.delete(id);
+	$removeConsole(sessionId: string): void {
+		const extHostConsole = this._extHostConsolesBySessionId.get(sessionId);
+		this._extHostConsolesBySessionId.delete(sessionId);
 		// "Dispose" of an `ExtHostConsole`, ensuring that future API calls warn / error
 		dispose(extHostConsole);
 	}
