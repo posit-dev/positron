@@ -1,5 +1,5 @@
 Launch tests by running this from the repository root:
 
 ```sh
-yarn test-extension -l positron-connections
+npm run test-extension -- -l positron-connections
 ```
