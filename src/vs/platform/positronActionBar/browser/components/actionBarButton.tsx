@@ -10,14 +10,14 @@ import './actionBarButton.css';
 import React, { useRef, PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
 
 // Other dependencies.
+import { URI } from '../../../../base/common/uri.js';
 import { Icon } from '../../../action/common/action.js';
-import { asCSSUrl, CssFragment } from '../../../../base/browser/cssValue.js';
+import { ColorScheme } from '../../../theme/common/theme.js';
+import { asCSSUrl } from '../../../../base/browser/cssValue.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { ColorScheme } from '../../../theme/common/theme.js';
-import { URI } from '../../../../base/common/uri.js';
 
 /**
  * ActionBarButtonIconProps type
