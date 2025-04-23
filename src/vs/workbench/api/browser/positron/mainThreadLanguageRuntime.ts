@@ -1098,13 +1098,13 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 *
 	 * @param request The request to send to the server.
 	 * @param timeout Timeout in milliseconds after which to error if the server
-	 *   does not respond. If <= 0 the promise will never timeout.
+	 *   does not respond. `undefined` to disable timeouts.
 	 * @param responseKeys Optional list of keys; if specified, at least one
 	 *   must be present in the response. This helps distinguish RPC responses
 	 *   from other messages that have the request as the parent ID.
 	 * @returns A promise that will be resolved with the response from the server.
 	 */
-	performRpcWithBuffers<T>(request: Input, timeout: number, responseKeys: Array<string> = []): Promise<IRuntimeClientOutput<T>> {
+	performRpcWithBuffers<T>(request: Input, timeout: number | undefined, responseKeys: Array<string> = []): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
@@ -1146,7 +1146,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
 
 		// Start a timeout to reject the promise if the server doesn't respond.
-		if (timeout > 0) {
+		if (timeout) {
 			setTimeout(() => {
 				// If the promise has already been resolved, do nothing.
 				if (pending.promise.isSettled) {

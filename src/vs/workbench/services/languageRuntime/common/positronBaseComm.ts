@@ -242,7 +242,11 @@ export class PositronBaseComm extends Disposable {
 		// Perform the RPC
 		let response = {} as any;
 		try {
-			const timeout = this.options?.[rpcName]?.timeout ?? -1;
+			// Check for explicitly set timeout in options, otherwise use the default.
+			const defaultTimeout = undefined;
+			const timeout = (this.options?.[rpcName] && 'timeout' in this.options[rpcName])
+				? this.options[rpcName].timeout
+				: defaultTimeout;
 			// Wait for a response to this message that includes a 'result' or
 			// 'error' field.
 			response = await this.clientInstance.performRpc(request, timeout, ['result', 'error']);
