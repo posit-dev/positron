@@ -282,7 +282,13 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		// Get the preferred kernel for the language.
 		let preferredRuntime: ILanguageRuntimeMetadata;
 		try {
-			preferredRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
+			const preferred = this._runtimeStartupService.getPreferredRuntime(languageId);
+			if (preferred) {
+				preferredRuntime = preferred;
+			} else {
+				this._logService.debug(`No preferred runtime for language ${languageId}`);
+				return;
+			}
 		} catch (err) {
 			// It may error if there are no registered runtimes for the language, so log and return.
 			this._logService.debug(`Failed to get preferred runtime for language ${languageId}. Reason: ${err.toString()}`);

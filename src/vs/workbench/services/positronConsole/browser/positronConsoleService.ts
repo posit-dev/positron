@@ -573,20 +573,24 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// If there isn't a running runtime for the language, start one.
 		if (!runningLanguageRuntimeSessions.length) {
 			// Get the preferred runtime for the language.
-			let languageRuntime: ILanguageRuntimeMetadata;
-			languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
-
-			// Start the preferred runtime.
-			this._logService.trace(`Language runtime ` +
-				`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
-			await this._runtimeSessionService.startNewRuntimeSession(languageRuntime.runtimeId,
-				languageRuntime.runtimeName,
-				LanguageRuntimeSessionMode.Console,
-				undefined, // No notebook URI (console sesion)
-				`User executed code in language ${languageId}, and no running runtime session was found ` +
-				`for the language.`,
-				RuntimeStartMode.Starting,
-				true);
+			const languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
+			if (languageRuntime) {
+				// Start the preferred runtime.
+				this._logService.trace(`Language runtime ` +
+					`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
+				await this._runtimeSessionService.startNewRuntimeSession(languageRuntime.runtimeId,
+					languageRuntime.runtimeName,
+					LanguageRuntimeSessionMode.Console,
+					undefined, // No notebook URI (console sesion)
+					`User executed code in language ${languageId}, and no running runtime session was found ` +
+					`for the language.`,
+					RuntimeStartMode.Starting,
+					true);
+			} else {
+				// There is no registered runtime for the language, so we can't execute code.
+				throw new Error(
+					`Cannot execute code because no there is no registered runtime for the '${languageId}' language.`);
+			}
 		}
 
 		// Get the Positron console instance for the language ID.

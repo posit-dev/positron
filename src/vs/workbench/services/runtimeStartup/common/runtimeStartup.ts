@@ -894,8 +894,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Gets the preferred runtime for a language
 	 *
 	 * @param languageId The language identifier
+	 * @returns The preferred runtime metadata, or undefined if no preferred
+	 *  runtime is available.
 	 */
-	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata {
+	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined {
 		// If there's an active session for the language, return it.
 		const activeSession =
 			this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
@@ -928,8 +930,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return languageRuntimeInfos[0];
 		}
 
-		// There are no registered runtimes for the language, throw an error.
-		throw new Error(`No language runtimes registered for language ID '${languageId}'.`);
+		// Nothing is registered, so we don't have a preferred runtime for this language.
+		return undefined;
 	}
 
 	/**

@@ -1575,8 +1575,10 @@ declare module 'positron' {
 		 * Get the preferred language runtime for a given language.
 		 *
 		 * @param languageId The language ID of the preferred runtime
+		 * @returns The preferred runtime metadata, or undefined if no eligible runtimes
+		 *  are registered.
 		 */
-		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntimeMetadata>;
+		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntimeMetadata | undefined>;
 
 		/**
 		 * List all active sessions.

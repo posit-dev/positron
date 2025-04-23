@@ -1296,7 +1296,7 @@ export class MainThreadLanguageRuntime
 		this._languageRuntimeService.registerRuntime(metadata);
 	}
 
-	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata> {
+	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined> {
 		return Promise.resolve(this._runtimeStartupService.getPreferredRuntime(languageId));
 	}
 
