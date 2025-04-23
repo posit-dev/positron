@@ -98,12 +98,12 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		const inputText = message.content[0].text;
 		let response: string;
 
-		// Check for specific input messages and respond accordingly
+		// Check for known test commands and respond accordingly
 		if (inputText === 'Send Python Code') {
 			response = '```python\nfoo = 100\n```';
 		}
 		else if (inputText === 'Send R Code') {
-			response = '```r\nfoo <- 100\n```';
+			response = '```r\nfoo <- 200\n```';
 		}
 		else {
 			// Default case: echo back the input message

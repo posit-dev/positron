@@ -21,12 +21,12 @@ const ERROR_MODEL_BUTTON = 'button.positron-button.language-model.button:has(div
 const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-provider-button)';
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
-const CODE_BOX = 'div.view-lines.monaco-mouse-cursor-text[role="presentation"][aria-hidden="true"]';
 const RUN_BUTTON = 'a.action-label.codicon.codicon-play[role="button"][aria-label="Run in Console"]';
 // const OATH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
 const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label="Send and Dispatch (Enter)"]';
+const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label="New Chat (Ctrl+L)"]';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -129,7 +129,14 @@ export class Assistant {
 	}
 
 	async clickChatCodeRunButton(codeblock: string) {
-		await expect(this.code.driver.page.locator(CODE_BOX)).toHaveText(codeblock, { timeout: 15000 });
+		await this.code.driver.page.locator(`span`).filter({ hasText: codeblock }).locator('span').first().dblclick();
 		await this.code.driver.page.locator(RUN_BUTTON).click();
 	}
+
+	async clickNewChatButton() {
+		await this.code.driver.page.locator(NEW_CHAT_BUTTON).click();
+		await expect(this.code.driver.page.locator(CHAT_INPUT)).toBeVisible();
+	}
+
+
 }
