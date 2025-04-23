@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] }, () => {
+test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
 	test.beforeAll('How to set User Settings', async function ({ userSettings }) {
 		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
 		await userSettings.set([['positron.assistant.enable', 'true'],
@@ -23,7 +23,7 @@ test.describe('Positron Assistant', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB] 
 		await app.workbench.assistant.verifyAddModelButtonVisible();
 	});
 
-	test('Antropic: Verfy Bad API key results in error', async function ({ app }) {
+	test('Anthropic: Verify Bad API key results in error', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.clickAddModelButton();
 		await app.workbench.assistant.selectModelProvider('Anthropic');

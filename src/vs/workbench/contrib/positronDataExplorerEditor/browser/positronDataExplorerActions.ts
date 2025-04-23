@@ -603,7 +603,10 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 				value: localize('positronDataExplorer.clearColumnSorting', 'Clear Column Sorting'),
 				original: 'Clear Column Sorting'
 			},
-			displayTitleOnActionBar: true,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true,
+			},
 			category,
 			f1: true,
 			precondition: ContextKeyExpr.and(
@@ -700,7 +703,10 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 				value: localize('positronDataExplorer.openAsPlaintext', 'Open as Plain Text File'),
 				original: 'Open as Plain Text File'
 			},
-			displayTitleOnActionBar: true,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true,
+			},
 			category,
 			f1: true,
 			precondition: ContextKeyExpr.and(

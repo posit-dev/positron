@@ -132,6 +132,7 @@ function fromLocalWebpack(extensionPath: string, webpackConfigFileName: string, 
 		vsce.PackageManager.Npm :
 		vsce.PackageManager.None;
 
+	// --- Start PWB: from Positron ---
 	// Replace vsce.listFiles with listExtensionFiles to queue the work
 	listExtensionFiles({ cwd: extensionPath, packageManager: packageManger, packagedDependencies }).then(fileNames => {
 		const files = fileNames

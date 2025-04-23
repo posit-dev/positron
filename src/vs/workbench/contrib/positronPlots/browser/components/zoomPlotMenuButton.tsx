@@ -72,7 +72,7 @@ export const ZoomPlotMenuButton = (props: ZoomPlotMenuButtonProps) => {
 		<ActionBarMenuButton
 			actions={actions}
 			iconId='positron-size-to-fit'
-			text={activeZoomLabel}
+			label={activeZoomLabel}
 			tooltip={zoomPlotTooltip}
 		/>
 	);

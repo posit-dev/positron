@@ -24,7 +24,7 @@ import { MouseTrigger } from '../../../../base/browser/ui/positronComponents/but
 interface ActionBarMenuButtonProps {
 	readonly iconId?: string;
 	readonly iconFontSize?: number;
-	readonly text?: string;
+	readonly label?: string;
 	readonly ariaLabel?: string;
 	readonly dropdownAriaLabel?: string;
 	readonly maxTextWidth?: number;

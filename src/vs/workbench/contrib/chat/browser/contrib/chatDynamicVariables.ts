@@ -154,7 +154,7 @@ export class ChatDynamicVariableModel extends Disposable implements IChatWidgetC
 
 		// if the `prompt snippets` feature is enabled, and file is a `prompt snippet`,
 		// start resolving nested file references immediately and subscribe to updates
-		if (variable instanceof ChatFileReference && variable.isPromptSnippet) {
+		if (variable instanceof ChatFileReference && variable.isPromptFile) {
 			// subscribe to variable changes
 			variable.onUpdate(() => {
 				this.updateDecorations();
@@ -684,7 +684,7 @@ export class AddDynamicVariableAction extends Action2 {
 registerAction2(AddDynamicVariableAction);
 
 export async function createMarkersQuickPick(accessor: ServicesAccessor, level: 'problem' | 'file', onBackgroundAccept?: (item: IDiagnosticVariableEntryFilterData[]) => void): Promise<IDiagnosticVariableEntryFilterData | undefined> {
-	const markers = accessor.get(IMarkerService).read();
+	const markers = accessor.get(IMarkerService).read({ severities: MarkerSeverity.Error | MarkerSeverity.Warning | MarkerSeverity.Info });
 	if (!markers.length) {
 		return;
 	}
@@ -739,35 +739,27 @@ export async function createMarkersQuickPick(accessor: ServicesAccessor, level: 
 		items.unshift({ type: 'separator', label: localize('markers.panel.files', 'Files') });
 	}
 
-	if (severities.has(MarkerSeverity.Error)) {
-		items.unshift({ type: 'item', label: localize('markers.panel.allErrors', 'All Errors'), entry: { filterSeverity: MarkerSeverity.Error } });
-	}
-	if (severities.has(MarkerSeverity.Warning)) {
-		items.unshift({ type: 'item', label: localize('markers.panel.allWarnings', 'All Warnings'), entry: { filterSeverity: MarkerSeverity.Warning } });
-	}
-	if (severities.has(MarkerSeverity.Info)) {
-		items.unshift({ type: 'item', label: localize('markers.panel.allInfos', 'All Infos'), entry: { filterSeverity: MarkerSeverity.Info } });
-	}
-
+	items.unshift({ type: 'item', label: localize('markers.panel.allErrors', 'All Problems'), entry: { filterSeverity: MarkerSeverity.Info } });
 
 	const quickInputService = accessor.get(IQuickInputService);
-	const quickPick = quickInputService.createQuickPick<MarkerPickItem>({ useSeparators: true });
+	const store = new DisposableStore();
+	const quickPick = store.add(quickInputService.createQuickPick<MarkerPickItem>({ useSeparators: true }));
 	quickPick.canAcceptInBackground = !onBackgroundAccept;
 	quickPick.placeholder = localize('pickAProblem', 'Pick a problem to attach...');
 	quickPick.items = items;
 
 	return new Promise<IDiagnosticVariableEntryFilterData | undefined>(resolve => {
-		quickPick.onDidHide(() => resolve(undefined));
-		quickPick.onDidAccept(ev => {
+		store.add(quickPick.onDidHide(() => resolve(undefined)));
+		store.add(quickPick.onDidAccept(ev => {
 			if (ev.inBackground) {
 				onBackgroundAccept?.(quickPick.selectedItems.map(i => i.entry));
 			} else {
 				resolve(quickPick.selectedItems[0]?.entry);
 				quickPick.dispose();
 			}
-		});
+		}));
 		quickPick.show();
-	}).finally(() => quickPick.dispose());
+	}).finally(() => store.dispose());
 }
 
 export class SelectAndInsertProblemAction extends Action2 {

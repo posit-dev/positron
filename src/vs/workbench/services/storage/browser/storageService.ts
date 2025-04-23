@@ -32,7 +32,7 @@ export class BrowserStorageService extends AbstractStorageService {
 
 	private profileStorage: IStorage | undefined;
 	private profileStorageDatabase: IIndexedDBStorageDatabase | undefined;
-	private profileStorageProfile = this.userDataProfileService.currentProfile;
+	private profileStorageProfile: IUserDataProfile;
 	private readonly profileStorageDisposables = this._register(new DisposableStore());
 
 	private workspaceStorage: IStorage | undefined;
@@ -52,6 +52,8 @@ export class BrowserStorageService extends AbstractStorageService {
 		@ILogService private readonly logService: ILogService,
 	) {
 		super({ flushInterval: BrowserStorageService.BROWSER_DEFAULT_FLUSH_INTERVAL });
+
+		this.profileStorageProfile = this.userDataProfileService.currentProfile;
 
 		this.registerListeners();
 	}

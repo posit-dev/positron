@@ -93,6 +93,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		this._register(this.onDidChangeRuntimeState(state => this._currentState = state));
 	}
 
+	async cleanup(): Promise<void> {
+		return;
+	}
+
 	getRuntimeState(): RuntimeState {
 		return this._currentState;
 	}

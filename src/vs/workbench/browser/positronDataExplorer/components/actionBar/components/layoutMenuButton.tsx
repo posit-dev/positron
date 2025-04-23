@@ -114,7 +114,7 @@ export const LayoutMenuButton = () => {
 			actions={actions}
 			ariaLabel={layoutButtonDescription}
 			iconId={selectIconId(currentLayout)}
-			text={layoutButtonTitle}
+			label={layoutButtonTitle}
 			tooltip={layoutButtonDescription}
 		/>
 	);

@@ -825,14 +825,14 @@ export const WINDOW_ACTIVE_BORDER = registerColor('window.activeBorder', {
 	light: null,
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
-}, localize('windowActiveBorder', "The color used for the border of the window when it is active. Only supported in the macOS and Linux desktop client when using the custom title bar."));
+}, localize('windowActiveBorder', "The color used for the border of the window when it is active on macOS or Linux. Requires custom title bar style and custom or hidden window controls on Linux."));
 
 export const WINDOW_INACTIVE_BORDER = registerColor('window.inactiveBorder', {
 	dark: null,
 	light: null,
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
-}, localize('windowInactiveBorder', "The color used for the border of the window when it is inactive. Only supported in the macOS and Linux desktop client when using the custom title bar."));
+}, localize('windowInactiveBorder', "The color used for the border of the window when it is inactive on macOS or Linux. Requires custom title bar style and custom or hidden window controls on Linux."));
 
 // --- Start Positron ---
 // *************************************************************************************************
@@ -1142,6 +1142,14 @@ export const POSITRON_SIDE_ACTION_BAR_HOVER_BACKGROUND = registerColor('positron
 	hcDark: null,
 	hcLight: null
 }, localize('positronSideActionBar.hoverBackground', "Positron side action bar hover background color."));
+
+// Positron side action bar checkbox border color.
+export const POSITRON_SIDE_ACTION_BAR_CHECKBOX_BORDER = registerColor('positronSideActionBar.checkboxBorder', {
+	dark: '#292f32',
+	light: '#a6a6a6',
+	hcDark: checkboxBorder,
+	hcLight: checkboxBorder
+}, localize('positronSideActionBar.checkboxBorder', "Positron side action bar checkbox border."));
 
 // Positron side action bar text input background color.
 export const POSITRON_SIDE_ACTION_BAR_TEXT_INPUT_BACKGROUND = registerColor('positronSideActionBar.textInputBackground', {

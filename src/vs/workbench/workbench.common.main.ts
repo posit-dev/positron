@@ -90,6 +90,7 @@ import './services/commands/common/commandService.js';
 import './services/themes/browser/workbenchThemeService.js';
 import './services/label/common/labelService.js';
 import './services/extensions/common/extensionManifestPropertiesService.js';
+import './services/extensionManagement/common/extensionGalleryService.js';
 import './services/extensionManagement/browser/extensionEnablementService.js';
 import './services/extensionManagement/browser/builtinExtensionsScannerService.js';
 import './services/extensionRecommendations/common/extensionIgnoredRecommendationsService.js';
@@ -115,6 +116,7 @@ import './services/authentication/browser/authenticationService.js';
 import './services/authentication/browser/authenticationExtensionsService.js';
 import './services/authentication/browser/authenticationUsageService.js';
 import './services/authentication/browser/authenticationAccessService.js';
+import './services/accounts/common/defaultAccount.js';
 import '../editor/browser/services/hoverService/hoverService.js';
 import './services/assignment/common/assignmentService.js';
 import './services/outline/browser/outlineService.js';
@@ -130,9 +132,8 @@ import './services/editor/browser/editorPaneService.js';
 import './services/editor/common/customEditorLabelService.js';
 
 import { InstantiationType, registerSingleton } from '../platform/instantiation/common/extensions.js';
-import { ExtensionGalleryService } from '../platform/extensionManagement/common/extensionGalleryService.js';
 import { GlobalExtensionEnablementService } from '../platform/extensionManagement/common/extensionEnablementService.js';
-import { IAllowedExtensionsService, IExtensionGalleryService, IGlobalExtensionEnablementService } from '../platform/extensionManagement/common/extensionManagement.js';
+import { IAllowedExtensionsService, IGlobalExtensionEnablementService } from '../platform/extensionManagement/common/extensionManagement.js';
 import { ContextViewService } from '../platform/contextview/browser/contextViewService.js';
 import { IContextViewService } from '../platform/contextview/browser/contextView.js';
 import { IListService, ListService } from '../platform/list/browser/listService.js';
@@ -160,7 +161,6 @@ registerSingleton(IAllowedExtensionsService, AllowedExtensionsService, Instantia
 registerSingleton(IIgnoredExtensionsManagementService, IgnoredExtensionsManagementService, InstantiationType.Delayed);
 registerSingleton(IGlobalExtensionEnablementService, GlobalExtensionEnablementService, InstantiationType.Delayed);
 registerSingleton(IExtensionStorageService, ExtensionStorageService, InstantiationType.Delayed);
-registerSingleton(IExtensionGalleryService, ExtensionGalleryService, InstantiationType.Delayed);
 registerSingleton(IContextViewService, ContextViewService, InstantiationType.Delayed);
 registerSingleton(IListService, ListService, InstantiationType.Delayed);
 registerSingleton(IEditorWorkerService, WorkbenchEditorWorkerService, InstantiationType.Eager /* registers link detection and word based suggestions for any document */);
@@ -203,6 +203,7 @@ import './contrib/speech/browser/speech.contribution.js';
 // Chat
 import './contrib/chat/browser/chat.contribution.js';
 import './contrib/inlineChat/browser/inlineChat.contribution.js';
+import './contrib/mcp/browser/mcp.contribution.js';
 
 // Interactive
 import './contrib/interactive/browser/interactive.contribution.js';
