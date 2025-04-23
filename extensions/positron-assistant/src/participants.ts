@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from './constants';
-import { arrayBufferToBase64, BinaryMessageReferences, toLanguageModelChatMessage } from './utils';
+import { isChatImageMimeType, toLanguageModelChatMessage } from './utils';
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './tools.js';
 
@@ -224,10 +224,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		);
 
 		// Construct the language model request.
-		const { messages, binaryReferences } = await this.getLanguageModelRequest(request, context, response);
+		const messages = await this.getDefaultMessages(request, context, response);
 
 		// Send the request to the language model.
-		await this.sendLanguageModelRequest(request, response, token, messages, tools, system, binaryReferences);
+		await this.sendLanguageModelRequest(request, response, token, messages, tools, system);
 
 		return {
 			metadata: {
@@ -248,7 +248,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		return undefined;
 	}
 
-	private async getLanguageModelRequest(
+	private async getDefaultMessages(
 		request: vscode.ChatRequest,
 		context: vscode.ChatContext,
 		response: vscode.ChatResponseStream,
@@ -256,7 +256,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// The transient message thread sent to the language model.
 		// This will include messages from the persisted chat history,
 		// but this message thread will not be persisted.
-		const messages: vscode.LanguageModelChatMessage[] = [];
+		const messages: vscode.LanguageModelChatMessage2[] = [];
 
 		// If the workspace has an llms.txt document, add it's current value to the message thread.
 		const llmsDocument = await openLlmsTextDocument();
@@ -285,13 +285,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
 		);
 
-		// Store binary references to be passed as a Language Model option and referenced later.
-		const binaryReferences: BinaryMessageReferences = {};
-
 		// If the user has explicitly attached files as context, add them to the message thread.
 		if (request.references.length > 0) {
 			const attachmentsText = await fs.promises.readFile(`${mdDir}/prompts/chat/attachments.md`, 'utf8');
-			const textParts: vscode.LanguageModelTextPart[] = [
+			const userParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [
 				new vscode.LanguageModelTextPart(attachmentsText)
 			];
 			for (const reference of request.references) {
@@ -313,31 +310,34 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// and can't distinguish which part the model uses, so we don't include the range in the
 					// response reference.
 					response.reference(value.uri);
-					textParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
+					userParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
 				} else if (value instanceof vscode.Uri) {
 					const document = await vscode.workspace.openTextDocument(value);
 					const documentText = document.getText();
 					const ref = { id: reference.id, uri: value.toString(), documentText };
 					// Add the file as a reference in the response.
 					response.reference(value);
-					textParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
+					userParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
 				} else if (value instanceof vscode.ChatReferenceBinaryData) {
-					const data = await value.data();
-					binaryReferences[reference.id] = {
-						data: arrayBufferToBase64(data),
-						mimeType: value.mimeType,
-					};
-					if (value.reference) {
-						// If the binary data is associated with a file, add it as a reference in the response.
-						response.reference(value.reference);
+					if (isChatImageMimeType(value.mimeType)) {
+						const data = await value.data();
+						if (value.reference) {
+							// If the binary data is associated with a file, add it as a reference in the response.
+							response.reference(value.reference);
+						}
+						userParts.push(
+							new vscode.LanguageModelTextPart(`Attached image name: ${reference.name}`),
+							new vscode.LanguageModelDataPart({ data, mimeType: value.mimeType }),
+						);
+					} else {
+						console.warn(`Positron Assistant: Unsupported chat reference binary data type: ${typeof value}`);
 					}
-					textParts.push(new vscode.LanguageModelTextPart(`<<referenceBinary:${reference.id}>>`));
 				} else {
 					console.warn(`Positron Assistant: Unsupported reference type: ${typeof value}`);
 				}
 			}
 			messages.push(
-				vscode.LanguageModelChatMessage.User(textParts),
+				vscode.LanguageModelChatMessage2.User(userParts),
 				vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
 			);
 		}
@@ -349,7 +349,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// User prompt
 		messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
 
-		return { messages, binaryReferences };
+		return messages;
 	}
 
 	/** Custom language model messages for this participant, added before the user prompt. */
@@ -361,17 +361,15 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		request: vscode.ChatRequest,
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
-		messages: vscode.LanguageModelChatMessage[],
+		messages: vscode.LanguageModelChatMessage2[],
 		tools: vscode.LanguageModelChatTool[],
 		system: string,
-		binaryReferences: BinaryMessageReferences,
 	): Promise<void> {
 		const modelResponse = await request.model.sendRequest(messages, {
 			tools,
 			modelOptions: {
 				toolInvocationToken: request.toolInvocationToken,
 				system,
-				binaryReferences,
 			},
 		}, token);
 
@@ -414,7 +412,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					})
 				),
 			];
-			return this.sendLanguageModelRequest(request, response, token, newMessages, tools, system, binaryReferences);
+			return this.sendLanguageModelRequest(request, response, token, newMessages, tools, system);
 		}
 	}
 
