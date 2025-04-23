@@ -54,6 +54,8 @@ jobs:
     name: test
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
+    with:
+      pull_request: false
 
   slack-notify:
     if: failure()

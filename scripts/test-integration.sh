@@ -64,11 +64,14 @@ echo
 "$INTEGRATION_TEST_ELECTRON_PATH" $LINUX_EXTRA_ARGS $ROOT/extensions/vscode-api-tests/testworkspace.code-workspace --enable-proposed-api=vscode.vscode-api-tests --extensionDevelopmentPath=$ROOT/extensions/vscode-api-tests --extensionTestsPath=$ROOT/extensions/vscode-api-tests/out/workspace-tests $API_TESTS_EXTRA_ARGS
 kill_app
 
-echo
-echo "### Colorize tests"
-echo
-npm run test-extension -- -l vscode-colorize-tests
-kill_app
+# --- Start Positron ---
+# https://github.com/posit-dev/positron/issues/7349
+# echo
+# echo "### Colorize tests"
+# echo
+# npm run test-extension -- -l vscode-colorize-tests
+# kill_app
+# --- End Positron ---
 
 echo
 echo "### Terminal Suggest tests"

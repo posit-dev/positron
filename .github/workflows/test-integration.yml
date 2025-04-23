@@ -2,7 +2,17 @@ name: "Test: Integration"
 
 on:
   workflow_call:
+    inputs:
+      pull_request:
+        required: false
+        type: boolean
   workflow_dispatch:
+    inputs:
+      pull_request:
+        description: 'Is this a pull request run?'
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   id-token: write
@@ -65,7 +75,12 @@ jobs:
 
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
-        run: DISPLAY=:10 ./scripts/test-integration-pr.sh
+        run: |
+          if [ "${{ inputs.pull_request }}" = "true" ]; then
+            DISPLAY=:10 ./scripts/test-integration-pr.sh
+          else
+            DISPLAY=:10 ./scripts/test-integration.sh
+          fi
 
       - name: Run Integration Tests (Remote)
         if: ${{ job.status != 'cancelled' && (success() || failure()) }}
