@@ -1010,8 +1010,10 @@ class PendingRpc<T> {
 	}
 
 	public setStatus(status: PendingRpcStatus): void {
-		this._status = status;
-		this._onDidChangeStatus.fire(status);
+		if (this._status !== status) {
+			this._status = status;
+			this._onDidChangeStatus.fire(status);
+		}
 	}
 
 	public getStatus(): PendingRpcStatus {
