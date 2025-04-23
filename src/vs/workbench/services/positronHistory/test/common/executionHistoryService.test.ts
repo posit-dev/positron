@@ -108,6 +108,9 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	private readonly _onDidUpdateSessionName = new Emitter<ILanguageRuntimeSession>();
 	readonly onDidUpdateSessionName = this._onDidUpdateSessionName.event;
 
+	private readonly _onDidStartUiClient = new Emitter<any>();
+	readonly onDidStartUiClient = this._onDidStartUiClient.event;
+
 	foregroundSession: ILanguageRuntimeSession | undefined;
 
 	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
