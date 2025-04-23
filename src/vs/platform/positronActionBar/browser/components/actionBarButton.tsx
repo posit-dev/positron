@@ -116,7 +116,7 @@ export const ActionBarButton = forwardRef<
 				icon = props.icon.light ?? props.icon.dark;
 			}
 
-			// Set the icon style.
+			// If there is an icon, set the icon style.
 			if (icon) {
 				iconStyle.width = '16px';
 				iconStyle.height = '16px';
