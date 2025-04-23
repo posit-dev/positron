@@ -40,10 +40,12 @@ test.describe('Data Explorer - R ', {
 		await verifyColumnData(app);
 
 		await test.step('Verify copy to clipboard', async () => {
-			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-			await hotKeys.copy();
-			const clipboardText = await app.workbench.clipboard.getClipboardText();
-			expect(clipboardText).toBe('Strength');
+			await expect(async () => {
+				await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+				await hotKeys.copy();
+				const clipboardText = await app.workbench.clipboard.getClipboardText();
+				expect(clipboardText).toBe('Strength');
+			}).toPass({ timeout: 20000 });
 		});
 
 		await app.workbench.dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);

@@ -56,6 +56,8 @@ test.describe('F1 Help', {
 	test('R - Verify basic F1 notebook help functionality', async function ({ app, page, r }) {
 		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'large_r_notebook', 'spotify.ipynb'));
 
+		await app.workbench.layouts.enterLayout('notebook');
+
 		// workaround
 		await app.workbench.notebooks.selectInterpreter('R', process.env.POSITRON_R_VER_SEL!);
 
@@ -69,6 +71,8 @@ test.describe('F1 Help', {
 
 			await expect(helpFrame.locator('h2').first()).toContainText('Options Settings', { timeout: 2000 });
 		}).toPass({ timeout: 30000 });
+
+		await app.workbench.layouts.enterLayout('stacked');
 
 	});
 

@@ -16,8 +16,8 @@ test.describe('Interpreter: Includes', {
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]']], true);
-		await userSettings.set([['positron.r.customRootFolders', '["/home/runner/scratch"]']], true);
+		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]'],
+		['positron.r.customRootFolders', '["/home/runner/scratch"]']], true);
 	});
 
 	test('Python - Can Include an Interpreter', {
@@ -48,8 +48,8 @@ test.describe('Interpreter: Excludes', {
 }, () => {
 
 	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
-		await userSettings.set([['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
+		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]'],
+		['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
 	});
 
 	test('R - Can Exclude an Interpreter', async function ({ app, sessions }) {

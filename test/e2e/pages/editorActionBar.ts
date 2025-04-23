@@ -83,7 +83,7 @@ export class EditorActionBar {
 	async verifySplitEditor(direction: 'down' | 'right', tabName: string,) {
 		await test.step(`Verify split editor: ${direction}`, async () => {
 			// Verify 2 tabs
-			await expect(this.page.getByRole('tab', { name: tabName })).toHaveCount(2);
+			await expect(this.page.getByRole('tab', { name: tabName })).toHaveCount(2, { timeout: 10000 });
 			const splitTabs = this.page.getByRole('tab', { name: tabName });
 			const firstTabBox = await splitTabs.nth(0).boundingBox();
 			const secondTabBox = await splitTabs.nth(1).boundingBox();

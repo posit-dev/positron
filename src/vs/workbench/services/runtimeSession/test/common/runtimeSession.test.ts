@@ -745,7 +745,7 @@ suite('Positron - RuntimeSessionService', () => {
 			);
 		});
 
-		for (const state of [RuntimeState.Busy, RuntimeState.Idle, RuntimeState.Ready]) {
+		for (const state of [RuntimeState.Busy, RuntimeState.Idle, RuntimeState.Ready, RuntimeState.Exited]) {
 			test(`restart ${mode} in '${state}' state`, async () => {
 				// Start the session and wait for it to be ready.
 				const session = await start();
@@ -781,7 +781,13 @@ suite('Positron - RuntimeSessionService', () => {
 				}
 
 				// Stub session.restart() to reject.
-				const restartStub = sinon.stub(session, 'restart').rejects(new Error('Session failed to restart'));
+				let restartStub;
+				if (state === RuntimeState.Exited) {
+					// When in an exited state, we actually call session.start() instead of session.restart().
+					restartStub = sinon.stub(session, 'start').rejects(new Error('Session failed to restart'));
+				} else {
+					restartStub = sinon.stub(session, 'restart').rejects(new Error('Session failed to restart'));
+				}
 
 				// Restart the session. It should error.
 				await assert.rejects(restartSession(session.sessionId));
@@ -818,47 +824,60 @@ suite('Positron - RuntimeSessionService', () => {
 			});
 		}
 
-		for (const state of [RuntimeState.Uninitialized, RuntimeState.Exited]) {
-			test(`restart ${mode} in '${state}' state`, async () => {
-				// Get a session to the exited state.
-				const session = await start();
-				await waitForRuntimeState(session, RuntimeState.Ready);
-				await session.shutdown(RuntimeExitReason.Shutdown);
-				await waitForRuntimeState(session, RuntimeState.Exited);
+		test(`restart ${mode} in 'uninitialized' state`, async () => {
+			// Get a session to the uninitialized state.
+			const state = RuntimeState.Uninitialized;
 
-				const willStartSession = sinon.spy();
-				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
-
-				await restartSession(session.sessionId);
-
-				// The existing session should remain exited.
-				assert.strictEqual(session.getRuntimeState(), RuntimeState.Exited);
-
-				// A new session should be starting.
-				let newSession: ILanguageRuntimeSession | undefined;
-				if (mode === LanguageRuntimeSessionMode.Console) {
-					newSession = runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId);
-				} else {
-					newSession = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
-				}
-				assert.ok(newSession);
-				disposables.add(newSession);
-
-				sinon.assert.calledOnceWithExactly(willStartSession, {
-					session: newSession,
-					// Since we restarted from an exited state, the start mode is 'starting'.
-					startMode: RuntimeStartMode.Starting,
-					activate: true
-				});
-
-				assert.strictEqual(newSession.metadata.sessionName, session.metadata.sessionName);
-				assert.strictEqual(newSession.metadata.sessionMode, session.metadata.sessionMode);
-				assert.strictEqual(newSession.metadata.notebookUri, session.metadata.notebookUri);
-				assert.strictEqual(newSession.runtimeMetadata, session.runtimeMetadata);
-
-				assertSessionIsStarting(newSession, { activeSessions: [session, newSession] });
+			const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
+				sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
 			});
-		}
+			const willStartSessionDisposable = runtimeSessionService.onWillStartSession(willStartSession);
+
+			await assert.rejects(start(), new Error('Session failed to start'));
+
+			assert.equal(runtimeSessionService.activeSessions.length, 1);
+			const session = runtimeSessionService.activeSessions[0];
+			disposables.add(session);
+
+			assert.strictEqual(session.getRuntimeState(), state);
+
+			// Set the state to the desired state.
+			willStartSessionDisposable.dispose();
+
+			const willStartSession2 = sinon.spy();
+			disposables.add(
+				runtimeSessionService.onWillStartSession(willStartSession2)
+			);
+
+			await restartSession(session.sessionId);
+
+			// The existing session should remain exited.
+			assert.strictEqual(session.getRuntimeState(), state);
+
+			// A new session should be starting.
+			let newSession: ILanguageRuntimeSession | undefined;
+			if (mode === LanguageRuntimeSessionMode.Console) {
+				newSession = runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId);
+			} else {
+				newSession = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+			}
+			assert.ok(newSession);
+			disposables.add(newSession);
+
+			sinon.assert.calledOnceWithExactly(willStartSession2, {
+				session: newSession,
+				// Since we restarted from an exited state, the start mode is 'starting'.
+				startMode: RuntimeStartMode.Starting,
+				activate: true
+			});
+
+			assert.strictEqual(newSession.metadata.sessionName, session.metadata.sessionName);
+			assert.strictEqual(newSession.metadata.sessionMode, session.metadata.sessionMode);
+			assert.strictEqual(newSession.metadata.notebookUri, session.metadata.notebookUri);
+			assert.strictEqual(newSession.runtimeMetadata, session.runtimeMetadata);
+
+			assertSessionIsStarting(newSession, { activeSessions: [session, newSession] });
+		});
 
 		test(`restart ${mode} in 'starting' state`, async () => {
 			const session = await start();

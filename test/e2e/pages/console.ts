@@ -215,18 +215,49 @@ export class Console {
 
 	async pasteInMonaco(
 		locator: Locator,
-		text: string
+		text: string,
+		maxRetries = 3
 	): Promise<void> {
+		const textarea = locator.locator('textarea');
 
-		await locator.locator('textarea').evaluate(async (element, evalText) => {
-			const clipboardData = new DataTransfer();
-			clipboardData.setData('text/plain', evalText);
-			const clipboardEvent = new ClipboardEvent('paste', {
-				clipboardData,
-			});
-			element.dispatchEvent(clipboardEvent);
-		}, text);
+		for (let attempt = 1; attempt <= maxRetries; attempt++) {
+			// Attempt paste
+			await textarea.evaluate(async (element, evalText) => {
+				const clipboardData = new DataTransfer();
+				clipboardData.setData('text/plain', evalText);
+				const clipboardEvent = new ClipboardEvent('paste', {
+					clipboardData,
+				});
+				element.dispatchEvent(clipboardEvent);
+			}, text);
+
+			// Allow time for paste to register
+			await locator.page().waitForTimeout(100);
+
+			function normalize(text: string): string {
+				return text
+					.normalize('NFKC') // Normalize Unicode (optional but good when working with special chars)
+					.replace(/\s+/g, '') // Remove all whitespace
+					.replace(/\u00a0/g, '') // Remove non-breaking spaces
+					.replace(/[^\x20-\x7E]/g, '') // Remove not printable ASCII
+					.trim();
+			}
+
+			const visibleText = await locator.evaluate(el => el.textContent || '');
+
+			if (normalize(visibleText).includes(normalize(text))) {
+				return; // Paste succeeded
+			}
+
+			if (attempt < maxRetries) {
+				await locator.page().waitForTimeout(100);
+			} else {
+				throw new Error('Paste failed after multiple retries');
+			}
+		}
 	}
+
+
 
 	getLastClickableLink() {
 		return this.activeConsole.locator('.output-run-hyperlink').last();

@@ -129,7 +129,7 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 		 */
 		const showHover = (content: string, skipFadeInAnimation: boolean) => {
 			// Show the hover and set the last hover widget.
-			this._lastHoverWidget = this._hoverService.showHover({
+			this._lastHoverWidget = this._hoverService.showInstantHover({
 				content,
 				target,
 				position: {

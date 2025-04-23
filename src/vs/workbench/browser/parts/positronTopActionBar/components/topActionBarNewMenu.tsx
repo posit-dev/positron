@@ -60,7 +60,7 @@ export const TopActionBarNewMenu = () => {
 		<ActionBarMenuButton
 			actions={actions}
 			iconId='positron-new'
-			text={positronNew}
+			label={positronNew}
 			tooltip={positronNewFileFolder}
 		/>
 	);
