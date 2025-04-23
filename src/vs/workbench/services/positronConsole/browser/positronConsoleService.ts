@@ -2214,10 +2214,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// code was `0`, we don't attempt to automatically start the session again. In this
 			// case, we add an activity item that shows a button the user can use to start the
 			// session manually.
-			const showRestartButton = exit.reason === RuntimeExitReason.ForcedQuit ||
+			// NOTE: The `showRestartButton` is always false for now, until
+			// https://github.com/posit-dev/positron/issues/6796 is resolved
+			const showRestartButton = false && (exit.reason === RuntimeExitReason.ForcedQuit ||
 				exit.reason === RuntimeExitReason.Shutdown ||
 				exit.reason === RuntimeExitReason.Unknown ||
-				crashedAndNeedRestartButton;
+				crashedAndNeedRestartButton);
 
 			if (showRestartButton) {
 				const restartButton = new RuntimeItemRestartButton(generateUuid(),
