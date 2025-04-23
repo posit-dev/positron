@@ -7,6 +7,18 @@ import * as positron from 'positron';
 import { MainThreadConsoleServiceShape } from './extHost.positron.protocol.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
+/**
+ * The extension host's view of a console instance
+ *
+ * Cousin to `MainThreadConsole`
+ *
+ * Do not add more methods to this class directly. Instead, add them to the
+ * `positron.Console` API and implement them in `Object.freeze()` below by
+ * calling out to the main thread.
+ *
+ * `positron.Console` is modeled after the design of `vscode.TextEditor`, which
+ * similarly has both `ExtHostTextEditor` and `MainThreadTextEditor`.
+ */
 export class ExtHostConsole {
 
 	private _disposed: boolean = false;
@@ -14,14 +26,14 @@ export class ExtHostConsole {
 	private readonly _value: positron.Console;
 
 	constructor(
-		id: string,
+		sessionId: string,
 		proxy: MainThreadConsoleServiceShape,
 		logService: ILogService,
 	) {
 		// So we can access private fields later on
 		const that = this;
 
-		// Implement `Console` interface, scoped in such a way that we can access the `id`,
+		// Implement `Console` interface, scoped in such a way that we can access the `sessionId`,
 		// `proxy`, and `logService` at any time without requiring them as arguments
 		this._value = Object.freeze({
 			pasteText(text: string): void {
@@ -29,7 +41,7 @@ export class ExtHostConsole {
 					logService.warn('Console is closed/disposed.');
 					return;
 				}
-				proxy.$tryPasteText(id, text);
+				proxy.$tryPasteText(sessionId, text);
 			}
 		});
 	}
@@ -40,10 +52,6 @@ export class ExtHostConsole {
 
 	getConsole(): positron.Console {
 		return this._value;
-	}
-
-	getLanguageId(): string {
-		return this.getLanguageId();
 	}
 }
 
