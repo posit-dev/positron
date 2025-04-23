@@ -101,14 +101,18 @@ export const ActionBarButton = forwardRef<
 		if (ThemeIcon.isThemeIcon(props.icon)) {
 			iconClassNames = ThemeIcon.asClassNameArray(props.icon);
 		} else {
-			// Determine the css background image based on the color theme and icon.
+			// Get the color theme type.
+			const colorThemeType = context.themeService.getColorTheme().type;
+
+			// Determine the css background image based on the color theme type and icon.
 			let cssBackgroundImage: CssFragment | undefined;
-			if (context.themeService.getColorTheme().type === ColorScheme.LIGHT && props.icon.light) {
+			if (colorThemeType === ColorScheme.LIGHT && props.icon.light) {
 				cssBackgroundImage = asCSSUrl(props.icon.light);
-			} if (context.themeService.getColorTheme().type === ColorScheme.DARK && props.icon.dark) {
-				asCSSUrl(props.icon.dark);
+			} else if (colorThemeType === ColorScheme.DARK && props.icon.dark) {
+				cssBackgroundImage = asCSSUrl(props.icon.dark);
 			} else {
-				cssBackgroundImage = asCSSUrl(props.icon.dark ?? props.icon.light);
+				// Fallback to the dark icon if the light icon is not available.
+				cssBackgroundImage = asCSSUrl(props.icon.light ?? props.icon.dark);
 			}
 
 			// Set the icon style, if the css background image is defined.
