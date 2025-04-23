@@ -65,24 +65,19 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		//
 		// this._disposables.add(
 		// 	this._positronConsoleService.onDidRemovePositronConsoleInstance((console) => {
-		// 		const id = console.session.sessionId;
+		// 		const sessionId = console.session.sessionId;
 		//
 		// 		// First update ext host
-		// 		this._proxy.$removeConsole(id);
+		// 		this._proxy.$removeConsole(sessionId);
 		//
 		// 		// Then update main thread
-		// 		this.removeConsole(id);
+		// 		this.removeConsole(sessionId);
 		// 	})
 		// )
 	}
 
 	dispose(): void {
 		this._disposables.dispose();
-	}
-
-	private getConsoleForLanguage(id: string): MainThreadConsole | undefined {
-		return Array.from(this._mainThreadConsolesBySessionId.values())
-			.find(console => console.getLanguageId() === id);
 	}
 
 	private addConsole(sessionId: string, console: IPositronConsoleInstance) {
@@ -104,8 +99,33 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		return Promise.resolve(this._positronConsoleService.getConsoleWidth());
 	}
 
-	$tryPasteText(id: string, text: string): void {
-		const mainThreadConsole = this.getConsoleForLanguage(id);
+	/**
+	 * Get the session id of the active console for a particular language id
+	 *
+	 * @param languageId The language id to find a session id for.
+	 */
+	$getSessionIdForLanguage(languageId: string): Promise<string | undefined> {
+		// TODO: This is wrong in a multi-session world. It finds the
+		// first matching `languageId` in the map, but we likely want the "most
+		// recently activated and still alive" one. Reprex to prove it is wrong,
+		// which should eventually become a test:
+		// - Start R console 1
+		// - Start R console 2
+		// - Run `cli::cli_alert("{.run revdepcheck::cloud_summary()}")` in R
+		//   console 2 and click the hyperlink.
+		// - The pasted code will incorrectly end up in R console 1.
+
+		for (let [sessionId, console] of this._mainThreadConsolesBySessionId.entries()) {
+			if (console.getLanguageId() === languageId) {
+				return Promise.resolve(sessionId);
+			}
+		}
+
+		return Promise.resolve(undefined);
+	}
+
+	$tryPasteText(sessionId: string, text: string): void {
+		const mainThreadConsole = this._mainThreadConsolesBySessionId.get(sessionId);
 
 		if (!mainThreadConsole) {
 			return;

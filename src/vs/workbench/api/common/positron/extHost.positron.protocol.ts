@@ -104,13 +104,14 @@ export interface ExtHostContextKeyServiceShape { }
 
 export interface MainThreadConsoleServiceShape {
 	$getConsoleWidth(): Promise<number>;
-	$tryPasteText(id: string, text: string): void;
+	$getSessionIdForLanguage(languageId: string): Promise<string | undefined>;
+	$tryPasteText(sessionId: string, text: string): void;
 }
 
 export interface ExtHostConsoleServiceShape {
 	$onDidChangeConsoleWidth(newWidth: number): void;
-	$addConsole(id: string): void;
-	$removeConsole(id: string): void;
+	$addConsole(sessionId: string): void;
+	$removeConsole(sessionId: string): void;
 }
 
 export interface MainThreadMethodsShape { }
