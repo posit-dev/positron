@@ -17,6 +17,7 @@ import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { ColorScheme } from '../../../theme/common/theme.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /**
  * ActionBarButtonIconProps type
@@ -105,24 +106,24 @@ export const ActionBarButton = forwardRef<
 			const colorThemeType = context.themeService.getColorTheme().type;
 
 			// Determine the css background image based on the color theme type and icon.
-			let cssBackgroundImage: CssFragment | undefined;
+			let icon: URI | undefined;
 			if (colorThemeType === ColorScheme.LIGHT && props.icon.light) {
-				cssBackgroundImage = asCSSUrl(props.icon.light);
+				icon = props.icon.light;
 			} else if (colorThemeType === ColorScheme.DARK && props.icon.dark) {
-				cssBackgroundImage = asCSSUrl(props.icon.dark);
+				icon = props.icon.dark;
 			} else {
 				// Fallback to the dark icon if the light icon is not available.
-				cssBackgroundImage = asCSSUrl(props.icon.light ?? props.icon.dark);
+				icon = props.icon.light ?? props.icon.dark;
 			}
 
-			// Set the icon style, if the css background image is defined.
-			if (cssBackgroundImage) {
+			// Set the icon style.
+			if (icon) {
 				iconStyle.width = '16px';
 				iconStyle.height = '16px';
 				iconStyle.backgroundSize = '16px';
 				iconStyle.backgroundPosition = '50%';
 				iconStyle.backgroundRepeat = 'no-repeat';
-				iconStyle.backgroundImage = cssBackgroundImage;
+				iconStyle.backgroundImage = asCSSUrl(icon);
 			}
 		}
 	}
