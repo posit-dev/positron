@@ -92,17 +92,25 @@ class PositronKeybindingsContribution extends Disposable {
 			primary: KeyCode.F2
 		}));
 
-		// Focus Source pane
+		// Focus "Source pane" (active editor group)
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.focusActiveEditorGroup',
 			weight: KeybindingWeight.WorkbenchContrib,
+			mac: {
+				primary: KeyMod.CtrlCmd | KeyCode.Digit1,
+				secondary: [KeyMod.WinCtrl | KeyCode.Digit1]
+			},
 			primary: KeyMod.CtrlCmd | KeyCode.Digit1
 		}));
 
-		// Focus Console pane
+		// Focus "Console pane" (the Console)
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.positronConsole.focusConsole',
 			weight: KeybindingWeight.WorkbenchContrib,
+			mac: {
+				primary: KeyMod.CtrlCmd | KeyCode.Digit2,
+				secondary: [KeyMod.WinCtrl | KeyCode.Digit2]
+			},
 			primary: KeyMod.CtrlCmd | KeyCode.Digit2
 		}));
 
@@ -126,6 +134,10 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.showAllSymbols',
 			weight: KeybindingWeight.WorkbenchContrib,
+			mac: {
+				primary: KeyMod.CtrlCmd | KeyCode.Period,
+				secondary: [KeyMod.WinCtrl | KeyCode.Period]
+			},
 			primary: KeyMod.CtrlCmd | KeyCode.Period
 		}));
 
@@ -231,6 +243,10 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.previousEditorInGroup',
 			weight: KeybindingWeight.WorkbenchContrib,
+			mac: {
+				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.LeftArrow,
+				secondary: [KeyMod.WinCtrl | KeyMod.Alt | KeyCode.LeftArrow]
+			},
 			primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.LeftArrow
 		}));
 
@@ -238,6 +254,10 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.nextEditorInGroup',
 			weight: KeybindingWeight.WorkbenchContrib,
+			mac: {
+				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.RightArrow,
+				secondary: [KeyMod.WinCtrl | KeyMod.Alt | KeyCode.RightArrow]
+			},
 			primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.RightArrow
 		}));
 
