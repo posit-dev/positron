@@ -7,11 +7,12 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
 import { newLanguageModel } from './models';
-import { CopilotCompletion, newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerMappedEditsProvider } from './edits';
 import { registerParticipants } from './participants';
+import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
-import { COPILOT_SIGNIN_COMMAND, registerCopilotService } from './copilot.js';
+import { registerCopilotService } from './copilot.js';
+import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -137,7 +138,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 	// Register with VS Code completions API
 	else if (modelConfig.type === 'completion') {
 		const completionProvider = newCompletionProvider(modelConfig);
-		const complDisp = vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, completionProvider);
+		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider);
 		modelDisposables.push(complDisp);
 	}
 
