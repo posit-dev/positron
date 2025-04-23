@@ -142,25 +142,6 @@ const SENTINEL_NAN = 2;
 const SENTINEL_INF = 10;
 const SENTINEL_NEGINF = 11;
 
-function uriToFilePath(uri: string) {
-	// On Windows, we need to fix up the path so that it is recognizable as a drive path.
-	// Not sure how reliable this is, but it seems to work for now.
-	if (process.platform === 'win32') {
-		const filePath = path.parse(uri);
-		// Example: {
-		//    root: '/',
-		//    dir: '/c:/Users/sharon/qa-example-content/data-files/flights',
-		//    base: 'flights.parquet', ext: '.parquet',
-		//    name: 'flights'
-		// }
-		if (filePath.root === '/' && filePath.dir.startsWith('/')) {
-			// Remove the leading slash from the path so the path is drive path
-			return uri.substring(1);
-		}
-	}
-	return uri;
-}
-
 // TODO
 // - Decimal
 // - Nested types
@@ -719,7 +700,9 @@ export class DuckDBTableView {
 	private _sortClause: string = '';
 	private _whereClause: string = '';
 
-	constructor(readonly uri: string, private tableName: string,
+	constructor(
+		readonly uri: vscode.Uri,
+		private tableName: string,
 		private fullSchema: Array<SchemaEntry>,
 		readonly db: DuckDBInstance,
 		readonly isConnected: boolean = true,
@@ -749,14 +732,14 @@ export class DuckDBTableView {
 		// When the file changes, refuse to guess and send SchemaUpdate event
 		return vscode.commands.executeCommand(
 			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri,
+				uri: this.uri.toString(),
 				method: DataExplorerFrontendEvent.SchemaUpdate,
 				params: {}
 			} satisfies DataExplorerUiEvent
 		);
 	}
 
-	static getDisconnected(uri: string, errorMessage: string, db: DuckDBInstance) {
+	static getDisconnected(uri: vscode.Uri, errorMessage: string, db: DuckDBInstance) {
 		return new DuckDBTableView(uri, 'disconnected', [], db, false, errorMessage);
 	}
 
@@ -992,7 +975,7 @@ END`;
 
 	private getDisconnectedState(): BackendState {
 		return {
-			display_name: this.uri,
+			display_name: this.uri.path,
 			connected: false,
 			error_message: this.errorMessage,
 			table_shape: { num_rows: 0, num_columns: 0 },
@@ -1037,7 +1020,7 @@ END`;
 		const [unfiltedNumRows, unfilteredNumCols] = await this._unfilteredShape;
 		const [filteredNumRows, filteredNumCols] = await this._filteredShape;
 		return {
-			display_name: path.basename(this.uri),
+			display_name: path.basename(this.uri.path),
 			table_shape: {
 				num_rows: filteredNumRows,
 				num_columns: filteredNumCols
@@ -1262,7 +1245,7 @@ END`;
 
 		await vscode.commands.executeCommand(
 			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri,
+				uri: this.uri.toString(),
 				method: DataExplorerFrontendEvent.ReturnColumnProfiles,
 				params: outParams
 			} satisfies DataExplorerUiEvent
@@ -1472,29 +1455,32 @@ export class DataExplorerRpcHandler {
 
 	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
 		let scanQuery, tableName;
-		const duckdbPath = params.uri.match(/^duckdb:\/\/(.+)$/);
-		let filePath: string | undefined = undefined;
-		if (duckdbPath) {
+		const uri = vscode.Uri.parse(params.uri);
+		if (uri.scheme === 'duckdb') {
 			// We are querying a table in the transient in-memory database. We can modify this later
 			// to read from different .duckb database files
-			tableName = duckdbPath[1];
+			tableName = uri.path;
+		} else if (uri.scheme !== 'file') {
+			// We can't currently handle non-file URIs.
+			const tableView = DuckDBTableView.getDisconnected(uri, `Unsupported URI scheme: ${uri.scheme}`, this.db);
+			this._uriToTableView.set(params.uri.toString(), tableView);
+			return {};
 		} else {
 			tableName = `positron_${this._tableIndex++}`;
-			filePath = uriToFilePath(params.uri);
-			await this.createTableFromFilePath(filePath, tableName);
+			await this.createTableFromFilePath(uri.fsPath, tableName);
 		}
 
 		let tableView: DuckDBTableView;
 		try {
 			const result = await this.db.runQuery(`DESCRIBE ${tableName};`);
-			tableView = new DuckDBTableView(params.uri, tableName, result.toArray(), this.db);
+			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db);
 
-			if (filePath !== undefined) {
+			if (uri.scheme === 'file') {
 				// watch file for changes and fire `onDatasetChanged` event when it changes
-				fs.watchFile(filePath, { interval: 1000 }, async () => {
+				fs.watchFile(uri.fsPath, { interval: 1000 }, async () => {
 					const newTableName = `positron_${this._tableIndex++}`;
 
-					await this.createTableFromFilePath(filePath, newTableName);
+					await this.createTableFromFilePath(uri.fsPath, newTableName);
 
 					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
 					await tableView.onFileUpdated(newTableName, newSchema);
@@ -1503,10 +1489,10 @@ export class DataExplorerRpcHandler {
 		} catch (error) {
 			const errorMessage = error instanceof Error ?
 				error.message : 'Unable to open for unknown reason';
-			tableView = DuckDBTableView.getDisconnected(params.uri, errorMessage, this.db);
+			tableView = DuckDBTableView.getDisconnected(uri, errorMessage, this.db);
 
 		}
-		this._uriToTableView.set(params.uri, tableView);
+		this._uriToTableView.set(params.uri.toString(), tableView);
 		return {};
 	}
 
@@ -1598,7 +1584,7 @@ export class DataExplorerRpcHandler {
 		if (rpc.uri === undefined) {
 			return `URI for open dataset must be provided: ${rpc.method} `;
 		}
-		const table = this._uriToTableView.get(rpc.uri) as DuckDBTableView;
+		const table = this._uriToTableView.get(rpc.uri.toString()) as DuckDBTableView;
 		switch (rpc.method) {
 			case DataExplorerBackendRequest.ExportDataSelection:
 				return table.exportDataSelection(rpc.params as ExportDataSelectionParams);
