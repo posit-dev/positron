@@ -145,6 +145,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 				notificationService={this._notificationService}
 				positronPlotsService={this._positronPlotsService}
 				preferencesService={this._preferencesService}
+				themeService={this.themeService}
 			>
 				<EditorPlotsContainer
 					height={this._height}

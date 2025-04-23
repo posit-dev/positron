@@ -284,6 +284,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 				positronVariablesService={this._positronVariablesService}
 				reactComponentContainer={this}
 				runtimeSessionService={this._runtimeSessionService}
+				themeService={this.themeService}
 			/>
 		);
 	}

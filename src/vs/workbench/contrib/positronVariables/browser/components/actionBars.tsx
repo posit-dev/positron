@@ -25,6 +25,7 @@ import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { VariablesInstanceMenuButton } from './variablesInstanceMenuButton.js';
 import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -145,7 +146,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronRefreshObjects}
-							iconId='positron-refresh'
+							icon={ThemeIcon.fromId('positron-refresh')}
 							tooltip={positronRefreshObjects}
 							onPressed={refreshObjectsHandler}
 						/>
@@ -153,7 +154,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton
 							align='right'
 							ariaLabel={positronDeleteAllObjects}
-							iconId='clear-all'
+							icon={ThemeIcon.fromId('clear-all')}
 							tooltip={positronDeleteAllObjects}
 							onPressed={deleteAllObjectsHandler}
 						/>

@@ -204,7 +204,7 @@ export class EditorActionBarFactory extends Disposable {
 				ariaLabel={positronMoveIntoNewWindowAriaLabel}
 				commandId='workbench.action.moveEditorToNewWindow'
 				disabled={auxiliaryWindow}
-				iconId='positron-open-in-new-window'
+				icon={ThemeIcon.fromId('positron-open-in-new-window')}
 				tooltip={positronMoveIntoNewWindowTooltip}
 			/>
 		);

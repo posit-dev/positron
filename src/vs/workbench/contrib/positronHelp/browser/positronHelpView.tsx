@@ -277,6 +277,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 				layoutService={this._layoutService}
 				positronHelpService={this.positronHelpService}
 				reactComponentContainer={this}
+				themeService={this.themeService}
 				onHome={homeHandler}
 			/>
 		);

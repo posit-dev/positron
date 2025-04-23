@@ -36,6 +36,8 @@ import { IAccessibilityService } from '../../../../../platform/accessibility/com
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -65,6 +67,7 @@ export interface ActionBarsProps {
 	readonly layoutService: IWorkbenchLayoutService;
 	readonly notificationService: INotificationService;
 	readonly preferencesService: IPreferencesService;
+	readonly themeService: IThemeService;
 	readonly zoomHandler: (zoomLevel: number) => void;
 	readonly zoomLevel: number;
 }
@@ -160,14 +163,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						<ActionBarButton
 							ariaLabel={showPreviousPlot}
 							disabled={disableLeft}
-							iconId='positron-left-arrow'
+							icon={ThemeIcon.fromId('positron-left-arrow')}
 							tooltip={showPreviousPlot}
 							onPressed={showPreviousPlotHandler}
 						/>
 						<ActionBarButton
 							ariaLabel={showNextPlot}
 							disabled={disableRight}
-							iconId='positron-right-arrow'
+							icon={ThemeIcon.fromId('positron-right-arrow')}
 							tooltip={showNextPlot}
 							onPressed={showNextPlotHandler}
 						/>
@@ -179,7 +182,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{enableSavingPlots &&
 							<ActionBarButton
 								ariaLabel={savePlot}
-								iconId='positron-save'
+								icon={ThemeIcon.fromId('positron-save')}
 								tooltip={savePlot}
 								onPressed={savePlotHandler}
 							/>
@@ -188,7 +191,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							<ActionBarButton
 								ariaLabel={copyPlotToClipboard}
 								disabled={!hasPlots}
-								iconId='copy'
+								icon={ThemeIcon.fromId('copy')}
 								tooltip={copyPlotToClipboard}
 								onPressed={copyPlotHandler}
 							/>
@@ -211,7 +214,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							<ActionBarButton
 								align='right'
 								ariaLabel={openPlotInNewWindow}
-								iconId='positron-open-in-new-window'
+								icon={ThemeIcon.fromId('positron-open-in-new-window')}
 								tooltip={openPlotInNewWindow}
 								onPressed={popoutPlotHandler}
 							/>
@@ -240,7 +243,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							align='right'
 							ariaLabel={clearAllPlots}
 							disabled={noPlots}
-							iconId='clear-all'
+							icon={ThemeIcon.fromId('clear-all')}
 							tooltip={clearAllPlots}
 							onPressed={clearAllPlotsHandler}
 						/>

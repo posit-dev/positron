@@ -23,11 +23,6 @@ import { IAccessibilityService } from '../../../accessibility/common/accessibili
 import { IModifierKeyStatus, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
 
 /**
- * Constants.
- */
-const CODICON_ID = /^codicon codicon-(.+)$/;
-
-/**
  * Determines whether the alternative action should be used.
  * @param accessibilityService The accessibility service.
  * @param menuItemAction The menu item action.
@@ -125,9 +120,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 		menuItemAction.alt :
 		props.action;
 
-	// Extract the icon ID from the action's class.
-	const iconIdResult = action.class?.match(CODICON_ID);
-	const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
+	//brianlambert
 
 	// Render.
 	return (
@@ -136,7 +129,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 			ariaLabel={action.label ?? action.tooltip}
 			checked={action.checked}
 			disabled={!action.enabled}
-			iconId={iconId}
+			icon={menuItemAction?.item.icon}
 			label={isPositronActionBarButtonOptions(menuItemAction?.positronActionBarOptions) && menuItemAction.positronActionBarOptions.displayTitle ?
 				action.label :
 				undefined

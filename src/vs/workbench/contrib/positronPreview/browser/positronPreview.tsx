@@ -32,6 +32,7 @@ import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PreviewHtml } from './previewHtml.js';
 import { HtmlActionBars } from './components/htmlActionBars.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 
 /**
  * PositronPreviewProps interface.
@@ -51,6 +52,7 @@ export interface PositronPreviewProps extends PositronPreviewServices {
 	readonly positronPreviewService: IPositronPreviewService;
 	readonly reactComponentContainer: PositronPreviewViewPane;
 	readonly runtimeSessionService: IRuntimeSessionService;
+	readonly themeService: IThemeService;
 }
 
 /**

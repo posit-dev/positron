@@ -22,6 +22,7 @@ import { ActionBarCommandButton } from '../../../../../platform/positronActionBa
 import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { localize } from '../../../../../nls.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 const startInterpreter = localize('positron.startInterpreter', "Start Interpreter");
 const startSession = localize('positron.console.startSession', "Start Session");
@@ -198,7 +199,7 @@ export const TopActionBarInterpretersManager_New = (props: TopActionBarInterpret
 			...(
 				activeSession
 					? { iconImageSrc: `data:image/svg+xml;base64,${activeSession?.runtimeMetadata.base64EncodedIconSvg}` }
-					: { iconId: 'arrow-swap' }
+					: { icon: ThemeIcon.fromId('codicon-arrow-swap') }
 			)
 			}
 		/>
