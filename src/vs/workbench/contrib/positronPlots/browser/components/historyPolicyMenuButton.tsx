@@ -11,6 +11,7 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { HistoryPolicy, IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import * as nls from '../../../../../nls.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 interface HistoryPolicyMenuButtonProps {
 	readonly plotsService: IPositronPlotsService;
@@ -68,7 +69,7 @@ export const HistoryPolicyMenuButton = (props: HistoryPolicyMenuButtonProps) => 
 			actions={actions}
 			align='right'
 			ariaLabel={historyPolicyTooltip}
-			iconId='layout'
+			icon={ThemeIcon.fromId('layout')}
 			tooltip={historyPolicyTooltip}
 		/>
 	);

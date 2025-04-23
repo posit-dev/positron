@@ -10,19 +10,20 @@ import './actionBarMenuButton.css';
 import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
-import { IAction } from '../../../../base/common/actions.js';
-import { IContextMenuEvent } from '../../../../base/browser/contextmenu.js';
-import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
 import { ActionBarButton } from './actionBarButton.js';
+import { Icon } from '../../../action/common/action.js';
+import { IAction } from '../../../../base/common/actions.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
+import { IContextMenuEvent } from '../../../../base/browser/contextmenu.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
 
 /**
  * ActionBarMenuButtonProps interface.
  */
 interface ActionBarMenuButtonProps {
-	readonly iconId?: string;
+	readonly icon?: Icon;
 	readonly iconFontSize?: number;
 	readonly label?: string;
 	readonly ariaLabel?: string;
