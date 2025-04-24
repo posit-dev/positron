@@ -707,11 +707,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// https://github.com/posit-dev/positron/issues/4997.
 		if (session.runtimeMetadata.uiSubscriptions?.includes(UiRuntimeNotifications.DidChangePlotsRenderSettings)) {
 			this._register(this._runtimeSessionService.watchUiClient(session.sessionId, (uiClient) => {
-				// Forward future settings updates
-				// TODO: uiClient.register
-				this.onDidChangePlotsRenderSettings(settings => {
+				// Forward future settings updates. Note that the lifecycle of that event
+				// handler is tied to the UI client itself, not to the lifecycle of the session.
+				uiClient.register(this.onDidChangePlotsRenderSettings(settings => {
 					uiClient.didChangePlotsRenderSettings(settings);
-				});
+				}));
 
 				// Send initial settings immediately
 				uiClient.didChangePlotsRenderSettings(this.getPlotsRenderSettings());
