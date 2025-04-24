@@ -44,8 +44,8 @@ export function registerCommands(context: vscode.ExtensionContext, notebookSessi
 					session.runtimeMetadata.runtimeName, notebook.uri.path, error.message));
 		}
 	}), vscode.commands.registerCommand('positron.notebooks.selectPythonEnvironment', async () => {
-		return await vscode.commands.executeCommand('workbench.action.languageRuntime.pick', 'python');
+		return await vscode.commands.executeCommand('workbench.action.languageRuntime.pick');
 	}), vscode.commands.registerCommand('positron.notebooks.selectREnvironment', async () => {
-		return await vscode.commands.executeCommand('workbench.action.languageRuntime.pick', 'r');
+		return await vscode.commands.executeCommand('workbench.action.languageRuntime.pick');
 	}));
 }

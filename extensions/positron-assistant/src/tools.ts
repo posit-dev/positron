@@ -7,10 +7,11 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { padBase64String } from './utils';
 import { LanguageModelImage } from './languageModelParts.js';
-import { IPositronAssistantParticipant, ParticipantID } from './participants.js';
+import { ParticipantService } from './participants.js';
 
 export enum PositronAssistantToolName {
 	DocumentEdit = 'documentEdit',
+	EditFile = 'vscode_editFile_internal',
 	ExecuteCode = 'executeCode',
 	GetPlot = 'getPlot',
 	SelectionEdit = 'selectionEdit',
@@ -24,7 +25,7 @@ export enum PositronAssistantToolName {
  */
 export function registerAssistantTools(
 	context: vscode.ExtensionContext,
-	participants: Record<ParticipantID, IPositronAssistantParticipant>,
+	participantService: ParticipantService,
 ): void {
 	const documentEditTool = vscode.lm.registerTool<{
 		deltas: { delete: string; replace: string }[];
@@ -44,7 +45,7 @@ export function registerAssistantTools(
 			}
 
 			// Get the active chat request data
-			const { request, response } = getChatRequestData(options.toolInvocationToken, participants);
+			const { request, response } = getChatRequestData(options.chatRequestId, participantService);
 			if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
 				throw new Error('This tool can only be invoked from an editor.');
 			}
@@ -98,7 +99,7 @@ export function registerAssistantTools(
 
 		invoke: async (options, token) => {
 			// Get the active chat request data.
-			const { request, response } = getChatRequestData(options.toolInvocationToken, participants);
+			const { request, response } = getChatRequestData(options.chatRequestId, participantService);
 			if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
 				throw new Error('This tool can only be invoked from an editor.');
 			}
@@ -258,20 +259,20 @@ export function registerAssistantTools(
 /**
  * Get the chat request data for a given tool invocation token.
  *
- * @param toolInvocationToken The tool invocation token .
+ * @param chatRequestId The ID of the chat request.
  * @param participants The participants in the chat.
  * @returns The request data for the given tool invocation token.
  * @throws Error if there is no tool invocation token or if the request data cannot be found.
  */
 function getChatRequestData(
-	toolInvocationToken: vscode.ChatParticipantToolToken | undefined,
-	participants: Record<ParticipantID, IPositronAssistantParticipant>,
+	chatRequestId: string | undefined,
+	participantService: ParticipantService,
 ) {
-	if (!toolInvocationToken) {
-		throw new Error('This tool requires a tool invocation token.');
+	if (!chatRequestId) {
+		throw new Error('This tool requires the chat request ID.');
 	}
 
-	const requestData = participants[ParticipantID.PositronAssistant].getRequestData(toolInvocationToken);
+	const requestData = participantService.getRequestData(chatRequestId);
 	if (!requestData) {
 		throw new Error('This tool can only be invoked from a Positron Assistant chat request.');
 	}
