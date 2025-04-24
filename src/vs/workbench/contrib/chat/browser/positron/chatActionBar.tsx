@@ -24,8 +24,9 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	const [selectorLabel, setSelectorLabel] = React.useState<string>((() => localize('positronChatSelector.unavailable', 'No providers available'))());
 
 	const actions = React.useCallback(() => {
-		const actions: IAction[] = [
-			{
+		const actions: IAction[] = [];
+		if (providers && providers.length > 0) {
+			actions.push({
 				id: 'all-models',
 				label: (() => localize('positronChatSelector.allModels', 'All Models'))(),
 				enabled: true,
@@ -34,8 +35,8 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 				run: () => {
 					props.onModelSelect(undefined);
 				}
-			}
-		];
+			});
+		}
 		providers?.forEach((provider) => {
 			actions.push({
 				id: provider.id,
