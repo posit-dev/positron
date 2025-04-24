@@ -128,6 +128,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
         if (!workspaceUri) {
             if (userInterpreterSettings.globalValue) {
                 interpreterPath = userInterpreterSettings.globalValue;
+                isImmediate = true;
             } else {
                 return { path: undefined, isImmediate };
             }
