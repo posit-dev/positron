@@ -33,7 +33,7 @@ export class PositronImportSettings extends Action2 {
 		super({
 			id: PositronImportSettings.ID,
 			title: {
-				value: localize('positronImportSettings', "Import Settings..."),
+				value: localize('positron.importSettings', "Import Settings..."),
 				original: 'Import Settings...'
 			},
 			category: 'Preferences',

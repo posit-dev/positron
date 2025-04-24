@@ -36,7 +36,7 @@ export async function promptImport(
 	// The prompt will show up in the notification center.
 	notificationService.prompt(
 		Severity.Info,
-		localize('positron.settingsImport.prompt', 'Import settings from Visual Studio Code into Positron'),
+		localize('positron.settingsImport.prompt', 'Import your settings from Visual Studio Code into Positron?'),
 		[
 			// Open the import settings command and set the import was prompted flag to true.
 			// This will prevent the prompt from showing up again.
