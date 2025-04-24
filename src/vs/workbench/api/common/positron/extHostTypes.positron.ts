@@ -373,6 +373,26 @@ export enum CodeAttributionSource {
 }
 
 /**
+ * UI notifications from frontend to backends.
+ */
+export enum UiRuntimeNotifications {
+	/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
+	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
+}
+
+/**
+ * Settings necessary to render a plot in the format expected by the plot widget.
+ */
+export interface PlotsRenderSettings {
+	size: {
+		width: number;
+		height: number;
+	};
+	pixel_ratio: number;
+	format: RenderFormat;
+}
+
+/**
  * Possible formats for rendering a plot.
  */
 export enum RenderFormat {
@@ -381,12 +401,4 @@ export enum RenderFormat {
 	Svg = 'svg',
 	Pdf = 'pdf',
 	Tiff = 'tiff'
-}
-
-/**
- * UI notifications from frontend to backends.
- */
-export enum UiRuntimeNotifications {
-	/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
-	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 }

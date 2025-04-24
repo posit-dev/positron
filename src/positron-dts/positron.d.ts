@@ -1346,7 +1346,6 @@ declare module 'positron' {
 
 	/**
 	 * Settings necessary to render a plot in the format expected by the plot widget.
-	 * TODO: Define from ui-backend-openrpc.json?
 	 */
 	export interface PlotsRenderSettings {
 		size: {
