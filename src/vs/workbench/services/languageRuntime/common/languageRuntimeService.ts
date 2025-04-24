@@ -35,7 +35,7 @@ export const formatLanguageRuntimeMetadata = (metadata: ILanguageRuntimeMetadata
  * @returns A string suitable for logging the language runtime.
  */
 export const formatLanguageRuntimeSession = (session: ILanguageRuntimeSession) => {
-	return `Session ${session.metadata.sessionName} (${session.sessionId}) from runtime ${formatLanguageRuntimeMetadata(session.runtimeMetadata)}`;
+	return `Session ${session.dynState.sessionName} (${session.sessionId}) from runtime ${formatLanguageRuntimeMetadata(session.runtimeMetadata)}`;
 };
 
 /**
@@ -752,6 +752,9 @@ export interface ILanguageRuntimeSessionState extends ILangaugeRuntimeDynState {
 	 * in the PositronVariablesView.
 	 */
 	currentNotebookUri?: URI;
+
+	/** The user-facing name of this session */
+	sessionName: string;
 }
 
 /**

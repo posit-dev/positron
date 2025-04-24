@@ -796,7 +796,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					return;
 				}
 
-				this._runtimeSessionService.startNewRuntimeSession(metadata.runtimeId,
+				this._runtimeSessionService.startNewRuntimeSession(
+					metadata.runtimeId,
 					metadata.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // Console session
@@ -1225,7 +1226,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			if (activatedExtensions.indexOf(session.runtimeMetadata.extensionId) === -1) {
 				this._logService.debug(`[Runtime startup] Activating extension ` +
 					`${session.runtimeMetadata.extensionId.value} for persisted session ` +
-					`${session.metadata.sessionName} (${session.metadata.sessionId})`);
+					`${session.sessionName} (${session.metadata.sessionId})`);
 				activatedExtensions.push(session.runtimeMetadata.extensionId);
 				return this._extensionService.activateById(session.runtimeMetadata.extensionId,
 					{
@@ -1249,7 +1250,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// check to see if it is still valid (i.e. still running)
 				// before reconnecting.
 				this._logService.debug(`[Runtime startup] Checking to see if persisted session ` +
-					`${session.metadata.sessionName} (${session.metadata.sessionId}) is still valid.`);
+					`${session.sessionName} (${session.metadata.sessionId}) is still valid.`);
 				try {
 					// Ask the runtime session service to validate the session.
 					// This call will eventually be proxied through to the
@@ -1260,7 +1261,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 					this._logService.debug(
 						`[Runtime startup] Session ` +
-						`${session.metadata.sessionName} (${session.metadata.sessionId}) valid = ${valid}`);
+						`${session.sessionName} (${session.metadata.sessionId}) valid = ${valid}`);
 
 					// Fire an event to clean up provisional copies of the session
 					if (!valid) {
@@ -1277,7 +1278,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					// to the session.
 					this._logService.error(
 						`Error validating persisted session ` +
-						`${session.metadata.sessionName} (${session.metadata.sessionId}): ${err}`);
+						`${session.sessionName} (${session.metadata.sessionId}): ${err}`);
 
 					// Fire an event to clean up provisional copies of the session
 					const error: ISessionRestoreFailedEvent = {
@@ -1295,7 +1296,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Reconnect to the remaining sessions.
 		this._logService.debug(`Reconnecting to sessions: ` +
-			sessions.map(session => session.metadata.sessionName).join(', '));
+			sessions.map(session => session.sessionName).join(', '));
 
 		// Keep track of whether we are expecting to see the first console
 		// session
@@ -1318,7 +1319,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 
 			this._logService.debug(`${marker}: Restoring session for ` +
-				`${session.metadata.sessionName}`);
+				`${session.sessionName}`);
 
 			// We want to activate the first console session we see, but no
 			// following sessions
@@ -1376,7 +1377,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			.map(session => {
 				const activeSession =
 					this._runtimeSessionService.getActiveSession(session.metadata.sessionId);
+
 				const metadata: SerializedSessionMetadata = {
+					sessionName: session.dynState.sessionName,
 					metadata: session.metadata,
 					sessionState: session.getRuntimeState(),
 					runtimeMetadata: session.runtimeMetadata,
@@ -1384,12 +1387,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					lastUsed: session.lastUsed,
 					localWindowId: this._localWindowId,
 				};
+
 				return metadata;
 			});
 
 		// Diagnostic logs: what are we saving?
 		this._logService.trace(`Saving workspace sessions: ${activeSessions.map(session =>
-			`${session.metadata.sessionName} (${session.metadata.sessionId}, ${session.runtimeMetadata.sessionLocation})`).join(', ')}`);
+			`${session.sessionName} (${session.metadata.sessionId}, ${session.runtimeMetadata.sessionLocation})`).join(', ')}`);
 
 		// Save the ephemeral sessions to the workspace storage.
 		const workspaceSessions = activeSessions.filter(session =>

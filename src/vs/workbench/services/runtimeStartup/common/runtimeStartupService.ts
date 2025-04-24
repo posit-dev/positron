@@ -37,6 +37,9 @@ export interface ISessionRestoreFailedEvent {
  * Metadata for serialized runtime sessions.
  */
 export interface SerializedSessionMetadata {
+	// The user-facing name of the session.
+	sessionName: string;
+
 	/// The metadata for the runtime session itself.
 	metadata: IRuntimeSessionMetadata;
 

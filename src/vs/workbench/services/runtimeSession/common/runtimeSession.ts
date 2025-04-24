@@ -527,7 +527,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 */
-	async startNewRuntimeSession(runtimeId: string,
+	async startNewRuntimeSession(
+		runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
@@ -888,13 +889,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} else if (state === RuntimeState.Uninitialized) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
-			await this.startNewRuntimeSession(session.runtimeMetadata.runtimeId,
-				session.metadata.sessionName,
+			await this.startNewRuntimeSession(
+				session.runtimeMetadata.runtimeId,
+				session.dynState.sessionName,
 				session.metadata.sessionMode,
 				session.metadata.notebookUri,
 				`'Restart Interpreter' command invoked`,
 				RuntimeStartMode.Starting,
-				true);
+				true
+			);
 			return;
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {
@@ -1465,7 +1468,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
-			sessionName,
 			sessionMode,
 			notebookUri,
 			createdTimestamp: Date.now(),
@@ -1896,7 +1898,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to watch.
 	 */
 	private async waitForInterrupt(session: ILanguageRuntimeSession) {
-		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", session.metadata.sessionName, session.runtimeMetadata.languageName);
+		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", session.dynState.sessionName, session.runtimeMetadata.languageName);
 		this.awaitStateChange(session,
 			[RuntimeState.Idle],
 			10,
@@ -1911,7 +1913,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to watch.
 	 */
 	private async waitForShutdown(session: ILanguageRuntimeSession) {
-		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", session.metadata.sessionName, session.runtimeMetadata.languageName);
+		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", session.dynState.sessionName, session.runtimeMetadata.languageName);
 		this.awaitStateChange(session,
 			[RuntimeState.Exited],
 			10,
@@ -1926,7 +1928,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to watch.
 	 */
 	private async waitForReconnect(session: ILanguageRuntimeSession) {
-		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", session.metadata.sessionName, session.runtimeMetadata.languageName);
+		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", session.dynState.sessionName, session.runtimeMetadata.languageName);
 		this.awaitStateChange(session,
 			[RuntimeState.Ready, RuntimeState.Idle],
 			30,

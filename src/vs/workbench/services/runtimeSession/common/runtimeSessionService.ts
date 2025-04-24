@@ -79,9 +79,6 @@ export interface IRuntimeSessionMetadata {
 	/** The unique identifier of the session */
 	readonly sessionId: string;
 
-	/** A user-friendly name for the session */
-	readonly sessionName: string;
-
 	/** The session's mode  */
 	readonly sessionMode: LanguageRuntimeSessionMode;
 
@@ -404,7 +401,8 @@ export interface IRuntimeSessionService {
 	 *
 	 * Returns a promise that resolves to the session ID of the new session.
 	 */
-	startNewRuntimeSession(runtimeId: string,
+	startNewRuntimeSession(
+		runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,

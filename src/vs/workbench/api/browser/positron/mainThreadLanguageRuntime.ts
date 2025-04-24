@@ -950,7 +950,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		if (this.dynState.currentNotebookUri) {
 			return basename(this.dynState.currentNotebookUri);
 		}
-		return this.metadata.sessionName;
+		return this.dynState.sessionName;
 	}
 	static clientCounter = 0;
 
@@ -1467,7 +1467,8 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to start a previously registered language runtime
-	async $startLanguageRuntime(runtimeId: string,
+	async $startLanguageRuntime(
+		runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined): Promise<string> {
@@ -1548,7 +1549,7 @@ export class MainThreadLanguageRuntime
 				session.markExited();
 				const exit: ILanguageRuntimeExit = {
 					runtime_name: session.runtimeMetadata.runtimeName,
-					session_name: session.metadata.sessionName,
+					session_name: session.dynState.sessionName,
 					exit_code: 0,
 					reason: RuntimeExitReason.ExtensionHost,
 					message: 'Extension host is shutting down'

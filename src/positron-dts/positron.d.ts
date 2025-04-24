@@ -471,9 +471,6 @@ declare module 'positron' {
 		/** The ID of this session */
 		readonly sessionId: string;
 
-		/** The user-facing name of this session */
-		readonly sessionName: string;
-
 		/** The session's mode */
 		readonly sessionMode: LanguageRuntimeSessionMode;
 
@@ -510,6 +507,9 @@ declare module 'positron' {
 
 		/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
 		continuationPrompt: string;
+
+		/** The user-facing name of this session */
+		sessionName: string;
 	}
 
 	export enum LanguageRuntimeStartupBehavior {
