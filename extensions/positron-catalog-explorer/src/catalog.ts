@@ -164,3 +164,36 @@ class CatalogItem extends vscode.TreeItem {
 		}
 	}
 }
+
+export function registerCatalogCommands(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand(
+			"positron-catalog-explorer.openWith",
+			async (node: CatalogNode) => {
+				if (!node.resourceUri) {
+					return;
+				}
+				// Delegate to the existing File Explorer
+				// command.
+				await vscode.commands.executeCommand(
+					"explorer.openWith",
+					node.resourceUri,
+				);
+			},
+		),
+		vscode.commands.registerCommand(
+			"positron-catalog-explorer.copyPath",
+			async (node: CatalogNode) => {
+				if (!node.resourceUri) {
+					return;
+				}
+				// Delegate to the existing copyFilePath
+				// command, as used by the File Explorer.
+				await vscode.commands.executeCommand(
+					"copyFilePath",
+					node.resourceUri,
+				);
+			},
+		),
+	);
+}

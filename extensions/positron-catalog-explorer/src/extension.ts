@@ -3,7 +3,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from "vscode";
-import { CatalogTreeDataProvider } from "./catalog";
+import { CatalogTreeDataProvider, registerCatalogCommands } from "./catalog";
 import { DefaultDatabricksCredentialProvider } from "./credentials";
 import { getDatabricksCatalogs } from "./catalogs/databricks";
 import { registerDbfsProvider } from "./fs/dbfs";
@@ -25,6 +25,7 @@ export async function activate(context: vscode.ExtensionContext) {
 			),
 		),
 	);
+	registerCatalogCommands(context);
 }
 
 export function deactivate() {}

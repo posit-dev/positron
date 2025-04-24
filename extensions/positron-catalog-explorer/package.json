@@ -14,6 +14,21 @@
   "activationEvents": ["onFileSystem:dbfs"],
   "main": "./out/extension.js",
   "contributes": {
+    "commands": [
+      {
+        "command": "positron-catalog-explorer.openWith",
+        "category": "Catalogs",
+        "title": "Open With...",
+        "enablement": "view == positron-catalog-explorer"
+      },
+      {
+        "command": "positron-catalog-explorer.copyPath",
+        "category": "Catalogs",
+        "title": "Copy Path",
+        "icon": "$(copy)",
+        "enablement": "view == positron-catalog-explorer"
+      }
+    ],
     "views": {
       "positron-connections": [
         {
@@ -27,6 +42,26 @@
       {
         "view": "positron-catalog-explorer",
         "contents": "Explore tables, views, and more in Databricks Unity Catalog, AWS Glue, Azure Data Lake Storage, or any Apache Iceberg-compatible catalog.\n[Configure a Catalog](command:positron-catalog-explorer.addCatalog)"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "positron-catalog-explorer.openWith",
+          "when": "view == positron-catalog-explorer && viewItem == file"
+        },
+        {
+          "command": "positron-catalog-explorer.copyPath",
+          "when": "view == positron-catalog-explorer && (viewItem == file || viewItem == folder || viewItem == volume)",
+          "group": "2_path@0"
+        }
+      ]
+    },
+    "keybindings":[
+      {
+        "command": "positron-catalog-explorer.copyPath",
+        "key": "Ctrl+Alt+C",
+        "when": "focusedView == positron-catalog-explorer"
       }
     ]
   },
