@@ -553,11 +553,6 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		return this._proxy.$forceQuitLanguageRuntime(this.handle);
 	}
 
-	async cleanup(): Promise<void> {
-		// No check for state here; we can clean up the runtime at any time.
-		return this._proxy.$cleanupLanguageRuntime(this.handle);
-	}
-
 	async showOutput(channel?: LanguageRuntimeSessionChannel): Promise<void> {
 		return this._proxy.$showOutputLanguageRuntime(this.handle, channel);
 	}
@@ -960,11 +955,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	dispose(): void {
 		// Cleanup (dispose) the ExtHost side of the session.
-
-		// TODO @samclark2015: Is this the right logic?
-		// Can we confirm that this class is only disposed of when the
-		// console is deleted?
-		this.cleanup();
+		this._proxy.$disposeLanguageRuntime(this.handle);
 	}
 }
 
