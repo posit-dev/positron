@@ -63,16 +63,14 @@ type CatalogElement = CatalogNode | CatalogProvider;
 export class CatalogTreeDataProvider
 	implements vscode.TreeDataProvider<CatalogElement>, vscode.Disposable
 {
-	private providers: CatalogProvider[] = [];
-	private disposables: vscode.Disposable[] = [];
+	private providers: CatalogProvider[];
 
 	constructor(...providers: CatalogProvider[]) {
-		this.providers.concat(...providers);
+		this.providers = providers;
 	}
 
 	dispose() {
 		vscode.Disposable.from(...this.providers).dispose();
-		vscode.Disposable.from(...this.disposables).dispose();
 	}
 
 	getTreeItem(element: CatalogElement): vscode.TreeItem {
