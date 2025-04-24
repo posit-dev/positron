@@ -42,6 +42,7 @@ export class CatalogNode {
 		public readonly path: string,
 		public readonly type: CatalogNodeType,
 		public readonly provider: CatalogProvider,
+		public readonly resourceUri?: vscode.Uri,
 	) {}
 
 	async getDetails(): Promise<string | undefined> {
@@ -53,8 +54,7 @@ export class CatalogNode {
 	}
 
 	getTreeItem(): vscode.TreeItem {
-		const label = this.path.split(".").pop() || this.path;
-		return new CatalogItem(label, this.type);
+		return new CatalogItem(this);
 	}
 }
 
@@ -119,9 +119,14 @@ const TABLE_ICON = new vscode.ThemeIcon(
 );
 
 class CatalogItem extends vscode.TreeItem {
-	constructor(public readonly label: string, type: CatalogNodeType) {
-		super(label);
-		switch (type) {
+	constructor(node: CatalogNode) {
+		if (node.resourceUri) {
+			super(node.resourceUri);
+		} else {
+			super(node.path.split(".").pop() || node.path);
+		}
+		this.contextValue = node.type;
+		switch (node.type) {
 			case "provider":
 				this.iconPath = DEFAULT_PROVIDER_ICON;
 				// Expand only "provider" entries by default.
