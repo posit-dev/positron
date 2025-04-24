@@ -187,10 +187,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await runScriptAndValidatePlot(app, ipyleaflet, '.leaflet-container');
 		});
 
-		test.skip('Python - Verify hvplot can load with plotly extension [C766660]', {
-			tag: [tags.WEB, tags.WIN],
-			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5991' }],
-		}, async function ({ app }) {
+		test('Python - Verify hvplot can load with plotly extension [C766660]', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, plotly, '.plotly');
 		});
 
