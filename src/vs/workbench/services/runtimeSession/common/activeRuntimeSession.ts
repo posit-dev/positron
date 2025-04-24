@@ -33,6 +33,11 @@ export class ActiveRuntimeSession extends Disposable {
 	/// The UI client instance, if it exists
 	private _uiClient: UiClientInstance | undefined;
 
+	/// Gets the UI client instance, if it has been started.
+	get uiClient(): UiClientInstance | undefined {
+		return this._uiClient;
+	}
+
 	/// The promise that resolves when the UI client is started.
 	private _startingUiClient: DeferredPromise<string> | undefined;
 

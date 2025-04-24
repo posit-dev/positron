@@ -1763,6 +1763,32 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Register handler for the `onDidStartUiClient` event and run handler if already started.
+	 *
+	 * This ensures `handler` is run for both current and future instances of a session's UI client.
+	 *
+	 * @param sessionId The ID of the session to observe.
+	 * @param handler Called with started UI clients.
+	 * @returns An `IDisposable` to clean up the event handler.
+	 */
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable {
+		// Run handler with currently started client, if any
+		const currentUiClient = this.getActiveSession(sessionId)?.uiClient;
+		if (currentUiClient) {
+			handler(currentUiClient);
+		}
+
+		// Run handler on future instances, e.g. after reconnect
+		const disposable = this.onDidStartUiClient((event) => {
+			if (event.sessionId !== sessionId) {
+				handler(event.uiClient);
+			}
+		});
+
+		return disposable;
+	}
+
+	/**
 	 * Validate whether a runtime session can be started.
 	 *
 	 * @param sessionMode The mode of the new session.
