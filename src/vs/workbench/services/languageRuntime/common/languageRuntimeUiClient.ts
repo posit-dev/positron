@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
 import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, ClearWebviewPreloadsEvent } from './positronUiComm.js';
@@ -191,6 +191,13 @@ export class UiClientInstance extends Disposable {
 				this._logService.error(`Failed to show HTML file ${e.path}: ${error}`);
 			}
 		}));
+	}
+
+	/**
+	 * Register a resource for cleanup on disposal.
+	 */
+	public register<T extends IDisposable>(o: T): T {
+		return this._register(o);
 	}
 
 	/**
