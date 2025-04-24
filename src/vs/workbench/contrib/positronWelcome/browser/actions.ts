@@ -111,7 +111,10 @@ export class PositronImportSettings extends Action2 {
 						disposables.dispose();
 					}
 				},
-			]
+			],
+			{
+				sticky: true
+			}
 		);
 
 		disposables.add(
