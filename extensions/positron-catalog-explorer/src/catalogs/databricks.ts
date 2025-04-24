@@ -8,6 +8,8 @@ import { UnityCatalogClient } from "./unityCatalogClient";
 import { DatabricksFilesClient, dbfsUri, dbfsVolumeUri } from "../fs/dbfs";
 import { resourceUri } from "../resources";
 import { DefaultDatabricksCredentialProvider } from "../credentials";
+import { ensureDependencies, getPositronAPI } from "../positron";
+import path from "path";
 
 /**
  * Register a Databricks catalog provider for the given workspace using a PAT
@@ -170,6 +172,70 @@ class DatabricksCatalogProvider implements CatalogProvider {
 		}
 		return [];
 	}
+
+	async openInSession(node: CatalogNode): Promise<void> {
+		const positron = getPositronAPI();
+		if (!positron) {
+			return;
+		}
+		if (node.type !== "file" || !node.resourceUri) {
+			throw new Error(
+				`Nodes of type '${node.type}' cannot be opened in a session.`,
+			);
+		}
+		const session = await positron.runtime.getForegroundSession();
+		if (!session) {
+			return;
+		}
+		const { code, dependencies } = getCodeForUri(
+			session.runtimeMetadata.languageId,
+			node.resourceUri,
+		);
+		if (!(await ensureDependencies(session, dependencies))) {
+			return;
+		}
+		session.execute(
+			code,
+			session.runtimeMetadata.languageId,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Continue,
+		);
+	}
+}
+
+function getCodeForUri(
+	languageId: string,
+	uri: vscode.Uri,
+): { code: string; dependencies: string[] } {
+	if (languageId !== "r") {
+		throw new Error("Python sessions are not yet supported");
+	}
+	const dependencies = ["brickster"];
+	const ext = path.extname(uri.path);
+	const varname = path.basename(uri.path).replace(ext, "");
+	let code: string;
+	switch (ext) {
+		// Special handling for the common case of CSV files.
+		case ".csv":
+		case ".tsv":
+			dependencies.push("readr");
+			code = `${varname} <- readr::read_csv(
+  brickster::db_volume_read(
+    "${uri.path}",
+    tempfile(pattern = "${ext}"),
+    host = "${uri.authority}"
+  )
+)`;
+			break;
+		default:
+			code = `${varname}_path <- brickster::db_volume_read(
+  "${uri.path}",
+  tempfile(pattern = "${ext}"),
+  host = "${uri.authority}"
+)`;
+			break;
+	}
+	return { code, dependencies };
 }
 
 const STATE_KEY = "databricksWorkspaces";

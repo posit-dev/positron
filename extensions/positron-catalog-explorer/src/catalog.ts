@@ -24,6 +24,8 @@ export interface CatalogProvider extends vscode.Disposable {
 	 * provider if `node` is undefined.
 	 */
 	getChildren(node?: CatalogNode): Promise<CatalogNode[]>;
+
+	openInSession?(node: CatalogNode): Promise<void>;
 }
 
 export type CatalogNodeType =
@@ -55,6 +57,13 @@ export class CatalogNode {
 
 	getTreeItem(): vscode.TreeItem {
 		return new CatalogItem(this);
+	}
+
+	async openInSession() {
+		if (!this.provider.openInSession) {
+			return;
+		}
+		await this.provider.openInSession(this);
 	}
 }
 
@@ -194,6 +203,10 @@ export function registerCatalogCommands(context: vscode.ExtensionContext) {
 					node.resourceUri,
 				);
 			},
+		),
+		vscode.commands.registerCommand(
+			"positron-catalog-explorer.openInSession",
+			async (node: CatalogNode) => await node.openInSession(),
 		),
 	);
 }

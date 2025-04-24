@@ -22,6 +22,13 @@
         "enablement": "view == positron-catalog-explorer"
       },
       {
+        "command": "positron-catalog-explorer.openInSession",
+        "category": "Catalogs",
+        "title": "Open in Session",
+        "when": "isPositron",
+        "enablement": "view == positron-catalog-explorer"
+      },
+      {
         "command": "positron-catalog-explorer.copyPath",
         "category": "Catalogs",
         "title": "Copy Path",
@@ -48,7 +55,13 @@
       "view/item/context": [
         {
           "command": "positron-catalog-explorer.openWith",
-          "when": "view == positron-catalog-explorer && viewItem == file"
+          "when": "view == positron-catalog-explorer && viewItem == file",
+          "group": "1_primary@2"
+        },
+        {
+          "command": "positron-catalog-explorer.openInSession",
+          "when": "isPositron && view == positron-catalog-explorer && viewItem == file",
+          "group": "1_primary@3"
         },
         {
           "command": "positron-catalog-explorer.copyPath",
