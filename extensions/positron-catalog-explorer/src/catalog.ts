@@ -150,6 +150,16 @@ class CatalogItem extends vscode.TreeItem {
 				this.collapsibleState =
 					vscode.TreeItemCollapsibleState.Collapsed;
 				break;
+			case "file":
+				this.iconPath = vscode.ThemeIcon.File;
+				if (this.resourceUri) {
+					this.command = {
+						title: "Open",
+						command: "vscode.open",
+						arguments: [this.resourceUri],
+					};
+				}
+				break;
 			default:
 				this.iconPath = TABLE_ICON;
 				break;
