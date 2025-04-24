@@ -10,7 +10,7 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
 import { ISearchConfigurationProperties, ISearchService } from '../../../../services/search/common/search.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, IToolResultTextPart } from '../../common/languageModelToolsService.js';
 import { IToolInputProcessor } from '../../common/tools/tools.js';
 
 const findTextInProjectModelDescription = `
@@ -62,6 +62,7 @@ export class TextSearchTool implements IToolImpl {
 			};
 		}
 
+		// Set up the text search query
 		const { textToFind } = invocation.parameters as TextSearchToolParams;
 		const workspaceUris = workspaceFolders.map(folder => folder.uri);
 		const queryOptions: ITextQueryBuilderOptions = {
@@ -72,15 +73,26 @@ export class TextSearchTool implements IToolImpl {
 			disregardExcludeSettings: false,
 			onlyOpenEditors: false,
 		};
-
 		const content = {
 			pattern: textToFind
 		};
 		const query = this._queryBuilder.text(content, workspaceUris, queryOptions);
-		const { results } = await this._searchService.textSearch(query, _token);
+
+		// Search for the text
+		const { results, messages } = await this._searchService.textSearch(query, _token);
+
+		// Construct the results and messages
+		const resultsParts: IToolResultTextPart[] = results.map(result => ({
+			kind: 'text',
+			value: JSON.stringify(({ file: result.resource.path, results: result.results }))
+		}));
+		const messagesParts: IToolResultTextPart[] = messages.map(message => ({
+			kind: 'text',
+			value: JSON.stringify(message)
+		}));
 
 		return {
-			content: results.map(result => ({ kind: 'text', value: JSON.stringify(({ file: result.resource.path, results: result.results })) })),
+			content: [...resultsParts, ...messagesParts],
 		};
 	}
 
