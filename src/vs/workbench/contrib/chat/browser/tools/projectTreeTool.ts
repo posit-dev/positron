@@ -42,7 +42,7 @@ export class ProjectTreeTool implements IToolImpl {
 		@IExplorerService private readonly _explorerService: IExplorerService,
 	) { }
 
-	async invoke(invocation: IToolInvocation, countTokens: CountTokensCallback, token: CancellationToken): Promise<IToolResult> {
+	async invoke(_invocation: IToolInvocation, _countTokens: CountTokensCallback, _token: CancellationToken): Promise<IToolResult> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
 			return {
