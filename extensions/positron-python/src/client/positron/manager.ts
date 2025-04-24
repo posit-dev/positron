@@ -153,7 +153,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
                 userInterpreterSettings.globalValue;
         }
 
-        return { path: interpreterPath ? untildify(interpreterPath) : undefined, isImmediate };
+        return { path: interpreterPath, isImmediate };
     }
 
     /**
@@ -162,9 +162,10 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
     async recommendedWorkspaceRuntime(): Promise<positron.LanguageRuntimeMetadata | undefined> {
         // TODO: may need other handling for multiroot workspaces
         const workspaceUri = vscode.workspace.workspaceFolders?.[0]?.uri;
-        const { path: interpreterPath, isImmediate } = await this.recommendedWorkspaceInterpreterPath(workspaceUri);
+        let { path: interpreterPath, isImmediate } = await this.recommendedWorkspaceInterpreterPath(workspaceUri);
 
         if (interpreterPath) {
+            interpreterPath = untildify(interpreterPath);
             const interpreter = await this.interpreterService.getInterpreterDetails(interpreterPath, workspaceUri);
             if (interpreter) {
                 const metadata = await createPythonRuntimeMetadata(interpreter, this.serviceContainer, isImmediate);
