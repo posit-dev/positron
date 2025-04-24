@@ -14,7 +14,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { isWeb } from '../../../../base/common/platform.js';
-import { PlotsRenderSettings } from '../../positronPlots/common/positronPlots.js';
+import { PlotsRenderSettings } from '../../../api/common/positron/extHostTypes.positron.js';
 
 export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 

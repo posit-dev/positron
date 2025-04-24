@@ -28,7 +28,7 @@ import { FileFilter } from 'electron';
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
-import { IntrinsicSize, RenderFormat } from '../../../../services/languageRuntime/common/positronPlotComm.js';
+import { IntrinsicSize } from '../../../../services/languageRuntime/common/positronPlotComm.js';
 import { Checkbox } from '../../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
@@ -40,6 +40,7 @@ import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { RenderFormat } from '../../../../api/common/positron/extHostTypes.positron.js';
 
 export interface SavePlotOptions {
 	uri: string;

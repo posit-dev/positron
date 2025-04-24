@@ -6,7 +6,8 @@
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ExtHostPlotsServiceShape, ExtHostPositronContext, MainPositronContext, MainThreadPlotsServiceShape } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
-import { IPositronPlotsService, PlotsRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { PlotsRenderSettings } from '../../common/positron/extHostTypes.positron.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadPlotsService)
 export class MainThreadPlotsService implements MainThreadPlotsServiceShape {

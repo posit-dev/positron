@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as positron from 'positron';
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { PlotsRenderSettings } from './extHostTypes.positron.js';
 
 export class ExtHostPlotsService implements extHostProtocol.ExtHostPlotsServiceShape {
 	private readonly _proxy: extHostProtocol.MainThreadPlotsServiceShape;
-	private readonly _onDidChangePlotsRenderSettings = new Emitter<positron.PlotsRenderSettings>();
+	private readonly _onDidChangePlotsRenderSettings = new Emitter<PlotsRenderSettings>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -22,13 +22,13 @@ export class ExtHostPlotsService implements extHostProtocol.ExtHostPlotsServiceS
 	/**
 	 * Queries the main thread for the current plot render settings.
 	 */
-	getPlotsRenderSettings(): Promise<positron.PlotsRenderSettings> {
+	getPlotsRenderSettings(): Promise<PlotsRenderSettings> {
 		return this._proxy.$getPlotsRenderSettings();
 	}
 
 	// --- from main thread
 
-	$onDidChangePlotsRenderSettings(settings: positron.PlotsRenderSettings): void {
+	$onDidChangePlotsRenderSettings(settings: PlotsRenderSettings): void {
 		this._onDidChangePlotsRenderSettings.fire(settings);
 	}
 }

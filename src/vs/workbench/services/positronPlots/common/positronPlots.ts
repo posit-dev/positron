@@ -8,7 +8,7 @@ import { Event } from '../../../../base/common/event.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from './sizingPolicy.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
-import { RenderFormat } from '../../languageRuntime/common/positronPlotComm.js';
+import { PlotsRenderSettings } from '../../../api/common/positron/extHostTypes.positron.js';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -43,18 +43,6 @@ export enum DarkFilter {
 
 	/** The dark filter follows the current theme (i.e. it's on in dark themes and off in light themes) */
 	Auto = 'auto'
-}
-
-/**
- * Settings necessary to render a plot in the format expected by the plot widget.
- */
-export interface PlotsRenderSettings {
-	size: {
-		width: number;
-		height: number;
-	};
-	pixel_ratio: number;
-	format: RenderFormat;
 }
 
 /**

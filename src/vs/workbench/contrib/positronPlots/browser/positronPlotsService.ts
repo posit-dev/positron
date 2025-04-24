@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotsRenderSettings, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -53,7 +53,7 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
-import { RenderFormat } from '../../../services/languageRuntime/common/positronPlotComm.js';
+import { PlotsRenderSettings, RenderFormat, UiRuntimeNotifications } from '../../../api/common/positron/extHostTypes.positron.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
