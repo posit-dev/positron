@@ -81,7 +81,7 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'r.createNewFile',
 			weight: KeybindingWeight.WorkbenchContrib,
-			primary: KeyMod.CtrlCmd | KeyCode.KeyN
+			primary: KeyMod.CtrlCmd |  KeyMod.Shift | KeyCode.KeyN
 		}));
 
 		// Go to/reveal definition
