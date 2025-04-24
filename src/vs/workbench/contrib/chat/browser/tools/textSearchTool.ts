@@ -22,8 +22,6 @@ The provided pattern is interpreted as text unless indicated to be a regular exp
 Other search options such as case sensitivity, whole word matching, and multiline matching can be specified.
 `;
 
-// File paths are returned as absolute paths, but you may want to display them relative to the workspace root for better readability.
-
 export const ExtensionTextSearchToolId = 'positron_findTextInProject';
 export const InternalTextSearchToolId = `${ExtensionTextSearchToolId}_internal`;
 export const TextSearchToolData: IToolData = {

@@ -22,6 +22,7 @@ This tool lists the project tree of the current workspace as a JSON object.
 The project tree is represented as a nested array, where each entry can be either a file (string) or a directory (tuple with the directory name and an array of its children).
 This tool ignores node_modules, __pycache__, dist directories, certain files like .DS_Store, Thumbs.db, and desktop.ini. and files with certain extensions like *.o, *.a, *.so, *.pyo.
 This tool does not provide information for specific files or directories, but rather gives an overview of the entire project structure.
+This tool is helpful for locating files and directories in the workspace.
 This tool only needs to be called once per conversation, unless files or directories are added, removed, moved, or renamed in the workspace.
 `;
 

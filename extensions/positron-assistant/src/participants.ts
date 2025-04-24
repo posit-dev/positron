@@ -424,6 +424,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 /** The participant used in the chat pane in Ask mode. */
 class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Chat;
+
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
+		return await fs.promises.readFile(`${mdDir}/prompts/chat/filepath.md`, 'utf8');
+	}
 }
 
 /** The participant used in terminal inline chats. */
