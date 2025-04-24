@@ -559,6 +559,17 @@ export interface IRuntimeSessionService {
 	 * dependencies that can't eventually be solved with regular events.
 	 */
 	readonly onDidStartUiClient: Event<{ sessionId: string; uiClient: UiClientInstance }>;
+
+	/**
+	 * Register handler for the `onDidStartUiClient` event and run handler if already started.
+	 *
+	 * This ensures `handler` is run for both current and future instances of a session's UI client.
+	 *
+	 * @param sessionId The ID of the session to observe.
+	 * @param handler Called with started UI clients.
+	 * @returns An `IDisposable` to clean up the event handler.
+	 */
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
 }
 
 export { RuntimeClientType };

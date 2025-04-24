@@ -706,19 +706,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// extension-side middleware in the future, see
 		// https://github.com/posit-dev/positron/issues/4997.
 		if (session.runtimeMetadata.uiSubscriptions?.includes(UiRuntimeNotifications.DidChangePlotsRenderSettings)) {
-			this._register(this._runtimeSessionService.onDidStartUiClient(event => {
-				if (event.sessionId !== session.sessionId) {
-					return;
-				}
-
+			this._register(this._runtimeSessionService.watchUiClient(session.sessionId, (uiClient) => {
 				// Forward future settings updates
 				// TODO: uiClient.register
 				this.onDidChangePlotsRenderSettings(settings => {
-					event.uiClient.didChangePlotsRenderSettings(settings);
+					uiClient.didChangePlotsRenderSettings(settings);
 				});
 
 				// Send initial settings immediately
-				event.uiClient.didChangePlotsRenderSettings(this.getPlotsRenderSettings());
+				uiClient.didChangePlotsRenderSettings(this.getPlotsRenderSettings());
 			}));
 		}
 	}
