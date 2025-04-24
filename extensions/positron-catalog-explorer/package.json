@@ -11,7 +11,7 @@
   "categories": [
     "Other"
   ],
-  "activationEvents": [],
+  "activationEvents": ["onFileSystem:dbfs"],
   "main": "./out/extension.js",
   "contributes": {
     "views": {

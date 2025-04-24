@@ -4,6 +4,8 @@
 
 import * as vscode from "vscode";
 import { CatalogTreeDataProvider } from "./catalog";
+import { DefaultDatabricksCredentialProvider } from "./credentials";
+import { registerDbfsProvider } from "./fs/dbfs";
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('"positron-catalogs" is now active!');
@@ -11,6 +13,11 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.window.registerTreeDataProvider(
 			"positron-catalog-explorer",
 			new CatalogTreeDataProvider(),
+		),
+		registerDbfsProvider(
+			new DefaultDatabricksCredentialProvider(
+				context.secrets,
+			),
 		),
 	);
 }
