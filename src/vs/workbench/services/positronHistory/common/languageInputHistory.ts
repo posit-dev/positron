@@ -53,7 +53,7 @@ export class LanguageInputHistory extends Disposable {
 		// Don't attach to the same runtime twice.
 		if (this._attachedSessions.has(session.sessionId)) {
 			this._logService.debug(`LanguageInputHistory (${this._languageId}): ` +
-				`Already attached to session ${session.metadata.sessionName} (${session.sessionId})`);
+				`Already attached to session ${session.dynState.sessionName} (${session.sessionId})`);
 			return;
 		}
 
