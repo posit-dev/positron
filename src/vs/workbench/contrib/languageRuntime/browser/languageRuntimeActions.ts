@@ -148,7 +148,7 @@ export const selectLanguageRuntimeSession = async (
 				session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
 			return {
 				id: session.sessionId,
-				label: session.metadata.sessionName,
+				label: session.dynState.sessionName,
 				detail: session.runtimeMetadata.runtimePath,
 				description: isForegroundSession ? 'Currently Selected' : undefined,
 				iconPath: {

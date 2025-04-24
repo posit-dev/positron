@@ -30,7 +30,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 	// State
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
-	const [newSessionName, setNewSessionName] = useState(positronConsoleInstance.sessionMetadata.sessionName);
+	const [newSessionName, setNewSessionName] = useState(positronConsoleInstance.sessionName);
 
 	// Refs
 	const inputRef = React.useRef<HTMLInputElement>(null);
@@ -116,7 +116,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 	const handleRenameSubmit = async () => {
 		// Validate the new session name
 		const newName = newSessionName.trim();
-		if (!newName || newName === positronConsoleInstance.sessionMetadata.sessionName) {
+		if (!newName || newName === positronConsoleInstance.sessionName) {
 			setIsRenamingSession(false);
 			return;
 		}
@@ -134,7 +134,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 					error
 				)
 			);
-			setNewSessionName(positronConsoleInstance.sessionMetadata.sessionName);
+			setNewSessionName(positronConsoleInstance.sessionName);
 		} finally {
 			setIsRenamingSession(false);
 		}
@@ -183,7 +183,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 			// hide the input field
 			setIsRenamingSession(false);
 			// restore the original session name
-			setNewSessionName(positronConsoleInstance.sessionMetadata.sessionName);
+			setNewSessionName(positronConsoleInstance.sessionName);
 		}
 	};
 
@@ -191,7 +191,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 	return (
 		<div
 			key={`tab-${sessionId}`}
-			aria-label={positronConsoleInstance.sessionMetadata.sessionName}
+			aria-label={positronConsoleInstance.sessionName}
 			aria-labelledby={`console-panel-${sessionId}`}
 			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId}
 			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId && 'tab-button--active'}`}
@@ -219,7 +219,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 			) : (
 				<>
 					<p className='session-name'>
-						{positronConsoleInstance.sessionMetadata.sessionName}
+						{positronConsoleInstance.sessionName}
 					</p>
 					<button
 						className='delete-button'
