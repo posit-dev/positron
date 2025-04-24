@@ -87,6 +87,10 @@ function getExtensionDownloadStream(extension: IExtensionDefinition) {
 	if (extension.vsix) {
 		input = ext.fromVsix(path.join(root, extension.vsix), extension);
 	} else if (productjson.extensionsGallery?.serviceUrl) {
+		// --- DO NOT COMMIT: OpenVSX workaround ---
+		if (productjson.extensionsGallery.serviceUrl) {
+			return es.readArray([]);
+		}
 		input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
 		// --- Start Positron ---
 		if (extension.metadata.multiPlatformServiceUrl) {
@@ -116,6 +120,10 @@ function syncMarketplaceExtension(extension: IExtensionDefinition): Stream {
 	const source = ansiColors.blue(galleryServiceUrl ? '[marketplace]' : '[github]');
 	if (isUpToDate(extension)) {
 		log(source, `${extension.name}@${extension.version}`, ansiColors.green('✔︎'));
+		return es.readArray([]);
+	} else if (!isUpToDate(extension)) {
+		// --- DO NOT COMMIT: OpenVSX workaround ---
+		log(source, `${extension.name}@${extension.version}`, ansiColors.yellow('skipping (openVSX)'));
 		return es.readArray([]);
 	}
 
