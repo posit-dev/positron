@@ -999,8 +999,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 						this.setCurrentLanguageModelToDefault();
 					}
 
+					// --- Start Positron ---
+					const models = this.getModels();
+					if (!this._currentLanguageModel && models.length > 0) {
+						this.setCurrentLanguageModel(models[0]);
+					}
 					if (this._currentLanguageModel) {
-						// --- Start Positron ---
 						// const itemDelegate: ModelPickerDelegate = {
 						// 	onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
 						// 	setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
