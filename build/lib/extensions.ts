@@ -269,7 +269,10 @@ export function fromMarketplace(serviceUrl: string, { name: extensionName, versi
 	// --- Start Positron ---
 	let url: string;
 
-	if (metadata.multiPlatformServiceUrl) {
+	if (process.env['EXTENSION_DOWNLOAD_URL']) {
+		url = `${process.env['EXTENSION_DOWNLOAD_URL']}/${extensionName}/${extensionName}-${version}.vsix`;
+		fancyLog('Using custom download URL:', ansiColors.yellow(url));
+	} else if (metadata.multiPlatformServiceUrl) {
 		let platformDownload: string;
 		switch (process.platform) {
 			case 'darwin':
