@@ -85,6 +85,10 @@ function syncMarketplaceExtension(extension: IExtensionDefinition): Stream {
 	if (isUpToDate(extension)) {
 		log(source, `${extension.name}@${extension.version}`, ansiColors.green('✔︎'));
 		return es.readArray([]);
+	} else if (!isUpToDate(extension)) {
+		// --- DO NOT COMMIT: OpenVSX workaround ---
+		log(source, `${extension.name}@${extension.version}`, ansiColors.yellow('skipping (openVSX)'));
+		return es.readArray([]);
 	}
 
 	rimraf.sync(getExtensionPath(extension));

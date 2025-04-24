@@ -114,6 +114,10 @@ function syncMarketplaceExtension(extension) {
         log(source, `${extension.name}@${extension.version}`, ansiColors.green('✔︎'));
         return es.readArray([]);
     }
+    else if (!isUpToDate(extension)) {
+        log(source, `${extension.name}@${extension.version}`, ansiColors.yellow('skipping (openVSX)'));
+        return es.readArray([]);
+    }
     rimraf.sync(getExtensionPath(extension));
     return getExtensionDownloadStream(extension)
         .pipe(vfs.dest('.build/bootstrapExtensions'))
