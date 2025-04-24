@@ -9,14 +9,20 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
-import { ISearchConfigurationProperties, ISearchService } from '../../../../services/search/common/search.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, IToolResultTextPart } from '../../common/languageModelToolsService.js';
+import { IPatternInfo, ISearchConfigurationProperties, ISearchService } from '../../../../services/search/common/search.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
 import { IToolInputProcessor } from '../../common/tools/tools.js';
 
 const findTextInProjectModelDescription = `
-This tool searches for the case-insensitive specified text in the project and returns a set of files and their corresponding lines where the text is found.
+This tool searches for the specified text inside files in the project and returns a set of files and their corresponding lines where the text is found,
+as well as messages about the search results.
+Do not use this tool to find files or directories in the workspace, as it is specifically designed for searching text within files.
 The search is performed across all files in the project, excluding files and directories that are ignored by the workspace settings.
+The provided pattern is interpreted as text unless indicated to be a regular expression.
+Other search options such as case sensitivity, whole word matching, and multiline matching can be specified.
 `;
+
+// File paths are returned as absolute paths, but you may want to display them relative to the workspace root for better readability.
 
 export const ExtensionTextSearchToolId = 'positron_findTextInProject';
 export const InternalTextSearchToolId = `${ExtensionTextSearchToolId}_internal`;
@@ -30,12 +36,37 @@ export const TextSearchToolData: IToolData = {
 	inputSchema: {
 		type: 'object',
 		properties: {
-			textToFind: {
+			pattern: {
 				type: 'string',
-				description: 'The exact case-insensitive text to find in the project.',
+				description: 'The text pattern to search for in the project.',
 			},
+			isRegExp: {
+				type: 'boolean',
+				description: 'Whether the search pattern is a regular expression.',
+			},
+			isWordMatch: {
+				type: 'boolean',
+				description: 'Whether the search pattern should match whole words only.',
+			},
+			wordSeparators: {
+				type: 'string',
+				description: 'A string of characters that are considered word separators.',
+			},
+			isMultiline: {
+				type: 'boolean',
+				description: 'Whether the search pattern should match across multiple lines.',
+			},
+			isUnicode: {
+				type: 'boolean',
+				description: 'Whether the search pattern should be treated as a Unicode string.',
+			},
+			isCaseSensitive: {
+				type: 'boolean',
+				description: 'Whether the search pattern should be case-sensitive.',
+			},
+			// Not included here: notebookInfo. See the IPatternInfo interface in src/vs/workbench/services/search/common/search.ts
 		},
-		required: ['textToFind']
+		required: ['pattern'],
 	}
 };
 
@@ -63,7 +94,7 @@ export class TextSearchTool implements IToolImpl {
 		}
 
 		// Set up the text search query
-		const { textToFind } = invocation.parameters as TextSearchToolParams;
+		const patternInfo = invocation.parameters as TextSearchToolParams;
 		const workspaceUris = workspaceFolders.map(folder => folder.uri);
 		const queryOptions: ITextQueryBuilderOptions = {
 			_reason: InternalTextSearchToolId,
@@ -73,26 +104,19 @@ export class TextSearchTool implements IToolImpl {
 			disregardExcludeSettings: false,
 			onlyOpenEditors: false,
 		};
-		const content = {
-			pattern: textToFind
-		};
-		const query = this._queryBuilder.text(content, workspaceUris, queryOptions);
+		const query = this._queryBuilder.text(patternInfo, workspaceUris, queryOptions);
 
 		// Search for the text
 		const { results, messages } = await this._searchService.textSearch(query, _token);
 
-		// Construct the results and messages
-		const resultsParts: IToolResultTextPart[] = results.map(result => ({
-			kind: 'text',
-			value: JSON.stringify(({ file: result.resource.path, results: result.results }))
-		}));
-		const messagesParts: IToolResultTextPart[] = messages.map(message => ({
-			kind: 'text',
-			value: JSON.stringify(message)
-		}));
-
 		return {
-			content: [...resultsParts, ...messagesParts],
+			content: [{
+				kind: 'text',
+				value: JSON.stringify({
+					results,
+					messages,
+				}),
+			}],
 		};
 	}
 
@@ -104,9 +128,7 @@ export class TextSearchTool implements IToolImpl {
 	}
 }
 
-export interface TextSearchToolParams {
-	textToFind: string;
-}
+export interface TextSearchToolParams extends IPatternInfo { }
 
 export class TextSearchToolInputProcessor implements IToolInputProcessor {
 	processInput(input: TextSearchToolParams) {
