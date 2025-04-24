@@ -30,6 +30,7 @@ import { isProblematicCondaEnvironment } from '../interpreter/configuration/envi
 import { EnvironmentType } from '../pythonEnvironments/info';
 import { IApplicationShell } from '../common/application/types';
 import { Interpreters } from '../common/utils/localize';
+import { untildify } from '../common/helpers';
 
 export const IPythonRuntimeManager = Symbol('IPythonRuntimeManager');
 
@@ -152,7 +153,7 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
                 userInterpreterSettings.globalValue;
         }
 
-        return { path: interpreterPath, isImmediate };
+        return { path: interpreterPath ? untildify(interpreterPath) : undefined, isImmediate };
     }
 
     /**
