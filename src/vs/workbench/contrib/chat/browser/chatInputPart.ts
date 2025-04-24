@@ -306,6 +306,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		this._onDidChangeCurrentProvider.fire(provider);
 
 		this.storageService.store(this.getSelectedProviderStorageKey(), provider, StorageScope.APPLICATION, StorageTarget.USER);
+
+		// if the current provider is not the same as the current model's provider, change the current model to the first model of the new provider
+		if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.family !== provider.id) {
+			const models = this._modelPickerDelegate.getModels();
+			if (models.length > 0) {
+				this.setCurrentLanguageModel(models[0]);
+			}
+		}
 	}
 
 	private getSelectedProviderStorageKey(): string {
@@ -483,6 +491,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				}
 			}
 		}));
+
+		const storedCurrentProvider = this.storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
+		if (storedCurrentProvider) {
+			this.currentProvider = storedCurrentProvider;
+		}
 		// --- End Positron ---
 	}
 
