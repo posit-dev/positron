@@ -81,7 +81,7 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'r.createNewFile',
 			weight: KeybindingWeight.WorkbenchContrib,
-			primary: KeyMod.CtrlCmd |  KeyMod.Shift | KeyCode.KeyN
+			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyN
 		}));
 
 		// Go to/reveal definition
@@ -265,6 +265,10 @@ class PositronKeybindingsContribution extends Disposable {
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.view.scm',
 			weight: KeybindingWeight.WorkbenchContrib,
+			mac: {
+				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyM,
+				secondary: [KeyMod.WinCtrl | KeyMod.Alt | KeyCode.KeyM]
+			},
 			primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyM
 		}));
 	}
