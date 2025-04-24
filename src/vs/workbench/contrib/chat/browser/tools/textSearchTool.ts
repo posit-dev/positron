@@ -10,7 +10,7 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
 import { ISearchConfigurationProperties, ISearchService } from '../../../../services/search/common/search.js';
-import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
 import { IToolInputProcessor } from '../../common/tools/tools.js';
 
 const findTextInProjectModelDescription = `
@@ -81,6 +81,13 @@ export class TextSearchTool implements IToolImpl {
 
 		return {
 			content: results.map(result => ({ kind: 'text', value: JSON.stringify(({ file: result.resource.path, results: result.results })) })),
+		};
+	}
+
+	async prepareToolInvocation(_parameters: any, _token: CancellationToken): Promise<IPreparedToolInvocation> {
+		return {
+			invocationMessage: localize('textSearchTool.invocationMessage', "Searching for text in project"),
+			pastTenseMessage: localize('textSearchTool.pastTenseMessage', "Searched for text in project"),
 		};
 	}
 }

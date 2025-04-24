@@ -11,7 +11,7 @@ import { localize } from '../../../../../nls.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { GroupsOrder, IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 import { ITextFileService } from '../../../../services/textfile/common/textfiles.js';
-import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
 import { IToolInputProcessor } from '../../common/tools/tools.js';
 
 const getFileContentsModelDescription = `
@@ -79,6 +79,13 @@ export class FileContentsTool implements IToolImpl {
 
 		return {
 			content: [{ kind: 'text', value: JSON.stringify({ contents: value, size, encoding, }) }],
+		};
+	}
+
+	async prepareToolInvocation(_parameters: any, _token: CancellationToken): Promise<IPreparedToolInvocation> {
+		return {
+			invocationMessage: localize('fileContentsTool.invocationMessage', "Retrieving file contents"),
+			pastTenseMessage: localize('fileContentsTool.pastTenseMessage', "Retrieved file contents"),
 		};
 	}
 

@@ -7,7 +7,7 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExplorerService } from '../../../files/browser/files.js';
-import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
 import { ExplorerItem } from '../../../files/common/explorerModel.js';
 import { SortOrder } from '../../../files/common/files.js';
 import { IToolInputProcessor } from '../../common/tools/tools.js';
@@ -78,6 +78,13 @@ export class ProjectTreeTool implements IToolImpl {
 
 		return {
 			content: workspaceTrees.map(dirTree => ({ kind: 'text', value: JSON.stringify(dirTree) })),
+		};
+	}
+
+	async prepareToolInvocation(_parameters: any, _token: CancellationToken): Promise<IPreparedToolInvocation> {
+		return {
+			invocationMessage: localize('projectTreeTool.invocationMessage', "Constructing project tree"),
+			pastTenseMessage: localize('projectTreeTool.pastTenseMessage', "Constructed project tree"),
 		};
 	}
 }
