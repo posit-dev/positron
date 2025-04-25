@@ -59,7 +59,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		} catch (error) {
 			// Show an error notification if the session could not be deleted.
 			positronConsoleContext.notificationService.error(
-				localize('positronDeleteSessionError', "Failed to delete session: {0}", error)
+				localize('positronDeleteSessionError', "Failed to delete session {0}: {1}", positronConsoleInstance.sessionId, error)
 			);
 			// Re-enable the button if the session could not be deleted.
 			// If it is deleted, the component is destroyed and the
@@ -122,15 +122,20 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		}
 
 		try {
-			await positronConsoleContext.runtimeSessionService.updateSessionName(
+			const sessionId = positronConsoleContext.runtimeSessionService.updateSessionName(
 				positronConsoleInstance.sessionId,
 				newName
 			);
-			setNewSessionName(newName);
+
+			// Session rename was successful so we can update the UI state
+			if (sessionId) {
+				setNewSessionName(newName);
+			}
 		} catch (error) {
 			positronConsoleContext.notificationService.error(
 				localize('positron.console.renameInstanceError',
-					"Failed to rename session: {0}",
+					"Failed to rename session {0}: {1}",
+					positronConsoleInstance.sessionId,
 					error
 				)
 			);

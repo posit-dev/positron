@@ -332,6 +332,9 @@ export interface IRuntimeSessionService {
 	// An event that fires when a notebook session's URI is updated.
 	readonly onDidUpdateNotebookSessionUri: Event<INotebookSessionUriChangedEvent>;
 
+	// An event that fires when a runtime session name changes.
+	readonly onDidUpdateSessionName: Event<ILanguageRuntimeSession>;
+
 	/**
 	 * Gets the active runtime sessions
 	 */
@@ -483,12 +486,13 @@ export interface IRuntimeSessionService {
 	interruptSession(sessionId: string): Promise<void>;
 
 	/**
-	 * Update the name of a runtime session.
+	 * Update the name of an active runtime session.
 	 *
 	 * @param sessionId The identifier of the session to update.
 	 * @param name The new name for the session.
+	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	updateSessionName(sessionId: string, name: string): Promise<void>;
+	updateSessionName(sessionId: string, name: string): string | undefined;
 
 	/**
 	 * Shutdown a runtime session for a notebook.

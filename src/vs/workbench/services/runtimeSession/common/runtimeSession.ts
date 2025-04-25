@@ -143,6 +143,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidDeleteRuntimeSessionEmitter =
 		this._register(new Emitter<string>);
 
+	// THe event emitter for the onDidUpdateSessionName event.
+	private readonly _onDidUpdateSessionNameEmitter =
+		this._register(new Emitter<ILanguageRuntimeSession>);
+
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -263,6 +267,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when a notebook session's URI is updated.
 	readonly onDidUpdateNotebookSessionUri = this._onDidUpdateNotebookSessionUriEmitter.event;
+
+	// An event that fires when a session's name is updated.
+	readonly onDidUpdateSessionName = this._onDidUpdateSessionNameEmitter.event;
 
 	/**
 	 * Registers a session manager with the service.
@@ -929,21 +936,41 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Update the name of a runtime session.
+	 * Update the name of an active runtime session.
 	 *
 	 * @param sessionId The session ID of the runtime to update.
 	 * @param name The new name for the session.
+	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	updateSessionName(sessionId: string, name: string): Promise<void> {
+	updateSessionName(sessionId: string, name: string): string | undefined {
+		// Find the active session to update.
 		const session = this.getSession(sessionId);
 		if (!session) {
 			throw new Error(`No session with ID '${sessionId}' was found.`);
 		}
+
+		// Log the start of the session name update
 		this._logService.info(
 			`Updating session name to ${name} for session ${formatLanguageRuntimeSession(session)}'`);
 
-		//@dhruvisompura TODO: figure out how to update the sessionName field in the session
-		return Promise.resolve();
+
+		try {
+			// Update the sesion name in its dynamic state
+			session.dynState.sessionName = name;
+			this._logService.info(
+				`Successfully updated session name to ${name} for session ${formatLanguageRuntimeSession(session)}'`);
+
+			/**
+			 * Notify listeners that the session name has changed
+			 * so other parts of the application can update their UI
+			 * to reflect the new name.
+			 */
+			this._onDidUpdateSessionNameEmitter.fire(session);
+			return session.sessionId;
+		} catch (error) {
+			this._logService.error(`Failed to update session name to ${name} for session ${formatLanguageRuntimeSession(session)}. Reason: ${error}`);
+			return undefined;
+		}
 	}
 
 	/**
@@ -1435,7 +1462,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * ready to use.
 	 */
 	private async doCreateRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionName: string,
+		sessionName: string, // TODO @dhruvisompura: Remove this parameter?
 		sessionMode: LanguageRuntimeSessionMode,
 		source: string,
 		startMode: RuntimeStartMode,
