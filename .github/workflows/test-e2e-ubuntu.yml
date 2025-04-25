@@ -120,6 +120,7 @@ jobs:
           PGPASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
           PGDATABASE: ${{ secrets.E2E_POSTGRES_DB }}
         run: |
+          sleep 10 # Try a slightly longer wait
           psql -v ON_ERROR_STOP=1 -f periodic_table.sql
 
       - name: Transform to Playwright tags $PW_TAGS
