@@ -875,6 +875,48 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`No active session '${session.sessionId}'`);
 		}
 
+		if (session.getRuntimeState() === RuntimeState.Busy) {
+			// If the runtime is busy, we need to interrupt it before restarting.
+			// But first, confirm with the user.
+			const shouldContinue = await new Promise<boolean>(resolve =>
+				this._notificationService.prompt(
+					Severity.Warning,
+					localize('positron.runtime.restart.confirm', 'The runtime is busy. Do you want to interrupt it and restart?'),
+					[
+						{
+							label: localize('positron.runtime.restart.confirm.yes', 'Yes'),
+							run: () => {
+								resolve(true);
+							}
+						},
+						{
+							label: localize('positron.runtime.restart.confirm.no', 'No'),
+							run: () => {
+								// Do nothing; the user chose not to interrupt.
+								resolve(false);
+							}
+						},
+					],
+					{
+						sticky: true,
+						onCancel() {
+							resolve(false);
+						},
+					}
+				)
+			);
+
+			if (!shouldContinue) {
+				return;
+			}
+			session.interrupt();
+			await awaitStateChange(activeSession, [RuntimeState.Idle], 10)
+				.catch(err => {
+					this._notificationService.warn(
+						localize('positron.runtime.restart.confirm.error', 'Failed to interrupt the runtime. Reason: {0}', err));
+				});
+		}
+
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
 		this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
