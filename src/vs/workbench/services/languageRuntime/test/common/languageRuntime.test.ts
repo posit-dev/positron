@@ -31,6 +31,7 @@ suite('Positron - LanguageRuntimeService', () => {
 		// Mock runtime metadata.
 		const metadata = <ILanguageRuntimeMetadata>{
 			runtimeId: 'testRuntimeId',
+			languageId: 'testLanguageId',
 		};
 
 		// Promise that resolves when the onDidRegisterRuntime event is fired with the expected runtimeId.
