@@ -271,6 +271,13 @@ class PositronKeybindingsContribution extends Disposable {
 			},
 			primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyM
 		}));
+
+		// Go to Working Directory
+		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
+			id: 'workbench.action.setWorkingDirectory',
+			weight: KeybindingWeight.WorkbenchContrib,
+			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH
+		}));
 	}
 }
 
