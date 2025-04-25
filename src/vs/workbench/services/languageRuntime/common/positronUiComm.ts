@@ -42,11 +42,11 @@ export interface PlotSize {
 }
 
 /**
- * The policy used to render the plot
+ * The settings used to render the plot
  */
-export interface RenderPolicy {
+export interface PlotRenderSettings {
 	/**
-	 * Plot size of the render policy
+	 * Plot size to render the plot to
 	 */
 	size: PlotSize;
 
@@ -56,16 +56,16 @@ export interface RenderPolicy {
 	pixel_ratio: number;
 
 	/**
-	 * Format of the render policy
+	 * Format in which to render the plot
 	 */
-	format: RenderFormat;
+	format: PlotRenderFormat;
 
 }
 
 /**
- * Possible values for RenderFormat
+ * Possible values for PlotRenderFormat
  */
-export enum RenderFormat {
+export enum PlotRenderFormat {
 	Png = 'png',
 	Jpeg = 'jpeg',
 	Svg = 'svg',
@@ -78,9 +78,10 @@ export enum RenderFormat {
  */
 export interface DidChangePlotsRenderSettingsParams {
 	/**
-	 * Plot rendering settings
+	 * Plot rendering settings. TODO!: Proper sharing across comm json files.
+	 * Rename policy to settings.
 	 */
-	settings: RenderPolicy;
+	settings: PlotRenderSettings;
 }
 
 /**
@@ -882,10 +883,11 @@ export class PositronUiComm extends PositronBaseComm {
 	 * This notification is useful to produce accurate pre-renderings of
 	 * plots.
 	 *
-	 * @param settings Plot rendering settings
+	 * @param settings Plot rendering settings. TODO!: Proper sharing across
+	 * comm json files. Rename policy to settings.
 	 *
 	 */
-	didChangePlotsRenderSettings(settings: RenderPolicy): Promise<void> {
+	didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
 		return super.performRpc('did_change_plots_render_settings', ['settings'], [settings]);
 	}
 

@@ -23,7 +23,7 @@ import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { DarkFilter, IPositronPlotClient, IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
-import { RenderFormat } from '../../../../api/common/positron/extHostTypes.positron.js';
+import { PlotRenderFormat } from '../../../../api/common/positron/extHostTypes.positron.js';
 
 /**
  * PlotContainerProps interface.
@@ -100,7 +100,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 					height: plotHeight,
 				},
 				pixel_ratio: DOM.getActiveWindow().devicePixelRatio,
-				format: RenderFormat.Png, // Currently hard-coded
+				format: PlotRenderFormat.Png, // Currently hard-coded
 			});
 		}, 500));
 	}, [plotWidth, plotHeight, props.positronPlotsService, plotHistoryRef, debounceTimer]);

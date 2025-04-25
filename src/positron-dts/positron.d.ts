@@ -1347,19 +1347,19 @@ declare module 'positron' {
 	/**
 	 * Settings necessary to render a plot in the format expected by the plot widget.
 	 */
-	export interface PlotsRenderSettings {
+	export interface PlotRenderSettings {
 		size: {
 			width: number;
 			height: number;
 		};
 		pixel_ratio: number;
-		format: RenderFormat;
+		format: PlotRenderFormat;
 	}
 
 	/**
 	 * Possible formats for rendering a plot.
 	 */
-	export enum RenderFormat {
+	export enum PlotRenderFormat {
 		Png = 'png',
 		Jpeg = 'jpeg',
 		Svg = 'svg',
@@ -1494,13 +1494,13 @@ declare module 'positron' {
 		 * Fires when the settings necessary to render a plot in the format expected by
 		 * plot widget have changed.
 		 */
-		export const onDidChangePlotsRenderSettings: vscode.Event<PlotsRenderSettings>;
+		export const onDidChangePlotsRenderSettings: vscode.Event<PlotRenderSettings>;
 
 		/**
 		 * Returns the settings necessary to render a plot in the format expected by
 		 * plot widget.
 		 */
-		export function getPlotsRenderSettings(): Thenable<PlotsRenderSettings>;
+		export function getPlotsRenderSettings(): Thenable<PlotRenderSettings>;
 	}
 
 	namespace runtime {
