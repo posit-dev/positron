@@ -881,7 +881,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			const shouldContinue = await new Promise<boolean>(resolve =>
 				this._notificationService.prompt(
 					Severity.Warning,
-					localize('positron.runtime.restart.confirm', 'The runtime is busy. Do you want to interrupt it and restart?'),
+					localize('positron.runtime.restart.confirm', 'The runtime is busy. Do you want to interrupt it and restart? You\'ll lose any unsaved objects.'),
 					[
 						{
 							label: localize('positron.runtime.restart.confirm.yes', 'Yes'),
