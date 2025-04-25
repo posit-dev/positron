@@ -33,12 +33,12 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		try {
 			// Updated to support proper deletion of sessions that have
 			// been shutdown or exited.
-			try {
+			if (positronConsoleContext.runtimeSessionService.getSession(consoleInstance.sessionId)) {
 				// Attempt to delete the session from the runtime session service.
 				// This will throw an error if the session is not found.
 				await positronConsoleContext.runtimeSessionService.deleteSession(
 					consoleInstance.sessionId);
-			} catch {
+			} else {
 				// If the session is not found, it may have been deleted already
 				// or is a provisional session. In this case, we can delete the
 				// session from the Positron Console service.
