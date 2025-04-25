@@ -5,7 +5,7 @@
 
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { PlotRenderSettings } from './extHostTypes.positron.js';
+import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 
 export class ExtHostPlotsService implements extHostProtocol.ExtHostPlotsServiceShape {
 	private readonly _proxy: extHostProtocol.MainThreadPlotsServiceShape;

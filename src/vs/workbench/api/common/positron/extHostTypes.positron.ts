@@ -372,33 +372,5 @@ export enum CodeAttributionSource {
 	Script = 'script',
 }
 
-/**
- * UI notifications from frontend to backends.
- */
-export enum UiRuntimeNotifications {
-	/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
-	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
-}
-
-/**
- * Settings necessary to render a plot in the format expected by the plot widget.
- */
-export interface PlotRenderSettings {
-	size: {
-		width: number;
-		height: number;
-	};
-	pixel_ratio: number;
-	format: PlotRenderFormat;
-}
-
-/**
- * Possible formats for rendering a plot.
- */
-export enum PlotRenderFormat {
-	Png = 'png',
-	Jpeg = 'jpeg',
-	Svg = 'svg',
-	Pdf = 'pdf',
-	Tiff = 'tiff'
-}
+export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js'
+export { PlotRenderSettings, PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';

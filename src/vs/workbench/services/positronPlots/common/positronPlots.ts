@@ -8,7 +8,6 @@ import { Event } from '../../../../base/common/event.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from './sizingPolicy.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
-import { PlotRenderSettings } from '../../../api/common/positron/extHostTypes.positron.js';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -19,6 +18,29 @@ export const IPositronPlotsService = createDecorator<IPositronPlotsService>(POSI
 export interface IPositronPlotClient extends IDisposable {
 	readonly id: string;
 	readonly metadata: IPositronPlotMetadata;
+}
+
+/**
+ * Settings necessary to render a plot in the format expected by the plot widget.
+ */
+export interface PlotRenderSettings {
+	size: {
+		width: number;
+		height: number;
+	};
+	pixel_ratio: number;
+	format: PlotRenderFormat;
+}
+
+/**
+ * Possible formats for rendering a plot.
+ */
+export enum PlotRenderFormat {
+	Png = 'png',
+	Jpeg = 'jpeg',
+	Svg = 'svg',
+	Pdf = 'pdf',
+	Tiff = 'tiff'
 }
 
 /**

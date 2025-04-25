@@ -40,7 +40,7 @@ import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { PlotRenderFormat } from '../../../../api/common/positron/extHostTypes.positron.js';
+import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 
 export interface SavePlotOptions {
 	uri: string;
