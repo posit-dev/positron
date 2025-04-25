@@ -112,18 +112,9 @@ jobs:
         run: |
           wget https://raw.githubusercontent.com/neondatabase/postgres-sample-dbs/main/periodic_table.sql
 
-      - name: Debug Network (If Still Failing)
-        run: |
-          sleep 10
-          set -x
-          ping -c 3 postgres
-          cat /etc/hosts
-          ip a
-          ip r
-
       - name: Connect to PostgreSQL and load sample data
         env:
-          PGHOST: postgres
+          PGHOST: localhost
           PGPORT: 5432
           PGUSER: ${{ secrets.E2E_POSTGRES_USER }}
           PGPASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
