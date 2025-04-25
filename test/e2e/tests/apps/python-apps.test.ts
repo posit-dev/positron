@@ -48,7 +48,7 @@ test.describe('Python Applications', {
 		});
 	});
 
-	test.skip('Python - Verify Basic FastAPI App', {
+	test('Python - Verify Basic FastAPI App', {
 		tag: [tags.WIN]
 	}, async function ({ app, openFile, python }) {
 		const viewer = app.workbench.viewer;
