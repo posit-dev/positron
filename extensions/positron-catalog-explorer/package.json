@@ -1,15 +1,18 @@
 {
-  "name": "positron-catalogs",
+  "name": "catalog-explorer",
   "publisher": "posit",
   "author": "Posit Software, PBC",
-  "displayName": "Positron Catalog Explorer",
-  "description": "",
+  "displayName": "Catalog Explorer",
+  "description": "Explore tables, views, and files backed by data catalogs.",
   "version": "0.0.1",
   "engines": {
     "vscode": "^1.87.0"
   },
   "categories": [
-    "Other"
+    "Data Science"
+  ],
+  "keywords": [
+    "Positron"
   ],
   "activationEvents": ["onFileSystem:dbfs"],
   "main": "./out/extension.js",
