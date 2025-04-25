@@ -114,6 +114,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	private _restoredSessions: SerializedSessionMetadata[] = [];
 	private _foundRestoredSessions: Barrier = new Barrier();
 
+	/// A unique identifier for this window. This is used to identify the
+	/// persisted sessions that belong to it.
+	private _localWindowId: string;
+
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
@@ -138,6 +142,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		this.onWillAutoStartRuntime = this._onWillAutoStartRuntime.event;
 		this.onSessionRestoreFailure = this._onSessionRestoreFailure.event;
 
+		// Generate a short (8 character) random hex string to use as a unique
+		// identifier for this window.
+		this._localWindowId = `window-${Math.random().toString(16).substring(2, 10)}`;
+
 		this._register(
 			this._runtimeSessionService.onDidChangeForegroundSession(
 				this.onDidChangeActiveRuntime, this));
@@ -158,14 +166,15 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		this._register(this._runtimeSessionService.onWillStartSession(e => {
 			this._register(e.session.onDidEncounterStartupFailure(_exit => {
-				// Update the set of workspace sessions
-				this.saveWorkspaceSessions();
+				// Update the set of workspace sessions, removing the one that
+				// failed to start.
+				this.saveWorkspaceSessions(e.session.metadata.sessionId);
 			}));
 		}));
 
 		this._register(this._runtimeSessionService.onDidFailStartRuntime(e => {
 			// Update the set of workspace sessions
-			this.saveWorkspaceSessions();
+			this.saveWorkspaceSessions(e.sessionId);
 		}));
 
 		// Listen for runtime start events and update the most recently started
@@ -184,8 +193,14 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					return;
 				}
 
+				// Ignore when sessions "exited" due to being transferred or restarted.
+				if (exit.reason === RuntimeExitReason.Transferred ||
+					exit.reason === RuntimeExitReason.Restart) {
+					return;
+				}
+
 				// Update the set of workspace sessions
-				this.saveWorkspaceSessions();
+				this.saveWorkspaceSessions(session.metadata.sessionId);
 
 				if (exit.reason === RuntimeExitReason.Error) {
 					// Restart after a crash, if necessary
@@ -195,8 +210,9 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 							session.cleanup();
 						}
 					});
-				} else if (exit.reason !== RuntimeExitReason.Restart) {
-					// If the session is not restarting, clean up the Ext Host side.
+				} else {
+					// The session will not be restarted, so go ahead and clean
+					// up the Ext Host side.
 					session.cleanup();
 				}
 			}));
@@ -371,7 +387,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// before reloading the browser.
 				e.veto(this.saveWorkspaceSessions(),
 					'positron.runtimeStartup.saveWorkspaceSessions');
-			} else if (e.reason === ShutdownReason.CLOSE || e.reason === ShutdownReason.QUIT) {
+			} else {
 				// Clear the workspace sessions. In most cases this is not
 				// necessary since the sessions are stored in ephemeral
 				// storage, but it is possible that this workspace will be
@@ -383,7 +399,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// trigger a browser warning when the user attempts to navigate
 				// away.
 				if (!isWeb) {
-					e.veto(this.clearWorkspaceSessions(), 'positron.runtimeStartup.clearWorkspaceSessions');
+					e.veto(this.clearWorkspaceSessions(),
+						'positron.runtimeStartup.clearWorkspaceSessions');
 				}
 			}
 		}));
@@ -1223,7 +1240,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 		// Before reconnecting, validate any sessions that need it.
 		const validSessions = await Promise.all(sessions.map(async session => {
-			if (session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Machine) {
+			if (session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Browser) {
+				// Browser sessions are never valid since they cannot be
+				// reconnected. It'd be surprising to find one persisted.
+				this._logService.info(`[Runtime startup] Not restoring unexpected persisted ` +
+					`browser session ${session.metadata.sessionName} (${session.metadata.sessionId})`);
+				return false;
+			} else {
 				// If the session is persistent on the machine, we need to
 				// check to see if it is still valid (i.e. still running)
 				// before reconnecting.
@@ -1267,9 +1290,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					return false;
 				}
 			}
-
-			// Sessions stored in other locations are always valid.
-			return true;
 		}));
 
 		// Remove all the sessions that are no longer valid.
@@ -1341,10 +1361,13 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	/**
 	 * Update the set of workspace sessions in the workspace storage.
 	 *
+	 * @param removeSessionId Optionally, a session ID to remove from the
+	 * workspace sessions.
+	 *
 	 * @returns False, always, so that it can be called during the shutdown
 	 * process.
 	 */
-	private async saveWorkspaceSessions(): Promise<boolean> {
+	private async saveWorkspaceSessions(removeSessionId?: string): Promise<boolean> {
 		// Derive the set of sessions that are currently active
 		const activeSessions = this._runtimeSessionService.activeSessions
 			.filter(session =>
@@ -1361,6 +1384,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 					runtimeMetadata: session.runtimeMetadata,
 					workingDirectory: activeSession?.workingDirectory || '',
 					lastUsed: session.lastUsed,
+					localWindowId: this._localWindowId,
 				};
 				return metadata;
 			});
@@ -1372,9 +1396,46 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Save the ephemeral sessions to the workspace storage.
 		const workspaceSessions = activeSessions.filter(session =>
 			session.runtimeMetadata.sessionLocation === LanguageRuntimeSessionLocation.Workspace);
-		this._logService.debug(`[Runtime startup] Saving ephemeral workspace sessions (${workspaceSessions.length})`);
+
+		// Get the existing sessions from ephemeral storage
+		const existingSessions = Array.from(
+			await this._ephemeralStateService.getItem<SerializedSessionMetadata[]>(
+				this.getEphemeralWorkspaceSessionsKey()) || []);
+		const activeSessionIds: Set<string> =
+			new Set(workspaceSessions.map(session => session.metadata.sessionId));
+
+		// We need to update the storage with the new set of sessions, but we
+		// also need to avoid removing any sessions could still be active in
+		// other windows. Filter the existing sessions to build a set of sesions
+		// to preserve in storage.
+		const preservedSessions = existingSessions.filter(session => {
+			if (activeSessionIds.has(session.metadata.sessionId)) {
+				// We have a copy of this session in the active sessions; we will replace
+				// it with the new session
+				return false;
+			}
+			if (session.metadata.sessionId === removeSessionId) {
+				// This session exited, so it should be removed
+				return false;
+			}
+			if (session.localWindowId !== this._localWindowId) {
+				// Keep the session if it is from a different window _and_ isn't
+				// going to be replaced with an incoming session
+				return true;
+			}
+			// Remove everything else
+			return false;
+		});
+
+		// Add the workspace sessions to the preserved sessions to form the new
+		// set of sessions to be written to storage
+		const newSessions = preservedSessions.concat(workspaceSessions);
+
+		// Save the new sessions to ephemeral storage
+		this._logService.debug(`[Runtime startup] Saving ephemeral workspace sessions ` +
+			`(${workspaceSessions.length} local, ${newSessions.length} total)`);
 		this._ephemeralStateService.setItem(this.getEphemeralWorkspaceSessionsKey(),
-			workspaceSessions);
+			newSessions);
 
 		// Save the persisted sessions to the workspace storage.
 		const machineSessions = activeSessions.filter(session =>

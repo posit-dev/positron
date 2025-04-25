@@ -15,8 +15,8 @@ import { positronConfigurationNodeBase } from '../../languageRuntime/common/lang
 import { SupportStatus } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 // Key for the configuration setting
-export const USE_POSITRON_DATA_EXPLORER_EXPERIMENTAL_KEY =
-	'positron.dataExplorerExperimental';
+export const USE_DATA_EXPLORER_EXPERIMENTAL_KEY =
+	'dataExplorer.Experimental';
 
 /**
  * Retrieves the value of the configuration setting that determines whether to enable
@@ -28,7 +28,7 @@ export function checkDataExplorerExperimentalFeaturesEnabled(
 	configurationService: IConfigurationService
 ) {
 	return Boolean(
-		configurationService.getValue(USE_POSITRON_DATA_EXPLORER_EXPERIMENTAL_KEY)
+		configurationService.getValue(USE_DATA_EXPLORER_EXPERIMENTAL_KEY)
 	);
 }
 
@@ -55,12 +55,12 @@ configurationRegistry.registerConfiguration({
 	...positronConfigurationNodeBase,
 	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
-		[USE_POSITRON_DATA_EXPLORER_EXPERIMENTAL_KEY]: {
+		[USE_DATA_EXPLORER_EXPERIMENTAL_KEY]: {
 			type: 'boolean',
 			default: false,
 			markdownDescription: localize(
-				'positron.enablePositronDataExplorerExperimentalFeatures',
-				'**CAUTION**: Enable experimental Positron Data Explorer features which may result in unexpected behaviour.'
+				'positron.enableDataExplorerExperimentalFeatures',
+				'**CAUTION**: Enable experimental Data Explorer features which may result in unexpected behavior.'
 			),
 		},
 	},

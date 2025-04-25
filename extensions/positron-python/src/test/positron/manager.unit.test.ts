@@ -20,7 +20,12 @@ import * as interpreterSettings from '../../client/positron/interpreterSettings'
 import * as environmentTypeComparer from '../../client/interpreter/configuration/environmentTypeComparer';
 import * as util from '../../client/positron/util';
 import { IEnvironmentVariablesProvider } from '../../client/common/variables/types';
-import { IConfigurationService, IDisposable, InspectInterpreterSettingType } from '../../client/common/types';
+import {
+    IConfigurationService,
+    IDisposable,
+    IDisposableRegistry,
+    InspectInterpreterSettingType,
+} from '../../client/common/types';
 import { IServiceContainer } from '../../client/ioc/types';
 import { PythonRuntimeManager } from '../../client/positron/manager';
 import { IInterpreterService } from '../../client/interpreter/contracts';
@@ -38,6 +43,7 @@ suite('Python runtime manager', () => {
     let interpreterService: TypeMoq.IMock<IInterpreterService>;
     let serviceContainer: TypeMoq.IMock<IServiceContainer>;
     let workspaceConfig: TypeMoq.IMock<WorkspaceConfiguration>;
+    let disposableRegistry: TypeMoq.IMock<IDisposableRegistry>;
 
     let getConfigurationStub: sinon.SinonStub;
     let isVersionSupportedStub: sinon.SinonStub;
@@ -53,6 +59,7 @@ suite('Python runtime manager', () => {
         interpreterService = createTypeMoq<IInterpreterService>();
         serviceContainer = createTypeMoq<IServiceContainer>();
         workspaceConfig = createTypeMoq<WorkspaceConfiguration>();
+        disposableRegistry = createTypeMoq<IDisposableRegistry>();
 
         runtimeMetadata.setup((r) => r.runtimeId).returns(() => 'runtimeId');
         runtimeMetadata.setup((r) => r.extraRuntimeData).returns(() => ({ pythonPath }));
@@ -64,6 +71,7 @@ suite('Python runtime manager', () => {
         serviceContainer.setup((s) => s.get(IConfigurationService)).returns(() => configService.object);
         serviceContainer.setup((s) => s.get(IEnvironmentVariablesProvider)).returns(() => envVarsProvider.object);
         serviceContainer.setup((s) => s.get(IInterpreterService)).returns(() => interpreterService.object);
+        serviceContainer.setup((s) => s.get(IDisposableRegistry)).returns(() => disposableRegistry.object);
 
         getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
         getConfigurationStub.callsFake((section?: string, _scope?: any) => {
@@ -191,6 +199,7 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
     let interpreterService: TypeMoq.IMock<IInterpreterService>;
     let interpreter: TypeMoq.IMock<PythonEnvironment>;
     let runtimeMetadata: positron.LanguageRuntimeMetadata;
+    let disposableRegistry: TypeMoq.IMock<IDisposableRegistry>;
 
     let getUserDefaultInterpreterStub: sinon.SinonStub;
     let hasFilesStub: sinon.SinonStub;
@@ -201,9 +210,11 @@ suite('Python runtime manager - recommendedWorkspaceRuntime', () => {
         serviceContainer = createTypeMoq<IServiceContainer>();
         interpreterService = createTypeMoq<IInterpreterService>();
         interpreter = createTypeMoq<PythonEnvironment>();
+        disposableRegistry = createTypeMoq<IDisposableRegistry>();
 
         // Setup interpreter service
         serviceContainer.setup((s) => s.get(IInterpreterService)).returns(() => interpreterService.object);
+        serviceContainer.setup((s) => s.get(IDisposableRegistry)).returns(() => disposableRegistry.object);
 
         getUserDefaultInterpreterStub = sinon.stub(interpreterSettings, 'getUserDefaultInterpreter');
         hasFilesStub = sinon.stub(util, 'hasFiles');
