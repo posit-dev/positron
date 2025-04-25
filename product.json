@@ -230,8 +230,8 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.10.0",
-			"sha256sum": "32be8178b713656d5c532224dd7a4ce5eede7762ab87bf723e2b56ed8710cd1d",
+			"version": "1.12.0",
+			"sha256sum": "eb642fa964eb1a7efa03ba0fceec853ad00f28fedb0ed274ef49d9d15f349614",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
