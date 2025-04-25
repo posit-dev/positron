@@ -19,6 +19,17 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 
 
 @enum.unique
+class PlotUnit(str, enum.Enum):
+    """
+    Possible values for PlotUnit
+    """
+
+    Pixels = "pixels"
+
+    Inches = "inches"
+
+
+@enum.unique
 class PlotRenderFormat(str, enum.Enum):
     """
     Possible values for PlotRenderFormat
@@ -33,17 +44,6 @@ class PlotRenderFormat(str, enum.Enum):
     Pdf = "pdf"
 
     Tiff = "tiff"
-
-
-@enum.unique
-class PlotUnit(str, enum.Enum):
-    """
-    Possible values for PlotUnit
-    """
-
-    Pixels = "pixels"
-
-    Inches = "inches"
 
 
 class IntrinsicSize(BaseModel):

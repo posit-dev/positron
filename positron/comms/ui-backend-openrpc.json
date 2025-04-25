@@ -12,9 +12,9 @@
 			"params": [
 				{
 					"name": "settings",
-					"description": "Plot rendering settings. TODO!: Proper sharing across comm json files. Rename policy to settings.",
+					"description": "Plot rendering settings.",
 					"schema": {
-						"$ref": "#/components/schemas/plot_render_settings"
+						"$ref": "plot-backend-openrpc.json#/components/schemas/plot_render_settings"
 					}
 				}
 			]
@@ -55,61 +55,5 @@
 				}
 			}
 		}
-	],
-	"components": {
-		"schemas": {
-			"plot_size": {
-				"type": "object",
-				"description": "The size of a plot",
-				"properties": {
-					"height": {
-						"description": "The plot's height, in pixels",
-						"type": "integer"
-					},
-					"width": {
-						"description": "The plot's width, in pixels",
-						"type": "integer"
-					}
-				},
-				"required": [
-					"height",
-					"width"
-				],
-				"rust": {
-					"copy": true
-				}
-			},
-			"plot_render_format":{
-				"description": "The requested plot format",
-				"type": "string",
-				"enum": ["png", "jpeg", "svg", "pdf", "tiff"]
-			},
-			"plot_render_settings": {
-				"type": "object",
-				"description": "The settings used to render the plot",
-				"properties": {
-					"size": {
-						"description": "Plot size to render the plot to",
-						"$ref": "#/components/schemas/plot_size"
-					},
-					"pixel_ratio": {
-						"description": "The pixel ratio of the display device",
-						"type": "number"
-					},
-					"format": {
-						"description": "Format in which to render the plot",
-						"$ref": "#/components/schemas/plot_render_format"
-					}
-				},
-				"required": [
-					"size",
-					"pixel_ratio",
-					"format"
-				],
-				"rust": {
-					"copy": true
-				}
-			}
-		}
-	}
+	]
 }
