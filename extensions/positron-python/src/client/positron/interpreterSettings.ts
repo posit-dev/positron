@@ -355,6 +355,7 @@ export function getUserDefaultInterpreter(scope?: Resource): InspectInterpreterS
             return '';
         }
         if (value) {
+            value = untildify(value);
             if (!path.isAbsolute(value)) {
                 traceInfo(`[getUserDefaultInterpreter]: interpreter path ${value} is not absolute...ignoring`);
                 return '';
