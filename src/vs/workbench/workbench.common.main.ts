@@ -294,6 +294,7 @@ import './contrib/positronPlots/browser/positronPlots.contribution.js';
 import './contrib/positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import './contrib/positronOutputWebview/browser/notebookOutputWebview.contribution.js';
 import './contrib/positronNotebook/browser/positronNotebook.contribution.js';
+import './contrib/positronWelcome/browser/positronWelcome.contribution.js';
 // --- End Positron ---
 
 // Terminal
@@ -443,6 +444,7 @@ import './contrib/positronRuntimeSessions/browser/positronRuntimeSessions.contri
 import './contrib/languageRuntime/browser/languageRuntime.contribution.js';
 import './contrib/positronIPyWidgets/browser/positronIPyWidgets.contribution.js';
 import './contrib/positronNewProject/browser/positronNewProject.contribution.js';
+import './contrib/positronKeybindings/browser/positronKeybindings.contribution.js';
 
 // Workbench services
 import './services/languageRuntime/common/languageRuntime.js';

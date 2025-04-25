@@ -131,7 +131,10 @@ suite('Web app commands', () => {
         assert.ok(runAppOptions, `runAppOptions not set for command: ${command}`);
 
         // Test `getTerminalOptions`.
-        const runtime = { runtimePath } as positron.LanguageRuntimeMetadata;
+        const runtime = {
+            runtimePath,
+            extraRuntimeData: { pythonPath: runtimePath },
+        } as positron.LanguageRuntimeMetadata;
         const document = {
             uri: { fsPath: documentPath },
             getText() {
@@ -269,7 +272,10 @@ suite('Web app commands', () => {
         assert.ok(debugAppOptions, `debugAppOptions not set for command: ${command}`);
 
         // Test `getDebugConfiguration`.
-        const runtime = { runtimePath } as positron.LanguageRuntimeMetadata;
+        const runtime = {
+            runtimePath,
+            extraRuntimeData: { pythonPath: runtimePath },
+        } as positron.LanguageRuntimeMetadata;
         const document = {
             uri: { fsPath: documentPath },
             getText() {

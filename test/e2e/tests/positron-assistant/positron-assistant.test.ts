@@ -93,7 +93,8 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 /**
  * Test suite Positron Assistant actions from the chat interface.
  */
-test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
+// Skipped due to https://github.com/posit-dev/positron/issues/7391
+test.describe.skip('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
 	test.beforeAll('How to set User Settings', async function ({ app, userSettings }) {
 		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
 		await userSettings.set([['positron.assistant.enable', 'true'],
