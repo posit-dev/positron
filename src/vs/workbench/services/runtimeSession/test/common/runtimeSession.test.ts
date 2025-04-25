@@ -730,7 +730,7 @@ suite('Positron - RuntimeSessionService', () => {
 	});
 
 	function restartSession(sessionId: string) {
-		return runtimeSessionService.restartSession(sessionId, startReason);
+		return runtimeSessionService.restartSession(sessionId, startReason, false);
 	}
 
 	for (const { mode, start } of [

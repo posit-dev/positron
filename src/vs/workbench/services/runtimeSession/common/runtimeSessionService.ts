@@ -480,7 +480,7 @@ export interface IRuntimeSessionService {
 	 * @param sessionId The identifier of the session to restart.
 	 * @param source The source of the request to restart the session, for debugging purposes.
 	 */
-	restartSession(sessionId: string, source: string): Promise<void>;
+	restartSession(sessionId: string, source: string, interrupt?: boolean): Promise<void>;
 
 	/**
 	 * Interrupt a runtime session.
