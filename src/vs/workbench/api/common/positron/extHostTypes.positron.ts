@@ -383,19 +383,19 @@ export enum UiRuntimeNotifications {
 /**
  * Settings necessary to render a plot in the format expected by the plot widget.
  */
-export interface PlotsRenderSettings {
+export interface PlotRenderSettings {
 	size: {
 		width: number;
 		height: number;
 	};
 	pixel_ratio: number;
-	format: RenderFormat;
+	format: PlotRenderFormat;
 }
 
 /**
  * Possible formats for rendering a plot.
  */
-export enum RenderFormat {
+export enum PlotRenderFormat {
 	Png = 'png',
 	Jpeg = 'jpeg',
 	Svg = 'svg',

@@ -14,7 +14,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { isWeb } from '../../../../base/common/platform.js';
-import { PlotsRenderSettings } from '../../../api/common/positron/extHostTypes.positron.js';
+import { PlotRenderSettings } from '../../../api/common/positron/extHostTypes.positron.js';
 
 export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 
@@ -282,7 +282,7 @@ export class UiClientInstance extends Disposable {
 	 * @param settings Plot rendering settings
 	 *
 	 */
-	didChangePlotsRenderSettings(settings: PlotsRenderSettings): Promise<void> {
+	didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
 		return this._comm.didChangePlotsRenderSettings(settings);
 	}
 }

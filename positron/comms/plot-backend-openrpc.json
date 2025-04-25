@@ -67,7 +67,7 @@
 					"name": "format",
 					"description": "The requested plot format",
 					"schema": {
-						"$ref": "#/components/schemas/render_format"
+						"$ref": "#/components/schemas/plot_render_format"
 					}
 				}
 			],
@@ -85,9 +85,9 @@
 							"description": "The MIME type of the plot data",
 							"type": "string"
 						},
-						"policy": {
-							"description": "The policy used to render the plot",
-							"$ref": "#/components/schemas/render_policy"
+						"settings": {
+							"description": "The settings used to render the plot",
+							"$ref": "#/components/schemas/plot_render_settings"
 						}
 					},
 					"required": [
@@ -122,7 +122,7 @@
 					"copy": true
 				}
 			},
-			"render_format":{
+			"plot_render_format":{
 				"description": "The requested plot format",
 				"type": "string",
 				"enum": ["png", "jpeg", "svg", "pdf", "tiff"]
@@ -132,12 +132,12 @@
 				"description": "The unit of measurement of a plot's dimensions",
 				"enum": ["pixels", "inches"]
 			},
-			"render_policy": {
+			"plot_render_settings": {
 				"type": "object",
-				"description": "The policy used to render the plot",
+				"description": "The settings used to render the plot",
 				"properties": {
 					"size": {
-						"description": "Plot size of the render policy",
+						"description": "Plot size to render the plot to",
 						"$ref": "#/components/schemas/plot_size"
 					},
 					"pixel_ratio": {
@@ -145,8 +145,8 @@
 						"type": "number"
 					},
 					"format": {
-						"description": "Format of the render policy",
-						"$ref": "#/components/schemas/render_format"
+						"description": "Format in which to render the plot",
+						"$ref": "#/components/schemas/plot_render_format"
 					}
 				},
 				"required": [

@@ -5,11 +5,11 @@
 
 import * as extHostProtocol from './extHost.positron.protocol.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { PlotsRenderSettings } from './extHostTypes.positron.js';
+import { PlotRenderSettings } from './extHostTypes.positron.js';
 
 export class ExtHostPlotsService implements extHostProtocol.ExtHostPlotsServiceShape {
 	private readonly _proxy: extHostProtocol.MainThreadPlotsServiceShape;
-	private readonly _onDidChangePlotsRenderSettings = new Emitter<PlotsRenderSettings>();
+	private readonly _onDidChangePlotsRenderSettings = new Emitter<PlotRenderSettings>();
 
 	constructor(
 		mainContext: extHostProtocol.IMainPositronContext,
@@ -22,13 +22,13 @@ export class ExtHostPlotsService implements extHostProtocol.ExtHostPlotsServiceS
 	/**
 	 * Queries the main thread for the current plot render settings.
 	 */
-	getPlotsRenderSettings(): Promise<PlotsRenderSettings> {
+	getPlotsRenderSettings(): Promise<PlotRenderSettings> {
 		return this._proxy.$getPlotsRenderSettings();
 	}
 
 	// --- from main thread
 
-	$onDidChangePlotsRenderSettings(settings: PlotsRenderSettings): void {
+	$onDidChangePlotsRenderSettings(settings: PlotRenderSettings): void {
 		this._onDidChangePlotsRenderSettings.fire(settings);
 	}
 }

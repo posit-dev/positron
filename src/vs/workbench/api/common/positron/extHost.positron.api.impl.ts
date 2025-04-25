@@ -190,7 +190,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			get onDidChangePlotsRenderSettings() {
 				return extHostPlotsService.onDidChangePlotsRenderSettings;
 			},
-			getPlotsRenderSettings(): Thenable<positron.PlotsRenderSettings> {
+			getPlotsRenderSettings(): Thenable<positron.PlotRenderSettings> {
 				return extHostPlotsService.getPlotsRenderSettings();
 			}
 		};
@@ -306,7 +306,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,
 			RuntimeState: extHostTypes.RuntimeState,
 			RuntimeCodeFragmentStatus: extHostTypes.RuntimeCodeFragmentStatus,
-			RenderFormat: extHostTypes.RenderFormat,
+			PlotRenderFormat: extHostTypes.PlotRenderFormat,
 			UiRuntimeNotifications: extHostTypes.UiRuntimeNotifications,
 		};
 	};

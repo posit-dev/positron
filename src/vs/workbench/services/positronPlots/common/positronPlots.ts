@@ -8,7 +8,7 @@ import { Event } from '../../../../base/common/event.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from './sizingPolicy.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
-import { PlotsRenderSettings } from '../../../api/common/positron/extHostTypes.positron.js';
+import { PlotRenderSettings } from '../../../api/common/positron/extHostTypes.positron.js';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -121,7 +121,7 @@ export interface IPositronPlotsService {
 	 * Notifies subscribers when the settings for rendering a plot have changed.
 	 * This typically happens when the plot viewpane has been resized.
 	 */
-	readonly onDidChangePlotsRenderSettings: Event<PlotsRenderSettings>;
+	readonly onDidChangePlotsRenderSettings: Event<PlotRenderSettings>;
 
 	/**
 	 * Selects the plot with the specified ID.
@@ -259,14 +259,14 @@ export interface IPositronPlotsService {
 	/**
 	 * Gets the current plot rendering settings.
 	 */
-	getPlotsRenderSettings(): PlotsRenderSettings;
+	getPlotsRenderSettings(): PlotRenderSettings;
 
 	/**
 	 * Sets the current plot rendering settings.
 	 *
 	 * @param settings The new settings.
 	 */
-	setPlotsRenderSettings(settings: PlotsRenderSettings): void;
+	setPlotsRenderSettings(settings: PlotRenderSettings): void;
 
 	/**
 	 * Placeholder for service initialization.
