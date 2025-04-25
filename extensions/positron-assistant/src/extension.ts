@@ -30,7 +30,7 @@ function disposeParticipants() {
 	participantDisposables = [];
 }
 
-export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage, isDefault: boolean) {
 	try {
 		const modelConfig = await getModelConfiguration(config.id, context, storage);
 
@@ -50,7 +50,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		await registerModelWithAPI(modelConfig, context);
+		await registerModelWithAPI(modelConfig, context, isDefault);
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
