@@ -3,29 +3,30 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from "vscode";
-import { CatalogTreeDataProvider, registerCatalogCommands } from "./catalog";
+import {
+	CatalogProviderRegistry,
+	registerCatalogCommands,
+	registerTreeViewProvider,
+} from "./catalog";
 import { DefaultDatabricksCredentialProvider } from "./credentials";
-import { getDatabricksCatalogs } from "./catalogs/databricks";
+import { registerDatabricksProvider } from "./catalogs/databricks";
 import { registerDbfsProvider } from "./fs/dbfs";
 import { setExtensionUri } from "./resources";
 
 export async function activate(context: vscode.ExtensionContext) {
 	setExtensionUri(context);
 	console.log('"positron-catalogs" is now active!');
+	const registry = new CatalogProviderRegistry();
 	context.subscriptions.push(
-		vscode.window.registerTreeDataProvider(
-			"positron-catalog-explorer",
-			new CatalogTreeDataProvider(
-				...(await getDatabricksCatalogs(context)),
-			),
-		),
+		registerDatabricksProvider(registry),
+		await registerTreeViewProvider(context, registry),
 		registerDbfsProvider(
 			new DefaultDatabricksCredentialProvider(
 				context.secrets,
 			),
 		),
 	);
-	registerCatalogCommands(context);
+	registerCatalogCommands(context, registry);
 }
 
 export function deactivate() {}

@@ -19,6 +19,12 @@
   "contributes": {
     "commands": [
       {
+        "command": "posit.catalog-explorer.addCatalogProvider",
+        "category": "Catalogs",
+        "title": "Add Catalog Provider",
+        "icon": "$(add)"
+      },
+      {
         "command": "positron-catalog-explorer.openWith",
         "category": "Catalogs",
         "title": "Open With...",
@@ -51,10 +57,17 @@
     "viewsWelcome": [
       {
         "view": "positron-catalog-explorer",
-        "contents": "Explore tables, views, and more in Databricks Unity Catalog, AWS Glue, Azure Data Lake Storage, or any Apache Iceberg-compatible catalog.\n[Configure a Catalog](command:positron-catalog-explorer.addCatalog)"
+        "contents": "Explore tables, views, and more in Databricks Unity Catalog, AWS Glue, Azure Data Lake Storage, or any Apache Iceberg-compatible catalog.\n[Configure a Catalog Provider](command:posit.catalog-explorer.addCatalogProvider)"
       }
     ],
     "menus": {
+      "view/title": [
+        {
+          "command": "posit.catalog-explorer.addCatalogProvider",
+          "when": "view == positron-catalog-explorer",
+          "group": "navigation"
+        }
+      ],
       "view/item/context": [
         {
           "command": "positron-catalog-explorer.openWith",

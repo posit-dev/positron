@@ -3,7 +3,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from "vscode";
-import { CatalogNode, CatalogProvider } from "../catalog";
+import {
+	CatalogNode,
+	CatalogProvider,
+	CatalogProviderRegistration,
+	CatalogProviderRegistry,
+} from "../catalog";
 import { UnityCatalogClient } from "./unityCatalogClient";
 import { DatabricksFilesClient, dbfsUri, dbfsVolumeUri } from "../fs/dbfs";
 import { resourceUri } from "../resources";
@@ -11,26 +16,73 @@ import { DefaultDatabricksCredentialProvider } from "../credentials";
 import { ensureDependencies, getPositronAPI } from "../positron";
 import path from "path";
 
+const registration: CatalogProviderRegistration = {
+	label: "Databricks",
+	detail: "Explore tables, volumes, and files in the Unity Catalog",
+	addProvider: registerDatabricksCatalog,
+	listProviders: getDatabricksCatalogs,
+};
+
+export function registerDatabricksProvider(
+	registry: CatalogProviderRegistry,
+): vscode.Disposable {
+	// We have to do this lazily due to paths not being available until
+	// after initialisation.
+	registration.iconPath = {
+		light: resourceUri("light", "databricks.svg"),
+		dark: resourceUri("dark", "databricks.svg"),
+	};
+	return registry.register(registration);
+}
+
 /**
  * Register a Databricks catalog provider for the given workspace using a PAT
  * as a credential.
  */
-export async function registerDatabricksCatalog(
+async function registerDatabricksCatalog(
 	context: vscode.ExtensionContext,
-	workspace: string,
-	token: string,
-) {
+): Promise<CatalogProvider | undefined> {
+	const workspace = await vscode.window.showInputBox({
+		title: "Databricks Workspace",
+		// Users will likely be copy & pasting this value.
+		ignoreFocusOut: true,
+	});
+	if (!workspace) {
+		return;
+	}
+	const token = await vscode.window.showInputBox({
+		title: "Personal Access Token",
+		ignoreFocusOut: true,
+	});
+	if (!token) {
+		return;
+	}
 	const registered = context.globalState.get<string[]>(STATE_KEY);
 	const next: Set<string> = registered ? new Set(registered) : new Set();
 	next.add(workspace);
 	await context.globalState.update(STATE_KEY, Array.from(next));
 	await context.secrets.store(workspace, token);
+	return new DatabricksCatalogProvider(workspace, token);
+}
+
+/**
+ * Unregister a previously-registered Databricks catalog provider.
+ */
+export async function unregisterDatabricksCatalog(
+	context: vscode.ExtensionContext,
+	workspace: string,
+): Promise<void> {
+	const registered = context.globalState.get<string[]>(STATE_KEY);
+	const next: Set<string> = registered ? new Set(registered) : new Set();
+	next.delete(workspace);
+	await context.globalState.update(STATE_KEY, Array.from(next));
+	await context.secrets.delete(workspace);
 }
 
 /**
  * Get all registered Databricks catalogs for which we have credentials.
  */
-export async function getDatabricksCatalogs(
+async function getDatabricksCatalogs(
 	context: vscode.ExtensionContext,
 ): Promise<CatalogProvider[]> {
 	const registered = context.globalState.get<string[]>(STATE_KEY);
@@ -54,7 +106,6 @@ export async function getDatabricksCatalogs(
  * A provider for a Databricks Unity Catalog.
  */
 class DatabricksCatalogProvider implements CatalogProvider {
-	static label = "Databricks";
 	private catalogClient: UnityCatalogClient;
 	private fsClient: DatabricksFilesClient;
 	private workspace: string;
@@ -77,14 +128,11 @@ class DatabricksCatalogProvider implements CatalogProvider {
 
 	getTreeItem(): vscode.TreeItem {
 		const item = new vscode.TreeItem(
-			DatabricksCatalogProvider.label,
+			registration.label,
 			vscode.TreeItemCollapsibleState.Expanded,
 		);
-		item.iconPath = {
-			light: resourceUri("light", "databricks.svg"),
-			dark: resourceUri("dark", "databricks.svg"),
-		};
-		item.tooltip = DatabricksCatalogProvider.label;
+		item.iconPath = registration.iconPath;
+		item.tooltip = registration.label;
 		item.description = this.workspace;
 		item.contextValue = "provider";
 		return item;

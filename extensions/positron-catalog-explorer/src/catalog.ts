@@ -67,19 +67,47 @@ export class CatalogNode {
 	}
 }
 
+export async function registerTreeViewProvider(
+	context: vscode.ExtensionContext,
+	registry: CatalogProviderRegistry,
+): Promise<vscode.Disposable> {
+	return vscode.window.registerTreeDataProvider(
+		"positron-catalog-explorer",
+		await CatalogTreeDataProvider.from(context, registry),
+	);
+}
+
 type CatalogElement = CatalogNode | CatalogProvider;
 
-export class CatalogTreeDataProvider
+class CatalogTreeDataProvider
 	implements vscode.TreeDataProvider<CatalogElement>, vscode.Disposable
 {
-	private providers: CatalogProvider[];
+	private listener: vscode.Disposable;
+	private emitter = new vscode.EventEmitter<CatalogElement | void>();
 
-	constructor(...providers: CatalogProvider[]) {
-		this.providers = providers;
+	static async from(
+		context: vscode.ExtensionContext,
+		registry: CatalogProviderRegistry,
+	): Promise<CatalogTreeDataProvider> {
+		const providers = await registry.listAllProviders(context);
+		return new CatalogTreeDataProvider(providers, registry);
 	}
+
+	private constructor(
+		private providers: CatalogProvider[],
+		registry: CatalogProviderRegistry,
+	) {
+		this.listener = registry.onCatalogAdded((provider) => {
+			this.providers.push(provider);
+			this.emitter.fire();
+		});
+	}
+
+	onDidChangeTreeData = this.emitter.event;
 
 	dispose() {
 		vscode.Disposable.from(...this.providers).dispose();
+		this.listener.dispose();
 	}
 
 	getTreeItem(element: CatalogElement): vscode.TreeItem {
@@ -174,7 +202,61 @@ class CatalogItem extends vscode.TreeItem {
 	}
 }
 
-export function registerCatalogCommands(context: vscode.ExtensionContext) {
+export interface CatalogProviderRegistration {
+	label: string;
+	detail?: string;
+	iconPath?: vscode.IconPath;
+	addProvider(
+		context: vscode.ExtensionContext,
+	): Promise<CatalogProvider | undefined>;
+	listProviders(
+		context: vscode.ExtensionContext,
+	): Promise<CatalogProvider[]>;
+}
+
+export class CatalogProviderRegistry {
+	private registry: CatalogProviderRegistration[] = [];
+	private addCatalog = new vscode.EventEmitter<CatalogProvider>();
+
+	onCatalogAdded = this.addCatalog.event;
+
+	register(registration: CatalogProviderRegistration): vscode.Disposable {
+		this.registry.push(registration);
+		return {
+			dispose: () => this.unregister(registration),
+		};
+	}
+
+	async listAllProviders(
+		context: vscode.ExtensionContext,
+	): Promise<CatalogProvider[]> {
+		const all = this.registry.map((v) => v.listProviders(context));
+		return (await Promise.all(all)).flat();
+	}
+
+	async addProvider(context: vscode.ExtensionContext): Promise<void> {
+		const item = await vscode.window.showQuickPick(this.registry, {
+			title: "Choose a Catalog Provider",
+		});
+		if (!item) {
+			return;
+		}
+		const added = await item.addProvider(context);
+		if (!added) {
+			return;
+		}
+		this.addCatalog.fire(added);
+	}
+
+	private unregister(registration: CatalogProviderRegistration) {
+		this.registry = this.registry.filter((v) => v !== registration);
+	}
+}
+
+export function registerCatalogCommands(
+	context: vscode.ExtensionContext,
+	registry: CatalogProviderRegistry,
+) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
 			"positron-catalog-explorer.openWith",
@@ -207,6 +289,10 @@ export function registerCatalogCommands(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand(
 			"positron-catalog-explorer.openInSession",
 			async (node: CatalogNode) => await node.openInSession(),
+		),
+		vscode.commands.registerCommand(
+			"posit.catalog-explorer.addCatalogProvider",
+			async () => await registry.addProvider(context),
 		),
 	);
 }
