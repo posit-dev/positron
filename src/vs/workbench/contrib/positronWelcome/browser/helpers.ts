@@ -5,26 +5,26 @@
 
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { INotificationService, NeverShowAgainScope, Severity } from '../../../../platform/notification/common/notification.js';
+import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings } from './actions.js';
 import * as platform from '../../../../base/common/platform.js';
 import { localize } from '../../../../nls.js';
 
-const wasPromptedKey = 'positron.welcome.promptedImport';
+const WAS_PROMPTED_KEY = 'positron.welcome.promptedImport';
 
 export async function getImportWasPrompted(
 	storageService: IStorageService,
 ): Promise<boolean> {
-	return storageService.getBoolean(wasPromptedKey, StorageScope.PROFILE, false);
+	return storageService.getBoolean(WAS_PROMPTED_KEY, StorageScope.PROFILE, false);
 }
 
 export function setImportWasPrompted(
 	storageService: IStorageService,
 	state: boolean = true
 ) {
-	storageService.store(wasPromptedKey, state, StorageScope.PROFILE, StorageTarget.MACHINE);
+	storageService.store(WAS_PROMPTED_KEY, state, StorageScope.PROFILE, StorageTarget.MACHINE);
 }
 
 export async function promptImport(
@@ -52,14 +52,16 @@ export async function promptImport(
 				label: localize('positron.settingsImport.later', 'Later'),
 				run: () => { },
 			},
-		],
-		{
 			// Adds a "Don't show again" action to the prompt.
 			// This will allow the user to dismiss the prompt and not show it again.
-			neverShowAgain: {
-				id: wasPromptedKey,
-				scope: NeverShowAgainScope.PROFILE,
-			},
+			{
+				label: localize('positron.settingsImport.dontShowAgain', "Don't show again"),
+				run: () => {
+					setImportWasPrompted(storageService);
+				},
+			}
+		],
+		{
 			sticky: true,
 			onCancel: () => { },
 		}
