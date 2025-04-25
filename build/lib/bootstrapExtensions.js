@@ -65,8 +65,8 @@ function log(...messages) {
 function getBootstrapDir() {
     return path.join(root, '.build', 'bootstrapExtensions');
 }
-function getExtensionPath(extension) {
-    return path.join(getBootstrapDir(), `${extension.name}-${extension.version}.vsix`);
+function getExtensionName(extension) {
+    return `${extension.name}-${extension.version}.vsix`;
 }
 function isUpToDate(extension) {
     const regex = new RegExp(`^${extension.name}-(\\d+\\.\\d+\\.\\d+)\\.vsix$`);
@@ -153,7 +153,6 @@ function isUpToDate(extension) {
                     fs.unlinkSync(path.join(bootstrapDir, vsixPath));
                 }
                 else {
-                    log(`[extensions]`, `Found up-to-date extension: ${vsixPath}`);
                     return true;
                 }
             }
@@ -179,21 +178,7 @@ function getBootstrapExtensionStream(extension) {
     // if the extension exists on disk, use those files instead of downloading anew
     if (isUpToDate(extension)) {
         log('[extensions]', `${extension.name}@${extension.version} up to date`, ansiColors.green('✔︎'));
-        return vfs.src(['**'], { cwd: getExtensionPath(extension), dot: true })
-            .pipe((0, gulp_rename_1.default)(p => {
-            if (p.dirname === undefined) {
-                p.dirname = `${extension.name}`;
-                return;
-            }
-            const dirParts = p.dirname.split(path.sep);
-            const isArchDir = dirParts[0] === 'arm64' || dirParts[0] === 'x64';
-            if (isArchDir) {
-                p.dirname = `${dirParts[0]}/${extension.name}/${dirParts.slice(1).join(path.sep)}`;
-            }
-            else {
-                p.dirname = `${extension.name}/${p.dirname}`;
-            }
-        }));
+        return es.merge(vfs.src([`**/${getExtensionName(extension)}`], { cwd: path.join(getBootstrapDir()), dot: true }));
     }
     return getExtensionDownloadStream(extension);
 }
@@ -204,7 +189,6 @@ function syncMarketplaceExtension(extension) {
         log(source, `${extension.name}@${extension.version}`, ansiColors.green('✔︎'));
         return es.readArray([]);
     }
-    rimraf.sync(getExtensionPath(extension));
     return getExtensionDownloadStream(extension)
         .pipe(vfs.dest('.build/bootstrapExtensions'))
         .on('end', () => log(source, extension.name, ansiColors.green('✔︎')));

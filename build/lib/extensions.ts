@@ -654,7 +654,7 @@ export function packageBootstrapExtensionsStream(): Stream {
 		...bootstrapExtensions
 			.map(extension => {
 				const src = getBootstrapExtensionStream(extension).pipe(rename(p => {
-					p.dirname = `extensions/bootstrap`;
+					p.dirname = `extensions/bootstrap/${p.dirname}`;
 				}));
 				return src;
 			})

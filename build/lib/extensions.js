@@ -607,7 +607,7 @@ function packageBootstrapExtensionsStream() {
     return event_stream_1.default.merge(...bootstrapExtensions
         .map(extension => {
         const src = (0, bootstrapExtensions_1.getBootstrapExtensionStream)(extension).pipe((0, gulp_rename_1.default)(p => {
-            p.dirname = `extensions/bootstrap`;
+            p.dirname = `extensions/bootstrap/${p.dirname}`;
         }));
         return src;
     }));
