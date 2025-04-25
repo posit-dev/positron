@@ -20,6 +20,7 @@ suite('Positron - LanguageRuntimeService', () => {
 	setup(async () => {
 		instantiationService = disposables.add(new TestInstantiationService());
 		instantiationService.stub(ILogService, new NullLogger());
+		instantiationService.stub(IConfigurationService, new TestConfigurationService());
 	});
 
 	test('register and unregister a runtime', async () => {
