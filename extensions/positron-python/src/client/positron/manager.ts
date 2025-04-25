@@ -11,14 +11,21 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 
-import { Event, EventEmitter } from 'vscode';
+import { Event, EventEmitter, Disposable } from 'vscode';
 import { inject, injectable } from 'inversify';
 import * as fs from '../common/platform/fs-paths';
 import { IServiceContainer } from '../ioc/types';
 import { pythonRuntimeDiscoverer } from './discoverer';
 import { IInterpreterService } from '../interpreter/contracts';
 import { traceError, traceInfo, traceLog } from '../logging';
-import { IConfigurationService, IDisposable, IInstaller, InstallerResponse, Product } from '../common/types';
+import {
+    IConfigurationService,
+    IDisposable,
+    IDisposableRegistry,
+    IInstaller,
+    InstallerResponse,
+    Product,
+} from '../common/types';
 import { PythonRuntimeSession } from './session';
 import { createPythonRuntimeMetadata, PythonRuntimeExtraData } from './runtime';
 import { Commands, EXTENSION_ROOT_DIR } from '../common/constants';
@@ -52,7 +59,7 @@ export interface IPythonRuntimeManager extends positron.LanguageRuntimeManager {
  * implements positron.LanguageRuntimeManager.
  */
 @injectable()
-export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Disposable {
+export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
     /**
      * A map of Python interpreter paths to their language runtime metadata.
      */
@@ -75,9 +82,11 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, vscode.Dispo
         @inject(IServiceContainer) private readonly serviceContainer: IServiceContainer,
         @inject(IInterpreterService) private readonly interpreterService: IInterpreterService,
     ) {
-        positron.runtime.registerLanguageRuntimeManager('python', this);
+        const disposables = this.serviceContainer.get<Disposable[]>(IDisposableRegistry);
+        disposables.push(this);
 
         this.disposables.push(
+            positron.runtime.registerLanguageRuntimeManager('python', this),
             // When an interpreter is added, register a corresponding language runtime.
             interpreterService.onDidChangeInterpreters(async (event) => {
                 if (!event.old && event.new) {

@@ -67,7 +67,6 @@ import { ChatViewWelcomePart } from './viewsWelcome/chatViewWelcomeController.js
 // --- Start Positron ---
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { ILanguageModelsService } from '../common/languageModels.js';
-import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -258,9 +257,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		@IStorageService private readonly storageService: IStorageService,
 		@ITelemetryService private readonly telemetryService: ITelemetryService,
 		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
-		// --- Start Positron ---
-		@IEnvironmentService private readonly environmentService: IEnvironmentService,
-		// --- End Positron ---
 	) {
 		super();
 
@@ -273,11 +269,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		} else {
 			this._location = { location };
 		}
-
-		// --- Start Positron ---
-		const enableChatSwitch = this.configurationService.getValue("positron.assistant.chatSwitch");
-		ChatContextKeys.editEnabled.bindTo(contextKeyService).set((!this.environmentService.isBuilt && enableChatSwitch === undefined) || !!enableChatSwitch)
-		// --- End Positron ---
 
 		ChatContextKeys.inChatSession.bindTo(contextKeyService).set(true);
 		ChatContextKeys.location.bindTo(contextKeyService).set(this._location.location);
@@ -662,6 +653,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.addModelConfiguration)`;
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
+			// eslint-disable-next-line local/code-no-unexternalized-strings
 			welcomeText = localize('positronAssistant.welcomeMessageReady', `Positron Assistant is an AI coding companion designed to accelerate and enhance your data science projects.
 
 Click on or type $(mention) to work with Chat Participants in Positron Assistant.

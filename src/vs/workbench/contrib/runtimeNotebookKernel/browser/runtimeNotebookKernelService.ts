@@ -141,19 +141,10 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 			async provideKernelSourceActions() {
 				return [
 					{
-						label: 'Python Environments...',
+						label: 'Select Environment...',
 						command: {
 							id: 'workbench.action.languageRuntime.pick',
-							title: 'Select Python Interpreter',
-							arguments: ['python'],
-						},
-					},
-					{
-						label: 'R Environments...',
-						command: {
-							id: 'workbench.action.languageRuntime.pick',
-							title: 'Select R Interpreter',
-							arguments: ['r'],
+							title: 'Select Environment',
 						},
 					}
 				];

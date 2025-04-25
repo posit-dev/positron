@@ -263,7 +263,6 @@ const selectLanguageRuntime = async (
 		input.canSelectMany = false;
 		const languageName = languageService.getLanguageName(languageId);
 		input.title = nls.localize('positron.languageRuntime.select.selectInterpreter', 'Select {0} Interpreter', languageName);
-		input.placeholder = nls.localize('positron.languageRuntime.select.discoveringInterpreters', 'Discovering Interpreters...');
 		input.matchOnDescription = true;
 
 		for (const runtimeMetadata of languageRuntimeService.registeredRuntimes) {
@@ -563,8 +562,8 @@ export function registerLanguageRuntimeActions() {
 			});
 		}
 
-		async run(accessor: ServicesAccessor, languageId: string) {
-			const languageRuntime = await selectLanguageRuntime(accessor, languageId, undefined);
+		async run(accessor: ServicesAccessor) {
+			const languageRuntime = await selectNewLanguageRuntime(accessor);
 			return languageRuntime?.runtimeId;
 		}
 	});

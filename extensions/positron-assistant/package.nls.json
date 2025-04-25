@@ -5,5 +5,9 @@
 	"commands.configureModels.title": "Configure Language Models",
 	"commands.copilot.signin.title": "Copilot Sign In",
 	"commands.copilot.signout.title": "Copilot Sign Out",
-	"commands.category": "Positron Assistant"
+	"commands.category": "Positron Assistant",
+	"chatParticipants.fullName": "Positron Assistant",
+	"chatParticipants.ask.description": "Ask Assistant",
+	"chatParticipants.edit.description": "Edit files in your workspace",
+	"chatParticipants.commands.quarto.description": "Convert the conversation so far into a new Quarto document."
 }
