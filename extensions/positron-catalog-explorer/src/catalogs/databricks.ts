@@ -127,6 +127,7 @@ async function getDatabricksCatalogs(
  * A provider for a Databricks Unity Catalog.
  */
 class DatabricksCatalogProvider implements CatalogProvider {
+	private emitter = new vscode.EventEmitter<void>();
 	private catalogClient: UnityCatalogClient;
 	private fsClient: DatabricksFilesClient;
 	private workspace: string;
@@ -146,6 +147,12 @@ class DatabricksCatalogProvider implements CatalogProvider {
 	}
 
 	dispose() {}
+
+	onDidChange = this.emitter.event;
+
+	refresh() {
+		this.emitter.fire();
+	}
 
 	getTreeItem(): vscode.TreeItem {
 		const item = new vscode.TreeItem(

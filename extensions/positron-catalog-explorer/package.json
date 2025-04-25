@@ -25,6 +25,12 @@
         "icon": "$(add)"
       },
       {
+        "command": "posit.catalog-explorer.refresh",
+        "category": "Catalogs",
+        "title": "Refresh Provider",
+        "icon": "$(refresh)"
+      },
+      {
         "command": "posit.catalog-explorer.openWith",
         "category": "Catalogs",
         "title": "Open With...",
@@ -69,6 +75,11 @@
         }
       ],
       "view/item/context": [
+        {
+          "command": "posit.catalog-explorer.refresh",
+          "when": "view == catalog-explorer && viewItem == provider",
+          "group": "inline"
+        },
         {
           "command": "posit.catalog-explorer.openWith",
           "when": "view == catalog-explorer && viewItem == file",

@@ -26,6 +26,10 @@ export interface CatalogProvider extends vscode.Disposable {
 	getChildren(node?: CatalogNode): Promise<CatalogNode[]>;
 
 	openInSession?(node: CatalogNode): Promise<void>;
+
+	refresh?(): void;
+
+	onDidChange?: vscode.Event<void>;
 }
 
 export type CatalogNodeType =
@@ -82,7 +86,7 @@ type CatalogElement = CatalogNode | CatalogProvider;
 class CatalogTreeDataProvider
 	implements vscode.TreeDataProvider<CatalogElement>, vscode.Disposable
 {
-	private listener: vscode.Disposable;
+	private listeners: vscode.Disposable[] = [];
 	private emitter = new vscode.EventEmitter<CatalogElement | void>();
 
 	static async from(
@@ -97,17 +101,29 @@ class CatalogTreeDataProvider
 		private providers: CatalogProvider[],
 		registry: CatalogProviderRegistry,
 	) {
-		this.listener = registry.onCatalogAdded((provider) => {
-			this.providers.push(provider);
-			this.emitter.fire();
-		});
+		this.listeners.push(
+			registry.onCatalogAdded((provider) => {
+				this.providers.push(provider);
+				this.emitter.fire();
+			}),
+		);
+		for (const p of this.providers) {
+			if (!p.onDidChange) {
+				continue;
+			}
+			this.listeners.push(
+				p.onDidChange(() => this.emitter.fire()),
+			);
+		}
 	}
 
 	onDidChangeTreeData = this.emitter.event;
 
 	dispose() {
-		vscode.Disposable.from(...this.providers).dispose();
-		this.listener.dispose();
+		vscode.Disposable.from(
+			...this.providers,
+			...this.listeners,
+		).dispose();
 	}
 
 	getTreeItem(element: CatalogElement): vscode.TreeItem {
@@ -289,6 +305,10 @@ export function registerCatalogCommands(
 		vscode.commands.registerCommand(
 			"posit.catalog-explorer.openInSession",
 			async (node: CatalogNode) => await node.openInSession(),
+		),
+		vscode.commands.registerCommand(
+			"posit.catalog-explorer.refresh",
+			(provider: CatalogProvider) => provider.refresh?.(),
 		),
 		vscode.commands.registerCommand(
 			"posit.catalog-explorer.addCatalogProvider",
