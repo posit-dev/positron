@@ -11,7 +11,7 @@ import * as fs from 'fs';
 import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { PositronSupervisorApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './positron-supervisor';
-import { KallichoreSession } from './KallichoreSession';
+import { DisconnectedEvent, DisconnectReason, KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
@@ -87,6 +87,11 @@ export class KCApi implements PositronSupervisorApi {
 	private _newSupervisor = true;
 
 	/**
+	 * Whether or not we are showing the disconnected warning dialog
+	 */
+	private _showingDisconnectedWarning = false;
+
+	/**
 	 * Create a new Kallichore API object.
 	 *
 	 * @param _context The extension context
@@ -152,6 +157,39 @@ export class KCApi implements PositronSupervisorApi {
 	 * @throws An error if the server cannot be started or reconnected to.
 	 */
 	async start() {
+		// Check the POSITRON_SUPERVISOR_CONNECTION_FILE environment variable to
+		// see if we're trying to connect to an existing server.
+		//
+		// In web/server mode, the server is started concurrently with the node
+		// server, and its connection details are passed to Positron via an
+		// environment variable that points to a connection file.
+		const connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
+		if (connectionFile) {
+			if (fs.existsSync(connectionFile)) {
+				this._log.appendLine(`Using connection file from ` +
+					`POSITRON_SUPERVISOR_CONNECTION_FILE: ${connectionFile}`);
+				try {
+					const connectionContents = JSON.parse(fs.readFileSync(connectionFile, 'utf8'));
+					if (await this.reconnect(connectionContents)) {
+						this._log.appendLine(
+							`Connected to previously established supervisor.`);
+						return;
+					}
+					// No action if connection does not work; we will start a new
+					// server.
+				} catch (err) {
+					// Non-fatal. We can still start a new server if the connection file
+					// is invalid.
+					this._log.appendLine(
+						`Error connecting to Kallichore (${connectionFile}): ${err}`);
+				}
+			} else {
+				// Non-fatal, but not expected.
+				this._log.appendLine(`Connection file named in ` +
+					`POSITRON_SUPERVISOR_CONNECTION_FILE does not exist: ${connectionFile}`);
+			}
+		}
+
 		// Check to see if there's a server already running for this workspace
 		const serverState =
 			this._context.workspaceState.get<KallichoreServerState>(KALLICHORE_STATE_KEY);
@@ -181,18 +219,11 @@ export class KCApi implements PositronSupervisorApi {
 		// error if the server binary cannot be found.
 		const shellPath = this.getKallichorePath();
 
-
 		// Get the log level from the configuration
 		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const logLevel = config.get<string>('logLevel') ?? 'warn';
-
-		// Export the Positron version as an environment variable
 		const env = {
-			'POSITRON': '1',
-			'POSITRON_VERSION': positron.version,
 			'RUST_LOG': logLevel,
-			'POSITRON_LONG_VERSION': `${positron.version}+${positron.buildNumber}`,
-			'POSITRON_MODE': vscode.env.uiKind === vscode.UIKind.Desktop ? 'desktop' : 'server',
 		};
 
 		// Create a server session ID (8 characters)
@@ -270,6 +301,12 @@ export class KCApi implements PositronSupervisorApi {
 			'--log-level', logLevel,
 			'--log-file', logFile,
 		]);
+
+		// If we have a connection file, add it to the arguments so that
+		// Kallichore will save connection information there.
+		if (connectionFile) {
+			shellArgs.push('--connection-file', connectionFile);
+		}
 
 		// Compute the appropriate value for the idle shutdown hours setting.
 		//
@@ -607,12 +644,13 @@ export class KCApi implements PositronSupervisorApi {
 	 * @param session The session to add the disconnect handler to
 	 */
 	private addDisconnectHandler(session: KallichoreSession) {
-		this._disposables.push(session.disconnected.event(async (state: positron.RuntimeState) => {
-			if (state !== positron.RuntimeState.Exited) {
+		this._disposables.push(session.disconnected.event(async (evt: DisconnectedEvent) => {
+			if (evt.reason === DisconnectReason.Unknown) {
 				// The websocket disconnected while the session was still
 				// running. This could signal a problem with the supervisor; we
 				// should see if it's still running.
-				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected while in state '${state}'. This is unexpected; checking server status.`);
+				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected ` +
+					`while in state '${evt.state}'. This is unexpected; checking server status.`);
 
 				// If the server did not exit, and the session also appears to
 				// still be running, try to reconnect the websocket. It's
@@ -628,6 +666,22 @@ export class KCApi implements PositronSupervisorApi {
 						// offline and explain to the user what happened.
 						session.markOffline('Lost connection to the session WebSocket event stream and could not restore it: ' + err);
 						vscode.window.showErrorMessage(vscode.l10n.t('Unable to re-establish connection to {0}: {1}', session.metadata.sessionName, err));
+					}
+				}
+			} else if (evt.reason === DisconnectReason.Transferred) {
+				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected ` +
+					`because another client connected to it.`);
+				if (!this._showingDisconnectedWarning) {
+					this._showingDisconnectedWarning = true;
+					try {
+						await positron.window.showSimpleModalDialogMessage(
+							vscode.l10n.t('Interpreters Disconnected'),
+							vscode.l10n.t('This Positron session has been opened in another window. ' +
+								'As a result, interpreters have been disconnected in the current window. Reload this window to reconnect to your sessions.'),
+							vscode.l10n.t('Continue')
+						);
+					} finally {
+						this._showingDisconnectedWarning = false;
 					}
 				}
 			}
@@ -946,6 +1000,21 @@ export class KCApi implements PositronSupervisorApi {
 		// Clear the workspace state so we don't try to reconnect to the old
 		// server
 		this._context.workspaceState.update(KALLICHORE_STATE_KEY, undefined);
+
+		// Do the same with the environment variable, and clean up the
+		// connection file if it exists.
+		const connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
+		if (connectionFile && fs.existsSync(connectionFile)) {
+			this._log.appendLine(`Cleaning up connection file ${connectionFile}`);
+			try {
+				fs.unlinkSync(connectionFile);
+			} catch (err) {
+				// Not fatal; just log the error. We'll unset the environment
+				// variable so we don't try to use this file again in any case.
+				this._log.appendLine(
+					`Failed to delete connection file ${connectionFile}: ${err}`);
+			}
+		}
 
 		// Shut down the server itself
 		try {

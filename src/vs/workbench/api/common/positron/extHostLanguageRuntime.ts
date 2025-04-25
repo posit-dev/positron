@@ -1073,6 +1073,17 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			if (index >= 0) {
 				this._runtimeManagers.splice(index, 1);
 			}
+
+			// Remove its associated runtimes
+			this._runtimeManagersByRuntimeId.forEach((m, runtimeId) => {
+				if (m.manager === manager) {
+					this._runtimeManagersByRuntimeId.delete(runtimeId);
+					const index = this._registeredRuntimes.findIndex(runtime => runtime.runtimeId === runtimeId);
+					if (index >= 0) {
+						this._registeredRuntimes.splice(index, 1);
+					}
+				}
+			});
 		});
 	}
 

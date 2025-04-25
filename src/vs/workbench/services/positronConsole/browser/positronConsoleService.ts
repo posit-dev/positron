@@ -573,8 +573,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// If there isn't a running runtime for the language, start one.
 		if (!runningLanguageRuntimeSessions.length) {
 			// Get the preferred runtime for the language.
-			let languageRuntime: ILanguageRuntimeMetadata;
-			languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
+			const languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
 
 			// Start the preferred runtime.
 			this._logService.trace(`Language runtime ` +
@@ -2286,6 +2285,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			case RuntimeExitReason.Shutdown:
 			case RuntimeExitReason.SwitchRuntime:
 				return localize('positronConsole.exit.shutdown', "{0} shut down successfully.", exit.session_name);
+
+			case RuntimeExitReason.Transferred:
+				return localize('positronConsole.exit.transfer', "{0} was opened in another window.", exit.runtime_name);
 
 			case RuntimeExitReason.Error:
 				return localize('positronConsole.exit.error', "{0} exited unexpectedly: {1}", exit.session_name, this.formatExitCode(exit.exit_code));

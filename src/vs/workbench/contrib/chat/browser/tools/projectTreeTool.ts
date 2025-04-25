@@ -7,7 +7,7 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExplorerService } from '../../../files/browser/files.js';
-import { CountTokensCallback, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
 import { ExplorerItem } from '../../../files/common/explorerModel.js';
 import { SortOrder } from '../../../files/common/files.js';
 import { IToolInputProcessor } from '../../common/tools/tools.js';
@@ -22,6 +22,7 @@ This tool lists the project tree of the current workspace as a JSON object.
 The project tree is represented as a nested array, where each entry can be either a file (string) or a directory (tuple with the directory name and an array of its children).
 This tool ignores node_modules, __pycache__, dist directories, certain files like .DS_Store, Thumbs.db, and desktop.ini. and files with certain extensions like *.o, *.a, *.so, *.pyo.
 This tool does not provide information for specific files or directories, but rather gives an overview of the entire project structure.
+This tool is helpful for locating files and directories in the workspace.
 This tool only needs to be called once per conversation, unless files or directories are added, removed, moved, or renamed in the workspace.
 `;
 
@@ -42,7 +43,7 @@ export class ProjectTreeTool implements IToolImpl {
 		@IExplorerService private readonly _explorerService: IExplorerService,
 	) { }
 
-	async invoke(invocation: IToolInvocation, countTokens: CountTokensCallback, token: CancellationToken): Promise<IToolResult> {
+	async invoke(_invocation: IToolInvocation, _countTokens: CountTokensCallback, _token: CancellationToken): Promise<IToolResult> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
 			return {
@@ -78,6 +79,13 @@ export class ProjectTreeTool implements IToolImpl {
 
 		return {
 			content: workspaceTrees.map(dirTree => ({ kind: 'text', value: JSON.stringify(dirTree) })),
+		};
+	}
+
+	async prepareToolInvocation(_parameters: any, _token: CancellationToken): Promise<IPreparedToolInvocation> {
+		return {
+			invocationMessage: localize('projectTreeTool.invocationMessage', "Constructing project tree"),
+			pastTenseMessage: localize('projectTreeTool.pastTenseMessage', "Constructed project tree"),
 		};
 	}
 }

@@ -40,6 +40,35 @@ import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 
+/**
+ * The reason for a disconnection event.
+ */
+export enum DisconnectReason {
+	/** Normal disconnect after kernel exits. */
+	Exit = 'exit',
+
+	/** Abnormal disconnect with no known reason. */
+	Unknown = 'unknown',
+
+	/**
+	 * Disconnected because the connection was transferred to another client.
+	 * This can happen in Server mode when another browser tab is opened with
+	 * the same set of sessions as this browser tab.
+	 */
+	Transferred = 'transferred',
+}
+
+/**
+ * The event emitted when the session's websocket is disconnected from the kernel.
+ */
+export interface DisconnectedEvent {
+	/** The state of the kernel at the time of the disconnection */
+	state: positron.RuntimeState;
+
+	/** The reason for the disconnection */
+	reason: DisconnectReason;
+}
+
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * The runtime messages emitter; consumes Jupyter messages and translates
@@ -54,7 +83,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _exit: vscode.EventEmitter<positron.LanguageRuntimeExit>;
 
 	/** Emitter for disconnection events  */
-	readonly disconnected: vscode.EventEmitter<positron.RuntimeState>;
+	readonly disconnected: vscode.EventEmitter<DisconnectedEvent>;
 
 	/** Barrier: opens when the session has been established on Kallichore */
 	private readonly _established: Barrier = new Barrier();
@@ -88,6 +117,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** Whether we are currently restarting the kernel */
 	private _restarting = false;
+
+	/** Whether it is possible to connect to the session's websocket */
+	private _canConnect = true;
 
 	/** The Debug Adapter Protocol client, if any */
 	private _dapClient: DapClient | undefined;
@@ -153,7 +185,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Create event emitters
 		this._state = new vscode.EventEmitter<positron.RuntimeState>();
 		this._exit = new vscode.EventEmitter<positron.LanguageRuntimeExit>();
-		this.disconnected = new vscode.EventEmitter<positron.RuntimeState>();
+		this.disconnected = new vscode.EventEmitter<DisconnectedEvent>();
 
 		// Ensure the emitters are disposed when the session is disposed
 		this._disposables.push(this._state);
@@ -182,19 +214,57 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Builds the set of environment variable actions to be applied to the
 	 * kernel when starting or restarting.
 	 *
+	 * @params restart Whether this is a restart or a new session
+	 *
 	 * @returns An array of environment variable actions
 	 */
-	async buildEnvVarActions(): Promise<VarAction[]> {
+	async buildEnvVarActions(restart: boolean): Promise<VarAction[]> {
 		const varActions: Array<VarAction> = [];
+
+		// Built-in variable POSITRON is always set to 1 to indicate that
+		// this is a Positron session.
+		varActions.push({
+			action: VarActionType.Replace, name: 'POSITRON',
+			value: '1'
+		});
+
+		// The Positron version.
+		varActions.push({
+			action: VarActionType.Replace, name: 'POSITRON_VERSION',
+			value: positron.version
+		});
+
+		// RUST_LOG sets the log level for Rust components started by the
+		// supervisor; it mirrors our own log level.
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const logLevel = config.get<string>('logLevel') ?? 'warn';
+		varActions.push({
+			action: VarActionType.Replace,
+			name: 'RUST_LOG',
+			value: logLevel
+		});
+
+		// The long form of the Positron version (includes build number).
+		varActions.push({
+			action: VarActionType.Replace, name: 'POSITRON_LONG_VERSION',
+			value: `${positron.version}+${positron.buildNumber}`
+		});
+
+		// The Positron mode (desktop or server)
+		varActions.push({
+			action: VarActionType.Replace,
+			name: 'POSITRON_MODE',
+			value: vscode.env.uiKind === vscode.UIKind.Desktop ? 'desktop' : 'server'
+		});
 
 		// Start with the environment variables from any extension's contributions.
 		const contributedVars = await positron.environment.getEnvironmentContributions();
 		for (const [extensionId, actions] of Object.entries(contributedVars)) {
 
-			if (extensionId === 'ms-python.python') {
+			if (restart && extensionId === 'ms-python.python') {
 				// The variables contributed by the Python extension are
 				// intended for the "current" version of Python, which isn't
-				// necessarily the version we are starting/restarting here.
+				// necessarily the version we are restarting here.
 				// Ignore these for now, but consider: there should be a scoping
 				// mechanism of some kind that would allow us to work with these
 				// kinds of values.
@@ -266,7 +336,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Save the kernel spec for later use
 		this._kernelSpec = kernelSpec;
-		const varActions = await this.buildEnvVarActions();
+		const varActions = await this.buildEnvVarActions(false);
 
 		// Prepare the working directory; use the workspace root if available,
 		// otherwise the home directory
@@ -1119,6 +1189,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * @returns A promise that resolves when the websocket is connected.
 	 */
 	connect(): Promise<void> {
+		// Ensure we are eligible for reconnection. We can't reconnect if
+		// another client is connected to the session as it would disconnect the
+		// other client.
+		if (!this._canConnect) {
+			return Promise.reject(new Error('This session cannot be reconnected.'));
+		}
+
 		return new Promise((resolve, reject) => {
 			// Ensure websocket is closed if it's open
 			if (this._socket) {
@@ -1158,7 +1235,18 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			this._socket.ws.onclose = (evt: any) => {
 				this.log(`Websocket closed with kernel in status ${this._runtimeState}: ${JSON.stringify(evt)}`, vscode.LogLevel.Info);
-				this.disconnected.fire(this._runtimeState);
+
+				// Only fire the disconnected event if we are eligible to
+				// reconnect
+				if (this._canConnect) {
+					const disconnectEvent: DisconnectedEvent = {
+						reason: this._runtimeState === positron.RuntimeState.Exited ?
+							DisconnectReason.Exit : DisconnectReason.Unknown,
+						state: this._runtimeState,
+					};
+					this.disconnected.fire(disconnectEvent);
+				}
+
 				// When the socket is closed, reset the connected barrier and
 				// clear the websocket instance.
 				this._connected = new Barrier();
@@ -1218,7 +1306,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// Build the set of environment variables to pass to the kernel.
 				// This is done on every restart so that changes to extension
 				// environment contributions can be respected.
-				env: await this.buildEnvVarActions(),
+				env: await this.buildEnvVarActions(true),
 			};
 			await this._api.restartSession(this.metadata.sessionId, restart);
 
@@ -1298,7 +1386,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	handleMessage(data: any) {
 		if (!data.kind) {
-			this.log(`Kallichore session ${this.metadata.sessionId} message has no kind: ${data}`, vscode.LogLevel.Warning);
+			this.log(`Kallichore session ${this.metadata.sessionId} message has no kind: ${JSON.stringify(data)}`, vscode.LogLevel.Warning);
 			return;
 		}
 		switch (data.kind) {
@@ -1348,6 +1436,30 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		} else if (data.hasOwnProperty('output')) {
 			const output = data as KernelOutputMessage;
 			this._kernelChannel.append(output.output[1]);
+		} else if (data.hasOwnProperty('clientDisconnected')) {
+			// Log the disconnection and close the socket
+			this._kernelChannel.append(`Client disconnected: ${data.clientDisconnected}`);
+			this.disconnect();
+
+			// Treat the runtime as exited
+			const disconnectEvent: DisconnectedEvent = {
+				reason: DisconnectReason.Transferred,
+				state: this._runtimeState,
+			};
+			this.disconnected.fire(disconnectEvent);
+			this.onStateChange(positron.RuntimeState.Exited, data.clientDisconnected);
+
+			const exitEvent: positron.LanguageRuntimeExit = {
+				exit_code: 0,
+				reason: positron.RuntimeExitReason.Transferred,
+				runtime_name: this.runtimeMetadata.runtimeName,
+				session_name: this.metadata.sessionName,
+				message: ''
+			};
+			this._exit.fire(exitEvent);
+
+			// Additional guard to ensure we don't try to reconnect
+			this._canConnect = false;
 		} else if (data.hasOwnProperty('exited')) {
 			this.onExited(data.exited);
 		}
