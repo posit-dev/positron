@@ -207,7 +207,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		this._kernelChannel = positron.window.createRawLogOutputChannel(
 			`${runtimeMetadata.runtimeName}: Kernel`);
-		this._kernelChannel.appendLine(`** Begin kernel log for session ${metadata.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
+		this._kernelChannel.appendLine(`** Begin kernel log for session ${dynState.sessionName} (${metadata.sessionId}) at ${new Date().toLocaleString()} **`);
 	}
 
 	/**
@@ -416,7 +416,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			argv: args,
 			sessionId: this.metadata.sessionId,
 			language: kernelSpec.language,
-			displayName: this.metadata.sessionName,
+			displayName: this.dynState.sessionName,
 			inputPrompt: '',
 			continuationPrompt: '',
 			env: varActions,
@@ -922,7 +922,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			if (this._runtimeState === positron.RuntimeState.Starting) {
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
-					session_name: this.metadata.sessionName,
+					session_name: this.dynState.sessionName,
 					exit_code: 0,
 					reason: positron.RuntimeExitReason.StartupFailed,
 					message: summarizeError(err)
@@ -1041,7 +1041,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				}
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
-					session_name: this.metadata.sessionName,
+					session_name: this.dynState.sessionName,
 					exit_code: startupErr.exit_code ?? 0,
 					reason: positron.RuntimeExitReason.StartupFailed,
 					message
@@ -1056,7 +1056,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// stringify it if it's not an Error
 				const event: positron.LanguageRuntimeExit = {
 					runtime_name: this.runtimeMetadata.runtimeName,
-					session_name: this.metadata.sessionName,
+					session_name: this.dynState.sessionName,
 					exit_code: 0,
 					reason: positron.RuntimeExitReason.StartupFailed,
 					message: summarizeError(err)
@@ -1134,7 +1134,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// (i.e. all UI is usable but the busy indicator is shown).
 				vscode.window.withProgress({
 					location: vscode.ProgressLocation.Notification,
-					title: vscode.l10n.t('{0} is busy; waiting for it to become idle before reconnecting.', this.metadata.sessionName),
+					title: vscode.l10n.t('{0} is busy; waiting for it to become idle before reconnecting.', this.dynState.sessionName),
 					cancellable: false,
 				}, async () => {
 					await this.waitForIdle();
@@ -1225,7 +1225,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					// something bad happened. Close the connected barrier and
 					// show an error.
 					this._connected = new Barrier();
-					vscode.window.showErrorMessage(`Error connecting to ${this.metadata.sessionName} (${this.metadata.sessionId}): ${JSON.stringify(err)}`);
+					vscode.window.showErrorMessage(`Error connecting to ${this.dynState.sessionName} (${this.metadata.sessionId}): ${JSON.stringify(err)}`);
 				} else {
 					// The connection never established; reject the promise and
 					// let the caller handle it.
@@ -1573,7 +1573,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Create and fire the exit event.
 		const event: positron.LanguageRuntimeExit = {
 			runtime_name: this.runtimeMetadata.runtimeName,
-			session_name: this.metadata.sessionName,
+			session_name: this.dynState.sessionName,
 			exit_code: exitCode,
 			reason: this._exitReason,
 			message: ''

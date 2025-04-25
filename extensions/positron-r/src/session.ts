@@ -88,16 +88,18 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		readonly kernelSpec?: JupyterKernelSpec,
 		readonly extra?: JupyterKernelExtra,
 	) {
-		this._lsp = new ArkLsp(runtimeMetadata.languageVersion, metadata);
+		// Set the initial dynamic state
+		this.dynState = {
+			sessionName: runtimeMetadata.runtimeName,
+			continuationPrompt: '+',
+			inputPrompt: '>',
+		};
+
+		this._lsp = new ArkLsp(runtimeMetadata.languageVersion, metadata, this.dynState);
 		this._lspQueue = new PQueue({ concurrency: 1 });
 		this.onDidReceiveRuntimeMessage = this._messageEmitter.event;
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
 		this.onDidEndSession = this._exitEmitter.event;
-
-		this.dynState = {
-			continuationPrompt: '+',
-			inputPrompt: '>',
-		};
 
 		// Timestamp the session creation
 		this._created = Date.now();
