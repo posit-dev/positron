@@ -46,6 +46,16 @@ async function registerDatabricksCatalog(
 		title: "Databricks Workspace",
 		// Users will likely be copy & pasting this value.
 		ignoreFocusOut: true,
+		validateInput: (value: string) => {
+			if (value.startsWith("https://")) {
+				return undefined;
+			}
+			return {
+				message: `Workspace URLs must begin with "https://".`,
+				severity: vscode.InputBoxValidationSeverity
+					.Error,
+			};
+		},
 	});
 	if (!workspace) {
 		return;
@@ -53,6 +63,17 @@ async function registerDatabricksCatalog(
 	const token = await vscode.window.showInputBox({
 		title: "Personal Access Token",
 		ignoreFocusOut: true,
+		password: true,
+		validateInput: (value: string) => {
+			if (value.startsWith("dapi")) {
+				return undefined;
+			}
+			return {
+				message: `Unrecognized token format. Tokens should start with "dapi".`,
+				severity: vscode.InputBoxValidationSeverity
+					.Warning,
+			};
+		},
 	});
 	if (!token) {
 		return;
