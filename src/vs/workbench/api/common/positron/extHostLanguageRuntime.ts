@@ -961,8 +961,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return Promise.resolve(this._registeredRuntimes);
 	}
 
-	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata> {
+	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata | undefined> {
 		const metadata = await this._proxy.$getPreferredRuntime(languageId);
+		if (!metadata) {
+			return undefined;
+		}
 
 		// If discovery is in progress, a runtime may exist on the main thread but not
 		// the extension host, so retry a bunch of times. Retrying is more likely to return
