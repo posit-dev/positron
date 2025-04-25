@@ -18,7 +18,9 @@ import { PositronImportSettings, ResetPositronImportPrompt } from './actions.js'
 import { getCodeSettingsPath, promptImport } from './helpers.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize } from '../../../../nls.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
+export const POSITRON_SETTINGS_IMPORT_ENABLE_KEY = 'positron.importSettings.enable';
 class PositronWelcomeContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
 		@IStorageService private readonly storageService: IStorageService,
@@ -27,10 +29,17 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 		@IPathService private readonly pathService: IPathService,
 		@IFileService private readonly fileService: IFileService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) {
 		super();
 
 		if (isWeb) {
+			return;
+		}
+
+		const enabledGlobally = this.configurationService.getValue<boolean>(POSITRON_SETTINGS_IMPORT_ENABLE_KEY);
+
+		if (!enabledGlobally) {
 			return;
 		}
 
@@ -62,10 +71,10 @@ registerWorkbenchContribution2('positron.welcome', PositronWelcomeContribution, 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 	.registerConfiguration({
 		properties: {
-			'positron.importSettings.enable': {
+			POSITRON_SETTINGS_IMPORT_ENABLE_KEY: {
 				type: 'boolean',
 				default: true,
-				description: localize('positron.importSettings.enable', "Should Positron prompt users to import settings from Visual Studio Code on first launch."),
+				description: localize('positron.importSettings.enable', "Should Positron allow users to import settings from Visual Studio Code."),
 				doNotSuggest: true,
 				scope: ConfigurationScope.APPLICATION_MACHINE
 			}
