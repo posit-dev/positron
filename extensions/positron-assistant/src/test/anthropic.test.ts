@@ -66,11 +66,11 @@ suite('AnthropicLanguageModel', () => {
 
 		const messagesWithEmpty = [
 			// Message with only empty text content
-			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.User, [emptyTextPart]),
+			vscode.LanguageModelChatMessage.User([emptyTextPart]),
 			// Message with non-empty text content
-			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.User, [nonEmptyTextPart]),
+			vscode.LanguageModelChatMessage.User([nonEmptyTextPart]),
 			// Message with both empty and non-empty text content
-			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.Assistant, [emptyTextPart, nonEmptyTextPart])
+			vscode.LanguageModelChatMessage.Assistant([emptyTextPart, nonEmptyTextPart])
 		];
 
 		// Call the method under test
