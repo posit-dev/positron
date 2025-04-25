@@ -93,9 +93,6 @@ function getExtensionDownloadStream(extension) {
         input = ext.fromVsix(path_1.default.join(root, extension.vsix), extension);
     }
     else if (productjson.extensionsGallery?.serviceUrl) {
-        if (productjson.extensionsGallery.serviceUrl) {
-            return event_stream_1.default.readArray([]);
-        }
         input = ext.fromMarketplace(productjson.extensionsGallery.serviceUrl, extension);
         // --- Start Positron ---
         if (extension.metadata.multiPlatformServiceUrl) {
@@ -122,10 +119,6 @@ function syncMarketplaceExtension(extension) {
     const source = ansi_colors_1.default.blue(galleryServiceUrl ? '[marketplace]' : '[github]');
     if (isUpToDate(extension)) {
         log(source, `${extension.name}@${extension.version}`, ansi_colors_1.default.green('✔︎'));
-        return event_stream_1.default.readArray([]);
-    }
-    else if (!isUpToDate(extension)) {
-        log(source, `${extension.name}@${extension.version}`, ansi_colors_1.default.yellow('skipping (openVSX)'));
         return event_stream_1.default.readArray([]);
     }
     rimraf_1.default.sync(getExtensionPath(extension));
