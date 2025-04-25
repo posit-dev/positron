@@ -71,10 +71,10 @@ registerWorkbenchContribution2('positron.welcome', PositronWelcomeContribution, 
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 	.registerConfiguration({
 		properties: {
-			POSITRON_SETTINGS_IMPORT_ENABLE_KEY: {
+			[POSITRON_SETTINGS_IMPORT_ENABLE_KEY]: {
 				type: 'boolean',
 				default: true,
-				description: localize('positron.importSettings.enable', "Should Positron allow users to import settings from Visual Studio Code."),
+				description: localize('positron.importSettings.enable', "Should Positron allow users to import settings from Visual Studio Code. Requires a restart to take effect."),
 				doNotSuggest: true,
 				scope: ConfigurationScope.APPLICATION_MACHINE
 			}
