@@ -25,30 +25,30 @@
         "icon": "$(add)"
       },
       {
-        "command": "positron-catalog-explorer.openWith",
+        "command": "posit.catalog-explorer.openWith",
         "category": "Catalogs",
         "title": "Open With...",
-        "enablement": "view == positron-catalog-explorer"
+        "enablement": "view == catalog-explorer"
       },
       {
-        "command": "positron-catalog-explorer.openInSession",
+        "command": "posit.catalog-explorer.openInSession",
         "category": "Catalogs",
         "title": "Open in Session",
         "when": "isPositron",
-        "enablement": "view == positron-catalog-explorer"
+        "enablement": "view == catalog-explorer"
       },
       {
-        "command": "positron-catalog-explorer.copyPath",
+        "command": "posit.catalog-explorer.copyPath",
         "category": "Catalogs",
         "title": "Copy Path",
         "icon": "$(copy)",
-        "enablement": "view == positron-catalog-explorer"
+        "enablement": "view == catalog-explorer"
       }
     ],
     "views": {
-      "positron-connections": [
+      "explorer": [
         {
-          "id": "positron-catalog-explorer",
+          "id": "catalog-explorer",
           "name": "Catalog Explorer",
           "when": "isPositron"
         }
@@ -56,7 +56,7 @@
     },
     "viewsWelcome": [
       {
-        "view": "positron-catalog-explorer",
+        "view": "catalog-explorer",
         "contents": "Explore tables, views, and more in Databricks Unity Catalog, AWS Glue, Azure Data Lake Storage, or any Apache Iceberg-compatible catalog.\n[Configure a Catalog Provider](command:posit.catalog-explorer.addCatalogProvider)"
       }
     ],
@@ -64,33 +64,33 @@
       "view/title": [
         {
           "command": "posit.catalog-explorer.addCatalogProvider",
-          "when": "view == positron-catalog-explorer",
+          "when": "view == catalog-explorer",
           "group": "navigation"
         }
       ],
       "view/item/context": [
         {
-          "command": "positron-catalog-explorer.openWith",
-          "when": "view == positron-catalog-explorer && viewItem == file",
+          "command": "posit.catalog-explorer.openWith",
+          "when": "view == catalog-explorer && viewItem == file",
           "group": "1_primary@2"
         },
         {
-          "command": "positron-catalog-explorer.openInSession",
-          "when": "isPositron && view == positron-catalog-explorer && viewItem == file",
+          "command": "posit.catalog-explorer.openInSession",
+          "when": "isPositron && view == catalog-explorer && viewItem == file",
           "group": "1_primary@3"
         },
         {
-          "command": "positron-catalog-explorer.copyPath",
-          "when": "view == positron-catalog-explorer && (viewItem == file || viewItem == folder || viewItem == volume)",
+          "command": "posit.catalog-explorer.copyPath",
+          "when": "view == catalog-explorer && (viewItem == file || viewItem == folder || viewItem == volume)",
           "group": "2_path@0"
         }
       ]
     },
     "keybindings":[
       {
-        "command": "positron-catalog-explorer.copyPath",
+        "command": "posit.catalog-explorer.copyPath",
         "key": "Ctrl+Alt+C",
-        "when": "focusedView == positron-catalog-explorer"
+        "when": "focusedView == catalog-explorer"
       }
     ]
   },

@@ -15,7 +15,6 @@ import { setExtensionUri } from "./resources";
 
 export async function activate(context: vscode.ExtensionContext) {
 	setExtensionUri(context);
-	console.log('"positron-catalogs" is now active!');
 	const registry = new CatalogProviderRegistry();
 	context.subscriptions.push(
 		registerDatabricksProvider(registry),

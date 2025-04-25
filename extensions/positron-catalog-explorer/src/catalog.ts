@@ -72,7 +72,7 @@ export async function registerTreeViewProvider(
 	registry: CatalogProviderRegistry,
 ): Promise<vscode.Disposable> {
 	return vscode.window.registerTreeDataProvider(
-		"positron-catalog-explorer",
+		"catalog-explorer",
 		await CatalogTreeDataProvider.from(context, registry),
 	);
 }
@@ -259,7 +259,7 @@ export function registerCatalogCommands(
 ) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(
-			"positron-catalog-explorer.openWith",
+			"posit.catalog-explorer.openWith",
 			async (node: CatalogNode) => {
 				if (!node.resourceUri) {
 					return;
@@ -273,7 +273,7 @@ export function registerCatalogCommands(
 			},
 		),
 		vscode.commands.registerCommand(
-			"positron-catalog-explorer.copyPath",
+			"posit.catalog-explorer.copyPath",
 			async (node: CatalogNode) => {
 				if (!node.resourceUri) {
 					return;
@@ -287,7 +287,7 @@ export function registerCatalogCommands(
 			},
 		),
 		vscode.commands.registerCommand(
-			"positron-catalog-explorer.openInSession",
+			"posit.catalog-explorer.openInSession",
 			async (node: CatalogNode) => await node.openInSession(),
 		),
 		vscode.commands.registerCommand(
