@@ -179,7 +179,7 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 	private getEntryProps(): IStatusbarEntry {
 		// --- Start Positron ---
 		let text = '$(positron-assistant)';
-		let ariaLabel = localize('chatStatus', "Positron Assistant Status");
+		let ariaLabel = localize('chatStatus', "Assistant Status");
 		// --- End Positron ---
 		let kind: StatusbarEntryKind | undefined;
 
