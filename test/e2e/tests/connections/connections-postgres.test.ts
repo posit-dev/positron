@@ -40,7 +40,7 @@ test.describe('Postgres DB Connection', {
 
 		const hostLabel = app.code.driver.page.locator('span.label-text', { hasText: 'Host' });
 		const hostInput = hostLabel.locator('+ input.text-input');
-		await hostInput.fill(process.env.E2E_POSTGRES_HOST || 'localhost');
+		await hostInput.fill('localhost');
 
 		const userLabel = app.code.driver.page.locator('span.label-text', { hasText: 'User' });
 		const userInput = userLabel.locator('+ input.text-input');
