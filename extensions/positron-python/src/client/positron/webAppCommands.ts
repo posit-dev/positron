@@ -246,7 +246,7 @@ async function getFastAPIDebugConfig(
 ): Promise<DebugConfiguration | undefined> {
     let mod: string | undefined;
     let args: string[];
-    if (await isFastAPICLIInstalled(serviceContainer, runtime.runtimePath)) {
+    if (await isFastAPICLIInstalled(serviceContainer, runtime.extraRuntimeData.pythonPath)) {
         mod = 'fastapi';
         args = ['dev', document.uri.fsPath];
     } else {
