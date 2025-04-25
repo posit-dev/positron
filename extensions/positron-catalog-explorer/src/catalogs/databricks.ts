@@ -293,9 +293,43 @@ function getCodeForUri(
 	languageId: string,
 	uri: vscode.Uri,
 ): { code: string; dependencies: string[] } {
-	if (languageId !== "r") {
-		throw new Error("Python sessions are not yet supported");
+	switch (languageId) {
+		case "python":
+			return getPythonCodeForUri(uri);
+		case "r":
+			return getRCodeForUri(uri);
+		default:
+			throw new Error(
+				`Code generation for language ${languageId} is not yet supported`,
+			);
 	}
+}
+
+function getPythonCodeForUri(uri: vscode.Uri): {
+	code: string;
+	dependencies: string[];
+} {
+	const dependencies = ["databricks-sdk"];
+	const ext = path.extname(uri.path);
+	const varname = path
+		.basename(uri.path)
+		.replace(ext, "")
+		.replace("-", "_");
+	const code = `import pandas as pd
+from databricks.sdk import WorkspaceClient
+
+w = WorkspaceClient(host="https://${uri.authority}")
+${varname} = pd.read_csv(
+    w.files.download("${uri.path}").contents
+)
+`;
+	return { code, dependencies };
+}
+
+function getRCodeForUri(uri: vscode.Uri): {
+	code: string;
+	dependencies: string[];
+} {
 	const dependencies = ["brickster"];
 	const ext = path.extname(uri.path);
 	const varname = path.basename(uri.path).replace(ext, "");
