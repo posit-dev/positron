@@ -25,6 +25,8 @@ export interface CatalogProvider extends vscode.Disposable {
 	 */
 	getChildren(node?: CatalogNode): Promise<CatalogNode[]>;
 
+	getCode?(languageId: string, node: CatalogNode): string;
+
 	openInSession?(node: CatalogNode): Promise<void>;
 
 	refresh?(): void;
@@ -61,6 +63,16 @@ export class CatalogNode {
 
 	getTreeItem(): vscode.TreeItem {
 		return new CatalogItem(this);
+	}
+
+	getCode(languageId: string): string | undefined {
+		if (!this.provider.getCode) {
+			vscode.window.showErrorMessage(
+				"Code generation is not supported by this provider.",
+			);
+			return;
+		}
+		return this.provider.getCode(languageId, this);
 	}
 
 	async openInSession() {
@@ -305,6 +317,26 @@ export function registerCatalogCommands(
 		vscode.commands.registerCommand(
 			"posit.catalog-explorer.openInSession",
 			async (node: CatalogNode) => await node.openInSession(),
+		),
+		vscode.commands.registerCommand(
+			"posit.catalog-explorer.copyPythonCode",
+			async (node: CatalogNode) => {
+				const code = node.getCode("python");
+				if (!code) {
+					return;
+				}
+				await vscode.env.clipboard.writeText(code);
+			},
+		),
+		vscode.commands.registerCommand(
+			"posit.catalog-explorer.copyRCode",
+			async (node: CatalogNode) => {
+				const code = node.getCode("r");
+				if (!code) {
+					return;
+				}
+				await vscode.env.clipboard.writeText(code);
+			},
 		),
 		vscode.commands.registerCommand(
 			"posit.catalog-explorer.refresh",

@@ -249,6 +249,16 @@ class DatabricksCatalogProvider implements CatalogProvider {
 		return [];
 	}
 
+	getCode(languageId: string, node: CatalogNode): string {
+		if (node.type !== "file" || !node.resourceUri) {
+			throw new Error(
+				`Nodes of type '${node.type}' cannot be opened in a session.`,
+			);
+		}
+		const code = getCodeForUri(languageId, node.resourceUri);
+		return code.code;
+	}
+
 	async openInSession(node: CatalogNode): Promise<void> {
 		const positron = getPositronAPI();
 		if (!positron) {

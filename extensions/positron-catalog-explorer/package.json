@@ -49,6 +49,20 @@
         "title": "Copy Path",
         "icon": "$(copy)",
         "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.copyPythonCode",
+        "category": "Catalogs",
+        "title": "Copy Python Code",
+        "icon": "$(copy)",
+        "enablement": "view == catalog-explorer"
+      },
+      {
+        "command": "posit.catalog-explorer.copyRCode",
+        "category": "Catalogs",
+        "title": "Copy R Code",
+        "icon": "$(copy)",
+        "enablement": "view == catalog-explorer"
       }
     ],
     "views": {
@@ -93,7 +107,17 @@
         {
           "command": "posit.catalog-explorer.copyPath",
           "when": "view == catalog-explorer && (viewItem == file || viewItem == folder || viewItem == volume)",
-          "group": "2_path@0"
+          "group": "2_copy@0"
+        },
+        {
+          "command": "posit.catalog-explorer.copyPythonCode",
+          "when": "view == catalog-explorer && viewItem == file",
+          "group": "2_copy@1"
+        },
+        {
+          "command": "posit.catalog-explorer.copyRCode",
+          "when": "view == catalog-explorer && viewItem == file",
+          "group": "2_copy@2"
         }
       ]
     },
