@@ -966,17 +966,24 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		// Start the recommended runtimes.
-		const promises = runtimes.map((runtime, idx) => {
+		const promises = runtimes.map(async (runtime, idx) => {
+			// Ensure that the runtime isn't disabled; we try to avoid getting these
+			// in the first place by not querying for them, but technically any
+			// runtime manager could return a disabled runtime.
+			if (disabledLanguageIds.includes(runtime.languageId)) {
+				this._logService.debug(`[Runtime startup] Skipping language runtime startup for language ID '${runtime.languageId}' because its startup behavior is disabled.`);
+				return;
+			}
 
 			// Register the runtime with the language runtime service.
 			// Pre-registering prevents the runtime from being unnecessarily
 			// validated later.
-			this._languageRuntimeService.registerRuntime(runtime);
+			this._register(this._languageRuntimeService.registerRuntime(runtime));
 
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
 				// Start the runtime immediately if it has Immediate startup
 				// behavior.
-				this.autoStartRuntime(runtime,
+				await this.autoStartRuntime(runtime,
 					`The ${runtime.extensionId.value} extension recommended the runtime to be started in this workspace.`,
 					idx === 0);
 			} else {
