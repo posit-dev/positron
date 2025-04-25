@@ -10,11 +10,14 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings, ResetPositronImportPrompt } from './actions.js';
 import { getCodeSettingsPath, promptImport } from './helpers.js';
+import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { localize } from '../../../../nls.js';
 
 class PositronWelcomeContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
@@ -54,3 +57,17 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 }
 
 registerWorkbenchContribution2('positron.welcome', PositronWelcomeContribution, WorkbenchPhase.Eventually);
+
+// Register the configuration setting
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+	.registerConfiguration({
+		properties: {
+			'positron.importSettings.enable': {
+				type: 'boolean',
+				default: true,
+				description: localize('positron.importSettings.enable', "Should Positron prompt users to import settings from Visual Studio Code on first launch."),
+				doNotSuggest: true,
+				scope: ConfigurationScope.APPLICATION_MACHINE
+			}
+		}
+	});
