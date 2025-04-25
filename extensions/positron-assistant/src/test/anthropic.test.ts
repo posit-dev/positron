@@ -112,13 +112,13 @@ suite('AnthropicLanguageModel', () => {
 
 		const messagesWithVariousContent = [
 			// Message with only empty text content - should be filtered out
-			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.User, [emptyTextPart]),
+			vscode.LanguageModelChatMessage.User([emptyTextPart]),
 			// Message with only whitespace - should be filtered out
-			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.User, [whitespaceTextPart]),
+			vscode.LanguageModelChatMessage.User([whitespaceTextPart]),
 			// Message with non-empty text content - should be kept
-			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.User, [nonEmptyTextPart]),
+			vscode.LanguageModelChatMessage.User([nonEmptyTextPart])
 			// Message with both empty and non-empty text content - should be kept
-			new vscode.LanguageModelChatMessage(vscode.LanguageModelChatMessageRole.Assistant, [emptyTextPart, nonEmptyTextPart])
+			vscode.LanguageModelChatMessage.Assistant([emptyTextPart, nonEmptyTextPart])
 		];
 
 		// Call the method under test
