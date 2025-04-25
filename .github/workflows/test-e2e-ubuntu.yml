@@ -84,6 +84,18 @@ jobs:
     name: ${{ inputs.display_name || 'e2e-linux' }}
     timeout-minutes: 90
     runs-on: ubuntu-latest-8x
+    services:
+      postgres:
+        image: postgres:latest
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+        options: >-
+          --health-cmd pg_isready --interval 2s --timeout 5s --retries 5
+
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
@@ -97,6 +109,20 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
+
+      - name: Download sample database
+        run: |
+          wget https://raw.githubusercontent.com/neondatabase/postgres-sample-dbs/main/periodic_table.sql
+
+      - name: Connect to PostgreSQL and load sample data
+        env:
+          PGHOST: postgres
+          PGPORT: 5432
+          PGUSER: ${{ secrets.E2E_POSTGRES_USER }}
+          PGPASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
+          PGDATABASE: ${{ secrets.E2E_POSTGRES_DB }}
+        run: |
+          psql -v ON_ERROR_STOP=1 -f periodic_table.sql
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
