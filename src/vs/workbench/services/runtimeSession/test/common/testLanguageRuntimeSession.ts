@@ -267,7 +267,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			this._onDidChangeRuntimeState.fire(RuntimeState.Exited);
 			this._onDidEndSession.fire({
 				runtime_name: this.runtimeMetadata.runtimeName,
-				session_name: this.metadata.sessionName,
+				session_name: this.dynState.sessionName,
 				exit_code: 0,
 				reason: exitReason,
 				message: '',
@@ -450,12 +450,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			message: exit?.message ?? '',
 			reason: exit?.reason ?? RuntimeExitReason.Unknown,
 			runtime_name: this.runtimeMetadata.runtimeName,
-			session_name: this.metadata.sessionName
+			session_name: this.dynState.sessionName
 		});
 	}
 
 	getLabel(): string {
-		return this.runtimeMetadata.runtimeName;
+		return this.dynState.sessionName;
 	}
 }
 
