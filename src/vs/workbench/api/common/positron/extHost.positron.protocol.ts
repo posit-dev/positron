@@ -9,13 +9,14 @@ import { createProxyIdentifier, IRPCProtocol, SerializableObjectWithBuffers } fr
 import { MainContext, IWebviewPortMapping, WebviewExtensionDescription, IChatProgressDto, ExtHostQuickOpenShape } from '../extHost.protocol.js';
 import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IEditorContext } from '../../../services/frontendMethods/common/editorContext.js';
-import { RuntimeClientType, LanguageRuntimeSessionChannel, PlotRenderSettings } from './extHostTypes.positron.js';
+import { RuntimeClientType, LanguageRuntimeSessionChannel } from './extHostTypes.positron.js';
 import { EnvironmentVariableAction, LanguageRuntimeDynState, RuntimeSessionMetadata } from 'positron';
 import { IDriverMetadata, Input } from '../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
 // as a dependency of this module, and therefore that it's initialized first. This is to avoid a

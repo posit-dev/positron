@@ -11,7 +11,6 @@ import { ExtensionIdentifier } from '../../../../platform/extensions/common/exte
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
-import { UiRuntimeNotifications } from '../../../api/common/positron/extHostTypes.positron.js';
 
 export const ILanguageRuntimeService = createDecorator<ILanguageRuntimeService>('languageRuntimeService');
 
@@ -847,4 +846,12 @@ export interface ILanguageRuntimeService {
 	 * Returns the current startup phase.
 	 */
 	get startupPhase(): RuntimeStartupPhase;
+}
+
+/**
+ * UI notifications from frontend to backends.
+ */
+export enum UiRuntimeNotifications {
+	/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
+	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 }
