@@ -15,7 +15,7 @@ import { IStorageService } from '../../../../platform/storage/common/storage.js'
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings, ResetPositronImportPrompt } from './actions.js';
-import { getCodeSettingsPath, promptImport } from './helpers.js';
+import { getCodeSettingsPath, getImportWasPrompted, promptImport } from './helpers.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -49,7 +49,8 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 			this.contextKeyService.createKey('positron.settingsImport.hasCodeSettings', codeSettingsExist);
 			this.registerActions();
 
-			if (codeSettingsExist) {
+			const alreadyPrompted = await getImportWasPrompted(this.storageService);
+			if (codeSettingsExist && !alreadyPrompted) {
 				promptImport(
 					this.storageService,
 					this.notificationService,
