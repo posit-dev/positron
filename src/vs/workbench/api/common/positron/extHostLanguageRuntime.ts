@@ -552,7 +552,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			this._proxy.$emitLanguageRuntimeExit(handle, exit);
 
 			// The main thread will handle the session cleanup
-			// by calling the `$cleanupLanguageRuntime` method.
+			// by calling the `$disposeLanguageRuntime` method.
 
 			// Note that we don't remove the session from the list of sessions;
 			// that would invalidate the handles of all subsequent sessions
@@ -628,7 +628,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].start();
 	}
 
-	async $cleanupLanguageRuntime(handle: number): Promise<void> {
+	async $disposeLanguageRuntime(handle: number): Promise<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot cleanup runtime: session handle '${handle}' not found or no longer valid.`);
 		}

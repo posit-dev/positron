@@ -2224,9 +2224,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		this._runtimeDisposableStore.add(this._session.onDidEndSession((exit) => {
-			const multiSessionsEnabled =
-				multipleConsoleSessionsFeatureEnabled(this._configurationService);
-
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
@@ -2263,9 +2260,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				exit.reason === RuntimeExitReason.Unknown ||
 				crashedAndNeedRestartButton;
 
-			if (!multiSessionsEnabled && showRestartButton) {
+			if (showRestartButton) {
 				const restartButton = new RuntimeItemRestartButton(generateUuid(),
-					this.runtimeMetadata.languageName,
+					this.sessionMetadata.sessionName,
 					() => {
 						this._onDidRequestRestart.fire();
 					});
