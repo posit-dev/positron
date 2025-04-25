@@ -426,7 +426,7 @@ class PositronAssistantChatParticipant extends PositronAssistantParticipant impl
 	id = ParticipantID.Chat;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
-		return await fs.promises.readFile(`${mdDir}/prompts/chat/filepath.md`, 'utf8');
+		return await fs.promises.readFile(`${mdDir}/prompts/chat/filepaths.md`, 'utf8');
 	}
 }
 
@@ -448,13 +448,26 @@ class PositronAssistantEditorParticipant extends PositronAssistantParticipant im
 			throw new Error('Editor participant only supports editor requests');
 		}
 
-		// If the user has not selected text, use the prompt for the whole document.
+		const prompts = [];
+
 		if (request.location2.selection.isEmpty) {
-			return await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
+			// If the user has not selected text, use the prompt for the whole document.
+			prompts.push(
+				await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8')
+			);
+		} else {
+			// If the user has selected text, generate a new version of the selection.
+			prompts.push(
+				await fs.promises.readFile(`${mdDir}/prompts/chat/selection.md`, 'utf8')
+			);
 		}
 
-		// If the user has selected text, generate a new version of the selection.
-		return await fs.promises.readFile(`${mdDir}/prompts/chat/selection.md`, 'utf8');
+		// Add filepaths handling to the system prompt.
+		prompts.push(
+			await fs.promises.readFile(`${mdDir}/prompts/chat/filepaths.md`, 'utf8')
+		);
+
+		return prompts.join('\n\n');
 	}
 
 	async getMessages(request: vscode.ChatRequest): Promise<vscode.LanguageModelChatMessage[]> {
