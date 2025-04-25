@@ -105,6 +105,9 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	private readonly _onDidUpdateNotebookSessionUri = new Emitter<INotebookSessionUriChangedEvent>();
 	readonly onDidUpdateNotebookSessionUri = this._onDidUpdateNotebookSessionUri.event;
 
+	private readonly _onDidUpdateSessionName = new Emitter<ILanguageRuntimeSession>();
+	readonly onDidUpdateSessionName = this._onDidUpdateSessionName.event;
+
 	foregroundSession: ILanguageRuntimeSession | undefined;
 
 	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
@@ -196,8 +199,8 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	updateSessionName(_sessionId: string, _name: string): Promise<void> {
-		throw new Error('Method not implemented.');
+	updateSessionName(_sessionId: string, _name: string): string | undefined {
+		return undefined;
 	}
 
 	shutdownNotebookSession(_notebookUri: any, _exitReason: RuntimeExitReason, _source: string): Promise<void> {
