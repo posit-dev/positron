@@ -93,8 +93,6 @@ jobs:
           POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
-        options: >-
-          --health-cmd pg_isready --interval 2s --timeout 5s --retries 5
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
