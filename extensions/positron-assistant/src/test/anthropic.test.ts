@@ -115,7 +115,7 @@ suite('AnthropicLanguageModel', () => {
 			// Message with only whitespace - should be filtered out
 			vscode.LanguageModelChatMessage.User([whitespaceTextPart]),
 			// Message with non-empty text content - should be kept
-			vscode.LanguageModelChatMessage.User([nonEmptyTextPart])
+			vscode.LanguageModelChatMessage.User([nonEmptyTextPart]),
 			// Message with both empty and non-empty text content - should be kept
 			vscode.LanguageModelChatMessage.Assistant([emptyTextPart, nonEmptyTextPart])
 		];
