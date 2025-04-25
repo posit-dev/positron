@@ -44,15 +44,14 @@ suite('AnthropicLanguageModel', () => {
 		// Replace the client with our mock
 		(model as any)._client = mockClient;
 
-		// Create mock progress and cancellation token
+		// Create mock progress
 		mockProgress = {
 			report: sinon.stub()
 		};
 
-		mockCancellationToken = {
-			isCancellationRequested: false,
-			onCancellationRequested: sinon.stub()
-		};
+		// Create a cancellation token
+		const cancellationTokenSource = new vscode.CancellationTokenSource();
+		mockCancellationToken = cancellationTokenSource.token;
 	});
 
 	teardown(() => {
