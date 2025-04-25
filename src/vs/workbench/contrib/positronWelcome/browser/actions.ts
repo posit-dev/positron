@@ -94,10 +94,10 @@ export class PositronImportSettings extends Action2 {
 
 		const notification = notificationService.prompt(
 			Severity.Info,
-			localize('positronImportSettingsPrompt', "Save imported Visual Studio Code settings?"),
+			localize('positron.importSettingsPrompt', "Save imported Visual Studio Code settings?"),
 			[
 				{
-					label: localize('positronImportSettingsAcceptLabel', "Accept"), run: async () => {
+					label: localize('positron.importSettings.acceptLabel', "Accept"), run: async () => {
 						await editor?.save(0);
 						await editor?.dispose();
 
@@ -105,7 +105,7 @@ export class PositronImportSettings extends Action2 {
 					}
 				},
 				{
-					label: localize('positronImportSettingsRejecttLabel', "Reject"), run: async () => {
+					label: localize('positron.importSettings.rejecttLabel', "Reject"), run: async () => {
 						await editor?.dispose();
 
 						disposables.dispose();
@@ -146,7 +146,10 @@ export class ResetPositronImportPrompt extends Action2 {
 		super({
 			id: ResetPositronImportPrompt.ID,
 			title: {
-				value: localize('positronResetImportPrompt', "Reset Import Settings Prompt"),
+				value: localize(
+					'positron.settingsImport.resetImportPrompt',
+					"Reset Import Settings Prompt"
+				),
 				original: 'Reset Import Settings Prompt'
 			},
 			category: 'Preferences',
