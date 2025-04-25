@@ -182,16 +182,32 @@ async function createSnippetFile(scope: string, defaultPath: URI, quickInputServ
 		'\t// used to trigger the snippet and the body will be expanded and inserted. Possible variables are: ',
 		'\t// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. ',
 		'\t// Placeholders with the same ids are connected.',
-		'\t// Example:',
-		'\t// "Print to console": {',
-		'\t// \t"scope": "javascript,typescript",',
-		'\t// \t"prefix": "log",',
+		// --- Start Positron ---
+		'\t// Example snippet for R:',
+		'\t// "switch": {',
+		'\t// \t"scope": "r",',
+		'\t// \t"prefix": "switch",',
 		'\t// \t"body": [',
-		'\t// \t\t"console.log(\'$1\');",',
-		'\t// \t\t"$2"',
+		'\t// \t\t"switch(${1:object},",',
+		'\t// \t\t"\t${2:case} = ${3:action}",',
+		'\t// \t\t")"',
 		'\t// \t],',
-		'\t// \t"description": "Log output to console"',
+		'\t// \t"description": "Define a switch statement"',
 		'\t// }',
+		'\t// Example snippet for Python:',
+		'\t// "match-case": {',
+		'\t// \t"scope": "python",',
+		'\t// \t"prefix": "match",',
+		'\t// \t"body": [',
+		'\t// \t\t"match ${1:expression}:",',
+		'\t// \t\t"\tcase ${2:pattern}:",',
+		'\t// \t\t"\t\t${3:# action}",',
+		'\t// \t\t"\tcase _:",',
+		'\t// \t\t"\t\t${4:# default action}"',
+		'\t// \t],',
+		'\t// \t"description": "Define a match-case statement (Python 3.10+)"',
+		'\t// }',
+		// --- End Positron ---
 		'}'
 	].join('\n'));
 
@@ -203,23 +219,71 @@ async function createLanguageSnippetFile(pick: ISnippetPick, fileService: IFileS
 	if (await fileService.exists(pick.filepath)) {
 		return;
 	}
-	const contents = [
-		'{',
-		'\t// Place your snippets for ' + pick.label + ' here. Each snippet is defined under a snippet name and has a prefix, body and ',
-		'\t// description. The prefix is what is used to trigger the snippet and the body will be expanded and inserted. Possible variables are:',
-		'\t// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. Placeholders with the ',
-		'\t// same ids are connected.',
-		'\t// Example:',
-		'\t// "Print to console": {',
-		'\t// \t"prefix": "log",',
-		'\t// \t"body": [',
-		'\t// \t\t"console.log(\'$1\');",',
-		'\t// \t\t"$2"',
-		'\t// \t],',
-		'\t// \t"description": "Log output to console"',
-		'\t// }',
-		'}'
-	].join('\n');
+
+	// --- Start Positron ---
+	let contents: string;
+
+	if (pick.label === 'r') {
+		contents = [
+			'{',
+			'\t// Place your snippets for R here. Each snippet is defined under a snippet name and has a prefix, body and ',
+			'\t// description. The prefix is what is used to trigger the snippet and the body will be expanded and inserted. Possible variables are:',
+			'\t// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. Placeholders with the ',
+			'\t// same ids are connected.',
+			'\t// Example:',
+			'\t// "switch": {',
+			'\t// \t"prefix": "switch",',
+			'\t// \t"body": [',
+			'\t// \t\t"switch(${1:object},",',
+			'\t// \t\t"\t${2:case} = ${3:action}",',
+			'\t// \t\t")"',
+			'\t// \t],',
+			'\t// \t"description": "Define a switch statement"',
+			'\t// }',
+			'}'
+		].join('\n');
+	} else if (pick.label === 'python') {
+		contents = [
+			'{',
+			'\t// Place your snippets for Python here. Each snippet is defined under a snippet name and has a prefix, body and ',
+			'\t// description. The prefix is what is used to trigger the snippet and the body will be expanded and inserted. Possible variables are:',
+			'\t// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. Placeholders with the ',
+			'\t// same ids are connected.',
+			'\t// Example:',
+			'\t// "match-case": {',
+			'\t// \t"prefix": "match",',
+			'\t// \t"body": [',
+			'\t// \t\t"match ${1:expression}:",',
+			'\t// \t\t"\tcase ${2:pattern}:",',
+			'\t// \t\t"\t\t${3:# action}",',
+			'\t// \t\t"\tcase _:",',
+			'\t// \t\t"\t\t${4:# default action}"',
+			'\t// \t],',
+			'\t// \t"description": "Define a match-case statement (Python 3.10+)"',
+			'\t// }',
+			'}'
+		].join('\n');
+	} else {
+		// --- End Positron ---
+		contents = [
+			'{',
+			'\t// Place your snippets for ' + pick.label + ' here. Each snippet is defined under a snippet name and has a prefix, body and ',
+			'\t// description. The prefix is what is used to trigger the snippet and the body will be expanded and inserted. Possible variables are:',
+			'\t// $1, $2 for tab stops, $0 for the final cursor position, and ${1:label}, ${2:another} for placeholders. Placeholders with the ',
+			'\t// same ids are connected.',
+			'\t// Example:',
+			'\t// "Print to console": {',
+			'\t// \t"prefix": "log",',
+			'\t// \t"body": [',
+			'\t// \t\t"console.log(\'$1\');",',
+			'\t// \t\t"$2"',
+			'\t// \t],',
+			'\t// \t"description": "Log output to console"',
+			'\t// }',
+			'}'
+		].join('\n');
+	}
+
 	await textFileService.write(pick.filepath, contents);
 }
 
