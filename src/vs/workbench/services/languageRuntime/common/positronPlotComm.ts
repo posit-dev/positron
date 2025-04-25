@@ -96,6 +96,14 @@ export interface PlotRenderSettings {
 }
 
 /**
+ * Possible values for PlotUnit
+ */
+export enum PlotUnit {
+	Pixels = 'pixels',
+	Inches = 'inches'
+}
+
+/**
  * Possible values for PlotRenderFormat
  */
 export enum PlotRenderFormat {
@@ -104,14 +112,6 @@ export enum PlotRenderFormat {
 	Svg = 'svg',
 	Pdf = 'pdf',
 	Tiff = 'tiff'
-}
-
-/**
- * Possible values for PlotUnit
- */
-export enum PlotUnit {
-	Pixels = 'pixels',
-	Inches = 'inches'
 }
 
 /**

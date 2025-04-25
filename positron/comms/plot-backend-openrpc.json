@@ -91,7 +91,6 @@
 						}
 					},
 					"required": [
-						"size",
 						"data",
 						"mime_type"
 					]
@@ -101,6 +100,11 @@
 	],
 	"components": {
 		"schemas": {
+			"plot_unit": {
+				"type": "string",
+				"description": "The unit of measurement of a plot's dimensions",
+				"enum": ["pixels", "inches"]
+			},
 			"plot_size": {
 				"type": "object",
 				"description": "The size of a plot",
@@ -114,23 +118,15 @@
 						"type": "integer"
 					}
 				},
-				"required": [
-					"height",
-					"width"
-				],
+				"required": ["height", "width"],
 				"rust": {
 					"copy": true
 				}
 			},
-			"plot_render_format":{
+			"plot_render_format": {
 				"description": "The requested plot format",
 				"type": "string",
 				"enum": ["png", "jpeg", "svg", "pdf", "tiff"]
-			},
-			"plot_unit": {
-				"type": "string",
-				"description": "The unit of measurement of a plot's dimensions",
-				"enum": ["pixels", "inches"]
 			},
 			"plot_render_settings": {
 				"type": "object",
@@ -149,11 +145,7 @@
 						"$ref": "#/components/schemas/plot_render_format"
 					}
 				},
-				"required": [
-					"size",
-					"pixel_ratio",
-					"format"
-				],
+				"required": ["size", "pixel_ratio", "format"],
 				"rust": {
 					"copy": true
 				}

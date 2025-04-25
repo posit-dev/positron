@@ -26,60 +26,11 @@ export interface CallMethodResult {
 }
 
 /**
- * The size of a plot
- */
-export interface PlotSize {
-	/**
-	 * The plot's height, in pixels
-	 */
-	height: number;
-
-	/**
-	 * The plot's width, in pixels
-	 */
-	width: number;
-
-}
-
-/**
- * The settings used to render the plot
- */
-export interface PlotRenderSettings {
-	/**
-	 * Plot size to render the plot to
-	 */
-	size: PlotSize;
-
-	/**
-	 * The pixel ratio of the display device
-	 */
-	pixel_ratio: number;
-
-	/**
-	 * Format in which to render the plot
-	 */
-	format: PlotRenderFormat;
-
-}
-
-/**
- * Possible values for PlotRenderFormat
- */
-export enum PlotRenderFormat {
-	Png = 'png',
-	Jpeg = 'jpeg',
-	Svg = 'svg',
-	Pdf = 'pdf',
-	Tiff = 'tiff'
-}
-
-/**
  * Parameters for the DidChangePlotsRenderSettings method.
  */
 export interface DidChangePlotsRenderSettingsParams {
 	/**
-	 * Plot rendering settings. TODO!: Proper sharing across comm json files.
-	 * Rename policy to settings.
+	 * Plot rendering settings.
 	 */
 	settings: PlotRenderSettings;
 }
@@ -493,6 +444,54 @@ export interface ShowHtmlFileParams {
 }
 
 /**
+ * The settings used to render the plot
+ */
+export interface PlotRenderSettings {
+	/**
+	 * Plot size to render the plot to
+	 */
+	size: PlotSize;
+
+	/**
+	 * The pixel ratio of the display device
+	 */
+	pixel_ratio: number;
+
+	/**
+	 * Format in which to render the plot
+	 */
+	format: PlotRenderFormat;
+
+}
+
+/**
+ * The size of a plot
+ */
+export interface PlotSize {
+	/**
+	 * The plot's height, in pixels
+	 */
+	height: number;
+
+	/**
+	 * The plot's width, in pixels
+	 */
+	width: number;
+
+}
+
+/**
+ * Possible values for PlotRenderFormat
+ */
+export enum PlotRenderFormat {
+	Png = 'png',
+	Jpeg = 'jpeg',
+	Svg = 'svg',
+	Pdf = 'pdf',
+	Tiff = 'tiff'
+}
+
+/**
  * Event: Change in backend's busy/idle status
  */
 export interface BusyEvent {
@@ -883,8 +882,7 @@ export class PositronUiComm extends PositronBaseComm {
 	 * This notification is useful to produce accurate pre-renderings of
 	 * plots.
 	 *
-	 * @param settings Plot rendering settings. TODO!: Proper sharing across
-	 * comm json files. Rename policy to settings.
+	 * @param settings Plot rendering settings.
 	 *
 	 */
 	didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
