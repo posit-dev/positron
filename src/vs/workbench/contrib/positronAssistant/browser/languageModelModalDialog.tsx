@@ -178,6 +178,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const providers = props.sources
 		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot'))
 		.sort((a, b) => {
+			if (a.provider.id === 'echo' || a.provider.id === 'error') {
+				return 1;
+			}
+			if (b.provider.id === 'echo' || b.provider.id === 'error') {
+				return -1;
+			}
 			return a.provider.displayName.localeCompare(b.provider.displayName);
 		})
 		.map(source => new DropDownListBoxItem({
@@ -378,7 +384,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			okButtonTitle={(() => localize('positron.languageModelModalDialog.done', "Done"))()}
 			renderer={props.renderer}
 			title={(() => localize('positron.languageModelModalDialog.title', "Add a Language Model Provider"))()}
-			width={540}
+			width={600}
 			onAccept={onAccept}
 		>
 			<VerticalStack>
@@ -388,7 +394,6 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				<div className='language-model button-container'>
 					{
 						providers.map(provider => {
-							console.log(provider.options.value.signedIn);
 							return <LanguageModelButton
 								key={provider.options.identifier}
 								displayName={provider.options.title ?? provider.options.identifier}

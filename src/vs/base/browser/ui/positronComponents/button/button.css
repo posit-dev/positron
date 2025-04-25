@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -11,6 +11,16 @@
 	/* Unset user agent stylesheet styles. */
 	font-family: unset !important;
 	text-align: unset !important;
+}
+
+.hc-black .positron-button,
+.hc-light .positron-button {
+	border: 1px solid transparent;
+}
+
+.hc-black .positron-button:hover,
+.hc-light .positron-button:hover {
+	border: 1px dashed var(--vscode-focusBorder);
 }
 
 .positron-button:focus {
