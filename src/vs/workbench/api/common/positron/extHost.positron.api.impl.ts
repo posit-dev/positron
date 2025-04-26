@@ -98,7 +98,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			getRegisteredRuntimes(): Thenable<positron.LanguageRuntimeMetadata[]> {
 				return extHostLanguageRuntime.getRegisteredRuntimes();
 			},
-			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntimeMetadata> {
+			getPreferredRuntime(languageId: string): Thenable<positron.LanguageRuntimeMetadata | undefined> {
 				return extHostLanguageRuntime.getPreferredRuntime(languageId);
 			},
 			getActiveSessions(): Thenable<positron.LanguageRuntimeSession[]> {
@@ -176,8 +176,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Thenable<null> {
 				return extHostModalDialogs.showSimpleModalDialogMessage(title, message, okButtonTitle);
 			},
-			getConsoleForLanguage(id: string) {
-				return extHostConsoleService.getConsoleForLanguage(id);
+			getConsoleForLanguage(languageId: string) {
+				return extHostConsoleService.getConsoleForLanguage(languageId);
 			},
 			get onDidChangeConsoleWidth() {
 				return extHostConsoleService.onDidChangeConsoleWidth;

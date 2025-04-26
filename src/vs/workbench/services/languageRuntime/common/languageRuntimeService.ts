@@ -376,6 +376,13 @@ export enum RuntimeExitReason {
 	ExtensionHost = 'extensionHost',
 
 	/**
+	 * The runtime session was transferred somewhere else. This happens when
+	 * it is loaded into a different Positron window; it 'exits' from the
+	 * old window and is reconnected in the new window.
+	 */
+	Transferred = 'transferred',
+
+	/**
 	 * The runtime exited for an unknown reason. This typically means that
 	 * it exited unexpectedly but with a normal exit code (0).
 	 */

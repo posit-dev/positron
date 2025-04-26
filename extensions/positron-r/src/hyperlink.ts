@@ -38,7 +38,7 @@ export async function handleRCode(runtime: RSession, code: string): Promise<void
 	}
 
 	// Otherwise, it looks like runnable code but isn't safe enough to automatically run
-	return handleManuallyRunnable(runtime, code);
+	return await handleManuallyRunnable(runtime, code);
 }
 
 function handleNotRunnable(code: string) {
@@ -47,8 +47,8 @@ function handleNotRunnable(code: string) {
 	));
 }
 
-function handleManuallyRunnable(_runtime: RSession, code: string) {
-	const console = positron.window.getConsoleForLanguage('r');
+async function handleManuallyRunnable(_runtime: RSession, code: string) {
+	const console = await positron.window.getConsoleForLanguage('r');
 
 	if (!console) {
 		// Not an expected path, but technically possible,

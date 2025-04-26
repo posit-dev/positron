@@ -51,6 +51,9 @@ export interface SerializedSessionMetadata {
 
 	/// The working directory of the runtime session, at the time it was serialized.
 	workingDirectory: string;
+
+	/// The ID of the window in which the session was last used.
+	localWindowId: string;
 }
 
 /**
@@ -69,8 +72,10 @@ export interface IRuntimeStartupService {
 	 * they've used recently, etc.
 	 *
 	 * @param languageId The language identifier.
+	 * @returns The preferred runtime for the given language identifier, or
+	 *  undefined if no runtimes are registered for the given language identifier.
 	 */
-	getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata;
+	getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
 	 * Whether the workspace has affiliated runtimes.

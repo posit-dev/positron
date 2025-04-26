@@ -636,10 +636,12 @@ export class NewProjectWizardStateManager
 			return;
 		}
 		const preferredRuntime = this._services.runtimeStartupService.getPreferredRuntime(langId);
-		if (this._interpreters.includes(preferredRuntime)) {
-			this._selectedRuntime = preferredRuntime;
-			this._preferredInterpreter = preferredRuntime;
-			return;
+		if (preferredRuntime) {
+			if (this._interpreters.includes(preferredRuntime)) {
+				this._selectedRuntime = preferredRuntime;
+				this._preferredInterpreter = preferredRuntime;
+				return;
+			}
 		}
 
 		// If the preferred runtime is not in the interpreters list, use the first runtime in the

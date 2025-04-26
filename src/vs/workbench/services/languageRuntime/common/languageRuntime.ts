@@ -8,10 +8,11 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, IDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageStartupBehavior, RuntimeStartupPhase, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 /**
  * The implementation of ILanguageRuntimeService
@@ -38,9 +39,11 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 	 * Constructor.
 	 *
 	 * @param _logService The log service.
+	 * @param _configurationService The configuration service.
 	 */
 	constructor(
-		@ILogService private readonly _logService: ILogService
+		@ILogService private readonly _logService: ILogService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		// Call the base class's constructor.
 		super();
@@ -104,6 +107,18 @@ export class LanguageRuntimeService extends Disposable implements ILanguageRunti
 		// If the runtime has already been registered, return early.
 		if (this._registeredRuntimesByRuntimeId.has(metadata.runtimeId)) {
 			return this._register(toDisposable(() => { }));
+		}
+
+		// Check the startup behavior for this language. If it's totally disabled,
+		// we can't perform the registration.
+		const startupBehavior = this._configurationService.getValue<LanguageStartupBehavior>(
+			'interpreters.startupBehavior', { overrideIdentifier: metadata.languageId });
+		if (startupBehavior === LanguageStartupBehavior.Disabled) {
+			this._logService.info(
+				`Attempt to register language runtime ${formatLanguageRuntimeMetadata(metadata)}, ` +
+				`but language '${metadata.languageId}' is disabled.`);
+			throw new Error(`Cannot register '${metadata.runtimeName}' because ` +
+				`the '${metadata.languageId}' language is disabled.`);
 		}
 
 		// Add the runtime to the registered runtimes.

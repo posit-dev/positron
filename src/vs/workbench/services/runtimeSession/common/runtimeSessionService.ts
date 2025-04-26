@@ -218,9 +218,6 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	/** Force quit the runtime */
 	forceQuit(): Thenable<void>;
 
-	/** Clean up the session after exiting */
-	cleanup(): Thenable<void>;
-
 	/** Show output log of the runtime */
 	showOutput(channel?: LanguageRuntimeSessionChannel): void;
 

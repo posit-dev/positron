@@ -41,7 +41,14 @@ const createInterpreterGroups = (
 		let preferredRuntime = preferredRuntimeByLanguageId.get(languageId);
 		if (!preferredRuntime) {
 			preferredRuntime = runtimeAffiliationService.getPreferredRuntime(languageId);
-			preferredRuntimeByLanguageId.set(languageId, preferredRuntime);
+			if (preferredRuntime) {
+				preferredRuntimeByLanguageId.set(languageId, preferredRuntime);
+			}
+		}
+
+		// If we didn't find a preferred runtime, skip this one.
+		if (!preferredRuntime) {
+			continue;
 		}
 
 		// Create the language runtime group if it doesn't exist.
