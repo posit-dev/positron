@@ -488,11 +488,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			case KeyCode.KeyR: {
 				// When Ctrl-R is pressed, engage a reverse history search (like bash).
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
-					const entries = new HistoryNavigator2<IInputHistoryEntry>(
+					const entries =
 						positronConsoleContext.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
-						)
-					)
+						);
 					engageHistoryBrowser(new HistoryInfixMatchStrategy(entries));
 					consumeEvent();
 				}
@@ -555,11 +554,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					// If the cmd or ctrl key is pressed, and the history
 					// browser is not up, engage the history browser with the
 					// prefix match strategy. This behavior mimics RStudio.
-					const entries = new HistoryNavigator2<IInputHistoryEntry>(
+					const entries =
 						positronConsoleContext.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
-						)
-					)
+						);
 					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
 					consumeEvent();
 					break;

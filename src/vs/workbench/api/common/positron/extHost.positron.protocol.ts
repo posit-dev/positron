@@ -42,7 +42,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$completeLanguageRuntimeDiscovery(): void;
 	$unregisterLanguageRuntime(handle: number): void;
 	$executeCode(languageId: string, extensionId: string, code: string, focus: boolean, allowIncomplete?: boolean, mode?: RuntimeCodeExecutionMode, errorBehavior?: RuntimeErrorBehavior, executionId?: string): Promise<string>;
-	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata>;
+	$getPreferredRuntime(languageId: string): Promise<ILanguageRuntimeMetadata | undefined>;
 	$getActiveSessions(): Promise<RuntimeSessionMetadata[]>;
 	$getForegroundSession(): Promise<string | undefined>;
 	$getNotebookSession(notebookUri: URI): Promise<string | undefined>;
@@ -61,7 +61,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$restoreLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<RuntimeInitialState>;
 	$validateLanguageRuntimeMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata>;
 	$validateLanguageRuntimeSession(metadata: ILanguageRuntimeMetadata, sessionId: string): Promise<boolean>;
-	$cleanupLanguageRuntime(handle: number): Promise<void>;
+	$disposeLanguageRuntime(handle: number): Promise<void>;
 	$startLanguageRuntime(handle: number): Promise<ILanguageRuntimeInfo>;
 	$openResource(handle: number, resource: URI | string): Promise<boolean>;
 	$executeCode(handle: number, code: string, id: string, mode: RuntimeCodeExecutionMode, errorBehavior: RuntimeErrorBehavior, executionId?: string): void;
