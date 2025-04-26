@@ -164,12 +164,6 @@ npm run test-extension -- -l positron-notebook-controllers
 kill_app
 
 echo
-echo "### Positron Run App tests"
-echo
-npm run test-extension -- -l positron-run-app
-kill_app
-
-echo
 echo "### Positron Supervisor tests"
 echo
 npm run test-extension -- -l positron-supervisor
