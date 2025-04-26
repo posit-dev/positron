@@ -11,6 +11,8 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../../nls.js';
+import { RowFilterParameter } from './components/rowFilterParameter.js';
+import { DropDownColumnSelector } from './components/dropDownColumnSelector.js';
 import { Button } from '../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { DropDownListBoxItem } from '../../../../../positronComponents/dropDownListBox/dropDownListBoxItem.js';
@@ -21,8 +23,6 @@ import { DataExplorerClientInstance } from '../../../../../../services/languageR
 import { DropDownListBox, DropDownListBoxEntry } from '../../../../../positronComponents/dropDownListBox/dropDownListBox.js';
 import { ColumnSchema, ColumnDisplayType, RowFilterCondition } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../../../../../services/positronDataExplorer/common/positronDataExplorerExperimentalConfig.js';
-import { RowFilterParameter } from './components/rowFilterParameter.js';
-import { DropDownColumnSelector } from './components/dropDownColumnSelector.js';
 import { RangeRowFilterDescriptor, RowFilterDescriptor, RowFilterDescrType, RowFilterDescriptorComparison, RowFilterDescriptorIsBetween, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsNotBetween, RowFilterDescriptorIsNotEmpty, SingleValueRowFilterDescriptor, RowFilterDescriptorIsNotNull, RowFilterDescriptorIsNull, RowFilterDescriptorSearch, RowFilterDescriptorIsTrue, RowFilterDescriptorIsFalse } from './rowFilterDescriptor.js';
 
 /**
@@ -760,7 +760,6 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			popupPosition='auto'
 			renderer={props.renderer}
 			width={275}
-			onAccept={applyRowFilter}
 		>
 			<div className='add-edit-row-filter-modal-popup-body'>
 				{supportsConditions && !props.isFirstFilter &&
