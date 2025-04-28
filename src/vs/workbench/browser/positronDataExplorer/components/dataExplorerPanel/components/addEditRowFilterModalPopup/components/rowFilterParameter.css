@@ -15,7 +15,7 @@
 	font-size: 12px;
 	border-radius: 4px;
 	align-items: center;
-	background: var(--positronActionBar-textInputBackground);
+	background: var(--vscode-positronModalDialog-textInputBackground);
 	border: 1px solid var(--vscode-positronDropDownListBox-border);
 }
 
@@ -36,12 +36,11 @@
 
 .row-filter-parameter-input
 .text-input::placeholder {
-	opacity: 0.5;
-	color: var(--positronActionBar-foreground);
+	opacity: 0.75;
 }
 
 .row-filter-parameter-input
 .text-input::selection {
-	color: var(--positronActionBar-textInputSelectionForeground);
-	background: var(--positronActionBar-textInputSelectionBackground);
+	color: var(--vscode-positronModalDialog-textInputSelectionForeground);
+	background: var(--vscode-positronModalDialog-textInputSelectionBackground);
 }
