@@ -39,7 +39,7 @@ export class UserSettingsFileManager {
 			await fs.copyFile(this.settingsPath, backupPath);
 			console.log(`📦 Backed up settings to: ${backupPath}`);
 		} else {
-			console.log(`ℹ️ No settings to back up`);
+			console.log(`ℹ️ No settings to back up: ${backupPath}`);
 		}
 	}
 
@@ -54,7 +54,7 @@ export class UserSettingsFileManager {
 			await fs.unlink(this.settingsPath);
 			console.log(`❌ Deleted settings file: ${this.settingsPath}`);
 		} catch {
-			console.log(`ℹ️ No settings file to delete`);
+			console.log(`ℹ️ No settings file to delete: ${this.settingsPath}`);
 		}
 	}
 
@@ -67,7 +67,7 @@ export class UserSettingsFileManager {
 			await fs.unlink(backupPath);
 			console.log(`♻️ Restored settings from backup: ${backupPath}`);
 		} catch {
-			console.log(`ℹ️ No backup found, nothing to restore`);
+			console.log(`ℹ️ No backup found, nothing to restore: ${backupPath}`);
 		}
 	}
 }
