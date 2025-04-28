@@ -14,6 +14,8 @@ import * as nls from '../../../../../nls.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { localize } from '../../../../../nls.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { Icon } from '../../../../../platform/action/common/action.js';
 
 interface DarkFilterMenuButtonProps {
 	readonly plotsService: IPositronPlotsService;
@@ -60,14 +62,14 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 		}
 	};
 
-	const iconForDarkFilter = (policy: DarkFilter): string => {
+	const iconForDarkFilter = (policy: DarkFilter): Icon => {
 		switch (policy) {
 			case DarkFilter.On:
-				return 'circle-large-filled';
+				return ThemeIcon.fromId('circle-large-filled');
 			case DarkFilter.Off:
-				return 'circle-large';
+				return ThemeIcon.fromId('circle-large');
 			case DarkFilter.Auto:
-				return 'color-mode';
+				return ThemeIcon.fromId('color-mode');
 		}
 	}
 
@@ -113,7 +115,7 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 			actions={actions}
 			align='right'
 			ariaLabel={darkFilterTooltip}
-			iconId={iconForDarkFilter(darkFilterMode)}
+			icon={iconForDarkFilter(darkFilterMode)}
 			tooltip={darkFilterTooltip}
 		/>
 	);

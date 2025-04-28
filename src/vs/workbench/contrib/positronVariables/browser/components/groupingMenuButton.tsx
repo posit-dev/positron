@@ -15,6 +15,7 @@ import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { PositronVariablesGrouping } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 /**
  * Localized strings.
@@ -113,7 +114,7 @@ export const GroupingMenuButton = () => {
 		<ActionBarMenuButton
 			actions={actions}
 			ariaLabel={positronChangeHowVariablesAreGrouped}
-			iconId='positron-variables-grouping'
+			icon={ThemeIcon.fromId('positron-variables-grouping')}
 			tooltip={positronChangeHowVariablesAreGrouped}
 		/>
 	);

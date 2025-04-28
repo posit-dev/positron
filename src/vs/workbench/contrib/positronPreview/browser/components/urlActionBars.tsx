@@ -20,6 +20,7 @@ import { ActionBarSeparator } from '../../../../../platform/positronActionBar/br
 import { URI } from '../../../../../base/common/uri.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { kPaddingLeft, kPaddingRight, PreviewActionBarsProps } from './actionBars.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';
@@ -166,12 +167,12 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight} size='small'>
 					<ActionBarRegion location='left'>
 						<ActionBarButton ariaLabel={navigateBack}
-							iconId='positron-left-arrow'
+							icon={ThemeIcon.fromId('positron-left-arrow')}
 							tooltip={navigateBack}
 							onPressed={navigateBackHandler} />
 						<ActionBarButton
 							ariaLabel={navigateForward}
-							iconId='positron-right-arrow'
+							icon={ThemeIcon.fromId('positron-right-arrow')}
 							tooltip={navigateForward}
 							onPressed={navigateForwardHandler} />
 					</ActionBarRegion>
@@ -191,27 +192,27 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 						<ActionBarButton
 							align='right'
 							ariaLabel={reload}
-							iconId='positron-refresh'
+							icon={ThemeIcon.fromId('positron-refresh')}
 							tooltip={reload}
 							onPressed={reloadHandler} />
 						<ActionBarButton
 							align='right'
 							ariaLabel={openInBrowser}
-							iconId='positron-open-in-new-window'
+							icon={ThemeIcon.fromId('positron-open-in-new-window')}
 							tooltip={openInBrowser}
 							onPressed={openInBrowserHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={openInEditor}
-							iconId='go-to-file'
+							icon={ThemeIcon.fromId('go-to-file')}
 							tooltip={openInEditor}
 							onPressed={openInEditorHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={clear}
-							iconId='clear-all'
+							icon={ThemeIcon.fromId('clear-all')}
 							tooltip={clear}
 							onPressed={clearHandler} />
 					</ActionBarRegion>

@@ -156,6 +156,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 				quickInputService={this.quickInputService}
 				runtimeSessionService={this.runtimeSessionService}
 				runtimeStartupService={this.runtimeStartupService}
+				themeService={this.themeService}
 				workspaceContextService={this.workspaceContextService}
 				workspacesService={this.workspacesService}
 			/>

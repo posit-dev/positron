@@ -383,6 +383,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 						instance={positronDataExplorerInstance}
 						keybindingService={this._keybindingService}
 						layoutService={this._layoutService}
+						themeService={this.themeService}
 						onClose={() => this._group.closeEditor(this.input)}
 					/>
 				);

@@ -52,11 +52,6 @@ const positronMoveIntoNewWindowAriaLabel = localize(
 );
 
 /**
- * Constants.
- */
-const CODICON_ID = /^codicon codicon-(.+)$/;
-
-/**
  * SubmenuDescriptor interface.
  */
 interface SubmenuDescriptor {
@@ -204,7 +199,7 @@ export class EditorActionBarFactory extends Disposable {
 				ariaLabel={positronMoveIntoNewWindowAriaLabel}
 				commandId='workbench.action.moveEditorToNewWindow'
 				disabled={auxiliaryWindow}
-				iconId='positron-open-in-new-window'
+				icon={ThemeIcon.fromId('positron-open-in-new-window')}
 				tooltip={positronMoveIntoNewWindowTooltip}
 			/>
 		);
@@ -369,11 +364,6 @@ export class EditorActionBarFactory extends Disposable {
 			} else if (action instanceof SubmenuItemAction) {
 				// Process the action.
 				if (!action.item.rememberDefaultAction) {
-					// Get the icon ID. TODO: Deal with non-theme icons.
-					const iconId = ThemeIcon.isThemeIcon(action.item.icon) ?
-						action.item.icon.id :
-						undefined;
-
 					// Push the action bar menu button.
 					elements.push(
 						<ActionBarMenuButton
@@ -381,7 +371,7 @@ export class EditorActionBarFactory extends Disposable {
 							align='left'
 							ariaLabel={action.label ?? action.tooltip}
 							dropdownIndicator='disabled'
-							iconId={iconId}
+							icon={action.item.icon}
 							tooltip={actionTooltip(
 								this._contextKeyService,
 								this._keybindingService,
@@ -396,10 +386,6 @@ export class EditorActionBarFactory extends Disposable {
 
 					// The first action must be a menu item action.
 					if (firstAction instanceof MenuItemAction) {
-						// Extract the icon ID from the class.
-						const iconIdResult = action.actions[0].class?.match(CODICON_ID);
-						const iconId = iconIdResult?.length === 2 ? iconIdResult[1] : undefined;
-
 						// Push the action bar menu button.
 						elements.push(
 							<ActionBarMenuButton
@@ -414,8 +400,8 @@ export class EditorActionBarFactory extends Disposable {
 									action,
 									false
 								)}
-								iconId={iconId}
-								label={iconId ? undefined : firstAction.label}
+								icon={firstAction.item.icon}
+								label={firstAction.item.icon ? undefined : firstAction.label}
 								tooltip={actionTooltip(
 									this._contextKeyService,
 									this._keybindingService,
@@ -438,7 +424,7 @@ export class EditorActionBarFactory extends Disposable {
 					align='left'
 					ariaLabel={positronMoreActionsAriaLabel}
 					dropdownIndicator='disabled'
-					iconId='toolbar-more'
+					icon={ThemeIcon.fromId('toolbar-more')}
 					tooltip={positronMoreActionsTooltip}
 				/>
 			);
