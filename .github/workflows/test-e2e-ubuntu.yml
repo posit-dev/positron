@@ -53,6 +53,11 @@ on:
         description: "Comma-separated list of tags to skip."
         type: string
         default: ""
+      simulate_vscode_settings:
+        required: false
+        description: "Whether or not to simulate VS Code user settings."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -139,6 +144,7 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}
+          simulate_vscode_settings: ${{ inputs.simulate_vscode_settings }}
 
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
