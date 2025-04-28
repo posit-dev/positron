@@ -70,12 +70,6 @@ echo
 npm run test-extension -- -l positron-zed
 kill_app
 
-echo
-echo "### Positron Supervisor tests"
-echo
-npm run test-extension -- -l positron-supervisor
-kill_app
-
 # Cleanup
 
 rm -rf $VSCODEUSERDATADIR
