@@ -463,43 +463,26 @@ suite('Positron - RuntimeSessionService', () => {
 				]);
 			});
 
-			test(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
-				let error: Error;
-				if (mode === LanguageRuntimeSessionMode.Console) {
-					error = new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} ` +
-						`cannot be started because language runtime ${formatLanguageRuntimeMetadata(runtime)} ` +
-						`is already starting for the language.`
-						+ (action !== 'restore' ? ` Request source: ${startReason}` : ''));
-				} else {
-					error = new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
+			if (mode === LanguageRuntimeSessionMode.Notebook) {
+				test(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
+					const error = new Error(`Session for language runtime ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
 						`be started because language runtime ${formatLanguageRuntimeMetadata(runtime)} ` +
 						`is already starting for the notebook ${notebookUri.toString()}.`
 						+ (action !== 'restore' ? ` Request source: ${startReason}` : ''));
-				}
 
-				await assert.rejects(
-					Promise.all([
-						start(),
-						start(anotherRuntime),
-					]),
-					error);
-			});
+					await assert.rejects(
+						Promise.all([
+							start(),
+							start(anotherRuntime),
+						]),
+						error);
+				});
 
-			// Skip for 'select' since selecting another runtime is expected in that case.
-			if (action !== 'select') {
 				test(`${action} ${mode} throws if another runtime is running for the language`, async () => {
-					let error: Error;
-					if (mode === LanguageRuntimeSessionMode.Console) {
-						error = new Error(`A console for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
-							`be started because a console for ${formatLanguageRuntimeMetadata(runtime)} ` +
-							`is already running for the ${runtime.languageName} language.` +
-							(action !== 'restore' ? ` Request source: ${startReason}` : ''));
-					} else {
-						error = new Error(`A notebook for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
-							`be started because a notebook for ${formatLanguageRuntimeMetadata(runtime)} ` +
-							`is already running for the URI ${notebookUri.toString()}.` +
-							(action !== 'restore' ? ` Request source: ${startReason}` : ''));
-					}
+					const error = new Error(`A notebook for ${formatLanguageRuntimeMetadata(anotherRuntime)} cannot ` +
+						`be started because a notebook for ${formatLanguageRuntimeMetadata(runtime)} ` +
+						`is already running for the URI ${notebookUri.toString()}.` +
+						(action !== 'restore' ? ` Request source: ${startReason}` : ''));
 
 					await start();
 					await assert.rejects(
@@ -509,16 +492,31 @@ suite('Positron - RuntimeSessionService', () => {
 				});
 			}
 
-			test(`${action} ${mode} successively`, async () => {
-				const result1 = await start();
-				const result2 = await start();
-				const result3 = await start();
+			// Console sessions allow multiple sessions to be started successively.
+			if (mode === LanguageRuntimeSessionMode.Console) {
+				test(`${action} ${mode} successively`, async () => {
+					const result1 = await start();
+					const result2 = await start();
+					const result3 = await start();
 
-				assert.strictEqual(result1, result2);
-				assert.strictEqual(result2, result3);
+					assert.notStrictEqual(result1.metadata.sessionId, result2.metadata.sessionId);
+					assert.notStrictEqual(result2.metadata.sessionId, result3.metadata.sessionId);
+					assert.notStrictEqual(result1.metadata.sessionId, result3.metadata.sessionId);
+				});
+			}
 
-				assertSessionIsStarting(result1);
-			});
+			if (mode === LanguageRuntimeSessionMode.Notebook) {
+				test(`${action} ${mode} successively`, async () => {
+					const result1 = await start();
+					const result2 = await start();
+					const result3 = await start();
+
+					assert.strictEqual(result1, result2);
+					assert.strictEqual(result2, result3);
+
+					assertSessionIsStarting(result1);
+				});
+			}
 
 			test(`${action} ${mode} concurrently`, async () => {
 				const [result1, result2, result3] = await Promise.all([start(), start(), start()]);
