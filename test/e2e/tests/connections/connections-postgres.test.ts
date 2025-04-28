@@ -26,51 +26,34 @@ test.describe('Postgres DB Connection', {
 
 		await app.workbench.connections.openConnectionPane();
 
-		await app.code.driver.page.getByRole('button', { name: 'New Connection' }).click();
+		await app.workbench.connections.initiateConnection('Python', 'PostgresSQL');
 
-		await app.code.driver.page.locator('.connections-new-connection-modal .codicon-chevron-down').click();
+		await app.workbench.connections.fillConnectionsInputs({
+			'Database Name': process.env.E2E_POSTGRES_DB || 'testdb',
+			'Host': 'localhost',
+			'User': process.env.E2E_POSTGRES_USER || 'testuser',
+			'Password': process.env.E2E_POSTGRES_PASSWORD || 'testpassword',
+		});
 
-		await app.code.driver.page.locator('.positron-modal-popup-children').getByRole('button', { name: 'Python' }).click();
+		await app.workbench.connections.connect();
 
-		await app.code.driver.page.locator('.driver-name', { hasText: 'PostgresSQL' }).click();
+		await test.step('Open periodic table connection', async () => {
+			const connectionName = app.code.driver.page.locator('.connections-details', { hasText: 'public' });
+			await connectionName.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
+			await app.code.driver.page.locator('.codicon-positron-table-connection').click();
+			await app.workbench.dataExplorer.verifyTab('Data: periodic_table', { isVisible: true });
+		});
 
-		const dbNameLabel = app.code.driver.page.locator('span.label-text', { hasText: 'Database Name' });
-		const dbNameInput = dbNameLabel.locator('+ input.text-input');
-		await dbNameInput.fill(process.env.E2E_POSTGRES_DB || 'testdb');
+		await test.step('Verify connection data from periodic table', async () => {
+			await app.workbench.sideBar.closeSecondarySideBar();
 
-		const hostLabel = app.code.driver.page.locator('span.label-text', { hasText: 'Host' });
-		const hostInput = hostLabel.locator('+ input.text-input');
-		await hostInput.fill('localhost');
+			await expect(async () => {
+				const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 
-		const userLabel = app.code.driver.page.locator('span.label-text', { hasText: 'User' });
-		const userInput = userLabel.locator('+ input.text-input');
-		await userInput.fill(process.env.E2E_POSTGRES_USER || 'testuser');
+				expect(tableData[0]['Element']).toBe('Hydrogen');
 
-		const passwordLabel = app.code.driver.page.locator('span.label-text', { hasText: 'Password' });
-		const passwordInput = passwordLabel.locator('+ input.text-input');
-		await passwordInput.fill(process.env.E2E_POSTGRES_PASSWORD || 'testpassword');
-
-		await expect(app.code.driver.page.locator('.lines-content .view-line', { hasText: '%connection_show conn' })).toBeVisible();
-
-		await app.code.driver.page.locator('.button', { hasText: 'Connect' }).click();
-
-		const connectionName = app.code.driver.page.locator('.connections-details', { hasText: 'public' });
-		await connectionName.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
-
-		await app.code.driver.page.locator('.codicon-positron-table-connection').click();
-
-		await app.workbench.dataExplorer.verifyTab('Data: periodic_table', { isVisible: true });
-
-		await app.workbench.sideBar.closeSecondarySideBar();
-
-		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
-
-			expect(tableData[0]['Element']).toBe('Hydrogen');
-
-		}).toPass({ timeout: 60000 });
-
+			}).toPass({ timeout: 60000 });
+		});
 	});
-
 });
 

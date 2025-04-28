@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
@@ -62,4 +62,29 @@ export class Connections {
 		this.deleteConnectionButton.click();
 	}
 
+	async initiateConnection(language: string, driver: string): Promise<void> {
+		await test.step(`Initiating a ${language} connection to ${driver}`, async () => {
+			await this.code.driver.page.getByRole('button', { name: 'New Connection' }).click();
+			await this.code.driver.page.locator('.connections-new-connection-modal .codicon-chevron-down').click();
+			await this.code.driver.page.locator('.positron-modal-popup-children').getByRole('button', { name: language }).click();
+			await this.code.driver.page.locator('.driver-name', { hasText: driver }).click();
+		});
+	}
+
+	async fillConnectionsInputs(fields: Record<string, string>) {
+		await test.step('Filling connection inputs', async () => {
+			for (const [labelText, value] of Object.entries(fields)) {
+				const label = this.code.driver.page.locator('span.label-text', { hasText: labelText });
+				const input = label.locator('+ input.text-input');
+				await input.fill(value);
+			}
+		});
+	}
+
+	async connect() {
+		await test.step('Click connect button when ready', async () => {
+			await expect(this.code.driver.page.locator('.lines-content .view-line', { hasText: '%connection_show conn' })).toBeVisible();
+			await this.code.driver.page.locator('.button', { hasText: 'Connect' }).click();
+		});
+	}
 }
