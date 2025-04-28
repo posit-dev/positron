@@ -285,8 +285,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Gets the console session for a runtime, if one exists.
-	 * Used to associated a session with a runtime.
+	 * Gets a console session for a runtime, if one exists.
+	 * If there are multiple console sessions for the runtime,
+	 * the most recently created session is returned.
 	 *
 	 * @param runtimeId The runtime identifier of the session to retrieve.
 	 * @param includeExited Whether to include exited sessions in the search. (default false, optional)
@@ -311,7 +312,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Gets the console session for a language, if one exists.
+	 * Gets a console session for a language, if one exists.
+	 *
+	 * If the foreground session is for the same language, it is returned.
+	 * If there are multiple console sessions for the language,
+	 * the last active session for the language is returned.
 	 *
 	 * @param languageId The language identifier of the session to retrieve.
 	 * @returns The console session with the given language identifier, or undefined if

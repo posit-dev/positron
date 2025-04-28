@@ -356,14 +356,12 @@ export interface IRuntimeSessionService {
 	getActiveSession(sessionId: string): ActiveRuntimeSession | undefined;
 
 	/**
-	 * Gets a specific runtime console by runtime identifier. Currently, only
-	 * one console can exist per runtime ID.
+	 * Gets the last created console session by runtime identifier
 	 */
 	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined;
 
 	/**
-	 * Gets a specific runtime console by language identifier. Currently, only
-	 * one console can exist per language ID.
+	 * Gets the last used console session by language identifier
 	 */
 	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined;
 
