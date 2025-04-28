@@ -89,7 +89,6 @@ export interface PositronModalPopupProps {
 	readonly fixedHeight?: boolean;
 	readonly focusableElementSelectors?: string;
 	readonly keyboardNavigationStyle: KeyboardNavigationStyle;
-	readonly onAccept?: () => void;
 }
 
 /**
@@ -357,13 +356,6 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 
 			// Handle the event.
 			switch (e.code) {
-				// Enter accepts the modal popup.
-				case 'Enter': {
-					consumeEvent();
-					props.onAccept?.();
-					break;
-				}
-
 				// Escape dismisses the modal popup.
 				case 'Escape': {
 					consumeEvent();

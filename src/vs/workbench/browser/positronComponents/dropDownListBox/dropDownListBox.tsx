@@ -11,14 +11,14 @@ import React, { JSX, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
+import { DropDownListBoxItem } from './dropDownListBoxItem.js';
+import { DropDownListBoxSeparator } from './dropDownListBoxSeparator.js';
+import { PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { DropDownListBoxItem } from './dropDownListBoxItem.js';
-import { PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
-import { DropDownListBoxSeparator } from './dropDownListBoxSeparator.js';
 
 /**
  * DropDownListBoxEntry type.
@@ -29,14 +29,14 @@ export type DropDownListBoxEntry<T extends NonNullable<any>, V extends NonNullab
  * DropDownListBoxProps interface.
  */
 interface DropDownListBoxProps<T extends NonNullable<any>, V extends NonNullable<any>> {
+	className?: string;
+	createItem?: (dropDownListBoxItem: DropDownListBoxItem<T, V>) => JSX.Element;
+	disabled?: boolean;
+	entries: DropDownListBoxEntry<T, V>[];
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
-	className?: string;
-	disabled?: boolean;
-	title: string;
-	entries: DropDownListBoxEntry<T, V>[];
-	createItem?: (dropDownListBoxItem: DropDownListBoxItem<T, V>) => JSX.Element;
 	selectedIdentifier?: T;
+	title: string;
 	onSelectionChanged: (dropDownListBoxItem: DropDownListBoxItem<T, V>) => void;
 }
 
