@@ -883,8 +883,9 @@ export class Sessions {
  * Helper class to manage the session quick pick
  */
 export class SessionQuickPick {
-	private sessionQuickMenu = this.code.driver.page.locator('.quick-input-titlebar').getByText(/(Select a Session)|(Start a New Session)/);
-	allSessionsMenu = this.code.driver.page.getByText(/Start a New Session/);
+	private quickInputTitleBar = this.code.driver.page.locator('.quick-input-titlebar');
+	private sessionQuickMenu = this.quickInputTitleBar.getByText(/(Select a Session)|(Start a New Session)/);
+	allSessionsMenu = this.quickInputTitleBar.getByText(/Start a New Session/);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 

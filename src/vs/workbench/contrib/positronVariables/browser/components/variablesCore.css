@@ -17,3 +17,7 @@
 .positron-variables .variables-core .variables-instances-container:focus {
 	outline: none !important;
 }
+
+#variables-progress > .monaco-progress-container {
+	top: 0px;
+}

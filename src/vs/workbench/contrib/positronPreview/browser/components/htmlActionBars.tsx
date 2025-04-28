@@ -19,6 +19,7 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 const reload = localize('positron.preview.html.reload', "Reload the content");
 const clear = localize('positron.preview.html.clear', "Clear the content");
@@ -89,27 +90,27 @@ export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) =>
 						<ActionBarButton
 							align='right'
 							ariaLabel={reload}
-							iconId='positron-refresh'
+							icon={ThemeIcon.fromId('positron-refresh')}
 							tooltip={reload}
 							onPressed={reloadHandler} />
 						<ActionBarButton
 							align='right'
 							ariaLabel={openInBrowser}
-							iconId='positron-open-in-new-window'
+							icon={ThemeIcon.fromId('positron-open-in-new-window')}
 							tooltip={openInBrowser}
 							onPressed={openInBrowserHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={openInEditor}
-							iconId='go-to-file'
+							icon={ThemeIcon.fromId('go-to-file')}
 							tooltip={openInEditor}
 							onPressed={openInEditorHandler} />
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='right'
 							ariaLabel={clear}
-							iconId='clear-all'
+							icon={ThemeIcon.fromId('clear-all')}
 							tooltip={clear}
 							onPressed={clearHandler} />
 					</ActionBarRegion>

@@ -116,8 +116,10 @@ const getRegisteredLanguages = (services: PositronConnectionsServices) => {
 		if (languages.has(runtime.languageId)) {
 			continue;
 		}
-		const preferedMetadata = services.runtimeAffiliationService.getPreferredRuntime(runtime.languageId);
-		languages.set(runtime.languageId, preferedMetadata);
+		const preferredMetadata = services.runtimeAffiliationService.getPreferredRuntime(runtime.languageId);
+		if (preferredMetadata) {
+			languages.set(runtime.languageId, preferredMetadata);
+		}
 	}
 	return Array.from(languages.values());
 };

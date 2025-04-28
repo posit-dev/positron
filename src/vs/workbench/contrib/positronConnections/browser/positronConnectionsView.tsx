@@ -154,6 +154,7 @@ export class PositronConnectionsView
 				reactComponentContainer={this}
 				runtimeAffiliationService={this.runtimeStartupService}
 				runtimeSessionService={this.runtimeSessionService}
+				themeService={this.themeService}
 			/>
 		);
 	}

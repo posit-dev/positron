@@ -191,7 +191,9 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 				openerService={this.openerService}
 				positronPreviewService={this.positronPreviewService}
 				reactComponentContainer={this}
-				runtimeSessionService={this.runtimeSessionService} />
+				runtimeSessionService={this.runtimeSessionService}
+				themeService={this.themeService}
+			/>
 		);
 	}
 

@@ -204,16 +204,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 				if (exit.reason === RuntimeExitReason.Error) {
 					// Restart after a crash, if necessary
-					this.restartAfterCrash(session, exit).then(shouldCleanup => {
-						// Clean things up if requested.
-						if (shouldCleanup) {
-							session.cleanup();
-						}
-					});
-				} else {
-					// The session will not be restarted, so go ahead and clean
-					// up the Ext Host side.
-					session.cleanup();
+					this.restartAfterCrash(session, exit);
 				}
 			}));
 		}));
@@ -911,8 +902,10 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 * Gets the preferred runtime for a language
 	 *
 	 * @param languageId The language identifier
+	 * @returns The preferred runtime metadata, or undefined if no preferred
+	 *  runtime is available.
 	 */
-	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata {
+	public getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined {
 		// If there's an active session for the language, return it.
 		const activeSession =
 			this._runtimeSessionService.getConsoleSessionForLanguage(languageId);
@@ -945,8 +938,8 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			return languageRuntimeInfos[0];
 		}
 
-		// There are no registered runtimes for the language, throw an error.
-		throw new Error(`No language runtimes registered for language ID '${languageId}'.`);
+		// Nothing is registered, so we don't have a preferred runtime for this language.
+		return undefined;
 	}
 
 	/**
@@ -964,17 +957,24 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		}
 
 		// Start the recommended runtimes.
-		const promises = runtimes.map((runtime, idx) => {
+		const promises = runtimes.map(async (runtime, idx) => {
+			// Ensure that the runtime isn't disabled; we try to avoid getting these
+			// in the first place by not querying for them, but technically any
+			// runtime manager could return a disabled runtime.
+			if (disabledLanguageIds.includes(runtime.languageId)) {
+				this._logService.debug(`[Runtime startup] Skipping language runtime startup for language ID '${runtime.languageId}' because its startup behavior is disabled.`);
+				return;
+			}
 
 			// Register the runtime with the language runtime service.
 			// Pre-registering prevents the runtime from being unnecessarily
 			// validated later.
-			this._languageRuntimeService.registerRuntime(runtime);
+			this._register(this._languageRuntimeService.registerRuntime(runtime));
 
 			if (runtime.startupBehavior === LanguageRuntimeStartupBehavior.Immediate) {
 				// Start the runtime immediately if it has Immediate startup
 				// behavior.
-				this.autoStartRuntime(runtime,
+				await this.autoStartRuntime(runtime,
 					`The ${runtime.extensionId.value} extension recommended the runtime to be started in this workspace.`,
 					idx === 0);
 			} else {

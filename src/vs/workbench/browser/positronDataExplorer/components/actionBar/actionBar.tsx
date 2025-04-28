@@ -12,6 +12,7 @@ import React, { useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { LayoutMenuButton } from './components/layoutMenuButton.js';
 import { isAuxiliaryWindow } from '../../../../../base/browser/window.js';
 import { usePositronDataExplorerContext } from '../../positronDataExplorerContext.js';
@@ -68,7 +69,7 @@ export const ActionBar = () => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							ariaLabel={clearSortButtonDescription}
-							iconId='positron-clear-sorting'
+							icon={ThemeIcon.fromId('positron-clear-sorting')}
 							label={clearSortButtonTitle}
 							tooltip={clearSortButtonDescription}
 							onPressed={async () =>
@@ -82,7 +83,7 @@ export const ActionBar = () => {
 						<ActionBarButton
 							ariaLabel={moveIntoNewWindowButtonDescription}
 							disabled={moveIntoNewWindowDisabled}
-							iconId='positron-open-in-new-window'
+							icon={ThemeIcon.fromId('positron-open-in-new-window')}
 							tooltip={moveIntoNewWindowButtonDescription}
 							onPressed={() =>
 								context.commandService.executeCommand(

@@ -256,7 +256,9 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 				notificationService={this.notificationService}
 				positronPlotsService={this.positronPlotsService}
 				preferencesService={this.preferencesService}
-				reactComponentContainer={this} />
+				reactComponentContainer={this}
+				themeService={this.themeService}
+			/>
 		);
 	}
 

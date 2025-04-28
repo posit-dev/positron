@@ -23,7 +23,6 @@ const dirs = [
 	'extensions/positron-notebooks',
 	'extensions/positron-r',
 	'extensions/positron-reticulate',
-	'extensions/positron-rstudio-keymap',
 	'extensions/positron-run-app',
 	'extensions/positron-supervisor',
 	'extensions/positron-python',

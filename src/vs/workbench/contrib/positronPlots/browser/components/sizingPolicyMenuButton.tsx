@@ -21,6 +21,7 @@ import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/co
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { disposableTimeout } from '../../../../../base/common/async.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 interface SizingPolicyMenuButtonProps {
 	readonly keybindingService: IKeybindingService;
@@ -176,7 +177,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 	return (
 		<ActionBarMenuButton
 			actions={actions}
-			iconId='symbol-ruler'
+			icon={ThemeIcon.fromId('symbol-ruler')}
 			label={activePolicyLabel}
 			tooltip={sizingPolicyTooltip}
 		/>

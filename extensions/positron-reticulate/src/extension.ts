@@ -165,7 +165,11 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 				progress.report({ increment: 2, message: vscode.l10n.t('Starting a new R session') });
 				// We need to create a new R session.
 				const rRuntime = await positron.runtime.getPreferredRuntime('r');
-				return await positron.runtime.startLanguageRuntime(rRuntime.runtimeId, rRuntime.runtimeName);
+				if (rRuntime) {
+					return await positron.runtime.startLanguageRuntime(rRuntime.runtimeId, rRuntime.runtimeName);
+				} else {
+					throw new InitializationError(vscode.l10n.t('No R interpreter is available'));
+				}
 			}
 		})();
 

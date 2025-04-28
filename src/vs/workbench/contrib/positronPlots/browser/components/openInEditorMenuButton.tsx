@@ -11,6 +11,7 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { AUX_WINDOW_GROUP_TYPE, ACTIVE_GROUP_TYPE, SIDE_GROUP_TYPE, AUX_WINDOW_GROUP, ACTIVE_GROUP, SIDE_GROUP } from '../../../../services/editor/common/editorService.js';
 import { PlotsEditorAction } from '../positronPlotsActions.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 interface OpenInEditorMenuButtonProps {
 	tooltip: string;
@@ -82,7 +83,7 @@ export const OpenInEditorMenuButton = (props: OpenInEditorMenuButtonProps) => {
 			dropdownAriaLabel={localize('positron-editor-open-in-editor-dropdown', 'Select where to open plot')}
 			dropdownIndicator='enabled-split'
 			dropdownTooltip={localize('positron-editor-open-in-editor-dropdown', 'Select where to open plot')}
-			iconId='go-to-file'
+			icon={ThemeIcon.fromId('go-to-file')}
 			tooltip={props.tooltip}
 		/>
 	);

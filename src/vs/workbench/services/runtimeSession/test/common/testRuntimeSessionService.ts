@@ -41,9 +41,9 @@ export function createRuntimeServices(
 	instantiationService.stub(IStorageService, disposables.add(new TestStorageService()));
 	instantiationService.stub(ILogService, new NullLogService());
 	instantiationService.stub(IWorkspaceTrustManagementService, disposables.add(new TestWorkspaceTrustManagementService()));
+	instantiationService.stub(IConfigurationService, new TestConfigurationService());
 	instantiationService.stub(ILanguageRuntimeService, disposables.add(instantiationService.createInstance(LanguageRuntimeService)));
 	instantiationService.stub(IPositronModalDialogsService, new TestPositronModalDialogService());
-	instantiationService.stub(IConfigurationService, new TestConfigurationService());
 	instantiationService.stub(ICommandService, new TestCommandService(instantiationService));
 	instantiationService.stub(IKeybindingService, new MockKeybindingService());
 	instantiationService.stub(INotificationService, new TestNotificationService());

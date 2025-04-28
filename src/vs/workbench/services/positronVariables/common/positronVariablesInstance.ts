@@ -18,7 +18,7 @@ import { VariableKind } from '../../languageRuntime/common/positronVariablesComm
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { PositronCommError } from '../../languageRuntime/common/positronBaseComm.js';
 import { localize } from '../../../../nls.js';
-import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { RuntimeClientState, RuntimeClientStatus } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
@@ -48,7 +48,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * Gets or sets the runtime disposable store. This contains things that are disposed when a
 	 * runtime is detached.
 	 */
-	private _runtimeDisposableStore = this._register(new DisposableStore());
+	private readonly _runtimeDisposableStore = this._register(new DisposableStore());
 
 	/**
 	 * Gets or sets the variable items map.
@@ -108,6 +108,13 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * event before the emitter for the underlying comm has been set up.
 	 */
 	private readonly _onDidChangeStateEmitter = this._register(new Emitter<RuntimeClientState>());
+
+	/**
+	 * The onDidChangeStatus event emitter
+	 * Similar to the above onDidChangeState, we have a separate emitter so we can attach
+	 * to the event before the comm has been set up.
+	 */
+	private readonly _onDidChangeStatusEmitter = this._register(new Emitter<RuntimeClientStatus>());
 
 	/**
 	 * The _onFocusInput event emitter.
@@ -170,6 +177,14 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	get state(): RuntimeClientState {
 		return this._variablesClient ?
 			this._variablesClient.clientState.get() : RuntimeClientState.Uninitialized;
+	}
+
+	/**
+	 * Gets the current status.
+	 */
+	get status(): RuntimeClientStatus {
+		return this._variablesClient ?
+			this._variablesClient.clientStatus.get() : RuntimeClientStatus.Disconnected;
 	}
 
 	/**
@@ -238,6 +253,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 	 * onDidChangeState event.
 	 */
 	readonly onDidChangeState: Event<RuntimeClientState> = this._onDidChangeStateEmitter.event;
+
+	/**
+	 * onDidChangeStatus event.
+	 */
+	readonly onDidChangeStatus: Event<RuntimeClientStatus> = this._onDidChangeStatusEmitter.event;
 
 	/**
 	 * onFocusElement event.
@@ -478,8 +498,8 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 		// Remove all disposables associated with the attached runtime. This has
 		// the side effect of disposing the client.
-		this._runtimeDisposableStore.dispose();
-		this._runtimeDisposableStore = new DisposableStore();
+		// We use clear() instead of dispose() to not mark the store as disposed.
+		this._runtimeDisposableStore.clear();
 	}
 
 	/**
@@ -509,7 +529,7 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 			// Create an event handler for the client state.
 			const event = Event.fromObservable(
-				this._variablesClient.clientState, this._runtimeDisposableStore)
+				this._variablesClient.clientState, this._runtimeDisposableStore);
 
 			this._runtimeDisposableStore.add(event(state => {
 				// Clear all expanded paths if the client is closed.
@@ -519,6 +539,11 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 
 				// Fire the onDidChangeState event.
 				this._onDidChangeStateEmitter.fire(state);
+			}));
+
+			const onDidChangeStatusEvent = Event.fromObservable(this._variablesClient.clientStatus);
+			this._runtimeDisposableStore.add(onDidChangeStatusEvent(status => {
+				this._onDidChangeStatusEmitter.fire(status);
 			}));
 
 			// Add the runtime client to the runtime disposable store.

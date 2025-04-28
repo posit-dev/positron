@@ -10,6 +10,7 @@ import React from 'react';
 import * as nls from '../../../../../nls.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 export enum ZoomLevel {
 	Fit = 0,
@@ -71,7 +72,7 @@ export const ZoomPlotMenuButton = (props: ZoomPlotMenuButtonProps) => {
 	return (
 		<ActionBarMenuButton
 			actions={actions}
-			iconId='positron-size-to-fit'
+			icon={ThemeIcon.fromId('positron-size-to-fit')}
 			label={activeZoomLabel}
 			tooltip={zoomPlotTooltip}
 		/>

@@ -246,6 +246,7 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 				layoutService={this._layoutService}
 				reactComponentContainer={this}
 				runtimeSessionService={this._runtimeSessionService}
+				themeService={this.themeService}
 			/>
 		);
 	}

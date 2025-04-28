@@ -574,18 +574,23 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		if (!runningLanguageRuntimeSessions.length) {
 			// Get the preferred runtime for the language.
 			const languageRuntime = this._runtimeStartupService.getPreferredRuntime(languageId);
-
-			// Start the preferred runtime.
-			this._logService.trace(`Language runtime ` +
-				`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
-			await this._runtimeSessionService.startNewRuntimeSession(languageRuntime.runtimeId,
-				languageRuntime.runtimeName,
-				LanguageRuntimeSessionMode.Console,
-				undefined, // No notebook URI (console sesion)
-				`User executed code in language ${languageId}, and no running runtime session was found ` +
-				`for the language.`,
-				RuntimeStartMode.Starting,
-				true);
+			if (languageRuntime) {
+				// Start the preferred runtime.
+				this._logService.trace(`Language runtime ` +
+					`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
+				await this._runtimeSessionService.startNewRuntimeSession(languageRuntime.runtimeId,
+					languageRuntime.runtimeName,
+					LanguageRuntimeSessionMode.Console,
+					undefined, // No notebook URI (console sesion)
+					`User executed code in language ${languageId}, and no running runtime session was found ` +
+					`for the language.`,
+					RuntimeStartMode.Starting,
+					true);
+			} else {
+				// There is no registered runtime for the language, so we can't execute code.
+				throw new Error(
+					`Cannot execute code because no there is no registered runtime for the '${languageId}' language.`);
+			}
 		}
 
 		// Get the Positron console instance for the language ID.
@@ -2224,9 +2229,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}));
 
 		this._runtimeDisposableStore.add(this._session.onDidEndSession((exit) => {
-			const multiSessionsEnabled =
-				multipleConsoleSessionsFeatureEnabled(this._configurationService);
-
 			// If trace is enabled, add a trace runtime item.
 			if (this._trace) {
 				this.addRuntimeItemTrace(`onDidEndSession (code ${exit.exit_code}, reason '${exit.reason}')`);
@@ -2263,9 +2265,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				exit.reason === RuntimeExitReason.Unknown ||
 				crashedAndNeedRestartButton;
 
-			if (!multiSessionsEnabled && showRestartButton) {
+			if (showRestartButton) {
 				const restartButton = new RuntimeItemRestartButton(generateUuid(),
-					this.runtimeMetadata.languageName,
+					this.sessionMetadata.sessionName,
 					() => {
 						this._onDidRequestRestart.fire();
 					});

@@ -7,6 +7,7 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { ILanguageRuntimeMessageState } from './languageRuntimeService.js';
 
 /**
  * The possible states for a language runtime client instance. These
@@ -28,6 +29,16 @@ export enum RuntimeClientState {
 
 	/** The connection between the server and the client is closed */
 	Closed = 'closed',
+}
+
+/**
+ * Represents the status of a language runtime client. It's used to indicate
+ * if it's currently executing RPC requests or not.
+ */
+export enum RuntimeClientStatus {
+	Idle = 'idle',
+	Busy = 'busy',
+	Disconnected = 'closed',
 }
 
 /**
@@ -83,8 +94,10 @@ export interface IRuntimeClientInstance<Input, Output> extends Disposable {
 	getClientId(): string;
 	getClientType(): RuntimeClientType;
 	performRpcWithBuffers(request: Input, timeout: number): Promise<IRuntimeClientOutput<Output>>;
-	performRpc(request: Input, timeout: number, responseKeys: Array<string>): Promise<Output>;
+	performRpc(request: Input, timeout: number | undefined, responseKeys: Array<string>): Promise<Output>;
 	sendMessage(message: any): void;
 	messageCounter: ISettableObservable<number>;
 	clientState: ISettableObservable<RuntimeClientState>;
+	clientStatus: ISettableObservable<RuntimeClientStatus>;
+	updatePendingRpcState(message: ILanguageRuntimeMessageState): void;
 }
