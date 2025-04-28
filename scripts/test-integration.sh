@@ -128,6 +128,12 @@ kill_app
 # Positron Extensions
 
 echo
+echo "### Positron Assistant tests"
+echo
+yarn test-extension -l positron-assistant
+kill_app
+
+echo
 echo "### Positron Code Cells tests"
 echo
 yarn test-extension -l positron-code-cells

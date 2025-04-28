@@ -11,9 +11,11 @@
 	padding-left: 10px;
 	padding-right: 10px;
 	background-color: var(--vscode-button-background);
-	color: var(--vscode-button-foreground);
 }
 
+.monaco-workbench button.runtime-restart-button {
+	color: var(--vscode-button-foreground);
+}
 .runtime-restart-button:hover {
 	background-color: var(--vscode-button-hoverBackground);
 }

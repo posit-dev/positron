@@ -72,8 +72,10 @@ export interface IRuntimeStartupService {
 	 * they've used recently, etc.
 	 *
 	 * @param languageId The language identifier.
+	 * @returns The preferred runtime for the given language identifier, or
+	 *  undefined if no runtimes are registered for the given language identifier.
 	 */
-	getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata;
+	getPreferredRuntime(languageId: string): ILanguageRuntimeMetadata | undefined;
 
 	/**
 	 * Whether the workspace has affiliated runtimes.
