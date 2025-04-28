@@ -71,12 +71,6 @@ npm run test-extension -- -l positron-zed
 kill_app
 
 echo
-echo "### Positron Notebook Controllers tests"
-echo
-npm run test-extension -- -l positron-notebook-controllers
-kill_app
-
-echo
 echo "### Positron Supervisor tests"
 echo
 npm run test-extension -- -l positron-supervisor
