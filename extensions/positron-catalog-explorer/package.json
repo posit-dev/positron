@@ -141,7 +141,9 @@
     "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
-    "test": "vscode-test"
+    "test": "vscode-test",
+    "vsix": "npx --yes @vscode/vsce package --allow-missing-repository --skip-license",
+    "prerelease": "npx --yes @vscode/vsce package --pre-release --allow-missing-repository --skip-license"
   },
   "devDependencies": {
     "@types/mocha": "^10.0.10",
