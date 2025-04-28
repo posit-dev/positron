@@ -5,6 +5,7 @@
   "displayName": "Catalog Explorer",
   "description": "Explore tables, views, and files backed by data catalogs.",
   "version": "0.0.1",
+  "preview": true,
   "engines": {
     "vscode": "^1.87.0"
   },
