@@ -1,31 +1,19 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect, tags } from '../_test.setup';
-import { vsCodeSettings } from '../../pages/utils/userSettings/vscodeSettingsManager';
-import { createPositronSettingsManager } from '../../infra/index.js';
-import { UserSettingsFileManager } from '../../pages/utils/userSettingsFileManager.js';
 
 test.use({
 	suiteId: __filename
 });
 
 test.describe('Import VS Code Settings: no Positron settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
-	let positronSettings: UserSettingsFileManager;
 
-	test.beforeEach(async ({ userDataDir }) => {
-		await vsCodeSettings.backupIfExists();
-		await vsCodeSettings.ensureExists();
-
-		positronSettings = createPositronSettingsManager(userDataDir);
-		await positronSettings.backupThenDelete();
-	});
-
-	test.afterEach(async () => {
-		await vsCodeSettings.restoreFromBackup();
-		await positronSettings.restoreFromBackup();
+	test.beforeEach(async ({ vscodeUserSettings, positronUserSettings }) => {
+		await vscodeUserSettings.ensureExists();
+		await positronUserSettings.delete();
 	});
 
 	test('Verify import import occurs and is clean without a diff', async ({ page, runCommand }) => {

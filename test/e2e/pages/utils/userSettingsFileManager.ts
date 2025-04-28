@@ -43,13 +43,6 @@ export class UserSettingsFileManager {
 		}
 	}
 
-	public async backupThenDelete(): Promise<void> {
-		if (await this.exists()) {
-			await this.backupIfExists();
-			await this.delete();
-		}
-	}
-
 	public async writeDummy(): Promise<void> {
 		await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
 		await fs.writeFile(this.settingsPath, JSON.stringify(this.writeDefaults(), null, 2), 'utf-8');

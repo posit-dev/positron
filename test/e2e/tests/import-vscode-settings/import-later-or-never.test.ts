@@ -1,10 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { test, expect, tags } from '../_test.setup';
-import { vsCodeSettings } from '../../pages/utils/userSettings/vscodeSettingsManager';
 
 test.use({
 	suiteId: __filename
@@ -15,16 +14,11 @@ test.describe('Import VSCode Settings: Defer', { tag: [tags.VSCODE_SETTINGS] }, 
 	// 	await userSettings.set([['positron.importSettings.enable', 'true']]);
 	// });
 
-	test.beforeEach(async () => {
-		await vsCodeSettings.backupIfExists();
-		await vsCodeSettings.ensureExists();
+	test.beforeEach(async ({ vscodeUserSettings }) => {
+		await vscodeUserSettings.ensureExists();
 	});
 
-	test.afterEach(async () => {
-		await vsCodeSettings.restoreFromBackup();
-	});
-
-	test('Verify import prompt behavior on "Later"', async ({ sessions, page, runCommand }) => {
+	test('Verify import prompt behavior on "Later"', async ({ page, runCommand }) => {
 		const importButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Import' });
 		const laterButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Later' });
 		const doNotShowAgainButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Don\'t Show Again' });

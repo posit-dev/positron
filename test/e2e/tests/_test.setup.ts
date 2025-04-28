@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir } from '../infra';
+import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -38,6 +38,7 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
+import { UserSettingsFileManager } from '../pages/utils/userSettingsFileManager.js';
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -242,7 +243,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	workspaceSettings: [async ({ app }, use) => {
 		const workspaceSettings = new SettingsFixture(app);
 
-		const setUserSetting = async (
+		const setWorkspaceSetting = async (
 			settings: [string, string][],
 			restartApp = false
 		) => {
@@ -251,10 +252,28 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		};
 
 		await use({
-			set: setUserSetting
+			set: setWorkspaceSetting
 		});
 
 		await workspaceSettings.unset();
+	}, { scope: 'worker' }],
+
+	vscodeUserSettings: [async ({ }, use) => {
+		const manager = vsCodeSettings;
+		await manager.backupIfExists();
+
+		await use(manager);
+
+		await manager.restoreFromBackup();
+	}, { scope: 'worker' }],
+
+	positronUserSettings: [async ({ userDataDir }, use) => {
+		const manager = createPositronSettingsManager(userDataDir);
+		await manager.backupIfExists();
+
+		await use(manager);
+
+		await manager.restoreFromBackup();
 	}, { scope: 'worker' }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
@@ -471,6 +490,8 @@ interface WorkerFixtures {
 	workspaceSettings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 	};
+	vscodeUserSettings: UserSettingsFileManager;
+	positronUserSettings: UserSettingsFileManager;
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {
