@@ -14,9 +14,9 @@ test.use({
  * Test suite for the setup of Positron Assistant.
  */
 test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
-	test.beforeAll('How to set User Settings', async function ({ userSettings }) {
+	test.beforeAll('How to set User Settings', async function ({ workspaceSettings }) {
 		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
-		await userSettings.set([['positron.assistant.enable', 'true'],
+		await workspaceSettings.set([['positron.assistant.enable', 'true'],
 		['positron.assistant.newModelConfiguration', 'true'],
 		['positron.assistant.testModels', 'true']], true);
 	});
@@ -95,7 +95,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
  */
 // Skipped due to https://github.com/posit-dev/positron/issues/7391
 test.describe.skip('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
-	test.beforeAll('How to set User Settings', async function ({ app, userSettings }) {
+	test.beforeAll('How to set User Settings', async function ({ app, workspaceSettings: userSettings }) {
 		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
 		await userSettings.set([['positron.assistant.enable', 'true'],
 		['positron.assistant.newModelConfiguration', 'true'],

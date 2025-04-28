@@ -15,8 +15,8 @@ test.describe('Interpreter: Includes', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]'],
+	test.beforeAll(async function ({ workspaceSettings }) {
+		await workspaceSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]'],
 		['positron.r.customRootFolders', '["/home/runner/scratch"]']], true);
 	});
 
@@ -47,7 +47,7 @@ test.describe('Interpreter: Excludes', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
+	test.beforeAll(async function ({ workspaceSettings: userSettings }) {
 		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]'],
 		['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
 	});
@@ -74,7 +74,7 @@ test.describe('Interpreter: Excludes', {
 		await app.code.driver.page.keyboard.press('Escape');
 	});
 
-	test('Python - Can Exclude an Interpreter', async function ({ app, userSettings, sessions }) {
+	test('Python - Can Exclude an Interpreter', async function ({ app, workspaceSettings: userSettings, sessions }) {
 
 		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
 
@@ -104,7 +104,7 @@ test.describe('Interpreter: Override', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
+	test.beforeAll(async function ({ workspaceSettings: userSettings }) {
 		await userSettings.set([['python.interpreters.override', '["/home/runner/scratch/python-env"]'],
 		['positron.r.interpreters.override', '["/opt/R/4.4.2/bin/R"]']], true);
 	});
@@ -130,7 +130,7 @@ test.describe('Interpreter: Override', {
 		await app.code.driver.page.keyboard.press('Escape');
 	});
 
-	test('Python - Can Override Interpreter Discovery', async function ({ app, userSettings, sessions }) {
+	test('Python - Can Override Interpreter Discovery', async function ({ app, workspaceSettings: userSettings, sessions }) {
 
 		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
 

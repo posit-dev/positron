@@ -30,7 +30,6 @@ export * from '../pages/viewer';
 export * from '../pages/editor';
 export * from '../pages/testExplorer';
 export * from '../pages/explorer';
-export * from '../pages/utils/aws';
 export * from '../pages/quickaccess';
 export * from '../pages/outline';
 export * from '../pages/clipboard';
@@ -44,7 +43,12 @@ export * from '../pages/scm';
 export * from '../pages/sessions';
 export * from '../pages/hotKeys';
 
+// utils
+export * from '../pages/utils/aws';
+export * from '../pages/utils/userSettings/positronSettingsManager.js';
+export * from '../pages/utils/userSettings/vscodeSettingsManager.js';
+
 // fixtures
-export * from './fixtures/userSettings';
+export * from './fixtures/settings';
 
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';

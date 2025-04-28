@@ -54,6 +54,7 @@ export enum TestTags {
 	TOP_ACTION_BAR = '@:top-action-bar',
 	VARIABLES = '@:variables',
 	WELCOME = '@:welcome',
+	VSCODE_SETTINGS = '@:vscode-settings',
 
 	// platform  tags
 	WEB = '@:web',

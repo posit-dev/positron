@@ -17,10 +17,10 @@ test.use({
 });
 
 test.describe('Examples of Concepts', () => {
-	test.beforeAll('How to set User Settings', async function ({ userSettings }) {
-		// we set the user settings before all tests in a spec begin
+	test.beforeAll('How to set Workplace Settings', async function ({ workspaceSettings }) {
+		// we set the workplace settings before all tests in a spec begin
 		// the fixture cleans up and unsets after all tests have finished
-		await userSettings.set([['files.autoSave', 'false']]);
+		await workspaceSettings.set([['files.autoSave', 'false']]);
 	});
 
 	test('How to use app instance', async function ({ app }) {

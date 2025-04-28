@@ -12,7 +12,6 @@ export function createApp(options: ApplicationOptions, optionsTransform?: (opts:
 
 	const app = new Application({
 		...options,
-		userDataDir: getRandomUserDataDir(options)
 	});
 
 	return app;

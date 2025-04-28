@@ -5,6 +5,6 @@
 
 export { prepareTestEnv } from './test-setup';
 export { cloneTestRepo } from './utils';
-export { createApp } from './create-app';
+export { createApp, getRandomUserDataDir } from './create-app';
 export { createLogger } from './logger';
 export { TestTags } from './test-tags';

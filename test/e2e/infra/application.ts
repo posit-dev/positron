@@ -18,7 +18,6 @@ export const enum Quality {
 }
 
 export interface ApplicationOptions extends LaunchOptions {
-	quality: Quality;
 	readonly workspacePath: string;
 }
 
@@ -34,10 +33,6 @@ export class Application {
 
 	private _workbench: Workbench | undefined;
 	get workbench(): Workbench { return this._workbench!; }
-
-	get quality(): Quality {
-		return this.options.quality;
-	}
 
 	get logger(): Logger {
 		return this.options.logger;

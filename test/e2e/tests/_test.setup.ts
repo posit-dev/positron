@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown } from '../infra';
+import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -73,16 +73,22 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			logger,
 			logsPath,
 			crashesPath: SPEC_CRASHES_PATH,
-			verbose: process.env.VERBOSE,
-			remote: process.env.REMOTE,
+			verbose: !!process.env.VERBOSE,
+			remote: !!process.env.REMOTE,
 			web: project.web,
 			headless: project.headless,
 			tracing: true,
 			snapshots,
+
 		};
+		options.userDataDir = getRandomUserDataDir(options);
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
+
+	userDataDir: [async ({ options }, use) => {
+		await use(options.userDataDir);
+	}, { scope: 'worker' }],
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
@@ -216,13 +222,13 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	userSettings: [async ({ app }, use) => {
-		const userSettings = new UserSettingsFixtures(app);
+		const userSettings = new SettingsFixture(app);
 
 		const setUserSetting = async (
 			settings: [string, string][],
 			restartApp = false
 		) => {
-			await userSettings.setUserSettings(settings, restartApp);
+			await userSettings.setMultiple(settings, restartApp);
 			await app.workbench.sessions.expectNoStartUpMessaging();
 		};
 
@@ -230,7 +236,25 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			set: setUserSetting
 		});
 
-		await userSettings.unsetUserSettings();
+		await userSettings.unset();
+	}, { scope: 'worker' }],
+
+	workspaceSettings: [async ({ app }, use) => {
+		const workspaceSettings = new SettingsFixture(app);
+
+		const setUserSetting = async (
+			settings: [string, string][],
+			restartApp = false
+		) => {
+			await workspaceSettings.setMultiple(settings, restartApp);
+			await app.workbench.sessions.expectNoStartUpMessaging();
+		};
+
+		await use({
+			set: setUserSetting
+		});
+
+		await workspaceSettings.unset();
 	}, { scope: 'worker' }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
@@ -437,11 +461,15 @@ interface WorkerFixtures {
 	snapshots: boolean;
 	artifactDir: string;
 	options: any;
+	userDataDir: string;
 	app: Application;
 	logsPath: string;
 	logger: Logger;
 	userSettings: {
-		set: (settings: UserSetting[], restartApp?: boolean) => Promise<void>;
+		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
+	};
+	workspaceSettings: {
+		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 	};
 }
 
