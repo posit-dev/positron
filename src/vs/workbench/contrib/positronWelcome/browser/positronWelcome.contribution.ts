@@ -50,6 +50,8 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 			this.registerActions();
 
 			const alreadyPrompted = await getImportWasPrompted(this.storageService);
+			console.log('Import was already prompted?:', alreadyPrompted);
+			console.log('Code settings exist?:', codeSettingsExist);
 			if (codeSettingsExist && !alreadyPrompted) {
 				promptImport(
 					this.storageService,
