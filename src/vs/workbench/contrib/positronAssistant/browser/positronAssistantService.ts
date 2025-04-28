@@ -17,6 +17,7 @@ import { ILayoutService } from '../../../../platform/layout/browser/layoutServic
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 
 /**
  * PositronAssistantService class.
@@ -41,6 +42,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IExecutionHistoryService private readonly _historyService: IExecutionHistoryService
 	) {
 		super();
 	}
@@ -55,10 +57,20 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 
 		const runtimeMetadata =
 			this._consoleService.activePositronConsoleInstance?.runtimeMetadata;
+		const sessionId =
+			this._consoleService.activePositronConsoleInstance?.sessionId;
+		const history = sessionId ? this._historyService.getExecutionEntries(sessionId).map(e => {
+			return {
+				input: e.input,
+				output: e.output
+				error: e.error,
+			}
+		}) : [];
 		const context: IPositronChatContext = {
 			console: {
 				language: runtimeMetadata?.languageName ?? '',
 				version: runtimeMetadata?.languageVersion ?? '',
+				executions: history
 			},
 			plots: {
 				hasPlots: this.getCurrentPlotUri() !== undefined,
