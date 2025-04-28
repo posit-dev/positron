@@ -109,6 +109,7 @@ export class PositronImportSettings extends Action2 {
 				},
 				{
 					label: localize('positron.importSettings.rejecttLabel', "Reject"), run: async () => {
+						await editor?.revert(0);
 						await editor?.dispose();
 
 						disposables.dispose();

@@ -10,9 +10,9 @@ test.use({
 });
 
 test.describe('Import VSCode Settings: Defer', { tag: [tags.VSCODE_SETTINGS] }, () => {
-	// test.beforeAll(async ({ userSettings }) => {
-	// 	await userSettings.set([['positron.importSettings.enable', 'true']]);
-	// });
+	test.beforeAll(async ({ runCommand }) => {
+		await runCommand('Preferences: Import Settings...');
+	});
 
 	test.beforeEach(async ({ vscodeUserSettings }) => {
 		await vscodeUserSettings.ensureExists();
