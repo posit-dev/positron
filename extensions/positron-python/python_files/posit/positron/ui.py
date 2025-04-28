@@ -264,7 +264,7 @@ class PositronViewerBrowser(webbrowser.BaseBrowser):
         if self._comm is None:
             logger.warning("No comm available to send ShowHtmlFile event")
             return False
-        if os.name == "nt":
+        if os.name == "nt" and is_local_html_file(url):
             url = urlparse(url).netloc or urlparse(url).path
         self._comm.send_event(
             name=UiFrontendEvent.ShowHtmlFile,
