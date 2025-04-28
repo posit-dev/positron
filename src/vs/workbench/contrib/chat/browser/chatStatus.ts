@@ -132,19 +132,21 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		this.statusbarService.updateEntryVisibility(completionsStatusId, false);
 		this.statusbarService.overrideEntry(completionsStatusId, { name: localize('codeCompletionsStatus', "Copilot Code Completions"), text: localize('codeCompletionsStatusText', "$(copilot) Completions") });
 
-		// const hidden = this.chatEntitlementService.sentiment === ChatSentiment.Disabled;
+		/*
+		const hidden = this.chatEntitlementService.sentiment === ChatSentiment.Disabled;
 
-		// if (!hidden) {
-		// 	this.entry ||= this.statusbarService.addEntry(this.getEntryProps(), 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
+		if (!hidden) {
+			this.entry ||= this.statusbarService.addEntry(this.getEntryProps(), 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
 
-		// 	// TODO@bpasero: remove this eventually
-		// 	const completionsStatusId = `${defaultChat.extensionId}.status`;
-		// 	this.statusbarService.updateEntryVisibility(completionsStatusId, false);
-		// 	this.statusbarService.overrideEntry(completionsStatusId, { name: localize('codeCompletionsStatus', "Copilot Code Completions"), text: localize('codeCompletionsStatusText', "$(copilot) Completions") });
-		// } else {
-		// 	this.entry?.dispose();
-		// 	this.entry = undefined;
-		// }
+			// TODO@bpasero: remove this eventually
+			const completionsStatusId = `${defaultChat.extensionId}.status`;
+			this.statusbarService.updateEntryVisibility(completionsStatusId, false);
+			this.statusbarService.overrideEntry(completionsStatusId, { name: localize('codeCompletionsStatus', "Copilot Code Completions"), text: localize('codeCompletionsStatusText', "$(copilot) Completions") });
+		} else {
+			this.entry?.dispose();
+			this.entry = undefined;
+		}
+		*/
 		// --- End Positron ---
 	}
 
@@ -391,6 +393,7 @@ class ChatStatusDashboard extends Disposable {
 			this.element.appendChild(rendered.element);
 		}
 
+		/*
 		// Settings
 		// {
 		// 	addSeparator(localize('settingsTitle', "Settings"));
@@ -399,22 +402,22 @@ class ChatStatusDashboard extends Disposable {
 		// }
 
 
-		// --- Start Positron ---
 		// Remove Copilot
 
 		// New to Copilot / Signed out
-		// {
-		// 	const newUser = isNewUser(this.chatEntitlementService);
-		// 	const signedOut = this.chatEntitlementService.entitlement === ChatEntitlement.Unknown;
-		// 	if (newUser || signedOut) {
-		// 		addSeparator(undefined);
+		{
+			const newUser = isNewUser(this.chatEntitlementService);
+			const signedOut = this.chatEntitlementService.entitlement === ChatEntitlement.Unknown;
+			if (newUser || signedOut) {
+				addSeparator(undefined);
 
-		// 		this.element.appendChild($('div.description', undefined, newUser ? localize('activateDescription', "Set up Copilot to use AI features.") : localize('signInDescription', "Sign in to use Copilot AI features.")));
-		// 		const button = disposables.add(new Button(this.element, { ...defaultButtonStyles }));
-		// 		button.label = newUser ? localize('activateCopilotButton', "Set up Copilot") : localize('signInToUseCopilotButton', "Sign in to use Copilot");
-		// 		disposables.add(button.onDidClick(() => this.runCommandAndClose(newUser ? 'workbench.action.chat.triggerSetup' : () => this.chatEntitlementService.requests?.value.signIn())));
-		// 	}
-		// }
+				this.element.appendChild($('div.description', undefined, newUser ? localize('activateDescription', "Set up Copilot to use AI features.") : localize('signInDescription', "Sign in to use Copilot AI features.")));
+				const button = disposables.add(new Button(this.element, { ...defaultButtonStyles }));
+				button.label = newUser ? localize('activateCopilotButton', "Set up Copilot") : localize('signInToUseCopilotButton', "Sign in to use Copilot");
+				disposables.add(button.onDidClick(() => this.runCommandAndClose(newUser ? 'workbench.action.chat.triggerSetup' : () => this.chatEntitlementService.requests?.value.signIn())));
+			}
+		}
+		*/
 		// --- End Positron ---
 
 		return this.element;
