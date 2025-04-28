@@ -193,7 +193,7 @@ async function createSnippetFile(scope: string, defaultPath: URI, quickInputServ
 		'\t// \t\t")"',
 		'\t// \t],',
 		'\t// \t"description": "Define a switch statement"',
-		'\t// }',
+		'\t// },',
 		'\t// Example snippet for Python:',
 		'\t// "match-case": {',
 		'\t// \t"scope": "python",',
