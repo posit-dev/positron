@@ -4,6 +4,7 @@
   "author": "Posit Software, PBC",
   "displayName": "Catalog Explorer",
   "description": "Explore tables, views, and files backed by data catalogs.",
+  "icon": "resources/icon.png",
   "version": "0.0.1",
   "preview": true,
   "engines": {
