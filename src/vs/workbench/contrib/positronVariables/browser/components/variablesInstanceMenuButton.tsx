@@ -47,6 +47,12 @@ export const VariablesInstanceMenuButton = () => {
 			setSessionLabel(labelForRuntime(instance?.session));
 		}));
 
+		disposables.add(positronVariablesContext.runtimeSessionService.onDidUpdateSessionName(session => {
+			if (session.sessionId === positronVariablesContext.activePositronVariablesInstance?.session.sessionId) {
+				setSessionLabel(labelForRuntime(session));
+			}
+		}));
+
 		return () => disposables.dispose();
 	}, [positronVariablesContext.positronVariablesService, positronVariablesContext.runtimeSessionService, positronVariablesContext.activePositronVariablesInstance]);
 

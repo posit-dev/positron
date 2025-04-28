@@ -946,7 +946,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	getLabel(): string {
-		// If we're a notebook session, use the notebook name, otherwise use the runtime name
+		// If we're a notebook session, use the notebook name, otherwise use the session name
 		if (this.dynState.currentNotebookUri) {
 			return basename(this.dynState.currentNotebookUri);
 		}
