@@ -16,7 +16,9 @@
   "keywords": [
     "Positron"
   ],
-  "activationEvents": ["onFileSystem:dbfs"],
+  "activationEvents": [
+    "onFileSystem:dbfs"
+  ],
   "main": "./out/extension.js",
   "contributes": {
     "commands": [
@@ -123,7 +125,7 @@
         }
       ]
     },
-    "keybindings":[
+    "keybindings": [
       {
         "command": "posit.catalog-explorer.copyPath",
         "key": "Ctrl+Alt+C",
