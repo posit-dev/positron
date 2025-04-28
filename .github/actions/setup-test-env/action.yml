@@ -24,6 +24,26 @@ runs:
       shell: bash
       run: npm --prefix test/e2e run compile
 
+    - name: Simulate VS Code User Settings
+      if: inputs.simulate_vscode_settings == 'true'
+      shell: bash
+      run: |
+        echo "Simulating VS Code user settings..."
+        if [[ "$RUNNER_OS" == "Linux" ]]; then
+          mkdir -p "$HOME/.config/Code/User"
+          echo "Creating settings in $HOME/.config/Code/User/settings.json"
+          echo '{"editor.fontSize":8,"test":"vs-code-settings","workbench.colorTheme":"Default Dark"}' > "$HOME/.config/Code/User/settings.json"
+        elif [[ "$RUNNER_OS" == "macOS" ]]; then
+          mkdir -p "$HOME/Library/Application Support/Code/User"
+          echo "Creating settings in $HOME/Library/Application Support/Code/User/settings.json"
+          echo '{"editor.fontSize":8,"test":"vs-code-settings","workbench.colorTheme":"Default Dark"}' > "$HOME/Library/Application Support/Code/User/settings.json"
+        elif [[ "$RUNNER_OS" == "Windows" ]]; then
+          $vscodePath="$env:APPDATA\\Code\\User"
+          echo "Creating settings in $vscodePath\\settings.json"
+          New-Item -ItemType Directory -Force -Path $vscodePath
+          '{"editor.fontSize":8,"test":"vs-code-settings","workbench.colorTheme":"Default Dark"}' | Out-File -FilePath "$vscodePath\\settings.json" -Encoding utf8
+        fi
+
     - name: Setup AWS S3 Access
       uses: aws-actions/configure-aws-credentials@v4
       with:
@@ -60,19 +80,3 @@ runs:
         version: "4.4.0"
         alternate_version: "4.4.2"
         install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}
-
-    - name: Simulate VS Code User Settings
-      if: inputs.simulate_vscode_settings == 'true'
-      shell: bash
-      run: |
-        if [[ "$RUNNER_OS" == "Linux" ]]; then
-          mkdir -p "$HOME/.config/Code/User"
-          echo '{"editor.fontSize":8,"test":"vs-code-settings","workbench.colorTheme":"Default Dark"}' > "$HOME/.config/Code/User/settings.json"
-        elif [[ "$RUNNER_OS" == "macOS" ]]; then
-          mkdir -p "$HOME/Library/Application Support/Code/User"
-          echo '{"editor.fontSize":8,"test":"vs-code-settings","workbench.colorTheme":"Default Dark"}' > "$HOME/Library/Application Support/Code/User/settings.json"
-        elif [[ "$RUNNER_OS" == "Windows" ]]; then
-          $vscodePath="$env:APPDATA\\Code\\User"
-          New-Item -ItemType Directory -Force -Path $vscodePath
-          '{"editor.fontSize":8,"test":"vs-code-settings","workbench.colorTheme":"Default Dark"}' | Out-File -FilePath "$vscodePath\\settings.json" -Encoding utf8
-        fi
