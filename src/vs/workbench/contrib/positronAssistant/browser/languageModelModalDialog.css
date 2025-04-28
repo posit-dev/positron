@@ -90,6 +90,7 @@
 	border: 1px solid var(--vscode-positronModalDialog-buttonBorder);
 	background: var(--vscode-positronModalDialog-buttonBackground);
 	width: 80px;
+	min-width: 80px;
 	text-align: center !important;
 }
 
