@@ -28,6 +28,9 @@ suite('Server', () => {
 
 			// Sanity check a response field
 			assert.strictEqual(status.sessions, 0);
+		} catch (err) {
+			console.error('Error connecting: ' + JSON.stringify(err));
+			throw err;
 		} finally {
 			// Reset the http_proxy environment variable
 			process.env.http_proxy = oldHttpProxy;
