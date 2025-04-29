@@ -1128,7 +1128,7 @@ suite.skip('Positron - RuntimeSessionService', () => {
 		// Create a new session
 		const session = await startConsole();
 		await waitForRuntimeState(session, RuntimeState.Ready);
-		assert.strictEqual(session.dynState.sessionName, 'test-session', 'Initial session name should match');
+		assert.strictEqual(session.dynState.sessionName, runtime.runtimeName, 'Initial session name should match');
 
 		// Set a new name for the session
 		const newName = 'updated-session-name';
