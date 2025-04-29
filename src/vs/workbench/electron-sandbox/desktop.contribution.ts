@@ -216,7 +216,10 @@ import { registerWorkbenchContribution2, WorkbenchPhase } from '../common/contri
 					localize('window.newWindowDimensions.maximized', "Open new windows maximized."),
 					localize('window.newWindowDimensions.fullscreen', "Open new windows in full screen mode.")
 				],
-				'default': 'default',
+				// --- Start Positron ---
+				// 'default': 'default',
+				'default': 'inherit',
+				// --- End Positron ---
 				'scope': ConfigurationScope.APPLICATION,
 				'description': localize('newWindowDimensions', "Controls the dimensions of opening a new window when at least one window is already opened. Note that this setting does not have an impact on the first window that is opened. The first window will always restore the size and location as you left it before closing.")
 			},
