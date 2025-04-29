@@ -116,12 +116,12 @@ export class TextSearchTool implements IToolImpl {
 			const request = model.getRequests().at(-1)!;
 
 			for (const result of results) {
-				const { resource, results } = result;
-				if (!results || results.length === 0) {
+				const { resource, results: fileMatches } = result;
+				if (!fileMatches?.length) {
 					continue; // No results for this file
 				}
 
-				results
+				fileMatches
 					.filter(resultIsMatch)
 					.flatMap(match => match.rangeLocations)
 					.forEach(loc => {
