@@ -446,26 +446,13 @@ class PositronAssistantEditorParticipant extends PositronAssistantParticipant im
 			throw new Error('Editor participant only supports editor requests');
 		}
 
-		const prompts = [];
-
+		// If the user has not selected text, use the prompt for the whole document.
 		if (request.location2.selection.isEmpty) {
-			// If the user has not selected text, use the prompt for the whole document.
-			prompts.push(
-				await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8')
-			);
-		} else {
-			// If the user has selected text, generate a new version of the selection.
-			prompts.push(
-				await fs.promises.readFile(`${mdDir}/prompts/chat/selection.md`, 'utf8')
-			);
+			return await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
 		}
 
-		// Add filepaths handling to the system prompt.
-		prompts.push(
-			await fs.promises.readFile(`${mdDir}/prompts/chat/filepaths.md`, 'utf8')
-		);
-
-		return prompts.join('\n\n');
+		// If the user has selected text, generate a new version of the selection.
+		return await fs.promises.readFile(`${mdDir}/prompts/chat/selection.md`, 'utf8');
 	}
 
 	async getMessages(request: vscode.ChatRequest): Promise<vscode.LanguageModelChatMessage[]> {
@@ -504,6 +491,10 @@ class PositronAssistantNotebookParticipant extends PositronAssistantParticipant 
 /** The participant used in the chat pane in Edit mode. */
 class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Edit;
+
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
+		return await fs.promises.readFile(`${mdDir}/prompts/chat/filepaths.md`, 'utf8');
+	}
 }
 
 export function registerParticipants(context: vscode.ExtensionContext) {
