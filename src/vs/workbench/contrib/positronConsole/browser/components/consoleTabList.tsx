@@ -7,10 +7,11 @@
 import './consoleTabList.css';
 
 // React.
-import React, { KeyboardEvent, MouseEvent, useState } from 'react';
+import React, { KeyboardEvent, MouseEvent, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ConsoleInstanceState } from './consoleInstanceState.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -30,7 +31,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 	// State
 	const [deleteDisabled, setDeleteDisabled] = useState(false);
 	const [isRenamingSession, setIsRenamingSession] = useState(false);
-	const [newSessionName, setNewSessionName] = useState(positronConsoleInstance.sessionName);
+	const [sessionName, setSessionName] = useState(positronConsoleInstance.sessionName);
 
 	// Refs
 	const inputRef = React.useRef<HTMLInputElement>(null);
@@ -97,7 +98,6 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		});
 	}
 
-
 	const renameConsoleSession = async () => {
 		// Show a prompt to rename the console session in the UI
 		setIsRenamingSession(true);
@@ -115,7 +115,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 	 */
 	const handleRenameSubmit = async () => {
 		// Validate the new session name
-		const newName = newSessionName.trim();
+		const newName = sessionName.trim();
 		if (!newName || newName === positronConsoleInstance.sessionName) {
 			setIsRenamingSession(false);
 			return;
@@ -126,16 +126,16 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 				positronConsoleInstance.sessionId,
 				newName
 			);
-			setNewSessionName(newName);
+			setSessionName(newName);
 		} catch (error) {
 			positronConsoleContext.notificationService.error(
-				localize('positron.console.renameInstanceError',
+				localize('positron.console.renameSession.error',
 					"Failed to rename session {0}: {1}",
 					positronConsoleInstance.sessionId,
 					error
 				)
 			);
-			setNewSessionName(positronConsoleInstance.sessionName);
+			setSessionName(positronConsoleInstance.sessionName);
 		} finally {
 			setIsRenamingSession(false);
 		}
@@ -183,9 +183,23 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 			// hide the input field
 			setIsRenamingSession(false);
 			// restore the original session name
-			setNewSessionName(positronConsoleInstance.sessionName);
+			setSessionName(positronConsoleInstance.sessionName);
 		}
 	};
+
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onDidUpdateSessionName event handler.
+		disposableStore.add(
+			positronConsoleContext.runtimeSessionService.onDidUpdateSessionName(session => {
+				if (session.sessionId === positronConsoleInstance.sessionId) {
+					setSessionName(session.dynState.sessionName);
+				}
+			})
+		);
+	}, [positronConsoleContext.runtimeSessionService, positronConsoleInstance.sessionId])
 
 
 	return (
@@ -210,17 +224,15 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 					ref={inputRef}
 					className='session-name-input'
 					type='text'
-					value={newSessionName}
+					value={sessionName}
 					onBlur={handleRenameSubmit}
-					onChange={e => setNewSessionName(e.target.value)}
+					onChange={e => setSessionName(e.target.value)}
 					onClick={e => e.stopPropagation()}
 					onKeyDown={handleKeyDown}
 				/>
 			) : (
 				<>
-					<p className='session-name'>
-						{positronConsoleInstance.sessionName}
-					</p>
+					<p className='session-name'>{sessionName}</p>
 					<button
 						className='delete-button'
 						data-testid='trash-session'
