@@ -11,6 +11,7 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings } from './actions.js';
 import * as platform from '../../../../base/common/platform.js';
 import { localize } from '../../../../nls.js';
+import { env } from '../../../../base/common/process.js';
 
 const WAS_PROMPTED_KEY = 'positron.welcome.promptedImport';
 
@@ -68,17 +69,19 @@ export async function promptImport(
 	);
 }
 
-export async function getCodeSettingsPath(pathService: IPathService): Promise<URI> {
+export async function getCodeSettingsPath(
+	pathService: IPathService, os: platform.OperatingSystem = platform.OS): Promise<URI> {
 	const path = await pathService.path;
 	const homedir = await pathService.userHome();
 
+
 	let appDataPath: URI;
-	switch (platform.OS) {
+	switch (os) {
 		case platform.OperatingSystem.Windows:
-			if (process.env['APPDATA']) {
-				appDataPath = URI.parse(process.env['APPDATA']);
+			if (env['APPDATA']) {
+				appDataPath = URI.parse(env['APPDATA']);
 			} else {
-				const userProfile = process.env['USERPROFILE'];
+				const userProfile = env['USERPROFILE'];
 				if (typeof userProfile !== 'string') {
 					throw new Error('Windows: Unexpected undefined %USERPROFILE% environment variable');
 				}
@@ -90,7 +93,7 @@ export async function getCodeSettingsPath(pathService: IPathService): Promise<UR
 			appDataPath = homedir.with({ path: path.join(homedir.path, 'Library', 'Application Support') });
 			break;
 		case platform.OperatingSystem.Linux:
-			appDataPath = process.env['XDG_CONFIG_HOME'] ? URI.parse(process.env['XDG_CONFIG_HOME']) : homedir.with({ path: path.join(homedir.path, '.config') });
+			appDataPath = env['XDG_CONFIG_HOME'] ? URI.parse(env['XDG_CONFIG_HOME']) : homedir.with({ path: path.join(homedir.path, '.config') });
 			break;
 		default:
 			throw new Error('Platform not supported');
