@@ -795,12 +795,108 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Prompts the user to interrupt a session to complete another action.
+	 *
+	 * @param session The session to interrupt.
+	 * @param action The localized action name that will occur after interrupting the session.
+	 * @returns Whether the session was interrupted.
+	 */
+	private async promptToInterruptSession(session: ILanguageRuntimeSession, action: string): Promise<boolean> {
+		enum PromptOption {
+			Interrupt,
+			DoNotInterrupt,
+			TransitionToIdle
+		}
+
+		const activeSession = this._activeSessionsBySessionId.get(session.sessionId);
+		if (!activeSession) {
+			return false;
+		}
+
+		const disposables = new DisposableStore();
+
+		// If the runtime is busy, we need to interrupt it before restarting.
+		// But first, confirm with the user.
+		const promptResult = await new Promise<PromptOption>(resolve => {
+			let transitionedToIdle = false;
+
+			const notificationHandle = this._notificationService.prompt(
+				Severity.Warning,
+				localize('positron.console.interruptPrompt.confirm', 'The runtime is busy. Do you want to interrupt it and {0}? You\'ll lose any unsaved objects.', action),
+				[
+					{
+						label: localize('positron.console.interruptPrompt.yes', 'Yes'),
+						run: () => {
+							resolve(PromptOption.Interrupt);
+						}
+					},
+					{
+						label: localize('positron.console.interruptPrompt.no', 'No'),
+						run: () => {
+							// Do nothing; the user chose not to interrupt.
+							resolve(PromptOption.DoNotInterrupt);
+						}
+					},
+				],
+				{
+					sticky: true,
+					onCancel() {
+						if (!transitionedToIdle) {
+							// The user cancelled the prompt, so we need to
+							// resolve the promise with the "do not interrupt" option.
+							resolve(PromptOption.DoNotInterrupt);
+						}
+					},
+				}
+			);
+
+			disposables.add(
+				session.onDidChangeRuntimeState(state => {
+					if (state === RuntimeState.Idle) {
+						// The runtime has transitioned to idle, so we can
+						// resolve the promise with the "transition to idle" option.
+						transitionedToIdle = true;
+						notificationHandle.close();
+						resolve(PromptOption.TransitionToIdle);
+					}
+				})
+			);
+		});
+
+		switch (promptResult) {
+			case PromptOption.TransitionToIdle:
+				// The runtime is now idle, so we can continue with the action without interrupting.
+				disposables.dispose();
+				return true;
+			case PromptOption.DoNotInterrupt:
+				// The user chose not to interrupt the runtime, so we can't continue with the action.
+				disposables.dispose();
+				return false;
+			case PromptOption.Interrupt:
+				// The user chose to interrupt the runtime, so we can continue with the action after interrupting.
+				{
+					session.interrupt();
+					const ready = await awaitStateChange(activeSession, [RuntimeState.Idle], 10)
+						.then(() => true)
+						.catch(err => {
+							this._notificationService.warn(
+								localize('positron.console.interruptPrompt.error', 'Failed to interrupt the session. Reason: {0}', err));
+							return false;
+						});
+
+					disposables.dispose();
+					return ready;
+				}
+		}
+	}
+
+	/**
 	 * Restarts a runtime session.
 	 *
 	 * @param sessionId The session ID of the runtime to restart.
 	 * @param source The source of the request to restart the runtime.
 	 */
-	async restartSession(sessionId: string, source: string): Promise<void> {
+	async restartSession(sessionId: string, source: string, interrupt: boolean = true): Promise<void> {
 		const session = this.getSession(sessionId);
 		if (!session) {
 			throw new Error(`No session with ID '${sessionId}' was found.`);
@@ -810,6 +906,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			`${formatLanguageRuntimeSession(session)}' (Source: ${source})`);
 
 		const state = session.getRuntimeState();
+		if (interrupt && state === RuntimeState.Busy) {
+			const interrupted = await this.promptToInterruptSession(
+				session,
+				localize('positron.console.restart', 'restart')
+			);
+
+			// The session was not interrupted, so we can't restart it.
+			if (!interrupted) {
+				return;
+			}
+		}
+
 		if (state === RuntimeState.Busy ||
 			state === RuntimeState.Idle ||
 			state === RuntimeState.Ready ||
@@ -987,6 +1095,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		const runtimeState = session.getRuntimeState();
 		if (runtimeState !== RuntimeState.Exited) {
+			if (runtimeState === RuntimeState.Busy) {
+				const interrupted = await this.promptToInterruptSession(
+					session,
+					localize('positron.console.delete', 'delete')
+				);
+
+				// The session was not interrupted, so we can't delete it.
+				if (!interrupted) {
+					return;
+				}
+			}
+
 			if (runtimeState === RuntimeState.Busy ||
 				runtimeState === RuntimeState.Idle ||
 				runtimeState === RuntimeState.Ready) {

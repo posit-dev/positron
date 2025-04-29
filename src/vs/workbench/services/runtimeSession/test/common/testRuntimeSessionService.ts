@@ -28,6 +28,8 @@ import { IRuntimeSessionService, RuntimeStartMode } from '../../common/runtimeSe
 import { TestLanguageRuntimeSession } from './testLanguageRuntimeSession.js';
 import { TestOpenerService, TestPositronModalDialogService, TestCommandService, TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestExtensionService, TestStorageService, TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { INotificationService } from '../../../../../platform/notification/common/notification.js';
+import { TestNotificationService } from '../../../../../platform/notification/test/common/testNotificationService.js';
 
 export function createRuntimeServices(
 	instantiationService: TestInstantiationService,
@@ -44,6 +46,7 @@ export function createRuntimeServices(
 	instantiationService.stub(IPositronModalDialogsService, new TestPositronModalDialogService());
 	instantiationService.stub(ICommandService, new TestCommandService(instantiationService));
 	instantiationService.stub(IKeybindingService, new MockKeybindingService());
+	instantiationService.stub(INotificationService, new TestNotificationService());
 	instantiationService.stub(IRuntimeSessionService, disposables.add(instantiationService.createInstance(RuntimeSessionService)));
 	return instantiationService;
 }
