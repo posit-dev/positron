@@ -50,6 +50,7 @@ test.describe('Import VS Code Settings: with Positron settings', { tag: [tags.VS
 
 		// accept changes
 		await acceptButton.click();
+		await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
 		await runCommand('Open User Settings (JSON)');
 		await expect(page.getByText('Settings imported from Visual Studio Code')).toBeVisible();
 	});

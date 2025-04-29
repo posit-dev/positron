@@ -11,7 +11,6 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings } from './actions.js';
 import * as platform from '../../../../base/common/platform.js';
 import { localize } from '../../../../nls.js';
-import { app } from 'electron';
 
 const WAS_PROMPTED_KEY = 'positron.welcome.promptedImport';
 
