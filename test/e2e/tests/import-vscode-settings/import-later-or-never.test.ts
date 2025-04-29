@@ -10,15 +10,13 @@ test.use({
 });
 
 test.describe('Import VSCode Settings: Defer', { tag: [tags.VSCODE_SETTINGS] }, () => {
-	test.beforeAll(async ({ runCommand }) => {
-		await runCommand('Preferences: Import Settings...');
-	});
 
 	test.beforeEach(async ({ vscodeUserSettings }) => {
 		await vscodeUserSettings.ensureExists();
 	});
 
 	test('Verify import prompt behavior on "Later"', async ({ page, runCommand }) => {
+		await runCommand('Preferences: Import Settings...');
 		const importButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Import' });
 		const laterButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Later' });
 		const doNotShowAgainButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Don\'t Show Again' });
