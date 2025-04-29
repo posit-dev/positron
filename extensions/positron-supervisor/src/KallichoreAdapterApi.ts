@@ -665,11 +665,11 @@ export class KCApi implements PositronSupervisorApi {
 						// The session could not be reconnected; mark it as
 						// offline and explain to the user what happened.
 						session.markOffline('Lost connection to the session WebSocket event stream and could not restore it: ' + err);
-						vscode.window.showErrorMessage(vscode.l10n.t('Unable to re-establish connection to {0}: {1}', session.dynState.sessionName, err));
+						vscode.window.showErrorMessage(vscode.l10n.t('Unable to re-establish connection to {0}: {1}', session.metadata.sessionId, err));
 					}
 				}
 			} else if (evt.reason === DisconnectReason.Transferred) {
-				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected ` +
+				this._log.appendLine(`Session '${session.metadata.sessionId}' disconnected ` +
 					`because another client connected to it.`);
 				if (!this._showingDisconnectedWarning) {
 					this._showingDisconnectedWarning = true;

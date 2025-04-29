@@ -2258,8 +2258,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				crashedAndNeedRestartButton);
 
 			if (showRestartButton) {
-				const restartButton = new RuntimeItemRestartButton(generateUuid(),
-					this.sessionMetadata.sessionName,
+				const restartButton = new RuntimeItemRestartButton(
+					generateUuid(),
+					this._session?.dynState.sessionName || this.runtimeMetadata.runtimeName,
 					() => {
 						this._onDidRequestRestart.fire();
 					});

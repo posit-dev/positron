@@ -1243,7 +1243,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// Browser sessions are never valid since they cannot be
 				// reconnected. It'd be surprising to find one persisted.
 				this._logService.info(`[Runtime startup] Not restoring unexpected persisted ` +
-					`browser session ${session.metadata.sessionName} (${session.metadata.sessionId})`);
+					`browser session ${session.sessionName} (${session.metadata.sessionId})`);
 				return false;
 			} else {
 				// If the session is persistent on the machine, we need to
