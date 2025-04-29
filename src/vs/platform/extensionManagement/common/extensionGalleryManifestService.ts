@@ -46,9 +46,9 @@ export class ExtensionGalleryManifestService extends Disposable implements IExte
 				type: ExtensionGalleryResourceType.ExtensionQueryService
 			},
 			{
-				// --- Start Positron ---
+				// --- Start PWB: Fix Open VSX URLs ---
 				id: `${extensionsGallery.serviceUrl}/{publisher}/{name}/latest`,
-				// --- End Positron ---
+				// --- End PWB: Fix Open VSX URLs ---
 				type: ExtensionGalleryResourceType.ExtensionLatestVersionUri
 			},
 			{
