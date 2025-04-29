@@ -17,7 +17,7 @@ import { ILayoutService } from '../../../../platform/layout/browser/layoutServic
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
+import { ExecutionEntryType, IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 
 /**
  * PositronAssistantService class.
@@ -59,13 +59,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 			this._consoleService.activePositronConsoleInstance?.runtimeMetadata;
 		const sessionId =
 			this._consoleService.activePositronConsoleInstance?.sessionId;
-		const history = sessionId ? this._historyService.getExecutionEntries(sessionId).map(e => {
-			return {
-				input: e.input,
-				output: e.output
-				error: e.error,
-			}
-		}) : [];
+		const history = sessionId ? this.summarizeConsoleHistory(sessionId) : [];
 		const context: IPositronChatContext = {
 			console: {
 				language: runtimeMetadata?.languageName ?? '',
@@ -89,6 +83,80 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		}
 
 		return context;
+	}
+
+	/**
+	 * Summarizes the console history for a given session. This is used to
+	 * provide context to the language model.
+	 *
+	 * Console history can grow unbounded, and models have a limited context
+	 * window, so we need to summarize the history. To do this, we start with
+	 * the newest entries and work backwards, adding entries until we reach a
+	 * maximum size. Some larger entries may be truncated so that there's still
+	 * a reasonable amount of history to work with and a single entry doesn't
+	 * take up too much space.
+	 *
+	 * @param sessionId The ID of the session to summarize
+	 * @returns Up to 8KB of the most recent execution history entries
+	 */
+	summarizeConsoleHistory(sessionId: string) {
+		const history = this._historyService.getExecutionEntries(sessionId);
+		const summarized = [];
+		let currentCost = 0;
+		const maxCost = 8192; // 8KB. Should this be configurable?
+		for (let i = history.length - 1; i >= 0; i--) {
+			const entry = history[i];
+			// Filter out non-execution entries
+			if (entry.outputType !== ExecutionEntryType.Execution) {
+				continue;
+			}
+
+			// Compute the cost of the entry
+			let cost = entry.input.length + entry.output.length;
+			if (entry.error) {
+				cost += JSON.stringify(entry.error).length;
+			}
+
+			// If this would exceed the max cost, try truncating the input and/or output
+			if (currentCost + cost > maxCost) {
+				const truncatedInput = entry.input.length > 500 ?
+					entry.input.slice(0, 500) + '... (truncated)' :
+					entry.input;
+				const truncatedOutput = entry.output.length > 500 ?
+					entry.output.slice(0, 500) + '... (truncated)' :
+					entry.output;
+				let truncatedCost = truncatedInput.length + truncatedOutput.length;
+				if (entry.error) {
+					// Errors are not truncated, but their size is added to the cost
+					truncatedCost += JSON.stringify(entry.error).length;
+				}
+				if (currentCost + truncatedCost > maxCost) {
+					// If truncating the input and output still exceeds the max cost, break
+					break;
+				} else {
+					// Otherwise, use the truncated input and output
+					summarized.push({
+						input: truncatedInput,
+						output: truncatedOutput,
+						error: entry.error,
+					});
+					currentCost += truncatedCost;
+					continue;
+				}
+			}
+
+			// Add the entry to the summarized list and absorb the cost
+			currentCost += cost;
+			summarized.push({
+				input: entry.input,
+				output: entry.output,
+				error: entry.error,
+			});
+		}
+
+		// Reverse the order to maintain the original order
+		summarized.reverse();
+		return summarized;
 	}
 
 	getCurrentPlotUri(): string | undefined {
