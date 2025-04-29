@@ -39,7 +39,7 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 
 		const enabledGlobally = this.configurationService.getValue<boolean>(POSITRON_SETTINGS_IMPORT_ENABLE_KEY);
 
-		if (!enabledGlobally) {
+		if (enabledGlobally === false) {
 			return;
 		}
 

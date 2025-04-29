@@ -11,6 +11,7 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings } from './actions.js';
 import * as platform from '../../../../base/common/platform.js';
 import { localize } from '../../../../nls.js';
+import { app } from 'electron';
 
 const WAS_PROMPTED_KEY = 'positron.welcome.promptedImport';
 
@@ -95,6 +96,6 @@ export async function getCodeSettingsPath(pathService: IPathService): Promise<UR
 		default:
 			throw new Error('Platform not supported');
 	}
-
+	console.log('[import]', 'AppData path:', appDataPath.toString());
 	return appDataPath.with({ path: path.join(appDataPath.path, 'Code', 'User', 'settings.json') });
 }

@@ -58,6 +58,7 @@ export class PositronImportSettings extends Action2 {
 		const positronSettingsPath = await prefService.getEditableSettingsURI(ConfigurationTarget.USER);
 		if (!positronSettingsPath) {
 			loggingService.trace('No Positron settings found');
+			console.log('[import]', 'No Positron settings found');
 			return;
 		}
 
