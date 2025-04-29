@@ -33,15 +33,18 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 	) {
 		super();
 
+		console.log('[import]', 'PositronWelcomeContribution initialized');
+		console.log('[import]', 'isWeb:', isWeb);
 		if (isWeb) {
 			return;
 		}
 
 		const enabledGlobally = this.configurationService.getValue<boolean>(POSITRON_SETTINGS_IMPORT_ENABLE_KEY);
 
-		if (enabledGlobally === false) {
-			return;
-		}
+		console.log('[import]', 'Import settings enabled globally:', enabledGlobally);
+		// if (enabledGlobally === false) {
+		// 	return;
+		// }
 
 		getCodeSettingsPath(this.pathService).then(async (codeSettingsPath) => {
 			const codeSettingsExist = await this.fileService.exists(codeSettingsPath);
