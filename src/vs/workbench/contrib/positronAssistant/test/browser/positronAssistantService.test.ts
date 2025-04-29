@@ -14,6 +14,8 @@ import { ChatAgentLocation } from '../../../chat/common/constants.js';
 import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from '../../../../services/runtimeSession/test/common/testRuntimeSessionService.js';
 import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
+import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { TestPositronVariablesService } from '../../../../services/positronVariables/test/common/testPositronVariablesService.js';
 
 suite('PositronAssistantService', () => {
 	const disposables = new DisposableStore();
@@ -25,6 +27,7 @@ suite('PositronAssistantService', () => {
 		instantiationService = new TestInstantiationService();
 
 		// Set up the test runtime services
+		instantiationService.stub(IPositronVariablesService, new TestPositronVariablesService());
 		createRuntimeServices(instantiationService, disposables);
 
 		// Create a test runtime session that will be used to execute code
