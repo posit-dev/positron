@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { URI } from '../../../../base/common/uri.js';
-import { Event } from '../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { MarkdownString } from '../../../../base/common/htmlContent.js';
 import { ILinkDescriptor } from '../../../../platform/opener/browser/link.js';
@@ -37,17 +36,7 @@ export interface IPositronTopActionBarService {
 	readonly _serviceBrand: undefined;
 
 	/**
-	 * The onShowStartInterpreterPopup event.
-	 */
-	readonly onShowStartInterpreterPopup: Event<void>;
-
-	/**
 	 * Drives focus to the Positron top action bar.
 	 */
 	focus(): void;
-
-	/**
-	 * Shows the start interpreter popup.
-	 */
-	showStartInterpreterPopup(): void;
 }

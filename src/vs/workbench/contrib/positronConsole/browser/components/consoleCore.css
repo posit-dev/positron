@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-console .console-core {
+	display: flex;
+	flex-direction: row;
 	width: 100%;
 }
 
@@ -13,8 +15,4 @@
 
 .positron-console .console-core .vertical-splitter {
 	background-color: var(--vscode-terminal-border);
-}
-.positron-console .console-tab-list {
-	display: flex;
-	flex-direction: row;
 }
