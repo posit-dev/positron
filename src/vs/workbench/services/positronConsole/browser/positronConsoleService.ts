@@ -815,9 +815,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	/**
 	 * The name of the session when the console instance was created.
-	 * This is used as a fallback if the session is not attached.
+	 * This is used as a fallback when the session is not attached.
 	 */
-	private _fallbackSessionName: string;
+	private _initialSessionName: string;
 
 	/**
 	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
@@ -1008,7 +1008,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		super();
 
 		// Initialize the session name.
-		this._fallbackSessionName = sessionName;
+		this._initialSessionName = sessionName;
 
 		// Initialize the scrollback configuration.
 		this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
@@ -1060,7 +1060,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * session name provided when the console was created.
 	 */
 	get sessionName(): string {
-		return this._session?.dynState.sessionName || this._fallbackSessionName;
+		return this._session?.dynState.sessionName || this._initialSessionName;
 	}
 
 	/**
