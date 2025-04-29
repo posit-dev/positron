@@ -196,7 +196,8 @@ def _publish_diagnostics(
     doc = server.workspace.get_text_document(uri)
 
     # Comment out magic/shell/help command lines so that they don't appear as syntax errors.
-    source = "\n".join(
+    # No need to add newlines since doc.lines retains them.
+    source = "".join(
         (
             f"#{line}"
             if line.lstrip().startswith((_LINE_MAGIC_PREFIX, _SHELL_PREFIX, _HELP_PREFIX_OR_SUFFIX))

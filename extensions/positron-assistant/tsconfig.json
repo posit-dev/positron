@@ -12,6 +12,7 @@
 	"include": [
 		"src/**/*",
 		"../../src/vscode-dts/vscode.proposed.chat*.d.ts",
+		"../../src/vscode-dts/vscode.proposed.codeActionAI.d.ts",
 		"../../src/vscode-dts/vscode.proposed.languageModelDataPart.d.ts",
 		"../../src/vscode-dts/vscode.proposed.mappedEditsProvider.d.ts",
 		"../../src/vscode-dts/vscode.proposed.defaultChat*.d.ts",

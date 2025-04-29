@@ -30,6 +30,7 @@ import { fetchUrls, fetchGithub } from './fetch';
 
 // --- Start PWB: from Positron ---
 import { PromiseHandles } from './util';
+import os from 'os';
 // --- End PWB: from Positron ---
 
 const root = path.dirname(path.dirname(__dirname));
@@ -261,53 +262,95 @@ const baseHeaders = {
 };
 
 // --- Start Positron ---
+function getPlatformDownloads(bootstrap: boolean): string[] {
+	// return both architectures for mac universal installer
+	if (bootstrap && process.platform === 'darwin' && !process.env['VSCODE_DEV']) {
+		return ['darwin-x64', 'darwin-arm64'];
+	}
+	switch (os.arch()) {
+		case 'arm64':
+			return [`${process.platform}-arm64`];
+		case 'x64':
+		case 'x86_64':
+			return [`${process.platform}-x64`];
+		default:
+			throw new Error(`Unsupported architecture: ${os.arch()}`);
+	}
+}
+
+function createPlatformSpecificUrl(serviceUrl: string, publisher: string, name: string, version: string, platformDownload: string): string {
+	return `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${publisher}.${name}-${version}@${platformDownload}.vsix`;
+}
+
+function getArchFromPlatformId(platformId: string): string {
+	if (platformId.includes('arm64')) {
+		return 'arm64';
+	} else if (platformId.includes('x64')) {
+		return 'x64';
+	}
+	return 'unknown';
+}
+
 export function fromMarketplace(serviceUrl: string, { name: extensionName, version, sha256, metadata }: IExtensionDefinition, bootstrap: boolean = false): Stream {
 	// --- End Positron ---
 	const json = require('gulp-json-editor') as typeof import('gulp-json-editor');
 
 	const [publisher, name] = extensionName.split('.');
 	// --- Start Positron ---
-	let url: string;
+	let urls: string[];
+	let platformDownloads: string[] = [];
 
 	if (metadata.multiPlatformServiceUrl) {
-		let platformDownload: string;
-		switch (process.platform) {
-			case 'darwin':
-				platformDownload = 'darwin-arm64';
-				break;
-			case 'win32':
-				platformDownload = 'win32-x64';
-				break;
-			case 'linux':
-				platformDownload = 'linux-x64';
-				break;
-			default:
-				throw new Error('Unsupported platform');
-		};
-		url = `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${extensionName}-${version}@${platformDownload}.vsix`
-
+		platformDownloads = getPlatformDownloads(bootstrap);
+		urls = platformDownloads.map(platformDownload => createPlatformSpecificUrl(serviceUrl, publisher, name, version, platformDownload));
+		fancyLog('Downloading multi-platform extension:', ansiColors.yellow(`${extensionName}@${version}`),
+			`for ${platformDownloads.join(', ')}...`);
 	} else {
-		url = `${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`;
+		urls = [`${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`];
+		fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 	}
 	// --- End Positron ---
 
-	fancyLog('Downloading extension:', ansiColors.yellow(`${extensionName}@${version}`), '...');
 
 	const packageJsonFilter = filter('package.json', { restore: true });
 
 	// --- Start Positron ---
 	if (bootstrap) {
-		return fetchUrls('', {
-			base: url,
-			nodeFetchOptions: {
-				headers: baseHeaders
-			},
-			checksumSha256: sha256
-		})
-			.pipe(buffer());
+		if (urls.length > 1) {
+			if (process.platform !== 'darwin') {
+				fancyLog('Developer error: Unexpected number of URLS for bootstrap extension.');
+			}
+			return es.merge(...urls.map((url, index) => {
+				const platformId = platformDownloads[index];
+				const arch = getArchFromPlatformId(platformId);
+
+				return fetchUrls('', {
+					base: url,
+					nodeFetchOptions: { headers: baseHeaders },
+					checksumSha256: sha256
+				})
+					.pipe(buffer())
+					.pipe(rename(p => {
+						// Add architecture folder to the path
+						p.dirname = arch;
+					}));
+			}));
+		} else {
+			return fetchUrls('', {
+				base: urls[0],
+				nodeFetchOptions: {
+					headers: baseHeaders
+				},
+				checksumSha256: sha256
+			})
+				.pipe(buffer());
+		}
 	} else {
+		if (urls.length > 1) {
+			fancyLog(`Developer error: Unexpected number of URLS for built-in extension.`);
+		}
 		return fetchUrls('', {
-			base: url,
+			base: urls[0],
 			nodeFetchOptions: {
 				headers: baseHeaders
 			},
@@ -611,7 +654,7 @@ export function packageBootstrapExtensionsStream(): Stream {
 		...bootstrapExtensions
 			.map(extension => {
 				const src = getBootstrapExtensionStream(extension).pipe(rename(p => {
-					p.dirname = `extensions/bootstrap`;
+					p.dirname = `extensions/bootstrap/${p.dirname}`;
 				}));
 				return src;
 			})
