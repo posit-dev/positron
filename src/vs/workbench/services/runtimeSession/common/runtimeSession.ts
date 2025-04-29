@@ -825,13 +825,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				localize('positron.console.interruptPrompt.confirm', 'The runtime is busy. Do you want to interrupt it and {0}? You\'ll lose any unsaved objects.', action),
 				[
 					{
-						label: localize('positron.runtime.restart.confirm.yes', 'Yes'),
+						label: localize('positron.console.interruptPrompt.yes', 'Yes'),
 						run: () => {
 							resolve(PromptOption.Interrupt);
 						}
 					},
 					{
-						label: localize('positron.runtime.restart.confirm.no', 'No'),
+						label: localize('positron.console.interruptPrompt.no', 'No'),
 						run: () => {
 							// Do nothing; the user chose not to interrupt.
 							resolve(PromptOption.DoNotInterrupt);
@@ -865,15 +865,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		switch (promptResult) {
 			case PromptOption.TransitionToIdle:
-				// The runtime is now idle, so we can restart it without interrupting.
+				// The runtime is now idle, so we can continue with the action without interrupting.
 				disposables.dispose();
 				return true;
 			case PromptOption.DoNotInterrupt:
-				// The user chose not to interrupt the runtime, so we can't restart it.
+				// The user chose not to interrupt the runtime, so we can't continue with the action.
 				disposables.dispose();
 				return false;
 			case PromptOption.Interrupt:
-				// The user chose to interrupt the runtime, so we can restart it.
+				// The user chose to interrupt the runtime, so we can continue with the action after interrupting.
 				{
 					session.interrupt();
 					const ready = await awaitStateChange(activeSession, [RuntimeState.Idle], 10)
