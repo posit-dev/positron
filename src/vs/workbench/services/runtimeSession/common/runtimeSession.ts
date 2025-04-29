@@ -1461,7 +1461,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * ready to use.
 	 */
 	private async doCreateRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionName: string, // TODO @dhruvisompura: Remove this parameter?
+		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		source: string,
 		startMode: RuntimeStartMode,

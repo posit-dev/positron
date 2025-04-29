@@ -1058,8 +1058,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 *
 	 * If there is no session associated with the console, we fallback to the
 	 * session name provided when the console was created.
-	 *
-	 * TODO: describe the scenarios in which the fallback session name is used.
 	 */
 	get sessionName(): string {
 		return this._session?.dynState.sessionName || this._fallbackSessionName;
