@@ -953,7 +953,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._logService.info(
 			`Updating session name to ${name} for session ${formatLanguageRuntimeSession(session)}'`);
 
-
 		try {
 			// Update the sesion name in its dynamic state
 			session.dynState.sessionName = name;
