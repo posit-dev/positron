@@ -285,7 +285,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet',
+			name: 'Claude 3.5 Sonnet v2',
 			model: 'claude-3-5-sonnet-latest',
 			toolCalls: true,
 		},
@@ -491,6 +491,21 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model;
 
+	static availableModels = [
+		{
+			name: 'Claude 3.7 Sonnet v1',
+			identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+		},
+		{
+			name: 'Claude 3.5 Sonnet v2',
+			identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
+		},
+		{
+			name: 'Claude 3.5 Sonnet v1',
+			identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
+		}
+	];
+
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
@@ -561,6 +576,17 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 class GoogleLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model: ai.LanguageModelV1;
 
+	static availableModels = [
+		{
+			name: 'Gemini 2.0 Flash',
+			identifier: 'gemini-2.0-flash-exp',
+		},
+		{
+			name: 'Gemini 1.5 Flash 002',
+			identifier: 'gemini-1.5-flash-002',
+		},
+	];
+
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
@@ -588,3 +614,12 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 		return GoogleLanguageModel.source.provider.displayName;
 	}
 }
+
+// the models to register when adding a model provider
+// note: we don't query for available models using the API since it may return ones that are not
+// suitable for chat and we don't want the selection to be too large
+export const availableModels = new Map<string, { name: string; identifier: string }[]>(
+	[['anthropic', AnthropicLanguageModel.availableModels],
+	['google', GoogleLanguageModel.availableModels],
+	['bedrock', AWSLanguageModel.availableModels]]
+);

@@ -23,6 +23,21 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 	private readonly _client: Anthropic;
 
+	static availableModels = [
+		{
+			name: 'Claude 3.7 Sonnet v1',
+			identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+		},
+		{
+			name: 'Claude 3.5 Sonnet v2',
+			identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
+		},
+		{
+			name: 'Claude 3.5 Sonnet v1',
+			identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
+		}
+	];
+
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
@@ -31,7 +46,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet',
+			name: 'Claude 3.5 Sonnet v2',
 			model: 'claude-3-5-sonnet-latest',
 			toolCalls: true,
 		},

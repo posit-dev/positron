@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
-import { newLanguageModel } from './models';
+import { availableModels, newLanguageModel } from './models';
 import { registerMappedEditsProvider } from './edits';
 import { registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
@@ -115,6 +115,8 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, isDefault = false) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
+		const models = availableModels.get(modelConfig.provider) ?? [];
+
 		const languageModel = newLanguageModel(modelConfig);
 		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
 
@@ -122,20 +124,37 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 			throw new Error(error.message);
 		}
 
-		const modelDisp = vscode.lm.registerChatModelProvider(languageModel.identifier, languageModel, {
-			name: languageModel.name,
-			family: languageModel.provider,
-			providerName: languageModel.providerName,
-			vendor: context.extension.packageJSON.publisher,
-			version: context.extension.packageJSON.version,
-			capabilities: languageModel.capabilities,
-			maxInputTokens: 0,
-			maxOutputTokens: 0,
-			isUserSelectable: true,
-			isDefault: isDefault,
-		});
-		modelDisposables.push(modelDisp);
-		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
+		if (models.length === 0) {
+			// use the default model
+
+			models.push({
+				name: modelConfig.name,
+				identifier: modelConfig.model,
+			});
+		}
+
+		for (const model of models) {
+			const newConfig = {
+				...modelConfig,
+				model: model.identifier,
+				name: model.name,
+			};
+			const languageModel = newLanguageModel(newConfig);
+
+			const modelDisp = vscode.lm.registerChatModelProvider(`${languageModel.identifier}-${model.identifier}`, languageModel, {
+				name: languageModel.name,
+				family: languageModel.provider,
+				vendor: context.extension.packageJSON.publisher,
+				version: context.extension.packageJSON.version,
+				capabilities: languageModel.capabilities,
+				maxInputTokens: 0,
+				maxOutputTokens: 0,
+				isUserSelectable: true,
+				isDefault: isDefault,
+			});
+			modelDisposables.push(modelDisp);
+			vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
+		}
 	}
 	// Register with VS Code completions API
 	else if (modelConfig.type === 'completion') {
