@@ -309,7 +309,7 @@ function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anth
  * @param message The message to check
  * @returns True if the message has any non-empty content, false otherwise
  */
-function hasNonEmptyContent(message: vscode.LanguageModelChatMessage): boolean {
+function hasNonEmptyContent(message: vscode.LanguageModelChatMessage2): boolean {
 	return message.content.some(part => {
 		if (part instanceof vscode.LanguageModelTextPart) {
 			return part.value.trim() !== '';

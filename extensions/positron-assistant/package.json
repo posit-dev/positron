@@ -17,7 +17,8 @@
   "enabledApiProposals": [
     "codeActionAI",
     "defaultChatParticipant",
-    "inlineCompletionsAdditions"
+    "inlineCompletionsAdditions",
+    "languageModelDataPart"
   ],
   "contributes": {
     "chatParticipants": [
