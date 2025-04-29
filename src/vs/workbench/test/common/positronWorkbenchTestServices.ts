@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,6 +14,8 @@ import { NotebookCellTextModel } from '../../contrib/notebook/common/model/noteb
 import { INotebookTextModel } from '../../contrib/notebook/common/notebookCommon.js';
 import { ICellExecutionParticipant, IDidEndNotebookCellsExecutionEvent, IDidStartNotebookCellsExecutionEvent, INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
 import { ILanguageRuntimeMetadata } from '../../services/languageRuntime/common/languageRuntimeService.js';
+import { IPositronConsoleService } from '../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { TestPositronConsoleService } from '../../services/positronConsole/test/common/testPositronConsoleService.js';
 import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance } from '../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';
@@ -148,3 +150,10 @@ export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager
 		this._validateMetadata = handler;
 	}
 }
+
+/**
+ * Re-export the TestPositronConsoleService and TestPositronConsoleInstance.
+ * This allows test files to import from positronWorkbenchTestServices.ts
+ * rather than directly from the test implementation.
+ */
+export { TestPositronConsoleService, TestPositronConsoleInstance } from '../../services/positronConsole/test/common/testPositronConsoleService.js';

@@ -16,6 +16,8 @@ import { TestLanguageRuntimeSession, waitForRuntimeState } from '../../../../ser
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { TestPositronVariablesService } from '../../../../services/positronVariables/test/common/testPositronVariablesService.js';
+import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { TestPositronConsoleService } from '../../../../test/common/positronWorkbenchTestServices.js';
 
 suite('PositronAssistantService', () => {
 	const disposables = new DisposableStore();
@@ -28,6 +30,7 @@ suite('PositronAssistantService', () => {
 
 		// Set up the test runtime services
 		instantiationService.stub(IPositronVariablesService, new TestPositronVariablesService());
+		instantiationService.stub(IPositronConsoleService, new TestPositronConsoleService());
 		createRuntimeServices(instantiationService, disposables);
 
 		// Create a test runtime session that will be used to execute code
