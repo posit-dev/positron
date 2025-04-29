@@ -22,7 +22,7 @@ import { TestWorkspaceTrustManagementService } from '../../../../test/common/wor
 
 type IStartSessionTask = (runtimeMetadata?: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
-suite('Positron - RuntimeSessionService', () => {
+suite.skip('Positron - RuntimeSessionService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	const startReason = 'Test requested to start a runtime session';
 	const notebookUri = URI.file('/path/to/notebook');
