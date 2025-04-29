@@ -212,7 +212,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						// Attempt to reconnect the session.
 						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
 							`attempting to reconnect session ${session.sessionId}`);
-						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata, false);
+						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata, session.dynState.sessionName, false);
 					}
 				}
 			}
@@ -611,12 +611,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param runtimeMetadata The metadata of the runtime to start.
 	 * @param sessionMetadata The metadata of the session to start.
+	 * @param sessionName A human readable name for the session.
 	 * @param activate Whether to activate/focus the session after it is
 	 * reconnected.
 	 */
 	async restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string,
 		activate: boolean): Promise<void> {
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
@@ -682,7 +684,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// reconnect, etc.
 		let session: ILanguageRuntimeSession;
 		try {
-			session = await sessionManager.restoreSession(runtimeMetadata, sessionMetadata);
+			session = await sessionManager.restoreSession(runtimeMetadata, sessionMetadata, sessionName);
 		} catch (err) {
 			this._logService.error(
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +

@@ -815,12 +815,13 @@ declare module 'positron' {
 		 * @param runtimeMetadata The metadata for the runtime that owns the
 		 * session.
 		 * @param sessionMetadata The metadata for the session to reconnect.
-		 *
+		 * @param sessionName The name of the session to reconnect.
 		 * @returns A Thenable that resolves with the reconnected session, or
 		 * rejects with an error.
 		 */
 		restoreSession?(runtimeMetadata: LanguageRuntimeMetadata,
-			sessionMetadata: RuntimeSessionMetadata):
+			sessionMetadata: RuntimeSessionMetadata,
+			sessionName: string):
 			Thenable<LanguageRuntimeSession>;
 	}
 

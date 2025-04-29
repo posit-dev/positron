@@ -171,7 +171,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	restoreRuntimeSession(_runtimeMetadata: any, _sessionMetadata: any, _activate: boolean): Promise<void> {
+	restoreRuntimeSession(_runtimeMetadata: any, _sessionMetadata: any, _sessionName: string, _activate: boolean): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 

@@ -264,12 +264,14 @@ export interface ILanguageRuntimeSessionManager {
 	 * @param runtimeMetadata The metadata of the runtime for which a session is
 	 *  	to be restored (reconnected).
 	 * @param sessionMetadata The metadata of the session to be restored.
+	 * @param sessionName A human-readable (displayed) name for the session.
 	 *
 	 * @returns A promise that resolves to the reconnected session.
 	 */
 	restoreSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata):
+		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string):
 		Promise<ILanguageRuntimeSession>;
 
 	/**
@@ -428,11 +430,13 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param runtimeMetadata The metadata of the runtime to start.
 	 * @param sessionMetadata The metadata of the session to start.
+	 * @param sessionName A human-readable (displayed) name for the session.
 	 * @param activate Whether to activate/focus the session after it is reconnected.
 	 */
 	restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string,
 		activate: boolean): Promise<void>;
 
 	/**

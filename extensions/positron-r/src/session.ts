@@ -87,10 +87,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		readonly metadata: positron.RuntimeSessionMetadata,
 		readonly kernelSpec?: JupyterKernelSpec,
 		readonly extra?: JupyterKernelExtra,
+		sessionName?: string,
 	) {
 		// Set the initial dynamic state
 		this.dynState = {
-			sessionName: runtimeMetadata.runtimeName,
+			sessionName: sessionName || runtimeMetadata.runtimeName,
 			continuationPrompt: '+',
 			inputPrompt: '>',
 		};
@@ -620,7 +621,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			// We don't have a kernel spec, so restore (reconnect) the session
 			await this.adapterApi.restoreSession(
 				this.runtimeMetadata,
-				this.metadata);
+				this.metadata,
+				this.dynState);
 
 		kernel.onDidChangeRuntimeState((state) => {
 			this._stateEmitter.fire(state);

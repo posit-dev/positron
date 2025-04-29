@@ -334,6 +334,8 @@ export interface ILanguageRuntimeInfo {
 	/** The language version number */
 	language_version: string;
 
+	// TODO: add sessionName here?
+
 	/** Custom input prompt, if any */
 	input_prompt?: string;
 

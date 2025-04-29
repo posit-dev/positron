@@ -302,22 +302,31 @@ export class PythonRuntimeManager implements IPythonRuntimeManager, Disposable {
      *
      * @param runtimeMetadata The metadata for the runtime to restore
      * @param sessionMetadata The metadata for the session to restore
+     * @param sessionName The name of the session to restore
      *
      * @returns The restored session.
      */
     async restoreSession(
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
+        sessionName: string,
     ): Promise<positron.LanguageRuntimeSession> {
-        return this.createPythonSession(runtimeMetadata, sessionMetadata);
+        return this.createPythonSession(runtimeMetadata, sessionMetadata, undefined, sessionName);
     }
 
     private createPythonSession(
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
         kernelSpec?: JupyterKernelSpec,
+        sessionName?: string,
     ): positron.LanguageRuntimeSession {
-        const session = new PythonRuntimeSession(runtimeMetadata, sessionMetadata, this.serviceContainer, kernelSpec);
+        const session = new PythonRuntimeSession(
+            runtimeMetadata,
+            sessionMetadata,
+            this.serviceContainer,
+            kernelSpec,
+            sessionName,
+        );
         this._onDidCreateSession.fire(session);
         return session;
     }

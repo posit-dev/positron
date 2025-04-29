@@ -42,12 +42,12 @@ suite('Session manager', () => {
 		onDidChangeForegroundSession = new vscode.EventEmitter();
 		suiteDisposables.push(onDidChangeForegroundSession);
 		sinon.stub(positron.runtime, 'onDidChangeForegroundSession').get(() => onDidChangeForegroundSession.event);
-	})
+	});
 
 	suiteTeardown(() => {
 		sinon.restore();
 		suiteDisposables.forEach((d) => d.dispose());
-	})
+	});
 
 	setup(() => {
 		foregroundSession = mockSession();
