@@ -963,7 +963,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		 * to reflect the new name.
 		 */
 		this._onDidUpdateSessionNameEmitter.fire(session);
-		return session.sessionId;
 	}
 
 	/**
