@@ -46,7 +46,9 @@ export class ExtensionGalleryManifestService extends Disposable implements IExte
 				type: ExtensionGalleryResourceType.ExtensionQueryService
 			},
 			{
-				id: `${extensionsGallery.serviceUrl}/vscode/{publisher}/{name}/latest`,
+				// --- Start Positron ---
+				id: `${extensionsGallery.serviceUrl}/{publisher}/{name}/latest`,
+				// --- End Positron ---
 				type: ExtensionGalleryResourceType.ExtensionLatestVersionUri
 			},
 			{
