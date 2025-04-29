@@ -338,7 +338,7 @@ export const VariableItem = (props: VariableItemProps) => {
 					const text = await props.variableItem.formatForClipboard('text/plain');
 					positronVariablesContext.clipboardService.writeText(text);
 				}
-			} as IAction);
+			} satisfies IAction);
 
 			// Add the copy as HTML action.
 			actions.push({
@@ -398,8 +398,8 @@ export const VariableItem = (props: VariableItemProps) => {
 				<div className='right-column'>
 					<div
 						className={icon}
-						onMouseDown={viewerMouseDownHandler}
 						title={localize('positron.variables.clickToView', "Click to view")}
+						onMouseDown={viewerMouseDownHandler}
 					></div>
 				</div>
 			);

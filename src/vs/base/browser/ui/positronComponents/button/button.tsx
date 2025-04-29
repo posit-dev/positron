@@ -35,14 +35,14 @@ export interface KeyboardModifiers {
  * ButtonProps interface.
  */
 interface ButtonProps {
-	readonly hoverManager?: IHoverManager;
+	readonly ariaLabel?: string;
 	readonly className?: string;
+	readonly disabled?: boolean;
+	readonly hoverManager?: IHoverManager;
+	readonly mouseTrigger?: MouseTrigger;
 	readonly style?: CSSProperties | undefined;
 	readonly tabIndex?: number;
-	readonly disabled?: boolean;
-	readonly ariaLabel?: string;
 	readonly tooltip?: string | (() => string | undefined);
-	readonly mouseTrigger?: MouseTrigger;
 	readonly onBlur?: () => void;
 	readonly onFocus?: () => void;
 	readonly onMouseEnter?: () => void;

@@ -24,6 +24,8 @@ import { IContextMenuService } from '../../../../../platform/contextview/browser
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 
 const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
@@ -38,6 +40,7 @@ interface ActionBarProps {
 	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: ILayoutService;
+	readonly themeService: IThemeService;
 }
 
 interface ConnectionActionBarProps extends ActionBarProps {
@@ -61,21 +64,21 @@ export const ActionBar = (props: React.PropsWithChildren<ConnectionActionBarProp
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							align='left'
-							iconId='arrow-left'
+							icon={ThemeIcon.fromId('arrow-left')}
 							tooltip={(() => localize('positron.schemaNavigationActionBar.back', 'Back'))()}
 							onPressed={() => props.onBack()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
-							iconId='positron-disconnect-connection'
+							icon={ThemeIcon.fromId('positron-disconnect-connection')}
 							label={(() => localize('positron.schemaNavigationActionBar.disconnect', 'Disconnect'))()}
 							onPressed={() => props.onDisconnect()}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton
 							align='left'
-							iconId='refresh'
+							icon={ThemeIcon.fromId('refresh')}
 							label={(() => localize('positron.schemaNavigationActionBar.refresh', 'Refresh'))()}
 							onPressed={() => props.onRefresh()}
 						/>

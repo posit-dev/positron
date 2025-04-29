@@ -11,8 +11,9 @@ import React, { ChangeEvent, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../nls.js';
-import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { ActionBarButton } from './actionBarButton.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * ActionBarFindProps interface.
@@ -69,8 +70,8 @@ export const ActionBarFind = (props: ActionBarFindProps) => {
 					</button>
 				)}
 			</div>
-			<ActionBarButton align='right' disabled={!props.findResults} iconId='chevron-up' tooltip={(() => localize('positronFindPrevious', "Find previous"))()} onPressed={() => props.onFindPrevious!()} />
-			<ActionBarButton align='right' disabled={!props.findResults} iconId='chevron-down' tooltip={(() => localize('positronFindNext', "Find next"))()} onPressed={() => props.onFindNext!()} />
+			<ActionBarButton align='right' disabled={!props.findResults} icon={ThemeIcon.fromId('chevron-up')} tooltip={(() => localize('positronFindPrevious', "Find previous"))()} onPressed={() => props.onFindPrevious!()} />
+			<ActionBarButton align='right' disabled={!props.findResults} icon={ThemeIcon.fromId('chevron-down')} tooltip={(() => localize('positronFindNext', "Find next"))()} onPressed={() => props.onFindNext!()} />
 		</div>
 	);
 };

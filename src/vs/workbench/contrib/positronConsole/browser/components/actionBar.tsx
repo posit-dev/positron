@@ -11,6 +11,7 @@ import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { CurrentWorkingDirectory } from './currentWorkingDirectory.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -423,7 +424,7 @@ export const ActionBar = (props: ActionBarProps) => {
 					align='right'
 					ariaLabel={canStart ? positronStartConsole : positronShutdownConsole}
 					disabled={!(canShutdown || canStart)}
-					iconId='positron-power-button-thin'
+					icon={ThemeIcon.fromId('positron-power-button-thin')}
 					tooltip={canStart ? positronStartConsole : positronShutdownConsole}
 					onPressed={powerCycleConsoleHandler}
 				/>
@@ -440,7 +441,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				align='right'
 				ariaLabel={positronRestartConsole}
 				disabled={!canShutdown}
-				iconId='positron-restart-runtime-thin'
+				icon={ThemeIcon.fromId('positron-restart-runtime-thin')}
 				tooltip={positronRestartConsole}
 				onPressed={restartConsoleHandler}
 			/>
@@ -464,7 +465,7 @@ export const ActionBar = (props: ActionBarProps) => {
 					ariaLabel={positronDeleteConsole}
 					dataTestId='trash-session'
 					disabled={!(canShutdown || canStart)}
-					iconId='trash'
+					icon={ThemeIcon.fromId('trash')}
 					tooltip={positronDeleteConsole}
 					onPressed={deleteSessionHandler}
 				/>
@@ -496,7 +497,7 @@ export const ActionBar = (props: ActionBarProps) => {
 				<ActionBarButton
 					align='right'
 					ariaLabel={positronToggleTrace}
-					iconId='wand'
+					icon={ThemeIcon.fromId('wand')}
 					tooltip={positronToggleTrace}
 					onPressed={toggleTraceHandler}
 				/>
@@ -518,7 +519,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			<ActionBarButton
 				align='right'
 				ariaLabel={positronToggleWordWrap}
-				iconId='word-wrap'
+				icon={ThemeIcon.fromId('word-wrap')}
 				tooltip={positronToggleWordWrap}
 				onPressed={toggleWordWrapHandler}
 			/>
@@ -539,7 +540,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			<ActionBarButton
 				align='right'
 				ariaLabel={positronOpenInEditor}
-				iconId='positron-open-in-editor'
+				icon={ThemeIcon.fromId('positron-open-in-editor')}
 				tooltip={positronOpenInEditor}
 				onPressed={openInEditorHandler}
 			/>
@@ -560,7 +561,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			<ActionBarButton
 				align='right'
 				ariaLabel={positronClearConsole}
-				iconId='clear-all'
+				icon={ThemeIcon.fromId('clear-all')}
 				tooltip={positronClearConsole}
 				onPressed={clearConsoleHandler}
 			/>

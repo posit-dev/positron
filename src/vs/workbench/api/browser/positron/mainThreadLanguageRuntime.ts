@@ -20,7 +20,7 @@ import { IPositronVariablesService } from '../../../services/positronVariables/c
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientType } from '../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
+import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientStatus, RuntimeClientType } from '../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
@@ -44,6 +44,7 @@ import { IPositronConnectionsService } from '../../../services/positronConnectio
 import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 import { basename } from '../../../../base/common/resources.js';
+import { RuntimeOnlineState } from '../../common/extHostTypes.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -306,6 +307,9 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	emitDidReceiveRuntimeMessageState(languageRuntimeMessageState: ILanguageRuntimeMessageState) {
+		for (const client of this.clientInstances) {
+			client.updatePendingRpcState(languageRuntimeMessageState);
+		}
 		this._onDidReceiveRuntimeMessageStateEmitter.fire(languageRuntimeMessageState);
 	}
 
@@ -959,16 +963,66 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 }
 
+enum PendingRpcStatus {
+	/**
+	 * The RPC was sent to the kernel, but the kernel didn't start working on it yet.
+	 */
+	Pending,
+	/**
+	 * The Kernel sent a state message with the RPC ID (as the parent id) and state 'Busy'
+	 * indicating that it has started handling the RPC.
+	 */
+	Executing,
+	/**
+	 * The Kernel sent a state message with the RPC ID (as the parent id) and status 'Idle'
+	 * indicating that it has finished handling the RPC.
+	 * Note: Completed means that the server finished processing the RPC, but it doesn't
+	 * mean that the RPC was successful. The promise may still be rejected.
+	 */
+	Completed,
+	/***
+	 * The Kernel closed before the RPC was completed, or the RPC response never arrived
+	 * within the timeout period.
+	 */
+	Error,
+}
+
 /**
  * Represents a pending RPC call that has been sent to the server side of a
  * comm.
  */
 class PendingRpc<T> {
 	public readonly promise: DeferredPromise<IRuntimeClientOutput<T>>;
+
+	private readonly _onDidChangeStatus = new Emitter<PendingRpcStatus>();
+	private _status: PendingRpcStatus = PendingRpcStatus.Pending;
+
+	/**
+	 * Can be used to check if the RPC is waiting to execute, or if it has already started.
+	 */
+	public readonly onDidChangeStatus: Event<PendingRpcStatus> = this._onDidChangeStatus.event;
+
+
 	constructor(
 		public readonly responseKeys: Array<string>
 	) {
 		this.promise = new DeferredPromise<IRuntimeClientOutput<T>>();
+	}
+
+	public setStatus(status: PendingRpcStatus): void {
+		if (this._status !== status) {
+			this._status = status;
+			this._onDidChangeStatus.fire(status);
+		}
+	}
+
+	public getStatus(): PendingRpcStatus {
+		return this._status;
+	}
+
+	public error(error: Error): void {
+		this.setStatus(PendingRpcStatus.Error);
+		this.promise.error(error);
 	}
 }
 
@@ -999,6 +1053,11 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 */
 	public clientState: ISettableObservable<RuntimeClientState>;
 
+	/**
+	 * An observable value that tracks the current status of the client.
+	 */
+	public clientStatus: ISettableObservable<RuntimeClientStatus>;
+
 	constructor(
 		private readonly _id: string,
 		private readonly _type: RuntimeClientType,
@@ -1009,6 +1068,26 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.messageCounter = observableValue(`msg-counter-${this._id}`, 0);
 
 		this.clientState = observableValue(`client-state-${this._id}`, RuntimeClientState.Uninitialized);
+		this.clientStatus = observableValue(`client-status-${this._id}`, RuntimeClientStatus.Disconnected);
+
+		const clientStateEvent = Event.fromObservable(this.clientState);
+		this._register(clientStateEvent((state) => {
+			switch (state) {
+				case RuntimeClientState.Connected:
+					if (this._pendingRpcs.size > 0) {
+						this.setClientStatus(RuntimeClientStatus.Busy);
+					} else {
+						this.setClientStatus(RuntimeClientStatus.Idle);
+					}
+					break;
+				case RuntimeClientState.Closed:
+				case RuntimeClientState.Closing:
+				case RuntimeClientState.Uninitialized:
+				case RuntimeClientState.Opening:
+					this.setClientStatus(RuntimeClientStatus.Disconnected);
+					break;
+			}
+		}));
 
 		this.onDidReceiveData = this._dataEmitter.event;
 		this._register(this._dataEmitter);
@@ -1019,19 +1098,46 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 *
 	 * @param request The request to send to the server.
 	 * @param timeout Timeout in milliseconds after which to error if the server
-	 *   does not respond.
+	 *   does not respond. `undefined` to disable timeouts.
 	 * @param responseKeys Optional list of keys; if specified, at least one
 	 *   must be present in the response. This helps distinguish RPC responses
 	 *   from other messages that have the request as the parent ID.
 	 * @returns A promise that will be resolved with the response from the server.
 	 */
-	performRpcWithBuffers<T>(request: Input, timeout: number, responseKeys: Array<string> = []): Promise<IRuntimeClientOutput<T>> {
+	performRpcWithBuffers<T>(request: Input, timeout: number | undefined, responseKeys: Array<string> = []): Promise<IRuntimeClientOutput<T>> {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
 		// Add the promise to the list of pending RPCs.
 		const pending = new PendingRpc<T>(responseKeys);
 		this._pendingRpcs.set(messageId, pending);
+		this.setClientStatus(RuntimeClientStatus.Busy);
+
+		// When the status becomes complete, we wait a maximum of 2s for the
+		// promise to be resolved, otherwise we reject it.
+		const statusListener = pending.onDidChangeStatus((status) => {
+			if (status === PendingRpcStatus.Completed) {
+				statusListener.dispose();
+				// Kernels might return the the result of an RPC slightly after the 'Idle' status is sent,
+				// so we need to wait a bit before rejecting the promise.
+				// This currently only happens with Ark/Amalthea. IPykernel always sends the RPC result before
+				// sending the 'Idle' status.
+				const timeout = 2000;
+				setTimeout(() => {
+					if (pending.promise.isSettled) {
+						return;
+					}
+					const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
+					pending.error(new Error(`RPC request completed, but response not received after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
+					this.deletePendingRpc(messageId);
+				}, timeout);
+			}
+		});
+
+		// When the promise resolves/rejects we dispose of the listener
+		pending.promise.p.finally(() => {
+			statusListener.dispose();
+		});
 
 		// Send the message to the server side.
 		this._proxy.$sendClientMessage(this._handle, this._id, messageId, request);
@@ -1040,17 +1146,19 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.messageCounter.set(this.messageCounter.get() + 1, undefined);
 
 		// Start a timeout to reject the promise if the server doesn't respond.
-		setTimeout(() => {
-			// If the promise has already been resolved, do nothing.
-			if (pending.promise.isSettled) {
-				return;
-			}
+		if (timeout) {
+			setTimeout(() => {
+				// If the promise has already been resolved, do nothing.
+				if (pending.promise.isSettled) {
+					return;
+				}
 
-			// Otherwise, reject the promise and remove it from the list of pending RPCs.
-			const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
-			pending.promise.error(new Error(`RPC timed out after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
-			this._pendingRpcs.delete(messageId);
-		}, timeout);
+				// Otherwise, reject the promise and remove it from the list of pending RPCs.
+				const timeoutSeconds = Math.round(timeout / 100) / 10;  // round to 1 decimal place
+				pending.error(new Error(`RPC timed out after ${timeoutSeconds} seconds: ${JSON.stringify(request)}`));
+				this.deletePendingRpc(messageId);
+			}, timeout);
+		}
 
 		// Return a promise that will be resolved when the server responds.
 		return pending.promise.p;
@@ -1064,6 +1172,34 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 */
 	async performRpc<T>(request: Input, timeout: number, responseKeys: Array<string> = []): Promise<T> {
 		return (await this.performRpcWithBuffers<T>(request, timeout, responseKeys)).data;
+	}
+
+	updatePendingRpcState(message: ILanguageRuntimeMessageState): void {
+		// Check to see if the message is related to a pending RPC.
+		if (this._pendingRpcs.has(message.parent_id)) {
+			const pending = this._pendingRpcs.get(message.parent_id)!;
+			switch (message.state) {
+				case RuntimeOnlineState.Busy:
+					// The server is busy processing the RPC; update the status.
+					pending.setStatus(PendingRpcStatus.Executing);
+					break;
+				case RuntimeOnlineState.Idle:
+					// The server is idle; update the status.
+					pending.setStatus(PendingRpcStatus.Completed);
+					break;
+				case RuntimeOnlineState.Starting:
+					// This is probably impossible to happen. In this case
+					// we shouldn't change the RPC state.
+					break;
+			}
+		}
+	}
+
+	deletePendingRpc(messageId: string): void {
+		this._pendingRpcs.delete(messageId);
+		if (this._pendingRpcs.size <= 0) {
+			this.setClientStatus(RuntimeClientStatus.Idle);
+		}
 	}
 
 	/**
@@ -1105,7 +1241,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 			if (pending.responseKeys.length === 0 || pending.responseKeys.some((key: string) => responseKeys.includes(key))) {
 				// This is a response to an RPC call; resolve the promise.
 				pending.promise.complete(message);
-				this._pendingRpcs.delete(message.parent_id);
+				this.deletePendingRpc(message.parent_id);
 			} else {
 				// This is a regular message or event; emit it to the client as-is
 				this._dataEmitter.fire({ data: message.data as Output, buffers: message.buffers });
@@ -1125,6 +1261,15 @@ class ExtHostRuntimeClientInstance<Input, Output>
 		this.clientState.set(state, undefined);
 	}
 
+	/**
+	 * Sets the status of the client by firing an event bearing the new status.
+	 *
+	 * @param status The new status of the client
+	 */
+	setClientStatus(status: RuntimeClientStatus): void {
+		this.clientStatus.set(status, undefined);
+	}
+
 	onDidReceiveData: Event<IRuntimeClientOutput<Output>>;
 
 	getClientId(): string {
@@ -1137,8 +1282,9 @@ class ExtHostRuntimeClientInstance<Input, Output>
 
 	public override dispose(): void {
 		// Cancel any pending RPCs
-		for (const pending of this._pendingRpcs.values()) {
-			pending.promise.error('The language runtime exited before the RPC completed.');
+		for (const [id, pending] of this._pendingRpcs) {
+			pending.error(new Error('The language runtime exited before the RPC completed.'));
+			this.deletePendingRpc(id);
 		}
 
 		// If we aren't currently closed, clean up before completing disposal.

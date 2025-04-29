@@ -9,6 +9,7 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { IHoverService } from '../../hover/browser/hover.js';
 import { unmnemonicLabel } from '../../../base/common/labels.js';
+import { IThemeService } from '../../theme/common/themeService.js';
 import { DisposableStore } from '../../../base/common/lifecycle.js';
 import { ICommandService } from '../../commands/common/commands.js';
 import { IHoverManager } from '../../hover/browser/hoverManager.js';
@@ -35,6 +36,7 @@ export interface PositronActionBarServices {
 	readonly hoverService: IHoverService;
 	readonly keybindingService: IKeybindingService;
 	readonly layoutService: ILayoutService;
+	readonly themeService: IThemeService;
 }
 
 /**

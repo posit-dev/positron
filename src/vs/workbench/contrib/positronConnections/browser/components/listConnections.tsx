@@ -26,6 +26,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { showResumeConnectionModalDialog } from './resumeConnectionModalDialog.js';
 import { localize } from '../../../../../nls.js';
 import { showNewConnectionModalDialog } from './newConnectionModalDialog.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
@@ -200,7 +201,7 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 					<ActionBarRegion location='left'>
 						<ActionBarButton
 							align='left'
-							iconId='positron-new-connection'
+							icon={ThemeIcon.fromId('positron-new-connection')}
 							label={localize('positron.listConnections.newConnection', 'New Connection')}
 							onPressed={() => {
 								props.onNewConnection();
@@ -211,7 +212,7 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 						<ActionBarButton
 							align='right'
 							disabled={props.onDeleteConnection === undefined}
-							iconId='close'
+							icon={ThemeIcon.fromId('close')}
 							label={localize('positron.listConnections.deleteConnection', 'Delete Connection')}
 							onPressed={props.onDeleteConnection}
 						/>
