@@ -78,6 +78,7 @@ const getVersion_1 = require("./getVersion");
 const fetch_1 = require("./fetch");
 // --- Start PWB: from Positron ---
 const util_1 = require("./util");
+const os_1 = __importDefault(require("os"));
 // --- End PWB: from Positron ---
 const root = path_1.default.dirname(path_1.default.dirname(__dirname));
 const commit = (0, getVersion_1.getVersion)(root);
@@ -276,50 +277,89 @@ const baseHeaders = {
     'X-Market-User-Id': '291C1CD0-051A-4123-9B4B-30D60EF52EE2',
 };
 // --- Start Positron ---
+function getPlatformDownloads(bootstrap) {
+    // return both architectures for mac universal installer
+    if (bootstrap && process.platform === 'darwin' && !process.env['VSCODE_DEV']) {
+        return ['darwin-x64', 'darwin-arm64'];
+    }
+    switch (os_1.default.arch()) {
+        case 'arm64':
+            return [`${process.platform}-arm64`];
+        case 'x64':
+        case 'x86_64':
+            return [`${process.platform}-x64`];
+        default:
+            throw new Error(`Unsupported architecture: ${os_1.default.arch()}`);
+    }
+}
+function createPlatformSpecificUrl(serviceUrl, publisher, name, version, platformDownload) {
+    return `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${publisher}.${name}-${version}@${platformDownload}.vsix`;
+}
+function getArchFromPlatformId(platformId) {
+    if (platformId.includes('arm64')) {
+        return 'arm64';
+    }
+    else if (platformId.includes('x64')) {
+        return 'x64';
+    }
+    return 'unknown';
+}
 function fromMarketplace(serviceUrl, { name: extensionName, version, sha256, metadata }, bootstrap = false) {
     // --- End Positron ---
     const json = require('gulp-json-editor');
     const [publisher, name] = extensionName.split('.');
     // --- Start Positron ---
-    let url;
+    let urls;
+    let platformDownloads = [];
     if (metadata.multiPlatformServiceUrl) {
-        let platformDownload;
-        switch (process.platform) {
-            case 'darwin':
-                platformDownload = 'darwin-arm64';
-                break;
-            case 'win32':
-                platformDownload = 'win32-x64';
-                break;
-            case 'linux':
-                platformDownload = 'linux-x64';
-                break;
-            default:
-                throw new Error('Unsupported platform');
-        }
-        ;
-        url = `${serviceUrl}/${publisher}/${name}/${platformDownload}/${version}/file/${extensionName}-${version}@${platformDownload}.vsix`;
+        platformDownloads = getPlatformDownloads(bootstrap);
+        urls = platformDownloads.map(platformDownload => createPlatformSpecificUrl(serviceUrl, publisher, name, version, platformDownload));
+        (0, fancy_log_1.default)('Downloading multi-platform extension:', ansi_colors_1.default.yellow(`${extensionName}@${version}`), `for ${platformDownloads.join(', ')}...`);
     }
     else {
-        url = `${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`;
+        urls = [`${serviceUrl}/publishers/${publisher}/vsextensions/${name}/${version}/vspackage`];
+        (0, fancy_log_1.default)('Downloading extension:', ansi_colors_1.default.yellow(`${extensionName}@${version}`), '...');
     }
     // --- End Positron ---
-    (0, fancy_log_1.default)('Downloading extension:', ansi_colors_1.default.yellow(`${extensionName}@${version}`), '...');
     const packageJsonFilter = (0, gulp_filter_1.default)('package.json', { restore: true });
     // --- Start Positron ---
     if (bootstrap) {
-        return (0, fetch_1.fetchUrls)('', {
-            base: url,
-            nodeFetchOptions: {
-                headers: baseHeaders
-            },
-            checksumSha256: sha256
-        })
-            .pipe((0, gulp_buffer_1.default)());
+        if (urls.length > 1) {
+            if (process.platform !== 'darwin') {
+                (0, fancy_log_1.default)('Developer error: Unexpected number of URLS for bootstrap extension.');
+            }
+            return event_stream_1.default.merge(...urls.map((url, index) => {
+                const platformId = platformDownloads[index];
+                const arch = getArchFromPlatformId(platformId);
+                return (0, fetch_1.fetchUrls)('', {
+                    base: url,
+                    nodeFetchOptions: { headers: baseHeaders },
+                    checksumSha256: sha256
+                })
+                    .pipe((0, gulp_buffer_1.default)())
+                    .pipe((0, gulp_rename_1.default)(p => {
+                    // Add architecture folder to the path
+                    p.dirname = arch;
+                }));
+            }));
+        }
+        else {
+            return (0, fetch_1.fetchUrls)('', {
+                base: urls[0],
+                nodeFetchOptions: {
+                    headers: baseHeaders
+                },
+                checksumSha256: sha256
+            })
+                .pipe((0, gulp_buffer_1.default)());
+        }
     }
     else {
+        if (urls.length > 1) {
+            (0, fancy_log_1.default)(`Developer error: Unexpected number of URLS for built-in extension.`);
+        }
         return (0, fetch_1.fetchUrls)('', {
-            base: url,
+            base: urls[0],
             nodeFetchOptions: {
                 headers: baseHeaders
             },
@@ -567,7 +607,7 @@ function packageBootstrapExtensionsStream() {
     return event_stream_1.default.merge(...bootstrapExtensions
         .map(extension => {
         const src = (0, bootstrapExtensions_1.getBootstrapExtensionStream)(extension).pipe((0, gulp_rename_1.default)(p => {
-            p.dirname = `extensions/bootstrap`;
+            p.dirname = `extensions/bootstrap/${p.dirname}`;
         }));
         return src;
     }));

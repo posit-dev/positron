@@ -143,7 +143,11 @@ abstract class KernelPickerStrategyBase implements IKernelPickerStrategy {
 
 		const localDisposableStore = new DisposableStore();
 		const quickPick = localDisposableStore.add(this._quickInputService.createQuickPick<KernelQuickPickItem>({ useSeparators: true }));
-		const quickPickItems = this._getKernelPickerQuickPickItems(notebook, matchResult, this._notebookKernelService, scopedContextKeyService);
+		// --- Start Positron ---
+		// pass in kernel sources, if they exist
+		const kernelSources = await this._calculdateKernelSources(editor);
+		const quickPickItems = this._getKernelPickerQuickPickItems(notebook, matchResult, this._notebookKernelService, scopedContextKeyService, kernelSources);
+		// --- End Positron ---
 
 		if (quickPickItems.length === 1 && supportAutoRun(quickPickItems[0]) && !skipAutoRun) {
 			const picked = await this._handleQuickPick(editor, quickPickItems[0], quickPickItems as KernelQuickPickItem[]);
@@ -184,7 +188,11 @@ abstract class KernelPickerStrategyBase implements IKernelPickerStrategy {
 
 			const currentActiveItems = quickPick.activeItems;
 			const matchResult = this._getMatchingResult(notebook);
-			const quickPickItems = this._getKernelPickerQuickPickItems(notebook, matchResult, this._notebookKernelService, scopedContextKeyService);
+			// --- Start Positron ---
+			// pass in kernel sources, if they exist
+			const kernelSources = await this._calculdateKernelSources(editor);
+			const quickPickItems = this._getKernelPickerQuickPickItems(notebook, matchResult, this._notebookKernelService, scopedContextKeyService, kernelSources);
+			// --- End Positron ---
 			quickPick.keepScrollPosition = true;
 
 			// recalcuate active items
@@ -246,8 +254,16 @@ abstract class KernelPickerStrategyBase implements IKernelPickerStrategy {
 		notebookTextModel: NotebookTextModel,
 		matchResult: INotebookKernelMatchResult,
 		notebookKernelService: INotebookKernelService,
-		scopedContextKeyService: IContextKeyService
+		scopedContextKeyService: IContextKeyService,
+		// --- Start Positron ---
+		kernelSources?: QuickPickInput[]
+		// --- End Positron ---
 	): QuickPickInput<KernelQuickPickItem>[];
+
+	// --- Start Positron ---
+	// pass in kernel sources to quickpick
+	protected abstract _calculdateKernelSources(editor: IActiveNotebookEditor): Promise<QuickPickInput<KernelQuickPickItem>[]>;
+	// --- End Positron ---
 
 	protected async _handleQuickPick(editor: IActiveNotebookEditor, pick: KernelQuickPickItem, quickPickItems: KernelQuickPickItem[]): Promise<boolean> {
 		if (isKernelPick(pick)) {
@@ -479,8 +495,10 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 			_extensionManagementServerService,
 		);
 	}
-
-	protected _getKernelPickerQuickPickItems(notebookTextModel: NotebookTextModel, matchResult: INotebookKernelMatchResult, notebookKernelService: INotebookKernelService, scopedContextKeyService: IContextKeyService): QuickPickInput<KernelQuickPickItem>[] {
+	// --- Start Positron ---
+	// add in optional kernel sources
+	protected _getKernelPickerQuickPickItems(notebookTextModel: NotebookTextModel, matchResult: INotebookKernelMatchResult, notebookKernelService: INotebookKernelService, scopedContextKeyService: IContextKeyService, kernelSources?: QuickPickInput[]): QuickPickInput<KernelQuickPickItem>[] {
+		// --- End Positron ---
 		const quickPickItems: QuickPickInput<KernelQuickPickItem>[] = [];
 
 		if (matchResult.selected) {
@@ -493,20 +511,29 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 				quickPickItems.push(kernel);
 			});
 
-		const shouldAutoRun = quickPickItems.length === 0;
+		// --- Start Positron ---
+		// swap out old Select Another quickpick for our interpreter selector
+		// const shouldAutoRun = quickPickItems.length === 0;
+		// --- End Positron ---
 
 		if (quickPickItems.length > 0) {
 			quickPickItems.push({
 				type: 'separator'
 			});
 		}
+		// --- Start Positron ---
+		// swap out "Select Another" quickpick for our interpreter selector
 
-		// select another kernel quick pick
-		quickPickItems.push({
-			id: 'selectAnother',
-			label: localize('selectAnotherKernel.more', "Select Another Kernel..."),
-			autoRun: shouldAutoRun
-		});
+		// quickPickItems.push({
+		// 	id: 'selectAnother',
+		// 	label: localize('selectAnotherKernel.more', "Select Another Kernel..."),
+		// 	autoRun: shouldAutoRun
+		// });
+
+		if (kernelSources) {
+			quickPickItems.push(...kernelSources);
+		}
+		// --- End Positron ---
 
 		return quickPickItems;
 	}
@@ -533,9 +560,16 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 	}
 
 	protected override async _handleQuickPick(editor: IActiveNotebookEditor, pick: KernelQuickPickItem, items: KernelQuickPickItem[]): Promise<boolean> {
-		if (pick.id === 'selectAnother') {
-			return this.displaySelectAnotherQuickPick(editor, items.length === 1 && items[0] === pick);
+		// --- Start Positron ---
+		// add in Positron interpreter selector instead of "Select Another" quickpick
+		// if (pick.id === 'selectAnother') {
+		// 	return this.displaySelectAnotherQuickPick(editor, items.length === 1 && items[0] === pick);
+		// }
+
+		if (pick.id === 'workbench.action.languageRuntime.pick') {
+			this._handleKernelQuickPick(pick, editor);
 		}
+		// --- End Positron ---
 
 		return super._handleQuickPick(editor, pick, items);
 	}
@@ -663,7 +697,39 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 		return false;
 	}
 
-	private async _calculdateKernelSources(editor: IActiveNotebookEditor) {
+	// --- Start Positron ---
+	// mostly adapted from handling in this.displaySelectAnotherQuickPick
+	private async _handleKernelQuickPick(pick: KernelQuickPickItem, editor: IActiveNotebookEditor) {
+		const notebook = editor.textModel;
+
+		const selectedKernelPickItem = pick as KernelQuickPickItem;
+
+		if (isKernelSourceQuickPickItem(selectedKernelPickItem)) {
+			try {
+				const selectedKernelId = await this._executeCommand<string>(notebook, selectedKernelPickItem.command);
+				if (selectedKernelId) {
+					const { all } = await this._getMatchingResult(notebook);
+					// Enable kernel source action providers for Positron kernels
+					const kernel = all.find(kernel => kernel.id === `ms-toolsai.jupyter/${selectedKernelId}` ||
+						kernel.id === `positron.positron-notebook-controllers/${selectedKernelId}` ||
+						kernel.id === `${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}/${selectedKernelId}`);
+					if (kernel) {
+						await this._selecteKernel(notebook, kernel);
+						return true;
+					}
+					return true;
+				} else {
+					return this.displaySelectAnotherQuickPick(editor, false);
+				}
+			} catch (ex) {
+				return false;
+			}
+		}
+		return this.displaySelectAnotherQuickPick(editor, false);
+	}
+
+	protected async _calculdateKernelSources(editor: IActiveNotebookEditor) {
+		// --- End Positron ---
 		const notebook: NotebookTextModel = editor.textModel;
 
 		const sourceActionCommands = this._notebookKernelService.getSourceActions(notebook, editor.scopedContextKeyService);

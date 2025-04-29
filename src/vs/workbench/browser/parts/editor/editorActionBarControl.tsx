@@ -27,6 +27,7 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { EditorActionBarFactory } from './editorActionBarFactory.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 
 /**
  * Constants.
@@ -68,6 +69,7 @@ export class EditorActionBarControl extends Disposable {
 	 * @param _layoutService The layout service.
 	 * @param _menuService The menu service.
 	 * @param _telemetryService The telemetry service.
+	 * @param _themeService The theme service.
 	 */
 	constructor(
 		private readonly _parent: HTMLElement,
@@ -82,6 +84,7 @@ export class EditorActionBarControl extends Disposable {
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IMenuService private readonly _menuService: IMenuService,
 		@ITelemetryService _telemetryService: ITelemetryService,
+		@IThemeService private readonly _themeService: IThemeService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -112,6 +115,7 @@ export class EditorActionBarControl extends Disposable {
 				hoverService={this._hoverService}
 				keybindingService={this._keybindingService}
 				layoutService={this._layoutService}
+				themeService={this._themeService}
 			/>
 		);
 	}

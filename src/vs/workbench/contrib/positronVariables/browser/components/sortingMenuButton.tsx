@@ -15,6 +15,7 @@ import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { PositronVariablesSorting } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 /**
  * Localized strings.
@@ -134,7 +135,7 @@ export const SortingMenuButton = () => {
 		<ActionBarMenuButton
 			actions={actions}
 			ariaLabel={positronChangeHowVariablesAreSorted}
-			iconId='positron-variables-sorting'
+			icon={ThemeIcon.fromId('positron-variables-sorting')}
 			tooltip={positronChangeHowVariablesAreSorted}
 		/>
 	);

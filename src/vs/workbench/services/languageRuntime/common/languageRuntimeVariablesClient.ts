@@ -6,7 +6,7 @@
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
-import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
+import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientStatus } from './languageRuntimeClientInstance.js';
 import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from './positronVariablesComm.js';
 
 /**
@@ -143,6 +143,11 @@ export class VariablesClientInstance extends Disposable {
 	public clientState: ISettableObservable<RuntimeClientState>;
 
 	/**
+	 * The status of the client instance
+	 */
+	public clientStatus: ISettableObservable<RuntimeClientStatus>;
+
+	/**
 	 * Ceate a new variable client instance.
 	 *
 	 * @param client The client instance to use to communicate with the back end.
@@ -150,8 +155,19 @@ export class VariablesClientInstance extends Disposable {
 	constructor(client: IRuntimeClientInstance<any, any>) {
 		super();
 
-		this._comm = new PositronVariablesComm(client);
+		// Clipboard formatting should have a small timeout.
+		this._comm = new PositronVariablesComm(client, {
+			clipboard_format: { timeout: 3000 },
+			// Explicitly never timeout the other requests
+			list: { timeout: undefined },
+			clear: { timeout: undefined },
+			delete: { timeout: undefined },
+			inspect: { timeout: undefined },
+			view: { timeout: undefined },
+		});
+
 		this.clientState = client.clientState;
+		this.clientStatus = client.clientStatus;
 
 		// Connect the client instance to the back end
 		this.connectClient(this._comm);
@@ -245,3 +261,4 @@ export class VariablesClientInstance extends Disposable {
 		}));
 	}
 }
+

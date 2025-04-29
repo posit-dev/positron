@@ -7,11 +7,13 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
 import { newLanguageModel } from './models';
-import { CopilotCompletion, newCompletionProvider, registerHistoryTracking } from './completion';
-import { editsProvider } from './edits';
-import { createParticipants } from './participants';
+import { registerMappedEditsProvider } from './edits';
+import { registerParticipants } from './participants';
+import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
-import { COPILOT_SIGNIN_COMMAND, registerCopilotService } from './copilot.js';
+import { registerCopilotService } from './copilot.js';
+import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
+import { registerCodeActionProvider } from './codeActions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -29,7 +31,7 @@ function disposeParticipants() {
 	participantDisposables = [];
 }
 
-export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage, isDefault: boolean) {
 	try {
 		const modelConfig = await getModelConfiguration(config.id, context, storage);
 
@@ -49,7 +51,7 @@ export async function registerModel(config: StoredModelConfig, context: vscode.E
 			throw new Error(vscode.l10n.t('Failed to register model configuration. The provider is disabled.'));
 		}
 
-		await registerModelWithAPI(modelConfig, context);
+		await registerModelWithAPI(modelConfig, context, isDefault);
 	} catch (e) {
 		vscode.window.showErrorMessage(
 			vscode.l10n.t('Positron Assistant: Failed to register model configuration. {0}', [e])
@@ -110,7 +112,7 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
  * @param modelConfig the language model's config
  * @param context the extension context
  */
-async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, isDefault = true) {
+async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, isDefault = false) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
 		const languageModel = newLanguageModel(modelConfig);
@@ -125,6 +127,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 			family: languageModel.provider,
 			vendor: context.extension.packageJSON.publisher,
 			version: context.extension.packageJSON.version,
+			capabilities: languageModel.capabilities,
 			maxInputTokens: 0,
 			maxOutputTokens: 0,
 			isUserSelectable: true,
@@ -136,29 +139,13 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 	// Register with VS Code completions API
 	else if (modelConfig.type === 'completion') {
 		const completionProvider = newCompletionProvider(modelConfig);
-		const complDisp = vscode.languages.registerInlineCompletionItemProvider({ pattern: '**/*.*' }, completionProvider);
+		// this uses the proposed inlineCompletionAdditions API
+		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: modelConfig.name });
 		modelDisposables.push(complDisp);
 	}
-}
 
-function registerParticipants(context: vscode.ExtensionContext) {
-	const participants = createParticipants(context);
-	Object.values(participants).forEach(async (participant) => {
-		// Register agent with Positron Assistant API
-		// Note: This is an alternative to a `package.json` definition that allows dynamic commands
-		const disposable = await positron.ai.registerChatAgent(participant.agentData);
-		context.subscriptions.push(disposable);
-
-		// Register agent implementation with the vscode API
-		const vscodeParticipant = vscode.chat.createChatParticipant(
-			participant.id,
-			participant.requestHandler.bind(participant),
-		);
-		vscodeParticipant.iconPath = participant.iconPath;
-		vscodeParticipant.followupProvider = participant.followupProvider;
-		vscodeParticipant.welcomeMessageProvider = participant.welcomeMessageProvider;
-	});
-	return participants;
+	const hasChatModels = modelConfig.type === 'chat';
+	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 }
 
 function registerAddModelConfigurationCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
@@ -177,12 +164,6 @@ function registerConfigureModelsCommand(context: vscode.ExtensionContext, storag
 	);
 }
 
-function registerMappedEditsProvider(context: vscode.ExtensionContext) {
-	context.subscriptions.push(
-		vscode.chat.registerMappedEditsProvider2(editsProvider)
-	);
-}
-
 function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize secret storage. In web mode, we currently need to use global
@@ -195,7 +176,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerCopilotService(context);
 
 	// Register chat participants
-	const participants = registerParticipants(context);
+	const participantService = registerParticipants(context);
 
 	// Register configured language models
 	registerModels(context, storage);
@@ -208,7 +189,10 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerConfigureModelsCommand(context, storage);
 
 	// Register mapped edits provider
-	registerMappedEditsProvider(context);
+	registerMappedEditsProvider(context, participantService);
+
+	// Register code action provider
+	registerCodeActionProvider(context);
 
 	// Dispose cleanup
 	context.subscriptions.push({
@@ -221,15 +205,15 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Mark the assistant as enabled
 	assistantEnabled = true;
 
-	return participants;
+	return participantService;
 }
 
 export function activate(context: vscode.ExtensionContext) {
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
 	if (enabled) {
-		const participants = registerAssistant(context);
-		registerAssistantTools(context, participants);
+		const participantService = registerAssistant(context);
+		registerAssistantTools(context, participantService);
 		const storedModels = getStoredModels(context);
 		if (storedModels.length) {
 			storedModels.forEach(stored => {

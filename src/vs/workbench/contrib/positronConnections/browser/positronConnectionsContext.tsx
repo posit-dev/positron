@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -25,6 +25,7 @@ import { ILanguageRuntimeService } from '../../../services/languageRuntime/commo
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 
 export interface PositronConnectionsServices {
 	readonly accessibilityService: IAccessibilityService;
@@ -45,6 +46,7 @@ export interface PositronConnectionsServices {
 	readonly languageRuntimeService: ILanguageRuntimeService;
 	readonly runtimeAffiliationService: IRuntimeStartupService;
 	readonly runtimeSessionService: IRuntimeSessionService;
+	readonly themeService: IThemeService;
 }
 
 const PositronConnectionsContext = createContext<PositronConnectionsServices>(undefined!);

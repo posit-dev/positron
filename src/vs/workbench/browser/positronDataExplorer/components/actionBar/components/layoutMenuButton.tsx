@@ -12,9 +12,10 @@ import React, { useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../nls.js';
 import { IAction } from '../../../../../../base/common/actions.js';
+import { ThemeIcon } from '../../../../../../base/common/themables.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
-import { ActionBarMenuButton } from '../../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
+import { ActionBarMenuButton } from '../../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 
 /**
@@ -96,11 +97,11 @@ export const LayoutMenuButton = () => {
 		switch (layout) {
 			// Summary on left.
 			case PositronDataExplorerLayout.SummaryOnLeft:
-				return 'positron-data-explorer-summary-on-left';
+				return ThemeIcon.fromId('positron-data-explorer-summary-on-left');
 
 			// Summary on right.
 			case PositronDataExplorerLayout.SummaryOnRight:
-				return 'positron-data-explorer-summary-on-right';
+				return ThemeIcon.fromId('positron-data-explorer-summary-on-right');
 
 			// Can't happen.
 			default:
@@ -113,7 +114,7 @@ export const LayoutMenuButton = () => {
 		<ActionBarMenuButton
 			actions={actions}
 			ariaLabel={layoutButtonDescription}
-			iconId={selectIconId(currentLayout)}
+			icon={selectIconId(currentLayout)}
 			label={layoutButtonTitle}
 			tooltip={layoutButtonDescription}
 		/>

@@ -10,6 +10,11 @@ import './actionBarButton.css';
 import React, { useRef, PropsWithChildren, useImperativeHandle, forwardRef } from 'react';
 
 // Other dependencies.
+import { URI } from '../../../../base/common/uri.js';
+import { Icon } from '../../../action/common/action.js';
+import { ColorScheme } from '../../../theme/common/theme.js';
+import { asCSSUrl } from '../../../../base/browser/cssValue.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
@@ -18,13 +23,13 @@ import { optionalBoolean, optionalValue, positronClassNames } from '../../../../
  * ActionBarButtonIconProps type
  */
 type ActionBarButtonIconProps = {
-	readonly iconId?: string;
+	readonly icon?: Icon;
 	readonly iconFontSize?: number;
 	readonly iconImageSrc?: never;
 	readonly iconHeight?: never;
 	readonly iconWidth?: never;
 } | {
-	readonly iconId?: never;
+	readonly icon?: never;
 	readonly iconFontSize?: never;
 	readonly iconImageSrc?: string;
 	readonly iconHeight?: number;
@@ -84,16 +89,44 @@ export const ActionBarButton = forwardRef<
 		dropdownButtonRef.current : buttonRef.current
 	);
 
-	// Create the icon style.
-	let iconStyle: React.CSSProperties = {};
-	if (props.iconId && props.iconFontSize) {
-		iconStyle = { ...iconStyle, fontSize: props.iconFontSize };
-	}
-
 	// Aria-hide the inner elements and promote the button text to an aria-label in order to
 	// avoid VoiceOver treating buttons as groups. See VSCode issue for more:
 	// https://github.com/microsoft/vscode/issues/181739#issuecomment-1779701917
 	const ariaLabel = props.ariaLabel ? props.ariaLabel : props.label;
+
+	// Figure out how to display the icon.
+	let iconClassNames: string[] = [];
+	const iconStyle: React.CSSProperties = {};
+	if (props.icon) {
+		// If it's a theme icon, use the theme icon class names.
+		if (ThemeIcon.isThemeIcon(props.icon)) {
+			iconClassNames = ThemeIcon.asClassNameArray(props.icon);
+		} else {
+			// Get the color theme type.
+			const colorThemeType = context.themeService.getColorTheme().type;
+
+			// Determine the css background image based on the color theme type and icon.
+			let icon: URI | undefined;
+			if (colorThemeType === ColorScheme.LIGHT && props.icon.light) {
+				icon = props.icon.light;
+			} else if (colorThemeType === ColorScheme.DARK && props.icon.dark) {
+				icon = props.icon.dark;
+			} else {
+				// Fallback to the dark icon if the light icon is not available.
+				icon = props.icon.light ?? props.icon.dark;
+			}
+
+			// If there is an icon, set the icon style.
+			if (icon) {
+				iconStyle.width = '16px';
+				iconStyle.height = '16px';
+				iconStyle.backgroundSize = '16px';
+				iconStyle.backgroundPosition = '50%';
+				iconStyle.backgroundRepeat = 'no-repeat';
+				iconStyle.backgroundImage = asCSSUrl(icon);
+			}
+		}
+	}
 
 	/**
 	 * ActionBarButtonFace component.
@@ -102,13 +135,12 @@ export const ActionBarButton = forwardRef<
 	const ActionBarButtonFace = () => {
 		return (
 			<div aria-hidden='true' className='action-bar-button-face' data-testid={props.dataTestId}>
-				{props.iconId &&
+				{props.icon &&
 					<div
 						className={positronClassNames(
 							'action-bar-button-icon',
 							props.dropdownIndicator,
-							'codicon',
-							`codicon-${props.iconId}`
+							...iconClassNames
 						)}
 						style={iconStyle}
 					/>
@@ -132,7 +164,7 @@ export const ActionBarButton = forwardRef<
 					<div
 						className='action-bar-button-label'
 						style={{
-							marginLeft: (props.iconId || props.iconImageSrc) ? 0 : 4,
+							marginLeft: (props.icon || props.iconImageSrc) ? 0 : 4,
 							maxWidth: optionalValue(props.maxTextWidth, 'none')
 						}}
 					>

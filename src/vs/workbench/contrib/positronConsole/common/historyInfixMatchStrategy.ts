@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { HistoryNavigator2 } from '../../../../base/common/history.js';
 import { IInputHistoryEntry } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { HistoryMatch, HistoryMatchStrategy } from './historyMatchStrategy.js';
 
@@ -12,7 +11,7 @@ import { HistoryMatch, HistoryMatchStrategy } from './historyMatchStrategy.js';
  * mimics the behavior of Bash's reverse-history-search mode (Ctrl+R).
  */
 export class HistoryInfixMatchStrategy extends HistoryMatchStrategy {
-	constructor(protected readonly _navigator: HistoryNavigator2<IInputHistoryEntry>) {
+	constructor(protected readonly _entries: Array<IInputHistoryEntry>) {
 		super();
 	}
 
@@ -25,7 +24,7 @@ export class HistoryInfixMatchStrategy extends HistoryMatchStrategy {
 	override getMatches(input: string): HistoryMatch[] {
 		const matches: HistoryMatch[] = [];
 		let previousInput = '';
-		for (const entry of this._navigator) {
+		for (const entry of this._entries) {
 			// Duplicate suppression: Ignore this entry if it's the same as the
 			// previous one or the same as the previous match
 			if (entry.input === previousInput ||

@@ -15,19 +15,29 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { ILanguageModelToolsService } from '../../common/languageModelToolsService.js';
 import { ProjectTreeTool, ProjectTreeToolData } from '../../browser/tools/projectTreeTool.js';
+import { TextSearchTool, TextSearchToolData } from './textSearchTool.js';
+import { FileContentsTool, FileContentsToolData } from './fileContentsTool.js';
 
 export class PositronBuiltinToolsContribution extends Disposable implements IWorkbenchContribution {
 
 	static readonly ID = 'chat.positronBuiltinTools';
 
 	constructor(
-		@ILanguageModelToolsService toolsService: ILanguageModelToolsService,
-		@IInstantiationService instantiationService: IInstantiationService,
+		@ILanguageModelToolsService _toolsService: ILanguageModelToolsService,
+		@IInstantiationService _instantiationService: IInstantiationService,
 	) {
 		super();
 
-		const projectTreeTool = instantiationService.createInstance(ProjectTreeTool);
-		this._register(toolsService.registerToolData(ProjectTreeToolData));
-		this._register(toolsService.registerToolImplementation(ProjectTreeToolData.id, projectTreeTool));
+		const toolDescriptors = [
+			{ data: ProjectTreeToolData, ctor: ProjectTreeTool },
+			{ data: TextSearchToolData, ctor: TextSearchTool },
+			{ data: FileContentsToolData, ctor: FileContentsTool }
+		];
+
+		for (const { data, ctor } of toolDescriptors) {
+			const tool = _instantiationService.createInstance(ctor);
+			this._register(_toolsService.registerToolData(data));
+			this._register(_toolsService.registerToolImplementation(data.id, tool));
+		}
 	}
 }

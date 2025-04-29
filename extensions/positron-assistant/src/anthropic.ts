@@ -14,6 +14,12 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	provider: string;
 	identifier: string;
 
+	capabilities = {
+		vision: true,
+		toolCalling: true,
+		agentMode: true,
+	};
+
 	private readonly _client: Anthropic;
 
 	static source: positron.ai.LanguageModelSource = {
@@ -46,7 +52,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
-		const anthropicMessages = messages.map(message => toAnthropicMessage(message));
+		// Filter out messages with empty text content
+		const filteredMessages = messages.filter(hasNonEmptyContent);
+
+		const anthropicMessages = filteredMessages.map(message => toAnthropicMessage(message));
 		const tools = options.tools?.map(tool => toAnthropicTool(tool));
 		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
 		const stream = this._client.messages.stream({
@@ -65,6 +74,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 		stream.on('contentBlock', (contentBlock) => {
 			this.onContentBlock(contentBlock, progress);
+		});
+
+		stream.on('text', (textDelta) => {
+			this.onText(textDelta, progress);
 		});
 
 		try {
@@ -93,18 +106,9 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 	private onContentBlock(block: Anthropic.Messages.ContentBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
 		switch (block.type) {
-			case 'text':
-				return this.onTextBlock(block, progress);
 			case 'tool_use':
 				return this.onToolUseBlock(block, progress);
 		}
-	}
-
-	private onTextBlock(contentBlock: Anthropic.Messages.TextBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
-		progress.report({
-			index: 0,
-			part: new vscode.LanguageModelTextPart(contentBlock.text),
-		});
 	}
 
 	private onToolUseBlock(block: Anthropic.Messages.ToolUseBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
@@ -114,7 +118,27 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		});
 	}
 
+	private onText(textDelta: string, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
+		progress.report({
+			index: 0,
+			part: new vscode.LanguageModelTextPart(textDelta),
+		});
+	}
+
 	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
+		// For empty string or message with only empty content, return 0 tokens
+		if (typeof text === 'string') {
+			if (text.trim() === '') {
+				return 0;
+			}
+		} else {
+			// Check if message has any non-empty content
+			if (!hasNonEmptyContent(text)) {
+				return 0;
+			}
+		}
+
+		// Process non-empty content normally
 		const messages: Anthropic.MessageParam[] = typeof text === 'string' ?
 			[{
 				role: 'user',
@@ -259,4 +283,18 @@ function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anth
 			// Should not happen.
 			throw new Error(`Unsupported tool mode: ${toolMode}`);
 	}
+}
+
+/**
+ * Checks if a message contains any non-empty content.
+ * @param message The message to check
+ * @returns True if the message has any non-empty content, false otherwise
+ */
+function hasNonEmptyContent(message: vscode.LanguageModelChatMessage): boolean {
+	return message.content.some(part => {
+		if (part instanceof vscode.LanguageModelTextPart) {
+			return part.value.trim() !== '';
+		}
+		return true; // Non-text parts are considered non-empty
+	});
 }

@@ -478,7 +478,7 @@ export class WebviewElement extends Disposable implements IWebview, WebviewFindD
 			id: this.id,
 			origin: this.origin,
 			swVersion: String(this._expectedServiceWorkerVersion),
-			extensionId: extension?.id.value ?? '',
+			extensionId: extension?.id?.value ?? '',
 			platform: this.platform,
 			'vscode-resource-base-authority': webviewRootResourceAuthority,
 			parentOrigin: targetWindow.origin,

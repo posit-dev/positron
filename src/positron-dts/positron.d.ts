@@ -174,6 +174,13 @@ declare module 'positron' {
 		Error = 'error',
 
 		/**
+		 * The runtime session was transferred somewhere else. This happens when
+		 * it is loaded into a different Positron window; it 'exits' from the
+		 * old window and is reconnected in the new window.
+		 */
+		Transferred = 'transferred',
+
+		/**
 		 * The runtime exited for an unknown reason. This typically means that
 		 * it exited unexpectedly but with a normal exit code (0).
 		 */
@@ -1575,8 +1582,10 @@ declare module 'positron' {
 		 * Get the preferred language runtime for a given language.
 		 *
 		 * @param languageId The language ID of the preferred runtime
+		 * @returns The preferred runtime metadata, or undefined if no eligible runtimes
+		 *  are registered.
 		 */
-		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntimeMetadata>;
+		export function getPreferredRuntime(languageId: string): Thenable<LanguageRuntimeMetadata | undefined>;
 
 		/**
 		 * List all active sessions.
@@ -1769,6 +1778,12 @@ declare module 'positron' {
 			name: string;
 			provider: string;
 			identifier: string;
+
+			readonly capabilities?: {
+				readonly vision?: boolean;
+				readonly toolCalling?: boolean;
+				readonly agentMode?: boolean;
+			};
 
 			/**
 			 * Handle a language model request with tool calls and streaming chat responses.

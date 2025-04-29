@@ -302,6 +302,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				reactComponentContainer={this}
 				runtimeSessionService={this.runtimeSessionService}
 				runtimeStartupService={this.runtimeStartupService}
+				themeService={this.themeService}
 				viewsService={this.viewsService}
 			/>
 		);

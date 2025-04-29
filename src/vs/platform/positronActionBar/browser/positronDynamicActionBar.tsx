@@ -11,6 +11,7 @@ import React, { CSSProperties, KeyboardEvent, useEffect, useLayoutEffect, useRef
 
 // Other dependencies.
 import * as DOM from '../../../base/browser/dom.js';
+import { ThemeIcon } from '../../../base/common/themables.js';
 import { ActionBarButton } from './components/actionBarButton.js';
 import { ActionBarSeparator } from './components/actionBarSeparator.js';
 import { usePositronActionBarContext } from './positronActionBarContext.js';
@@ -360,7 +361,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 						ref={refOverflowButton}
 						align='right'
 						ariaLabel={'overflow'}
-						iconId='toolbar-more'
+						icon={ThemeIcon.fromId('toolbar-more')}
 						tooltip={'overflow'}
 						onPressed={async () => {
 							// The custom context menu entries for the overflow context menu.

@@ -11,6 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
@@ -59,7 +60,7 @@ export const TopActionBarNewMenu = () => {
 	return (
 		<ActionBarMenuButton
 			actions={actions}
-			iconId='positron-new'
+			icon={ThemeIcon.fromId('positron-new')}
 			label={positronNew}
 			tooltip={positronNewFileFolder}
 		/>

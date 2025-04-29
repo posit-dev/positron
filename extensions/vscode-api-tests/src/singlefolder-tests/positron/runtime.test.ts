@@ -299,14 +299,11 @@ suite('positron API - runtime', () => {
 
 		managerDisposable.dispose();
 
-		// TODO: Unregistering a manager unregisters its runtimes, but doesn't remove them from
-		//       the list returned by positron.runtime.getRegisteredRuntimes. Is that a bug?
-		//       It also means that this test will currently fail if run out of order.
-		// await poll(
-		// 	getRegisteredRuntimes,
-		// 	(runtimes) => runtimes.length === 0,
-		// 	'test runtimes should be unregistered',
-		// );
+		await poll(
+			getRegisteredRuntimes,
+			(runtimes) => runtimes.length === 0,
+			'test runtimes should be unregistered',
+		);
 	});
 
 });
@@ -585,7 +582,7 @@ suite('positron API - executeCode', () => {
 			positron.runtime.onDidExecuteCode((e) => {
 				event = e;
 			})
-		)
+		);
 
 		// Execute the code
 		await positron.runtime.executeCode(

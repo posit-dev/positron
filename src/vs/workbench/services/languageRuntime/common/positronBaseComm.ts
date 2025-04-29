@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
+import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientStatus } from './languageRuntimeClientInstance.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
@@ -55,9 +55,9 @@ export type PositronCommOptions<T extends string> = {
 export interface PositronCommRpcOptions {
 	/**
 	 * Timeout in milliseconds after which to error if the server does not respond.
-	 * Defaults to 5 seconds.
+	 * Defaults to 5 seconds. Undefined means no timeout.
 	 */
-	timeout: number;
+	timeout: number | undefined;
 }
 
 /**
@@ -100,6 +100,11 @@ export class PositronBaseComm extends Disposable {
 	 * The current state of the client instance
 	 */
 	public readonly clientState: ISettableObservable<RuntimeClientState>;
+
+	/**
+	 * The current status of the client instance. Ie, are there pending RPC's?
+	 */
+	public readonly clientStatus: ISettableObservable<RuntimeClientStatus>;
 
 	/**
 	 * Create a new Positron com
@@ -170,6 +175,9 @@ export class PositronBaseComm extends Disposable {
 
 		// Forward the client state from the client instance
 		this.clientState = clientInstance.clientState;
+
+		// Forward the client status from the client instance
+		this.clientStatus = clientInstance.clientStatus;
 	}
 
 	/**
@@ -234,7 +242,11 @@ export class PositronBaseComm extends Disposable {
 		// Perform the RPC
 		let response = {} as any;
 		try {
-			const timeout = this.options?.[rpcName]?.timeout ?? 5000;
+			// Check for explicitly set timeout in options, otherwise use the default.
+			const defaultTimeout = 5000; // 5 seconds
+			const timeout = (this.options?.[rpcName] && 'timeout' in this.options[rpcName])
+				? this.options[rpcName].timeout
+				: defaultTimeout;
 			// Wait for a response to this message that includes a 'result' or
 			// 'error' field.
 			response = await this.clientInstance.performRpc(request, timeout, ['result', 'error']);

@@ -187,8 +187,14 @@ class PositronComm:
             callback(comm_msg, raw_msg)
 
         def handle_msg(raw_msg: JsonRecord) -> None:
-            with self.send_lock:
-                _handle_msg(raw_msg)
+            try:
+                with self.send_lock:
+                    _handle_msg(raw_msg)
+            except Exception as exception:
+                self.send_error(
+                    JsonRpcErrorCode.INTERNAL_ERROR,
+                    f"Internal error: {exception}",
+                )
 
         self.comm.on_msg(handle_msg)
 

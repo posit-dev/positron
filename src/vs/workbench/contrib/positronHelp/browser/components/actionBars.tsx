@@ -12,13 +12,14 @@ import React, { PropsWithChildren, useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IAction } from '../../../../../base/common/actions.js';
+import { IPositronHelpService } from '../positronHelpService.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
-import { IPositronHelpService } from '../positronHelpService.js';
 import { PositronActionBarServices } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
@@ -153,14 +154,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarButton
 						ariaLabel={tooltipPreviousTopic}
 						disabled={!canNavigateBackward}
-						iconId='positron-left-arrow'
+						icon={ThemeIcon.fromId('positron-left-arrow')}
 						tooltip={tooltipPreviousTopic}
 						onPressed={() => props.positronHelpService.navigateBackward()}
 					/>
 					<ActionBarButton
 						ariaLabel={tooltipNextTopic}
 						disabled={!canNavigateForward}
-						iconId='positron-right-arrow'
+						icon={ThemeIcon.fromId('positron-right-arrow')}
 						tooltip={tooltipNextTopic}
 						onPressed={() => props.positronHelpService.navigateForward()}
 					/>
@@ -170,7 +171,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					<ActionBarButton
 						ariaLabel={tooltipShowPositronHelp}
 						disabled={true}
-						iconId='positron-home'
+						icon={ThemeIcon.fromId('positron-home')}
 						tooltip={tooltipShowPositronHelp}
 						onPressed={() => props.onHome()}
 					/>
@@ -203,7 +204,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							align='right'
 							ariaLabel={tooltipShowPositronHelp}
 							disabled={currentHelpEntry === undefined}
-							iconId='positron-search'
+							icon={ThemeIcon.fromId('positron-search')}
 							tooltip={tooltipShowPositronHelp}
 							onPressed={() => currentHelpEntry?.showFind()}
 						/>

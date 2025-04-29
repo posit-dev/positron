@@ -15,10 +15,74 @@
   ],
   "main": "./out/extension.js",
   "enabledApiProposals": [
+    "codeActionAI",
     "defaultChatParticipant",
     "inlineCompletionsAdditions"
   ],
   "contributes": {
+    "chatParticipants": [
+      {
+        "id": "positron.assistant.chat",
+        "name": "assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.ask.description%",
+        "isSticky": false,
+        "isDefault": true,
+        "commands": [
+          {
+            "name": "quarto",
+            "description": "%chatParticipants.commands.quarto.description%"
+          }
+        ],
+        "locations": [
+          "panel"
+        ]
+      },
+      {
+        "id": "positron.assistant.terminal",
+        "name": "assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.ask.description%",
+        "isSticky": false,
+        "isDefault": true,
+        "locations": [
+          "terminal"
+        ]
+      },
+      {
+        "id": "positron.assistant.editor",
+        "name": "assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.ask.description%",
+        "isSticky": false,
+        "isDefault": true,
+        "locations": [
+          "editor"
+        ]
+      },
+      {
+        "id": "positron.assistant.notebook",
+        "name": "assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.ask.description%",
+        "isSticky": false,
+        "isDefault": true,
+        "locations": [
+          "notebook"
+        ]
+      },
+      {
+        "id": "positron.assistant.editingSessionEditor",
+        "name": "assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.edit.description%",
+        "isSticky": false,
+        "isDefault": true,
+        "locations": [
+          "editing-session"
+        ]
+      }
+    ],
     "menus": {
       "chat/input": [
         {
@@ -117,7 +181,7 @@
       {
         "name": "executeCode",
         "displayName": "Execute Code",
-        "modelDescription": "Execute a piece of code in the specified programming language.",
+        "modelDescription": "Execute a piece of code in the specified programming language. Only use this tool if you absolutely need to execute code, otherwise reply directly to the user with markdown code snippets.",
         "canBeReferencedInPrompt": false,
         "inputSchema": {
           "type": "object",
@@ -148,9 +212,9 @@
     ]
   },
   "scripts": {
+    "compile": "gulp compile-extension:positron-assistant",
     "vscode:prepublish": "npm run compile",
-    "pretest": "npm run compile && npm run lint",
-    "lint": "eslint src --ext ts",
+    "pretest": "npm run compile",
     "install-copilot-language-server": "ts-node scripts/install-copilot-language-server.ts",
     "postinstall": "ts-node scripts/post-install.ts"
   },
@@ -166,11 +230,15 @@
     "@eslint/js": "^9.13.0",
     "@openrouter/ai-sdk-provider": "^0.0.6",
     "@stylistic/eslint-plugin": "^2.9.0",
+    "@types/mocha": "^9.1.0",
     "@types/node": "^20",
+    "@types/sinon": "^17.0.3",
     "ai": "^4.1.46",
     "eslint": "^9.13.0",
     "google-auth-library": "^9.15.1",
+    "mocha": "^9.2.1",
     "ollama-ai-provider": "^1.1.0",
+    "sinon": "^17.0.1",
     "ts-node": "^10.9.2",
     "typescript": "^5.6.2",
     "typescript-eslint": "^8.11.0",
