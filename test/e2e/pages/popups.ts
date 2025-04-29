@@ -21,6 +21,11 @@ const NOTIFICATION_TOAST = '.notification-toast';
 export class Popups {
 
 	public toastLocator = this.code.driver.page.locator(NOTIFICATION_TOAST);
+	public importButton = this.toastLocator.getByRole('button', { name: 'Import' });
+	public laterButton = this.toastLocator.getByRole('button', { name: 'Later' });
+	public doNotShowAgainButton = this.toastLocator.getByRole('button', { name: 'Don\'t Show Again' });
+	public acceptButton = this.toastLocator.getByRole('button', { name: 'Accept' });
+	public rejectButton = this.toastLocator.getByRole('button', { name: 'Reject' });
 
 	constructor(private code: Code) { }
 

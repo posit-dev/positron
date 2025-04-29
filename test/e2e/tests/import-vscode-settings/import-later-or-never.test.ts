@@ -15,44 +15,40 @@ test.describe('Import VSCode Settings: Defer', { tag: [tags.VSCODE_SETTINGS] }, 
 		await vscodeUserSettings.ensureExists();
 	});
 
-	test('Verify import prompt behavior on "Later"', async ({ page, runCommand }) => {
-		const importButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Import' });
-		const laterButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Later' });
-		const doNotShowAgainButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Don\'t Show Again' });
+	test('Verify import prompt behavior on "Later"', async ({ app, runCommand }) => {
+		const { popups } = app.workbench;
 
-		await expect(importButton).toBeVisible();
-		await expect(laterButton).toBeVisible();
-		await expect(doNotShowAgainButton).toBeVisible();
+		await expect(popups.importButton).toBeVisible();
+		await expect(popups.laterButton).toBeVisible();
+		await expect(popups.doNotShowAgainButton).toBeVisible();
 
 		// Click Later button and reload
-		await laterButton.click();
-		await expect(importButton).not.toBeVisible();
+		await popups.laterButton.click();
+		await expect(popups.importButton).not.toBeVisible();
 		await runCommand('workbench.action.reloadWindow');
 
 		// Verify that prompt is shown again
-		await expect(importButton).toBeVisible();
-		await expect(laterButton).toBeVisible();
-		await expect(doNotShowAgainButton).toBeVisible();
+		await expect(popups.importButton).toBeVisible();
+		await expect(popups.laterButton).toBeVisible();
+		await expect(popups.doNotShowAgainButton).toBeVisible();
 	});
 
-	test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, page, runCommand }) => {
-		const importButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Import' });
-		const laterButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Later' });
-		const doNotShowAgainButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Don\'t Show Again' });
+	test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, runCommand }) => {
+		const { popups } = app.workbench;
 
-		await expect(importButton).toBeVisible();
-		await expect(laterButton).toBeVisible();
-		await expect(doNotShowAgainButton).toBeVisible();
+		await expect(popups.importButton).toBeVisible();
+		await expect(popups.laterButton).toBeVisible();
+		await expect(popups.doNotShowAgainButton).toBeVisible();
 
 		// Click Don't Show Again button and reload
-		await doNotShowAgainButton.click();
-		await expect(importButton).not.toBeVisible();
+		await popups.doNotShowAgainButton.click();
+		await expect(popups.importButton).not.toBeVisible();
 		await runCommand('workbench.action.reloadWindow');
 
 		// Verify that prompt is not shown again
 		await sessions.expectNoStartUpMessaging();
-		await expect(importButton).not.toBeVisible();
-		await expect(laterButton).not.toBeVisible();
-		await expect(doNotShowAgainButton).not.toBeVisible();
+		await expect(popups.importButton).not.toBeVisible();
+		await expect(popups.laterButton).not.toBeVisible();
+		await expect(popups.doNotShowAgainButton).not.toBeVisible();
 	});
 });

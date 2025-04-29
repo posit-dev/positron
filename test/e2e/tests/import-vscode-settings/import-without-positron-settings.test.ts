@@ -16,14 +16,13 @@ test.describe('Import VS Code Settings: no Positron settings', { tag: [tags.VSCO
 		await positronUserSettings.delete();
 	});
 
-	test('Verify import import occurs and is clean without a diff', async ({ page, runCommand }) => {
-		const importButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Import' });
-		const acceptButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Accept' });
+	test('Verify import import occurs and is clean without a diff', async ({ app, page, runCommand }) => {
+		const { popups } = app.workbench;
 
-		await importButton.click();
+		await popups.importButton.click();
 		await expect(page.getByRole('tab', { name: 'settings.json' })).toBeVisible();
 
-		await acceptButton.click();
+		await popups.acceptButton.click();
 		await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
 		await expect(page.getByText('settings.json (in file) ↔ settings.json', { exact: true })).not.toBeVisible();
 
