@@ -166,7 +166,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	const [errorText, setErrorText] = useState<string | undefined>(
 		props.editRowFilter?.props.errorMessage
 	);
-	const [selectedCondtion, setSelectedCondition] =
+	const [selectedCondition, setSelectedCondition] =
 		useState<RowFilterCondition>(
 			props.editRowFilter?.props.condition ?? RowFilterCondition.And
 		);
@@ -608,7 +608,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		};
 
 		const condition = props.isFirstFilter ? RowFilterCondition.And :
-			selectedCondtion ?? RowFilterCondition.And;
+			selectedCondition ?? RowFilterCondition.And;
 
 		// Validate the condition and row filter values. If things are valid, add the row filter.
 		switch (selectedFilterType) {
@@ -784,7 +784,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 						]}
 						keybindingService={props.renderer.keybindingService}
 						layoutService={props.renderer.layoutService}
-						selectedIdentifier={selectedCondtion}
+						selectedIdentifier={selectedCondition}
 						title={(() => localize(
 							'positron.addEditRowFilter.selectCombiningOperator',
 							"Select Combining Operator"
