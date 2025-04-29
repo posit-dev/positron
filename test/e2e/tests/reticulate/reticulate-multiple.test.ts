@@ -65,7 +65,7 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await verifyReticulateFunctionality(app, rSessionMetaData2.id, 'Python (reticulate) - 2', '300', '500', '7');
+		await verifyReticulateFunctionality(app, rSessionMetaData2.id, 'Python (reticulate)', '300', '500', '7');
 
 	});
 });
