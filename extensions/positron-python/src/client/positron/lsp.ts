@@ -98,21 +98,21 @@ export class PythonLsp implements vscode.Disposable {
         this._clientOptions.documentSelector = notebookUri
             ? [{ language: 'python', pattern: notebookUri.fsPath }]
             : [
-                { language: 'python', scheme: 'untitled' },
-                { language: 'python', scheme: 'inmemory' }, // Console
-                { language: 'python', pattern: '**/*.py' },
-            ];
+                  { language: 'python', scheme: 'untitled' },
+                  { language: 'python', scheme: 'inmemory' }, // Console
+                  { language: 'python', pattern: '**/*.py' },
+              ];
 
         // This is needed in addition to the document selector, otherwise every client seems to
         // produce diagnostics for each notebook.
         this._clientOptions.notebookDocumentOptions = notebookUri
             ? // If this client belongs to a notebook, only include cells belonging to the notebook.
-            {
-                filterCells: (notebookDocument, cells) =>
-                    notebookUri.toString() === notebookDocument.uri.toString() ? cells : [],
-            }
+              {
+                  filterCells: (notebookDocument, cells) =>
+                      notebookUri.toString() === notebookDocument.uri.toString() ? cells : [],
+              }
             : // For console clients, exclude all notebook cells.
-            { filterCells: () => [] };
+              { filterCells: () => [] };
 
         // Override default error handler with one that doesn't automatically restart the client,
         // and that logs to the appropriate place.
