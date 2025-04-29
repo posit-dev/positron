@@ -98,12 +98,27 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
-	app: [async ({ options, logsPath }, use, workerInfo) => {
+	app: [async ({ options, logsPath, }, use, workerInfo) => {
 		const app = createApp(options);
 
 		try {
 			await app.start();
 			await app.workbench.sessions.expectNoStartUpMessaging();
+
+			app.code.driver.page.on('console', msg => {
+				if (msg.type() !== 'log') { return; }
+
+				const text = msg.text();
+
+				// only show logs you explicitly prefix
+				if (text.startsWith('[import]') || text.startsWith('[setup]')) {
+					console.log(
+						'\x1b[36m%s\x1b[0m %s',
+						'[app log]',
+						text
+					);
+				}
+			});
 
 			await use(app);
 		} catch (error) {

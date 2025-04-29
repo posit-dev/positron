@@ -64,9 +64,11 @@ export class PositronImportSettings extends Action2 {
 		const codeSettingsPath = await getCodeSettingsPath(pathService);
 		if (!codeSettingsPath) {
 			loggingService.trace('No Visual Studio Code settings found');
+			console.log('[import]', 'No Visual Studio Code settings found');
 			return;
+		} else {
+			console.log('[import]', `Visual Studio Code settings found at: ${codeSettingsPath.fsPath}`);
 		}
-		console.log(`Looking for settings at: ${codeSettingsPath.fsPath}`);
 
 		const codeSettingsContent = await fileService
 			.readFile(codeSettingsPath)
@@ -75,13 +77,13 @@ export class PositronImportSettings extends Action2 {
 
 		if (await fileService.exists(positronSettingsPath)) {
 			await commandService.executeCommand(COMPARE_WITH_SAVED_COMMAND_ID, positronSettingsPath);
-			console.log(`Positron settings already exist at: ${positronSettingsPath.fsPath}`);
+			console.log(`[import] Positron settings already exist at: ${positronSettingsPath.fsPath}`);
 		} else {
 			await fileService.createFile(positronSettingsPath);
 			await editorService.openEditor({
 				resource: positronSettingsPath
 			});
-			console.log(`Positron settings created at: ${positronSettingsPath.fsPath}`);
+			console.log(`[import] Positron settings created at: ${positronSettingsPath.fsPath}`);
 		}
 
 		const editor = editorService.activeEditor;

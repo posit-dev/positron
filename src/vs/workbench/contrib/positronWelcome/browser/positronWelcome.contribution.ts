@@ -46,18 +46,24 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 		getCodeSettingsPath(this.pathService).then(async (codeSettingsPath) => {
 			const codeSettingsExist = await this.fileService.exists(codeSettingsPath);
 
+			console.log('[import]', 'Code settings path:', codeSettingsPath.toString());
+			console.log('[import]', 'Code settings file exists?', codeSettingsExist);
+
 			this.contextKeyService.createKey('positron.settingsImport.hasCodeSettings', codeSettingsExist);
 			this.registerActions();
 
 			const alreadyPrompted = await getImportWasPrompted(this.storageService);
-			console.log('Import was already prompted?:', alreadyPrompted);
-			console.log('Code settings exist?:', codeSettingsExist);
+			console.log('[import]', 'Import was already prompted?', alreadyPrompted);
+
 			if (codeSettingsExist && !alreadyPrompted) {
+				console.log('[import]', 'Prompting user to import settings...');
 				promptImport(
 					this.storageService,
 					this.notificationService,
 					this.commandService,
 				);
+			} else {
+				console.log('[import]', 'Skipping prompt either already prompted or no settings file.');
 			}
 		});
 	}

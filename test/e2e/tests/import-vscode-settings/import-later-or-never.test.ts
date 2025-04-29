@@ -16,7 +16,6 @@ test.describe('Import VSCode Settings: Defer', { tag: [tags.VSCODE_SETTINGS] }, 
 	});
 
 	test('Verify import prompt behavior on "Later"', async ({ page, runCommand }) => {
-		await runCommand('Preferences: Import Settings...');
 		const importButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Import' });
 		const laterButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Later' });
 		const doNotShowAgainButton = page.locator('.notifications-toasts').getByRole('button', { name: 'Don\'t Show Again' });
@@ -56,14 +55,4 @@ test.describe('Import VSCode Settings: Defer', { tag: [tags.VSCODE_SETTINGS] }, 
 		await expect(laterButton).not.toBeVisible();
 		await expect(doNotShowAgainButton).not.toBeVisible();
 	});
-
-	// test('can manually trigger settings import via command palette', async ({ page }) => {
-	// 	// Simulate command palette
-	// 	await page.keyboard.press('Meta+Shift+P');
-	// 	await page.fill('.quick-input-box input', 'Import Settings');
-	// 	await page.keyboard.press('Enter');
-
-	// 	const notification = page.locator('.monaco-workbench .notification-list');
-	// 	await expect(notification).toContainText('Import settings from VSCode');
-	// });
 });
