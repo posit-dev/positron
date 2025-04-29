@@ -15,6 +15,7 @@
   ],
   "main": "./out/extension.js",
   "enabledApiProposals": [
+    "codeActionAI",
     "defaultChatParticipant",
     "inlineCompletionsAdditions"
   ],
