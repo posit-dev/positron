@@ -53,7 +53,7 @@ interface IAffiliatedRuntimeMetadata {
  * sessions separately, and with a version number to allow for future changes to
  * the storage format.
  */
-const PERSISTENT_WORKSPACE_SESSIONS = 'positron.workspaceSessionList.v2';
+const PERSISTENT_WORKSPACE_SESSIONS = 'positron.workspaceSessionList.v3';
 
 const languageRuntimeExtPoint =
 	ExtensionsRegistry.registerExtensionPoint<ILanguageRuntimeProviderMetadata[]>({
