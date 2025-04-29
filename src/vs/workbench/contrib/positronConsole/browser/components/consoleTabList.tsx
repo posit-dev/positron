@@ -122,15 +122,11 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 		}
 
 		try {
-			const sessionId = positronConsoleContext.runtimeSessionService.updateSessionName(
+			positronConsoleContext.runtimeSessionService.updateSessionName(
 				positronConsoleInstance.sessionId,
 				newName
 			);
-
-			// Session rename was successful so we can update the UI state
-			if (sessionId) {
-				setNewSessionName(newName);
-			}
+			setNewSessionName(newName);
 		} catch (error) {
 			positronConsoleContext.notificationService.error(
 				localize('positron.console.renameInstanceError',
@@ -144,7 +140,6 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 			setIsRenamingSession(false);
 		}
 	}
-
 
 	/**
 	 * The mouse down handler for the parent element of the console tab instance.

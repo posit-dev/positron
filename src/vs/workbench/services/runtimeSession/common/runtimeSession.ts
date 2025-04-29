@@ -940,9 +940,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param sessionId The session ID of the runtime to update.
 	 * @param name The new name for the session.
-	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	updateSessionName(sessionId: string, name: string): string | undefined {
+	updateSessionName(sessionId: string, name: string) {
 		// Find the active session to update.
 		const session = this.getSession(sessionId);
 		if (!session) {
@@ -953,23 +952,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._logService.info(
 			`Updating session name to ${name} for session ${formatLanguageRuntimeSession(session)}'`);
 
-		try {
-			// Update the sesion name in its dynamic state
-			session.dynState.sessionName = name;
-			this._logService.info(
-				`Successfully updated session name to ${name} for session ${formatLanguageRuntimeSession(session)}'`);
+		// Update the sesion name in its dynamic state
+		session.dynState.sessionName = name;
+		this._logService.info(
+			`Successfully updated session name to ${name} for session ${formatLanguageRuntimeSession(session)}'`);
 
-			/**
-			 * Notify listeners that the session name has changed
-			 * so other parts of the application can update their UI
-			 * to reflect the new name.
-			 */
-			this._onDidUpdateSessionNameEmitter.fire(session);
-			return session.sessionId;
-		} catch (error) {
-			this._logService.error(`Failed to update session name to ${name} for session ${formatLanguageRuntimeSession(session)}. Reason: ${error}`);
-			return undefined;
-		}
+		/**
+		 * Notify listeners that the session name has changed
+		 * so other parts of the application can update their UI
+		 * to reflect the new name.
+		 */
+		this._onDidUpdateSessionNameEmitter.fire(session);
+		return session.sessionId;
 	}
 
 	/**

@@ -490,9 +490,8 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param sessionId The identifier of the session to update.
 	 * @param name The new name for the session.
-	 * @returns The session ID of the updated session, or undefined if no update occurred
 	 */
-	updateSessionName(sessionId: string, name: string): string | undefined;
+	updateSessionName(sessionId: string, name: string): void;
 
 	/**
 	 * Shutdown a runtime session for a notebook.
