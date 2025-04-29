@@ -97,6 +97,8 @@ jobs:
     if: ${{ github.event_name == 'schedule' ||  inputs.run_integration_tests }}
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
+    with:
+      pull_request: false
 
   slack-notify:
     if: always()
