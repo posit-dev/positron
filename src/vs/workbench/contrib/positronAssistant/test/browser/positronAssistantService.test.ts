@@ -18,6 +18,10 @@ import { IPositronVariablesService } from '../../../../services/positronVariable
 import { TestPositronVariablesService } from '../../../../services/positronVariables/test/common/testPositronVariablesService.js';
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { TestPositronConsoleService } from '../../../../test/common/positronWorkbenchTestServices.js';
+import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
+import { TestPositronPlotsService } from '../../../../services/positronPlots/test/common/testPositronPlotsService.js';
+// import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { ExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistory.js';
 
 suite('PositronAssistantService', () => {
 	const disposables = new DisposableStore();
@@ -31,7 +35,9 @@ suite('PositronAssistantService', () => {
 		// Set up the test runtime services
 		instantiationService.stub(IPositronVariablesService, new TestPositronVariablesService());
 		instantiationService.stub(IPositronConsoleService, new TestPositronConsoleService());
+		instantiationService.stub(IPositronPlotsService, new TestPositronPlotsService());
 		createRuntimeServices(instantiationService, disposables);
+		instantiationService.createInstance(ExecutionHistoryService);
 
 		// Create a test runtime session that will be used to execute code
 		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
@@ -65,6 +71,7 @@ suite('PositronAssistantService', () => {
 		const executionId2 = 'exec2';
 
 		// First execution: x <- 1 + 2
+		console.log('KNKX: executing first code');
 		testSession.execute('x <- 1 + 2', executionId1, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Stop);
 
 		// Simulate input and output messages
