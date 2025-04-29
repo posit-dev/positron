@@ -649,6 +649,17 @@ def test_positron_completion_item_resolve(
                 )
             ],
         ),
+        # Multiple lines with a single syntax error.
+        (
+            "1\n1 +",
+            [
+                (
+                    f"SyntaxError: invalid syntax ({TEST_DOCUMENT_URI}, line 2)"
+                    if os.name == "nt"
+                    else "SyntaxError: invalid syntax (foo.py, line 2)"
+                )
+            ],
+        ),
         # No errors for magic commands.
         (r"%ls", []),
         (r"%%bash", []),

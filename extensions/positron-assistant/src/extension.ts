@@ -13,6 +13,7 @@ import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
+import { registerCodeActionProvider } from './codeActions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -189,6 +190,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context, participantService);
+
+	// Register code action provider
+	registerCodeActionProvider(context);
 
 	// Dispose cleanup
 	context.subscriptions.push({
