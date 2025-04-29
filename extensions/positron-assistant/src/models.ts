@@ -15,7 +15,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { replaceBinaryMessageParts, toAIMessage } from './utils';
+import { toAIMessage } from './utils';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
@@ -180,7 +180,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	}
 
 	async provideLanguageModelResponse(
-		messages: vscode.LanguageModelChatMessage[],
+		messages: vscode.LanguageModelChatMessage2[],
 		options: vscode.LanguageModelChatRequestOptions,
 		extensionId: string,
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
@@ -194,11 +194,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		let tools: Record<string, ai.Tool> | undefined;
 
-		// Replace embedded binary references with message part types compatible with vercel AI
-		const _messages = replaceBinaryMessageParts(
-			toAIMessage(messages),
-			options.modelOptions?.binaryReferences ?? {}
-		);
+		// Convert messages to the Vercel AI format
+		const aiMessages = toAIMessage(messages);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
@@ -213,7 +210,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const result = ai.streamText({
 			model: this.model,
 			system: modelOptions.system ?? undefined,
-			messages: _messages,
+			messages: aiMessages,
 			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: this._config.toolCalls ? tools : undefined,
 			abortSignal: signal,

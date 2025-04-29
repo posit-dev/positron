@@ -143,9 +143,6 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: modelConfig.name });
 		modelDisposables.push(complDisp);
 	}
-
-	const hasChatModels = modelConfig.type === 'chat';
-	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 }
 
 function registerAddModelConfigurationCommand(context: vscode.ExtensionContext, storage: SecretStorage) {

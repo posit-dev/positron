@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
+import { isChatImagePart } from './utils.js';
 
 export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
 	name: string;
@@ -46,7 +47,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async provideLanguageModelResponse(
-		messages: vscode.LanguageModelChatMessage[],
+		messages: vscode.LanguageModelChatMessage2[],
 		options: vscode.LanguageModelChatRequestOptions,
 		extensionId: string,
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
@@ -166,7 +167,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 }
 
-function toAnthropicMessage(message: vscode.LanguageModelChatMessage): Anthropic.MessageParam {
+function toAnthropicMessage(message: vscode.LanguageModelChatMessage2): Anthropic.MessageParam {
 	switch (message.role) {
 		case vscode.LanguageModelChatMessageRole.Assistant:
 			return toAnthropicAssistantMessage(message);
@@ -177,7 +178,7 @@ function toAnthropicMessage(message: vscode.LanguageModelChatMessage): Anthropic
 	}
 }
 
-function toAnthropicAssistantMessage(message: vscode.LanguageModelChatMessage): Anthropic.MessageParam {
+function toAnthropicAssistantMessage(message: vscode.LanguageModelChatMessage2): Anthropic.MessageParam {
 	const content: Anthropic.ContentBlockParam[] = [];
 	for (const part of message.content) {
 		if (part instanceof vscode.LanguageModelTextPart) {
@@ -194,13 +195,19 @@ function toAnthropicAssistantMessage(message: vscode.LanguageModelChatMessage): 
 	};
 }
 
-function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage): Anthropic.MessageParam {
+function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2): Anthropic.MessageParam {
 	const content: Anthropic.ContentBlockParam[] = [];
 	for (const part of message.content) {
 		if (part instanceof vscode.LanguageModelTextPart) {
 			content.push(toAnthropicTextBlock(part));
 		} else if (part instanceof vscode.LanguageModelToolResultPart) {
 			content.push(toAnthropicToolResultBlock(part));
+		} else if (part instanceof vscode.LanguageModelDataPart) {
+			if (isChatImagePart(part.value)) {
+				content.push(chatImagePartToAnthropicImageBlock(part.value));
+			} else {
+				throw new Error('Unsupported language model data part type on user message');
+			}
 		} else {
 			throw new Error('Unsupported part type on user message');
 		}
@@ -233,7 +240,7 @@ function toAnthropicToolResultBlock(part: vscode.LanguageModelToolResultPart): A
 		if (resultPart instanceof vscode.LanguageModelTextPart) {
 			content.push(toAnthropicTextBlock(resultPart));
 		} else if (isLanguageModelImagePart(resultPart)) {
-			content.push(toAnthropicImageBlock(resultPart));
+			content.push(languageModelImagePartToAnthropicImageBlock(resultPart));
 		} else {
 			throw new Error('Unsupported part type on tool result part content');
 		}
@@ -245,13 +252,25 @@ function toAnthropicToolResultBlock(part: vscode.LanguageModelToolResultPart): A
 	};
 }
 
-function toAnthropicImageBlock(part: LanguageModelImagePart): Anthropic.ImageBlockParam {
+function chatImagePartToAnthropicImageBlock(part: vscode.ChatImagePart): Anthropic.ImageBlockParam {
 	return {
 		type: 'image',
 		source: {
 			type: 'base64',
 			// We may pass an unsupported mime type; let Anthropic throw the error.
-			media_type: part.value.mimeType as any,
+			media_type: part.mimeType as Anthropic.Base64ImageSource['media_type'],
+			data: Buffer.from(part.data).toString('base64'),
+		},
+	};
+}
+
+function languageModelImagePartToAnthropicImageBlock(part: LanguageModelImagePart): Anthropic.ImageBlockParam {
+	return {
+		type: 'image',
+		source: {
+			type: 'base64',
+			// We may pass an unsupported mime type; let Anthropic throw the error.
+			media_type: part.value.mimeType as Anthropic.Base64ImageSource['media_type'],
 			data: part.value.base64,
 		},
 	};
@@ -290,7 +309,7 @@ function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anth
  * @param message The message to check
  * @returns True if the message has any non-empty content, false otherwise
  */
-function hasNonEmptyContent(message: vscode.LanguageModelChatMessage): boolean {
+function hasNonEmptyContent(message: vscode.LanguageModelChatMessage2): boolean {
 	return message.content.some(part => {
 		if (part instanceof vscode.LanguageModelTextPart) {
 			return part.value.trim() !== '';
