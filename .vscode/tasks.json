@@ -288,7 +288,7 @@
 		},
 		{
 			"type": "shell",
-			"command": "node build/lib/preLaunch.js",
+			"command": "VSCODE_DEV=1 node build/lib/preLaunch.js",
 			"label": "Ensure Prelaunch Dependencies",
 			"presentation": {
 				"reveal": "silent",
