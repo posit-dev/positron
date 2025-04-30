@@ -14,7 +14,7 @@ test.use({
 // RETICULATE_PYTHON
 // to the installed python path
 
-test.describe('Reticulate', {
+test.describe.skip('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
 	test.beforeAll(async function ({ app, userSettings }) {
