@@ -99,7 +99,7 @@ class PositronDataExplorerContribution extends Disposable {
 
 					// We create a data explorer URI that will use the DuckDB client
 					// that we just created.
-					const newResource = PositronDataExplorerUri.generate(`duckdb:${resource.path}`);
+					const newResource = PositronDataExplorerUri.generate(`duckdb:${resource.toString()}`);
 					return createDataExplorerEditor({
 						resource: newResource,
 						options

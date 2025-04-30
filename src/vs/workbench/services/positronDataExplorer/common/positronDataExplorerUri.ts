@@ -56,4 +56,19 @@ export class PositronDataExplorerUri {
 			return undefined;
 		}
 	}
+
+	/**
+	 * Parses a Positron data explorer URI and retrieves the URI of the backing file, if any.
+	 * @param resource The data explorer resource.
+	 * @returns A URI for the backing file, if any.
+	 */
+	public static backingUri(resource: URI): URI | undefined {
+		const identifier = PositronDataExplorerUri.parse(resource);
+		// Runtime comm IDs have no originating URIs.
+		if (!identifier || !identifier.startsWith('duckdb:')) {
+			return undefined;
+		}
+		// This will be something like "duckdb:file:///path/to/file.csv".
+		return URI.parse(identifier.replace('duckdb:', ''));
+	}
 }
