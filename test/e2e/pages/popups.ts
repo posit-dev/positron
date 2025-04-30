@@ -197,4 +197,20 @@ export class Popups {
 			}
 		}
 	}
+
+	/**
+	 * Checks if the import prompt is visible or not visible based on the parameter.
+	 * @param shouldBeVisible Optional parameter to check if the prompt should be visible or not. Defaults to true.
+	 */
+	async expectImportPromptToBeVisible(shouldBeVisible: boolean = true) {
+		if (shouldBeVisible) {
+			await expect(this.importButton).toBeVisible();
+			await expect(this.laterButton).toBeVisible();
+			await expect(this.doNotShowAgainButton).toBeVisible();
+		} else {
+			await expect(this.importButton).not.toBeVisible();
+			await expect(this.laterButton).not.toBeVisible();
+			await expect(this.doNotShowAgainButton).not.toBeVisible();
+		}
+	}
 }
