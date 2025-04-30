@@ -7,11 +7,14 @@
 import './dropDownColumnSelector.css';
 
 // React.
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../../../../nls.js';
 import * as DOM from '../../../../../../../../base/browser/dom.js';
+import { ColumnSelectorModalPopup } from './columnSelectorModalPopup.js';
+import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
+import { columnSchemaDataTypeIcon } from '../../../utility/columnSchemaUtilities.js';
 import { ILayoutService } from '../../../../../../../../platform/layout/browser/layoutService.js';
 import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { IKeybindingService } from '../../../../../../../../platform/keybinding/common/keybinding.js';
@@ -21,9 +24,6 @@ import { OKModalDialog } from '../../../../../../positronComponents/positronModa
 import { VerticalStack } from '../../../../../../positronComponents/positronModalDialog/components/verticalStack.js';
 import { PositronModalReactRenderer } from '../../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { DataExplorerClientInstance } from '../../../../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
-import { columnSchemaDataTypeIcon } from '../../../utility/columnSchemaUtilities.js';
-import { ColumnSelectorModalPopup } from './columnSelectorModalPopup.js';
-import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
 
 /**
  * DropDownColumnSelectorProps interface.
@@ -41,14 +41,17 @@ interface DropDownColumnSelectorProps {
 /**
  * DropDownColumnSelector component.
  * @param props The component properties.
+ * @param ref The component reference.
  * @returns The rendered component.
  */
-export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
+export const DropDownColumnSelector = forwardRef<HTMLButtonElement, DropDownColumnSelectorProps>((props, ref) => {
 	// Reference hooks.
-	const ref = useRef<HTMLButtonElement>(undefined!);
+	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+
+	// Imperative handle to ref.
+	useImperativeHandle(ref, () => buttonRef.current);
 
 	// State hooks.
-	const [title, _setTitle] = useState(props.title);
 	const [selectedColumnSchema, setSelectedColumnSchema] = useState<ColumnSchema | undefined>(props.selectedColumnSchema);
 
 	const onPressed = useCallback(async (focusInput?: boolean) => {
@@ -58,7 +61,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 		);
 
 		// Get the container.
-		const container = props.layoutService.getContainer(DOM.getWindow(ref.current));
+		const container = props.layoutService.getContainer(DOM.getWindow(buttonRef.current));
 
 		// If the column selector data grid instance could not be created, alert the user.
 		// Otherwise, show the column selector modal popup.
@@ -102,14 +105,14 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 				disableCaptures: true, // permits the usage of the enter key where applicable
 				onDisposed: () => {
 					columnSelectorDataGridInstance.dispose();
-					ref.current.focus();
+					buttonRef.current.focus();
 				}
 			});
 
 			// Show the drop down list box modal popup.
 			renderer.render(
 				<ColumnSelectorModalPopup
-					anchorElement={ref.current}
+					anchorElement={buttonRef.current}
 					columnSelectorDataGridInstance={columnSelectorDataGridInstance}
 					configurationService={props.configurationService}
 					focusInput={focusInput}
@@ -132,22 +135,22 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 	}, [onPressed]);
 
 	useEffect(() => {
-		const el = ref.current;
+		const el = buttonRef.current;
 		el.addEventListener('keydown', onKeyDown);
 		return () => {
 			el.removeEventListener('keydown', onKeyDown);
 		};
-	}, [ref, onKeyDown]);
+	}, [onKeyDown]);
 
 	// Render.
 	return (
 		<Button
-			ref={ref}
+			ref={buttonRef}
 			className='drop-down-column-selector'
 			onPressed={() => onPressed()}
 		>
 			{!selectedColumnSchema ?
-				(<div className='title'>{title}</div>) :
+				(<div className='title'>{props.title}</div>) :
 				(
 					<div className='column-schema-title'>
 						<div className={`data-type-icon codicon ${columnSchemaDataTypeIcon(selectedColumnSchema)}`}></div>
@@ -162,4 +165,7 @@ export const DropDownColumnSelector = (props: DropDownColumnSelectorProps) => {
 			</div>
 		</Button>
 	);
-};
+});
+
+// Set the display name.
+DropDownColumnSelector.displayName = 'DropDownColumnSelector';

@@ -7,7 +7,7 @@
 import './dropDownListBox.css';
 
 // React.
-import React, { JSX, useEffect, useRef, useState } from 'react';
+import React, { forwardRef, JSX, ReactElement, Ref, useEffect, useImperativeHandle, useRef, useState } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
@@ -46,7 +46,7 @@ interface DropDownListBoxProps<T extends NonNullable<any>, V extends NonNullable
  * @param identifier The identifier of the drop down list box item to find.
  * @returns The drop down list box item, if it was found; otherwise, undefined.
  */
-const findDropDownListBoxItem = <T extends NonNullable<any>, V>(
+const findDropDownListBoxItem = <T extends NonNullable<any>, V extends NonNullable<any>>(
 	entries: DropDownListBoxEntry<T, V>[],
 	identifier?: T | undefined
 ) => {
@@ -63,13 +63,20 @@ const findDropDownListBoxItem = <T extends NonNullable<any>, V>(
 };
 
 /**
- * DropDownListBox component.
+ * DropDownListBoxActual component. This is the actual implementation of the DropDownListBox component
+ * and is necessary because forwardRef can't automatically infer generics.
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownListBoxProps<T, V>) => {
+const DropDownListBoxActual = <T extends NonNullable<any>, V extends NonNullable<any>,>(
+	props: DropDownListBoxProps<T, V>,
+	ref: React.Ref<HTMLButtonElement>
+) => {
 	// Reference hooks.
-	const ref = useRef<HTMLButtonElement>(undefined!);
+	const buttonRef = useRef<HTMLButtonElement>(undefined!);
+
+	// Imperative handle to ref.
+	useImperativeHandle(ref, () => buttonRef.current);
 
 	// State hooks.
 	const [selectedDropDownListBoxItem, setSelectedDropDownListBoxItem] =
@@ -112,7 +119,7 @@ export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownL
 	// Render.
 	return (
 		<Button
-			ref={ref}
+			ref={buttonRef}
 			className={positronClassNames('drop-down-list-box', props.className)}
 			disabled={props.disabled}
 			onPressed={() => {
@@ -120,17 +127,17 @@ export const DropDownListBox = <T extends NonNullable<any>, V,>(props: DropDownL
 				const renderer = new PositronModalReactRenderer({
 					keybindingService: props.keybindingService,
 					layoutService: props.layoutService,
-					container: props.layoutService.getContainer(DOM.getWindow(ref.current)),
+					container: props.layoutService.getContainer(DOM.getWindow(buttonRef.current)),
 					onDisposed: () => {
 						setHighlightedDropDownListBoxItem(undefined);
-						ref.current.focus();
+						buttonRef.current.focus();
 					}
 				});
 
 				// Show the drop down list box modal popup.
 				renderer.render(
 					<DropDownListBoxModalPopup<T, V>
-						anchorElement={ref.current}
+						anchorElement={buttonRef.current}
 						createItem={props.createItem}
 						entries={props.entries}
 						renderer={renderer}
@@ -237,3 +244,7 @@ const DropDownListBoxModalPopup = <T, V,>(props: DropDownListBoxModalPopupProps<
 		</PositronModalPopup>
 	);
 };
+
+// Forward ref to the DropDownListBoxActual component.
+export const DropDownListBox = forwardRef(DropDownListBoxActual) as <T extends NonNullable<any>, V extends NonNullable<any>>
+	(props: DropDownListBoxProps<T, V> & { ref?: Ref<HTMLButtonElement> }) => ReactElement;

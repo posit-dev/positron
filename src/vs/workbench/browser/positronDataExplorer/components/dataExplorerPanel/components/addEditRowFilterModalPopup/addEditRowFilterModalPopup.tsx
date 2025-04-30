@@ -137,6 +137,8 @@ interface AddEditRowFilterModalPopupProps {
  */
 export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProps) => {
 	// Reference hooks.
+	const dropDownColumnSelectorRef = useRef<HTMLButtonElement>(undefined!);
+	const dropDownRowFilterRef = useRef<HTMLButtonElement>(undefined!);
 	const firstRowFilterParameterRef = useRef<HTMLInputElement>(undefined!);
 	const secondRowFilterParameterRef = useRef<HTMLInputElement>(undefined!);
 
@@ -166,12 +168,29 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 	const [errorText, setErrorText] = useState<string | undefined>(
 		props.editRowFilter?.props.errorMessage
 	);
-	const [selectedCondtion, setSelectedCondition] =
+	const [selectedCondition, setSelectedCondition] =
 		useState<RowFilterCondition>(
 			props.editRowFilter?.props.condition ?? RowFilterCondition.And
 		);
 
-	// useEffect for when the selectedFilterType changes.
+	// This useEffect drives focus into the right component when the AddEditRowFilterModalPopup is mounted.
+	useEffect(() => {
+		if (!props.schema) {
+			dropDownColumnSelectorRef.current.focus();
+		} else {
+			dropDownRowFilterRef.current.focus();
+		}
+	}, [props.schema]);
+
+	// This useEffect drives focus into the row filter drop down when the selected column schema changes.
+	useEffect(() => {
+		// When the selected column schema changes, drive focus into the row filter drop down.
+		if (selectedColumnSchema) {
+			dropDownRowFilterRef.current.focus();
+		}
+	}, [selectedColumnSchema]);
+
+	// This useEffect drives focus into the first row filter parameter when the selected filter type changes.
 	useEffect(() => {
 		// When there is a selected type, drive focus into the first row filter parameter.
 		if (selectedFilterType) {
@@ -608,7 +627,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 		};
 
 		const condition = props.isFirstFilter ? RowFilterCondition.And :
-			selectedCondtion ?? RowFilterCondition.And;
+			selectedCondition ?? RowFilterCondition.And;
 
 		// Validate the condition and row filter values. If things are valid, add the row filter.
 		switch (selectedFilterType) {
@@ -784,7 +803,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 						]}
 						keybindingService={props.renderer.keybindingService}
 						layoutService={props.renderer.layoutService}
-						selectedIdentifier={selectedCondtion}
+						selectedIdentifier={selectedCondition}
 						title={(() => localize(
 							'positron.addEditRowFilter.selectCombiningOperator',
 							"Select Combining Operator"
@@ -795,6 +814,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					/>
 				}
 				<DropDownColumnSelector
+					ref={dropDownColumnSelectorRef}
 					configurationService={props.configurationService}
 					dataExplorerClientInstance={props.dataExplorerClientInstance}
 					keybindingService={props.renderer.keybindingService}
@@ -816,6 +836,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					}}
 				/>
 				<DropDownListBox
+					ref={dropDownRowFilterRef}
 					disabled={selectedColumnSchema === undefined}
 					entries={conditionEntries()}
 					keybindingService={props.renderer.keybindingService}
