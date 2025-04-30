@@ -39,7 +39,7 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 
 		const enabledGlobally = this.configurationService.getValue<boolean>(POSITRON_SETTINGS_IMPORT_ENABLE_KEY);
 
-		if (enabledGlobally === false) {
+		if (!enabledGlobally) {
 			return;
 		}
 
@@ -50,7 +50,6 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 			this.registerActions();
 
 			const alreadyPrompted = await getImportWasPrompted(this.storageService);
-
 			if (codeSettingsExist && !alreadyPrompted) {
 				promptImport(
 					this.storageService,
