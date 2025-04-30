@@ -16,7 +16,7 @@ test.describe('Import VS Code Settings: no Positron settings', { tag: [tags.VSCO
 		await positronUserSettings.delete();
 	});
 
-	test('Verify import import occurs and is clean without a diff', async ({ app, page, runCommand }) => {
+	test('Verify import import occurs and is clean without a diff', async ({ restartApp: app, page, runCommand }) => {
 		const { popups } = app.workbench;
 
 		await popups.importButton.click();

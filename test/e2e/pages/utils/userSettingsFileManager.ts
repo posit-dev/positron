@@ -26,10 +26,13 @@ export class UserSettingsFileManager {
 		}
 	}
 
-	public async ensureExists(): Promise<void> {
+	public async ensureExists(): Promise<boolean> {
+		let needsReload = false;
 		if (!(await this.exists())) {
 			await this.writeDummy();
+			needsReload = true;
 		}
+		return needsReload;
 	}
 
 	public async backupIfExists(): Promise<void> {
@@ -37,24 +40,19 @@ export class UserSettingsFileManager {
 
 		if (await this.exists()) {
 			await fs.copyFile(this.settingsPath, backupPath);
-			console.log(`Backed up settings to: ${backupPath}`);
-		} else {
-			console.log(`No settings to back up: ${backupPath}`);
 		}
 	}
 
 	public async writeDummy(): Promise<void> {
 		await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
 		await fs.writeFile(this.settingsPath, JSON.stringify(this.writeDefaults(), null, 2), 'utf-8');
-		console.log(`Wrote dummy settings: ${this.settingsPath}`);
 	}
 
 	public async delete(): Promise<void> {
 		try {
 			await fs.unlink(this.settingsPath);
-			console.log(`Deleted settings file: ${this.settingsPath}`);
 		} catch {
-			console.log(`No settings file to delete: ${this.settingsPath}`);
+			// do nothing
 		}
 	}
 
@@ -65,9 +63,8 @@ export class UserSettingsFileManager {
 			await fs.access(backupPath);
 			await fs.copyFile(backupPath, this.settingsPath);
 			await fs.unlink(backupPath);
-			console.log(`Restored settings from backup: ${backupPath}`);
 		} catch {
-			console.log(`No backup found, nothing to restore: ${backupPath}`);
+			await this.delete();
 		}
 	}
 }

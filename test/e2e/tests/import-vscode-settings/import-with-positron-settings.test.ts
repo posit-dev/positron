@@ -10,14 +10,13 @@ test.use({
 });
 
 test.describe('Import VS Code Settings: with Positron settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
-
-	test.beforeEach(async ({ vscodeUserSettings, positronUserSettings, hotKeys }) => {
+	test.beforeEach(async ({ vscodeUserSettings, positronUserSettings, hotKeys, runCommand }) => {
 		await vscodeUserSettings.ensureExists();
 		await positronUserSettings.ensureExists();
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Verify diff displays and rejected settings are not saved', async ({ app, page, runCommand }) => {
+	test('Verify diff displays and rejected settings are not saved', async ({ restartApp: app, page, runCommand }) => {
 		const { popups } = app.workbench;
 
 		// import settings

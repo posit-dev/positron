@@ -15,9 +15,10 @@ test.describe('Import VSCode Settings: Defer', { tag: [tags.VSCODE_SETTINGS] }, 
 		await vscodeUserSettings.ensureExists();
 	});
 
-	test('Verify import prompt behavior on "Later"', async ({ app, runCommand }) => {
+	test('Verify import prompt behavior on "Later"', async ({ restartApp: app, runCommand }) => {
 		const { popups } = app.workbench;
 
+		// Verify that the import prompt and buttons are visible
 		await expect(popups.importButton).toBeVisible();
 		await expect(popups.laterButton).toBeVisible();
 		await expect(popups.doNotShowAgainButton).toBeVisible();
