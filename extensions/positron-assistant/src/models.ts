@@ -605,6 +605,10 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 		]],
 		['google', [
 			{
+				name: 'Gemini 2.5 Flash',
+				identifier: 'gemini-2.5-pro-exp-03-25',
+			},
+			{
 				name: 'Gemini 2.0 Flash',
 				identifier: 'gemini-2.0-flash-exp',
 			},
