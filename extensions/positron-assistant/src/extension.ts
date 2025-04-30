@@ -115,7 +115,8 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.ExtensionContext, isDefault = false) {
 	// Register with Language Model API
 	if (modelConfig.type === 'chat') {
-		const models = availableModels.get(modelConfig.provider) ?? [];
+		const models = availableModels.get(modelConfig.provider);
+		const modelsCopy = models ? [...models] : [];
 
 		const languageModel = newLanguageModel(modelConfig);
 		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
@@ -124,16 +125,16 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 			throw new Error(error.message);
 		}
 
-		if (models.length === 0) {
+		if (modelsCopy.length === 0) {
 			// use the default model
 
-			models.push({
+			modelsCopy.push({
 				name: modelConfig.name,
 				identifier: modelConfig.model,
 			});
 		}
 
-		for (const model of models) {
+		for (const model of modelsCopy) {
 			const newConfig = {
 				...modelConfig,
 				model: model.identifier,

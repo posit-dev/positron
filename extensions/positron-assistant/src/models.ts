@@ -493,15 +493,15 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 	static availableModels = [
 		{
-			name: 'Claude 3.7 Sonnet v1',
+			name: 'Claude 3.7 Sonnet v1 Bedrock',
 			identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
 		},
 		{
-			name: 'Claude 3.5 Sonnet v2',
+			name: 'Claude 3.5 Sonnet v2 Bedrock',
 			identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
 		},
 		{
-			name: 'Claude 3.5 Sonnet v1',
+			name: 'Claude 3.5 Sonnet v1 Bedrock',
 			identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
 		}
 	];
