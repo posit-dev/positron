@@ -626,8 +626,9 @@ export class KCApi implements PositronSupervisorApi {
 				await this.testServerExited();
 			}
 
-			// Rethrow the error for the caller to handle
-			throw err;
+			// Rethrow the error for the caller to handle. Use a summary to
+			// unroll AggregateErrors.
+			throw new Error(summarizeError(err));
 		}
 
 		// Save the session now that it has been created on the server
