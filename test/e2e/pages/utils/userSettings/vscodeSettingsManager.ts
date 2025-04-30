@@ -7,14 +7,18 @@ import os from 'os';
 import path from 'path';
 import { UserSettingsFileManager } from '../userSettingsFileManager';
 
-// Helper to match getCodeSettingsPath logic in tests
 function getVSCodeSettingsPath(): string {
 	const home = os.homedir();
 	const platform = process.platform;
 
 	if (platform === 'win32') {
-		const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
-		return path.join(appData, 'Code', 'User', 'settings.json');
+		if (process.env.APPDATA) {
+			return path.join(process.env.APPDATA, 'Code', 'User', 'settings.json');
+		} else if (process.env.USERPROFILE) {
+			return path.join(process.env.USERPROFILE, 'AppData', 'Roaming', 'Code', 'User', 'settings.json');
+		} else {
+			return path.join(home, 'AppData', 'Roaming', 'Code', 'User', 'settings.json');
+		}
 	} else if (platform === 'darwin') {
 		return path.join(home, 'Library', 'Application Support', 'Code', 'User', 'settings.json');
 	} else {

@@ -54,7 +54,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await popups.expectImportPromptToBeVisible();
 		});
 
-		test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, runCommand }) => {
+		test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, runCommand, page }) => {
 			const { popups } = app.workbench;
 
 			// select "Don't Show Again" and verify that the prompt is no longer visible
@@ -65,6 +65,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			// verify that prompt is not shown again
 			await runCommand('workbench.action.reloadWindow');
 			await sessions.expectNoStartUpMessaging();
+			await page.waitForTimeout(3000); // extra time to ensure the prompt is not shown
 			await popups.expectImportPromptToBeVisible(false);
 		});
 	});
@@ -127,6 +128,7 @@ async function expectDiffToBeVisible(page: Page, visible = true) {
 		await expect(page.getByRole('tab', { name: 'settings.json' })).toBeVisible();
 		await expect(page.getByText('settings.json (in file) ↔ settings.json', { exact: true })).toBeVisible();
 	} else {
+		await page.waitForTimeout(3000); // waiting to avoid false positive
 		await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
 		await expect(page.getByText('settings.json (in file) ↔ settings.json', { exact: true })).not.toBeVisible();
 	}
