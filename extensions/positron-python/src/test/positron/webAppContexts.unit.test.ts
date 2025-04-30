@@ -20,6 +20,7 @@ suite('Discover Web app frameworks', () => {
         executeCommandStub = sinon.stub(cmdApis, 'executeCommand');
         document = {
             getText: () => '',
+            languageId: 'python',
         } as vscode.TextDocument;
         getExtensionStub = sinon.stub(vscode.extensions, 'getExtension');
     });
