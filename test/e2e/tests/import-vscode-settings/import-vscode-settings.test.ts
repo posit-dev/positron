@@ -3,6 +3,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * Import VSCode Settings Feature
+ *
+ * This feature allows users to import their existing Visual Studio Code settings into Positron.
+ *
+ * Flow:
+ * 1. On startup, Positron checks for existing VS Code settings and shows an import prompt if found
+ * 2. Users can choose to import now, defer ("Later"), or permanently dismiss ("Don't Show Again")
+ * 3. When importing:
+ *    - If Positron already has settings, a diff view is shown to preview changes
+ *    - If no Positron settings exist, a tab with the imported settings is opened
+ *    - Users can accept or reject the changes
+ *
+ * Notes:
+ * 1. The import can also be triggered manually via "Preferences: Import Settings..." command
+ * 2. The import prompt can be reset via "Preferences: Reset Import Settings Prompt"
+ */
+
 import { Page } from '@playwright/test';
 import { test, expect, tags } from '../_test.setup';
 
@@ -17,12 +35,8 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 		await runCommand('workbench.action.reloadWindow');
 	});
 
-	test.beforeEach(async ({ sessions }) => {
-		// necessary to ensure that the import prompt is shown
-		await sessions.expectNoStartUpMessaging();
-	});
-
-	test.afterEach(async ({ hotKeys }) => {
+	test.beforeEach(async ({ sessions, hotKeys }) => {
+		await sessions.expectNoStartUpMessaging(); // necessary to ensure that the import prompt is shown
 		await hotKeys.closeAllEditors();
 	});
 
@@ -56,7 +70,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 	});
 
 	test.describe('Import with Positron settings', () => {
-		test('Verify diff displays and rejected settings are not saved', async ({ app, page, runCommand, sessions }) => {
+		test('Verify diff displays and rejected settings are not saved', async ({ app, page, runCommand }) => {
 			const { popups } = app.workbench;
 
 			// import settings and verify diff displays
