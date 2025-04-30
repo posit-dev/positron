@@ -140,7 +140,7 @@ export const DropDownColumnSelector = forwardRef<HTMLButtonElement, DropDownColu
 		return () => {
 			el.removeEventListener('keydown', onKeyDown);
 		};
-	}, [buttonRef, onKeyDown]);
+	}, [onKeyDown]);
 
 	// Render.
 	return (
