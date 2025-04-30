@@ -45,7 +45,7 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 		},
 	};
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return ErrorLanguageModel.source.provider.displayName;
 	}
 
@@ -81,7 +81,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		},
 	};
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return EchoLanguageModel.source.provider.displayName;
 	}
 
@@ -148,7 +148,6 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	public readonly name;
 	public readonly provider;
-	public readonly providerDisplayName;
 	public readonly identifier;
 	protected abstract model: ai.LanguageModelV1;
 
@@ -162,10 +161,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
-		this.providerDisplayName = this.getProviderDisplayName();
 	}
 
-	abstract getProviderDisplayName(): string;
+	get providerName(): string {
+		return this.providerName;
+	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
 		token.onCancellationRequested(() => {
@@ -296,7 +296,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return AnthropicAILanguageModel.source.provider.displayName;
 	}
 }
@@ -327,7 +327,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		})(this._config.model);
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return OpenAILanguageModel.source.provider.displayName;
 	}
 }
@@ -358,7 +358,7 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 		})(this._config.model);
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return MistralLanguageModel.source.provider.displayName;
 	}
 }
@@ -389,7 +389,7 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 		})(this._config.model);
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return OpenRouterLanguageModel.source.provider.displayName;
 	}
 }
@@ -420,7 +420,7 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 		});
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return OllamaLanguageModel.source.provider.displayName;
 	}
 }
@@ -451,7 +451,7 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 		})(this._config.model);
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return AzureLanguageModel.source.provider.displayName;
 	}
 }
@@ -483,7 +483,7 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 		})(this._config.model);
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return VertexLanguageModel.source.provider.displayName;
 	}
 }
@@ -510,13 +510,15 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 		this.model = createAmazonBedrock({
 			bedrockOptions: {
-				region: 'us-east-1',
+				// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
+				// sets the AWS region where the models are available
+				region: process.env.AWS_REGION ?? 'us-east-1',
 				credentials: fromNodeProviderChain(),
 			}
 		})(this._config.model);
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return AWSLanguageModel.source.provider.displayName;
 	}
 }
@@ -582,7 +584,7 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 		})(this._config.model);
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return GoogleLanguageModel.source.provider.displayName;
 	}
 }

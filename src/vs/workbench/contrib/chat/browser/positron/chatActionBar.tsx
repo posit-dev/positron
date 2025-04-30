@@ -25,7 +25,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 
 	const actions = React.useCallback(() => {
 		const actions: IAction[] = [];
-		if (providers && providers.length > 0) {
+		if (providers && providers.length > 1) {
 			actions.push({
 				id: 'all-models',
 				label: (() => localize('positronChatSelector.allModels', 'All Models'))(),
@@ -56,8 +56,10 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	React.useEffect(() => {
 		if (positronChatContext.currentProvider) {
 			setSelectorLabel(positronChatContext.currentProvider.displayName);
-		} else if (providers?.length && positronChatContext.currentProvider === undefined) {
+		} else if (providers?.length && providers.length > 1 && positronChatContext.currentProvider === undefined) {
 			setSelectorLabel((() => localize('positronChatSelector.allModels', 'All Models'))());
+		} else if (providers?.length === 1) {
+			setSelectorLabel(providers[0].displayName);
 		} else {
 			setSelectorLabel((() => localize('positronChatSelector.unavailable', 'No providers available'))());
 		}

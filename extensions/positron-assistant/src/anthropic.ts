@@ -105,7 +105,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		}
 	}
 
-	getProviderDisplayName(): string {
+	get providerName(): string {
 		return AnthropicLanguageModel.source.provider.displayName;
 	}
 
