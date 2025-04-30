@@ -197,6 +197,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 	 */
 	addTestConsoleInstance(instance: IPositronConsoleInstance): void {
 		this._positronConsoleInstances.push(instance);
+		this._activePositronConsoleInstance = instance;
 		this._onDidStartPositronConsoleInstanceEmitter.fire(instance);
 	}
 
@@ -237,6 +238,18 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 	 */
 	fireTestCodeExecutedEvent(event: ILanguageRuntimeCodeExecutedEvent): void {
 		this._onDidExecuteCodeEmitter.fire(event);
+	}
+
+	createInstanceForSession(session: ILanguageRuntimeSession): IPositronConsoleInstance {
+		const instance = new TestPositronConsoleInstance(
+			session.sessionId,
+			session.metadata,
+			session.runtimeMetadata,
+			[], // No runtime items for test instance
+			undefined // No code editor for test instance
+		);
+		this.addTestConsoleInstance(instance);
+		return instance;
 	}
 }
 

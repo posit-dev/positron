@@ -14,8 +14,6 @@ import { NotebookCellTextModel } from '../../contrib/notebook/common/model/noteb
 import { INotebookTextModel } from '../../contrib/notebook/common/notebookCommon.js';
 import { ICellExecutionParticipant, IDidEndNotebookCellsExecutionEvent, IDidStartNotebookCellsExecutionEvent, INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
 import { ILanguageRuntimeMetadata } from '../../services/languageRuntime/common/languageRuntimeService.js';
-import { IPositronConsoleService } from '../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { TestPositronConsoleService } from '../../services/positronConsole/test/common/testPositronConsoleService.js';
 import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance } from '../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestLanguageRuntimeSession } from '../../services/runtimeSession/test/common/testLanguageRuntimeSession.js';

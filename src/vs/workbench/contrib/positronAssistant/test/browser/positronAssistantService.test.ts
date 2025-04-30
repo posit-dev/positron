@@ -6,7 +6,7 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeSessionMode, RuntimeOnlineState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IPositronAssistantService, IPositronChatContext, IChatRequestData } from '../../common/interfaces/positronAssistantService.js';
 import { PositronAssistantService } from '../../browser/positronAssistantService.js';
@@ -22,6 +22,9 @@ import { IPositronPlotsService } from '../../../../services/positronPlots/common
 import { TestPositronPlotsService } from '../../../../services/positronPlots/test/common/testPositronPlotsService.js';
 // import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { ExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistory.js';
+import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
+import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
+import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 
 suite('PositronAssistantService', () => {
 	const disposables = new DisposableStore();
@@ -31,13 +34,15 @@ suite('PositronAssistantService', () => {
 
 	setup(async () => {
 		instantiationService = new TestInstantiationService();
+		const testConsoleService = new TestPositronConsoleService();
 
 		// Set up the test runtime services
 		instantiationService.stub(IPositronVariablesService, new TestPositronVariablesService());
-		instantiationService.stub(IPositronConsoleService, new TestPositronConsoleService());
+		instantiationService.stub(IPositronConsoleService, testConsoleService);
 		instantiationService.stub(IPositronPlotsService, new TestPositronPlotsService());
+		instantiationService.stub(IRuntimeStartupService, new TestRuntimeStartupService());
 		createRuntimeServices(instantiationService, disposables);
-		instantiationService.createInstance(ExecutionHistoryService);
+		instantiationService.stub(IExecutionHistoryService, instantiationService.createInstance(ExecutionHistoryService));
 
 		// Create a test runtime session that will be used to execute code
 		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
@@ -54,6 +59,9 @@ suite('PositronAssistantService', () => {
 
 		// Wait for the session to be ready
 		await waitForRuntimeState(testSession, RuntimeState.Ready);
+
+		// Create a console for the session so Assistant can see an active console
+		testConsoleService.createInstanceForSession(testSession);
 
 		// Create the service under test with all required services
 		positronAssistantService = instantiationService.createInstance(PositronAssistantService);
@@ -81,10 +89,20 @@ suite('PositronAssistantService', () => {
 			execution_count: 1
 		});
 
+		testSession.receiveStateMessage({
+			parent_id: executionId1,
+			state: RuntimeOnlineState.Busy
+		});
+
 		testSession.receiveStreamMessage({
 			parent_id: executionId1,
 			name: 'stdout',
 			text: '3'
+		});
+
+		testSession.receiveStateMessage({
+			parent_id: executionId1,
+			state: RuntimeOnlineState.Idle
 		});
 
 		// Mark session as ready for next execution
