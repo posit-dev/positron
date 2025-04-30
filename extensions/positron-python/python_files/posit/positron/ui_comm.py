@@ -186,6 +186,10 @@ class UiBackendRequest(str, enum.Enum):
     An enumeration of all the possible requests that can be sent to the backend ui comm.
     """
 
+    # Notification that the settings to render a plot (i.e. the plot size)
+    # have changed.
+    DidChangePlotsRenderSettings = "did_change_plots_render_settings"
+
     # Run a method in the interpreter and return the result to the frontend
     CallMethod = "call_method"
 
