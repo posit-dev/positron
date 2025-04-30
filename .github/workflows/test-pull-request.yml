@@ -42,7 +42,6 @@ jobs:
       install_undetectable_interpreters: false
       install_license: false
       skip_tags: "@:nightly-only"
-      simulate_vscode_settings: true
     secrets: inherit
 
   e2e-windows-electron:

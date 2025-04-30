@@ -53,11 +53,6 @@ on:
         description: "Comma-separated list of tags to skip."
         type: string
         default: ""
-      simulate_vscode_settings:
-        required: false
-        description: "Whether or not to simulate VS Code user settings."
-        type: boolean
-        default: false
 
   workflow_dispatch:
     inputs:
@@ -171,7 +166,6 @@ jobs:
           aws-region: ${{ secrets.QA_AWS_REGION }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
           install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}
-          simulate_vscode_settings: ${{ inputs.simulate_vscode_settings }}
 
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
@@ -184,12 +178,6 @@ jobs:
 
       - name: Alter AppArmor Restrictions for Playwright (Electron)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-
-      - name: Print VS Code settings file (debug)
-        run: |
-          SETTINGS_FILE="$HOME/.config/Code/User/settings.json"
-          echo "VS Code settings at: $SETTINGS_FILE"
-          cat "$SETTINGS_FILE" || echo "Settings file not found."
 
       - name: Run Playwright Tests (Electron)
         env:
