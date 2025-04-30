@@ -180,7 +180,11 @@ function removeExtension(extensionName: string): void {
 	const matchingFiles = files.filter(f => regex.test(f));
 	for (const vsixPath of matchingFiles) {
 		log(`[extensions]`, `Removing extension ${vsixPath}`);
-		fs.unlinkSync(path.join(bootstrapDir, vsixPath));
+		try {
+			fs.unlinkSync(path.join(bootstrapDir, vsixPath));
+		} catch (error) {
+			log(`[extensions]`, `Failed to remove extension ${vsixPath}: ${error.message}`);
+		}
 	}
 }
 
