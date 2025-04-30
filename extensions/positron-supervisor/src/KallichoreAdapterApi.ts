@@ -615,20 +615,31 @@ export class KCApi implements PositronSupervisorApi {
 
 		this._log.appendLine(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
-		// Create the session on the server
-		try {
-			await session.create(kernel);
-		} catch (err) {
-			// If the connection was refused, check the server status; this
-			// suggests that the server may have exited
-			if (err.code === 'ECONNREFUSED') {
-				this._log.appendLine(`Connection refused while attempting to create session; checking server status`);
-				await this.testServerExited();
-			}
+		// Create the session on the server. We allow this to retry once if the server isn't started yet.
+		let retried = false;
+		while (true) {
+			try {
+				await session.create(kernel);
+				break;
+			} catch (err) {
+				// If the connection was refused, check the server status; this
+				// suggests that the server may have exited
+				if (err.code === 'ECONNREFUSED' && !retried) {
+					this._log.appendLine(`Connection refused while attempting to create session; checking server status`);
+					await this.testServerExited();
 
-			// Rethrow the error for the caller to handle. Use a summary to
-			// unroll AggregateErrors.
-			throw new Error(summarizeError(err));
+					// If the open barrier is now open, we can retry the
+					// session creation once.
+					if (this._started.isOpen()) {
+						retried = true;
+						continue;
+					}
+				}
+
+				// Rethrow the error for the caller to handle. Use a summary to
+				// unroll AggregateErrors.
+				throw new Error(summarizeError(err));
+			}
 		}
 
 		// Save the session now that it has been created on the server
@@ -762,8 +773,11 @@ export class KCApi implements PositronSupervisorApi {
 			// Start the server again
 			await this.ensureStarted();
 
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('The process supervising the interpreters has exited unexpectedly and was automatically restarted. You may need to start your interpreter again.'));
+			// If any sessions were running, show a message to the user
+			if (this._sessions.length > 0) {
+				vscode.window.showInformationMessage(
+					vscode.l10n.t('The process supervising the interpreters has exited unexpectedly and was automatically restarted. You may need to start your interpreter again.'));
+			}
 
 		} catch (err) {
 			vscode.window.showInformationMessage(
