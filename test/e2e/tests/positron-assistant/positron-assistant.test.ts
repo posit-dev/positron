@@ -89,6 +89,16 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickDoneButton();
 	});
 
+	test('Verify Authentication Type When Switching Providers', async function ({ app }) {
+		await app.workbench.assistant.openPositronAssistantChat();
+		await app.workbench.assistant.clickAddModelButton();
+		await app.workbench.assistant.selectModelProvider('Copilot');
+		await app.workbench.assistant.verifyAuthMethod('oauth')
+		await app.workbench.assistant.selectModelProvider('Anthropic');
+		await app.workbench.assistant.verifyAuthMethod('apiKey');
+		await app.workbench.assistant.clickDoneButton();
+	});
+
 });
 /**
  * Test suite Positron Assistant actions from the chat interface.
