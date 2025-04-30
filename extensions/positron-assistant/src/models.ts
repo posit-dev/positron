@@ -491,21 +491,6 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model;
 
-	static availableModels = [
-		{
-			name: 'Claude 3.7 Sonnet v1 Bedrock',
-			identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-		},
-		{
-			name: 'Claude 3.5 Sonnet v2 Bedrock',
-			identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
-		},
-		{
-			name: 'Claude 3.5 Sonnet v1 Bedrock',
-			identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
-		}
-	];
-
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
@@ -514,7 +499,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		},
 		supportedOptions: ['toolCalls'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet v2',
+			name: 'Claude 3.5 Sonnet v2 Bedrock',
 			model: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
 			toolCalls: true,
 		},
@@ -576,17 +561,6 @@ export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModel
 class GoogleLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
 	protected model: ai.LanguageModelV1;
 
-	static availableModels = [
-		{
-			name: 'Gemini 2.0 Flash',
-			identifier: 'gemini-2.0-flash-exp',
-		},
-		{
-			name: 'Gemini 1.5 Flash 002',
-			identifier: 'gemini-1.5-flash-002',
-		},
-	];
-
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
@@ -615,11 +589,43 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 	}
 }
 
-// the models to register when adding a model provider
-// note: we don't query for available models using the API since it may return ones that are not
+// Note: we don't query for available models using any provider API since it may return ones that are not
 // suitable for chat and we don't want the selection to be too large
 export const availableModels = new Map<string, { name: string; identifier: string }[]>(
-	[['anthropic', AnthropicLanguageModel.availableModels],
-	['google', GoogleLanguageModel.availableModels],
-	['bedrock', AWSLanguageModel.availableModels]]
+	[
+		['anthropic', [
+			{
+				name: 'Claude 3.7 Sonnet v1',
+				identifier: 'claude-3-7-sonnet-latest'
+			},
+			{
+				name: 'Claude 3.5 Sonnet v2',
+				identifier: 'claude-3-5-sonnet-latest'
+			},
+		]],
+		['google', [
+			{
+				name: 'Gemini 2.0 Flash',
+				identifier: 'gemini-2.0-flash-exp',
+			},
+			{
+				name: 'Gemini 1.5 Flash 002',
+				identifier: 'gemini-1.5-flash-002',
+			},
+		]],
+		['bedrock', [
+			{
+				name: 'Claude 3.7 Sonnet v1 Bedrock',
+				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+			},
+			{
+				name: 'Claude 3.5 Sonnet v2 Bedrock',
+				identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
+			},
+			{
+				name: 'Claude 3.5 Sonnet v1 Bedrock',
+				identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
+			},
+		]]
+	]
 );
