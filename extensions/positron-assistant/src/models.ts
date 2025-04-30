@@ -45,6 +45,10 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 		},
 	};
 
+	get providerName(): string {
+		return ErrorLanguageModel.source.provider.displayName;
+	}
+
 	provideLanguageModelResponse(): Promise<any> {
 		throw new Error(this._message);
 	}
@@ -76,6 +80,10 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			model: 'echo',
 		},
 	};
+
+	get providerName(): string {
+		return EchoLanguageModel.source.provider.displayName;
+	}
 
 	async provideLanguageModelResponse(
 		messages: vscode.LanguageModelChatMessage[],
@@ -153,6 +161,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
+	}
+
+	get providerName(): string {
+		return this.providerName;
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
@@ -283,6 +295,10 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 		super(_config);
 		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
 	}
+
+	get providerName(): string {
+		return AnthropicAILanguageModel.source.provider.displayName;
+	}
 }
 
 class OpenAILanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -309,6 +325,10 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
+	}
+
+	get providerName(): string {
+		return OpenAILanguageModel.source.provider.displayName;
 	}
 }
 
@@ -337,6 +357,10 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
 	}
+
+	get providerName(): string {
+		return MistralLanguageModel.source.provider.displayName;
+	}
 }
 
 class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -363,6 +387,10 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
+	}
+
+	get providerName(): string {
+		return OpenRouterLanguageModel.source.provider.displayName;
 	}
 }
 
@@ -391,6 +419,10 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 			numCtx: this._config.numCtx,
 		});
 	}
+
+	get providerName(): string {
+		return OllamaLanguageModel.source.provider.displayName;
+	}
 }
 
 class AzureLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -417,6 +449,10 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 			apiKey: this._config.apiKey,
 			resourceName: this._config.resourceName
 		})(this._config.model);
+	}
+
+	get providerName(): string {
+		return AzureLanguageModel.source.provider.displayName;
 	}
 }
 
@@ -446,6 +482,10 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 			location: this._config.location,
 		})(this._config.model);
 	}
+
+	get providerName(): string {
+		return VertexLanguageModel.source.provider.displayName;
+	}
 }
 
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -470,9 +510,16 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 		this.model = createAmazonBedrock({
 			bedrockOptions: {
+				// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
+				// sets the AWS region where the models are available
+				region: process.env.AWS_REGION ?? 'us-east-1',
 				credentials: fromNodeProviderChain(),
 			}
 		})(this._config.model);
+	}
+
+	get providerName(): string {
+		return AWSLanguageModel.source.provider.displayName;
 	}
 }
 
@@ -535,5 +582,9 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
+	}
+
+	get providerName(): string {
+		return GoogleLanguageModel.source.provider.displayName;
 	}
 }

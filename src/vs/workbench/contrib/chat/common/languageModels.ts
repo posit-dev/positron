@@ -106,6 +106,13 @@ export interface IChatResponseFragment {
 	part: IChatResponsePart;
 }
 
+// --- Start Positron ---
+export interface IPositronChatProvider {
+	readonly id: string;
+	readonly displayName: string;
+}
+// --- End Positron ---
+
 export interface ILanguageModelChatMetadata {
 	readonly extension: ExtensionIdentifier;
 
@@ -114,6 +121,9 @@ export interface ILanguageModelChatMetadata {
 	readonly vendor: string;
 	readonly version: string;
 	readonly family: string;
+	// --- Start Positron ---
+	readonly providerName?: string;
+	// --- End Positron ---
 	readonly maxInputTokens: number;
 	readonly maxOutputTokens: number;
 	readonly targetExtensions?: string[];
@@ -349,8 +359,10 @@ export class LanguageModelsService implements ILanguageModelsService {
 	private updateUserSelectableModelsContext() {
 		// This context key to enable the picker is set when there is a default model, and there is at least one other model that is user selectable
 		const hasUserSelectableModels = Array.from(this._providers.values()).some(p => p.metadata.isUserSelectable);
-		const hasDefaultModel = Array.from(this._providers.values()).some(p => p.metadata.isDefault);
-		this._hasUserSelectableModels.set(hasUserSelectableModels && hasDefaultModel);
+		// --- Start Positron ---
+		// const hasDefaultModel = Array.from(this._providers.values()).some(p => p.metadata.isDefault);
+		this._hasUserSelectableModels.set(hasUserSelectableModels);
+		// --- End Positron ---
 	}
 
 	async sendChatRequest(identifier: string, from: ExtensionIdentifier, messages: IChatMessage[], options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse> {

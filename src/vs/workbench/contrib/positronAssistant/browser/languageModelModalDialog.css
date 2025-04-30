@@ -70,6 +70,11 @@
 	border: 1px dashed var(--vscode-focusBorder);
 }
 
+.language-model.button.disabled {
+	opacity: 0.4 !important;
+	cursor: default;
+}
+
 .language-model-container {
 	display: flex;
 	height: 3rem;
@@ -123,4 +128,8 @@
 	padding-bottom: 16px;
 	padding-top: 0px;
 	height: 32px;
+}
+
+.language-model-modal-dialog .content-area {
+	padding: 16px 16px 0 16px;
 }
