@@ -7,7 +7,7 @@
 import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 
-const CHATBUTTON = '.action-label.codicon-comment-discussion[aria-label="Chat (Ctrl+Alt+I)"]';
+const CHATBUTTON = '.action-label.codicon-comment-discussion[aria-label^="Chat"]';
 const ADD_MODEL_LINK = 'a[data-href="command:positron-assistant.addModelConfiguration"]';
 const ADD_MODEL_BUTTON = 'a.action-label[aria-label="Add Language Model"]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
@@ -124,14 +124,12 @@ export class Assistant {
 	async verifyAuthMethod(type: 'oauth' | 'apiKey') {
 		switch (type) {
 			case 'oauth':
-				// ensure oauth radio is currently selected and apiKey is disabled
-				await this.code.driver.page.locator(OATH_RADIO).isChecked();
-				await this.code.driver.page.locator(APIKEY_RADIO).isDisabled();
+				await expect(this.code.driver.page.locator(OATH_RADIO)).toBeChecked();
+				await expect(this.code.driver.page.locator(APIKEY_RADIO)).toBeDisabled();
 				break;
 			case 'apiKey':
-				// ensure apiKey radio is currently selected and oauth is disabled
-				await this.code.driver.page.locator(APIKEY_RADIO).isChecked();
-				await this.code.driver.page.locator(OATH_RADIO).isDisabled();
+				await expect(this.code.driver.page.locator(APIKEY_RADIO)).toBeChecked();
+				await expect(this.code.driver.page.locator(OATH_RADIO)).toBeDisabled();
 				break;
 			default:
 				throw new Error(`Unsupported auth method: ${type}`);
