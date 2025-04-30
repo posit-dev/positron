@@ -117,10 +117,9 @@ export class Comm implements base.IClassicComm, Disposable {
 					// Important: Use byteOffset and byteLength to respect the view's window.
 					return new Uint8Array(bufferOrView.buffer, bufferOrView.byteOffset, bufferOrView.byteLength);
 				} else {
-					// Handle unexpected type if necessary, though the type signature should prevent this.
-					console.warn('Unexpected buffer type encountered:', bufferOrView);
-					// Return an empty Uint8Array or throw an error, depending on desired handling.
-					return new Uint8Array();
+					// We only know how to handle ArrayBuffer and ArrayBufferView.
+					console.error('Invalid buffer type', typeof bufferOrView);
+					throw new Error(`Buffer conversion failed: expected ArrayBuffer or ArrayBufferView but got ${typeof bufferOrView}`);
 				}
 			});
 		}

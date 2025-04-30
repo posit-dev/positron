@@ -83,6 +83,9 @@ export function summarizeHttpError(err: HttpError): string {
 
 // --- Serialized Data Unpacking Logic ---
 
+// Maximum allowed buffer size (10MB)
+const MAX_BUFFER_SIZE = 10 * 1024 * 1024;
+
 type VSBufferLike = {
 	buffer: Buffer;
 };
@@ -173,16 +176,31 @@ export function unpackSerializedObjectWithBuffers(payload: unknown): {
 			for (const item of potentialBuffers) {
 				let bufferInstance: Buffer | undefined;
 
-				if (isVSBufferLike(item)) {
-					bufferInstance = item.buffer;
-				} else if (item instanceof Buffer) {
-					bufferInstance = item;
-				}
-				// else: item is not a Buffer or the expected VSBuffer-like structure, skip it.
+				try {
+					if (isVSBufferLike(item)) {
+						// Add size check
+						if (item.buffer.length > MAX_BUFFER_SIZE) {
+							console.warn(`Buffer exceeds size limit (${item.buffer.length} > ${MAX_BUFFER_SIZE})`);
+							continue;
+						}
+						bufferInstance = item.buffer;
+					} else if (item instanceof Buffer) {
+						// Add size check for direct Buffer instances
+						if (item.length > MAX_BUFFER_SIZE) {
+							console.warn(`Buffer exceeds size limit (${item.length} > ${MAX_BUFFER_SIZE})`);
+							continue;
+						}
+						bufferInstance = item;
+					}
+					// else: item is not a Buffer or the expected VSBuffer-like structure, skip it.
 
-				// If we found a valid Buffer, convert it to base64
-				if (bufferInstance) {
-					buffers.push(bufferInstance.toString('base64'));
+					// If we found a valid Buffer, convert it to base64
+					if (bufferInstance) {
+						buffers.push(bufferInstance.toString('base64'));
+					}
+				} catch (e) {
+					console.error('Error processing buffer:', e);
+					// Continue processing other buffers
 				}
 			}
 		}
