@@ -79,21 +79,21 @@ export async function getCodeSettingsPath(
 	switch (os) {
 		case platform.OperatingSystem.Windows:
 			if (env['APPDATA']) {
-				appDataPath = URI.parse(env['APPDATA']);
+				appDataPath = URI.file(env['APPDATA']);
 			} else {
 				const userProfile = env['USERPROFILE'];
 				if (typeof userProfile !== 'string') {
 					throw new Error('Windows: Unexpected undefined %USERPROFILE% environment variable');
 				}
 
-				appDataPath = URI.parse(path.join(userProfile, 'AppData', 'Roaming'));
+				appDataPath = URI.file(path.join(userProfile, 'AppData', 'Roaming'));
 			}
 			break;
 		case platform.OperatingSystem.Macintosh:
 			appDataPath = homedir.with({ path: path.join(homedir.path, 'Library', 'Application Support') });
 			break;
 		case platform.OperatingSystem.Linux:
-			appDataPath = env['XDG_CONFIG_HOME'] ? URI.parse(env['XDG_CONFIG_HOME']) : homedir.with({ path: path.join(homedir.path, '.config') });
+			appDataPath = env['XDG_CONFIG_HOME'] ? URI.file(env['XDG_CONFIG_HOME']) : homedir.with({ path: path.join(homedir.path, '.config') });
 			break;
 		default:
 			throw new Error('Platform not supported');
