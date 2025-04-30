@@ -145,6 +145,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 			const modelDisp = vscode.lm.registerChatModelProvider(`${languageModel.identifier}-${model.identifier}`, languageModel, {
 				name: languageModel.name,
 				family: languageModel.provider,
+				providerName: languageModel.providerName,
 				vendor: context.extension.packageJSON.publisher,
 				version: context.extension.packageJSON.version,
 				capabilities: languageModel.capabilities,

@@ -79,8 +79,13 @@ export const usePositronChatState = (services: PositronChatServices): PositronCh
 			}
 			providers.add(provider);
 		});
-
-		setProviders(Array.from(providers));
+		const uniqueProviders = Array.from(providers).reduce((acc, provider) => {
+			if (!acc.some(p => p.id === provider.id)) {
+				acc.push(provider);
+			}
+			return acc;
+		}, [] as IPositronChatProvider[]);
+		setProviders(uniqueProviders);
 	}, [languageModels]);
 
 	useEffect(() => {
