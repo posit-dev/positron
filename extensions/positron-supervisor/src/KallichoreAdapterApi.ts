@@ -105,7 +105,11 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
-		this.ensureStarted().catch((err) => {
+		this.ensureStarted().then(async () => {
+			// Once the server is started, begin sending client heartbeats to
+			// keep the server alive.
+			this.startClientHeartbeat();
+		}).catch((err) => {
 			this._log.appendLine(`Failed to start Kallichore server: ${err}`);
 		});
 
@@ -323,7 +327,7 @@ export class KCApi implements PositronSupervisorApi {
 			// the 1 hour idle timeout ensures that it will eventually exit if
 			// the process is orphaned for any reason.
 			if (vscode.env.uiKind === vscode.UIKind.Desktop) {
-				shellArgs.push('--idle-shutdown-hours', '1');
+				shellArgs.push('--idle-shutdown-hours', '0');
 			}
 
 			// In web mode, we do not set an idle timeout at all by default,
@@ -585,6 +589,36 @@ export class KCApi implements PositronSupervisorApi {
 		this._newSupervisor = false;
 
 		return true;
+	}
+
+	/**
+	 * Start a long-running task that sends a heartbeat to the Kallichore server
+	 * every minute. This is used to notify the server that we're connected,
+	 * even if no sessions are currently running.
+	 */
+	async startClientHeartbeat() {
+		// Wait for the server to start before starting the heartbeat loop
+		await this._started.wait();
+
+		// Poll the server every minute to let it know we're still connected.
+		const interval = setInterval(() => {
+			if (this._started.isOpen()) {
+				// The server is still started; send a heartbeat
+				this._api.clientHeartbeat().catch((err) => {
+					// This is a fire and forget call, so failure is not fatal.
+					// Log the error but don't throw it.
+					this._log.appendLine(`Failed to send client heartbeat: ` +
+						summarizeError(err));
+				});
+			} else {
+				// If the server is no longer started, stop this interval task
+				// and start a new one when (or if) the server starts again.
+				clearInterval(interval);
+				setTimeout(async () => {
+					this.startClientHeartbeat();
+				}, 0);
+			}
+		}, 60000);
 	}
 
 	/**
