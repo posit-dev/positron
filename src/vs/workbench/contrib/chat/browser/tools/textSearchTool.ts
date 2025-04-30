@@ -9,9 +9,11 @@ import { IConfigurationService } from '../../../../../platform/configuration/com
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
-import { IPatternInfo, ISearchConfigurationProperties, ISearchService } from '../../../../services/search/common/search.js';
+import { IPatternInfo, ISearchConfigurationProperties, ISearchService, resultIsMatch } from '../../../../services/search/common/search.js';
 import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
 import { IToolInputProcessor } from '../../common/tools/tools.js';
+import { ChatModel } from '../../common/chatModel.js';
+import { IChatService } from '../../common/chatService.js';
 
 const findTextInProjectModelDescription = `
 This tool searches for the specified text inside files in the project and returns a set of files and their corresponding lines where the text is found,
@@ -76,6 +78,7 @@ export class TextSearchTool implements IToolImpl {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ISearchService private readonly _searchService: ISearchService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IChatService private readonly _chatService: IChatService,
 	) { }
 
 	private get searchConfig(): ISearchConfigurationProperties {
@@ -106,6 +109,38 @@ export class TextSearchTool implements IToolImpl {
 
 		// Search for the text
 		const { results, messages } = await this._searchService.textSearch(query, _token);
+
+		// If we have a chat context, include references for each result
+		if (invocation.context) {
+			const model = this._chatService.getSession(invocation.context.sessionId) as ChatModel;
+			const request = model.getRequests().at(-1)!;
+
+			for (const result of results) {
+				const { resource, results: fileMatches } = result;
+				if (!fileMatches?.length) {
+					continue; // No results for this file
+				}
+
+				fileMatches
+					.filter(resultIsMatch)
+					.flatMap(match => match.rangeLocations)
+					.forEach(loc => {
+						model.acceptResponseProgress(request, {
+							kind: 'reference',
+							reference: {
+								uri: resource,
+								// Adjust the range to be 1-based for display (ranges are 0-based in the results)
+								range: {
+									startLineNumber: loc.source.startLineNumber + 1,
+									startColumn: loc.source.startColumn + 1,
+									endLineNumber: loc.source.endLineNumber + 1,
+									endColumn: loc.source.endColumn + 1
+								}
+							}
+						});
+					});
+			}
+		}
 
 		return {
 			content: [{

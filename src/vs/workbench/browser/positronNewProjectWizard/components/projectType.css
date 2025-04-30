@@ -27,6 +27,11 @@
 	border-color: var(--vscode-positronModalDialog-projectTypeBorderHover);
 }
 
+.hc-black .project-type:hover,
+.hc-light .project-type:hover {
+	border: 1px dashed var(--vscode-focusBorder);
+}
+
 .project-type-selection-step
 .project-type-group
 .project-type-selected {

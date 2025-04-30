@@ -13,6 +13,7 @@ import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
+import { registerCodeActionProvider } from './codeActions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -142,9 +143,6 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: modelConfig.name });
 		modelDisposables.push(complDisp);
 	}
-
-	const hasChatModels = modelConfig.type === 'chat';
-	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 }
 
 function registerAddModelConfigurationCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
@@ -189,6 +187,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context, participantService);
+
+	// Register code action provider
+	registerCodeActionProvider(context);
 
 	// Dispose cleanup
 	context.subscriptions.push({

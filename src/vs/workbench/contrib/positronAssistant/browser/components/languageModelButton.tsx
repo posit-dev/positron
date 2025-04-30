@@ -56,7 +56,9 @@ export const LanguageModelButton = (props: LanguageModelButtonProps) => {
 			<div id={`${props.identifier}-provider-button`}>
 				<VerticalStack>
 					{getIcon()}
-					{props.displayName}
+					<div>
+						{props.displayName}
+					</div>
 				</VerticalStack>
 			</div>
 		</Button>

@@ -27,7 +27,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { localize } from '../../../../nls.js';
-import { USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY } from '../../../services/runtimeSession/common/positronMultipleConsoleSessionsFeatureFlag.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -854,10 +853,7 @@ export function registerLanguageRuntimeActions() {
 					group: 'navigation',
 					id: MenuId.ViewTitle,
 					order: 1,
-					when: ContextKeyExpr.and(
-						ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
-						ContextKeyExpr.equals(`config.${USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY}`, true),
-					),
+					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
 				}],
 			});
 		}

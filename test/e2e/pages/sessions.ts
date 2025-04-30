@@ -830,7 +830,7 @@ export class Sessions {
 	 */
 	async expectSessionListToBeScrollable(options: { horizontal?: boolean; vertical?: boolean } = {}) {
 		const { horizontal = false, vertical = true } = options;
-		const tabsContainer = this.page.locator('.console-tab-list').getByRole('tablist');
+		const tabsContainer = this.page.locator('.console-core').getByRole('tablist');
 
 		const isHorizontallyScrollable = await tabsContainer.evaluate(el => el.scrollWidth > el.clientWidth);
 		const isVerticallyScrollable = await tabsContainer.evaluate(el => el.scrollHeight > el.clientHeight);

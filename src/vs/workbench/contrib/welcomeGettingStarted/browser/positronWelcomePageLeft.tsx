@@ -41,10 +41,7 @@ export const PositronWelcomePageLeft = (props: PropsWithChildren<PositronWelcome
 				commandService={props.commandService}
 				configurationService={props.configurationService}
 				keybindingService={props.keybindingService}
-				languageRuntimeService={props.languageRuntimeService}
 				layoutService={props.layoutService}
-				runtimeSessionService={props.runtimesSessionService}
-				runtimeStartupService={props.runtimeStartupService}
 			/>
 			<PositronWelcomePageHelp openerService={props.openerService} />
 		</>

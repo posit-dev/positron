@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { padBase64String } from './utils';
 import { LanguageModelImage } from './languageModelParts.js';
 import { ParticipantService } from './participants.js';
 
@@ -247,7 +246,7 @@ export function registerAssistantTools(
 
 			// HACK: Return the image data as a prompt tsx part.
 			// See languageModelParts.ts for an explanation.
-			const image = new LanguageModelImage(matches[1], padBase64String(matches[2]));
+			const image = new LanguageModelImage(matches[1], matches[2]);
 			const imageJson = image.toJSON();
 			return new vscode.LanguageModelToolResult([new vscode.LanguageModelPromptTsxPart(imageJson)]);
 		},

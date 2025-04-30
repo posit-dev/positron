@@ -19,9 +19,6 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { WelcomeMenuButton } from './positronWelcomeMenuButton.js';
 import { PythonLogo } from '../../../browser/positronNewProjectWizard/components/logos/logoPython.js';
 import { RLogo } from '../../../browser/positronNewProjectWizard/components/logos/logoR.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { WelcomeConsoleButton } from './positronWelcomeConsoleButton.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
@@ -30,9 +27,6 @@ export interface PositronWelcomePageStartProps {
 	layoutService: ILayoutService;
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
-	runtimeSessionService: IRuntimeSessionService;
-	runtimeStartupService: IRuntimeStartupService;
-	languageRuntimeService: ILanguageRuntimeService;
 }
 
 export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcomePageStartProps>) => {
@@ -71,16 +65,7 @@ export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcom
 					label={(() => localize('positron.welcome.newFile', "New File"))()}
 					onPressed={() => props.commandService.executeCommand('welcome.showNewFileEntries')}
 				/>
-				<WelcomeConsoleButton
-					commandService={props.commandService}
-					configurationService={props.configurationService}
-					keybindingService={props.keybindingService}
-					languageRuntimeService={props.languageRuntimeService}
-					layoutService={props.layoutService}
-					runtimeSessionService={props.runtimeSessionService}
-					runtimeStartupService={props.runtimeStartupService}
-				/>
-
+				<WelcomeConsoleButton commandService={props.commandService} />
 				<WelcomeButton
 					ariaLabel={(() => localize('positron.welcome.newProjectDescription', "Create a new project"))()}
 					codicon='positron-new-project'

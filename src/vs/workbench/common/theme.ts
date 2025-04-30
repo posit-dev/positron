@@ -29,7 +29,9 @@ import { // eslint-disable-line no-duplicate-imports
 	menuBorder,
 	tableColumnsBorder,
 	textPreformatForeground,
-	selectBorder
+	selectBorder,
+	inputActiveOptionBackground,
+	inputActiveOptionBorder
 } from '../../platform/theme/common/colorRegistry.js';
 // --- End Positron ---
 
@@ -1009,40 +1011,6 @@ export const POSITRON_TOP_ACTION_BAR_TEXT_INPUT_SELECTION_BACKGROUND = registerC
 	hcLight: '#007acc'
 }, localize('positronTopActionBar.textInputSelectionBackground', "Positron top action bar text input selection background color."));
 
-// < --- Positron Runtimes Manager --- >
-
-// Positron runtimes manager background.
-export const POSITRON_RUNTIMES_MANAGER_BACKGROUND = registerColor('positronRuntimesManager.background', {
-	dark: editorWidgetBackground,
-	light: editorWidgetBackground,
-	hcDark: editorWidgetBackground,
-	hcLight: editorWidgetBackground
-}, localize('positronRuntimesManager.background', "Positron runtimes manager background color."));
-
-// Positron runtimes manager hover background.
-export const POSITRON_RUNTIMES_MANAGER_HOVER_BACKGROUND = registerColor('positronRuntimesManager.hoverBackground', {
-	dark: listHoverBackground,
-	light: listHoverBackground,
-	hcDark: listHoverBackground,
-	hcLight: listHoverBackground
-}, localize('positronRuntimesManager.hoverBackground', "Positron runtimes manager hover background color."));
-
-// Positron runtimes manager hover foreground.
-export const POSITRON_RUNTIMES_MANAGER_HOVER_FOREGROUND = registerColor('positronRuntimesManager.hoverForeground', {
-	dark: listHoverForeground,
-	light: listHoverForeground,
-	hcDark: listHoverForeground,
-	hcLight: listHoverForeground
-}, localize('positronRuntimesManager.hoverForeground', "Positron runtimes manager hover foreground color."));
-
-// Positron runtimes manager action hover background.
-export const POSITRON_RUNTIMES_MANAGER_ACTION_HOVER_BACKGROUND = registerColor('positronRuntimesManager.actionHoverBackground', {
-	dark: darken(listHoverBackground, 0.2),
-	light: darken(listHoverBackground, 0.1),
-	hcDark: listActiveSelectionBackground,
-	hcLight: listActiveSelectionBackground
-}, localize('positronRuntimesManager.actionHoverBackground', "Positron runtimes manager action hover background color."));
-
 // < --- Positron Context Menu --- >
 
 // Positron context menu background.
@@ -1455,18 +1423,18 @@ export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BACKGROUND = registerColor('posi
 
 // Positron modal dialog project type hover background color.
 export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BACKGROUND_HOVER = registerColor('positronModalDialog.projectTypeBackgroundHover', {
-	dark: listInactiveSelectionBackground,
-	light: listInactiveSelectionBackground,
-	hcDark: listHoverBackground,
-	hcLight: listHoverBackground
+	dark: inputActiveOptionBackground,
+	light: inputActiveOptionBackground,
+	hcDark: inputActiveOptionBackground,
+	hcLight: inputActiveOptionBackground
 }, localize('positronModalDialog.projectTypeBackgroundHover', "Positron modal dialog project type background hover color."));
 
 // Positron modal dialog project type background selected color.
 export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BACKGROUND_SELECTED = registerColor('positronModalDialog.projectTypeBackgroundSelected', {
-	dark: listInactiveSelectionBackground,
-	light: listInactiveSelectionBackground,
-	hcDark: listHoverBackground,
-	hcLight: listHoverBackground
+	dark: inputActiveOptionBackground,
+	light: inputActiveOptionBackground,
+	hcDark: inputActiveOptionBackground,
+	hcLight: inputActiveOptionBackground
 }, localize('positronModalDialog.projectTypeBackgroundSelected', "Positron modal dialog project type background selected color."));
 
 // Positron modal dialog project type foreground color.
@@ -1511,25 +1479,25 @@ export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER_HOVER = registerColor('po
 
 // Positron modal dialog project type border selected color.
 export const POSITRON_MODAL_DIALOG_PROJECT_TYPE_BORDER_SELECTED = registerColor('positronModalDialog.projectTypeBorderSelected', {
-	dark: darken(editorForeground, 0.25),
-	light: focusBorder,
-	hcDark: activeContrastBorder,
-	hcLight: activeContrastBorder
+	dark: inputActiveOptionBorder,
+	light: inputActiveOptionBorder,
+	hcDark: inputActiveOptionBorder,
+	hcLight: inputActiveOptionBorder
 }, localize('positronModalDialog.projectTypeBorderSelected', "Positron modal dialog project type border selected color."));
 
 // < --- Positron Icon Button --- >
 export const POSITRON_ICON_BUTTON_BORDER = registerColor('positronIconButton.border', {
-	dark: focusBorder,
-	light: focusBorder,
-	hcDark: focusBorder,
-	hcLight: focusBorder
+	dark: inputActiveOptionBorder,
+	light: inputActiveOptionBorder,
+	hcDark: inputActiveOptionBorder,
+	hcLight: inputActiveOptionBorder
 }, localize('positronIconButton.border', "Positron icon button border color."));
 
 export const POSITRON_ICON_BUTTON_BACKGROUND = registerColor('positronIconButton.background', {
-	dark: listInactiveSelectionBackground,
-	light: listInactiveSelectionBackground,
-	hcDark: listHoverBackground,
-	hcLight: listHoverBackground
+	dark: inputActiveOptionBackground,
+	light: inputActiveOptionBackground,
+	hcDark: inputActiveOptionBackground,
+	hcLight: inputActiveOptionBackground
 }, localize('positronIconButton.background', "Positron icon button background color."));
 
 // < --- Positron Drop Down --- >
