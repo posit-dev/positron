@@ -34,7 +34,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 			case 'google':
 				return localize('positron.newConnectionModalDialog.tos', TOS_TEMPLATE,
 					'Google Gemini',
-					'[Terms of Service](https://gemini.google/policy-guidelines)',
+					'[Terms of Service](https://policies.google.com/terms)',
 					'[Privacy Policy](https://policies.google.com/privacy)'
 				);
 			case 'copilot':
