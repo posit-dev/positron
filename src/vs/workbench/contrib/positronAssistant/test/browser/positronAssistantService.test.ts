@@ -5,8 +5,7 @@
 
 import * as assert from 'assert';
 import * as sinon from 'sinon';
-import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeSessionMode, RuntimeOnlineState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState, LanguageRuntimeSessionMode, RuntimeOnlineState, RuntimeOutputKind } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { TestInstantiationService } from '../../../../../platform/instantiation/test/common/instantiationServiceMock.js';
 import { IPositronAssistantService, IPositronChatContext, IChatRequestData } from '../../common/interfaces/positronAssistantService.js';
 import { PositronAssistantService } from '../../browser/positronAssistantService.js';
@@ -27,7 +26,7 @@ import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/t
 import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 
 suite('PositronAssistantService', () => {
-	const disposables = new DisposableStore();
+	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	let instantiationService: TestInstantiationService;
 	let positronAssistantService: IPositronAssistantService;
 	let testSession: TestLanguageRuntimeSession;
@@ -37,12 +36,12 @@ suite('PositronAssistantService', () => {
 		const testConsoleService = new TestPositronConsoleService();
 
 		// Set up the test runtime services
-		instantiationService.stub(IPositronVariablesService, new TestPositronVariablesService());
+		instantiationService.stub(IPositronVariablesService, disposables.add(new TestPositronVariablesService()));
 		instantiationService.stub(IPositronConsoleService, testConsoleService);
-		instantiationService.stub(IPositronPlotsService, new TestPositronPlotsService());
+		instantiationService.stub(IPositronPlotsService, disposables.add(new TestPositronPlotsService()));
 		instantiationService.stub(IRuntimeStartupService, new TestRuntimeStartupService());
 		createRuntimeServices(instantiationService, disposables);
-		instantiationService.stub(IExecutionHistoryService, instantiationService.createInstance(ExecutionHistoryService));
+		instantiationService.stub(IExecutionHistoryService, disposables.add(instantiationService.createInstance(ExecutionHistoryService)));
 
 		// Create a test runtime session that will be used to execute code
 		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
@@ -64,13 +63,11 @@ suite('PositronAssistantService', () => {
 		testConsoleService.createInstanceForSession(testSession);
 
 		// Create the service under test with all required services
-		positronAssistantService = instantiationService.createInstance(PositronAssistantService);
+		positronAssistantService = disposables.add(instantiationService.createInstance(PositronAssistantService));
 	});
 
 	teardown(() => {
 		sinon.restore();
-		ensureNoDisposablesAreLeakedInTestSuite();
-		disposables.clear();
 	});
 
 	test('getPositronChatContext includes console executions in chat context', async () => {
@@ -79,12 +76,10 @@ suite('PositronAssistantService', () => {
 		const executionId2 = 'exec2';
 
 		// First execution: x <- 1 + 2
-		console.log('KNKX: executing first code');
-		testSession.execute('x <- 1 + 2', executionId1, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Stop);
 
 		// Simulate input and output messages
 		testSession.receiveInputMessage({
-			id: executionId1,
+			parent_id: executionId1,
 			code: 'x <- 1 + 2',
 			execution_count: 1
 		});
@@ -94,10 +89,12 @@ suite('PositronAssistantService', () => {
 			state: RuntimeOnlineState.Busy
 		});
 
-		testSession.receiveStreamMessage({
+		testSession.receiveOutputMessage({
 			parent_id: executionId1,
-			name: 'stdout',
-			text: '3'
+			kind: RuntimeOutputKind.Text,
+			data: {
+				'text/plain': '3'
+			},
 		});
 
 		testSession.receiveStateMessage({
@@ -105,17 +102,16 @@ suite('PositronAssistantService', () => {
 			state: RuntimeOnlineState.Idle
 		});
 
-		// Mark session as ready for next execution
-		testSession.setRuntimeState(RuntimeState.Ready);
-
-		// Second execution: sqrt(16)
-		testSession.execute('sqrt(16)', executionId2, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Stop);
-
 		// Simulate input and output messages
 		testSession.receiveInputMessage({
-			id: executionId2,
+			parent_id: executionId2,
 			code: 'sqrt(16)',
 			execution_count: 2
+		});
+
+		testSession.receiveStateMessage({
+			parent_id: executionId2,
+			state: RuntimeOnlineState.Busy
 		});
 
 		testSession.receiveStreamMessage({
@@ -124,8 +120,10 @@ suite('PositronAssistantService', () => {
 			text: '[1] 4'
 		});
 
-		// Mark session as ready again
-		testSession.setRuntimeState(RuntimeState.Ready);
+		testSession.receiveStateMessage({
+			parent_id: executionId2,
+			state: RuntimeOnlineState.Idle
+		});
 
 		// Create a chat request
 		const chatRequest: IChatRequestData = {
@@ -154,9 +152,14 @@ suite('PositronAssistantService', () => {
 
 		// Simulate input and output messages
 		testSession.receiveInputMessage({
-			id: executionId1,
+			parent_id: executionId1,
 			code: 'print("Hello, world!")',
 			execution_count: 1
+		});
+
+		testSession.receiveStateMessage({
+			parent_id: executionId1,
+			state: RuntimeOnlineState.Busy
 		});
 
 		testSession.receiveStreamMessage({
@@ -165,17 +168,24 @@ suite('PositronAssistantService', () => {
 			text: 'Hello, world!'
 		});
 
-		// Mark session as ready for next execution
-		testSession.setRuntimeState(RuntimeState.Ready);
+		testSession.receiveStateMessage({
+			parent_id: executionId1,
+			state: RuntimeOnlineState.Idle
+		});
 
 		// Second execution with error: undefined_variable
 		testSession.execute('undefined_variable', executionId2, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Stop);
 
 		// Simulate input message
 		testSession.receiveInputMessage({
-			id: executionId2,
+			parent_id: executionId2,
 			code: 'undefined_variable',
 			execution_count: 2
+		});
+
+		testSession.receiveStateMessage({
+			parent_id: executionId2,
+			state: RuntimeOnlineState.Busy
 		});
 
 		// Simulate error message
@@ -186,8 +196,10 @@ suite('PositronAssistantService', () => {
 			traceback: ['Traceback (most recent call last):', 'NameError: name "undefined_variable" is not defined']
 		});
 
-		// Mark session as ready again
-		testSession.setRuntimeState(RuntimeState.Ready);
+		testSession.receiveStateMessage({
+			parent_id: executionId2,
+			state: RuntimeOnlineState.Idle
+		});
 
 		// Create a chat request
 		const chatRequest: IChatRequestData = {
@@ -208,7 +220,7 @@ suite('PositronAssistantService', () => {
 		// Check second execution with error
 		assert.strictEqual(context.console?.executions[1].input, 'undefined_variable');
 		assert.ok(context.console?.executions[1].error, 'Error should be present');
-		assert.ok(context.console?.executions[1].error.includes('not defined'), 'Error message should mention variable is not defined');
+		assert.ok(JSON.stringify(context.console?.executions[1].error).includes('not defined'), 'Error message should mention variable is not defined');
 	});
 
 	test('getPositronChatContext with empty console history returns empty executions array', async () => {
