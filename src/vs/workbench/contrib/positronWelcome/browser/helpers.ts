@@ -74,29 +74,29 @@ export async function getCodeSettingsPath(
 	const path = await pathService.path;
 	const homedir = await pathService.userHome();
 
-
-	let appDataPath: URI;
 	switch (os) {
 		case platform.OperatingSystem.Windows:
 			if (env['APPDATA']) {
-				appDataPath = URI.parse(env['APPDATA']);
-			} else {
+				return URI.file(path.join(env['APPDATA'], 'Code', 'User', 'settings.json'));
+			} else if (env['USERPROFILE']) {
 				const userProfile = env['USERPROFILE'];
-				if (typeof userProfile !== 'string') {
-					throw new Error('Windows: Unexpected undefined %USERPROFILE% environment variable');
-				}
-
-				appDataPath = URI.parse(path.join(userProfile, 'AppData', 'Roaming'));
+				return URI.file(path.join(userProfile, 'AppData', 'Roaming', 'Code', 'User', 'settings.json'));
+			} else {
+				return URI.joinPath(homedir, 'AppData', 'Roaming', 'Code', 'User', 'settings.json');
 			}
-			break;
+
 		case platform.OperatingSystem.Macintosh:
-			appDataPath = homedir.with({ path: path.join(homedir.path, 'Library', 'Application Support') });
-			break;
+			return URI.joinPath(homedir, 'Library', 'Application Support', 'Code', 'User', 'settings.json');
+
 		case platform.OperatingSystem.Linux:
-			appDataPath = env['XDG_CONFIG_HOME'] ? URI.parse(env['XDG_CONFIG_HOME']) : homedir.with({ path: path.join(homedir.path, '.config') });
-			break;
+			return URI.joinPath(
+				(env['XDG_CONFIG_HOME'] ?
+					URI.file(env['XDG_CONFIG_HOME']) :
+					URI.joinPath(homedir, '.config')
+				), 'Code', 'User', 'settings.json'
+			);
+
 		default:
 			throw new Error('Platform not supported');
 	}
-	return appDataPath.with({ path: path.join(appDataPath.path, 'Code', 'User', 'settings.json') });
 }
