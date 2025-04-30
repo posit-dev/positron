@@ -195,10 +195,6 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
-          SETTINGS_FILE="$HOME/.config/Code/User/settings.json"
-          echo "VS Code settings at: $SETTINGS_FILE"
-          cat "$SETTINGS_FILE" || echo "Settings file not found."
-
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
           # Convert comma-separated skip_tags input into a pipe-separated string
