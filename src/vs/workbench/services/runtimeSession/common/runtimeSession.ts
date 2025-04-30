@@ -950,14 +950,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw new Error(`No session with ID '${sessionId}' was found.`);
 		}
 
+		// Validate the new session name.
+		const validatedName = name.trim();
+		if (validatedName.trim().length === 0) {
+			throw new Error(`Session name cannot be empty.`);
+		}
+
 		// Log the start of the session name update
 		this._logService.info(
-			`Updating session name to ${name} for session ${formatLanguageRuntimeSession(session)}'`);
+			`Updating session name to ${validatedName} for session ${formatLanguageRuntimeSession(session)}'`);
 
 		// Update the sesion name in its dynamic state
-		session.dynState.sessionName = name;
+		session.dynState.sessionName = validatedName;
+
+		// Log the end of the session name update
 		this._logService.info(
-			`Successfully updated session name to ${name} for session ${formatLanguageRuntimeSession(session)}'`);
+			`Successfully updated session name to ${validatedName} for session ${formatLanguageRuntimeSession(session)}'`);
 
 		/**
 		 * Notify listeners that the session name has changed

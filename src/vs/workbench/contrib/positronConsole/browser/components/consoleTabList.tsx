@@ -116,8 +116,11 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 	const handleRenameSubmit = async () => {
 		// Validate the new session name
 		const newName = sessionName.trim();
-		if (!newName || newName === positronConsoleInstance.sessionName) {
+		if (newName.length === 0 || newName === positronConsoleInstance.sessionName) {
+			// Hide the input field
 			setIsRenamingSession(false);
+			// Restore the original session name
+			setSessionName(positronConsoleInstance.sessionName);
 			return;
 		}
 
@@ -137,6 +140,7 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 			);
 			setSessionName(positronConsoleInstance.sessionName);
 		} finally {
+			// Hide the input field
 			setIsRenamingSession(false);
 		}
 	}
