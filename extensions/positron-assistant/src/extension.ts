@@ -153,6 +153,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				isUserSelectable: true,
 				isDefault: isDefault,
 			});
+			isDefault = false; // only the first model is default
 			modelDisposables.push(modelDisp);
 			vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
 		}
