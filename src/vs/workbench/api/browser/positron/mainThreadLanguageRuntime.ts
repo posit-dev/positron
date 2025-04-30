@@ -142,16 +142,13 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		// Save handle
 		this.handle = initialState.handle;
 		this.dynState = {
-			currentWorkingDirectory: '',
 			busy: false,
+			// If the session is a notebook session, set the current notebook URI
+			// to dynamic data so that it can be displayed in the UI.
+			currentNotebookUri: metadata.notebookUri || undefined,
+			currentWorkingDirectory: '',
 			...initialState.dynState,
 		};
-
-		// If the session is a notebook session, set the current notebook URI
-		// to dynamic data so that it can be displayed in the UI.
-		if (metadata.notebookUri) {
-			this.dynState.currentNotebookUri = metadata.notebookUri;
-		}
 
 		// Bind events to emitters
 		this.onDidChangeRuntimeState = this._stateEmitter.event;
@@ -949,11 +946,11 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 
 	getLabel(): string {
-		// If we're a notebook session, use the notebook name, otherwise use the runtime name
+		// If we're a notebook session, use the notebook name, otherwise use the session name
 		if (this.dynState.currentNotebookUri) {
 			return basename(this.dynState.currentNotebookUri);
 		}
-		return this.metadata.sessionName;
+		return this.dynState.sessionName;
 	}
 	static clientCounter = 0;
 
@@ -1373,13 +1370,13 @@ export class MainThreadLanguageRuntime
 		this._disposables.add(
 			this._positronConsoleService.onDidExecuteCode(
 				(event) => {
-					this._proxy.$notifyCodeExecuted(event)
+					this._proxy.$notifyCodeExecuted(event);
 				}
 			));
 		this._disposables.add(
 			this._runtimeNotebookKernelService.onDidExecuteCode(
 				(event) => {
-					this._proxy.$notifyCodeExecuted(event)
+					this._proxy.$notifyCodeExecuted(event);
 				}
 			));
 
@@ -1470,7 +1467,8 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to start a previously registered language runtime
-	async $startLanguageRuntime(runtimeId: string,
+	async $startLanguageRuntime(
+		runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined): Promise<string> {
@@ -1537,7 +1535,7 @@ export class MainThreadLanguageRuntime
 			metadata: {
 				extensionId: extensionId,
 			}
-		}
+		};
 
 		return this._positronConsoleService.executeCode(
 			languageId, code, attribution, focus, allowIncomplete, mode, errorBehavior, executionId);
@@ -1551,7 +1549,7 @@ export class MainThreadLanguageRuntime
 				session.markExited();
 				const exit: ILanguageRuntimeExit = {
 					runtime_name: session.runtimeMetadata.runtimeName,
-					session_name: session.metadata.sessionName,
+					session_name: session.dynState.sessionName,
 					exit_code: 0,
 					reason: RuntimeExitReason.ExtensionHost,
 					message: 'Extension host is shutting down'
@@ -1609,11 +1607,13 @@ export class MainThreadLanguageRuntime
 	 */
 	async restoreSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata):
+		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string
+	):
 		Promise<ILanguageRuntimeSession> {
 
 		const initialState = await this._proxy.$restoreLanguageRuntimeSession(runtimeMetadata,
-			sessionMetadata);
+			sessionMetadata, sessionName);
 		const session = this.createSessionAdapter(initialState, runtimeMetadata, sessionMetadata);
 		this._sessions.set(initialState.handle, session);
 		return session;

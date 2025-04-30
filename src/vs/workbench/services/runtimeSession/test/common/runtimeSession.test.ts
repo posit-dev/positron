@@ -198,7 +198,7 @@ suite.skip('Positron - RuntimeSessionService', () => {
 	async function restoreSession(
 		sessionMetadata: IRuntimeSessionMetadata, runtimeMetadata = runtime,
 	) {
-		await runtimeSessionService.restoreRuntimeSession(runtimeMetadata, sessionMetadata, true);
+		await runtimeSessionService.restoreRuntimeSession(runtimeMetadata, sessionMetadata, sessionName, true);
 
 		// Ensure that the session gets disposed after the test.
 		const session = runtimeSessionService.getSession(sessionMetadata.sessionId);
@@ -211,7 +211,6 @@ suite.skip('Positron - RuntimeSessionService', () => {
 	function restoreConsole(runtimeMetadata = runtime) {
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId: 'test-console-session-id',
-			sessionName,
 			sessionMode: LanguageRuntimeSessionMode.Console,
 			createdTimestamp: Date.now(),
 			notebookUri: undefined,
@@ -223,7 +222,6 @@ suite.skip('Positron - RuntimeSessionService', () => {
 	function restoreNotebook(runtimeMetadata = runtime) {
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId: 'test-notebook-session-id',
-			sessionName,
 			sessionMode: LanguageRuntimeSessionMode.Notebook,
 			createdTimestamp: Date.now(),
 			notebookUri,
@@ -272,7 +270,7 @@ suite.skip('Positron - RuntimeSessionService', () => {
 				const session = await start();
 
 				assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
-				assert.strictEqual(session.metadata.sessionName, sessionName);
+				assert.strictEqual(session.dynState.sessionName, sessionName);
 				assert.strictEqual(session.metadata.sessionMode, mode);
 				assert.strictEqual(session.metadata.startReason, startReason);
 				assert.strictEqual(session.runtimeMetadata, runtime);
@@ -904,7 +902,7 @@ suite.skip('Positron - RuntimeSessionService', () => {
 				activate: true
 			});
 
-			assert.strictEqual(newSession.metadata.sessionName, session.metadata.sessionName);
+			assert.strictEqual(newSession.dynState.sessionName, session.dynState.sessionName);
 			assert.strictEqual(newSession.metadata.sessionMode, session.metadata.sessionMode);
 			assert.strictEqual(newSession.metadata.notebookUri, session.metadata.notebookUri);
 			assert.strictEqual(newSession.runtimeMetadata, session.runtimeMetadata);
@@ -1124,5 +1122,19 @@ suite.skip('Positron - RuntimeSessionService', () => {
 		// Verify no session ID is returned
 		assert.strictEqual(returnedSessionId, undefined,
 			'Function should return undefined when no session exists for the old URI');
+	});
+
+	test('updateSessionName updates session name correctly', async () => {
+		// Create a new session
+		const session = await startConsole();
+		await waitForRuntimeState(session, RuntimeState.Ready);
+		assert.strictEqual(session.dynState.sessionName, runtime.runtimeName, 'Initial session name should match');
+
+		// Set a new name for the session
+		const newName = 'updated-session-name';
+		runtimeSessionService.updateSessionName(session.sessionId, newName);
+
+		// Verify the session's name has been updated
+		assert.strictEqual(session.dynState.sessionName, newName, 'Session name should be updated correctly');
 	});
 });

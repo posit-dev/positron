@@ -54,7 +54,8 @@ export class ArkLsp implements vscode.Disposable {
 
 	public constructor(
 		private readonly _version: string,
-		private readonly _metadata: positron.RuntimeSessionMetadata
+		private readonly _metadata: positron.RuntimeSessionMetadata,
+		private readonly _dynState: positron.LanguageRuntimeDynState,
 	) { }
 
 	private setState(state: LspState) {
@@ -99,7 +100,7 @@ export class ArkLsp implements vscode.Disposable {
 
 		// Persistant output channel, used across multiple sessions of the same name + mode combination
 		const outputChannel = RLspOutputChannelManager.instance.getOutputChannel(
-			this._metadata.sessionName,
+			this._dynState.sessionName,
 			this._metadata.sessionMode
 		);
 
@@ -296,7 +297,7 @@ export class ArkLsp implements vscode.Disposable {
 
 	public showOutput() {
 		const outputChannel = RLspOutputChannelManager.instance.getOutputChannel(
-			this._metadata.sessionName,
+			this._dynState.sessionName,
 			this._metadata.sessionMode
 		);
 		outputChannel.show();

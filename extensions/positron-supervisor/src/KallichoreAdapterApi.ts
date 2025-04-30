@@ -649,7 +649,7 @@ export class KCApi implements PositronSupervisorApi {
 				// The websocket disconnected while the session was still
 				// running. This could signal a problem with the supervisor; we
 				// should see if it's still running.
-				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected ` +
+				this._log.appendLine(`Session '${session.metadata.sessionId}' disconnected ` +
 					`while in state '${evt.state}'. This is unexpected; checking server status.`);
 
 				// If the server did not exit, and the session also appears to
@@ -665,11 +665,11 @@ export class KCApi implements PositronSupervisorApi {
 						// The session could not be reconnected; mark it as
 						// offline and explain to the user what happened.
 						session.markOffline('Lost connection to the session WebSocket event stream and could not restore it: ' + err);
-						vscode.window.showErrorMessage(vscode.l10n.t('Unable to re-establish connection to {0}: {1}', session.metadata.sessionName, err));
+						vscode.window.showErrorMessage(vscode.l10n.t('Unable to re-establish connection to {0}: {1}', session.metadata.sessionId, err));
 					}
 				}
 			} else if (evt.reason === DisconnectReason.Transferred) {
-				this._log.appendLine(`Session '${session.metadata.sessionName}' disconnected ` +
+				this._log.appendLine(`Session '${session.metadata.sessionId}' disconnected ` +
 					`because another client connected to it.`);
 				if (!this._showingDisconnectedWarning) {
 					this._showingDisconnectedWarning = true;
@@ -821,11 +821,14 @@ export class KCApi implements PositronSupervisorApi {
 	 *
 	 * @param runtimeMetadata The metadata for the associated language runtime
 	 * @param sessionMetadata The metadata for the session to be restored
+	 * @param dynState The kernel's initial dynamic state
 	 * @returns The restored session
 	 */
 	async restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
-		sessionMetadata: positron.RuntimeSessionMetadata): Promise<JupyterLanguageRuntimeSession> {
+		sessionMetadata: positron.RuntimeSessionMetadata,
+		dynState: positron.LanguageRuntimeDynState
+	): Promise<JupyterLanguageRuntimeSession> {
 
 		// Ensure the server is started before trying to restore the session
 		await this.ensureStarted();
@@ -837,12 +840,13 @@ export class KCApi implements PositronSupervisorApi {
 				const kcSession = response.body;
 				if (kcSession.status === Status.Exited) {
 					this._log.appendLine(`Attempt to reconnect to session ${sessionMetadata.sessionId} failed because it is no longer running`);
-					reject(`Session ${sessionMetadata.sessionName} (${sessionMetadata.sessionId}) is no longer running`);
+					reject(`Session (${sessionMetadata.sessionId}) is no longer running`);
 					return;
 				}
 
 				// Create the session object
 				const session = new KallichoreSession(sessionMetadata, runtimeMetadata, {
+					sessionName: dynState.sessionName,
 					continuationPrompt: kcSession.continuationPrompt,
 					inputPrompt: kcSession.inputPrompt,
 				}, this._api, false);
@@ -962,13 +966,13 @@ export class KCApi implements PositronSupervisorApi {
 		// Find the session in our list
 		const kallichoreSession = this._sessions.find(s => s.metadata.sessionId === session.metadata.sessionId);
 		if (!kallichoreSession) {
-			vscode.window.showInformationMessage(vscode.l10n.t('Active session {0} not managed by the kernel supervisor', session.metadata.sessionName));
+			vscode.window.showInformationMessage(vscode.l10n.t('Active session {0} not managed by the kernel supervisor', session.dynState.sessionName));
 			return;
 		}
 
 		// Ensure the session is still active
 		if (kallichoreSession.runtimeState === positron.RuntimeState.Exited) {
-			vscode.window.showInformationMessage(vscode.l10n.t('Session {0} is not running', session.metadata.sessionName));
+			vscode.window.showInformationMessage(vscode.l10n.t('Session {0} is not running', session.dynState.sessionName));
 			return;
 		}
 

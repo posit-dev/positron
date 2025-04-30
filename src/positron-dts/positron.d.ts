@@ -471,9 +471,6 @@ declare module 'positron' {
 		/** The ID of this session */
 		readonly sessionId: string;
 
-		/** The user-facing name of this session */
-		readonly sessionName: string;
-
 		/** The session's mode */
 		readonly sessionMode: LanguageRuntimeSessionMode;
 
@@ -510,6 +507,9 @@ declare module 'positron' {
 
 		/** The text the language's interpreter uses to prompt the user for continued input, e.g. "+" or "..." */
 		continuationPrompt: string;
+
+		/** The user-facing name of this session */
+		sessionName: string;
 	}
 
 	export enum LanguageRuntimeStartupBehavior {
@@ -815,12 +815,13 @@ declare module 'positron' {
 		 * @param runtimeMetadata The metadata for the runtime that owns the
 		 * session.
 		 * @param sessionMetadata The metadata for the session to reconnect.
-		 *
+		 * @param sessionName The name of the session to reconnect.
 		 * @returns A Thenable that resolves with the reconnected session, or
 		 * rejects with an error.
 		 */
 		restoreSession?(runtimeMetadata: LanguageRuntimeMetadata,
-			sessionMetadata: RuntimeSessionMetadata):
+			sessionMetadata: RuntimeSessionMetadata,
+			sessionName: string):
 			Thenable<LanguageRuntimeSession>;
 	}
 

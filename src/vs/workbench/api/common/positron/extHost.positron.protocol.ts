@@ -58,7 +58,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 export interface ExtHostLanguageRuntimeShape {
 	$isHostForLanguageRuntime(runtimeMetadata: ILanguageRuntimeMetadata): Promise<boolean>;
 	$createLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<RuntimeInitialState>;
-	$restoreLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata): Promise<RuntimeInitialState>;
+	$restoreLanguageRuntimeSession(runtimeMetadata: ILanguageRuntimeMetadata, sessionMetadata: RuntimeSessionMetadata, sessionName: string): Promise<RuntimeInitialState>;
 	$validateLanguageRuntimeMetadata(metadata: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeMetadata>;
 	$validateLanguageRuntimeSession(metadata: ILanguageRuntimeMetadata, sessionId: string): Promise<boolean>;
 	$disposeLanguageRuntime(handle: number): Promise<void>;
@@ -82,7 +82,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$discoverLanguageRuntimes(disabledLanguageIds: string[]): void;
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
 	$notifyForegroundSessionChanged(sessionId: string | undefined): void;
-	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void
+	$notifyCodeExecuted(event: ILanguageRuntimeCodeExecutedEvent): void;
 }
 
 // This is the interface that the main process exposes to the extension host

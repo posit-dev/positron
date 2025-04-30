@@ -541,7 +541,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			if (existingClients.length > 1) {
 				const clientIds = existingClients.map(client => client.getClientId()).join(', ');
 				this._logService.warn(
-					`Session ${session.metadata.sessionName} has multiple help clients: ` +
+					`Session ${session.dynState.sessionName} has multiple help clients: ` +
 					`${clientIds}`);
 			}
 

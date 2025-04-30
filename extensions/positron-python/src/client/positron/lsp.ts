@@ -50,10 +50,11 @@ export class PythonLsp implements vscode.Disposable {
         private readonly _version: string,
         private readonly _clientOptions: LanguageClientOptions,
         private readonly _metadata: positron.RuntimeSessionMetadata,
+        private readonly _dynState: positron.LanguageRuntimeDynState,
     ) {
         // Persistant output channel, used across multiple sessions of the same name + mode combination
         this._outputChannel = PythonLspOutputChannelManager.instance.getOutputChannel(
-            this._metadata.sessionName,
+            this._dynState.sessionName,
             this._metadata.sessionMode,
         );
     }

@@ -8,7 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionMetadata, LanguageRuntimeSessionChannel, RuntimeClientType } from '../../common/runtimeSessionService.js';
-import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageIPyWidget, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, ILanguageRuntimeStartupFailure, LanguageRuntimeMessageType, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeClientEvent } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 import { TestRuntimeClientInstance } from '../../../languageRuntime/test/common/testRuntimeClientInstance.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
@@ -70,14 +70,9 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 	// Track the working directory.
 	private _workingDirectory = '';
 
-	readonly dynState = {
-		inputPrompt: `T>`,
-		continuationPrompt: 'T+',
-		currentWorkingDirectory: '',
-		busy: false,
-	};
-
 	readonly sessionId: string;
+
+	dynState: ILanguageRuntimeSessionState;
 
 	clientInstances = new Array<IRuntimeClientInstance<any, any>>();
 
@@ -86,6 +81,14 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		readonly runtimeMetadata: ILanguageRuntimeMetadata,
 	) {
 		super();
+
+		this.dynState = {
+			inputPrompt: `T>`,
+			continuationPrompt: 'T+',
+			currentWorkingDirectory: '',
+			busy: false,
+			sessionName: this.runtimeMetadata.runtimeName,
+		};
 
 		this.sessionId = this.metadata.sessionId;
 
@@ -264,7 +267,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			this._onDidChangeRuntimeState.fire(RuntimeState.Exited);
 			this._onDidEndSession.fire({
 				runtime_name: this.runtimeMetadata.runtimeName,
-				session_name: this.metadata.sessionName,
+				session_name: this.dynState.sessionName,
 				exit_code: 0,
 				reason: exitReason,
 				message: '',
@@ -447,12 +450,12 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			message: exit?.message ?? '',
 			reason: exit?.reason ?? RuntimeExitReason.Unknown,
 			runtime_name: this.runtimeMetadata.runtimeName,
-			session_name: this.metadata.sessionName
+			session_name: this.dynState.sessionName
 		});
 	}
 
 	getLabel(): string {
-		return this.runtimeMetadata.runtimeName;
+		return this.dynState.sessionName;
 	}
 }
 

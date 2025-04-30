@@ -142,10 +142,11 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
-		sessionMetadata: positron.RuntimeSessionMetadata): Thenable<positron.LanguageRuntimeSession> {
+		sessionMetadata: positron.RuntimeSessionMetadata,
+		sessionName: string): Thenable<positron.LanguageRuntimeSession> {
 
 		// When restoring an existing session, the kernelspec is stored.
-		const session = new RSession(runtimeMetadata, sessionMetadata);
+		const session = new RSession(runtimeMetadata, sessionMetadata, undefined, undefined, sessionName);
 
 		return Promise.resolve(session);
 	}

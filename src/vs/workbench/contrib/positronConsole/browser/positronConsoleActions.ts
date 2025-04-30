@@ -39,8 +39,6 @@ const enum PositronConsoleCommandId {
 	ClearInputHistory = 'workbench.action.positronConsole.clearInputHistory',
 	ExecuteCode = 'workbench.action.positronConsole.executeCode',
 	FocusConsole = 'workbench.action.positronConsole.focusConsole',
-	NewConsoleSession = 'workbench.action.positronConsole.newConsoleSession',
-	NewConsoleSessionActiveRuntime = 'workbench.action.positronConsole.newConsoleSessionActiveRuntime'
 }
 
 /**

@@ -79,9 +79,6 @@ export interface IRuntimeSessionMetadata {
 	/** The unique identifier of the session */
 	readonly sessionId: string;
 
-	/** A user-friendly name for the session */
-	readonly sessionName: string;
-
 	/** The session's mode  */
 	readonly sessionMode: LanguageRuntimeSessionMode;
 
@@ -267,12 +264,14 @@ export interface ILanguageRuntimeSessionManager {
 	 * @param runtimeMetadata The metadata of the runtime for which a session is
 	 *  	to be restored (reconnected).
 	 * @param sessionMetadata The metadata of the session to be restored.
+	 * @param sessionName A human-readable (displayed) name for the session.
 	 *
 	 * @returns A promise that resolves to the reconnected session.
 	 */
 	restoreSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
-		sessionMetadata: IRuntimeSessionMetadata):
+		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string):
 		Promise<ILanguageRuntimeSession>;
 
 	/**
@@ -334,6 +333,9 @@ export interface IRuntimeSessionService {
 
 	// An event that fires when a notebook session's URI is updated.
 	readonly onDidUpdateNotebookSessionUri: Event<INotebookSessionUriChangedEvent>;
+
+	// An event that fires when a runtime session name changes.
+	readonly onDidUpdateSessionName: Event<ILanguageRuntimeSession>;
 
 	/**
 	 * Gets the active runtime sessions
@@ -404,7 +406,8 @@ export interface IRuntimeSessionService {
 	 *
 	 * Returns a promise that resolves to the session ID of the new session.
 	 */
-	startNewRuntimeSession(runtimeId: string,
+	startNewRuntimeSession(
+		runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
@@ -427,11 +430,13 @@ export interface IRuntimeSessionService {
 	 *
 	 * @param runtimeMetadata The metadata of the runtime to start.
 	 * @param sessionMetadata The metadata of the session to start.
+	 * @param sessionName A human-readable (displayed) name for the session.
 	 * @param activate Whether to activate/focus the session after it is reconnected.
 	 */
 	restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string,
 		activate: boolean): Promise<void>;
 
 	/**
@@ -483,6 +488,14 @@ export interface IRuntimeSessionService {
 	 * @param sessionId The identifier of the session to interrupt.
 	 */
 	interruptSession(sessionId: string): Promise<void>;
+
+	/**
+	 * Update the name of an active runtime session.
+	 *
+	 * @param sessionId The identifier of the session to update.
+	 * @param name The new name for the session.
+	 */
+	updateSessionName(sessionId: string, name: string): void;
 
 	/**
 	 * Shutdown a runtime session for a notebook.

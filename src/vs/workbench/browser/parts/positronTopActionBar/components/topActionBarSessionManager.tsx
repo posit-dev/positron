@@ -30,11 +30,10 @@ export const TopActionBarSessionManager = () => {
 	const context = usePositronTopActionBarContext();
 
 	const [activeSession, setActiveSession] = useState<ILanguageRuntimeSession>();
-
-	const labelText = activeSession?.runtimeMetadata?.runtimeName ?? startSession;
+	const [labelText, setLabelText] = useState<string>(activeSession?.dynState?.sessionName ?? startSession);
 
 	// Check if there are any active console sessions to determine
-	// if the active session picker or the create session pikcer
+	// if the active session picker or the create session picker
 	// should be shown.
 	const hasActiveConsoleSessions = context.runtimeSessionService.activeSessions.find(
 		session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console);
@@ -53,8 +52,19 @@ export const TopActionBarSessionManager = () => {
 				if (session?.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 					setActiveSession(
 						context.runtimeSessionService.foregroundSession);
+					setLabelText(session.dynState.sessionName);
 				} else if (!session) {
 					setActiveSession(undefined);
+					setLabelText(startSession);
+				}
+			})
+		);
+
+		// Add the onDidUpdateSessionName event handler.
+		disposableStore.add(
+			context.runtimeSessionService.onDidUpdateSessionName(session => {
+				if (session.sessionId === context.runtimeSessionService.foregroundSession?.sessionId) {
+					setLabelText(session.dynState.sessionName);
 				}
 			})
 		);

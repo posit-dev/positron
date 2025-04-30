@@ -118,6 +118,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         readonly metadata: positron.RuntimeSessionMetadata,
         readonly serviceContainer: IServiceContainer,
         readonly kernelSpec?: JupyterKernelSpec | undefined,
+        sessionName?: string,
     ) {
         // Extract the extra data from the runtime metadata; it contains the
         // Python path that was saved when the metadata was created.
@@ -135,6 +136,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._lspQueue = new PQueue({ concurrency: 1 });
 
         this.dynState = {
+            sessionName: sessionName || runtimeMetadata.runtimeName,
             inputPrompt: '>>>',
             continuationPrompt: '...',
         };
@@ -515,6 +517,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this.runtimeMetadata.languageVersion,
             languageClientOptions,
             this.metadata,
+            this.dynState,
         );
     }
 
@@ -727,7 +730,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                   createJupyterKernelExtra(),
               )
             : // We don't have a kernel spec, so we're restoring a session
-              await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata);
+              await this.adapterApi.restoreSession(this.runtimeMetadata, this.metadata, this.dynState);
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);

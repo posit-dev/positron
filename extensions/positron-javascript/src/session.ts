@@ -34,6 +34,7 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 		readonly context: vscode.ExtensionContext) {
 
 		this.dynState = {
+			sessionName: runtimeMetadata.runtimeName,
 			inputPrompt: `>`,
 			continuationPrompt: '…',
 		};
