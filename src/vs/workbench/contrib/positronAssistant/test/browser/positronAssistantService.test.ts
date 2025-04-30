@@ -18,12 +18,11 @@ import { TestPositronVariablesService } from '../../../../services/positronVaria
 import { IPositronConsoleService } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { TestPositronConsoleService } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
-import { TestPositronPlotsService } from '../../../../services/positronPlots/test/common/testPositronPlotsService.js';
-// import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { ExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistory.js';
 import { IRuntimeStartupService } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
 import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { createTestPlotsServiceWithPlots } from '../../../../services/positronPlots/test/common/testPlotsServiceHelper.js';
 
 suite('PositronAssistantService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -38,7 +37,7 @@ suite('PositronAssistantService', () => {
 		// Set up the test runtime services
 		instantiationService.stub(IPositronVariablesService, disposables.add(new TestPositronVariablesService()));
 		instantiationService.stub(IPositronConsoleService, testConsoleService);
-		instantiationService.stub(IPositronPlotsService, disposables.add(new TestPositronPlotsService()));
+		instantiationService.stub(IPositronPlotsService, disposables.add(createTestPlotsServiceWithPlots()));
 		instantiationService.stub(IRuntimeStartupService, new TestRuntimeStartupService());
 		createRuntimeServices(instantiationService, disposables);
 		instantiationService.stub(IExecutionHistoryService, disposables.add(instantiationService.createInstance(ExecutionHistoryService)));
@@ -102,7 +101,8 @@ suite('PositronAssistantService', () => {
 			state: RuntimeOnlineState.Idle
 		});
 
-		// Simulate input and output messages
+		// Second execution: sqrt(16)
+
 		testSession.receiveInputMessage({
 			parent_id: executionId2,
 			code: 'sqrt(16)',
@@ -148,9 +148,6 @@ suite('PositronAssistantService', () => {
 		const executionId2 = 'exec2';
 
 		// First execution: print("Hello, world!")
-		testSession.execute('print("Hello, world!")', executionId1, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Stop);
-
-		// Simulate input and output messages
 		testSession.receiveInputMessage({
 			parent_id: executionId1,
 			code: 'print("Hello, world!")',

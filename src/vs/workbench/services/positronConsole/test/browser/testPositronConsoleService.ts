@@ -12,10 +12,9 @@ import { ActivityItemPrompt } from '../../browser/classes/activityItemPrompt.js'
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
-import { ServiceCollection } from '../../../../../platform/instantiation/common/serviceCollection.js';
 
 /**
- * Test implementation of IPositronConsoleService for use in tests.
+ * Implementation of IPositronConsoleService for use in tests.
  */
 export class TestPositronConsoleService implements IPositronConsoleService {
 	declare readonly _serviceBrand: undefined;
@@ -172,7 +171,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string
 	): Promise<string> {
-		const runtimeName = "Test Runtime";
+		const runtimeName = 'Test Runtime';
 
 		// Create a code executed event
 		const event: ILanguageRuntimeCodeExecutedEvent = {
@@ -188,7 +187,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		this._onDidExecuteCodeEmitter.fire(event);
 
 		// In a test environment, just return a dummy session ID
-		return "test-session-id";
+		return 'test-session-id';
 	}
 
 	/**
@@ -219,7 +218,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		languageId: string,
 		code: string,
 		attribution: IConsoleCodeAttribution = { source: CodeAttributionSource.Interactive },
-		runtimeName: string = "Test Runtime",
+		runtimeName: string = 'Test Runtime',
 		mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive,
 		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue
 	): ILanguageRuntimeCodeExecutedEvent {
@@ -584,15 +583,4 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		(this.runtimeItems as RuntimeItem[]).push(runtimeItem);
 		this._onDidChangeRuntimeItemsEmitter.fire();
 	}
-}
-
-/**
- * Adds test implementations of the positron console services to a service collection.
- * @param services The service collection to add to.
- * @returns The test positron console service.
- */
-export function addTestPositronConsoleServices(services: ServiceCollection): TestPositronConsoleService {
-	const testService = new TestPositronConsoleService();
-	services.set(IPositronConsoleService, testService);
-	return testService;
 }

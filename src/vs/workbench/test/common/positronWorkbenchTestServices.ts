@@ -154,4 +154,4 @@ export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager
  * This allows test files to import from positronWorkbenchTestServices.ts
  * rather than directly from the test implementation.
  */
-export { TestPositronConsoleService, TestPositronConsoleInstance } from '../../services/positronConsole/test/common/testPositronConsoleService.js';
+export { TestPositronConsoleService, TestPositronConsoleInstance } from '../../services/positronConsole/test/browser/testPositronConsoleService.js';

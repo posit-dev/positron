@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,7 +12,7 @@ import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageR
 /**
  * TestPositronPlotsService class.
  *
- * This is a test implementation of the IPositronPlotsService for use in tests.
+ * This is an implementation of the IPositronPlotsService for use in tests.
  */
 export class TestPositronPlotsService extends Disposable implements IPositronPlotsService {
 	//#region Private Properties
