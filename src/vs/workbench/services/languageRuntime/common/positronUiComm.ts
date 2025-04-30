@@ -884,8 +884,9 @@ export class PositronUiComm extends PositronBaseComm {
 	 *
 	 * @param settings Plot rendering settings.
 	 *
+	 * @returns Unused response to notification
 	 */
-	didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
+	didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<null> {
 		return super.performRpc('did_change_plots_render_settings', ['settings'], [settings]);
 	}
 

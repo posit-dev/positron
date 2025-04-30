@@ -17,7 +17,14 @@
 						"$ref": "plot-backend-openrpc.json#/components/schemas/plot_render_settings"
 					}
 				}
-			]
+			],
+			"result": {
+				"schema": {
+					"name": "did_change_plots_render_settings_result",
+					"description": "Unused response to notification",
+					"type": "null"
+				}
+			}
 		},
 		{
 			"name": "call_method",
