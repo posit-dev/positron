@@ -24,6 +24,7 @@ import { ILanguageModelsService, IPositronChatProvider } from '../../common/lang
 import { PositronChatContextProvider } from './chatContext.js';
 import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ChatInputPart } from '../chatInputPart.js';
+import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 
 export class ChatActionBarControl extends Disposable {
 	private _container?: HTMLElement;
@@ -43,6 +44,7 @@ export class ChatActionBarControl extends Disposable {
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
 		@IModelService private readonly _modelService: IModelService,
+		@IThemeService private readonly _themeService: IThemeService,
 	) {
 		super();
 
@@ -60,6 +62,7 @@ export class ChatActionBarControl extends Disposable {
 				hoverService={this._hoverService}
 				keybindingService={this._keybindingService}
 				layoutService={this._layoutService}
+				themeService={this._themeService}
 			>
 				<PositronChatContextProvider
 					chatInput={this._chatInput}
