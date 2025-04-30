@@ -285,7 +285,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet',
+			name: 'Claude 3.5 Sonnet v2',
 			model: 'claude-3-5-sonnet-latest',
 			toolCalls: true,
 		},
@@ -499,7 +499,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		},
 		supportedOptions: ['toolCalls'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet v2',
+			name: 'Claude 3.5 Sonnet v2 Bedrock',
 			model: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
 			toolCalls: true,
 		},
@@ -588,3 +588,48 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 		return GoogleLanguageModel.source.provider.displayName;
 	}
 }
+
+// Note: we don't query for available models using any provider API since it may return ones that are not
+// suitable for chat and we don't want the selection to be too large
+export const availableModels = new Map<string, { name: string; identifier: string }[]>(
+	[
+		['anthropic', [
+			{
+				name: 'Claude 3.7 Sonnet v1',
+				identifier: 'claude-3-7-sonnet-latest'
+			},
+			{
+				name: 'Claude 3.5 Sonnet v2',
+				identifier: 'claude-3-5-sonnet-latest'
+			},
+		]],
+		['google', [
+			{
+				name: 'Gemini 2.5 Flash',
+				identifier: 'gemini-2.5-pro-exp-03-25',
+			},
+			{
+				name: 'Gemini 2.0 Flash',
+				identifier: 'gemini-2.0-flash-exp',
+			},
+			{
+				name: 'Gemini 1.5 Flash 002',
+				identifier: 'gemini-1.5-flash-002',
+			},
+		]],
+		['bedrock', [
+			{
+				name: 'Claude 3.7 Sonnet v1 Bedrock',
+				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+			},
+			{
+				name: 'Claude 3.5 Sonnet v2 Bedrock',
+				identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
+			},
+			{
+				name: 'Claude 3.5 Sonnet v1 Bedrock',
+				identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
+			},
+		]]
+	]
+);
