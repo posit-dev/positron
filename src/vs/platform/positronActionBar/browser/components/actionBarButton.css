@@ -42,6 +42,11 @@
 	background: var(--positronActionBar-hoverBackground);
 }
 
+.hc-black .action-bar-button:hover,
+.hc-light .action-bar-button:hover {
+	border: 1px dashed var(--vscode-focusBorder);
+}
+
 .action-bar-button.fade-in {
 	opacity: 0;
 	animation: positronActionBarButton-fadeIn 0.25s ease-in 0.25s 1 forwards;

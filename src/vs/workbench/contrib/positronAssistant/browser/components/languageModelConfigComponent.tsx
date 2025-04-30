@@ -19,18 +19,30 @@ interface LanguageModelConfigComponentProps {
 	onSignIn: () => void,
 }
 
+const TOS_TEMPLATE = `{0} is considered "Third Party Materials" as defined in the [Posit EULA](https://posit.co/about/eula/)
+and subject to the {0} terms of service at {1} and privacy policy at {2}.\n\n
+Your use of {0} is optional and at your sole risk.`
+
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	function getTos(provider: string) {
 		switch (provider) {
 			case 'anthropic':
-				return localize('positron.newConnectionModalDialog.anthropicTos',
-					"By using Anthropic, you agree to abide by their [Consumer](https://www.anthropic.com/legal/consumer-terms) or [Commercial](https://www.anthropic.com/legal/commercial-terms) terms of service.");
+				return localize('positron.newConnectionModalDialog.tos', TOS_TEMPLATE,
+					'Anthropic',
+					'[Terms of Service](https://www.anthropic.com/legal/consumer-terms)',
+					'[Privacy Policy](https://www.anthropic.com/legal/privacy)');
 			case 'google':
-				return localize('positron.newConnectionModalDialog.googleTos',
-					"By using Gemini, you agree to abide by their [Terms of Service](https://gemini.google/policy-guidelines).");
+				return localize('positron.newConnectionModalDialog.tos', TOS_TEMPLATE,
+					'Google Gemini',
+					'[Terms of Service](https://policies.google.com/terms)',
+					'[Privacy Policy](https://policies.google.com/privacy)'
+				);
 			case 'copilot':
-				return localize('positron.newConnectionModalDialog.copilotTos',
-					"By using Github Copilot, you agree to abide by their [Terms of Service](https://github.com/customer-terms/github-copilot-product-specific-terms)");
+				return localize('positron.newConnectionModalDialog.tos', TOS_TEMPLATE,
+					'Copilot',
+					'[Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#github-copilot)',
+					'[Privacy Policy](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#personal-data-we-collect)'
+				);
 			default:
 				return '';
 		}
