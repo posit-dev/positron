@@ -182,7 +182,7 @@ def test_mpl_render(shell: PositronShell, plots_service: PlotsService, images_pa
         assert percent_difference(image.size[1], expected_size[1] * pixel_ratio) <= threshold
 
         # Check the rest of the response.
-        assert response == json_rpc_response({"mime_type": f"image/{format_}"})
+        assert response == json_rpc_response({"mime_type": f"image/{format_}", "policy": None})
 
     verify_response(response, "test-mpl-render-0-explicit-size", (size.width, size.height))
 
