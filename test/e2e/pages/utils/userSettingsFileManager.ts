@@ -26,13 +26,10 @@ export class UserSettingsFileManager {
 		}
 	}
 
-	public async ensureExists(): Promise<boolean> {
-		let needsReload = false;
+	public async ensureExists(): Promise<void> {
 		if (!(await this.exists())) {
 			await this.writeDummy();
-			needsReload = true;
 		}
-		return needsReload;
 	}
 
 	public async backupIfExists(): Promise<void> {

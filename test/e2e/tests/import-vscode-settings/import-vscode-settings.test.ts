@@ -44,12 +44,12 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 		test('Verify import prompt behavior on "Later"', async ({ runCommand, app }) => {
 			const { popups } = app.workbench;
 
-			// Select "Later" and verify that the prompt is no longer visible
+			// select "Later" and verify that the prompt is no longer visible
 			await popups.expectImportPromptToBeVisible();
 			await popups.laterButton.click();
 			await popups.expectImportPromptToBeVisible(false);
 
-			// Reload the window and verify that the prompt is shown again
+			// reload the window and verify that the prompt is shown again
 			await runCommand('workbench.action.reloadWindow');
 			await popups.expectImportPromptToBeVisible();
 		});
@@ -57,12 +57,12 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
 		test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, runCommand }) => {
 			const { popups } = app.workbench;
 
-			// Select "Don't Show Again" and verify that the prompt is no longer visible
+			// select "Don't Show Again" and verify that the prompt is no longer visible
 			await popups.expectImportPromptToBeVisible();
 			await popups.doNotShowAgainButton.click();
 			await popups.expectImportPromptToBeVisible(false);
 
-			// Verify that prompt is not shown again
+			// verify that prompt is not shown again
 			await runCommand('workbench.action.reloadWindow');
 			await sessions.expectNoStartUpMessaging();
 			await popups.expectImportPromptToBeVisible(false);
