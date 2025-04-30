@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
-import { IntrinsicSize, RenderFormat } from './positronPlotComm.js';
+import { IntrinsicSize, PlotResult, RenderFormat } from './positronPlotComm.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { DeferredRender, IRenderedPlot, PositronPlotCommProxy, RenderRequest } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
@@ -63,6 +63,9 @@ export interface IPositronPlotMetadata {
 
 	/** The plot's location for display. */
 	location?: PlotClientLocation;
+
+	/** The pre-rendering of the plot for initial display, if any. */
+	pre_render?: PlotResult;
 }
 
 /**
@@ -155,8 +158,28 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	constructor(
 		private readonly _commProxy: PositronPlotCommProxy,
 		private _sizingPolicy: IPositronPlotSizingPolicy,
-		public readonly metadata: IPositronPlotMetadata) {
+		public readonly metadata: IPositronPlotMetadata
+	) {
 		super();
+		// If the plot comes with a pre-rendering, set it as the last render. This
+		// will be picked up automatically by the plot instance component. This is
+		// also used to bypass render request if the pre-rendering render policy
+		// (size, pixel ratio, and format) matches.
+		if (metadata.pre_render) {
+			const preRender = metadata.pre_render;
+
+			// The policy should normally be defined in a pre-render result but we
+			// check just in case
+			if (preRender.policy) {
+				const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
+				this._lastRender = {
+					uri,
+					size: preRender.policy.size,
+					pixel_ratio: preRender.policy.pixel_ratio,
+					renderTimeMs: 0,
+				};
+			}
+		}
 
 		// Connect close emitter event
 		this.onDidClose = this._closeEmitter.event;

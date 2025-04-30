@@ -98,6 +98,5 @@ export async function getCodeSettingsPath(
 		default:
 			throw new Error('Platform not supported');
 	}
-	console.log('[import]', 'AppData path:', appDataPath.toString());
 	return appDataPath.with({ path: path.join(appDataPath.path, 'Code', 'User', 'settings.json') });
 }

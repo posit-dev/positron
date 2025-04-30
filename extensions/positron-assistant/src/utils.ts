@@ -5,13 +5,13 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
-import { isLanguageModelImagePart } from './languageModelParts.js';
 import { PositronAssistantToolName } from './tools.js';
+import { isLanguageModelImagePart } from './languageModelParts.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
  */
-export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.CoreMessage[] {
+export function toAIMessage(messages: vscode.LanguageModelChatMessage2[]): ai.CoreMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
 		for (const part of message.content) {
@@ -30,23 +30,28 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 			// Vercel AI expects them to have a special 'tool' role.
 			// Split this message into separate 'user' and 'tool'
 			// messages.
-			const textParts = message.content.filter((part) => part instanceof vscode.LanguageModelTextPart);
-			const toolParts = message.content.filter((part) => part instanceof vscode.LanguageModelToolResultPart);
-			if (textParts.length > 0) {
+
+			// Add the user messages.
+			const userContent: ai.UserContent = [];
+			for (const part of message.content) {
+				if (part instanceof vscode.LanguageModelTextPart) {
+					userContent.push({ type: 'text', text: part.value });
+				} else if (part instanceof vscode.LanguageModelDataPart) {
+					if (isChatImagePart(part.value)) {
+						userContent.push({ type: 'image', image: part.value.data, mimeType: part.value.mimeType });
+					}
+				}
+			}
+			if (userContent.length > 0) {
 				aiMessages.push({
 					role: 'user',
-					content: textParts.map((part) => {
-						// TODO: Handle binary references.
-						const binaryMatch = /<<referenceBinary:(\w+)>>/;
-						if (part.value.match(binaryMatch)) {
-							return { type: 'text', text: part.value };
-						}
-						return { type: 'text', text: part.value };
-					}),
+					content: userContent
 				});
 			}
-			if (toolParts.length > 0) {
-				toolParts.forEach((part) => {
+
+			// Add the tool messages.
+			for (const part of message.content) {
+				if (part instanceof vscode.LanguageModelToolResultPart) {
 					const toolCall = toolCalls[part.callId];
 					if (toolCall.name === PositronAssistantToolName.GetPlot) {
 						aiMessages.push(getPlotToolResultToAiMessage(part));
@@ -63,8 +68,9 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 							],
 						});
 					}
-				});
+				}
 			}
+
 		} else if (message.role === vscode.LanguageModelChatMessageRole.Assistant) {
 			aiMessages.push({
 				role: 'assistant',
@@ -103,7 +109,7 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage[]): ai.Cor
 /**
  * Convert a getPlot tool result into a Vercel AI message.
  */
-function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart): ai.CoreMessage {
+function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart): ai.CoreUserMessage {
 	// Vercel AI doesn't support image tool results. Convert
 	// an image result into a user message containing the image.
 	const imageParts = part.content.filter((content) => isLanguageModelImagePart(content));
@@ -134,43 +140,6 @@ function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart):
 	};
 }
 
-export type BinaryMessageReferences = Record<string, { mimeType: string; data: string }>;
-
-/**
- * Replace embedded binary file references with specific vercel AI message part types.
- */
-export function replaceBinaryMessageParts(messages: ai.CoreMessage[], references: BinaryMessageReferences): ai.CoreMessage[] {
-	const binaryMatch = /<<referenceBinary:(\w+)>>/;
-
-	return messages.map((message): ai.CoreMessage => {
-		if (typeof message.content === 'string' || message.role !== 'user') {
-			return message;
-		}
-
-		const content = message.content.map((part) => {
-			if (part.type === 'text') {
-				const match = part.text.match(binaryMatch);
-				if (match) {
-					const id = match[1];
-					const ref = references[id];
-					switch (ref.mimeType) {
-						case 'image/jpeg':
-						case 'image/png':
-						case 'image/gif':
-						case 'image/webp':
-							return { type: 'image' as const, image: ref.data, mimeType: ref.mimeType };
-						default:
-							return { type: 'file' as const, data: ref.data, mimeType: ref.mimeType };
-					}
-				}
-			}
-			return part;
-		});
-
-		return { ...message, content };
-	});
-}
-
 /**
  * Convert chat participant history into an array of VSCode language model messages.
  */
@@ -190,9 +159,11 @@ export function toLanguageModelChatMessage(turns: vscode.ChatContext['history'])
 					return acc + content.value.value;
 				} else if (content instanceof vscode.ChatResponseTextEditPart) {
 					return acc + `\n\nSuggested text edits: ${JSON.stringify(content.edits)}\n\n`;
+				} else if (content instanceof vscode.ChatResponseAnchorPart) {
+					return acc + `\n\nAnchor: ${content.title ? `${content.title} ` : ''}${JSON.stringify(content.value2)}\n\n`;
 				} else {
 					// TODO: Lower more history entry types to text.
-					throw new Error('Unsupported response kind when lowering chat agent response');
+					throw new Error(`Unsupported response kind when lowering chat agent response: ${content.constructor.name}`);
 				}
 			}, '');
 			return textValue === '' ? null : vscode.LanguageModelChatMessage.Assistant(textValue);
@@ -200,20 +171,10 @@ export function toLanguageModelChatMessage(turns: vscode.ChatContext['history'])
 	}).filter((message) => !!message);
 }
 
-export function padBase64String(base64: string): string {
-	const padding = 4 - (base64.length % 4);
-	if (padding === 4) {
-		return base64;
-	}
-	return base64 + '='.repeat(padding);
+export function isChatImagePart(part: vscode.LanguageModelDataPart['value']): part is vscode.ChatImagePart {
+	return 'mimeType' in part && isChatImageMimeType(part.mimeType);
 }
 
-export function arrayBufferToBase64(array: ArrayBufferLike): string {
-	const uint8Array = new Uint8Array(array);
-	let binary = '';
-	const len = array.byteLength;
-	for (let i = 0; i < len; i++) {
-		binary += String.fromCharCode(uint8Array[i]);
-	}
-	return btoa(binary);
+export function isChatImageMimeType(mimeType: string): mimeType is vscode.ChatImageMimeType {
+	return Object.values(vscode.ChatImageMimeType).includes(mimeType as vscode.ChatImageMimeType);
 }

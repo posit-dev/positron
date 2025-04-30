@@ -21,7 +21,7 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 @enum.unique
 class RenderFormat(str, enum.Enum):
     """
-    Possible values for Format in Render
+    Possible values for RenderFormat
     """
 
     Png = "png"
@@ -81,6 +81,11 @@ class PlotResult(BaseModel):
         description="The MIME type of the plot data",
     )
 
+    policy: Optional[RenderPolicy] = Field(
+        default=None,
+        description="The policy used to render the plot",
+    )
+
 
 class PlotSize(BaseModel):
     """
@@ -93,6 +98,24 @@ class PlotSize(BaseModel):
 
     width: StrictInt = Field(
         description="The plot's width, in pixels",
+    )
+
+
+class RenderPolicy(BaseModel):
+    """
+    The policy used to render the plot
+    """
+
+    size: PlotSize = Field(
+        description="Plot size of the render policy",
+    )
+
+    pixel_ratio: Union[StrictInt, StrictFloat] = Field(
+        description="The pixel ratio of the display device",
+    )
+
+    format: RenderFormat = Field(
+        description="Format of the render policy",
     )
 
 
@@ -191,6 +214,8 @@ IntrinsicSize.update_forward_refs()
 PlotResult.update_forward_refs()
 
 PlotSize.update_forward_refs()
+
+RenderPolicy.update_forward_refs()
 
 GetIntrinsicSizeRequest.update_forward_refs()
 

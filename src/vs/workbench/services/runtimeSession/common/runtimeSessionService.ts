@@ -356,14 +356,12 @@ export interface IRuntimeSessionService {
 	getActiveSession(sessionId: string): ActiveRuntimeSession | undefined;
 
 	/**
-	 * Gets a specific runtime console by runtime identifier. Currently, only
-	 * one console can exist per runtime ID.
+	 * Gets the last created console session by runtime identifier
 	 */
 	getConsoleSessionForRuntime(runtimeId: string): ILanguageRuntimeSession | undefined;
 
 	/**
-	 * Gets a specific runtime console by language identifier. Currently, only
-	 * one console can exist per language ID.
+	 * Gets the last used console session by language identifier
 	 */
 	getConsoleSessionForLanguage(languageId: string): ILanguageRuntimeSession | undefined;
 
@@ -477,7 +475,7 @@ export interface IRuntimeSessionService {
 	 * @param sessionId The identifier of the session to restart.
 	 * @param source The source of the request to restart the session, for debugging purposes.
 	 */
-	restartSession(sessionId: string, source: string): Promise<void>;
+	restartSession(sessionId: string, source: string, interrupt?: boolean): Promise<void>;
 
 	/**
 	 * Interrupt a runtime session.

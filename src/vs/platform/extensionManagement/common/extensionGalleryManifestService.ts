@@ -46,7 +46,9 @@ export class ExtensionGalleryManifestService extends Disposable implements IExte
 				type: ExtensionGalleryResourceType.ExtensionQueryService
 			},
 			{
-				id: `${extensionsGallery.serviceUrl}/vscode/{publisher}/{name}/latest`,
+				// --- Start PWB: Fix Open VSX URLs ---
+				id: `${extensionsGallery.serviceUrl}/{publisher}/{name}/latest`,
+				// --- End PWB: Fix Open VSX URLs ---
 				type: ExtensionGalleryResourceType.ExtensionLatestVersionUri
 			},
 			{

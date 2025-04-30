@@ -35,8 +35,8 @@ import { IPositronTopActionBarService } from '../../../services/positronTopActio
 import { TopActionBarCommandCenter } from './components/topActionBarCommandCenter.js';
 import { PositronTopActionBarContextProvider } from './positronTopActionBarContext.js';
 import { TopActionBarCustomFolderMenu } from './components/topActionBarCustomFolderMenu.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { TopActionBarInterpretersManager } from './components/topActionBarInterpretersManager.js';
+import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { TopActionBarSessionManager } from './components/topActionBarSessionManager.js';
 import { SAVE_ALL_COMMAND_ID, SAVE_FILE_COMMAND_ID } from '../../../contrib/files/browser/fileConstants.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 
@@ -118,38 +118,10 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 		return () => disposableStore.dispose();
 	}, [props.positronTopActionBarContainer]);
 
-	/**
-	 * startRuntime event handler.
-	 * @param runtimeToStart An ILanguageRuntime representing the runtime to start.
-	 */
-	const startRuntimeHandler = async (runtimeToStart: ILanguageRuntimeMetadata): Promise<void> => {
-		return props.runtimeSessionService.selectRuntime(runtimeToStart.runtimeId,
-			`User-requested startup from the Positron top action bar`);
-	};
-
-	/**
-	 * activateRuntime event handler.
-	 * @param runtime An ILanguageRuntime representing the runtime to activate.
-	 */
-	const activateRuntimeHandler = async (runtime: ILanguageRuntimeMetadata): Promise<void> => {
-		// See if there's a session active for the runtime.
-		const session =
-			props.runtimeSessionService.getConsoleSessionForRuntime(runtime.runtimeId);
-
-		if (session) {
-			// The session is already active, so just set it as the foreground session.
-			props.runtimeSessionService.foregroundSession = session;
-		} else {
-			// The session is not active; start a new session for the runtime.
-			await startRuntimeHandler(runtime);
-		}
-	};
-
 	// Render.
 	return (
 		<PositronTopActionBarContextProvider {...props}>
 			<PositronActionBarContextProvider {...props}>
-
 				<PositronActionBar
 					borderBottom={true}
 					paddingLeft={kHorizontalPadding}
@@ -172,10 +144,8 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 							icon={ThemeIcon.fromId('positron-save-all')}
 						/>
 					</ActionBarRegion>
-
 					{showCenterUI && (
 						<ActionBarRegion location='center'>
-
 							<PositronActionBar nestedActionBar={true} size='large'>
 								{showFullCenterUI && (
 									<ActionBarRegion justify='right' location='left' width={60}>
@@ -198,22 +168,15 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 									<ActionBarRegion justify='left' location='right' width={60} />
 								)}
 							</PositronActionBar>
-
 						</ActionBarRegion>
 					)}
-
 					<ActionBarRegion location='right'>
-						<TopActionBarInterpretersManager
-							onActivateRuntime={activateRuntimeHandler}
-							onStartRuntime={startRuntimeHandler}
-						/>
+						<TopActionBarSessionManager />
 						{showCenterUI && (
 							<TopActionBarCustomFolderMenu />
 						)}
 					</ActionBarRegion>
-
 				</PositronActionBar>
-
 			</PositronActionBarContextProvider>
 		</PositronTopActionBarContextProvider>
 	);
