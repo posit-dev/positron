@@ -7,13 +7,23 @@ import os from 'os';
 import path from 'path';
 import { UserSettingsFileManager } from '../userSettingsFileManager';
 
-const home = os.homedir();
-const vscodeSettingsPath =
-	process.platform === 'win32'
-		? path.join(process.env.APPDATA || path.join(home, 'AppData', 'Roaming'), 'Code', 'User', 'settings.json')
-		: process.platform === 'darwin'
-			? path.join(home, 'Library', 'Application Support', 'Code', 'User', 'settings.json')
-			: path.join(process.env.XDG_CONFIG_HOME || path.join(home, '.config'), 'Code', 'User', 'settings.json');
+// Helper to match getCodeSettingsPath logic in tests
+function getVSCodeSettingsPath(): string {
+	const home = os.homedir();
+	const platform = process.platform;
+
+	if (platform === 'win32') {
+		const appData = process.env.APPDATA || path.join(home, 'AppData', 'Roaming');
+		return path.join(appData, 'Code', 'User', 'settings.json');
+	} else if (platform === 'darwin') {
+		return path.join(home, 'Library', 'Application Support', 'Code', 'User', 'settings.json');
+	} else {
+		const configHome = process.env.XDG_CONFIG_HOME || path.join(home, '.config');
+		return path.join(configHome, 'Code', 'User', 'settings.json');
+	}
+}
+
+const vscodeSettingsPath = getVSCodeSettingsPath();
 
 export const vsCodeSettings = new UserSettingsFileManager(vscodeSettingsPath, () => ({
 	'test': 'vs-code-settings',
