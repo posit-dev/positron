@@ -123,8 +123,6 @@ export class Comm implements base.IClassicComm, Disposable {
 					return new Uint8Array();
 				}
 			});
-			// Optional: Keep the warning for now during development if needed
-			console.warn(`Comm sending message with ${processedBuffers.length} buffer(s):`, data, processedBuffers);
 		}
 
 		const msgId = UUID.uuid4();

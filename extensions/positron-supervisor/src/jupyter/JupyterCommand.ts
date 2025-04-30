@@ -83,7 +83,6 @@ export abstract class JupyterCommand<T> {
 			version: '5.3'
 		};
 
-		// TODO: Make sure buffers get unpacked properly
 		const { content, buffers } = unpackSerializedObjectWithBuffers(this.commandPayload);
 		const payload = {
 			header,
