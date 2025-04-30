@@ -31,14 +31,14 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet',
+			name: 'Claude 3.5 Sonnet v2',
 			model: 'claude-3-5-sonnet-latest',
 			toolCalls: true,
 		},
 	};
 
 	constructor(private readonly _config: ModelConfig) {
-		this.name = _config.name;
+		this.name = AnthropicLanguageModel.source.defaults.name;
 		this.provider = _config.provider;
 		this.identifier = _config.id;
 		this._client = new Anthropic({
@@ -103,6 +103,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			}
 			throw error;
 		}
+	}
+
+	get providerName(): string {
+		return AnthropicLanguageModel.source.provider.displayName;
 	}
 
 	private onContentBlock(block: Anthropic.Messages.ContentBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {

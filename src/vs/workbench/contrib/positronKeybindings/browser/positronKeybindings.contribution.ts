@@ -75,19 +75,23 @@ class PositronKeybindingsContribution extends Disposable {
 
 	/**
 	 * Registers the RStudio key mappings with the keybinding registry.
+	 *
+	 * Even though this is a workbench contribution, its key mappings are
+	 * registered with the BuiltinExtension weight, since they need to take
+	 * precedence over other WorkbenchContrib keybindings.
 	 */
 	private registerRStudioKeybindings() {
 		// Create new R file
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'r.createNewFile',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyN
 		}));
 
 		// Go to/reveal definition
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'editor.action.revealDefinition',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: EditorContextKeys.editorTextFocus,
 			primary: KeyCode.F2
 		}));
@@ -95,7 +99,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Focus "Source pane" (active editor group)
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.focusActiveEditorGroup',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			mac: {
 				primary: KeyMod.CtrlCmd | KeyCode.Digit1,
 				secondary: [KeyMod.WinCtrl | KeyCode.Digit1]
@@ -106,7 +110,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Focus "Console pane" (the Console)
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.positronConsole.focusConsole',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			mac: {
 				primary: KeyMod.CtrlCmd | KeyCode.Digit2,
 				secondary: [KeyMod.WinCtrl | KeyCode.Digit2]
@@ -117,7 +121,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Rename symbol
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'editor.action.rename',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: EditorContextKeys.editorTextFocus,
 			primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyMod.Shift | KeyCode.KeyM
 		}));
@@ -125,7 +129,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Comment line
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'editor.action.commentLine',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: EditorContextKeys.editorTextFocus,
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyC
 		}));
@@ -133,7 +137,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Show all symbols
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.showAllSymbols',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			mac: {
 				primary: KeyMod.CtrlCmd | KeyCode.Period,
 				secondary: [KeyMod.WinCtrl | KeyCode.Period]
@@ -144,14 +148,14 @@ class PositronKeybindingsContribution extends Disposable {
 		// Open keybindings
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.openGlobalKeybindings',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			primary: KeyMod.Shift | KeyMod.Alt | KeyCode.KeyK
 		}));
 
 		// Insert code cell
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'quarto.insertCodeCell',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: ContextKeyExpr.and(
 				EditorContextKeys.editorTextFocus,
 				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'quarto')),
@@ -162,7 +166,7 @@ class PositronKeybindingsContribution extends Disposable {
 
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'quarto.runCurrent',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: ContextKeyExpr.and(
 				EditorContextKeys.editorTextFocus,
 				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'quarto'),
@@ -175,7 +179,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Run current cell
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'quarto.runCurrentCell',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: ContextKeyExpr.and(
 				EditorContextKeys.editorTextFocus,
 				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'quarto'),
@@ -188,7 +192,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Reindent selected lines
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'editor.action.reindentselectedlines',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: EditorContextKeys.editorTextFocus,
 			primary: KeyMod.CtrlCmd | KeyCode.KeyI
 		}));
@@ -196,7 +200,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Format selection
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'editor.action.formatSelection',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: EditorContextKeys.editorTextFocus,
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyA
 		}));
@@ -204,7 +208,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Delete lines
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'editor.action.deleteLines',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: EditorContextKeys.editorTextFocus,
 			primary: KeyMod.CtrlCmd | KeyCode.KeyD
 		}));
@@ -212,7 +216,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Insert section
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'r.insertSection',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: ContextKeyExpr.and(
 				EditorContextKeys.editorTextFocus,
 				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'r')),
@@ -222,7 +226,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Source current file
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'r.sourceCurrentFile',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: ContextKeyExpr.and(
 				EditorContextKeys.editorTextFocus,
 				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'r')),
@@ -232,7 +236,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Source current file with echo
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'r.sourceCurrentFileWithEcho',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			when: ContextKeyExpr.and(
 				EditorContextKeys.editorTextFocus,
 				ContextKeyExpr.equals(EditorContextKeys.languageId.key, 'r')),
@@ -242,7 +246,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Previous editor in group
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.previousEditorInGroup',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			mac: {
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.LeftArrow,
 				secondary: [KeyMod.WinCtrl | KeyMod.Alt | KeyCode.LeftArrow]
@@ -253,7 +257,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Next editor in group
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.nextEditorInGroup',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			mac: {
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.RightArrow,
 				secondary: [KeyMod.WinCtrl | KeyMod.Alt | KeyCode.RightArrow]
@@ -264,7 +268,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Open SCM view
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.view.scm',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			mac: {
 				primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.KeyM,
 				secondary: [KeyMod.WinCtrl | KeyMod.Alt | KeyCode.KeyM]
@@ -275,7 +279,7 @@ class PositronKeybindingsContribution extends Disposable {
 		// Go to Working Directory
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'workbench.action.setWorkingDirectory',
-			weight: KeybindingWeight.WorkbenchContrib,
+			weight: KeybindingWeight.BuiltinExtension,
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.KeyH
 		}));
 	}

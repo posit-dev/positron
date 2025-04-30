@@ -1780,6 +1780,8 @@ declare module 'positron' {
 			provider: string;
 			identifier: string;
 
+			get providerName(): string;
+
 			readonly capabilities?: {
 				readonly vision?: boolean;
 				readonly toolCalling?: boolean;

@@ -45,6 +45,10 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 		},
 	};
 
+	get providerName(): string {
+		return ErrorLanguageModel.source.provider.displayName;
+	}
+
 	provideLanguageModelResponse(): Promise<any> {
 		throw new Error(this._message);
 	}
@@ -76,6 +80,10 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			model: 'echo',
 		},
 	};
+
+	get providerName(): string {
+		return EchoLanguageModel.source.provider.displayName;
+	}
 
 	async provideLanguageModelResponse(
 		messages: vscode.LanguageModelChatMessage[],
@@ -153,6 +161,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
+	}
+
+	get providerName(): string {
+		return this.providerName;
 	}
 
 	async resolveConnection(token: vscode.CancellationToken): Promise<Error | undefined> {
@@ -273,7 +285,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet',
+			name: 'Claude 3.5 Sonnet v2',
 			model: 'claude-3-5-sonnet-latest',
 			toolCalls: true,
 		},
@@ -282,6 +294,10 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 	constructor(_config: ModelConfig) {
 		super(_config);
 		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
+	}
+
+	get providerName(): string {
+		return AnthropicAILanguageModel.source.provider.displayName;
 	}
 }
 
@@ -310,6 +326,10 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
 	}
+
+	get providerName(): string {
+		return OpenAILanguageModel.source.provider.displayName;
+	}
 }
 
 class MistralLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -336,6 +356,10 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
+	}
+
+	get providerName(): string {
+		return MistralLanguageModel.source.provider.displayName;
 	}
 }
 
@@ -364,6 +388,10 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
 	}
+
+	get providerName(): string {
+		return OpenRouterLanguageModel.source.provider.displayName;
+	}
 }
 
 class OllamaLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -391,6 +419,10 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 			numCtx: this._config.numCtx,
 		});
 	}
+
+	get providerName(): string {
+		return OllamaLanguageModel.source.provider.displayName;
+	}
 }
 
 class AzureLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -417,6 +449,10 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 			apiKey: this._config.apiKey,
 			resourceName: this._config.resourceName
 		})(this._config.model);
+	}
+
+	get providerName(): string {
+		return AzureLanguageModel.source.provider.displayName;
 	}
 }
 
@@ -446,6 +482,10 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 			location: this._config.location,
 		})(this._config.model);
 	}
+
+	get providerName(): string {
+		return VertexLanguageModel.source.provider.displayName;
+	}
 }
 
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -459,7 +499,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		},
 		supportedOptions: ['toolCalls'],
 		defaults: {
-			name: 'Claude 3.5 Sonnet v2',
+			name: 'Claude 3.5 Sonnet v2 Bedrock',
 			model: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
 			toolCalls: true,
 		},
@@ -470,9 +510,16 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 
 		this.model = createAmazonBedrock({
 			bedrockOptions: {
+				// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
+				// sets the AWS region where the models are available
+				region: process.env.AWS_REGION ?? 'us-east-1',
 				credentials: fromNodeProviderChain(),
 			}
 		})(this._config.model);
+	}
+
+	get providerName(): string {
+		return AWSLanguageModel.source.provider.displayName;
 	}
 }
 
@@ -536,4 +583,53 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 			baseURL: this._config.baseUrl,
 		})(this._config.model);
 	}
+
+	get providerName(): string {
+		return GoogleLanguageModel.source.provider.displayName;
+	}
 }
+
+// Note: we don't query for available models using any provider API since it may return ones that are not
+// suitable for chat and we don't want the selection to be too large
+export const availableModels = new Map<string, { name: string; identifier: string }[]>(
+	[
+		['anthropic', [
+			{
+				name: 'Claude 3.7 Sonnet v1',
+				identifier: 'claude-3-7-sonnet-latest'
+			},
+			{
+				name: 'Claude 3.5 Sonnet v2',
+				identifier: 'claude-3-5-sonnet-latest'
+			},
+		]],
+		['google', [
+			{
+				name: 'Gemini 2.5 Flash',
+				identifier: 'gemini-2.5-pro-exp-03-25',
+			},
+			{
+				name: 'Gemini 2.0 Flash',
+				identifier: 'gemini-2.0-flash-exp',
+			},
+			{
+				name: 'Gemini 1.5 Flash 002',
+				identifier: 'gemini-1.5-flash-002',
+			},
+		]],
+		['bedrock', [
+			{
+				name: 'Claude 3.7 Sonnet v1 Bedrock',
+				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+			},
+			{
+				name: 'Claude 3.5 Sonnet v2 Bedrock',
+				identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
+			},
+			{
+				name: 'Claude 3.5 Sonnet v1 Bedrock',
+				identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
+			},
+		]]
+	]
+);

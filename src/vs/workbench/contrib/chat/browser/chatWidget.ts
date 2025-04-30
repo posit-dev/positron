@@ -67,6 +67,7 @@ import { ChatViewWelcomePart } from './viewsWelcome/chatViewWelcomeController.js
 // --- Start Positron ---
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { ILanguageModelsService } from '../common/languageModels.js';
+import { ChatActionBarControl } from './positron/chatActionBarControl.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -162,6 +163,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	// private persistedWelcomeMessage: IChatWelcomeMessageContent | undefined;
 	// --- End Positron ---
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
+
+	// --- Start Positron ---
+	private actionBarContainer!: ChatActionBarControl;
+	// --- End Positron ---
 
 	private bodyDimension: dom.Dimension | undefined;
 	private visibleChangeCount = 0;
@@ -506,6 +511,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		this._register(this.editorOptions.onDidChange(() => this.onDidStyleChange()));
 		this.onDidStyleChange();
+
+		// --- Start Positron ---
+		this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl, this.inputPart));
+		this.actionBarContainer.render(this.container);
+		this.actionBarContainer.onProviderSelected((provider) => this.inputPart.currentProvider = provider);
+		// --- End Positron ---
 
 		// Do initial render
 		if (this.viewModel) {
@@ -1267,6 +1278,9 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 	}
 
 	layout(height: number, width: number): void {
+		// --- Start Positron ---
+		const actionBarHeight = this.actionBarContainer.height;
+		// --- End Positron ---
 		width = Math.min(width, 850);
 		this.bodyDimension = new dom.Dimension(width, height);
 
@@ -1275,7 +1289,9 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 		const inputPartHeight = this.inputPart.inputPartHeight;
 		const lastElementVisible = this.tree.scrollTop + this.tree.renderHeight >= this.tree.scrollHeight - 2;
 
-		const listHeight = Math.max(0, height - inputPartHeight);
+		// --- Start Positron ---
+		const listHeight = Math.max(0, height - inputPartHeight - actionBarHeight);
+		// --- End Positron ---
 		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
 			this.listContainer.style.removeProperty('--chat-current-response-min-height');
 		} else {
