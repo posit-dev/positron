@@ -19,33 +19,34 @@ interface LanguageModelConfigComponentProps {
 	onSignIn: () => void,
 }
 
-const TOS_TEMPLATE = `{0} is considered "Third Party Materials" as defined in the [Posit EULA](https://posit.co/about/eula/)
-and subject to the {0} terms of service at {1} and privacy policy at {2}.\n\n
-Your use of {0} is optional and at your sole risk.`
-
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
-	function getTos(provider: string) {
+	function getTos(provider: string): string {
+		const providerConfig = new Array<string>();
+
 		switch (provider) {
 			case 'anthropic':
-				return localize('positron.newConnectionModalDialog.tos', TOS_TEMPLATE,
-					'Anthropic',
-					'[Terms of Service](https://www.anthropic.com/legal/consumer-terms)',
-					'[Privacy Policy](https://www.anthropic.com/legal/privacy)');
+				providerConfig.push('Anthropic');
+				providerConfig.push('[Terms of Service](https://www.anthropic.com/legal/consumer-terms)');
+				providerConfig.push('[Privacy Policy](https://www.anthropic.com/legal/privacy)');
+				break;
 			case 'google':
-				return localize('positron.newConnectionModalDialog.tos', TOS_TEMPLATE,
-					'Google Gemini',
-					'[Terms of Service](https://policies.google.com/terms)',
-					'[Privacy Policy](https://policies.google.com/privacy)'
-				);
+				providerConfig.push('Google Gemini');
+				providerConfig.push('[Terms of Service](https://cloud.google.com/terms/service-terms)');
+				providerConfig.push('[Privacy Policy](https://policies.google.com/privacy)');
+				break;
 			case 'copilot':
-				return localize('positron.newConnectionModalDialog.tos', TOS_TEMPLATE,
-					'Copilot',
-					'[Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#github-copilot)',
-					'[Privacy Policy](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#personal-data-we-collect)'
-				);
+				providerConfig.push('GitHub Copilot');
+				providerConfig.push('[Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#github-copilot)');
+				providerConfig.push('[Privacy Policy](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#personal-data-we-collect)');
+				break;
 			default:
 				return '';
 		}
+
+		return localize('positron.newConnectionModalDialog.tos',
+			'{0} is considered "Third Party Materials" as defined in the [Posit EULA](https://posit.co/about/eula/) and subject to the {0} terms of service at {1} and privacy policy at {2}.\n\nYour use of {0} is optional and at your sole risk.',
+			...providerConfig
+		);
 	}
 
 	return (<>
