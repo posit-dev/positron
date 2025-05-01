@@ -460,9 +460,10 @@ function* oneOfVisitor(
  * Collect external references from contracts and returns them as arrays.
  *
  * @param contracts The OpenRPC contracts to process
- * @returns An array of external references. Each element represents one external file
- *   for which we detected external references. `fileName` is the bare name without
- *   `-backend/fronted-openrpc.json` suffix. `refs` is an array of imported type names.
+ * @returns An array of imported symbols grouped by external files. Each element
+ * 	 represents one external file for which we detected external references.
+ * 	 `fileName` is the bare name without `-backend/fronted-openrpc.json` suffix.
+ * 	 `refs` is an array of imported type names.
  */
 function collectExternalReferences(contracts: any[]): Array<{fileName: string; refs: Array<string>}> {
 	const externalRefs = new Map<string, Set<string>>();
