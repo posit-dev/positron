@@ -12,18 +12,18 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../../../nls.js';
 import * as DOM from '../../../../../../../base/browser/dom.js';
+import { RowFilterWidget } from './components/rowFilterWidget.js';
 import { DisposableStore } from '../../../../../../../base/common/lifecycle.js';
+import { usePositronDataExplorerContext } from '../../../../positronDataExplorerContext.js';
 import { Button } from '../../../../../../../base/browser/ui/positronComponents/button/button.js';
+import { AddEditRowFilterModalPopup } from '../addEditRowFilterModalPopup/addEditRowFilterModalPopup.js';
 import { ColumnSchema } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { OKModalDialog } from '../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
-import { usePositronDataExplorerContext } from '../../../../positronDataExplorerContext.js';
+import { getRowFilterDescriptor, RowFilterDescriptor } from '../addEditRowFilterModalPopup/rowFilterDescriptor.js';
 import { PositronModalReactRenderer } from '../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { CustomContextMenuItem } from '../../../../../positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../../positronComponents/customContextMenu/customContextMenu.js';
-import { RowFilterWidget } from './components/rowFilterWidget.js';
-import { AddEditRowFilterModalPopup } from '../addEditRowFilterModalPopup/addEditRowFilterModalPopup.js';
-import { getRowFilterDescriptor, RowFilterDescriptor } from '../addEditRowFilterModalPopup/rowFilterDescriptor.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../../../../../services/positronDataExplorer/common/positronDataExplorerExperimentalConfig.js';
 
 /**
@@ -274,7 +274,6 @@ export const RowFilterBar = () => {
 								rowFilterWidgetRefs.current[index] = ref;
 							}
 						}}
-						booleanOperator={index === 0 ? undefined : rowFilter.props.condition}
 						rowFilter={rowFilter}
 						onClear={async () => await clearRowFilter(rowFilter.identifier)}
 						onEdit={() => {
