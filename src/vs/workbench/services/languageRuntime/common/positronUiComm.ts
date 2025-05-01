@@ -11,6 +11,8 @@ import { Event } from '../../../../base/common/event.js';
 import { PositronBaseComm, PositronCommOptions } from './positronBaseComm.js';
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
+import { PlotRenderSettings } from './positronPlotComm.js';
+
 /**
  * Items in Params
  */
@@ -441,54 +443,6 @@ export interface ShowHtmlFileParams {
 	 * the viewer should be as tall as possible.
 	 */
 	height: number;
-}
-
-/**
- * The settings used to render the plot
- */
-export interface PlotRenderSettings {
-	/**
-	 * Plot size to render the plot to
-	 */
-	size: PlotSize;
-
-	/**
-	 * The pixel ratio of the display device
-	 */
-	pixel_ratio: number;
-
-	/**
-	 * Format in which to render the plot
-	 */
-	format: PlotRenderFormat;
-
-}
-
-/**
- * The size of a plot
- */
-export interface PlotSize {
-	/**
-	 * The plot's height, in pixels
-	 */
-	height: number;
-
-	/**
-	 * The plot's width, in pixels
-	 */
-	width: number;
-
-}
-
-/**
- * Possible values for PlotRenderFormat
- */
-export enum PlotRenderFormat {
-	Png = 'png',
-	Jpeg = 'jpeg',
-	Svg = 'svg',
-	Pdf = 'pdf',
-	Tiff = 'tiff'
 }
 
 /**

@@ -17,6 +17,8 @@ from typing import Any, List, Literal, Optional, Union
 
 from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
+from .plot_comm import PlotRenderSettings
+
 Param = Any
 CallMethodResult = Any
 
@@ -128,55 +130,6 @@ class Range(BaseModel):
 
     end: Position = Field(
         description="End position of the selection",
-    )
-
-
-@enum.unique
-class PlotRenderFormat(str, enum.Enum):
-    """
-    Possible values for PlotRenderFormat
-    """
-
-    Png = "png"
-
-    Jpeg = "jpeg"
-
-    Svg = "svg"
-
-    Pdf = "pdf"
-
-    Tiff = "tiff"
-
-
-class PlotRenderSettings(BaseModel):
-    """
-    The settings used to render the plot
-    """
-
-    size: PlotSize = Field(
-        description="Plot size to render the plot to",
-    )
-
-    pixel_ratio: Union[StrictInt, StrictFloat] = Field(
-        description="The pixel ratio of the display device",
-    )
-
-    format: PlotRenderFormat = Field(
-        description="Format in which to render the plot",
-    )
-
-
-class PlotSize(BaseModel):
-    """
-    The size of a plot
-    """
-
-    height: StrictInt = Field(
-        description="The plot's height, in pixels",
-    )
-
-    width: StrictInt = Field(
-        description="The plot's width, in pixels",
     )
 
 
@@ -565,10 +518,6 @@ Position.update_forward_refs()
 Selection.update_forward_refs()
 
 Range.update_forward_refs()
-
-PlotRenderSettings.update_forward_refs()
-
-PlotSize.update_forward_refs()
 
 DidChangePlotsRenderSettingsParams.update_forward_refs()
 
