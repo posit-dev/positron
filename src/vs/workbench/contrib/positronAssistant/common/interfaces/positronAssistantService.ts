@@ -20,6 +20,11 @@ export interface IPositronChatContext {
 	console?: {
 		language: string;
 		version: string;
+		executions: {
+			input: string;
+			output: string;
+			error?: any;
+		}[];
 	};
 	plots?: {
 		hasPlots: boolean;

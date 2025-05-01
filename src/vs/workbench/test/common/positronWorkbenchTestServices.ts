@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -148,3 +148,10 @@ export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager
 		this._validateMetadata = handler;
 	}
 }
+
+/**
+ * Re-export the TestPositronConsoleService and TestPositronConsoleInstance.
+ * This allows test files to import from positronWorkbenchTestServices.ts
+ * rather than directly from the test implementation.
+ */
+export { TestPositronConsoleService, TestPositronConsoleInstance } from '../../services/positronConsole/test/browser/testPositronConsoleService.js';

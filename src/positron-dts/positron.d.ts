@@ -1944,6 +1944,11 @@ declare module 'positron' {
 			console?: {
 				language: string;
 				version: string;
+				executions: {
+					input: string;
+					output: string;
+					error?: any;
+				}[];
 			};
 			variables?: {
 				name: string;
