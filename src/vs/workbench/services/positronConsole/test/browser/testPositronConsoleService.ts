@@ -8,7 +8,6 @@ import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { RuntimeItem } from '../../browser/classes/runtimeItem.js';
-import { ActivityItemPrompt } from '../../browser/classes/activityItemPrompt.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
@@ -535,14 +534,7 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	/**
 	 * Replies to a prompt.
 	 */
-	replyToPrompt(activityItemPrompt: ActivityItemPrompt, value: string): void {
-		// No-op for test implementation
-	}
-
-	/**
-	 * Interrupts prompt.
-	 */
-	interruptPrompt(activityItemPrompt: ActivityItemPrompt): void {
+	replyToPrompt(value: string): void {
 		// No-op for test implementation
 	}
 

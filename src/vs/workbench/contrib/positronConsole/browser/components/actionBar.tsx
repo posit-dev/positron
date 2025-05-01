@@ -262,7 +262,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		setInterrupting(true);
 
 		// Interrupt the active Positron console instance.
-		activePositronConsoleInstance?.attachedRuntimeSession?.interrupt();
+		activePositronConsoleInstance?.interrupt();
 	};
 
 	// Toggle trace event handler.
