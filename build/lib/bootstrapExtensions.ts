@@ -37,8 +37,11 @@ function getExtensionName(extension: IExtensionDefinition): string {
 	return `${extension.name}-${extension.version}.vsix`;
 }
 
+function getExtensionFileNameRegex(extensionName: string): RegExp {
+	return new RegExp(`^${extensionName}-(\\d+\\.\\d+\\.\\d+)\\.vsix$`);
+}
+
 function isUpToDate(extension: IExtensionDefinition): boolean {
-	const regex = new RegExp(`^${extension.name}-(\\d+\\.\\d+\\.\\d+)\\.vsix$`);
 	const bootstrapDir = getBootstrapDir();
 	if (!fs.existsSync(bootstrapDir)) {
 		return false;
@@ -51,6 +54,7 @@ function isUpToDate(extension: IExtensionDefinition): boolean {
 	// to check the main directory
 
 	const isMultiArch = !process.env['VSCODE_DEV'] && process.platform === 'darwin' && extension.metadata?.multiPlatformServiceUrl;
+	const regex = getExtensionFileNameRegex(extension.name);
 
 	if (isMultiArch) {
 		// First, remove all versions of the extension from the main directory
@@ -166,6 +170,20 @@ export function getBootstrapExtensionStream(extension: IExtensionDefinition) {
 	return getExtensionDownloadStream(extension);
 }
 
+function removeExtension(extensionName: string): void {
+	const bootstrapDir = getBootstrapDir();
+	if (!fs.existsSync(bootstrapDir)) {
+		return;
+	}
+	const regex = getExtensionFileNameRegex(extensionName);
+	const files = fs.readdirSync(bootstrapDir);
+	const matchingFiles = files.filter(f => regex.test(f));
+	for (const vsixPath of matchingFiles) {
+		log(`[extensions]`, `Removing extension ${vsixPath}`);
+		fs.unlinkSync(path.join(bootstrapDir, vsixPath));
+	}
+}
+
 function syncMarketplaceExtension(extension: IExtensionDefinition): Stream {
 	const galleryServiceUrl = productjson.extensionsGallery?.serviceUrl;
 	const source = ansiColors.blue(galleryServiceUrl ? '[marketplace]' : '[github]');
@@ -252,6 +270,16 @@ export function getBootstrapExtensions(): Promise<void> {
 
 		streams.push(syncExtension(extension, controlState));
 	}
+
+	// Remove any extensions that are in the control file but not in the bootstrapExtensions list
+	for (const extensionName in control) {
+		if (!bootstrapExtensions.some(ext => ext.name === extensionName)) {
+			delete control[extensionName];
+			removeExtension(extensionName);
+			log(ansiColors.red('[removed]'), `${extensionName}`);
+		}
+	}
+
 
 	writeControlFile(control);
 

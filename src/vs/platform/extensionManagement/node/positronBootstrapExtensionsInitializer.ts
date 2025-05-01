@@ -44,6 +44,8 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 				.catch(error => {
 					this.logService.error('Error installing bootstrapped extensions', getErrorMessage(error));
 				});
+			this.cleanupOldExtensions(lastKnownVersion);
+
 		} else {
 			this.logService.info('Subsequent launch, skipping bootstrapped extensions');
 		}
@@ -147,6 +149,32 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 		}
 
 		return URI.file(this.environmentService.bootstrapExtensionsPath);
+	}
+
+	/**
+	 * Manages the cleanup of extensions that were bootstrapped in previous release of Positron,
+	 * but have since been removed or replaced.
+	 * Typically, we should only log warnings since the extension ultimately falls under the user's
+	 * control. However, there may be cases when the consequences of having a previously bootstrapped
+	 * extension installed are severe enough to warrant us forcing an uninstall.
+	 */
+	private cleanupOldExtensions(lastKnownVersion: string): void {
+		// If lastKnownVersion is < 2025.06, check for the Black Formatter extension. While the 2025.05
+		// release includes Ruff, early builds of 2025.05 included Black
+		if (/^2025\.0[0-5].*/.test(lastKnownVersion)) {
+			this.extensionManagementService.getInstalled()
+				.then(installedExtensions => {
+					const blackExtension = installedExtensions.find(e => e.identifier.id === 'ms-python.black-formatter');
+					if (blackExtension) {
+						const cmdCtrl = process.platform === 'darwin' ? 'Cmd' : 'Ctrl';
+						this.logService.warn(
+							'Positron has replaced the bootstrapped Black Formatter extension with Ruff. We recommend',
+							'uninstalling Black Formatter to avoid conflicts. You can uninstall the extension from the',
+							`Extensions view (${cmdCtrl}+Shift+X).`
+						);
+					}
+				});
+		}
 	}
 
 	override dispose(): void {
