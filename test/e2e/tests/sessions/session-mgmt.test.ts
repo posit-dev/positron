@@ -110,7 +110,10 @@ test.describe('Sessions: Management', {
 	});
 
 	test('Validate session, console, variables, and plots persist after reload',
-		{ tag: [tags.VARIABLES, tags.PLOTS], }, async function ({ app, sessions, runCommand }) {
+		{
+			tag: [tags.VARIABLES, tags.PLOTS],
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6036' },]
+		}, async function ({ app, sessions, runCommand }) {
 			const { console, plots, variables } = app.workbench;
 
 			// Ensure sessions exist and are idle
@@ -150,18 +153,20 @@ test.describe('Sessions: Management', {
 			await variables.expectVariableToBe('test', '1');
 			await console.waitForConsoleContents('[1] "this is console 1"');
 			await plots.waitForCurrentPlot();
-			await plots.expectPlotThumbnailsCountToBe(2);
+			// await plots.expectPlotThumbnailsCountToBe(3);  // issue 6036
 
 			// Verify sessions, plot, console history, and variables persist for Python session
 			await sessions.select(pySession.id);
 			await variables.expectVariableToBe('test', '2');
 			await console.waitForConsoleContents('this is console 2', { exact: true });
 			await plots.waitForCurrentPlot();
-			await plots.expectPlotThumbnailsCountToBe(2);
+			// await plots.expectPlotThumbnailsCountToBe(3); // issue 6036
 
 			await sessions.select(pySession2.id);
 			await variables.expectVariableToBe('test', '3');
 			await console.waitForConsoleContents('this is console 3', { exact: true });
+			await plots.waitForCurrentPlot();
+			// await plots.expectPlotThumbnailsCountToBe(3); // issue 6036
 		});
 });
 
