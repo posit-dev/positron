@@ -282,7 +282,7 @@ export class UiClientInstance extends Disposable {
 	 * @param settings Plot rendering settings
 	 *
 	 */
-	didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
-		return this._comm.didChangePlotsRenderSettings(settings);
+	public async didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
+			await this._comm.didChangePlotsRenderSettings(settings);
 	}
 }
