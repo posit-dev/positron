@@ -14,7 +14,7 @@ export class Settings {
 
 	constructor(private code: Code, private editors: Editors, private editor: Editor, private quickaccess: QuickAccess, private clipboard: Clipboard) { }
 
-	async addUserSettings(settings: [key: string, value: string][]): Promise<void> {
+	async addSettings(settings: [key: string, value: string][]): Promise<void> {
 		await this.openUserSettingsFile();
 		const file = 'settings.json';
 		await this.editors.saveOpenedFile();
@@ -26,7 +26,7 @@ export class Settings {
 		await this.code.driver.page.waitForTimeout(1000);
 	}
 
-	async clearUserSettings(): Promise<void> {
+	async clearSettings(): Promise<void> {
 		await this.openUserSettingsFile();
 		const file = 'settings.json';
 		await this.quickaccess.runCommand('editor.action.selectAll');
@@ -38,13 +38,13 @@ export class Settings {
 	}
 
 	async openUserSettingsFile(): Promise<void> {
-		await this.quickaccess.runCommand('workbench.action.openSettingsJson');
+		await this.quickaccess.runCommand('Preferences: Open UserSettings (JSON)');
 		await this.editor.waitForEditorFocus('settings.json', 1);
 	}
 
 	// Open the workspace settings JSON file
 	async openWorkspaceSettingsFile(): Promise<void> {
-		await this.quickaccess.runCommand('workbench.action.openWorkspaceSettingsFile');
+		await this.quickaccess.runCommand('Preferences: Open Workspace Settings (JSON)');
 		await this.editor.waitForEditorFocus('settings.json', 1);
 	}
 

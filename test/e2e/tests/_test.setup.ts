@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, UserSetting, UserSettingsFixtures, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown } from '../infra';
+import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -38,6 +38,7 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
+import { UserSettingsFileManager } from '../pages/utils/userSettingsFileManager.js';
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -73,16 +74,22 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			logger,
 			logsPath,
 			crashesPath: SPEC_CRASHES_PATH,
-			verbose: process.env.VERBOSE,
-			remote: process.env.REMOTE,
+			verbose: !!process.env.VERBOSE,
+			remote: !!process.env.REMOTE,
 			web: project.web,
 			headless: project.headless,
 			tracing: true,
 			snapshots,
+
 		};
+		options.userDataDir = getRandomUserDataDir(options);
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
+
+	userDataDir: [async ({ options }, use) => {
+		await use(options.userDataDir);
+	}, { scope: 'worker' }],
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
@@ -91,7 +98,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
-	app: [async ({ options, logsPath }, use, workerInfo) => {
+	app: [async ({ options, logsPath, }, use, workerInfo) => {
 		const app = createApp(options);
 
 		try {
@@ -216,13 +223,13 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
 	userSettings: [async ({ app }, use) => {
-		const userSettings = new UserSettingsFixtures(app);
+		const userSettings = new SettingsFixture(app);
 
 		const setUserSetting = async (
 			settings: [string, string][],
 			restartApp = false
 		) => {
-			await userSettings.setUserSettings(settings, restartApp);
+			await userSettings.setMultiple(settings, restartApp);
 			await app.workbench.sessions.expectNoStartUpMessaging();
 		};
 
@@ -230,7 +237,43 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			set: setUserSetting
 		});
 
-		await userSettings.unsetUserSettings();
+		await userSettings.unset();
+	}, { scope: 'worker' }],
+
+	workspaceSettings: [async ({ app }, use) => {
+		const workspaceSettings = new SettingsFixture(app);
+
+		const setWorkspaceSetting = async (
+			settings: [string, string][],
+			restartApp = false
+		) => {
+			await workspaceSettings.setMultiple(settings, restartApp);
+			await app.workbench.sessions.expectNoStartUpMessaging();
+		};
+
+		await use({
+			set: setWorkspaceSetting
+		});
+
+		await workspaceSettings.unset();
+	}, { scope: 'worker' }],
+
+	vscodeUserSettings: [async ({ }, use) => {
+		const manager = vsCodeSettings;
+		await manager.backupIfExists();
+
+		await use(manager);
+
+		await manager.restoreFromBackup();
+	}, { scope: 'worker' }],
+
+	positronUserSettings: [async ({ userDataDir }, use) => {
+		const manager = createPositronSettingsManager(userDataDir);
+		await manager.backupIfExists();
+
+		await use(manager);
+
+		await manager.restoreFromBackup();
 	}, { scope: 'worker' }],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
@@ -437,12 +480,18 @@ interface WorkerFixtures {
 	snapshots: boolean;
 	artifactDir: string;
 	options: any;
+	userDataDir: string;
 	app: Application;
 	logsPath: string;
 	logger: Logger;
 	userSettings: {
-		set: (settings: UserSetting[], restartApp?: boolean) => Promise<void>;
+		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 	};
+	workspaceSettings: {
+		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
+	};
+	vscodeUserSettings: UserSettingsFileManager;
+	positronUserSettings: UserSettingsFileManager;
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {

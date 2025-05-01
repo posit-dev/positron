@@ -17,9 +17,9 @@ test.use({
 test.describe.skip('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
-	test.beforeAll(async function ({ app, userSettings }) {
+	test.beforeAll(async function ({ app, workspaceSettings }) {
 		try {
-			await userSettings.set([
+			await workspaceSettings.set([
 				['positron.reticulate.enabled', 'true']
 			]);
 

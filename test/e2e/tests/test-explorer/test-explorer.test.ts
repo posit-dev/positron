@@ -11,10 +11,10 @@ test.use({
 });
 
 test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
-	test.beforeAll(async function ({ app, r, userSettings }) {
+	test.beforeAll(async function ({ app, r, workspaceSettings }) {
 		try {
 			// don't use native file picker
-			await userSettings.set([[
+			await workspaceSettings.set([[
 				'files.simpleDialog.enable',
 				'true',
 			]]);

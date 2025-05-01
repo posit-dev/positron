@@ -13,8 +13,6 @@ inputs:
   install_undetectable_interpreters:
     description: "Install undetectable interpreters"
     required: true
-    type: boolean
-
 runs:
   using: "composite"
   steps:
