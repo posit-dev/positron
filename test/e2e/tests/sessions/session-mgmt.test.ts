@@ -109,19 +109,14 @@ test.describe('Sessions: Management', {
 		await sessions.expectActiveSessionListsToMatch();
 	});
 
-	test.skip('Validate session, console, variables, and plots persist after reload',
-		{
-			tag: [tags.VARIABLES, tags.PLOTS],
-			annotation: [
-				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6036' },
-				{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/6725' }]
-		}, async function ({ app, sessions, runCommand }) {
+	test('Validate session, console, variables, and plots persist after reload',
+		{ tag: [tags.VARIABLES, tags.PLOTS], }, async function ({ app, sessions, runCommand }) {
 			const { console, plots, variables } = app.workbench;
 
 			// Ensure sessions exist and are idle
-			const [pySession, rSession] = await sessions.start(['python', 'r']);
+			const [pySession, rSession, pySession2] = await sessions.start(['python', 'r', 'python']);
 
-			await sessions.expectSessionCountToBe(2);
+			await sessions.expectSessionCountToBe(3);
 			await sessions.expectAllSessionsToBeReady();
 
 			// Select R session and run script to generate plot and variable
@@ -137,18 +132,17 @@ test.describe('Sessions: Management', {
 			await console.waitForConsoleContents('this is console 2', { exact: true });
 			await variables.expectVariableToBe('test', '2');
 
-			// issue 6725: uncomment below lines after issue is fixed
 			// Select Python session 1b (same runtime) and run script to generate plot and variable
-			// await runCodeInSession(app, pySession2, 3);
-			// await plots.expectPlotThumbnailsCountToBe(3);
-			// await console.waitForConsoleContents('this is console 3', { exact: true });
-			// await variables.expectVariableToBe('test', '3');
+			await runCodeInSession(app, pySession2, 3);
+			await plots.expectPlotThumbnailsCountToBe(3);
+			await console.waitForConsoleContents('this is console 3', { exact: true });
+			await variables.expectVariableToBe('test', '3');
 
 			// Reload app
 			await runCommand('workbench.action.reloadWindow');
 
 			// Verify all sessions reload and are idle
-			await sessions.expectSessionCountToBe(2);
+			await sessions.expectSessionCountToBe(3);
 			await sessions.expectAllSessionsToBeReady();
 
 			// Verify sessions, plot, console history, and variables persist for R session
@@ -165,10 +159,9 @@ test.describe('Sessions: Management', {
 			await plots.waitForCurrentPlot();
 			await plots.expectPlotThumbnailsCountToBe(2);
 
-			// issue 6725: uncomment below lines after issue is fixed
-			// await sessions.select(pySession2.id);
-			// await variables.expectVariableToBe('test', '3');
-			// await console.waitForConsoleContents('this is console 3', { exact: true });
+			await sessions.select(pySession2.id);
+			await variables.expectVariableToBe('test', '3');
+			await console.waitForConsoleContents('this is console 3', { exact: true });
 		});
 });
 
