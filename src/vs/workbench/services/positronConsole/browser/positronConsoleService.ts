@@ -1992,7 +1992,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				);
 			}
 
-			// Set the acctive activity item prompt.
+			// Set the active activity item prompt.
 			this._activeActivityItemPrompt = new ActivityItemPrompt(
 				languageRuntimeMessagePrompt.id,
 				languageRuntimeMessagePrompt.parent_id,
