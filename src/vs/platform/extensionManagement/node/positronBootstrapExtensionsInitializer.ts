@@ -159,8 +159,7 @@ export class PositronBootstrapExtensionsInitializer extends Disposable {
 	 * extension installed are severe enough to warrant us forcing an uninstall.
 	 */
 	private cleanupOldExtensions(lastKnownVersion: string): void {
-		// If lastKnownVersion is < 2025.06, check for the Black Formatter extension. While the 2025.05
-		// release includes Ruff, early builds of 2025.05 included Black
+		// If lastKnownVersion is < 2025.06, check for the Black Formatter extension.
 		if (/^2025\.0[0-5].*/.test(lastKnownVersion)) {
 			this.extensionManagementService.getInstalled()
 				.then(installedExtensions => {
