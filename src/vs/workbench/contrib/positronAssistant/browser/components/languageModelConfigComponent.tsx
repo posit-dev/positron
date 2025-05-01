@@ -21,7 +21,7 @@ interface LanguageModelConfigComponentProps {
 
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	function getTos(provider: string): string {
-		let providerConfig = new Array<string>();
+		const providerConfig = new Array<string>();
 
 		switch (provider) {
 			case 'anthropic':
