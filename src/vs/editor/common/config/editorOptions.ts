@@ -6230,7 +6230,10 @@ export const EditorOptions = {
 	quickSuggestions: register(new EditorQuickSuggestions()),
 	quickSuggestionsDelay: register(new EditorIntOption(
 		EditorOption.quickSuggestionsDelay, 'quickSuggestionsDelay',
-		10, 0, Constants.MAX_SAFE_SMALL_INTEGER,
+		// --- Start Positron ---
+		// Changed default of 10ms to 250ms to slow down the quick suggestions a bit for https://github.com/posit-dev/positron/issues/550.
+		250, 0, Constants.MAX_SAFE_SMALL_INTEGER,
+		// --- End Positron ---
 		{ description: nls.localize('quickSuggestionsDelay', "Controls the delay in milliseconds after which quick suggestions will show up.") }
 	)),
 	// --- Start Positron ---
