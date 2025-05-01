@@ -17,9 +17,9 @@ test.describe('Notebooks', {
 	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 	test.describe('Python Notebooks', () => {
-		test.beforeAll(async function ({ app, userSettings }) {
+		test.beforeAll(async function ({ app, workspaceSettings }) {
 			if (app.web) {
-				await userSettings.set([['files.simpleDialog.enable', 'true']]);
+				await workspaceSettings.set([['files.simpleDialog.enable', 'true']]);
 			}
 		});
 

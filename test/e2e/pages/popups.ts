@@ -21,6 +21,11 @@ const NOTIFICATION_TOAST = '.notification-toast';
 export class Popups {
 
 	public toastLocator = this.code.driver.page.locator(NOTIFICATION_TOAST);
+	public importButton = this.toastLocator.getByRole('button', { name: 'Import' });
+	public laterButton = this.toastLocator.getByRole('button', { name: 'Later' });
+	public doNotShowAgainButton = this.toastLocator.getByRole('button', { name: 'Don\'t Show Again' });
+	public acceptButton = this.toastLocator.getByRole('button', { name: 'Accept' });
+	public rejectButton = this.toastLocator.getByRole('button', { name: 'Reject' });
 
 	constructor(private code: Code) { }
 
@@ -190,6 +195,22 @@ export class Popups {
 				break;
 			} catch {
 			}
+		}
+	}
+
+	/**
+	 * Checks if the import prompt is visible or not visible based on the parameter.
+	 * @param shouldBeVisible Optional parameter to check if the prompt should be visible or not. Defaults to true.
+	 */
+	async expectImportPromptToBeVisible(shouldBeVisible: boolean = true) {
+		if (shouldBeVisible) {
+			await expect(this.importButton).toBeVisible();
+			await expect(this.laterButton).toBeVisible();
+			await expect(this.doNotShowAgainButton).toBeVisible();
+		} else {
+			await expect(this.importButton).not.toBeVisible();
+			await expect(this.laterButton).not.toBeVisible();
+			await expect(this.doNotShowAgainButton).not.toBeVisible();
 		}
 	}
 }
