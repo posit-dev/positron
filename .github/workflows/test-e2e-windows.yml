@@ -148,7 +148,7 @@ jobs:
         run: |
           curl https://raw.githubusercontent.com/posit-dev/qa-example-content/main/DESCRIPTION --output DESCRIPTION
           Rscript -e "install.packages('pak')"
-          Rscript -e "pak::local_install_dev_deps(ask = FALSE)"
+          Rscript -e "pak::local_install_dev_deps(ask = FALSE, upgrade = FALSE)"
 
       # Install R 4.4.2 using rig
       - name: Install R 4.4.2
