@@ -1199,7 +1199,6 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		}
 
 		// Go through the startup sequence again.
-		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Initializing);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Starting);
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Ready);
 	}
