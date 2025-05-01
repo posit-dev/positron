@@ -9,7 +9,6 @@ import {
 	registerTreeViewProvider,
 } from "./catalog";
 import { DefaultDatabricksCredentialProvider } from "./credentials";
-import { registerAzureProvider } from "./catalogs/adls";
 import { registerDatabricksProvider } from "./catalogs/databricks";
 import { registerDbfsProvider } from "./fs/dbfs";
 import { setExtensionUri } from "./resources";
@@ -18,7 +17,6 @@ export async function activate(context: vscode.ExtensionContext) {
 	setExtensionUri(context);
 	const registry = new CatalogProviderRegistry();
 	context.subscriptions.push(
-		registerAzureProvider(registry),
 		registerDatabricksProvider(registry),
 		await registerTreeViewProvider(context, registry),
 		registerDbfsProvider(
