@@ -28,7 +28,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS] }, () => {
+test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] }, () => {
 	test.beforeAll(async ({ vscodeUserSettings, positronUserSettings, runCommand }) => {
 		await vscodeUserSettings.ensureExists();
 		await positronUserSettings.ensureExists();
