@@ -593,14 +593,14 @@ export class KCApi implements PositronSupervisorApi {
 
 	/**
 	 * Start a long-running task that sends a heartbeat to the Kallichore server
-	 * every minute. This is used to notify the server that we're connected,
+	 * every 20 seconds. This is used to notify the server that we're connected,
 	 * even if no sessions are currently running.
 	 */
 	async startClientHeartbeat() {
 		// Wait for the server to start before starting the heartbeat loop
 		await this._started.wait();
 
-		// Poll the server every minute to let it know we're still connected.
+		// Begin the heartbeat loop
 		const interval = setInterval(() => {
 			if (this._started.isOpen()) {
 				// The server is still started; send a heartbeat
@@ -618,7 +618,7 @@ export class KCApi implements PositronSupervisorApi {
 					this.startClientHeartbeat();
 				}, 0);
 			}
-		}, 60000);
+		}, 20000);
 	}
 
 	/**
