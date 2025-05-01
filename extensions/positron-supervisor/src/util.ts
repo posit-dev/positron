@@ -5,6 +5,7 @@
 
 import { HttpError } from './kcclient/api';
 import { Buffer } from 'buffer';
+import * as vscode from 'vscode';
 
 /**
  * Creates a short, unique ID. Use to help create unique identifiers for
@@ -83,8 +84,17 @@ export function summarizeHttpError(err: HttpError): string {
 
 // --- Serialized Data Unpacking Logic ---
 
-// Maximum allowed buffer size (10MB)
-const MAX_BUFFER_SIZE = 10 * 1024 * 1024;
+/**
+ * Gets the maximum allowed buffer size from user settings.
+ * Default is 10MB, but can be configured between 1MB and 100MB.
+ *
+ * @returns The maximum buffer size in bytes
+ */
+function getMaxBufferSize(): number {
+	const config = vscode.workspace.getConfiguration('kernelSupervisor');
+	const maxSizeMB = config.get<number>('maxBufferSizeMB') ?? 10;
+	return maxSizeMB * 1024 * 1024; // Convert MB to bytes
+}
 
 type VSBufferLike = {
 	buffer: Buffer;
@@ -168,6 +178,7 @@ export function unpackSerializedObjectWithBuffers(payload: unknown): {
 } {
 	// Use the type predicate to check the payload structure
 	if (isPayloadWithDataValue(payload)) {
+		const maxSize = getMaxBufferSize();
 		const { data: { value: dataValue }, ...otherPayloadProps } = payload;
 		const potentialBuffers = dataValue.buffers;
 		const buffers: string[] = [];
@@ -179,15 +190,18 @@ export function unpackSerializedObjectWithBuffers(payload: unknown): {
 				try {
 					if (isVSBufferLike(item)) {
 						// Add size check
-						if (item.buffer.length > MAX_BUFFER_SIZE) {
-							console.warn(`Buffer exceeds size limit (${item.buffer.length} > ${MAX_BUFFER_SIZE})`);
+						// Get current buffer size limit from settings
+						const maxSize = getMaxBufferSize();
+						if (item.buffer.length > maxSize) {
+							console.warn(`Buffer exceeds size limit (${item.buffer.length} > ${maxSize} bytes)`);
 							continue;
 						}
 						bufferInstance = item.buffer;
 					} else if (item instanceof Buffer) {
 						// Add size check for direct Buffer instances
-						if (item.length > MAX_BUFFER_SIZE) {
-							console.warn(`Buffer exceeds size limit (${item.length} > ${MAX_BUFFER_SIZE})`);
+						// Using the same size limit from settings
+						if (item.length > maxSize) {
+							console.warn(`Buffer exceeds size limit (${item.length} > ${maxSize} bytes)`);
 							continue;
 						}
 						bufferInstance = item;

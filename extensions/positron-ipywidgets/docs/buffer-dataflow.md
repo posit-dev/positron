@@ -78,10 +78,12 @@ The buffer data flow involves several components:
 
 ## Buffer Size Limits and Error Handling
 
-- Maximum buffer size is set to 10MB to prevent memory issues
-- Oversized buffers are logged and skipped
+- Maximum buffer size is configurable via the `kernelSupervisor.maxBufferSizeMB` setting
+  - Default is 10MB, but can be adjusted between 1MB and 100MB
+  - Changes take effect immediately without requiring a restart
+- Oversized buffers are logged and skipped to prevent memory issues
 - Type validation ensures that only valid buffer types are processed
-- Errors during buffer processing are caught and logged
+- Errors during buffer processing are caught and logged to prevent crashes
 
 ## Implementation Details
 
