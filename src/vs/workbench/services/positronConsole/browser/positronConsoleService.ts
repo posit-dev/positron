@@ -1332,6 +1332,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	/**
 	 * Interrupts the console.
+	 * @param code The optional code to interrupt.
 	 */
 	interrupt(code?: string) {
 		// No session to interrupt.
