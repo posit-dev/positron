@@ -110,18 +110,6 @@
         "title": "%commands.configureModels.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
-      },
-      {
-        "command": "positron-assistant.copilot.signin",
-        "title": "%commands.copilot.signin.title%",
-        "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable && config.positron.assistant.copilot.enable"
-      },
-      {
-        "command": "positron-assistant.copilot.signout",
-        "title": "%commands.copilot.signout.title%",
-        "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable && config.positron.assistant.copilot.enable"
       }
     ],
     "languageModels": [
