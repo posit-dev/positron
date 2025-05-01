@@ -105,7 +105,7 @@
         },
         {
           "command": "posit.catalog-explorer.openInSession",
-          "when": "isPositron && view == catalog-explorer && viewItem == file",
+          "when": "isPositron && view == catalog-explorer && (viewItem == file || viewItem == table)",
           "group": "1_primary@3"
         },
         {
@@ -115,12 +115,12 @@
         },
         {
           "command": "posit.catalog-explorer.copyPythonCode",
-          "when": "view == catalog-explorer && viewItem == file",
+          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
           "group": "2_copy@1"
         },
         {
           "command": "posit.catalog-explorer.copyRCode",
-          "when": "view == catalog-explorer && viewItem == file",
+          "when": "view == catalog-explorer && (viewItem == file || viewItem == table)",
           "group": "2_copy@2"
         }
       ]

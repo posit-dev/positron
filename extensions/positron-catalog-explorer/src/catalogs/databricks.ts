@@ -5,6 +5,7 @@
 import * as vscode from "vscode";
 import {
 	CatalogNode,
+	CatalogNodeType,
 	CatalogProvider,
 	CatalogProviderRegistration,
 	CatalogProviderRegistry,
@@ -131,8 +132,9 @@ class DatabricksCatalogProvider implements CatalogProvider {
 	private catalogClient: UnityCatalogClient;
 	private fsClient: DatabricksFilesClient;
 	private workspace: string;
+	private warehousePath: string | undefined;
 
-	constructor(workspace: string, token: string) {
+	constructor(workspace: string, private token: string) {
 		this.workspace = workspace.startsWith("https://")
 			? workspace.substring(8)
 			: workspace;
@@ -151,6 +153,7 @@ class DatabricksCatalogProvider implements CatalogProvider {
 	onDidChange = this.emitter.event;
 
 	refresh() {
+		this.warehousePath = undefined; // Escape hatch for resetting this.
 		this.emitter.fire();
 	}
 
@@ -216,6 +219,13 @@ class DatabricksCatalogProvider implements CatalogProvider {
 						path,
 						"table",
 						this,
+						databricksTableUri(
+							this.workspace,
+							t.catalog_name,
+							t.schema_name,
+							t.name,
+							this.warehousePath,
+						),
 					);
 				}),
 				...volumes.map((t) => {
@@ -249,13 +259,15 @@ class DatabricksCatalogProvider implements CatalogProvider {
 		return [];
 	}
 
-	getCode(languageId: string, node: CatalogNode): string {
-		if (node.type !== "file" || !node.resourceUri) {
-			throw new Error(
-				`Nodes of type '${node.type}' cannot be opened in a session.`,
-			);
+	async getCode(
+		languageId: string,
+		node: CatalogNode,
+	): Promise<string | undefined> {
+		const uri = await this.uriWithWarehouse(node);
+		if (!uri) {
+			return;
 		}
-		const code = getCodeForUri(languageId, node.resourceUri);
+		const code = getCodeForUri(languageId, uri, node.type);
 		return code.code;
 	}
 
@@ -264,10 +276,9 @@ class DatabricksCatalogProvider implements CatalogProvider {
 		if (!positron) {
 			return;
 		}
-		if (node.type !== "file" || !node.resourceUri) {
-			throw new Error(
-				`Nodes of type '${node.type}' cannot be opened in a session.`,
-			);
+		const uri = await this.uriWithWarehouse(node);
+		if (!uri) {
+			return;
 		}
 		const session = await positron.runtime.getForegroundSession();
 		if (!session) {
@@ -275,7 +286,8 @@ class DatabricksCatalogProvider implements CatalogProvider {
 		}
 		const { code, dependencies } = getCodeForUri(
 			session.runtimeMetadata.languageId,
-			node.resourceUri,
+			uri,
+			node.type,
 		);
 		if (!(await ensureDependencies(session, dependencies))) {
 			return;
@@ -287,34 +299,80 @@ class DatabricksCatalogProvider implements CatalogProvider {
 			positron.RuntimeErrorBehavior.Continue,
 		);
 	}
+
+	private async uriWithWarehouse(
+		node: CatalogNode,
+	): Promise<vscode.Uri | undefined> {
+		if (!node.resourceUri) {
+			return;
+		}
+		if (node.type === "table") {
+			await this.chooseWarehouse();
+			if (!this.warehousePath) {
+				return;
+			}
+			return withHttpPath(
+				node.resourceUri,
+				this.warehousePath,
+			);
+		}
+		return node.resourceUri;
+	}
+
+	private async chooseWarehouse() {
+		if (this.warehousePath) {
+			return;
+		}
+		const warehouses = await getSqlWarehouses(
+			this.workspace,
+			this.token,
+		);
+		const items = warehouses.map((v) => {
+			return {
+				item: v,
+				label: v.name,
+				description: `ID: ${v.id}`,
+				detail: `[${v.warehouse_type}] SQL Warehouse`,
+			};
+		});
+		const choice = await vscode.window.showQuickPick(items, {
+			title: "Choose an SQL Warehouse for the Connection",
+		});
+		if (!choice) {
+			return undefined;
+		}
+		this.warehousePath = choice.item.odbc_params.path;
+	}
 }
 
 function getCodeForUri(
 	languageId: string,
 	uri: vscode.Uri,
+	type: CatalogNodeType,
 ): { code: string; dependencies: string[] } {
-	switch (languageId) {
-		case "python":
-			return getPythonCodeForUri(uri);
-		case "r":
-			return getRCodeForUri(uri);
+	switch (languageId + "_" + type) {
+		case "python_file":
+			return getPythonCodeForFile(uri);
+		case "r_file":
+			return getRCodeForFile(uri);
+		case "r_table":
+			return getRCodeForTable(uri);
 		default:
 			throw new Error(
-				`Code generation for language ${languageId} is not yet supported`,
+				`Code generation for language '${languageId}' and type '${type}' is not yet supported`,
 			);
 	}
 }
 
-function getPythonCodeForUri(uri: vscode.Uri): {
+function getPythonCodeForFile(uri: vscode.Uri): {
 	code: string;
 	dependencies: string[];
 } {
 	const dependencies = ["databricks-sdk"];
 	const ext = path.extname(uri.path);
-	const varname = path
-		.basename(uri.path)
-		.replace(ext, "")
-		.replace("-", "_");
+	const varname = nameToIdentifier(
+		path.basename(uri.path).replace(ext, ""),
+	);
 	const code = `import pandas as pd
 from databricks.sdk import WorkspaceClient
 
@@ -326,13 +384,15 @@ ${varname} = pd.read_csv(
 	return { code, dependencies };
 }
 
-function getRCodeForUri(uri: vscode.Uri): {
+function getRCodeForFile(uri: vscode.Uri): {
 	code: string;
 	dependencies: string[];
 } {
 	const dependencies = ["brickster"];
 	const ext = path.extname(uri.path);
-	const varname = path.basename(uri.path).replace(ext, "");
+	const varname = nameToIdentifier(
+		path.basename(uri.path).replace(ext, ""),
+	);
 	let code: string;
 	switch (ext) {
 		// Special handling for the common case of CSV files.
@@ -356,6 +416,113 @@ function getRCodeForUri(uri: vscode.Uri): {
 			break;
 	}
 	return { code, dependencies };
+}
+
+function getRCodeForTable(uri: vscode.Uri): {
+	code: string;
+	dependencies: string[];
+} {
+	const params = new URLSearchParams(uri.query);
+	const catalog = params.get("catalog");
+	const schema = params.get("schema");
+	const table = uri.path.replace(/^\//, "");
+	const httpPath = params.get("http_path");
+	if (!catalog || !schema || !httpPath) {
+		throw new Error("Malformed Databricks table URI");
+	}
+	const dependencies = ["odbc", "dplyr"];
+	const varname = nameToIdentifier(table);
+	const code = `conn <- DBI::dbConnect(
+  odbc::databricks(),
+  workspace = "${uri.authority}",
+  httpPath = "${httpPath}"
+)
+${varname} <- dplyr::tbl(conn, I("${catalog}.${schema}.${table}"))
+`;
+	return { code, dependencies };
+}
+
+function nameToIdentifier(name: string): string {
+	// TODO: More escaping.
+	return name.replace("-", "_");
+}
+
+/**
+ * Constructs a URI for a Databricks table, largely following the format used
+ * by the https://github.com/databricks/databricks-sqlalchemy/ bridge, but with
+ * the table name as the path so that VS Code renders it correctly.
+ */
+export function databricksTableUri(
+	workspace: string,
+	catalog: string,
+	schema: string,
+	table: string,
+	httpPath: string | undefined,
+): vscode.Uri {
+	return vscode.Uri.from({
+		scheme: "databricks",
+		authority: workspace,
+		path: "/" + table,
+		query: new URLSearchParams({
+			catalog,
+			schema,
+			...(httpPath && { http_path: httpPath }),
+		}).toString(),
+	});
+}
+
+/**
+ * Adds the HTTP path to the given URI as a query parameter.
+ * @param uri A URI.
+ * @param httpPath An HTTP path parameter.
+ * @returns A modified URI.
+ */
+function withHttpPath(uri: vscode.Uri, httpPath: string): vscode.Uri {
+	const params = new URLSearchParams(uri.query);
+	params.set("http_path", httpPath);
+	return uri.with({ query: params.toString() });
+}
+
+/**
+ * Looks up available SQL warehouses for the given workspace.
+ * @param workspace A Databricks workspace.
+ * @param token A bearer token for the Databricks API.
+ * @returns A list of warehouses.
+ */
+async function getSqlWarehouses(
+	workspace: string,
+	token: string,
+): Promise<Warehouse[]> {
+	const response = await fetch(
+		`https://${workspace}/api/2.0/sql/warehouses`,
+		{
+			headers: {
+				Accept: "application/json",
+				Authorization: `Bearer ${token}`,
+			},
+		},
+	);
+	// TODO: More precise error handling.
+	if (!response.ok) {
+		throw new Error(
+			`Request failed with status ${response.status}`,
+		);
+	}
+	interface ListWarehousesReponse {
+		warehouses: Array<Warehouse>;
+	}
+	const body = (await response.json()) as ListWarehousesReponse;
+	return body.warehouses;
+}
+
+interface Warehouse {
+	id: string;
+	name: string;
+	state: string;
+	warehouse_type: string;
+	odbc_params: {
+		path: string;
+	};
 }
 
 const STATE_KEY = "databricksWorkspaces";
