@@ -242,6 +242,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 	createInstanceForSession(session: ILanguageRuntimeSession): IPositronConsoleInstance {
 		const instance = new TestPositronConsoleInstance(
 			session.sessionId,
+			'dummy-session-name',
 			session.metadata,
 			session.runtimeMetadata,
 			[], // No runtime items for test instance
@@ -283,6 +284,7 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	constructor(
 		public readonly sessionId: string,
+		public readonly sessionName: string,
 		public readonly sessionMetadata: IRuntimeSessionMetadata,
 		public readonly runtimeMetadata: ILanguageRuntimeMetadata,
 		public readonly runtimeItems: RuntimeItem[] = [],
