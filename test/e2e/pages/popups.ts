@@ -75,7 +75,7 @@ export class Popups {
 			// TODO: make this smart later, perhaps by getting the console state from the API
 			await this.code.wait(5000);
 		} catch {
-			this.code.logger.log('Did not find modal dialog box');
+			this.code.logger.log('Did not find modal dialog box for ipykernel install');
 		}
 	}
 

@@ -14,7 +14,7 @@ test.use({
 // RETICULATE_PYTHON
 // to the installed python path
 
-test.describe.skip('Reticulate', {
+test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
 	test.beforeAll(async function ({ app, workspaceSettings }) {
@@ -29,43 +29,27 @@ test.describe.skip('Reticulate', {
 		}
 	});
 
-	test('R - Verify Basic Reticulate Functionality using reticulate::repl_python() with multiple sessions', async function ({ app, sessions }) {
+	test('R - Verify Basic Reticulate Functionality using reticulate::repl_python() with multiple sessions', async function ({ app, sessions, logger }) {
 
 		const rSessionMetaData = await sessions.start('r');
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
 
-		try {
-			await app.workbench.console.waitForConsoleContents('Yes/no/cancel');
-			await app.workbench.console.typeToConsole('no');
-			await app.workbench.console.sendEnterKey();
-		} catch {
-			// Prompt did not appear
-		}
-
-		await app.workbench.popups.installIPyKernel();
-
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await verifyReticulateFunctionality(app, rSessionMetaData.id);
+		await app.workbench.sessions.renameSession('reticulate', 'sessionOne');
+
+		await verifyReticulateFunctionality(app, rSessionMetaData.id, 'sessionOne');
 
 		const rSessionMetaData2 = await sessions.start('r', { reuse: false });
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
 
-		try {
-			await app.workbench.console.waitForConsoleContents('Yes/no/cancel');
-			await app.workbench.console.typeToConsole('no');
-			await app.workbench.console.sendEnterKey();
-		} catch {
-			// Prompt did not appear
-		}
-
-		await app.workbench.popups.installIPyKernel();
-
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await verifyReticulateFunctionality(app, rSessionMetaData2.id, 'Python (reticulate)', '300', '500', '7');
+		await app.workbench.sessions.renameSession('reticulate', 'sessionTwo');
+
+		await verifyReticulateFunctionality(app, rSessionMetaData2.id, 'sessionTwo', '300', '500', '7');
 
 	});
 });
