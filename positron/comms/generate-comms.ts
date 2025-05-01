@@ -457,6 +457,40 @@ function* oneOfVisitor(
 }
 
 /**
+ * Collect external references from contracts and returns them as arrays.
+ *
+ * @param contracts The OpenRPC contracts to process
+ * @returns An array of external references. Each element represents one external file
+ *   for which we detected external references. `fileName` is the bare name without
+ *   `-backend/fronted-openrpc.json` suffix. `refs` is an array of imported type names.
+ */
+function collectExternalReferences(contracts: any[]): Array<{fileName: string; refs: Array<string>}> {
+	const externalRefs = new Map<string, Set<string>>();
+
+	for (const contract of contracts) {
+		for (const ref of refVisitor(contract)) {
+			const externalRef = externalRefComponents(ref);
+			if (externalRef) {
+				const filePath = externalRef.filePath;
+				const refName = filePath.replace(/\.json$/, '').replace(/-(back|front)end-openrpc$/, '');
+				if (!externalRefs.has(refName)) {
+					externalRefs.set(refName, new Set());
+				}
+
+				const parts = externalRef.jsonPointer.split('/');
+				const schemaName = parts[parts.length - 1];
+				externalRefs.get(refName)!.add(snakeCaseToSentenceCase(schemaName));
+			}
+		}
+	}
+
+	return Array.from(externalRefs.entries()).map(([fileName, refsSet]) => ({
+		fileName,
+		refs: Array.from(refsSet)
+	}));
+}
+
+/**
  * Create a Rust comm for a given OpenRPC contract.
  *
  * @param name The name of the comm
@@ -467,6 +501,8 @@ function* oneOfVisitor(
  * @returns A generator that yields the Rust code for the comm
  */
 function* createRustComm(name: string, frontend: any, backend: any): Generator<string> {
+	const contracts = [backend, frontend].filter(element => element !== undefined);
+
 	yield `// @generated
 
 /*---------------------------------------------------------------------------------------------
@@ -479,10 +515,22 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 
 use serde::Deserialize;
 use serde::Serialize;
-
 `;
 
-	const contracts = [backend, frontend].filter(element => element !== undefined);
+	// Add imports for external references
+	const externalReferences = collectExternalReferences(contracts);
+	if (externalReferences.length) {
+		for (const { fileName, refs } of externalReferences) {
+			if (refs.length) {
+				for (const ref of refs) {
+					yield `use super::${fileName}_comm::${ref};`;
+				}
+				yield '\n';
+			}
+		}
+	}
+
+	yield `\n`;
 
 	const namedContracts = [
 		{ name: 'Backend', source: backend },
@@ -492,7 +540,6 @@ use serde::Serialize;
 	for (const contract of contracts) {
 		yield* createRustValueTypes(contract, contracts);
 	}
-	yield* createExternalDefinitions(createRustValueTypes, contracts);
 
 	// Create parameter objects for each method
 	for (const source of contracts) {
@@ -972,13 +1019,24 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 
 `;
 
-	const models = Array<string>();
 	const contracts = [backend, frontend].filter(element => element !== undefined);
+
+	// Add imports for external references
+	const externalReferences = collectExternalReferences(contracts);
+	if (externalReferences.length) {
+		for (const { fileName, refs } of externalReferences) {
+			if (refs.length) {
+				yield `from .${fileName}_comm import ${refs.join(', ')}\n`;
+			}
+		}
+		yield `\n`;
+	}
+
+	const models = Array<string>();
 
 	for (const source of contracts) {
 		yield* createPythonValueTypes(source, contracts, models);
 	}
-	yield* createExternalDefinitions(createPythonValueTypes, contracts, models);
 
 	if (backend) {
 		yield '@enum.unique\n';
@@ -1198,7 +1256,6 @@ function* createTypescriptInterface(
  * @param name The name of the comm
  * @param frontend The OpenRPC contract for the frontend
  * @param backend The OpenRPC contract for the backend
- * @param external The external schema contract (if any)
  */
 function* createTypescriptComm(name: string, frontend: any, backend: any): Generator<string> {
 	// Read the metadata file
@@ -1222,12 +1279,23 @@ function* createTypescriptComm(name: string, frontend: any, backend: any): Gener
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
 `;
+
 	const contracts = [backend, frontend].filter(element => element !== undefined);
+
+	// Add imports for external references
+	const externalReferences = collectExternalReferences(contracts);
+	if (externalReferences.length) {
+		for (const { fileName, refs } of externalReferences) {
+			if (refs.length) {
+				yield `import { ${refs.join(', ')} } from './positron${snakeCaseToSentenceCase(fileName)}Comm.js';\n`;
+			}
+		}
+		yield `\n`;
+	}
 
 	for (const source of contracts) {
 		yield* createTypescriptValueTypes(source, contracts);
 	}
-	yield* createExternalDefinitions(createTypescriptValueTypes, contracts);
 
 	if (frontend) {
 		const events: string[] = [];
@@ -1563,109 +1631,6 @@ function* createTypescriptValueTypes(source: any, contracts: any[]): Generator<s
 				yield `}\n\n`;
 			}
 		}
-	}
-}
-
-/**
- * Create definitions for references pointing to external files
- *
- * A makeshit contract containing relevant definition is created for each external
- * file pointed to by references. The `callback` parameter in charge of yielding
- * definitions is called with the contract as argument.
- *
- * @param callback Generator in charge of yielding definitions for objects, enums, etc.
- *   Called with a contract containing definitions for external references.
- * @param contracts An array of OpenRPC contracts to process. External references are
- *   extracted from these contracts.
- * @param args Additional arguments to pass to the callback function.
- *
- * @returns A contract object containing all referenced external schemas
- */
-function* createExternalDefinitions(
-	callback: (schema: any, source: any[], ...args: any[]) => Generator<string>,
-	contracts: any[],
-	...args: any[]
-) {
-	const externalRefs: Map<string, Set<string>> = new Map();
-
-	for (const contract of contracts) {
-		for (const ref of refVisitor(contract)) {
-			// Check for external references (e.g. "schemas.json#/components/schemas/plot_size")
-			const externalRef = externalRefComponents(ref);
-
-			if (externalRef) {
-				const filePath = path.resolve(commsDir, externalRef.filePath);
-				if (!existsSync(filePath)) {
-					throw new Error(`External schema file not found: ${filePath}`);
-				}
-
-				if (!externalRefs.has(filePath)) {
-					externalRefs.set(filePath, new Set());
-				}
-
-				const jsonPointer = externalRef.jsonPointer;
-				externalRefs.get(filePath)!.add(`#${jsonPointer}`);
-			}
-		}
-	}
-
-	const externalContract: {
-		components: {
-			schemas: Record<string, any>;
-		};
-	} = {
-		components: {
-			schemas: {}
-		}
-	};
-
-	for (const [filePath, schemaPaths] of externalRefs.entries()) {
-		const schema = JSON.parse(readFileSync(filePath, { encoding: 'utf-8' }));
-		const included = new Set<string>();
-
-		const includeSchema = (schemaPath: string) => {
-			const parts = schemaPath.split('/');
-			const schemaName = parts[parts.length - 1];
-			let target = schema;
-
-			for (let i = 0; i < parts.length; ++i) {
-				if (parts[i] === '#' || parts[i] === '') {
-					continue;
-				}
-				if (!Object.keys(target).includes(parts[i])) {
-					throw new Error(`Could not find schema part: ${parts[i]} in path ${schemaPath}`);
-				}
-				target = target[parts[i]];
-			}
-
-			// Add the schema to our external contract
-			externalContract.components.schemas[schemaName] = target;
-
-			// Record it as included so we don't recurse if there are other
-			// references
-			included.add(schemaPath);
-
-			// Now recursively include dependencies in the external contract. These
-			// are expressed as refs.
-			for (const ref of refVisitor(target)) {
-				// External references pointing to external references are currently not
-				// allowed. To support this, we'd need a more complex setup where we
-				// keep track of contract identities, e.g. in case the external
-				// reference refers back to the contract being processed.
-				if (externalRefComponents(ref)) {
-					throw new Error(`An external reference can't itself contain external references (in ${schemaPath})`);
-				}
-
-				// Recurse with internal references
-				includeSchema(ref);
-			}
-		};
-
-		for (const schemaPath of schemaPaths) {
-			includeSchema(schemaPath);
-		}
-
-		yield* callback(externalContract, [schema], ...args);
 	}
 }
 
