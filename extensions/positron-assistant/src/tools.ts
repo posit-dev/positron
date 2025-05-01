@@ -132,24 +132,21 @@ export function registerAssistantTools(
 		 *
 		 * @returns A vscode.PreparedToolInvocation object
 		 */
-		prepareInvocation: async (options, token) => {
+		prepareInvocation2: async (options, token) => {
 
 			// Ask user for confirmation before proceeding
-			const result: vscode.PreparedToolInvocation = {
-				/// The message shown when the code is actually executing.
-				/// Positron appends '...' to this message.
-				invocationMessage: vscode.l10n.t('Running'),
+			const result: vscode.PreparedTerminalToolInvocation = {
+				// The command (code to run)
+				command: options.input.code,
+
+				// The language (used for syntax highlighting)
+				language: options.input.language,
 
 				/// The message shown to confirm that the user wants to run the code.
 				confirmationMessages: {
 					title: vscode.l10n.t('Execute Code'),
-					/// Generate a MarkdownString to show the code with syntax
-					/// highlighting
-					message: new vscode.MarkdownString(
-						'```' + options.input.language + '\n' +
-						options.input.code + '\n' +
-						'```'),
-				}
+					message: ''
+				},
 			};
 			return result;
 		},
