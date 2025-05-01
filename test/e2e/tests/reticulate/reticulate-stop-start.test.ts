@@ -14,7 +14,7 @@ test.use({
 // RETICULATE_PYTHON
 // to the installed python path
 
-test.describe.skip('Reticulate', {
+test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
 	test.beforeAll(async function ({ app, workspaceSettings }) {
@@ -49,7 +49,9 @@ test.describe.skip('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
 
-		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`, 'Python (reticulate)');
+		await app.workbench.sessions.renameSession('reticulate', 'reticulateNew');
+
+		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`, 'reticulateNew');
 
 	});
 
