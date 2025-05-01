@@ -18,8 +18,8 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 	});
 
 	test('Python - Verify cancel button on console bar', async function ({ app, python }) {
-		await app.workbench.console.typeToConsole('import time', true);
-		await app.workbench.console.typeToConsole('time.sleep(10)', true);
+		await app.workbench.console.executeCode('Python', 'import time');
+		await app.workbench.console.executeCode('Python', 'time.sleep(10)');
 		await app.workbench.console.interruptExecution();
 	});
 });
@@ -35,7 +35,7 @@ test.describe('Console Pane: Alternate Python', () => {
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
 		await sessions.start('pythonAlt');
 		await app.workbench.console.clearButton.click();
-		await app.workbench.console.pasteCodeToConsole(`import ipykernel; ipykernel.__file__`, true);
+		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
 		await app.workbench.console.waitForConsoleContents('site-packages');
 	});
 
