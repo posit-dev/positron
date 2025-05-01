@@ -54,6 +54,60 @@ test.describe('Postgres DB Connection', {
 
 			}).toPass({ timeout: 60000 });
 		});
+
+		await app.workbench.dataExplorer.closeDataExplorer();
+		await app.workbench.layouts.enterLayout('stacked');
+
+		await test.step('Remove connection', async () => {
+			await app.workbench.connections.openConnectionPane();
+
+			await app.code.driver.page.getByRole('button', { name: 'Disconnect' }).click();
+
+			await app.code.driver.page.locator('.col-name', { hasText: 'SQLAlchemy (postgresql)' }).click();
+
+			await app.code.driver.page.getByRole('button', { name: 'Delete Connection' }).click();
+		});
+	});
+
+	test('R - Can establish a Postgres connection to a docker container', async function ({ app, r }) {
+
+		await app.workbench.connections.openConnectionPane();
+
+		await app.workbench.connections.initiateConnection('R', 'PostgresSQL');
+
+		await app.workbench.connections.fillConnectionsInputs({
+			'Database Name': process.env.E2E_POSTGRES_DB || 'testdb',
+			'Host': 'localhost',
+			'User': process.env.E2E_POSTGRES_USER || 'testuser',
+			'Password': process.env.E2E_POSTGRES_PASSWORD || 'testpassword',
+		});
+
+		await app.workbench.connections.connect(false);
+
+		await test.step('Open periodic table connection', async () => {
+
+			await app.code.driver.page.locator('.codicon-arrow-circle-right').click();
+
+			const connectionName = app.code.driver.page.locator('.connections-details', { hasText: 'PqConnection' });
+			await connectionName.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
+
+			const publicNode = app.code.driver.page.locator('.connections-details', { hasText: 'public' });
+			await publicNode.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
+
+			await app.code.driver.page.locator('.codicon-positron-table-connection').click();
+			await app.workbench.dataExplorer.verifyTab('Data: periodic_table', { isVisible: true });
+		});
+
+		await test.step('Verify connection data from periodic table', async () => {
+			await app.workbench.sideBar.closeSecondarySideBar();
+
+			await expect(async () => {
+				const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+
+				expect(tableData[0]['Element']).toBe('Hydrogen');
+
+			}).toPass({ timeout: 60000 });
+		});
 	});
 });
 

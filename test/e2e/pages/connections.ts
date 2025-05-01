@@ -81,9 +81,13 @@ export class Connections {
 		});
 	}
 
-	async connect() {
+	async connect(python: boolean = true) {
 		await test.step('Click connect button when ready', async () => {
-			await expect(this.code.driver.page.locator('.lines-content .view-line', { hasText: '%connection_show conn' })).toBeVisible();
+			if (python) {
+				await expect(this.code.driver.page.locator('.lines-content .view-line', { hasText: '%connection_show conn' })).toBeVisible();
+			} else {
+				await expect(this.code.driver.page.locator('.lines-content .view-line', { hasText: 'connections::connection_view(con)' })).toBeVisible();
+			}
 			await this.code.driver.page.locator('.button', { hasText: 'Connect' }).click();
 		});
 	}
