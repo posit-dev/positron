@@ -218,6 +218,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		this._state = positron.RuntimeState.Uninitialized;
 
 		this.dynState = {
+			sessionName: this.runtimeMetadata.runtimeName,
 			inputPrompt: `Z>`,
 			continuationPrompt: 'Z+',
 		};
@@ -1183,7 +1184,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
 			runtime_name: this.runtimeMetadata.runtimeName,
-			session_name: this.metadata.sessionName,
+			session_name: this.dynState.sessionName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.Restart,
 			message: ''
@@ -1244,7 +1245,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
 			runtime_name: this.runtimeMetadata.runtimeName,
-			session_name: this.metadata.sessionName,
+			session_name: this.dynState.sessionName,
 			exit_code: 0,
 			reason: exitReason,
 			message: ''
@@ -1257,7 +1258,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
 			runtime_name: this.runtimeMetadata.runtimeName,
-			session_name: this.metadata.sessionName,
+			session_name: this.dynState.sessionName,
 			exit_code: 0,
 			reason: positron.RuntimeExitReason.ForcedQuit,
 			message: ''
@@ -2068,7 +2069,7 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		this._onDidChangeRuntimeState.fire(positron.RuntimeState.Exited);
 		this._onDidEndSession.fire({
 			runtime_name: this.runtimeMetadata.runtimeName,
-			session_name: this.metadata.sessionName,
+			session_name: this.dynState.sessionName,
 			exit_code: 137,
 			reason: positron.RuntimeExitReason.Error,
 			message: `I'm terribly sorry, but a segmentation fault has occurred.`

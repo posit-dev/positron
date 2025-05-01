@@ -502,7 +502,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		// successfully reconnects.
 		const sessionId = session.metadata.sessionId;
 		const console = this.createPositronConsoleInstance(
-			session.metadata, session.runtimeMetadata, activate);
+			session.sessionName,
+			session.metadata,
+			session.runtimeMetadata,
+			activate
+		);
 
 		// Set the initial working directory to the session's working directory.
 		console.initialWorkingDirectory = session.workingDirectory;
@@ -550,14 +554,16 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 				// Start the preferred runtime.
 				this._logService.trace(`Language runtime ` +
 					`${formatLanguageRuntimeMetadata(languageRuntime)} automatically starting`);
-				await this._runtimeSessionService.startNewRuntimeSession(languageRuntime.runtimeId,
+				await this._runtimeSessionService.startNewRuntimeSession(
+					languageRuntime.runtimeId,
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // No notebook URI (console sesion)
 					`User executed code in language ${languageId}, and no running runtime session was found ` +
 					`for the language.`,
 					RuntimeStartMode.Starting,
-					true);
+					true
+				);
 			} else {
 				// There is no registered runtime for the language, so we can't execute code.
 				throw new Error(
@@ -626,7 +632,11 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	): IPositronConsoleInstance {
 		// Create the instance
 		const instance = this.createPositronConsoleInstance(
-			session.metadata, session.runtimeMetadata, activate);
+			session.dynState.sessionName,
+			session.metadata,
+			session.runtimeMetadata,
+			activate
+		);
 
 		// Attach it to the session
 		instance.attachRuntimeSession(session, attachMode);
@@ -641,18 +651,21 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	 * the session; use the `attachRuntimeSession` method to connect it to a
 	 * live session.
 	 *
+	 * @param sessionName The name of the session.
 	 * @param sessionMetadata The session metadata.
 	 * @param runtimeMetadata The runtime metadata.
 	 * @param activate Whether to activate the console instance immediately.
 	 * @returns The new Positron console instance.
 	 */
 	private createPositronConsoleInstance(
+		sessionName: string,
 		sessionMetadata: IRuntimeSessionMetadata,
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		activate: boolean): IPositronConsoleInstance {
 		// Create the new Positron console instance.
 		const positronConsoleInstance = this._register(this._instantiationService.createInstance(
 			PositronConsoleInstance,
+			sessionName,
 			sessionMetadata,
 			runtimeMetadata,
 		));
@@ -799,6 +812,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets or sets the session, if attached.
 	 */
 	private _session: ILanguageRuntimeSession | undefined;
+
+	/**
+	 * The name of the session when the console instance was created.
+	 * This is used as a fallback when the session is not attached.
+	 */
+	private _initialSessionName: string;
 
 	/**
 	 * Gets or sets the disposable store. This contains things that are disposed when a runtime is
@@ -973,11 +992,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * Constructor.
 	 *
+	 * @param sessionName The name of the session.
 	 * @param _sessionMetadata The metadata for the session.
 	 * @param _runtimeMetadata The metadata for the runtime.
 	 * @param _notificationService The notification service.
 	 */
 	constructor(
+		sessionName: string,
 		private _sessionMetadata: IRuntimeSessionMetadata,
 		private _runtimeMetadata: ILanguageRuntimeMetadata,
 		@INotificationService private readonly _notificationService: INotificationService,
@@ -985,6 +1006,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	) {
 		// Call the base class's constructor.
 		super();
+
+		// Initialize the session name.
+		this._initialSessionName = sessionName;
 
 		// Initialize the scrollback configuration.
 		this._scrollbackSize = this._configurationService.getValue<number>(scrollbackSizeSettingId);
@@ -1027,6 +1051,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	get sessionId(): string {
 		return this._sessionMetadata.sessionId;
+	}
+
+	/**
+	 * Gets the name of the runtime session associated with the console instance.
+	 *
+	 * If there is no session associated with the console, we fallback to the
+	 * session name provided when the console was created.
+	 */
+	get sessionName(): string {
+		return this._session?.dynState.sessionName || this._initialSessionName;
 	}
 
 	/**
@@ -1694,13 +1728,13 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 								switch (runtimeItem.attachMode) {
 									case SessionAttachMode.Starting:
 									case SessionAttachMode.Switching:
-										msg = localize('positronConsole.started', "{0} started.", this._sessionMetadata.sessionName);
+										msg = localize('positronConsole.started', "{0} started.", this.sessionName);
 										break;
 									case SessionAttachMode.Restarting:
-										msg = localize('positronConsole.restarted', "{0} restarted.", this._sessionMetadata.sessionName);
+										msg = localize('positronConsole.restarted', "{0} restarted.", this.sessionName);
 										break;
 									case SessionAttachMode.Connected:
-										msg = localize('positronConsole.connected', "{0} connected.", this._sessionMetadata.sessionName);
+										msg = localize('positronConsole.connected', "{0} connected.", this.sessionName);
 										break;
 								}
 								if (msg) {
@@ -1719,7 +1753,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 						this.addRuntimeItem(
 							new RuntimeItemReconnected(
 								generateUuid(),
-								`${this._sessionMetadata.sessionName} reconnected.`
+								`${this.sessionName} reconnected.`
 							)
 						);
 						break;
@@ -1730,7 +1764,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				this.addRuntimeItem(
 					new RuntimeItemOffline(
 						generateUuid(),
-						`${this._sessionMetadata.sessionName} offline. Waiting to reconnect.`
+						`${this.sessionName} offline. Waiting to reconnect.`
 					)
 				);
 				break;
@@ -1751,7 +1785,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param attachMode A value which indicates the attachment mode.
 	 */
 	private emitStartRuntimeItems(attachMode: SessionAttachMode) {
-		const sessionName = this._sessionMetadata.sessionName;
+		const sessionName = this.sessionName;
 		// Set the state and add the appropriate runtime item indicating the session attach mode.
 		if (attachMode === SessionAttachMode.Restarting ||
 			// Consider starting from an exited state a restart.
@@ -1799,7 +1833,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// If trace is enabled, add a trace runtime item.
 		if (this._trace) {
-			this.addRuntimeItemTrace(`Attach session ${this._session.metadata.sessionName} ` +
+			this.addRuntimeItemTrace(`Attach session ${this.sessionName} ` +
 				`(attach mode = ${attachMode})`);
 		}
 
@@ -1857,7 +1891,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 							this.addRuntimeItem(new RuntimeItemExited(
 								generateUuid(),
 								RuntimeExitReason.StartupFailed,
-								`${session.metadata.sessionName} failed to start.`
+								`${session.dynState.sessionName} failed to start.`
 							));
 						}
 					}, 1000);
@@ -2222,8 +2256,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				crashedAndNeedRestartButton);
 
 			if (showRestartButton) {
-				const restartButton = new RuntimeItemRestartButton(generateUuid(),
-					this.sessionMetadata.sessionName,
+				const restartButton = new RuntimeItemRestartButton(
+					generateUuid(),
+					this._session?.dynState.sessionName || this.runtimeMetadata.runtimeName,
 					() => {
 						this._onDidRequestRestart.fire();
 					});
@@ -2333,7 +2368,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private detachRuntime() {
 		// If trace is enabled, add a trace runtime item.
 		if (this._trace) {
-			this.addRuntimeItemTrace(`Detach session ${this.sessionMetadata.sessionName}`);
+			this.addRuntimeItemTrace(`Detach session ${this.sessionName} with ID: ${this.sessionMetadata.sessionId}`);
 		}
 
 		if (this.runtimeAttached) {
@@ -2357,7 +2392,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		} else {
 			// We are not currently attached; warn.
 			console.warn(
-				`Attempt to detach already detached session ${this._sessionMetadata.sessionName}.`);
+				`Attempt to detach already detached session ${this.sessionName} with ID: ${this.sessionMetadata.sessionId}.`);
 		}
 	}
 

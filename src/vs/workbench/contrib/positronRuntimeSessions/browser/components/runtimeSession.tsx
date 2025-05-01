@@ -54,7 +54,7 @@ export const RuntimeSession = (props: RuntimeSessionProps) => {
 					<a href='#' onClick={() => setExpanded(!expanded)}>
 						<span className={'codicon ' + (expanded ? 'codicon-chevron-down' : 'codicon-chevron-right')}></span>
 						&nbsp;
-						{props.session.metadata.sessionName}
+						{props.session.dynState.sessionName}
 					</a>
 				</td>
 				<td>

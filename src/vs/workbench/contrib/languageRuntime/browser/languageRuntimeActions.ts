@@ -39,6 +39,7 @@ interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeCli
 // Action IDs
 export const LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID = 'workbench.action.language.runtime.openActivePicker';
 export const LANGUAGE_RUNTIME_START_SESSION_ID = 'workbench.action.language.runtime.openStartPicker';
+export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.runtime.renameSession';
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -148,7 +149,7 @@ export const selectLanguageRuntimeSession = async (
 				session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
 			return {
 				id: session.sessionId,
-				label: session.metadata.sessionName,
+				label: session.dynState.sessionName,
 				detail: session.runtimeMetadata.runtimePath,
 				description: isForegroundSession ? 'Currently Selected' : undefined,
 				iconPath: {
@@ -1132,6 +1133,61 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 			session.setWorkingDirectory(resource.fsPath);
 		} catch (e) {
 			notificationService.error(e);
+		}
+	}
+});
+
+registerAction2(class extends Action2 {
+	constructor() {
+		super({
+			id: LANGUAGE_RUNTIME_RENAME_SESSION_ID,
+			title: nls.localize2('positron.console.renameSesison', "Rename Console Session"),
+			category,
+			f1: true
+		});
+	}
+
+	/**
+	 * Renames a console session
+	 *
+	 * @param accessor The service accessor
+	 * @returns A promise that resolves when the session has been renamed
+	 */
+	async run(accessor: ServicesAccessor) {
+		const sessionService = accessor.get(IRuntimeSessionService);
+		const notificationService = accessor.get(INotificationService);
+		const quickInputService = accessor.get(IQuickInputService);
+
+		// Prompt the user to select a session they want to rename.
+		const session = await selectLanguageRuntimeSession(accessor);
+		if (!session) {
+			return;
+		}
+
+		// Prompt the user to enter the new session name.
+		const sessionName = await quickInputService.input({
+			value: '',
+			placeHolder: '',
+			prompt: nls.localize('positron.console.renameSession.prompt', "Enter the new session name"),
+		});
+
+		// Validate the new session name
+		const newSessionName = sessionName?.trim();
+		if (!newSessionName?.trim()) {
+			return;
+		}
+
+		// Attempt to rename the session.
+		try {
+			sessionService.updateSessionName(session.sessionId, newSessionName);
+		} catch (error) {
+			notificationService.error(
+				localize('positron.console.renameSession.error',
+					"Failed to rename session {0}: {1}",
+					session.sessionId,
+					error
+				)
+			);
 		}
 	}
 });

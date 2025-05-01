@@ -80,7 +80,9 @@ import { IChatVariablesService } from '../common/chatVariables.js';
 import { IChatResponseViewModel } from '../common/chatViewModel.js';
 import { ChatInputHistoryMaxEntries, IChatHistoryEntry, IChatInputState, IChatWidgetHistoryService } from '../common/chatWidgetHistoryService.js';
 import { ChatAgentLocation, ChatConfiguration, ChatMode, validateChatMode } from '../common/constants.js';
-import { ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from '../common/languageModels.js';
+// --- Start Positron ---
+import { ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService, IPositronChatProvider } from '../common/languageModels.js';
+// --- End Positron ---
 import { CancelAction, ChatEditingSessionSubmitAction, ChatSubmitAction, ChatSwitchToNextModelActionId, IChatExecuteActionContext, IToggleChatModeArgs, ToggleAgentModeActionId } from './actions/chatExecuteActions.js';
 import { AttachToolsAction } from './actions/chatToolActions.js';
 import { ImplicitContextAttachmentWidget } from './attachments/implicitContextAttachment.js';
@@ -291,6 +293,46 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			this._currentMode;
 	}
 
+	// --- Start Positron ---
+	private _onDidChangeCurrentProvider = this._register(new Emitter<IPositronChatProvider | undefined>());
+	private _currentProvider?: IPositronChatProvider;
+
+	get currentProvider(): IPositronChatProvider | undefined {
+		return this._currentProvider;
+	}
+
+	set currentProvider(provider: IPositronChatProvider | undefined) {
+		this._currentProvider = provider;
+		this._onDidChangeCurrentProvider.fire(provider);
+
+		this.storageService.store(this.getSelectedProviderStorageKey(), provider, StorageScope.APPLICATION, StorageTarget.USER);
+
+		// if the current provider is not the same as the current model's provider, change the current model to the first model of the new provider
+		if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.family !== provider.id) {
+			const models = this._modelPickerDelegate.getModels();
+			if (models.length > 0) {
+				this.setCurrentLanguageModel(models[0]);
+			}
+		}
+	}
+
+	private getSelectedProviderStorageKey(): string {
+		return `chat.currentLanguageProvider.${this.location}`;
+	}
+
+	private _modelPickerDelegate!: ModelPickerDelegate;
+
+	// allows setting the language model from React
+	public changeLanguageModel(newLanguageModel: ILanguageModelChatMetadataAndIdentifier) {
+		this._currentLanguageModel = newLanguageModel;
+		this._onDidChangeCurrentLanguageModel.fire(newLanguageModel);
+	}
+
+	get modelPickerDelegate() {
+		return this._modelPickerDelegate;
+	}
+	// --- End Positron ---
+
 	private cachedDimensions: dom.Dimension | undefined;
 	private cachedExecuteToolbarWidth: number | undefined;
 	private cachedInputToolbarWidth: number | undefined;
@@ -410,6 +452,51 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this.setChatMode(ChatMode.Edit);
 			}
 		}));
+		// --- Start Positron ---
+		this._modelPickerDelegate = {
+			onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
+			onDidChangeProvider: this._onDidChangeCurrentProvider.event,
+			setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
+				this.setCurrentLanguageModel(model);
+				this.renderAttachedContext();
+			},
+			getModels: () => {
+				const models = this.getModels();
+				return models.filter(model => !this._currentProvider || model.metadata.family === this._currentProvider.id);
+			},
+			setProvider: (provider: IPositronChatProvider) => {
+				this.currentProvider = provider;
+			}
+		};
+
+		// switches models if one has been added and there is no current model or the current model has been removed
+		this._register(this.languageModelsService.onDidChangeLanguageModels(e => {
+			const hasCurrentModel = this.languageModelsService.getLanguageModelIds().some(modelId => modelId === this._currentLanguageModel?.identifier);
+			if (e.added && !hasCurrentModel) {
+				const newDefault = e.added.find(model => model.metadata.isUserSelectable);
+				if (newDefault) {
+					this.setCurrentLanguageModel({ metadata: newDefault.metadata, identifier: newDefault.identifier });
+				}
+			}
+
+			if (e.removed) {
+				// if the current model is removed, try to set a new model
+				if (this._currentLanguageModel && e.removed.some(model => model === this._currentLanguageModel?.identifier)) {
+					const models = this.getModels();
+					if (models.length > 0) {
+						this.setCurrentLanguageModel(models[0]);
+						// switch to showing models from all providers
+						this.currentProvider = undefined;
+					}
+				}
+			}
+		}));
+
+		const storedCurrentProvider = this.storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
+		if (storedCurrentProvider) {
+			this.currentProvider = storedCurrentProvider;
+		}
+		// --- End Positron ---
 	}
 
 	private getSelectedModelStorageKey(): string {
@@ -446,6 +533,15 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this.checkModelSupported();
 			}
 		}));
+		const persistedProvider = this.storageService.get(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION);
+		if (persistedProvider) {
+			this.languageModelsService.getLanguageModelIds().forEach(modelId => {
+				const model = this.languageModelsService.lookupLanguageModel(modelId);
+				if (model?.family === persistedProvider) {
+					this.currentProvider = { id: model.family, displayName: model.providerName ?? model.name };
+				}
+			});
+		}
 	}
 
 	public switchToNextModel(): void {
@@ -494,7 +590,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		return true;
 	}
 
-	private getModels(): ILanguageModelChatMetadataAndIdentifier[] {
+	// --- Start Positron ---
+	public getModels(): ILanguageModelChatMetadataAndIdentifier[] {
 		const models = this.languageModelsService.getLanguageModelIds()
 			.map(modelId => ({ identifier: modelId, metadata: this.languageModelsService.lookupLanguageModel(modelId)! }))
 			.filter(entry => entry.metadata?.isUserSelectable && this.modelSupportedForDefaultAgent(entry));
@@ -502,6 +599,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 		return models;
 	}
+	// --- End Positron ---
 
 	private setCurrentLanguageModelToDefault() {
 		const defaultLanguageModelId = this.languageModelsService.getLanguageModelIds().find(id => this.languageModelsService.lookupLanguageModel(id)?.isDefault);
@@ -927,17 +1025,27 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 						this.setCurrentLanguageModelToDefault();
 					}
 
+					// --- Start Positron ---
+					const models = this.getModels();
+					if (!this._currentLanguageModel && models.length > 0) {
+						this.setCurrentLanguageModel(models[0]);
+					}
 					if (this._currentLanguageModel) {
-						const itemDelegate: ModelPickerDelegate = {
-							onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
-							setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
-								// The user changed the language model, so we don't wait for the persisted option to be registered
-								this._waitForPersistedLanguageModel.clear();
-								this.setCurrentLanguageModel(model);
-								this.renderAttachedContext();
-							},
-							getModels: () => this.getModels()
-						};
+						// ModelPickerDelegate has been moved to the constructor so it is available for Positron's provider picker.
+						// const itemDelegate: ModelPickerDelegate = {
+						// 	onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
+						// 	setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
+						// 		// The user changed the language model, so we don't wait for the persisted option to be registered
+						// 		this._waitForPersistedLanguageModel.clear();
+						// 		this.setCurrentLanguageModel(model);
+						// 		this.renderAttachedContext();
+						// 	},
+						// 	getModels: () => this.getModels()
+						// };
+
+						// Positron needs to communicate with the picker so it can update when the provider changes
+						const itemDelegate = this._modelPickerDelegate;
+						// --- End Positron ---
 						return this.instantiationService.createInstance(ModelPickerActionViewItem, action, this._currentLanguageModel, itemDelegate);
 					}
 				} else if (action.id === ToggleAgentModeActionId && action instanceof MenuItemAction) {
@@ -1424,11 +1532,15 @@ class ChatSubmitDropdownActionItem extends DropdownWithPrimaryActionViewItem {
 	}
 }
 
-interface ModelPickerDelegate {
+// --- Start Positron ---
+export interface ModelPickerDelegate {
 	onDidChangeModel: Event<ILanguageModelChatMetadataAndIdentifier>;
+	onDidChangeProvider: Event<IPositronChatProvider | undefined>;
 	setModel(selectedModelId: ILanguageModelChatMetadataAndIdentifier): void;
 	getModels(): ILanguageModelChatMetadataAndIdentifier[];
+	setProvider(providerId: IPositronChatProvider): void;
 }
+// --- End Positron ---
 
 class ModelPickerActionViewItem extends DropdownMenuActionViewItemWithKeybinding {
 	constructor(

@@ -137,7 +137,7 @@ const ConsoleInstanceInfoModalPopup = (props: ConsoleInstanceInfoModalPopupProps
 		>
 			<div className='console-instance-info'>
 				<div className='content'>
-					<p className='line' data-testid='session-name'>{props.session.metadata.sessionName}</p>
+					<p className='line' data-testid='session-name'>{props.session.dynState.sessionName}</p>
 					<div className='top-separator'>
 						<p className='line' data-testid='session-id'>
 							{(() => localize(

@@ -61,6 +61,9 @@
 }
 
 .tabs-container .tab-button .session-name {
+	/* Grow items after session name to fill available space */
+	flex: 1;
+
 	margin: 0;
 	line-height: 22px;
 	overflow: hidden;
@@ -68,9 +71,17 @@
 	text-overflow: ellipsis;
 }
 
-/* Grow second to last item to fill available space */
-.tabs-container .tab-button :nth-last-child(2) {
+.tabs-container .tab-button .session-name-input {
+	background-color: var(--vscode-input-background);
+	border: 1px solid var(--vscode-input-border);
+	color: var(--vscode-input-foreground);
+
+	/* Grow input to fill available space */
 	flex: 1;
+}
+
+.tabs-container .tab-button .session-name-input:focus {
+	border-color: var(--vscode-focusBorder);
 }
 
 .tabs-container .tab-button .delete-button {

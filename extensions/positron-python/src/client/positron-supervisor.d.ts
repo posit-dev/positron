@@ -171,12 +171,14 @@ export interface PositronSupervisorApi extends vscode.Disposable {
      * @param runtimeMetadata The metadata for the language runtime to be
      * wrapped by the adapter.
      * @param sessionMetadata The metadata for the session to be reconnected.
+     * @param dynState The initial dynamic state of the session.
      *
      * @returns A JupyterLanguageRuntimeSession that wraps the kernel.
      */
     restoreSession(
         runtimeMetadata: positron.LanguageRuntimeMetadata,
         sessionMetadata: positron.RuntimeSessionMetadata,
+        dynState: positron.LanguageRuntimeDynState,
     ): Promise<JupyterLanguageRuntimeSession>;
 }
 

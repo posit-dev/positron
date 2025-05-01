@@ -105,6 +105,9 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	private readonly _onDidUpdateNotebookSessionUri = new Emitter<INotebookSessionUriChangedEvent>();
 	readonly onDidUpdateNotebookSessionUri = this._onDidUpdateNotebookSessionUri.event;
 
+	private readonly _onDidUpdateSessionName = new Emitter<ILanguageRuntimeSession>();
+	readonly onDidUpdateSessionName = this._onDidUpdateSessionName.event;
+
 	foregroundSession: ILanguageRuntimeSession | undefined;
 
 	updateNotebookSessionUri(oldUri: URI, newUri: URI): string | undefined {
@@ -168,7 +171,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	restoreRuntimeSession(_runtimeMetadata: any, _sessionMetadata: any, _activate: boolean): Promise<void> {
+	restoreRuntimeSession(_runtimeMetadata: any, _sessionMetadata: any, _sessionName: string, _activate: boolean): Promise<void> {
 		throw new Error('Method not implemented.');
 	}
 
@@ -194,6 +197,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 
 	interruptSession(_sessionId: string): Promise<void> {
 		throw new Error('Method not implemented.');
+	}
+
+	updateSessionName(_sessionId: string, _name: string): string | undefined {
+		return undefined;
 	}
 
 	shutdownNotebookSession(_notebookUri: any, _exitReason: RuntimeExitReason, _source: string): Promise<void> {
@@ -361,16 +368,16 @@ function createSessionMetadata(sessionId: string): IRuntimeSessionMetadata {
 		createdTimestamp: 0,
 		sessionMode: LanguageRuntimeSessionMode.Console,
 		notebookUri: undefined,
-		sessionName: `Test Session ${sessionId}`,
 		startReason: 'Unit Test'
 	};
 }
 
-function createSerializedSessionMetadata(sessionId: string): SerializedSessionMetadata {
+function createSerializedSessionMetadata(session: ILanguageRuntimeSession): SerializedSessionMetadata {
 	return {
 		lastUsed: 0,
-		metadata: createSessionMetadata(sessionId),
+		metadata: createSessionMetadata(session.sessionId),
 		runtimeMetadata: TestLanguageRuntimeMetadata,
+		sessionName: session.dynState.sessionName,
 		sessionState: RuntimeState.Idle,
 		workingDirectory: '',
 		localWindowId: 'test-window-id',
@@ -428,6 +435,7 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 			continuationPrompt: '',
 			currentWorkingDirectory: '',
 			inputPrompt: '',
+			sessionName: `Test Session ${sessionId}`,
 		};
 		this.runtimeMetadata = TestLanguageRuntimeMetadata;
 		this.metadata = createSessionMetadata(sessionId);
@@ -438,7 +446,7 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	}
 
 	getLabel(): string {
-		return this.metadata.sessionName;
+		return this.dynState.sessionName;
 	}
 
 	isIdle(): boolean {
@@ -934,15 +942,19 @@ suite('ExecutionHistoryService', () => {
 
 		// Create a session that will be considered active
 		createSession(activeSessionId);
+
+		// Verify the active session can be retrieved from the runtimeSessionService
+		const activeSession = runtimeSessionService.sessions.get(activeSessionId)!;
+
 		runtimeSessionService.onWillStartSessionEmitter.fire({
-			session: runtimeSessionService.sessions.get(activeSessionId)!,
+			session: activeSession,
 			startMode: RuntimeStartMode.Starting,
 			activate: false
 		});
 
 		// Set up restored sessions (only active one)
 		runtimeStartupService.setRestoredSessions([
-			createSerializedSessionMetadata(activeSessionId),
+			createSerializedSessionMetadata(activeSession),
 		]);
 
 		// Add some fake storage for both active and inactive sessions
@@ -957,7 +969,7 @@ suite('ExecutionHistoryService', () => {
 
 		// Call prune storage
 		(executionHistoryService as ExecutionHistoryService).pruneStorage([
-			createSerializedSessionMetadata(activeSessionId),
+			createSerializedSessionMetadata(activeSession),
 		]);
 
 		// Verify inactive session storage was removed but active was kept

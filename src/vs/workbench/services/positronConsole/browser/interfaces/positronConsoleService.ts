@@ -236,6 +236,11 @@ export interface IPositronConsoleInstance {
 	readonly sessionId: string;
 
 	/**
+	 * Gets the session name.
+	 */
+	readonly sessionName: string;
+
+	/**
 	 * Gets a value which indicates whether trace is enabled.
 	 */
 	readonly trace: boolean;

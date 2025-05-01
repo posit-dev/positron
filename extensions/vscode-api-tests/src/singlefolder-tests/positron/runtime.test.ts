@@ -21,16 +21,18 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage> = this._onDidReceiveRuntimeMessage.event;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit> = this._onDidEndSession.event;
-
-	readonly dynState = {
-		inputPrompt: `T>`,
-		continuationPrompt: 'T+',
-	};
+	dynState: positron.LanguageRuntimeDynState;
 
 	constructor(
 		readonly runtimeMetadata: positron.LanguageRuntimeMetadata,
 		readonly metadata: positron.RuntimeSessionMetadata
-	) { }
+	) {
+		this.dynState = {
+			sessionName: this.runtimeMetadata.runtimeName,
+			inputPrompt: 'T>',
+			continuationPrompt: 'T+',
+		};
+	}
 
 	generateMessageId(): string {
 		return `msg-${TestLanguageRuntimeSession.messageId++}`;

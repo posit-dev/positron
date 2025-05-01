@@ -20,6 +20,10 @@ function getSupportedLibraries(): string[] {
 }
 
 export function detectWebApp(document: vscode.TextDocument): void {
+    if (document.languageId !== 'python') {
+        executeCommand('setContext', 'pythonAppFramework', undefined);
+        return;
+    }
     const text = document.getText();
     const framework = getFramework(text);
     executeCommand('setContext', 'pythonAppFramework', framework);
@@ -78,7 +82,7 @@ export function activateAppDetection(disposables: vscode.Disposable[]): void {
     disposables.push(
         // Trigger when the active editor changes
         vscode.window.onDidChangeActiveTextEditor((editor) => {
-            if (editor && editor.document.languageId === 'python') {
+            if (editor) {
                 activeEditor = editor;
                 triggerUpdateApp();
             }

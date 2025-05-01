@@ -100,10 +100,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// This map is keyed by the runtimeId (metadata.runtimeId) of the session.
 	private readonly _consoleSessionsByRuntimeId = new Map<string, ILanguageRuntimeSession[]>();
 
-	// A map of the number of sessions created per runtime ID. This is used to
-	// make each session name unique.
-	private readonly _consoleSessionCounterByRuntimeId = new Map<string, number>();
-
 	// A map of the last active console session per langauge.
 	// We can have multiple console sessions per language,
 	// and this map provides access to the session that was
@@ -146,6 +142,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	// The event emitter for the onDidDeleteRuntime event.
 	private readonly _onDidDeleteRuntimeSessionEmitter =
 		this._register(new Emitter<string>);
+
+	// THe event emitter for the onDidUpdateSessionName event.
+	private readonly _onDidUpdateSessionNameEmitter =
+		this._register(new Emitter<ILanguageRuntimeSession>);
 
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
@@ -212,7 +212,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						// Attempt to reconnect the session.
 						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
 							`attempting to reconnect session ${session.sessionId}`);
-						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata, false);
+						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata, session.dynState.sessionName, false);
 					}
 				}
 			}
@@ -267,6 +267,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when a notebook session's URI is updated.
 	readonly onDidUpdateNotebookSessionUri = this._onDidUpdateNotebookSessionUriEmitter.event;
+
+	// An event that fires when a session's name is updated.
+	readonly onDidUpdateSessionName = this._onDidUpdateSessionNameEmitter.event;
 
 	/**
 	 * Registers a session manager with the service.
@@ -531,7 +534,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 */
-	async startNewRuntimeSession(runtimeId: string,
+	async startNewRuntimeSession(
+		runtimeId: string,
 		sessionName: string,
 		sessionMode: LanguageRuntimeSessionMode,
 		notebookUri: URI | undefined,
@@ -607,12 +611,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 *
 	 * @param runtimeMetadata The metadata of the runtime to start.
 	 * @param sessionMetadata The metadata of the session to start.
+	 * @param sessionName A human readable name for the session.
 	 * @param activate Whether to activate/focus the session after it is
 	 * reconnected.
 	 */
 	async restoreRuntimeSession(
 		runtimeMetadata: ILanguageRuntimeMetadata,
 		sessionMetadata: IRuntimeSessionMetadata,
+		sessionName: string,
 		activate: boolean): Promise<void> {
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
@@ -678,7 +684,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// reconnect, etc.
 		let session: ILanguageRuntimeSession;
 		try {
-			session = await sessionManager.restoreSession(runtimeMetadata, sessionMetadata);
+			session = await sessionManager.restoreSession(runtimeMetadata, sessionMetadata, sessionName);
 		} catch (err) {
 			this._logService.error(
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
@@ -892,13 +898,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		} else if (state === RuntimeState.Uninitialized) {
 			// The runtime has never been started, or is no longer running. Just
 			// tell it to start.
-			await this.startNewRuntimeSession(session.runtimeMetadata.runtimeId,
-				session.metadata.sessionName,
+			await this.startNewRuntimeSession(
+				session.runtimeMetadata.runtimeId,
+				session.dynState.sessionName,
 				session.metadata.sessionMode,
 				session.metadata.notebookUri,
 				`'Restart Interpreter' command invoked`,
 				RuntimeStartMode.Starting,
-				true);
+				true
+			);
 			return;
 		} else if (state === RuntimeState.Starting ||
 			state === RuntimeState.Restarting) {
@@ -912,6 +920,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				`and cannot be restarted.`);
 		}
 	}
+
 	/**
 	 * Interrupt a runtime session.
 	 *
@@ -926,6 +935,44 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			`Interrupting session ${formatLanguageRuntimeSession(session)}'`);
 
 		return session.interrupt();
+	}
+
+	/**
+	 * Update the name of an active runtime session.
+	 *
+	 * @param sessionId The session ID of the runtime to update.
+	 * @param name The new name for the session.
+	 */
+	updateSessionName(sessionId: string, name: string) {
+		// Find the active session to update.
+		const session = this.getSession(sessionId);
+		if (!session) {
+			throw new Error(`No session with ID '${sessionId}' was found.`);
+		}
+
+		// Validate the new session name.
+		const validatedName = name.trim();
+		if (validatedName.trim().length === 0) {
+			throw new Error(`Session name cannot be empty.`);
+		}
+
+		// Log the start of the session name update
+		this._logService.info(
+			`Updating session name to ${validatedName} for session ${formatLanguageRuntimeSession(session)}'`);
+
+		// Update the sesion name in its dynamic state
+		session.dynState.sessionName = validatedName;
+
+		// Log the end of the session name update
+		this._logService.info(
+			`Successfully updated session name to ${validatedName} for session ${formatLanguageRuntimeSession(session)}'`);
+
+		/**
+		 * Notify listeners that the session name has changed
+		 * so other parts of the application can update their UI
+		 * to reflect the new name.
+		 */
+		this._onDidUpdateSessionNameEmitter.fire(session);
 	}
 
 	/**
@@ -1447,26 +1494,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			throw err;
 		}
 
-		// Determine if the console session name should be appended with a session count to make it unique.
-		let updatedSessionName = sessionName;
-		if (sessionMode === LanguageRuntimeSessionMode.Console) {
-			let sessionCount = this._consoleSessionCounterByRuntimeId.get(runtimeMetadata.runtimeId);
-			if (sessionCount) {
-				// Increment the session count for the runtime and append it to the session name.
-				sessionCount++;
-				this._consoleSessionCounterByRuntimeId.set(runtimeMetadata.runtimeId, sessionCount);
-				updatedSessionName = `${sessionName} - ${sessionCount}`;
-			} else {
-				// Initialize the session count for the runtime.
-				// The first session for a runtime does not append this count to the session name.
-				this._consoleSessionCounterByRuntimeId.set(runtimeMetadata.runtimeId, 1);
-			}
-		}
-
 		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
-			sessionName: updatedSessionName,
 			sessionMode,
 			notebookUri,
 			createdTimestamp: Date.now(),
@@ -1897,7 +1927,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to watch.
 	 */
 	private async waitForInterrupt(session: ILanguageRuntimeSession) {
-		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", session.metadata.sessionName, session.runtimeMetadata.languageName);
+		const warning = nls.localize('positron.runtimeInterruptTimeoutWarning', "{0} isn't responding to your request to interrupt the command. Do you want to forcefully quit your {1} session? You'll lose any unsaved objects.", session.dynState.sessionName, session.runtimeMetadata.languageName);
 		this.awaitStateChange(session,
 			[RuntimeState.Idle],
 			10,
@@ -1912,7 +1942,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to watch.
 	 */
 	private async waitForShutdown(session: ILanguageRuntimeSession) {
-		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", session.metadata.sessionName, session.runtimeMetadata.languageName);
+		const warning = nls.localize('positron.runtimeShutdownTimeoutWarning', "{0} isn't responding to your request to shut down the session. Do you want use a forced quit to end your {1} session? You'll lose any unsaved objects.", session.dynState.sessionName, session.runtimeMetadata.languageName);
 		this.awaitStateChange(session,
 			[RuntimeState.Exited],
 			10,
@@ -1927,7 +1957,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param session The runtime to watch.
 	 */
 	private async waitForReconnect(session: ILanguageRuntimeSession) {
-		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", session.metadata.sessionName, session.runtimeMetadata.languageName);
+		const warning = nls.localize('positron.runtimeReconnectTimeoutWarning', "{0} has been offline for more than 30 seconds. Do you want to force quit your {1} session? You'll lose any unsaved objects.", session.dynState.sessionName, session.runtimeMetadata.languageName);
 		this.awaitStateChange(session,
 			[RuntimeState.Ready, RuntimeState.Idle],
 			30,

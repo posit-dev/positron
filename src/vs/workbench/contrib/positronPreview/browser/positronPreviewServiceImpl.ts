@@ -409,7 +409,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 					const overlay = this.createOverlayWebview(webview.webview);
 					const preview = new PreviewWebview(
 						'notebookRenderer',
-						e.id, session.metadata.sessionName,
+						e.id, session.dynState.sessionName,
 						overlay);
 					this._items.set(e.id, preview);
 					this.openPreviewWebview(preview, false);
