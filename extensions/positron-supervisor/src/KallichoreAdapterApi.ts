@@ -327,7 +327,7 @@ export class KCApi implements PositronSupervisorApi {
 			// the 1 hour idle timeout ensures that it will eventually exit if
 			// the process is orphaned for any reason.
 			if (vscode.env.uiKind === vscode.UIKind.Desktop) {
-				shellArgs.push('--idle-shutdown-hours', '0');
+				shellArgs.push('--idle-shutdown-hours', '1');
 			}
 
 			// In web mode, we do not set an idle timeout at all by default,
