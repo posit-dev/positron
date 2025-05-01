@@ -35,18 +35,6 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
 
-		if (process.env.GITHUB_ACTIONS) {
-			try {
-				await app.workbench.console.waitForConsoleContents('Yes/no/cancel');
-				await app.workbench.console.typeToConsole('no');
-				await app.workbench.console.sendEnterKey();
-			} catch {
-				logger.log('Prompt did not appear');
-			}
-
-			await app.workbench.popups.installIPyKernel();
-		}
-
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
 		await verifyReticulateFunctionality(app, rSessionMetaData.id);
