@@ -143,6 +143,7 @@ jobs:
           rig add 4.4.0
           rig default 4.4.0
           rig ls
+          rig add rtools
 
       - name: Install R packages for 4.4.0
         run: |
