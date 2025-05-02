@@ -35,14 +35,6 @@
 	align-items: center;
 }
 
-.tabs-container .tab-button:focus {
-	outline: none;
-}
-
-.tabs-container .tab-button:focus-visible {
-	outline: 1px solid var(--vscode-focusBorder);
-}
-
 .tabs-container .tab-button:hover {
 	background-color: var(--vscode-list-hoverBackground);
 }
@@ -87,6 +79,7 @@
 }
 
 .tabs-container .tab-button .delete-button {
+	/* delete button is hidden by default */
 	display: none;
 
 	background-color: transparent;
@@ -98,25 +91,21 @@
 	border-radius: 5px;
 }
 
-.tabs-container .tab-button .delete-button:focus {
-	outline: none;
-}
-
-.tabs-container .tab-button .delete-button:focus-visible {
-	border-radius: 5px;
-	outline: 1px solid var(--vscode-focusBorder);
-}
-
 .tabs-container .tab-button:hover .delete-button {
+	/* Show delete button on hover over tab element */
 	display: unset;
+}
+
+.tabs-container .tab-button .delete-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.tabs-container .tab-button .delete-button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
 }
 
 .tabs-container .tab-button .delete-button .codicon {
 	height: 15px;
 	width: 15px;
 	vertical-align: text-bottom;
-}
-
-.tabs-container .tab-button .delete-button:hover {
-	background-color: var(--vscode-toolbar-hoverBackground);
 }
