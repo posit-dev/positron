@@ -101,7 +101,7 @@
 }
 
 .tabs-container .tab-button .delete-button:focus-visible {
-	border-radius: 3px;
+	border-radius: 5px;
 	outline: 1px solid var(--vscode-focusBorder);
 }
 
