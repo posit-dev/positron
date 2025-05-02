@@ -10,6 +10,10 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { ChatAgentService, IChatAgentData, IChatAgentImplementation } from '../../common/chatAgents.js';
 
+// --- Start Positron ---
+import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+// --- End Positron ---
+
 const testAgentId = 'testAgent';
 const testAgentData: IChatAgentData = {
 	id: testAgentId,
@@ -39,9 +43,16 @@ suite('ChatAgents', function () {
 
 	let chatAgentService: ChatAgentService;
 	let contextKeyService: TestingContextKeyService;
+	// --- Start Positron ---
+	let configurationService: TestConfigurationService;
+	// --- End Positron ---
 	setup(() => {
 		contextKeyService = new TestingContextKeyService();
-		chatAgentService = store.add(new ChatAgentService(contextKeyService));
+		// --- Start Positron ---
+		// Add configuration service to chat
+		configurationService = new TestConfigurationService();
+		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService));
+		// --- End Positron ---
 	});
 
 	test('registerAgent', async () => {
