@@ -163,6 +163,33 @@ function isPayloadWithDataValue(payload: unknown): payload is PayloadWithDataVal
 }
 
 /**
+ * @description Validates if an item is a Buffer or VSBufferLike and within the size limit.
+ * @param {unknown} item - The item to validate.
+ * @param {number} maxSize - The maximum allowed buffer size in bytes.
+ * @returns {Buffer | undefined} The Buffer instance if valid, otherwise undefined.
+ */
+function validateAndGetBufferInstance(item: unknown, maxSize: number): Buffer | undefined {
+	let bufferInstance: Buffer | undefined;
+
+	if (isVSBufferLike(item)) {
+		if (item.buffer.length > maxSize) {
+			console.warn(`Buffer exceeds size limit (${item.buffer.length} > ${maxSize} bytes)`);
+			return undefined;
+		}
+		bufferInstance = item.buffer;
+	} else if (item instanceof Buffer) {
+		if (item.length > maxSize) {
+			console.warn(`Buffer exceeds size limit (${item.length} > ${maxSize} bytes)`);
+			return undefined;
+		}
+		bufferInstance = item;
+	}
+	// else: item is not a Buffer or the expected VSBuffer-like structure
+
+	return bufferInstance;
+}
+
+/**
  * @description Unpacks a payload object that may contain serialized data with associated buffers.
  *              It extracts Buffers (either directly or from a VSBuffer-like structure like { buffer: Buffer })
  *              found in `payload.data.value.buffers`, converts them to base64 strings,
@@ -191,26 +218,8 @@ export function unpackSerializedObjectWithBuffers(payload: unknown): {
 
 		if (Array.isArray(potentialBuffers)) {
 			for (const item of potentialBuffers) {
-				let bufferInstance: Buffer | undefined;
-
 				try {
-					if (isVSBufferLike(item)) {
-						// Add size check
-						if (item.buffer.length > maxSize) {
-							console.warn(`Buffer exceeds size limit (${item.buffer.length} > ${maxSize} bytes)`);
-							continue;
-						}
-						bufferInstance = item.buffer;
-					} else if (item instanceof Buffer) {
-						// Add size check for direct Buffer instances
-						// Using the same size limit from settings
-						if (item.length > maxSize) {
-							console.warn(`Buffer exceeds size limit (${item.length} > ${maxSize} bytes)`);
-							continue;
-						}
-						bufferInstance = item;
-					}
-					// else: item is not a Buffer or the expected VSBuffer-like structure, skip it.
+					const bufferInstance = validateAndGetBufferInstance(item, maxSize);
 
 					// If we found a valid Buffer, convert it to base64
 					if (bufferInstance) {
