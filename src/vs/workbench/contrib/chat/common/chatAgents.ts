@@ -309,9 +309,15 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		let editingAgentRegistered = false;
 		let defaultAgentRegistered = false;
 		let toolsAgentRegistered = false;
+		// --- Start Positron ---
+		let testAgentRegistered = false;
+		// --- End Positron ---
 		for (const agent of this.getAgents()) {
 			if (agent.isDefault && agent.locations.includes(ChatAgentLocation.EditingSession)) {
 				// --- Start Positron ---
+				if (agent.extensionId.value === 'vscode.vscode-api-tests') {
+					testAgentRegistered = true;
+				}
 				defaultAgentRegistered = true;
 				// --- End Positron ---
 				editingAgentRegistered = true;
@@ -324,9 +330,10 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		}
 		this._editingAgentRegistered.set(editingAgentRegistered);
 		// --- Start Positron ---
-		// Do not register default agents when Assistant is disabled.
+		// Do not register default agents when Assistant is disabled, except for
+		// the API test agent from upstream.
 		// this._defaultAgentRegistered.set(defaultAgentRegistered);
-		if (this.configurationService.getValue('positron.assistant.enable')) {
+		if (testAgentRegistered || this.configurationService.getValue('positron.assistant.enable')) {
 			this._defaultAgentRegistered.set(defaultAgentRegistered);
 		}
 		// --- End Positron ---
