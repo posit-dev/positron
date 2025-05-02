@@ -30,6 +30,9 @@ import { ILogService } from '../../../platform/log/common/log.js';
 import { IExtensionFeatureTableRenderer, IRenderedData, ITableData, IRowData, IExtensionFeaturesRegistry, Extensions as ExtensionFeaturesRegistryExtensions } from '../../services/extensionManagement/common/extensionFeatures.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { MarkdownString } from '../../../base/common/htmlContent.js';
+// --- Start Positron ---
+import { POSITRON_CONNECTIONS_VIEW_ID } from '../../services/positronConnections/common/interfaces/positronConnectionsService.js';
+// --- End Positron ---
 
 export interface IUserFriendlyViewsContainerDescriptor {
 	id: string;
@@ -233,7 +236,15 @@ const viewsContribution: IJSONSchema = {
 			type: 'array',
 			items: remoteViewDescriptor,
 			default: []
+		},
+		// --- Start Positron ---
+		'connections': {
+			description: localize('views.connections', "Contributes views to Connections container in the Auxiliary sidebar"),
+			type: 'array',
+			items: viewDescriptor,
+			default: []
 		}
+		// --- End Positron ---
 	},
 	additionalProperties: {
 		description: localize('views.contributed', "Contributes views to contributed views container"),
@@ -627,6 +638,9 @@ class ViewsExtensionHandler implements IWorkbenchContribution {
 			case 'debug': return this.viewContainersRegistry.get(DEBUG);
 			case 'scm': return this.viewContainersRegistry.get(SCM);
 			case 'remote': return this.viewContainersRegistry.get(REMOTE);
+			// --- Start Positron ---
+			case 'connections': return this.viewContainersRegistry.get(POSITRON_CONNECTIONS_VIEW_ID);
+			// --- End Positron ---
 			default: return this.viewContainersRegistry.get(`workbench.view.extension.${value}`);
 		}
 	}
