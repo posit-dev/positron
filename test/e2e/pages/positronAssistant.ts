@@ -22,7 +22,7 @@ const GEMINI_BUTTON = 'button.positron-button.language-model.button:has(#google-
 const COPILOT_BUTTON = 'button.positron-button.language-model.button:has(#copilot-provider-button)';
 const CHAT_PANEL = '#workbench\\.panel\\.chat';
 const RUN_BUTTON = 'a.action-label.codicon.codicon-play[role="button"][aria-label="Run in Console"]';
-const OATH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
+const OAUTH_RADIO = '.language-model-authentication-method-container input#oauth[type="radio"]';
 const APIKEY_RADIO = '.language-model-authentication-method-container input#apiKey[type="radio"]';
 const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
 const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label="Send and Dispatch (Enter)"]';
@@ -124,12 +124,12 @@ export class Assistant {
 	async verifyAuthMethod(type: 'oauth' | 'apiKey') {
 		switch (type) {
 			case 'oauth':
-				await expect(this.code.driver.page.locator(OATH_RADIO)).toBeChecked();
+				await expect(this.code.driver.page.locator(OAUTH_RADIO)).toBeChecked();
 				await expect(this.code.driver.page.locator(APIKEY_RADIO)).toBeDisabled();
 				break;
 			case 'apiKey':
 				await expect(this.code.driver.page.locator(APIKEY_RADIO)).toBeChecked();
-				await expect(this.code.driver.page.locator(OATH_RADIO)).toBeDisabled();
+				await expect(this.code.driver.page.locator(OAUTH_RADIO)).toBeDisabled();
 				break;
 			default:
 				throw new Error(`Unsupported auth method: ${type}`);
