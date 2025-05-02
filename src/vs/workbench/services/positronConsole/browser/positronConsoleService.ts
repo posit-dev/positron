@@ -871,9 +871,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private _runtimeItemActivities = new Map<string, RuntimeItemActivity>();
 
 	/**
-	 * Gets or sets a value which indicates whether a prompt is active.
+	 * Gets or sets the active activity item prompt.
 	 */
-	private _promptActive = false;
+	private _activeActivityItemPrompt?: ActivityItemPrompt;
 
 	/**
 	 * Gets or sets the scrollback size.
@@ -1155,7 +1155,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Gets a value which indicates whether a prompt is active.
 	 */
 	get promptActive(): boolean {
-		return this._promptActive;
+		return this._activeActivityItemPrompt !== undefined;
 	}
 
 	/**
@@ -1307,7 +1307,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	clearConsole() {
 		// When a prompt is active, we cannot clear the console.
-		if (this._promptActive) {
+		if (this._activeActivityItemPrompt) {
 			// Notify the user that we cannot clear the console.
 			this._notificationService.notify({
 				severity: Severity.Info,
@@ -1332,8 +1332,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	/**
 	 * Interrupts the console.
+	 * @param code The optional code to interrupt.
 	 */
-	interrupt(code: string) {
+	interrupt(code?: string) {
 		// No session to interrupt.
 		if (!this._session) {
 			return;
@@ -1342,6 +1343,14 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// Get the runtime state.
 		const runtimeState = this._session.getRuntimeState();
 
+		// If there's a prompt active, interrupt it.
+		if (this._activeActivityItemPrompt) {
+			this._activeActivityItemPrompt.state = ActivityItemPromptState.Interrupted;
+			this._onDidChangeRuntimeItemsEmitter.fire();
+			this._activeActivityItemPrompt = undefined;
+		}
+
+		// Interrupt the runtime session.
 		this._session.interrupt();
 
 		// Clear pending input and pending code.
@@ -1361,10 +1370,15 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					ActivityItemInputState.Cancelled,
 					this._session.dynState.inputPrompt,
 					this._session.dynState.continuationPrompt,
-					code,
+					code ?? '',
 				)
 			);
 		}
+
+		// Drive focus to the input.
+		setTimeout(() => {
+			this.focusInput();
+		}, 0);
 	}
 
 	/**
@@ -1543,35 +1557,22 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 	/**
 	 * Replies to a prompt.
-	 * @param activityItemPrompt The prompt activity item.
 	 * @param value The value.
 	 */
-	replyToPrompt(activityItemPrompt: ActivityItemPrompt, value: string) {
-		// Update the prompt state.
-		activityItemPrompt.state = ActivityItemPromptState.Answered;
-		activityItemPrompt.answer = !activityItemPrompt.password ? value : '';
-		this._onDidChangeRuntimeItemsEmitter.fire();
+	replyToPrompt(value: string) {
+		// If there is a session and a prompt, reply to the prompt.
+		if (this._session && this._activeActivityItemPrompt) {
+			// Get the ID of the prompt.
+			const id = this._activeActivityItemPrompt.id;
 
-		// Reply to the prompt.
-		if (this._promptActive && this._session) {
-			this._promptActive = false;
-			this._session.replyToPrompt(activityItemPrompt.id, value);
-		}
-	}
+			// Update the prompt state.
+			this._activeActivityItemPrompt.state = ActivityItemPromptState.Answered;
+			this._activeActivityItemPrompt.answer = !this._activeActivityItemPrompt.password ? value : '';
+			this._activeActivityItemPrompt = undefined;
+			this._onDidChangeRuntimeItemsEmitter.fire();
 
-	/**
-	 * Interrupts a prompt.
-	 * @param activityItemPrompt The prompt activity item.
-	 */
-	interruptPrompt(activityItemPrompt: ActivityItemPrompt) {
-		// Update the prompt state.
-		activityItemPrompt.state = ActivityItemPromptState.Interrupted;
-		this._onDidChangeRuntimeItemsEmitter.fire();
-
-		// Reply to the prompt.
-		if (this._promptActive && this._session) {
-			this._promptActive = false;
-			this._session.interrupt();
+			// Reply to the prompt.
+			this._session.replyToPrompt(id, value);
 		}
 	}
 
@@ -1992,19 +1993,19 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				);
 			}
 
-			// Set the prompt active flag.
-			this._promptActive = true;
+			// Set the active activity item prompt.
+			this._activeActivityItemPrompt = new ActivityItemPrompt(
+				languageRuntimeMessagePrompt.id,
+				languageRuntimeMessagePrompt.parent_id,
+				new Date(languageRuntimeMessagePrompt.when),
+				languageRuntimeMessagePrompt.prompt,
+				languageRuntimeMessagePrompt.password
+			);
 
 			// Add or update the runtime item activity.
 			this.addOrUpdateUpdateRuntimeItemActivity(
 				languageRuntimeMessagePrompt.parent_id,
-				new ActivityItemPrompt(
-					languageRuntimeMessagePrompt.id,
-					languageRuntimeMessagePrompt.parent_id,
-					new Date(languageRuntimeMessagePrompt.when),
-					languageRuntimeMessagePrompt.prompt,
-					languageRuntimeMessagePrompt.password
-				)
+				this._activeActivityItemPrompt
 			);
 		}));
 

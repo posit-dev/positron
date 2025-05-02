@@ -100,10 +100,8 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 					// Consume the event.
 					consumeEvent();
 
-					// Update the prompt state and reply to it.
-					props.positronConsoleInstance.replyToPrompt(
-						props.activityItemPrompt, inputRef.current?.value
-					);
+					// Reply to the prompt.
+					props.positronConsoleInstance.replyToPrompt(inputRef.current?.value);
 					return;
 				}
 
@@ -118,9 +116,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 				// C key.
 				case 'c': {
 					consumeEvent();
-
-					// Update the prompt state and interrupt it.
-					props.positronConsoleInstance.interruptPrompt(props.activityItemPrompt);
+					props.positronConsoleInstance.interrupt();
 					return;
 				}
 
