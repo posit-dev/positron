@@ -12,8 +12,14 @@
 
 .tabs-container .tab-button {
 	background-color: inherit;
-	border: none;
+	/*
+	 * The transparent border allows for a smooth transition when switching tabs.
+	 * The active tab will have a solid border, while the inactive tabs will have
+	 * a transparent border. The transparent border prevents flickering when
+	 * switching between tabs by maintaining the same width for all tabs.
+	 */
 	border-left: 1px solid transparent;
+	color: var(--vscode-foreground);
 	cursor: pointer;
 	height: 22px;
 	padding: 0 10px;
@@ -48,10 +54,6 @@
 
 .tabs-container .tab-button--active:hover {
 	background-color: var(--vscode-list-activeSelectionBackground);
-}
-
-.tabs-container .tab-button {
-	color: var(--vscode-foreground);
 }
 
 .tabs-container .tab-button .icon {
