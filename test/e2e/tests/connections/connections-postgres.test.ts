@@ -42,8 +42,8 @@ test.describe('Postgres DB Connection', {
 
 		await expect(app.code.driver.page.locator(viewLine, { hasText: '%connection_show conn' })).toBeVisible();
 		await expect(app.code.driver.page.locator(viewLine, { hasText: dbName })).toBeVisible();
-		await expect(app.code.driver.page.locator(viewLine, { hasText: user })).toBeVisible();
-		await expect(app.code.driver.page.locator(viewLine, { hasText: password })).toBeVisible();
+		await expect(app.code.driver.page.locator(`${viewLine}:has-text("username=\\"${user}\\"")`)).toBeVisible();
+		await expect(app.code.driver.page.locator(`${viewLine}:has-text("password=\\"${password}\\"")`)).toBeVisible();
 
 		await app.workbench.connections.connect();
 
@@ -94,8 +94,8 @@ test.describe('Postgres DB Connection', {
 
 		await expect(app.code.driver.page.locator(viewLine, { hasText: 'connections::connection_view(con)' })).toBeVisible();
 		await expect(app.code.driver.page.locator(viewLine, { hasText: dbName })).toBeVisible();
-		await expect(app.code.driver.page.locator(viewLine, { hasText: user })).toBeVisible();
-		await expect(app.code.driver.page.locator(viewLine, { hasText: password })).toBeVisible();
+		await expect(app.code.driver.page.locator(`${viewLine}:has-text("user = \\\'${user}\\\'")`)).toBeVisible();
+		await expect(app.code.driver.page.locator(`${viewLine}:has-text("password = \\\'${password}\\\'")`)).toBeVisible();
 
 		await app.workbench.connections.connect();
 
