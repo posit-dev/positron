@@ -51,6 +51,7 @@ suite('ChatAgents', function () {
 		// --- Start Positron ---
 		// Add configuration service to chat
 		configurationService = new TestConfigurationService();
+		configurationService.setUserConfiguration('positron.assistant.enable', true);
 		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService));
 		// --- End Positron ---
 	});
