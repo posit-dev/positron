@@ -269,7 +269,10 @@ export class WindowsStateHandler extends Disposable {
 
 	getNewWindowState(configuration: INativeWindowConfiguration): INewWindowState {
 		const state = this.doGetNewWindowState(configuration);
-		const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
+		// --- Start Positron ---
+		// const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
+		const windowConfig = this.getWindowSettingsConfig();
+		// --- End Positron --
 
 		// Fullscreen state gets special treatment
 		if (state.mode === WindowMode.Fullscreen) {
@@ -385,7 +388,10 @@ export class WindowsStateHandler extends Disposable {
 		state.y = Math.round(displayToUse.bounds.y + (displayToUse.bounds.height / 2) - (state.height! / 2));
 
 		// Check for newWindowDimensions setting and adjust accordingly
-		const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
+		// --- Start Positron ---
+		// const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
+		const windowConfig = this.getWindowSettingsConfig();
+		// --- End Positron ---
 		let ensureNoOverlap = true;
 		if (windowConfig?.newWindowDimensions) {
 			if (windowConfig.newWindowDimensions === 'maximized') {
@@ -417,6 +423,26 @@ export class WindowsStateHandler extends Disposable {
 
 		return state;
 	}
+
+	// --- Start Positron ---
+	/**
+	 * Retrieves the window settings configuration object from the configuration service and ensures
+	 * that the newWindowDimensions property is updated with Positron's default config changes.
+	 * @returns The window settings configuration object, or undefined if it doesn't exist.
+	 */
+	private getWindowSettingsConfig() {
+		const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
+		const updatedWindowConfig = {
+			...(windowConfig ? windowConfig : {}),
+			// We've changed the default value of newWindowDimensions to 'inherit' in Positron, so we need to
+			// set it to 'inherit' if it unset in the config, as we'll fallthrough to the default window state otherwise.
+			// Search for `window.newWindowDimensions` in src/vs/workbench/electron-sandbox/desktop.contribution.ts
+			// for the default configuration.
+			newWindowDimensions: windowConfig?.newWindowDimensions || 'inherit',
+		};
+		return updatedWindowConfig;
+	}
+	// --- End Positron ---
 
 	private ensureNoOverlap(state: IWindowUIState): IWindowUIState {
 		if (this.windowsMainService.getWindows().length === 0) {
