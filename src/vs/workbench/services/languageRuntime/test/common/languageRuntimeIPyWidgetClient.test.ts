@@ -72,7 +72,8 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		await timeout(0);
 
 		// Check that the message's data was forwarded to the client.
-		assert.deepStrictEqual(messagesToClient, [data]);
+		const message = messagesToClient[1] as any;
+		assert.deepStrictEqual(message.data, data);
 	});
 
 	test('from webview: rpc comm_msg', async () => {
