@@ -1940,6 +1940,11 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			}
 
 			// Add the item startup.
+			this.addRuntimeItem(new RuntimeItemExited(
+				generateUuid(),
+				RuntimeExitReason.StartupFailed,
+				`${session.dynState.sessionName} failed to start.`
+			));
 			this.addRuntimeItem(new RuntimeItemStartupFailure(
 				generateUuid(),
 				startupFailure.message,
@@ -1953,6 +1958,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			}
 
 			// Mark the console as exited so it can be reused
+			this.clearStartingItem();
 			this.setState(PositronConsoleState.Exited);
 		}));
 
