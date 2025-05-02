@@ -156,10 +156,8 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	}, [source]);
 
 	useEffect(() => {
-		if (source.defaults.oauth !== undefined) {
-			const authMethod = source.defaults.oauth ? 'oauth' : 'apiKey';
-			setAuthMethod(authMethod);
-		}
+		const authMethod = source.defaults.oauth ? 'oauth' : 'apiKey';
+		setAuthMethod(authMethod);
 	}, [source.defaults.oauth]);
 
 	const authMethodRadioButtons: RadioButtonItem[] = [
