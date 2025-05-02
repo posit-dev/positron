@@ -112,8 +112,7 @@
 .tabs-container .tab-button .delete-button .codicon {
 	height: 15px;
 	width: 15px;
-
-	vertical-align: middle;
+	vertical-align: text-bottom;
 }
 
 .tabs-container .tab-button .delete-button:hover {
