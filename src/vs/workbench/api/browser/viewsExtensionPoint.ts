@@ -70,7 +70,14 @@ export const viewsContainersContribution: IJSONSchema = {
 			description: localize('views.container.panel', "Contribute views containers to Panel"),
 			type: 'array',
 			items: viewsContainerSchema
+		},
+		// --- Start Positron ---
+		'auxiliarybar': {
+			description: localize('views.container.auxiliarybar', "Contribute views containers to the Auxiliary sidebar"),
+			type: 'array',
+			items: viewsContainerSchema
 		}
+		// --- End Positron ---
 	},
 	additionalProperties: false
 };
