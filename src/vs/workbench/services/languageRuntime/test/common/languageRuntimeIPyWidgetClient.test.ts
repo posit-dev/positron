@@ -72,8 +72,12 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		await timeout(0);
 
 		// Check that the message's data was forwarded to the client.
-		const message = messagesToClient[1] as any;
-		assert.deepStrictEqual(message.data, data);
+		assert.strictEqual(messagesToClient.length, 1, 'Expected one message to be sent to the client');
+
+		// Extract the message and verify its structure
+		const message = messagesToClient[0] as { data: unknown; buffers?: unknown };
+		assert.deepStrictEqual(message.data, data, 'Expected message data to match the original data');
+		// We don't check the exact value of buffers, just that the message has the right structure
 	});
 
 	test('from webview: rpc comm_msg', async () => {
