@@ -414,22 +414,6 @@ export class WindowsStateHandler extends Disposable {
 				ensureNoOverlap = state.mode !== WindowMode.Fullscreen && windowConfig.newWindowDimensions === 'offset';
 			}
 		}
-		// --- Start Positron ---
-		else {
-			// If the windowConfig?.newWindowDimensions is undefined, our new default is to inherit the last active window's state.
-			if (lastActive) {
-				const lastActiveState = lastActive.serializeWindowState();
-				if (lastActiveState.mode === WindowMode.Fullscreen) {
-					state.mode = WindowMode.Fullscreen; // only take mode (fixes https://github.com/microsoft/vscode/issues/19331)
-				} else {
-					state = {
-						...lastActiveState,
-						zoomLevel: undefined // do not inherit zoom level
-					};
-				}
-			}
-		}
-		// --- End Positron ---
 
 		if (ensureNoOverlap) {
 			state = this.ensureNoOverlap(state);
@@ -446,21 +430,17 @@ export class WindowsStateHandler extends Disposable {
 	 * that the newWindowDimensions property is updated with Positron's default config changes.
 	 * @returns The window settings configuration object, or undefined if it doesn't exist.
 	 */
-	private getWindowSettingsConfig(): IWindowSettings | undefined {
-		let windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
-		if (!windowConfig) {
-			return undefined;
-		}
-
-		windowConfig = {
-			...windowConfig,
+	private getWindowSettingsConfig() {
+		const windowConfig = this.configurationService.getValue<IWindowSettings | undefined>('window');
+		const updatedWindowConfig = {
+			...(windowConfig ? windowConfig : {}),
 			// We've changed the default value of newWindowDimensions to 'inherit' in Positron, so we need to
 			// set it to 'inherit' if it unset in the config, as we'll fallthrough to the default window state otherwise.
 			// Search for `window.newWindowDimensions` in src/vs/workbench/electron-sandbox/desktop.contribution.ts
 			// for the default configuration.
-			newWindowDimensions: windowConfig.newWindowDimensions || 'inherit',
+			newWindowDimensions: windowConfig?.newWindowDimensions || 'inherit',
 		};
-		return windowConfig;
+		return updatedWindowConfig;
 	}
 	// --- End Positron ---
 
