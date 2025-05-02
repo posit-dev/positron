@@ -129,7 +129,12 @@ export class IPyWidgetClientInstance extends Disposable {
 			// It's not a known RPC request, send a fire-and-forget message to the client, including buffers.
 			this._logService.trace('SEND comm_msg:', data, { buffers: message.buffers?.length });
 			// Convert incoming Uint8Array[] → VSBuffer[] to preserve binary data.
-			const vsBuffers = message.buffers?.map(b => VSBuffer.wrap(b));
+			let vsBuffers: VSBuffer[] | undefined;
+			if (Array.isArray(message.buffers) && message.buffers.every(b => b instanceof Uint8Array)) {
+				vsBuffers = message.buffers.map(b => VSBuffer.wrap(b));
+			} else if (message.buffers) {
+				this._logService.warn('Invalid buffers received in comm_msg:', message.buffers);
+			}
 			this._client.sendMessage(message.data, vsBuffers);
 		}
 	}
