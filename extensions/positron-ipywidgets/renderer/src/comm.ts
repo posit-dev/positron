@@ -118,10 +118,11 @@ export class Comm implements base.IClassicComm, Disposable {
 					return new Uint8Array(bufferOrView.buffer, bufferOrView.byteOffset, bufferOrView.byteLength);
 				} else {
 					// We only know how to handle ArrayBuffer and ArrayBufferView.
-					console.error('Invalid buffer type', typeof bufferOrView);
-					throw new Error(`Buffer conversion failed: expected ArrayBuffer or ArrayBufferView but got ${typeof bufferOrView}`);
+					console.error(`Invalid buffer type encountered: ${typeof bufferOrView}. Skipping this buffer.`);
+					// Continue to the next buffer or finish processing
+					return undefined;
 				}
-			});
+			}).filter(buffer => buffer !== undefined) as Uint8Array[];
 		}
 
 		const msgId = UUID.uuid4();
