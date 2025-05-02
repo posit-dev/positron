@@ -196,8 +196,6 @@ export function unpackSerializedObjectWithBuffers(payload: unknown): {
 				try {
 					if (isVSBufferLike(item)) {
 						// Add size check
-						// Get current buffer size limit from settings
-						const maxSize = getMaxBufferSize();
 						if (item.buffer.length > maxSize) {
 							console.warn(`Buffer exceeds size limit (${item.buffer.length} > ${maxSize} bytes)`);
 							continue;
