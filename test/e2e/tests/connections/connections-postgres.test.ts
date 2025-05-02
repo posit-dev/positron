@@ -108,6 +108,20 @@ test.describe('Postgres DB Connection', {
 
 			}).toPass({ timeout: 60000 });
 		});
+
+		await app.workbench.dataExplorer.closeDataExplorer();
+		await app.workbench.layouts.enterLayout('stacked');
+
+		await test.step('Remove connection', async () => {
+			await app.workbench.connections.openConnectionPane();
+
+			await app.code.driver.page.getByRole('button', { name: 'Disconnect' }).click();
+
+			await app.code.driver.page.locator('.col-name', { hasText: 'PqConnection' }).click();
+
+			await app.code.driver.page.getByRole('button', { name: 'Delete Connection' }).click();
+		});
+
 	});
 });
 
