@@ -18,6 +18,11 @@ test.use({
 // SELECT * FROM periodic_table;
 // exit
 
+const viewLine = '.lines-content .view-line';
+const dbName = process.env.E2E_POSTGRES_DB || 'testdb';
+const user = process.env.E2E_POSTGRES_USER || 'testuser';
+const password = process.env.E2E_POSTGRES_PASSWORD || 'testpassword';
+
 test.describe('Postgres DB Connection', {
 	tag: [tags.WEB, tags.CONNECTIONS]
 }, () => {
@@ -29,11 +34,16 @@ test.describe('Postgres DB Connection', {
 		await app.workbench.connections.initiateConnection('Python', 'PostgresSQL');
 
 		await app.workbench.connections.fillConnectionsInputs({
-			'Database Name': process.env.E2E_POSTGRES_DB || 'testdb',
+			'Database Name': dbName,
 			'Host': 'localhost',
-			'User': process.env.E2E_POSTGRES_USER || 'testuser',
-			'Password': process.env.E2E_POSTGRES_PASSWORD || 'testpassword',
+			'User': user,
+			'Password': password,
 		});
+
+		await expect(app.code.driver.page.locator(viewLine, { hasText: '%connection_show conn' })).toBeVisible();
+		await expect(app.code.driver.page.locator(viewLine, { hasText: dbName })).toBeVisible();
+		await expect(app.code.driver.page.locator(viewLine, { hasText: user })).toBeVisible();
+		await expect(app.code.driver.page.locator(viewLine, { hasText: password })).toBeVisible();
 
 		await app.workbench.connections.connect();
 
@@ -82,7 +92,12 @@ test.describe('Postgres DB Connection', {
 			'Password': process.env.E2E_POSTGRES_PASSWORD || 'testpassword',
 		});
 
-		await app.workbench.connections.connect(false);
+		await expect(app.code.driver.page.locator(viewLine, { hasText: 'connections::connection_view(con)' })).toBeVisible();
+		await expect(app.code.driver.page.locator(viewLine, { hasText: dbName })).toBeVisible();
+		await expect(app.code.driver.page.locator(viewLine, { hasText: user })).toBeVisible();
+		await expect(app.code.driver.page.locator(viewLine, { hasText: password })).toBeVisible();
+
+		await app.workbench.connections.connect();
 
 		await test.step('Open periodic table connection', async () => {
 
