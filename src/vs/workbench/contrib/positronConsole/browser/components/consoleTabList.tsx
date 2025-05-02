@@ -208,9 +208,8 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 
 	return (
 		<div
-			key={`tab-${sessionId}`}
+			aria-controls={`console-panel-${positronConsoleInstance.sessionMetadata.sessionId}`}
 			aria-label={positronConsoleInstance.sessionName}
-			aria-labelledby={`console-panel-${sessionId}`}
 			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId}
 			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId && 'tab-button--active'}`}
 			data-testid={`console-tab-${positronConsoleInstance.sessionMetadata.sessionId}`}
@@ -299,6 +298,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	// Render.
 	return (
 		<div
+			aria-orientation='vertical'
 			className='tabs-container'
 			role='tablist'
 			style={{ height: props.height, width: props.width }}
