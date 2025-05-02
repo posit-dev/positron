@@ -81,20 +81,12 @@ const chatViewDescriptor: IViewDescriptor[] = [{
 		order: 1
 	},
 	ctorDescriptor: new SyncDescriptor(ChatViewPane, [{ location: ChatAgentLocation.Panel }]),
-	// --- Start Positron ---
-	// Do not show the Chat pane at all if there are no participants registered;
-	// this is the case when Assistant is disabled entirely.
-	//
-	// Old version:
-	/*
 	when: ContextKeyExpr.or(
 		ChatContextKeys.Setup.hidden.negate(),
 		ChatContextKeys.Setup.installed,
 		ChatContextKeys.panelParticipantRegistered,
 		ChatContextKeys.extensionInvalid
 	)
-	*/
-	when: ChatContextKeys.panelParticipantRegistered,
 	// --- End Positron ---
 }];
 Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews(chatViewDescriptor, chatViewContainer);
