@@ -180,6 +180,12 @@ export function unpackSerializedObjectWithBuffers(payload: unknown): {
 	if (isPayloadWithDataValue(payload)) {
 		const maxSize = getMaxBufferSize();
 		const { data: { value: dataValue }, ...otherPayloadProps } = payload;
+		// The 'potentialBuffers' array (derived from
+		// payload.data.value.buffers) is expected to contain elements that are
+		// either direct Buffer instances or objects conforming to the
+		// VSBufferLike structure ({ buffer: Buffer }). This field exists when
+		// the payload the webview has sent contains buffers (which is somewhat
+		// rare).
 		const potentialBuffers = dataValue.buffers;
 		const buffers: string[] = [];
 
