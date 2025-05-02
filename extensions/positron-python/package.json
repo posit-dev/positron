@@ -921,7 +921,8 @@
             "pyright.disableOrganizeImports": true,
             "pyright.disablePullDiagnostics": true,
             "python.analysis.autoImportCompletions": false,
-            "python.analysis.typeCheckingMode": "off"
+            "python.analysis.typeCheckingMode": "off",
+            "ruff.importStrategy": "useBundled"
         },
         "debuggers": [
             {
