@@ -38,7 +38,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	};
 
 	constructor(private readonly _config: ModelConfig) {
-		this.name = AnthropicLanguageModel.source.defaults.name;
+		this.name = _config.name;
 		this.provider = _config.provider;
 		this.identifier = _config.id;
 		this._client = new Anthropic({
