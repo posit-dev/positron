@@ -356,7 +356,12 @@ class ChatToolInvocationSubPart extends Disposable {
 			{ asyncRenderCallback: () => this._onDidChangeHeight.fire() }
 		));
 		const codeBlockRenderOptions: ICodeBlockRenderOptions = {
-			hideToolbar: true,
+			// --- Start Positron ---
+			// Don't hide the toolbar on code blocks, so the user can still
+			// copy/integrate the code elsewhere
+			// hideToolbar: true,
+			hideToolbar: false,
+			// --- Start Positron ---
 			reserveWidth: 19,
 			verticalPadding: 5,
 			editorOptions: {
