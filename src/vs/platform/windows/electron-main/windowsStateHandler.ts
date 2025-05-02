@@ -414,6 +414,22 @@ export class WindowsStateHandler extends Disposable {
 				ensureNoOverlap = state.mode !== WindowMode.Fullscreen && windowConfig.newWindowDimensions === 'offset';
 			}
 		}
+		// --- Start Positron ---
+		else {
+			// If the windowConfig?.newWindowDimensions is undefined, our new default is to inherit the last active window's state.
+			if (lastActive) {
+				const lastActiveState = lastActive.serializeWindowState();
+				if (lastActiveState.mode === WindowMode.Fullscreen) {
+					state.mode = WindowMode.Fullscreen; // only take mode (fixes https://github.com/microsoft/vscode/issues/19331)
+				} else {
+					state = {
+						...lastActiveState,
+						zoomLevel: undefined // do not inherit zoom level
+					};
+				}
+			}
+		}
+		// --- End Positron ---
 
 		if (ensureNoOverlap) {
 			state = this.ensureNoOverlap(state);
