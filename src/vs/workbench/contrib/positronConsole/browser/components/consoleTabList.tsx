@@ -19,12 +19,20 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 
+/**
+ * The minimum width required for the delete action to be displayed on the console tab.
+ * The width of the tab is set to accommodate the language icon, session state,
+ * session name (truncated), and the delete button.
+ */
+const MINIMUM_ACTION_CONSOLE_TAB_WIDTH = 110;
+
 interface ConsoleTabProps {
 	positronConsoleInstance: IPositronConsoleInstance;
+	width: number; // The width of the console tab list.
 	onClick: (instance: IPositronConsoleInstance) => void;
 }
 
-const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
+const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps) => {
 	// Context
 	const positronConsoleContext = usePositronConsoleContext();
 
@@ -236,15 +244,18 @@ const ConsoleTab = ({ positronConsoleInstance, onClick }: ConsoleTabProps) => {
 			) : (
 				<>
 					<p className='session-name'>{sessionName}</p>
-					<button
-						className='delete-button'
-						data-testid='trash-session'
-						disabled={deleteDisabled}
-						onClick={handleDeleteClick}
-						onMouseDown={deleteButtonMouseDownHandler}
-					>
-						<span className='codicon codicon-trash' />
-					</button>
+					{/* Show the delete button only if the width of the tab is greater than the minimum width */
+						width > MINIMUM_ACTION_CONSOLE_TAB_WIDTH &&
+						<button
+							className='delete-button'
+							data-testid='trash-session'
+							disabled={deleteDisabled}
+							onClick={handleDeleteClick}
+							onMouseDown={deleteButtonMouseDownHandler}
+						>
+							<span className='codicon codicon-trash' />
+						</button>
+					}
 				</>
 			)}
 		</div>
@@ -307,6 +318,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 				<ConsoleTab
 					key={positronConsoleInstance.sessionId}
 					positronConsoleInstance={positronConsoleInstance}
+					width={props.width}
 					onClick={() => handleTabClick(positronConsoleInstance.sessionId)}
 				/>
 			)}
