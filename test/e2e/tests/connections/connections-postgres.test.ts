@@ -86,10 +86,10 @@ test.describe('Postgres DB Connection', {
 		await app.workbench.connections.initiateConnection('R', 'PostgresSQL');
 
 		await app.workbench.connections.fillConnectionsInputs({
-			'Database Name': process.env.E2E_POSTGRES_DB || 'testdb',
+			'Database Name': dbName,
 			'Host': 'localhost',
-			'User': process.env.E2E_POSTGRES_USER || 'testuser',
-			'Password': process.env.E2E_POSTGRES_PASSWORD || 'testpassword',
+			'User': user,
+			'Password': password,
 		});
 
 		await expect(app.code.driver.page.locator(viewLine, { hasText: 'connections::connection_view(con)' })).toBeVisible();
