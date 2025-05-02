@@ -188,4 +188,35 @@ suite('Positron - IPyWidgetClientInstance', () => {
 		// Check that the IPyWidget client was closed.
 		assert(closed);
 	});
+
+	// Add a test to verify buffers from the webview are preserved when forwarded to the client.
+	test('from webview: fire-and-forget comm_msg with buffers', async () => {
+		// Listen to messages sent to the client.
+		const messagesToClient: Array<{ data: unknown; buffers?: VSBuffer[] }> = [];
+		disposables.add(client.onDidSendMessage(message => messagesToClient.push(message)));
+
+		// Prepare test data and buffers.
+		const data = { some_key: 'some_value' };
+		const buffer1 = new Uint8Array([1, 2, 3]);
+		const buffer2 = new Uint8Array([4, 5, 6]);
+		messaging.receiveMessage({
+			type: 'comm_msg',
+			comm_id: client.getClientId(),
+			data,
+			msg_id: '',
+			buffers: [buffer1, buffer2],
+		});
+		await timeout(0);
+
+		// Check that one message was forwarded.
+		assert.strictEqual(messagesToClient.length, 1, 'Expected one message to be sent to the client');
+
+		// Verify the forwarded message's data and buffers.
+		const message = messagesToClient[0] as { data: unknown; buffers?: VSBuffer[] };
+		assert.deepStrictEqual(message.data, data, 'Expected message data to match the original data');
+		assert(message.buffers && message.buffers.length === 2, 'Expected two buffers to be forwarded');
+		// Confirm buffer contents are preserved.
+		assert.deepStrictEqual(new Uint8Array(message.buffers![0].buffer), buffer1, 'Expected first buffer to match original');
+		assert.deepStrictEqual(new Uint8Array(message.buffers![1].buffer), buffer2, 'Expected second buffer to match original');
+	});
 });
