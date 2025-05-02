@@ -24,6 +24,7 @@ export interface ICommMessageFromWebview {
 	comm_id: string;
 	msg_id: string;
 	data: unknown;
+	buffers?: Array<Uint8Array>;
 }
 
 /**

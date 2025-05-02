@@ -675,6 +675,22 @@ export class Sessions {
 	}
 
 	/**
+	 * Helper: Rename a session
+	 *
+	 * @param oldName - Name of the session to rename (or part of the name)
+	 * @param newName - New session name
+	 */
+	async renameSession(oldName: string, newName: string) {
+		await this.quickaccess.runCommand('workbench.action.language.runtime.renameSession', { keepOpen: true });
+		await this.quickinput.waitForQuickInputOpened();
+		await this.quickinput.type(oldName);
+		await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0].includes(oldName));
+		await this.quickinput.quickInputList.getByText(oldName).first().click();
+		await this.quickinput.type(newName);
+		await this.code.driver.page.keyboard.press('Enter');
+	}
+
+	/**
 	* Action: Open the metadata dialog for the current session
 	*/
 	async openMetadataDialog() {

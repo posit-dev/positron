@@ -3,10 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Buffer } from 'buffer';
 import { SocketSession } from '../ws/SocketSession';
 import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
 import { WebSocket } from 'ws';
+import { unpackSerializedObjectWithBuffers } from '../util';
 
 /**
  * Base class for Jupyter commands; commands are messages to the kernel that do
@@ -80,13 +82,15 @@ export abstract class JupyterCommand<T> {
 			msg_type: this.commandType,
 			version: '5.3'
 		};
+
+		const { content, buffers } = unpackSerializedObjectWithBuffers(this.commandPayload);
 		const payload = {
 			header,
 			parent_header: this.createParentHeader(),
 			metadata: this.metadata,
-			content: this.commandPayload,
+			content,
 			channel: this.channel,
-			buffers: []
+			buffers
 		};
 		const text = JSON.stringify(payload);
 		socket.channel.debug(`>>> SEND ${this.commandType} [${this.channel}]: ${JSON.stringify(this.commandPayload)}`);

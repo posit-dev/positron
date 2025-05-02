@@ -45,6 +45,7 @@ import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookK
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -1204,13 +1205,18 @@ class ExtHostRuntimeClientInstance<Input, Output>
 	 * fire-and-forget messages; RPCs should use performRpc instead.
 	 *
 	 * @param message Message to send to the server
+	 * @param buffers Optional binary buffers to send with the message
 	 */
-	sendMessage(message: any): void {
+	sendMessage(message: any, buffers?: VSBuffer[]): void {
 		// Generate a unique ID for this message.
 		const messageId = generateUuid();
 
+		// Prepare payload: wrap JSON + raw buffers when provided
+		const payload = buffers && buffers.length > 0
+			? new SerializableObjectWithBuffers({ data: message, buffers })
+			: message;
 		// Send the message to the server side.
-		this._proxy.$sendClientMessage(this._handle, this._id, messageId, message);
+		this._proxy.$sendClientMessage(this._handle, this._id, messageId, payload);
 
 		// Tick the message counter.
 		this.messageCounter.set(this.messageCounter.get() + 1, undefined);

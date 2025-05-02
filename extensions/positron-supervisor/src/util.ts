@@ -4,6 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { HttpError } from './kcclient/api';
+import { Buffer } from 'buffer';
+import * as vscode from 'vscode';
 
 /**
  * Creates a short, unique ID. Use to help create unique identifiers for
@@ -78,4 +80,164 @@ export function summarizeHttpError(err: HttpError): string {
 		}
 	}
 	return result;
+}
+
+// --- Serialized Data Unpacking Logic ---
+
+/**
+ * Gets the maximum allowed buffer size from user settings.
+ * Default is 10MB, but can be configured between 1MB and 100MB.
+ *
+ * @returns The maximum buffer size in bytes
+ */
+function getMaxBufferSize(): number {
+	const config = vscode.workspace.getConfiguration('kernelSupervisor');
+	const maxSizeMB = config.get<number>('maxBufferSizeMB') ?? 10;
+	return maxSizeMB * 1024 * 1024; // Convert MB to bytes
+}
+
+type VSBufferLike = {
+	buffer: Buffer;
+};
+
+// Structure within the 'data.value' property
+type SerializedDataValue = {
+	data: unknown; // The actual data payload
+	buffers?: (Buffer | VSBufferLike | unknown)[]; // Array containing potential buffers
+	// We might have other properties within data.value
+	[key: string]: unknown;
+};
+
+// Define the structure of the 'data' property in the payload
+type PayloadData = {
+	value?: SerializedDataValue;
+	// Other properties within 'data' if any
+	[key: string]: unknown;
+};
+
+type PayloadStructure = {
+	data?: PayloadData;
+	// Other top-level properties of the payload
+	[key: string]: unknown;
+};
+
+/**
+ * @description Type predicate to check if an object is VSBufferLike ({ buffer: Buffer }).
+ * @param {unknown} item - The item to check.
+ * @returns {boolean} True if the item is VSBufferLike, false otherwise.
+ */
+function isVSBufferLike(item: unknown): item is VSBufferLike {
+	return (
+		typeof item === 'object' &&
+		item !== null &&
+		'buffer' in item &&
+		item.buffer instanceof Buffer // Direct check after confirming 'buffer' exists
+	);
+}
+
+// Type assertion to narrow down PayloadStructure further after checks
+type PayloadWithDataValue = PayloadStructure & {
+	data: PayloadData & {
+		value: SerializedDataValue;
+	};
+};
+
+/**
+ * @description Type predicate to check if the payload has the required nested data.value structure.
+ * @param {unknown} payload - The payload to check.
+ * @returns {boolean} True if the payload has the expected structure, false otherwise.
+ */
+function isPayloadWithDataValue(payload: unknown): payload is PayloadWithDataValue {
+	return (
+		// Check if payload is an object and has a 'data' property which is also an object
+		typeof payload === 'object' &&
+		payload !== null &&
+		'data' in payload &&
+		typeof payload.data === 'object' &&
+		payload.data !== null &&
+		// Now that we know payload.data is a non-null object, check for 'value' property
+		'value' in payload.data &&
+		typeof payload.data.value === 'object' &&
+		payload.data.value !== null
+	);
+}
+
+/**
+ * @description Validates if an item is a Buffer or VSBufferLike and within the size limit.
+ * @param {unknown} item - The item to validate.
+ * @param {number} maxSize - The maximum allowed buffer size in bytes.
+ * @returns {Buffer | undefined} The Buffer instance if valid, otherwise undefined.
+ */
+function validateAndGetBufferInstance(item: unknown, maxSize: number): Buffer | undefined {
+	let bufferInstance: Buffer | undefined;
+
+	if (isVSBufferLike(item)) {
+		if (item.buffer.length > maxSize) {
+			console.warn(`Buffer exceeds size limit (${item.buffer.length} > ${maxSize} bytes)`);
+			return undefined;
+		}
+		bufferInstance = item.buffer;
+	} else if (item instanceof Buffer) {
+		if (item.length > maxSize) {
+			console.warn(`Buffer exceeds size limit (${item.length} > ${maxSize} bytes)`);
+			return undefined;
+		}
+		bufferInstance = item;
+	}
+	// else: item is not a Buffer or the expected VSBuffer-like structure
+
+	return bufferInstance;
+}
+
+/**
+ * @description Unpacks a payload object that may contain serialized data with associated buffers.
+ *              It extracts Buffers (either directly or from a VSBuffer-like structure like { buffer: Buffer })
+ *              found in `payload.data.value.buffers`, converts them to base64 strings,
+ *              and restructures the content payload. If the expected structure isn't found,
+ *              the original payload is returned as content with empty buffers.
+ * @param {unknown} payload - The input payload, potentially containing serialized data and buffers.
+ * @returns {UnpackedResult} An object containing the processed content and an array of base64 buffer strings.
+ * @export
+ */
+export function unpackSerializedObjectWithBuffers(payload: unknown): {
+	content: unknown; // The potentially modified content payload
+	buffers: string[]; // Array of base64 encoded buffers
+} {
+	// Use the type predicate to check the payload structure
+	if (isPayloadWithDataValue(payload)) {
+		const maxSize = getMaxBufferSize();
+		const { data: { value: dataValue }, ...otherPayloadProps } = payload;
+		// The 'potentialBuffers' array (derived from
+		// payload.data.value.buffers) is expected to contain elements that are
+		// either direct Buffer instances or objects conforming to the
+		// VSBufferLike structure ({ buffer: Buffer }). This field exists when
+		// the payload the webview has sent contains buffers (which is somewhat
+		// rare).
+		const potentialBuffers = dataValue.buffers;
+		const buffers: string[] = [];
+
+		if (Array.isArray(potentialBuffers)) {
+			for (const item of potentialBuffers) {
+				try {
+					const bufferInstance = validateAndGetBufferInstance(item, maxSize);
+
+					// If we found a valid Buffer, convert it to base64
+					if (bufferInstance) {
+						buffers.push(bufferInstance.toString('base64'));
+					}
+				} catch (e) {
+					console.error('Error processing buffer:', e);
+					// Continue processing other buffers
+				}
+			}
+		}
+
+		// Reconstruct the content: Original payload properties (excluding 'data') + the 'data' field from 'data.value'
+		const content = { ...otherPayloadProps, data: dataValue.data };
+
+		return { content, buffers };
+	}
+
+	// If the structure data.value is not found, return the original payload as content and empty buffers
+	return { content: payload, buffers: [] };
 }

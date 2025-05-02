@@ -8,7 +8,7 @@ import { randomUUID } from 'crypto';
 import { getLanguageModels } from './models';
 import { completionModels } from './completion';
 import { registerModel, registerModels } from './extension';
-import { COPILOT_SIGNIN_COMMAND, COPILOT_SIGNOUT_COMMAND } from './copilot.js';
+import { CopilotService } from './copilot.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -343,7 +343,7 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 	try {
 		switch (userConfig.provider) {
 			case 'copilot':
-				oauthCompleted = await vscode.commands.executeCommand(COPILOT_SIGNIN_COMMAND);
+				oauthCompleted = await CopilotService.instance().signIn();
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
@@ -366,7 +366,7 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 	try {
 		switch (userConfig.provider) {
 			case 'copilot':
-				oauthCompleted = await vscode.commands.executeCommand(COPILOT_SIGNOUT_COMMAND);
+				oauthCompleted = await CopilotService.instance().signOut();
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-out is not supported for provider {0}', userConfig.provider));

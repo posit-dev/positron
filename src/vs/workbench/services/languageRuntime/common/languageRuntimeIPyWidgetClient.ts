@@ -8,6 +8,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState } from './languageRuntimeClientInstance.js';
 import { FromWebviewMessage, ICommMessageFromWebview, ToWebviewMessage } from './positronIPyWidgetsWebviewMessages.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { VSBuffer } from '../../../../base/common/buffer.js';
 
 /**
  * Interface for communicating with an IPyWidgets webview.
@@ -125,9 +126,16 @@ export class IPyWidgetClientInstance extends Disposable {
 			this._logService.trace('RECV comm_msg:', reply);
 			this.postCommMessage(reply, message.msg_id);
 		} else {
-			// It's not a known RPC request, send a fire-and-forget message to the client.
-			this._logService.trace('SEND comm_msg:', data);
-			this._client.sendMessage(message.data);
+			// It's not a known RPC request, send a fire-and-forget message to the client, including buffers.
+			this._logService.trace('SEND comm_msg:', data, { buffers: message.buffers?.length });
+			// Convert incoming Uint8Array[] → VSBuffer[] to preserve binary data.
+			let vsBuffers: VSBuffer[] | undefined;
+			if (Array.isArray(message.buffers) && message.buffers.every(b => b instanceof Uint8Array)) {
+				vsBuffers = message.buffers.map(b => VSBuffer.wrap(b));
+			} else if (message.buffers) {
+				this._logService.warn('Invalid buffers received in comm_msg:', message.buffers);
+			}
+			this._client.sendMessage(message.data, vsBuffers);
 		}
 	}
 

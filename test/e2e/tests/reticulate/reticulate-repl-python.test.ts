@@ -29,21 +29,11 @@ test.describe('Reticulate', {
 		}
 	});
 
-	test('R - Verify Basic Reticulate Functionality using reticulate::repl_python()', async function ({ app, sessions }) {
+	test('R - Verify Basic Reticulate Functionality using reticulate::repl_python()', async function ({ app, sessions, logger }) {
 
 		const rSessionMetaData = await sessions.start('r');
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
-
-		try {
-			await app.workbench.console.waitForConsoleContents('Yes/no/cancel');
-			await app.workbench.console.typeToConsole('no');
-			await app.workbench.console.sendEnterKey();
-		} catch {
-			// Prompt did not appear
-		}
-
-		await app.workbench.popups.installIPyKernel();
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 

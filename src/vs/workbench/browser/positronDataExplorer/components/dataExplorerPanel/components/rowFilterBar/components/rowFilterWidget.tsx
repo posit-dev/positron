@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -25,14 +25,12 @@ import {
 	RowFilterDescriptorIsTrue,
 	RowFilterDescriptorSearch
 } from '../../addEditRowFilterModalPopup/rowFilterDescriptor.js';
-import { RowFilterCondition } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * RowFilterWidgetProps interface.
  */
 interface RowFilterWidgetProps {
 	rowFilter: RowFilterDescriptor;
-	booleanOperator?: RowFilterCondition;
 	onEdit: () => void;
 	onClear: () => void;
 }
@@ -141,14 +139,6 @@ export const RowFilterWidget = forwardRef<HTMLButtonElement, RowFilterWidgetProp
 			className={buttonClass}
 			onPressed={() => props.onEdit()}
 		>
-			{props.booleanOperator &&
-				<div className='boolean-operator'>
-					{props.rowFilter.props.condition === RowFilterCondition.And ?
-						localize('positron.dataExplorer.rowFilterWidget.and', "and") :
-						localize('positron.dataExplorer.rowFilterWidget.or', "or")
-					}
-				</div>
-			}
 			<div className='title'>
 				{title}
 			</div>
