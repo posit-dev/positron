@@ -105,7 +105,7 @@ export const ActionBarButton = forwardRef<
 			// Get the color theme type.
 			const colorThemeType = context.themeService.getColorTheme().type;
 
-			// Determine the css background image based on the color theme type and icon.
+			// Determine the CSS background image based on the color theme type and icon.
 			let icon: URI | undefined;
 			if ((colorThemeType === ColorScheme.LIGHT || colorThemeType === ColorScheme.HIGH_CONTRAST_LIGHT) && props.icon.light) {
 				icon = props.icon.light;
