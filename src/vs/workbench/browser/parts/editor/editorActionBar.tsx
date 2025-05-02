@@ -52,9 +52,15 @@ export const EditorActionBar = (props: EditorActionBarProps) => {
 			setRenderMarker(renderCounter => renderCounter + 1);
 		}));
 
+		// Add the onDidColorThemeChange event handler.
+		disposableStore.add(props.themeService.onDidColorThemeChange(() => {
+			// Re-render the component.
+			setRenderMarker(renderCounter => renderCounter + 1);
+		}));
+
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [props.editorActionBarFactory]);
+	}, [props.editorActionBarFactory, props.themeService]);
 
 	// Determine whether the window is an auxiliary window.
 	const auxiliaryWindow = ref.current ? isAuxiliaryWindow(DOM.getWindow(ref.current)) : undefined;
