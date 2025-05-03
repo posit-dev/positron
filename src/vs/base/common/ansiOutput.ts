@@ -454,6 +454,15 @@ export class ANSIOutput {
 	private processCharacter(char: string) {
 		// Handle special characters. Otherwise, buffer the character.
 		switch (char) {
+			// BS moves the output column back one character.
+			case '\b': {
+				this.flushBuffer();
+				if (this._outputColumn > 0) {
+					this._outputColumn--;
+				}
+				break;
+			}
+
 			// LF sets the pending newline flag.
 			case '\n': {
 				this._pendingNewline = true;
