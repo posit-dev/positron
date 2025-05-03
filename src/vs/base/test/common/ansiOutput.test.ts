@@ -619,7 +619,7 @@ suite('ANSIOutput', () => {
 		assert.equal(outputLines[0].outputRuns[1].text, testText);
 	});
 
-	test('Test ANSIOutput BS RED GREEN BLUE becomes BLUE', () => {
+	test('Test ANSIOutput BS RED GREEN BLUE becomes BLUE GREEN', () => {
 		// Setup.
 		const testText = 'This is some text for testing purposes';
 		const ansiOutput = new ANSIOutput();
