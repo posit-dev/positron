@@ -457,7 +457,7 @@ export class ANSIOutput {
 			// BS moves the output column back one character.
 			case '\b': {
 				this.flushBuffer();
-				// When _outputColumn is 0, the backspace is intentionally ignored.
+				// When the output column is 0, the backspace is intentionally ignored.
 				// This reflects expected ANSI behavior, where the cursor cannot move
 				// further left than the start of the line.
 				if (this._outputColumn > 0) {
