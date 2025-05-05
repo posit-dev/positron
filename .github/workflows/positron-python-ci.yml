@@ -51,6 +51,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          activate-environment: true
 
       - name: Add pip to uv venv
         run: uv pip install pip
@@ -89,6 +90,7 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           enable-cache: true
+          activate-environment: true
 
       - name: Add pip to uv venv
         run: uv pip install pip
@@ -136,6 +138,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
+          activate-environment: true
 
       - name: Install specific pytest version
         run: |
@@ -179,6 +182,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
+          activate-environment: true
 
       - name: Add pip to uv venv
         run: uv pip install pip
@@ -210,6 +214,7 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
           enable-cache: true
+          activate-environment: true
 
       - name: Add pip to uv venv
         run: uv pip install pip
