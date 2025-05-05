@@ -253,6 +253,7 @@ export class CatalogProviderRegistry {
 
 	register(registration: CatalogProviderRegistration): vscode.Disposable {
 		this.registry.push(registration);
+		this.registry.sort((a, b) => a.label.localeCompare(b.label));
 		return {
 			dispose: () => this.unregister(registration),
 		};
@@ -261,8 +262,16 @@ export class CatalogProviderRegistry {
 	async listAllProviders(
 		context: vscode.ExtensionContext,
 	): Promise<CatalogProvider[]> {
-		const all = this.registry.map((v) => v.listProviders(context));
-		return (await Promise.all(all)).flat();
+		const all = this.registry.map(async (v) => {
+			return {
+				label: v.label,
+				providers: await v.listProviders(context),
+			};
+		});
+		const sorted = (await Promise.all(all)).sort((a, b) =>
+			a.label.localeCompare(b.label),
+		);
+		return sorted.map((v) => v.providers).flat();
 	}
 
 	async addProvider(context: vscode.ExtensionContext): Promise<void> {
