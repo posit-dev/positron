@@ -51,6 +51,12 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
 		const disposables = new DisposableStore();
 
+		// The frontend shoudn't send invalid sizes so be defensive. Sometimes the
+		// plot container is in a strange state when it's hidden.
+		if (props.height <= 0 || props.width <= 0) {
+			return;
+		}
+
 		// If the plot is already rendered, use the old image until the new one is ready.
 		if (props.plotClient.lastRender) {
 			setUri(props.plotClient.lastRender.uri);
