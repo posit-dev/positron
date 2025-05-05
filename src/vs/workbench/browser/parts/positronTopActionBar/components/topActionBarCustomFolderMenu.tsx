@@ -7,20 +7,21 @@
 import './topActionBarCustomFolderMenu.css';
 
 // React.
-import React, { KeyboardEvent, useRef } from 'react';
+import React, { useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
-import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
-import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 import { CustomFolderModalPopup } from '../customFolderModalPopup/customFolderModalPopup.js';
+import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
 
 /**
  * Localized strings.
  */
-const positronFolderMenu = localize('positron.folderCommands', "Folder Commands");
+const positronFolderSelector = localize('positron.folderSelector', "Folder Selector");
 
 /**
  * TopActionBarCustonFolderMenu component.
@@ -31,7 +32,7 @@ export const TopActionBarCustomFolderMenu = () => {
 	const context = usePositronTopActionBarContext();
 
 	// Reference hooks.
-	const ref = useRef<HTMLDivElement>(undefined!);
+	const ref = useRef<HTMLButtonElement>(undefined!);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([ref]);
@@ -62,49 +63,30 @@ export const TopActionBarCustomFolderMenu = () => {
 		);
 	};
 
-	/**
-	 * onKeyDown event handler.
-	 */
-	const keyDownHandler = async (e: KeyboardEvent<HTMLDivElement>) => {
-		switch (e.code) {
-			case 'Space':
-			case 'Enter':
-				await showPopup();
-				break;
-		}
-	};
-
-	/**
-	 * onClick event handler.
-	 */
-	const clickHandler = async () => {
-		await showPopup();
-	};
-
 	// Render.
 	return (
-		<div
+		<ActionBarButton
 			ref={ref}
 			aria-haspopup='menu'
-			aria-label={positronFolderMenu}
-			className='top-action-bar-custom-folder-menu'
-			role='button'
-			tabIndex={0}
-			onClick={clickHandler}
-			onKeyDown={keyDownHandler}>
-			<div aria-hidden='true' className='left'>
-				<div className='label'>
-					<div className={'action-bar-button-icon codicon codicon-folder'} />
-					{context.workspaceFolder &&
-						<div className='label-text'>
-							{context.workspaceFolder ? context.workspaceFolder.name : ''}
-						</div>
-					}
+			aria-label={positronFolderSelector}
+			tooltip={positronFolderSelector}
+			onPressed={async () => await showPopup()}
+		>
+			<div className='top-action-bar-custom-folder-menu'>
+				<div aria-hidden='true' className='left'>
+					<div className='label'>
+						<div className={'action-bar-button-icon codicon codicon-folder'} />
+						{context.workspaceFolder &&
+							<div className='label-text'>
+								{context.workspaceFolder ? context.workspaceFolder.name : ''}
+							</div>
+						}
+					</div>
+				</div>
+				<div aria-hidden='true' className='right'>
+					<div className='chevron codicon codicon-chevron-down' />
 				</div>
 			</div>
-			<div aria-hidden='true' className='right'>
-				<div className='chevron codicon codicon-chevron-down' />
-			</div>
-		</div>
+		</ActionBarButton>
 	);
 };
