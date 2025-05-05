@@ -819,7 +819,7 @@ export function registerLanguageRuntimeActions() {
 	});
 
 
-	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID, 'Open Active Session Picker', async accessor => {
+	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID, 'Session Selector', async accessor => {
 		// Access services.
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 

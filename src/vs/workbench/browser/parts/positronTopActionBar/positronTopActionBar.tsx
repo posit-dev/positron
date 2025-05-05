@@ -170,7 +170,7 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 							</PositronActionBar>
 						</ActionBarRegion>
 					)}
-					<ActionBarRegion location='right'>
+					<ActionBarRegion gap={6} location='right'>
 						<TopActionBarSessionManager />
 						{showCenterUI && (
 							<TopActionBarCustomFolderMenu />

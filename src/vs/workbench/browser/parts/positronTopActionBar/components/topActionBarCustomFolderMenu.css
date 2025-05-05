@@ -4,14 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 .top-action-bar-custom-folder-menu {
-	flex: 0;
-	width: min-content;
-	margin: 0 6px;
 	height: 26px;
 	display: grid;
 	cursor: pointer;
-	align-items: center;
+	width: min-content;
 	border-radius: 6px;
+	align-items: center;
 	box-sizing: border-box;
 	grid-template-columns: 1fr 1fr;
 	color: var(--positronActionBar-foreground);
