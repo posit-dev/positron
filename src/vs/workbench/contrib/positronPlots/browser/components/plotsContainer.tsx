@@ -7,7 +7,7 @@
 import './plotsContainer.css';
 
 // React.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -66,8 +66,6 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const plotHeight = historyBottom ? props.height - historyPx : props.height;
 	const plotWidth = historyBottom ? props.width : props.width - historyPx;
 
-	const [debounceTimer, setDebounceTimer] = useState<NodeJS.Timeout | undefined>(undefined);
-
 	useEffect(() => {
 		// Ensure the selected plot is visible. We do this so that the history
 		// filmstrip automatically scrolls to new plots as they are emitted, or
@@ -86,13 +84,12 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				plotHistory.scrollTop = plotHistory.scrollHeight;
 			}
 		}
+	}, [plotHistoryRef]);
 
+	useEffect(() => {
 		// Propagate current render settings. Use a debouncer to avoid excessive
 		// messaging to language kernels.
-		if (debounceTimer) {
-			clearTimeout(debounceTimer);
-		}
-		setDebounceTimer(setTimeout(() => {
+		const debounceTimer = setTimeout(() => {
 			props.positronPlotsService.setPlotsRenderSettings({
 				size: {
 					width: plotWidth,
@@ -101,8 +98,10 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				pixel_ratio: DOM.getActiveWindow().devicePixelRatio,
 				format: PlotRenderFormat.Png, // Currently hard-coded
 			});
-		}, 500));
-	}, [plotWidth, plotHeight, props.positronPlotsService, plotHistoryRef, debounceTimer]);
+		}, 500);
+
+		return () => clearTimeout(debounceTimer);
+	}, [plotWidth, plotHeight, props.positronPlotsService]);
 
 	/**
 	 * Renders either a DynamicPlotInstance (resizable plot), a
