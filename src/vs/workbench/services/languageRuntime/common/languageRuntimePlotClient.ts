@@ -274,7 +274,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// render request to be made multiple times, e.g. when the UI component
 		// is redrawn without changing the plot size.
 		if (this._lastRender &&
-			this._lastRender.size === sizeInt &&
+			this._lastRender.size?.height === sizeInt?.height &&
+			this._lastRender.size?.width === sizeInt?.width &&
 			this._lastRender.pixel_ratio === pixel_ratio) {
 			// The last render request was the same size; return the last render
 			// result without performing another render.
