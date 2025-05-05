@@ -63,8 +63,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 	const historyPx = props.showHistory ? HistoryPx : 0;
 	const historyEdge = historyBottom ? 'history-bottom' : 'history-right';
-	const plotHeight = historyBottom ? props.height - historyPx : props.height;
-	const plotWidth = historyBottom ? props.width : props.width - historyPx;
+	const plotHeight = historyBottom && props.height > 0 ? props.height - historyPx : props.height;
+	const plotWidth = historyBottom || props.width <= 0 ? props.width : props.width - historyPx;
 
 	useEffect(() => {
 		// Ensure the selected plot is visible. We do this so that the history
@@ -87,6 +87,11 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	}, [plotHistoryRef]);
 
 	useEffect(() => {
+		// Be defensive against null sizes when pane is invisible
+		if (plotWidth <= 0 || plotHeight <= 0) {
+			return;
+		}
+
 		// Propagate current render settings. Use a debouncer to avoid excessive
 		// messaging to language kernels.
 		const debounceTimer = setTimeout(() => {
