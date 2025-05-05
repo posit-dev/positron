@@ -39,6 +39,7 @@ import {
 	TableSelection
 } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ICommandService, CommandsRegistry } from '../../../../platform/commands/common/commands.js';
+import { URI } from '../../../../base/common/uri.js';
 
 
 /**
@@ -93,10 +94,10 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 
 	constructor(
 		private readonly _commandService: ICommandService,
-		private readonly filePath: string
+		private readonly uri: URI
 	) {
 		super();
-		this.clientId = `duckdb:${this.filePath}`;
+		this.clientId = `duckdb:${this.uri.path}`;
 		this.initialSetup = this.openDataset();
 	}
 
@@ -149,7 +150,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async openDataset() {
 		const result = await this._execRpc<OpenDatasetResult>({
 			method: DataExplorerBackendRequest.OpenDataset,
-			params: { uri: this.filePath }
+			params: { uri: this.uri.toString() }
 		});
 
 		if (result.error_message) {
@@ -160,7 +161,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async getState(): Promise<BackendState> {
 		return this._execRpc<BackendState>({
 			method: DataExplorerBackendRequest.GetState,
-			uri: this.filePath,
+			uri: this.uri.toString(),
 			params: {}
 		});
 	}
@@ -168,7 +169,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async getSchema(columnIndices: Array<number>): Promise<TableSchema> {
 		return this._execRpc<TableSchema>({
 			method: DataExplorerBackendRequest.GetSchema,
-			uri: this.filePath,
+			uri: this.uri.toString(),
 			params: { column_indices: columnIndices } satisfies GetSchemaParams
 		});
 	}
@@ -176,7 +177,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async getDataValues(columns: Array<ColumnSelection>, formatOptions: FormatOptions): Promise<TableData> {
 		return this._execRpc<TableData>({
 			method: DataExplorerBackendRequest.GetDataValues,
-			uri: this.filePath,
+			uri: this.uri.toString(),
 			params: {
 				columns,
 				format_options: formatOptions
@@ -187,7 +188,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels> {
 		return this._execRpc<TableRowLabels>({
 			method: DataExplorerBackendRequest.GetRowLabels,
-			uri: this.filePath,
+			uri: this.uri.toString(),
 			params: {
 				selection,
 				format_options: formatOptions
@@ -198,7 +199,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData> {
 		return this._execRpc<ExportedData>({
 			method: DataExplorerBackendRequest.ExportDataSelection,
-			uri: this.filePath,
+			uri: this.uri.toString(),
 			params: {
 				selection,
 				format
@@ -209,7 +210,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async setColumnFilters(filters: Array<ColumnFilter>): Promise<void> {
 		return this._execRpc<void>({
 			method: DataExplorerBackendRequest.SetColumnFilters,
-			uri: this.filePath,
+			uri: this.uri.toString(),
 			params: { filters } satisfies SetColumnFiltersParams
 		});
 	}
@@ -217,7 +218,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async setRowFilters(filters: Array<RowFilter>): Promise<FilterResult> {
 		return this._execRpc<FilterResult>({
 			method: DataExplorerBackendRequest.SetRowFilters,
-			uri: this.filePath,
+			uri: this.uri.toString(),
 			params: { filters } satisfies SetRowFiltersParams
 		});
 	}
@@ -225,7 +226,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 	async setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void> {
 		return this._execRpc<void>({
 			method: DataExplorerBackendRequest.SetSortColumns,
-			uri: this.filePath,
+			uri: this.uri.toString(),
 			params: { sort_keys: sortKeys } satisfies SetSortColumnsParams
 		});
 	}
@@ -236,7 +237,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		formatOptions: FormatOptions): Promise<void> {
 		return this._execRpc<void>({
 			method: DataExplorerBackendRequest.GetColumnProfiles,
-			uri: this.filePath,
+			uri: this.uri.toString(),
 			params: {
 				callback_id: callbackId,
 				profiles: profiles,

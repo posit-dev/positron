@@ -95,7 +95,7 @@ class PositronDataExplorerContribution extends Disposable {
 			},
 			{
 				createEditorInput: async ({ resource, options }, group) => {
-					await dataExplorerService.openWithDuckDB(resource.path);
+					await dataExplorerService.openWithDuckDB(resource);
 
 					// We create a data explorer URI that will use the DuckDB client
 					// that we just created.

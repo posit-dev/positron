@@ -26,6 +26,7 @@ import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorer
 import { PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /**
  * DataExplorerRuntime class.
@@ -207,7 +208,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		// (updates, async column profiles) normally invoked by a language runtime kernel
 		this._register(CommandsRegistry.registerCommand('positron-data-explorer.sendUiEvent',
 			(accessor: ServicesAccessor, event: DataExplorerUiEvent) => {
-				const handler = this._uiEventCommandHandlers.get(event.uri);
+				const handler = this._uiEventCommandHandlers.get(event.uri.toString());
 
 				// If not event handler registered, ignore for now
 				if (handler === undefined) {
@@ -313,13 +314,13 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * the data explorer.
 	 * @param filePath Path to file to open with positron-duckdb extension
 	 */
-	async openWithDuckDB(filePath: string) {
-		const backend = new PositronDataExplorerDuckDBBackend(this._commandService, filePath);
+	async openWithDuckDB(uri: URI) {
+		const backend = new PositronDataExplorerDuckDBBackend(this._commandService, uri);
 
 		// Associate UI events (like ReturnColumnProfiles) for this file path
 		// with this backend. We're presuming only one backend per file path, so
 		// if we need multiple backends per file path we can extend
-		this._uiEventCommandHandlers.set(filePath, (event) => {
+		this._uiEventCommandHandlers.set(uri.toString(), (event) => {
 			backend.handleUiEvent(event);
 		});
 
