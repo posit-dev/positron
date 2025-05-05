@@ -24,7 +24,7 @@ import { useRegisterWithActionBar } from '../../../../../platform/positronAction
 const positronFolderSelector = localize('positron.folderSelector', "Folder Selector");
 
 /**
- * TopActionBarCustonFolderMenu component.
+ * TopActionBarCustomFolderMenu component.
  * @returns The rendered component.
  */
 export const TopActionBarCustomFolderMenu = () => {
