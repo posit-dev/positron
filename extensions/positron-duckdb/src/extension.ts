@@ -58,7 +58,6 @@ import {
 } from './interfaces';
 import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as zlib from 'zlib';
 import Worker from 'web-worker';
 import { Table, Vector } from 'apache-arrow';
@@ -1447,11 +1446,16 @@ END`;
  * Implementation of Data Explorer backend protocol using duckdb-wasm,
  * for serving requests coming in through the vscode command.
  */
-export class DataExplorerRpcHandler {
+export class DataExplorerRpcHandler implements vscode.Disposable {
 	private readonly _uriToTableView = new Map<string, DuckDBTableView>();
 	private _tableIndex: number = 0;
+	private _watchers: vscode.Disposable[] = [];
 
 	constructor(private readonly db: DuckDBInstance) { }
+
+	dispose() {
+		vscode.Disposable.from(...this._watchers).dispose();
+	}
 
 	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
 		let scanQuery, tableName;
@@ -1460,14 +1464,9 @@ export class DataExplorerRpcHandler {
 			// We are querying a table in the transient in-memory database. We can modify this later
 			// to read from different .duckb database files
 			tableName = uri.path;
-		} else if (uri.scheme !== 'file') {
-			// We can't currently handle non-file URIs.
-			const tableView = DuckDBTableView.getDisconnected(uri, `Unsupported URI scheme: ${uri.scheme}`, this.db);
-			this._uriToTableView.set(params.uri.toString(), tableView);
-			return {};
 		} else {
 			tableName = `positron_${this._tableIndex++}`;
-			await this.createTableFromFilePath(uri.fsPath, tableName);
+			await this.createTableFromUri(uri, tableName);
 		}
 
 		let tableView: DuckDBTableView;
@@ -1475,16 +1474,20 @@ export class DataExplorerRpcHandler {
 			const result = await this.db.runQuery(`DESCRIBE ${tableName};`);
 			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db);
 
-			if (uri.scheme === 'file') {
-				// watch file for changes and fire `onDatasetChanged` event when it changes
-				fs.watchFile(uri.fsPath, { interval: 1000 }, async () => {
+			if (uri.scheme !== 'duckdb') {
+				// Watch file for changes.
+				const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(uri, '*'), true);
+				watcher.onDidChange(async () => {
 					const newTableName = `positron_${this._tableIndex++}`;
 
-					await this.createTableFromFilePath(uri.fsPath, newTableName);
+					await this.createTableFromUri(uri, newTableName);
 
 					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
 					await tableView.onFileUpdated(newTableName, newSchema);
 				});
+				// Stop watching deleted files.
+				watcher.onDidDelete(() => watcher.dispose());
+				this._watchers.push(watcher);
 			}
 		} catch (error) {
 			const errorMessage = error instanceof Error ?
@@ -1498,15 +1501,15 @@ export class DataExplorerRpcHandler {
 
 	/**
 	 * Import data file into DuckDB by creating table or view
-	 * @param filePath The file path on disk.
+	 * @param uri A URI, usually for a file path on disk.
 	 * @param catalogName The table name to use in the DuckDB catalog.
 	 */
-	async createTableFromFilePath(filePath: string, catalogName: string) {
-		let fileExt = path.extname(filePath);
+	async createTableFromUri(uri: vscode.Uri, catalogName: string) {
+		let fileExt = path.extname(uri.path);
 		const isGzipped = fileExt === '.gz';
 
 		if (isGzipped) {
-			fileExt = path.extname(filePath.slice(0, -3));
+			fileExt = path.extname(uri.path.slice(0, -3));
 		}
 
 		const getCsvImportQuery = (_filePath: string, options: Array<String>) => {
@@ -1538,15 +1541,15 @@ export class DataExplorerRpcHandler {
 
 		// Read the entire contents and register it as a temp file
 		// to avoid file handle caching in duckdb-wasm
-		let fileContents = fs.readFileSync(filePath, { encoding: null });
+		let fileContents = await vscode.workspace.fs.readFile(uri);
 		if (isGzipped) {
 			fileContents = zlib.gunzipSync(fileContents);
 		}
 
 		// For gzipped files, use the base name without the .gz extension
 		const virtualPath = isGzipped ?
-			path.basename(filePath, '.gz') :
-			path.basename(filePath);
+			path.basename(uri.path, '.gz') :
+			path.basename(uri.path);
 
 		await this.db.db.registerFileBuffer(virtualPath, fileContents);
 		try {
@@ -1634,6 +1637,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const dataExplorerHandler = new DataExplorerRpcHandler(db);
 	context.subscriptions.push(
+		dataExplorerHandler,
 		vscode.commands.registerCommand('positron-duckdb.dataExplorerRpc',
 			async (rpc: DataExplorerRpc): Promise<DataExplorerResponse> => {
 				return dataExplorerHandler.handleRequest(rpc);
