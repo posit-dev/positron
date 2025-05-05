@@ -98,7 +98,7 @@ function addRandomNumSuffix(name: string): string {
 
 async function verifyProjectCreation(app: Application, projectTitle: string, waitForReady = true) {
 	await test.step(`Verify project created`, async () => {
-		await expect(app.code.driver.page.getByLabel('Folder Selector')).toHaveText(projectTitle, { timeout: 20000 });
+		await expect(app.code.driver.page.locator('#top-action-bar-current-working-folder')).toHaveText(projectTitle, { timeout: 20000 });
 
 		if (waitForReady) {
 			await app.workbench.console.waitForReady('>', 30000); // issue 5914 causes this to fail for Jupyter notebooks

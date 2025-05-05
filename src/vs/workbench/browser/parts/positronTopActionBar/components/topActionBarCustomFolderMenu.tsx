@@ -77,7 +77,7 @@ export const TopActionBarCustomFolderMenu = () => {
 					<div className='label'>
 						<div className={'action-bar-button-icon codicon codicon-folder'} />
 						{context.workspaceFolder &&
-							<div className='label-text'>
+							<div className='label-text' id='top-action-bar-current-working-folder'>
 								{context.workspaceFolder ? context.workspaceFolder.name : ''}
 							</div>
 						}
