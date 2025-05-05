@@ -13,6 +13,7 @@ import {
 const registration: CatalogProviderRegistration = {
 	label: "Azure Data Lake Storage",
 	detail: "Explore tables and files in Azure Data Lake Storage",
+	iconPath: new vscode.ThemeIcon("azure"),
 	addProvider: registerAzureCatalog,
 	listProviders: getAzureCatalogs,
 };
