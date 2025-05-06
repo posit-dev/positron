@@ -781,17 +781,26 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._onDidSelectPlot.fire(plotClient.id);
 		}
 
+		// Dispose the plot client when this service is disposed (we own this
+		// object)
+		const disp = this._register(plotClient);
+
 		// Remove the plot from our list when it is closed
-		this._register(plotClient.onDidClose(() => {
-			const index = this._plots.indexOf(plotClient);
-			if (index >= 0) {
-				this._plots.splice(index, 1);
+		plotClient.register({
+			dispose: () => {
+				const index = this._plots.indexOf(plotClient);
+				if (index >= 0) {
+					this._plots.splice(index, 1);
+				}
+
+				// Clear the plot's metadata from storage
+				this._storageService.remove(
+					this.generateStorageKey(plotClient.metadata.session_id, plotClient.metadata.id, plotClient.metadata.location),
+					StorageScope.WORKSPACE);
+
+				disp.dispose();
 			}
-			// Clear the plot's metadata from storage
-			this._storageService.remove(
-				this.generateStorageKey(plotClient.metadata.session_id, plotClient.metadata.id, plotClient.metadata.location),
-				StorageScope.WORKSPACE);
-		}));
+		});
 
 		const selectPlot = () => {
 			// Raise the Plots pane so the user can see the updated plot
@@ -803,19 +812,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		};
 
 		// Raise the plot if it's updated by the runtime
-		this._register(plotClient.onDidRenderUpdate((_plot) => {
+		plotClient.register(plotClient.onDidRenderUpdate((_plot) => {
 			selectPlot();
 		}));
 
 		// Focus the plot if the runtime requests it
-		this._register(plotClient.onDidShowPlot(() => {
+		plotClient.register(plotClient.onDidShowPlot(() => {
 			selectPlot();
 		}));
-
-		// Dispose the plot client when this service is disposed (we own this
-		// object)
-		this._register(plotClient);
-	}
+  }
 
 	/**
 	 * Creates a new static plot client instance and registers it with the
