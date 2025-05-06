@@ -1350,6 +1350,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param settings The new settings.
 	 */
 	setPlotsRenderSettings(settings: PlotRenderSettings): void {
+		// Sanitize values in case sizing policies create floating points
+		settings.size.height = Math.floor(settings.size.height);
+		settings.size.width = Math.floor(settings.size.width);
+
 		this._plotsRenderSettings.set(settings, undefined);
 	}
 
