@@ -25,6 +25,7 @@ import { DarkFilter, IPositronPlotClient, IPositronPlotsService, PlotRenderForma
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 /**
  * PlotContainerProps interface.
@@ -94,27 +95,37 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return;
 		}
 
-		let policy = props.positronPlotsService.selectedSizingPolicy;
+		const notify = () => {
+			let policy = props.positronPlotsService.selectedSizingPolicy;
 
-		if (policy instanceof PlotSizingPolicyIntrinsic) {
-			policy = new PlotSizingPolicyAuto;
-		}
+			if (policy instanceof PlotSizingPolicyIntrinsic) {
+				policy = new PlotSizingPolicyAuto;
+			}
 
-		const viewPortSize = {
-			height: plotHeight,
-			width: plotWidth,
-		}
-		let size = policy.getPlotSize(viewPortSize);
-		size = size ? size : viewPortSize;
+			const viewPortSize = {
+				height: plotHeight,
+				width: plotWidth,
+			}
+			let size = policy.getPlotSize(viewPortSize);
+			size = size ? size : viewPortSize;
 
-		// Propagate current render settings. Use a debouncer to avoid excessive
-		// messaging to language kernels.
-		const debounceTimer = setTimeout(() => {
 			props.positronPlotsService.setPlotsRenderSettings({
 				size,
 				pixel_ratio: DOM.getActiveWindow().devicePixelRatio,
 				format: PlotRenderFormat.Png, // Currently hard-coded
 			});
+		};
+
+		// Renotify if the sizing policy changes
+		const disposables = new DisposableStore();
+		disposables.add(props.positronPlotsService.onDidChangeSizingPolicy((_policy) => {
+			notify();
+		}));
+
+		// Propagate current render settings. Use a debouncer to avoid excessive
+		// messaging to language kernels.
+		const debounceTimer = setTimeout(() => {
+			notify()
 		}, 500);
 
 		return () => clearTimeout(debounceTimer);
