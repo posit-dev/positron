@@ -10,12 +10,16 @@ import {
 } from "./catalog";
 import { DefaultDatabricksCredentialProvider } from "./credentials";
 import { registerDatabricksProvider } from "./catalogs/databricks";
+import { registerMockProvider } from "./catalogs/mock";
 import { registerDbfsProvider } from "./fs/dbfs";
 import { setExtensionUri } from "./resources";
 
 export async function activate(context: vscode.ExtensionContext) {
 	setExtensionUri(context);
 	const registry = new CatalogProviderRegistry();
+	if (context.extensionMode !== vscode.ExtensionMode.Production) {
+		context.subscriptions.push(registerMockProvider(registry));
+	}
 	context.subscriptions.push(
 		registerDatabricksProvider(registry),
 		await registerTreeViewProvider(context, registry),
