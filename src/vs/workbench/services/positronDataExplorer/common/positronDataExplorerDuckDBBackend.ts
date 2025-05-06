@@ -97,7 +97,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		private readonly uri: URI
 	) {
 		super();
-		this.clientId = `duckdb:${this.uri.path}`;
+		this.clientId = `duckdb:${this.uri.toString()}`;
 		this.initialSetup = this.openDataset();
 	}
 

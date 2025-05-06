@@ -36,7 +36,6 @@ import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
 import { POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
-import { URI } from '../../../../base/common/uri.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -362,8 +361,8 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					positronDataExplorerInstance.tableDataDataGridInstance.isColumnSorting
 				);
 
-				const uri = URI.parse(this._identifier);
-				if (uri.scheme === 'duckdb') {
+				const uri = PositronDataExplorerUri.backingUri(input.resource);
+				if (uri) {
 					this._isPlaintextContextKey.set(PLAINTEXT_EXTS.some(ext => uri.path.endsWith(ext)));
 				} else {
 					this._isPlaintextContextKey.reset();
