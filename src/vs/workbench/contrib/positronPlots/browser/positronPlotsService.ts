@@ -771,7 +771,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param fireEvents Whether to fire events for this plot client.
 	 */
 	private registerPlotClient(plotClient: PlotClientInstance, fireEvents: boolean) {
-
 		// Add to our list of plots
 		this._plots.push(plotClient);
 
@@ -819,6 +818,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Focus the plot if the runtime requests it
 		plotClient.register(plotClient.onDidShowPlot(() => {
 			selectPlot();
+		}));
+
+		plotClient.register(plotClient.onDidChangeSizingPolicy((policy) => {
+			this.selectSizingPolicy(policy.id);
 		}));
   }
 
