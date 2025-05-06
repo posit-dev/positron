@@ -95,6 +95,10 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	private readonly _onDidChangePlotsRenderSettingsEmitter =
 		this._register(new Emitter<PlotRenderSettings>());
 
+	/** The emitter for the _sizingPolicyEmitter event */
+	private readonly _onDidChangeSizingPolicyEmitter =
+		this._register(new Emitter<IPositronPlotSizingPolicy>());
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -106,12 +110,12 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 		super();
 	}
 
-    getPlotsRenderSettings(): PlotRenderSettings {
-        throw new Error('Method not implemented.');
-    }
-    setPlotsRenderSettings(settings: PlotRenderSettings): void {
-        throw new Error('Method not implemented.');
-    }
+	getPlotsRenderSettings(): PlotRenderSettings {
+		throw new Error('Method not implemented.');
+	}
+	setPlotsRenderSettings(settings: PlotRenderSettings): void {
+		throw new Error('Method not implemented.');
+	}
 
 	//#endregion Constructor
 
@@ -198,6 +202,12 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 * The onDidChangePlotsRenderSettings event.
 	 */
 	readonly onDidChangePlotsRenderSettings = this._onDidChangePlotsRenderSettingsEmitter.event;
+
+	/**
+	 * The onDidChangeSizingPolicy event.
+	 */
+	readonly onDidChangeSizingPolicy = this._onDidChangeSizingPolicyEmitter.event;
+
 
 	/**
 	 * Selects the plot with the specified ID.

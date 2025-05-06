@@ -146,6 +146,12 @@ export interface IPositronPlotsService {
 	readonly onDidChangePlotsRenderSettings: Event<PlotRenderSettings>;
 
 	/**
+	 * Notifies subscribers when the settings for rendering a plot have changed.
+	 * This typically happens when the plot viewpane has been resized.
+	 */
+	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
+
+	/**
 	 * Selects the plot with the specified ID.
 	 *
 	 * @param id The ID of the plot to select.
