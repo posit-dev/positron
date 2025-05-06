@@ -23,6 +23,8 @@ import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { DarkFilter, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
+import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 
 /**
  * PlotContainerProps interface.
@@ -92,14 +94,24 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			return;
 		}
 
+		let policy = props.positronPlotsService.selectedSizingPolicy;
+
+		if (policy instanceof PlotSizingPolicyIntrinsic) {
+			policy = new PlotSizingPolicyAuto;
+		}
+
+		const viewPortSize = {
+			height: plotHeight,
+			width: plotWidth,
+		}
+		let size = policy.getPlotSize(viewPortSize);
+		size = size ? size : viewPortSize;
+
 		// Propagate current render settings. Use a debouncer to avoid excessive
 		// messaging to language kernels.
 		const debounceTimer = setTimeout(() => {
 			props.positronPlotsService.setPlotsRenderSettings({
-				size: {
-					width: plotWidth,
-					height: plotHeight,
-				},
+				size,
 				pixel_ratio: DOM.getActiveWindow().devicePixelRatio,
 				format: PlotRenderFormat.Png, // Currently hard-coded
 			});
