@@ -118,6 +118,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The emitter for the onDidChangePlotsRenderSettings event */
 	private readonly _onDidChangePlotsRenderSettings = new Emitter<PlotRenderSettings>();
 
+	/** The emitter for the _sizingPolicyEmitter event */
+	private readonly _onDidChangeSizingPolicyEmitter = new Emitter<IPositronPlotSizingPolicy>;
+
 	/** The ID Of the currently selected plot, if any */
 	private _selectedPlotId: string | undefined;
 
@@ -205,7 +208,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._selectedPlotId = id;
 			const selectedPlot = this._plots.find((plot) => plot.id === id);
 			if (selectedPlot instanceof PlotClientInstance) {
-				this._selectedSizingPolicy = selectedPlot.sizingPolicy;
+				this.setSelectedSizingPolicy(selectedPlot.sizingPolicy);
 			}
 		}));
 
@@ -440,7 +443,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (!policy) {
 			throw new Error(`Invalid sizing policy ID: ${id}`);
 		}
-		this._selectedSizingPolicy = policy;
+
+		this.setSelectedSizingPolicy(policy);
 		const selectedPlot = this._plots.find((plot) => this.selectedPlotId === plot.id);
 		if (selectedPlot instanceof PlotClientInstance) {
 			selectedPlot.sizingPolicy = policy;
@@ -863,6 +867,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidChangeHistoryPolicy: Event<HistoryPolicy> = this._onDidChangeHistoryPolicy.event;
 	onDidChangeDarkFilterMode: Event<DarkFilter> = this._onDidChangeDarkFilterMode.event;
 	onDidChangePlotsRenderSettings: Event<PlotRenderSettings> = this._onDidChangePlotsRenderSettings.event;
+	onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy> = this._onDidChangeSizingPolicyEmitter.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): IPositronPlotClient[] {
@@ -1352,6 +1357,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * Placeholder for service initialization.
 	 */
 	initialize() {
+	}
+
+	private setSelectedSizingPolicy(policy: IPositronPlotSizingPolicy) {
+		this._selectedSizingPolicy = policy;
+		this._onDidChangeSizingPolicyEmitter.fire(policy);
 	}
 }
 
