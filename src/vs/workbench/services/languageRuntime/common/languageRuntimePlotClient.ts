@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
 import { IntrinsicSize, PlotResult, PlotRenderFormat } from './positronPlotComm.js';
@@ -440,5 +440,12 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	override dispose(): void {
 		this._closeEmitter.fire();
 		super.dispose();
+	}
+
+	/**
+	 * Register a resource for cleanup on disposal.
+	 */
+	public register<T extends IDisposable>(o: T): T {
+		return this._register(o);
 	}
 }
