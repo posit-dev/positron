@@ -697,7 +697,7 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
 			decorationsLeft: 30,
 			decorationsWidth: 10,
 
-			contentLeft: 40,
+			contentLeft: 41,
 			contentWidth: 860,
 
 			minimap: {
@@ -761,13 +761,13 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
 			glyphMarginDecorationLaneCount: 1,
 
 			lineNumbersLeft: 0,
-			lineNumbersWidth: 30,
+			lineNumbersWidth: 31,
 
-			decorationsLeft: 30,
+			decorationsLeft: 31,
 			decorationsWidth: 10,
 
-			contentLeft: 40,
-			contentWidth: 860,
+			contentLeft: 41,
+			contentWidth: 859,
 
 			minimap: {
 				renderMinimap: RenderMinimap.None,
