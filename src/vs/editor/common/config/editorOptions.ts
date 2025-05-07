@@ -2747,7 +2747,6 @@ export class EditorLayoutInfoComputer extends ComputedEditorOption<EditorOption.
 
 		let lineNumbersWidth = 0;
 		if (showLineNumbers) {
-			// Here brian
 			const digitCount = Math.max(lineNumbersDigitCount, lineNumbersMinChars);
 			// --- Start Positron ---
 			// Use Math.ceil instead of Math.round. Fixes https://github.com/posit-dev/positron/issues/6634.
