@@ -1671,7 +1671,7 @@ declare module 'positron' {
 		export function getSessionVariables(
 			sessionId: string,
 			accessKeys?: Array<Array<string>>):
-			Thenable<RuntimeVariable[]>;
+			Thenable<Array<Array<RuntimeVariable>>>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called
