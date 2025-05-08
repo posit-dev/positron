@@ -28,6 +28,10 @@ export async function ensureDependencies(
 	if (!positron) {
 		throw new Error("Not running in Positron");
 	}
+	if (session.runtimeMetadata.languageId !== "r") {
+		// Only R supports package installation.
+		return true;
+	}
 	// Adapted from code in positron-connections.
 	const missing = [];
 	for (const pkg of packages) {
