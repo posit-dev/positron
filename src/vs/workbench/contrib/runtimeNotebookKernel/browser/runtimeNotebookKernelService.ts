@@ -24,7 +24,6 @@ import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKerne
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
  * The affinity of a kernel for a notebook.

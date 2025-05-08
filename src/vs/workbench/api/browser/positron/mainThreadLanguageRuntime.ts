@@ -15,7 +15,7 @@ import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRunt
 import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -46,6 +46,8 @@ import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostType
 import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
+import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -1511,6 +1513,10 @@ export class MainThreadLanguageRuntime
 		return this._runtimeSessionService.focusSession(
 			this.findSession(handle).sessionId
 		);
+	}
+
+	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Variable[]> {
+		return Promise.resolve([]);
 	}
 
 	// Signals that language runtime discovery is complete.
