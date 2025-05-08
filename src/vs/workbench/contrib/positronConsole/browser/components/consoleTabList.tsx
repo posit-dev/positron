@@ -7,7 +7,7 @@
 import './consoleTabList.css';
 
 // React.
-import React, { KeyboardEvent, MouseEvent, useEffect, useState } from 'react';
+import React, { KeyboardEvent, MouseEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
@@ -272,8 +272,9 @@ interface ConsoleTabListProps {
 }
 
 export const ConsoleTabList = (props: ConsoleTabListProps) => {
-	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
+
+	const tabListRef = useRef<HTMLDivElement>(null);
 
 	// Sort console sessions by created time, oldest to newest
 	const consoleInstances = Array.from(positronConsoleContext.positronConsoleInstances.values()).sort((a, b) => {
@@ -304,26 +305,75 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 		}
 	};
 
-	const handleTabClick = (sessionId: string) => {
-		onChangeForegroundSession(sessionId);
-	};
+	// Set the selected tab to the active console instance.
+	const handleKeyDown = (e: React.KeyboardEvent) => {
+		if (!consoleInstances || consoleInstances.length === 0) {
+			return;
+		}
 
+		// Find the index of the currently active console instance
+		const activeIndex = consoleInstances.findIndex(instance =>
+			instance.sessionId === positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId);
+
+		// Determine the new index based on the key pressed
+		let newIndex = activeIndex;
+		switch (e.code) {
+			case 'ArrowDown':
+				e.preventDefault();
+				e.stopPropagation();
+				// Select the next tab if it exists, otherwise select the last tab
+				newIndex = Math.min(consoleInstances.length - 1, activeIndex + 1);
+				break;
+			case 'ArrowUp':
+				e.preventDefault();
+				e.stopPropagation();
+				// Select the previous tab if it exists, otherwise select the first tab
+				newIndex = Math.max(0, activeIndex - 1);
+				break;
+			case 'Home':
+				e.preventDefault();
+				e.stopPropagation();
+				newIndex = 0;
+				break;
+			case 'End':
+				e.preventDefault();
+				e.stopPropagation();
+				newIndex = consoleInstances.length - 1;
+				break;
+		}
+
+		if (newIndex !== activeIndex && newIndex >= 0 && newIndex < consoleInstances.length) {
+			// Get the console instance for the new index
+			const consoleInstance = consoleInstances[newIndex];
+			onChangeForegroundSession(consoleInstance.sessionId).then(() => {
+				// Focus the tab after it becomes active
+				if (tabListRef.current) {
+					const tabElements = tabListRef.current.children;
+					if (tabElements && tabElements[newIndex]) {
+						(tabElements[newIndex] as HTMLElement).focus();
+					}
+				}
+			});
+		}
+	};
 
 	// Render.
 	return (
 		<div
+			ref={tabListRef}
 			aria-orientation='vertical'
 			className='tabs-container'
 			role='tablist'
 			style={{ height: props.height, width: props.width }}
 			tabIndex={0}
+			onKeyDown={handleKeyDown}
 		>
 			{consoleInstances.map((positronConsoleInstance) =>
 				<ConsoleTab
 					key={positronConsoleInstance.sessionId}
 					positronConsoleInstance={positronConsoleInstance}
 					width={props.width}
-					onClick={() => handleTabClick(positronConsoleInstance.sessionId)}
+					onClick={() => onChangeForegroundSession(positronConsoleInstance.sessionId)}
 				/>
 			)}
 		</div>
