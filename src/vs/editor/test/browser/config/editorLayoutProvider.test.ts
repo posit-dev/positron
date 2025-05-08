@@ -731,7 +731,77 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
 		});
 	});
 
-	test('EditorLayoutProvider 8 - rounds floats', () => {
+	// --- Start Positron ---
+	// test('EditorLayoutProvider 8 - rounds floats', () => {
+	// 	doTest({
+	// 		outerWidth: 900,
+	// 		outerHeight: 900,
+	// 		showGlyphMargin: false,
+	// 		lineHeight: 16,
+	// 		showLineNumbers: true,
+	// 		lineNumbersMinChars: 5,
+	// 		lineNumbersDigitCount: 6,
+	// 		lineDecorationsWidth: 10,
+	// 		typicalHalfwidthCharacterWidth: 5.05,
+	// 		maxDigitWidth: 5.05,
+	// 		verticalScrollbarWidth: 0,
+	// 		horizontalScrollbarHeight: 0,
+	// 		scrollbarArrowSize: 0,
+	// 		verticalScrollbarHasArrows: false,
+	// 		minimap: false,
+	// 		minimapSide: 'right',
+	// 		minimapRenderCharacters: true,
+	// 		minimapMaxColumn: 150,
+	// 		pixelRatio: 1,
+	// 	}, {
+	// 		width: 900,
+	// 		height: 900,
+
+	// 		glyphMarginLeft: 0,
+	// 		glyphMarginWidth: 0,
+	// 		glyphMarginDecorationLaneCount: 1,
+
+	// 		lineNumbersLeft: 0,
+	// 		lineNumbersWidth: 30,
+
+	// 		decorationsLeft: 30,
+	// 		decorationsWidth: 10,
+
+	// 		contentLeft: 40,
+	// 		contentWidth: 860,
+
+	// 		minimap: {
+	// 			renderMinimap: RenderMinimap.None,
+	// 			minimapLeft: 0,
+	// 			minimapWidth: 0,
+	// 			minimapHeightIsEditorHeight: false,
+	// 			minimapIsSampling: false,
+	// 			minimapScale: 1,
+	// 			minimapLineHeight: 1,
+	// 			minimapCanvasInnerWidth: 0,
+	// 			minimapCanvasInnerHeight: 900,
+	// 			minimapCanvasOuterWidth: 0,
+	// 			minimapCanvasOuterHeight: 900,
+	// 		},
+
+	// 		viewportColumn: 169,
+	// 		isWordWrapMinified: false,
+	// 		isViewportWrapping: false,
+	// 		wrappingColumn: -1,
+
+	// 		verticalScrollbarWidth: 0,
+	// 		horizontalScrollbarHeight: 0,
+
+	// 		overviewRuler: {
+	// 			top: 0,
+	// 			width: 0,
+	// 			height: 900,
+	// 			right: 0
+	// 		}
+	// 	});
+	// });
+
+	test('EditorLayoutProvider 8 - ceil floats', () => {
 		doTest({
 			outerWidth: 900,
 			outerHeight: 900,
@@ -761,13 +831,13 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
 			glyphMarginDecorationLaneCount: 1,
 
 			lineNumbersLeft: 0,
-			lineNumbersWidth: 30,
+			lineNumbersWidth: 31,
 
-			decorationsLeft: 30,
+			decorationsLeft: 31,
 			decorationsWidth: 10,
 
-			contentLeft: 40,
-			contentWidth: 860,
+			contentLeft: 41,
+			contentWidth: 859,
 
 			minimap: {
 				renderMinimap: RenderMinimap.None,
@@ -799,6 +869,7 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
 			}
 		});
 	});
+	// --- End Positron ---
 
 	test('EditorLayoutProvider 9 - render minimap', () => {
 		doTest({
@@ -1360,6 +1431,77 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
 		});
 	});
 
+	// --- Start Positron ---
+	// test('issue #31312: When wrapping, leave 2px for the cursor', () => {
+	// 	doTest({
+	// 		outerWidth: 1201,
+	// 		outerHeight: 422,
+	// 		showGlyphMargin: true,
+	// 		lineHeight: 30,
+	// 		showLineNumbers: true,
+	// 		lineNumbersMinChars: 3,
+	// 		lineNumbersDigitCount: 1,
+	// 		lineDecorationsWidth: 26,
+	// 		typicalHalfwidthCharacterWidth: 12.04296875,
+	// 		maxDigitWidth: 12.04296875,
+	// 		verticalScrollbarWidth: 14,
+	// 		horizontalScrollbarHeight: 10,
+	// 		scrollbarArrowSize: 11,
+	// 		verticalScrollbarHasArrows: false,
+	// 		minimap: true,
+	// 		minimapSide: 'right',
+	// 		minimapRenderCharacters: true,
+	// 		minimapMaxColumn: 120,
+	// 		pixelRatio: 2
+	// 	}, {
+	// 		width: 1201,
+	// 		height: 422,
+
+	// 		glyphMarginLeft: 0,
+	// 		glyphMarginWidth: 30,
+	// 		glyphMarginDecorationLaneCount: 1,
+
+	// 		lineNumbersLeft: 30,
+	// 		lineNumbersWidth: 36,
+
+	// 		decorationsLeft: 66,
+	// 		decorationsWidth: 26,
+
+	// 		contentLeft: 92,
+	// 		contentWidth: 1018,
+
+	// 		minimap: {
+	// 			renderMinimap: RenderMinimap.Text,
+	// 			minimapLeft: 1096,
+	// 			minimapWidth: 91,
+	// 			minimapHeightIsEditorHeight: false,
+	// 			minimapIsSampling: false,
+	// 			minimapScale: 2,
+	// 			minimapLineHeight: 4,
+	// 			minimapCanvasInnerWidth: 182,
+	// 			minimapCanvasInnerHeight: 844,
+	// 			minimapCanvasOuterWidth: 91,
+	// 			minimapCanvasOuterHeight: 422,
+	// 		},
+
+	// 		viewportColumn: 83,
+	// 		isWordWrapMinified: false,
+	// 		isViewportWrapping: false,
+	// 		wrappingColumn: -1,
+
+	// 		verticalScrollbarWidth: 14,
+	// 		horizontalScrollbarHeight: 10,
+
+	// 		overviewRuler: {
+	// 			top: 0,
+	// 			width: 14,
+	// 			height: 422,
+	// 			right: 0
+	// 		}
+	// 	});
+
+	// });
+
 	test('issue #31312: When wrapping, leave 2px for the cursor', () => {
 		doTest({
 			outerWidth: 1201,
@@ -1390,13 +1532,13 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
 			glyphMarginDecorationLaneCount: 1,
 
 			lineNumbersLeft: 30,
-			lineNumbersWidth: 36,
+			lineNumbersWidth: 37,
 
-			decorationsLeft: 66,
+			decorationsLeft: 67,
 			decorationsWidth: 26,
 
-			contentLeft: 92,
-			contentWidth: 1018,
+			contentLeft: 93,
+			contentWidth: 1017,
 
 			minimap: {
 				renderMinimap: RenderMinimap.Text,
@@ -1429,4 +1571,5 @@ suite('Editor ViewLayout - EditorLayoutProvider', () => {
 		});
 
 	});
+	// --- End Positron ---
 });
