@@ -8,6 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { observableValue } from '../../../../../base/common/observable.js';
 import { IRuntimeClientInstance, IRuntimeClientOutput, RuntimeClientState, RuntimeClientStatus, RuntimeClientType } from '../../common/languageRuntimeClientInstance.js';
 import { ILanguageRuntimeMessageState } from '../../common/languageRuntimeService.js';
+import { VSBuffer } from '../../../../../base/common/buffer.js';
 
 export class TestRuntimeClientInstance extends Disposable implements IRuntimeClientInstance<any, any> {
 	private readonly _dataEmitter = this._register(new Emitter<IRuntimeClientOutput<any>>());
@@ -45,8 +46,8 @@ export class TestRuntimeClientInstance extends Disposable implements IRuntimeCli
 		return this._type;
 	}
 
-	sendMessage(data: any): void {
-		this._sendMessageEmitter.fire(data);
+	sendMessage(data: any, buffers?: VSBuffer[]): void {
+		this._sendMessageEmitter.fire({ data, buffers });
 	}
 
 	override dispose(): void {
@@ -56,7 +57,7 @@ export class TestRuntimeClientInstance extends Disposable implements IRuntimeCli
 
 	// Test helpers
 
-	private readonly _sendMessageEmitter = new Emitter<any>();
+	private readonly _sendMessageEmitter = new Emitter<{ data: any; buffers?: VSBuffer[] }>();
 	private readonly _disposeEmitter = new Emitter<void>();
 
 	/** Emitted when the sendMessage method is called. */

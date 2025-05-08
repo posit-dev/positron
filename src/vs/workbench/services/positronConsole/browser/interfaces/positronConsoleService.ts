@@ -6,7 +6,6 @@
 import { RuntimeItem } from '../classes/runtimeItem.js';
 import { Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
-import { ActivityItemPrompt } from '../classes/activityItemPrompt.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
@@ -410,8 +409,9 @@ export interface IPositronConsoleInstance {
 
 	/**
 	 * Interrupts the console.
+	 * @param code The optional code to interrupt.
 	 */
-	interrupt(code: string): void;
+	interrupt(code?: string): void;
 
 	/**
 	 * Gets the clipboard representation of the console instance.
@@ -467,17 +467,10 @@ export interface IPositronConsoleInstance {
 		executionId?: string): void;
 
 	/**
-	 * Replies to a prompt.
-	 * @param activityItemPrompt The prompt activity item.
+	 * Replies to the active prompt.
 	 * @param value The value.
 	 */
-	replyToPrompt(activityItemPrompt: ActivityItemPrompt, value: string): void;
-
-	/**
-	 * Interrupts prompt.
-	 * @param activityItemPrompt The prompt activity item.
-	 */
-	interruptPrompt(activityItemPrompt: ActivityItemPrompt): void;
+	replyToPrompt(value: string): void;
 
 	/**
 	 * Attaches a runtime session to the console.

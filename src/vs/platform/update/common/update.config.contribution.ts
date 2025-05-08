@@ -49,6 +49,19 @@ configurationRegistry.registerConfiguration({
 			description: localize('updateMode', "Configure whether you receive automatic updates. Requires a restart after change to take effect."),
 			deprecationMessage: localize('deprecated', "This setting is deprecated, please use '{0}' instead.", 'update.mode')
 		},
+		'update.positron.channel': {
+			type: 'string',
+			default: 'prereleases',
+			enum: ['dailies', 'prereleases'],
+			enumDescriptions: [
+				localize('dailies', "The latest daily build. This is the most up-to-date version of Positron."),
+				localize('prereleases', "Receive pre-release updates.")
+			],
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('update.positron.channel', "Configure the release stream for receiving updates. Requires a restart after change to take effect."),
+			tags: ['usesOnlineServices'],
+			included: !isWeb
+		},
 		'update.primaryLanguageReporting': {
 			type: 'boolean',
 			default: true,

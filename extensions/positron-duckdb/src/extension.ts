@@ -58,7 +58,6 @@ import {
 } from './interfaces';
 import * as duckdb from '@duckdb/duckdb-wasm';
 import * as path from 'path';
-import * as fs from 'fs';
 import * as zlib from 'zlib';
 import Worker from 'web-worker';
 import { Table, Vector } from 'apache-arrow';
@@ -141,25 +140,6 @@ const SENTINEL_NULL = 0;
 const SENTINEL_NAN = 2;
 const SENTINEL_INF = 10;
 const SENTINEL_NEGINF = 11;
-
-function uriToFilePath(uri: string) {
-	// On Windows, we need to fix up the path so that it is recognizable as a drive path.
-	// Not sure how reliable this is, but it seems to work for now.
-	if (process.platform === 'win32') {
-		const filePath = path.parse(uri);
-		// Example: {
-		//    root: '/',
-		//    dir: '/c:/Users/sharon/qa-example-content/data-files/flights',
-		//    base: 'flights.parquet', ext: '.parquet',
-		//    name: 'flights'
-		// }
-		if (filePath.root === '/' && filePath.dir.startsWith('/')) {
-			// Remove the leading slash from the path so the path is drive path
-			return uri.substring(1);
-		}
-	}
-	return uri;
-}
 
 // TODO
 // - Decimal
@@ -719,7 +699,9 @@ export class DuckDBTableView {
 	private _sortClause: string = '';
 	private _whereClause: string = '';
 
-	constructor(readonly uri: string, private tableName: string,
+	constructor(
+		readonly uri: vscode.Uri,
+		private tableName: string,
 		private fullSchema: Array<SchemaEntry>,
 		readonly db: DuckDBInstance,
 		readonly isConnected: boolean = true,
@@ -749,14 +731,14 @@ export class DuckDBTableView {
 		// When the file changes, refuse to guess and send SchemaUpdate event
 		return vscode.commands.executeCommand(
 			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri,
+				uri: this.uri.toString(),
 				method: DataExplorerFrontendEvent.SchemaUpdate,
 				params: {}
 			} satisfies DataExplorerUiEvent
 		);
 	}
 
-	static getDisconnected(uri: string, errorMessage: string, db: DuckDBInstance) {
+	static getDisconnected(uri: vscode.Uri, errorMessage: string, db: DuckDBInstance) {
 		return new DuckDBTableView(uri, 'disconnected', [], db, false, errorMessage);
 	}
 
@@ -992,7 +974,7 @@ END`;
 
 	private getDisconnectedState(): BackendState {
 		return {
-			display_name: this.uri,
+			display_name: this.uri.path,
 			connected: false,
 			error_message: this.errorMessage,
 			table_shape: { num_rows: 0, num_columns: 0 },
@@ -1037,7 +1019,7 @@ END`;
 		const [unfiltedNumRows, unfilteredNumCols] = await this._unfilteredShape;
 		const [filteredNumRows, filteredNumCols] = await this._filteredShape;
 		return {
-			display_name: path.basename(this.uri),
+			display_name: path.basename(this.uri.path),
 			table_shape: {
 				num_rows: filteredNumRows,
 				num_columns: filteredNumCols
@@ -1262,7 +1244,7 @@ END`;
 
 		await vscode.commands.executeCommand(
 			'positron-data-explorer.sendUiEvent', {
-				uri: this.uri,
+				uri: this.uri.toString(),
 				method: DataExplorerFrontendEvent.ReturnColumnProfiles,
 				params: outParams
 			} satisfies DataExplorerUiEvent
@@ -1464,63 +1446,70 @@ END`;
  * Implementation of Data Explorer backend protocol using duckdb-wasm,
  * for serving requests coming in through the vscode command.
  */
-export class DataExplorerRpcHandler {
+export class DataExplorerRpcHandler implements vscode.Disposable {
 	private readonly _uriToTableView = new Map<string, DuckDBTableView>();
 	private _tableIndex: number = 0;
+	private _watchers: vscode.Disposable[] = [];
 
 	constructor(private readonly db: DuckDBInstance) { }
 
+	dispose() {
+		vscode.Disposable.from(...this._watchers).dispose();
+	}
+
 	async openDataset(params: OpenDatasetParams): Promise<OpenDatasetResult> {
 		let scanQuery, tableName;
-		const duckdbPath = params.uri.match(/^duckdb:\/\/(.+)$/);
-		let filePath: string | undefined = undefined;
-		if (duckdbPath) {
+		const uri = vscode.Uri.parse(params.uri);
+		if (uri.scheme === 'duckdb') {
 			// We are querying a table in the transient in-memory database. We can modify this later
 			// to read from different .duckb database files
-			tableName = duckdbPath[1];
+			tableName = uri.path;
 		} else {
 			tableName = `positron_${this._tableIndex++}`;
-			filePath = uriToFilePath(params.uri);
-			await this.createTableFromFilePath(filePath, tableName);
+			await this.createTableFromUri(uri, tableName);
 		}
 
 		let tableView: DuckDBTableView;
 		try {
 			const result = await this.db.runQuery(`DESCRIBE ${tableName};`);
-			tableView = new DuckDBTableView(params.uri, tableName, result.toArray(), this.db);
+			tableView = new DuckDBTableView(uri, tableName, result.toArray(), this.db);
 
-			if (filePath !== undefined) {
-				// watch file for changes and fire `onDatasetChanged` event when it changes
-				fs.watchFile(filePath, { interval: 1000 }, async () => {
+			if (uri.scheme !== 'duckdb') {
+				// Watch file for changes.
+				const watcher = vscode.workspace.createFileSystemWatcher(new vscode.RelativePattern(uri, '*'), true);
+				watcher.onDidChange(async () => {
 					const newTableName = `positron_${this._tableIndex++}`;
 
-					await this.createTableFromFilePath(filePath, newTableName);
+					await this.createTableFromUri(uri, newTableName);
 
 					const newSchema = (await this.db.runQuery(`DESCRIBE ${newTableName};`)).toArray();
 					await tableView.onFileUpdated(newTableName, newSchema);
 				});
+				// Stop watching deleted files.
+				watcher.onDidDelete(() => watcher.dispose());
+				this._watchers.push(watcher);
 			}
 		} catch (error) {
 			const errorMessage = error instanceof Error ?
 				error.message : 'Unable to open for unknown reason';
-			tableView = DuckDBTableView.getDisconnected(params.uri, errorMessage, this.db);
+			tableView = DuckDBTableView.getDisconnected(uri, errorMessage, this.db);
 
 		}
-		this._uriToTableView.set(params.uri, tableView);
+		this._uriToTableView.set(params.uri.toString(), tableView);
 		return {};
 	}
 
 	/**
 	 * Import data file into DuckDB by creating table or view
-	 * @param filePath The file path on disk.
+	 * @param uri A URI, usually for a file path on disk.
 	 * @param catalogName The table name to use in the DuckDB catalog.
 	 */
-	async createTableFromFilePath(filePath: string, catalogName: string) {
-		let fileExt = path.extname(filePath);
+	async createTableFromUri(uri: vscode.Uri, catalogName: string) {
+		let fileExt = path.extname(uri.path);
 		const isGzipped = fileExt === '.gz';
 
 		if (isGzipped) {
-			fileExt = path.extname(filePath.slice(0, -3));
+			fileExt = path.extname(uri.path.slice(0, -3));
 		}
 
 		const getCsvImportQuery = (_filePath: string, options: Array<String>) => {
@@ -1552,15 +1541,15 @@ export class DataExplorerRpcHandler {
 
 		// Read the entire contents and register it as a temp file
 		// to avoid file handle caching in duckdb-wasm
-		let fileContents = fs.readFileSync(filePath, { encoding: null });
+		let fileContents = await vscode.workspace.fs.readFile(uri);
 		if (isGzipped) {
 			fileContents = zlib.gunzipSync(fileContents);
 		}
 
 		// For gzipped files, use the base name without the .gz extension
 		const virtualPath = isGzipped ?
-			path.basename(filePath, '.gz') :
-			path.basename(filePath);
+			path.basename(uri.path, '.gz') :
+			path.basename(uri.path);
 
 		await this.db.db.registerFileBuffer(virtualPath, fileContents);
 		try {
@@ -1598,7 +1587,7 @@ export class DataExplorerRpcHandler {
 		if (rpc.uri === undefined) {
 			return `URI for open dataset must be provided: ${rpc.method} `;
 		}
-		const table = this._uriToTableView.get(rpc.uri) as DuckDBTableView;
+		const table = this._uriToTableView.get(rpc.uri.toString()) as DuckDBTableView;
 		switch (rpc.method) {
 			case DataExplorerBackendRequest.ExportDataSelection:
 				return table.exportDataSelection(rpc.params as ExportDataSelectionParams);
@@ -1648,6 +1637,7 @@ export async function activate(context: vscode.ExtensionContext) {
 
 	const dataExplorerHandler = new DataExplorerRpcHandler(db);
 	context.subscriptions.push(
+		dataExplorerHandler,
 		vscode.commands.registerCommand('positron-duckdb.dataExplorerRpc',
 			async (rpc: DataExplorerRpc): Promise<DataExplorerResponse> => {
 				return dataExplorerHandler.handleRequest(rpc);

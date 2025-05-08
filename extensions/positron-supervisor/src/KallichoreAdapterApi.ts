@@ -105,7 +105,11 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
-		this.ensureStarted().catch((err) => {
+		this.ensureStarted().then(async () => {
+			// Once the server is started, begin sending client heartbeats to
+			// keep the server alive.
+			this.startClientHeartbeat();
+		}).catch((err) => {
 			this._log.appendLine(`Failed to start Kallichore server: ${err}`);
 		});
 
@@ -588,6 +592,36 @@ export class KCApi implements PositronSupervisorApi {
 	}
 
 	/**
+	 * Start a long-running task that sends a heartbeat to the Kallichore server
+	 * every 20 seconds. This is used to notify the server that we're connected,
+	 * even if no sessions are currently running.
+	 */
+	async startClientHeartbeat() {
+		// Wait for the server to start before starting the heartbeat loop
+		await this._started.wait();
+
+		// Begin the heartbeat loop
+		const interval = setInterval(() => {
+			if (this._started.isOpen()) {
+				// The server is still started; send a heartbeat
+				this._api.clientHeartbeat().catch((err) => {
+					// This is a fire and forget call, so failure is not fatal.
+					// Log the error but don't throw it.
+					this._log.appendLine(`Failed to send client heartbeat: ` +
+						summarizeError(err));
+				});
+			} else {
+				// If the server is no longer started, stop this interval task
+				// and start a new one when (or if) the server starts again.
+				clearInterval(interval);
+				setTimeout(async () => {
+					this.startClientHeartbeat();
+				}, 0);
+			}
+		}, 20000);
+	}
+
+	/**
 	 * Create a new session for a Jupyter-compatible kernel.
 	 *
 	 * @param runtimeMetadata The metadata for the associated language runtime
@@ -615,19 +649,31 @@ export class KCApi implements PositronSupervisorApi {
 
 		this._log.appendLine(`Creating session: ${JSON.stringify(sessionMetadata)}`);
 
-		// Create the session on the server
-		try {
-			await session.create(kernel);
-		} catch (err) {
-			// If the connection was refused, check the server status; this
-			// suggests that the server may have exited
-			if (err.code === 'ECONNREFUSED') {
-				this._log.appendLine(`Connection refused while attempting to create session; checking server status`);
-				await this.testServerExited();
-			}
+		// Create the session on the server. We allow this to retry once if the server isn't started yet.
+		let retried = false;
+		while (true) {
+			try {
+				await session.create(kernel);
+				break;
+			} catch (err) {
+				// If the connection was refused, check the server status; this
+				// suggests that the server may have exited
+				if (err.code === 'ECONNREFUSED' && !retried) {
+					this._log.appendLine(`Connection refused while attempting to create session; checking server status`);
+					await this.testServerExited();
 
-			// Rethrow the error for the caller to handle
-			throw err;
+					// If the open barrier is now open, we can retry the
+					// session creation once.
+					if (this._started.isOpen()) {
+						retried = true;
+						continue;
+					}
+				}
+
+				// Rethrow the error for the caller to handle. Use a summary to
+				// unroll AggregateErrors.
+				throw new Error(summarizeError(err));
+			}
 		}
 
 		// Save the session now that it has been created on the server
@@ -761,8 +807,11 @@ export class KCApi implements PositronSupervisorApi {
 			// Start the server again
 			await this.ensureStarted();
 
-			vscode.window.showInformationMessage(
-				vscode.l10n.t('The process supervising the interpreters has exited unexpectedly and was automatically restarted. You may need to start your interpreter again.'));
+			// If any sessions were running, show a message to the user
+			if (this._sessions.length > 0) {
+				vscode.window.showInformationMessage(
+					vscode.l10n.t('The process supervising the interpreters has exited unexpectedly and was automatically restarted. You may need to start your interpreter again.'));
+			}
 
 		} catch (err) {
 			vscode.window.showInformationMessage(

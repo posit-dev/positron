@@ -41,7 +41,9 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 						id: MenuId.ChatCodeBlock,
 						group: 'navigation',
 						order: 5,
-						when: ContextKeyExpr.equals(ChatContextKeys.location.key, ChatAgentLocation.Panel)
+						when: ContextKeyExpr.and(
+							ContextKeyExpr.equals(ChatContextKeys.location.key, ChatAgentLocation.Panel),
+							ChatContextKeys.Editing.hasToolConfirmation.toNegated())
 					},
 				});
 			}

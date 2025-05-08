@@ -22,13 +22,6 @@ import { IUpdate } from '../common/update.js';
 import { hasUpdate } from '../electron-main/positronVersion.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 
-export const enum UpdateChannel {
-	Releases = 'releases',
-	Prereleases = 'prereleases',
-	Dailies = 'dailies',
-	Staging = 'staging',
-}
-
 export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
 	return `${productService.updateUrl}/${channel}/${platform}`;
 	//--- End Positron ---
@@ -93,7 +86,10 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	*/
 	protected async initialize(): Promise<void> {
 		// --- Start Positron ---
-		const updateChannel = process.env.POSITRON_UPDATE_CHANNEL ?? UpdateChannel.Prereleases;
+		const updateChannel = process.env.POSITRON_UPDATE_CHANNEL ?? this.configurationService.getValue<string>('update.positron.channel');
+		if (process.env.POSITRON_UPDATE_CHANNEL) {
+			this.logService.info('update#ctor - using update channel from environment variable', process.env.POSITRON_UPDATE_CHANNEL);
+		}
 		this.enableAutoUpdate = this.configurationService.getValue<boolean>('update.autoUpdate');
 
 		if (this.environmentMainService.disableUpdates) {

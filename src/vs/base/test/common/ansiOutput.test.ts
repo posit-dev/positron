@@ -12,6 +12,7 @@ import { ANSIColor, ANSIFormat, ANSIOutput, ANSIStyle } from '../../common/ansiO
 /**
  * Constants.
  */
+const BS = '\b';
 const CR = '\r';
 const LF = '\n';
 const CRLF = `\r\n`;
@@ -516,6 +517,124 @@ suite('ANSIOutput', () => {
 		// Tests.
 		assert.equal(outputLines.length, 1);
 		assert.equal(outputLines[0].outputRuns.length, 0);
+	});
+
+	test('Test ANSIOutput BS "[BS]"', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(BS);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 0);
+	});
+
+	test('Test ANSIOutput BS "[BS][BS][BS][BS][BS][BS][BS][BS][BS][BS]"', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(BS.repeat(10));
+		const outputLines = ansiOutput.outputLines;
+
+		// Test
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 0);
+	});
+
+	test('Test ANSIOutput BS "Hello X[BS]World"', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`Hello X${BS}World`);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test
+		const expectedOutput = 'Hello World';
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, expectedOutput);
+	});
+
+	test('Test ANSIOutput BS "Hello XXXX[BS][BS][BS][BS]World"', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`Hello XXXX${BS.repeat(4)}World`);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test
+		const expectedOutput = 'Hello World';
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, expectedOutput);
+	});
+
+	test('Test ANSIOutput BS "HelloXXXXX[BS][BS][BS][BS][BS] World"', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`HelloXXXXX${BS.repeat(5)} World`);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test
+		const expectedOutput = 'Hello World';
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, expectedOutput);
+	});
+
+	test('Test ANSIOutput BS "HelloXXXXX[BS][BS][BS][BS][BS][BS][BS][BS][BS][BS] World"', () => {
+		// Setup.
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`HelloXXXXX${BS.repeat(10)}Hello World`);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test
+		const expectedOutput = 'Hello World';
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 1);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
+		assert.equal(outputLines[0].outputRuns[0].format, undefined);
+		assert.equal(outputLines[0].outputRuns[0].text, expectedOutput);
+	});
+
+	test('Test ANSIOutput BS RED GREEN BLUE becomes RED BLUE', () => {
+		// Setup.
+		const testText = 'This is some text for testing purposes';
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}${testText}${makeSGR(SGRParam.ForegroundGreen)}${testText}${makeSGR(SGRParam.ForegroundBlue)}${BS.repeat(testText.length)}${testText}${makeSGR()}`);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 2);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
+		assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, ANSIColor.Red);
+		assert.equal(outputLines[0].outputRuns[0].text, testText);
+		assert.ok(outputLines[0].outputRuns[1].id.length >= 1);
+		assert.equal(outputLines[0].outputRuns[1].format!.foregroundColor, ANSIColor.Blue);
+		assert.equal(outputLines[0].outputRuns[1].text, testText);
+	});
+
+	test('Test ANSIOutput BS RED GREEN BLUE becomes BLUE GREEN', () => {
+		// Setup.
+		const testText = 'This is some text for testing purposes';
+		const ansiOutput = new ANSIOutput();
+		ansiOutput.processOutput(`${makeSGR(SGRParam.ForegroundRed)}${testText}${makeSGR(SGRParam.ForegroundGreen)}${testText}${makeSGR(SGRParam.ForegroundBlue)}${BS.repeat(testText.length * 2)}${testText}${makeSGR()}`);
+		const outputLines = ansiOutput.outputLines;
+
+		// Test
+		assert.equal(outputLines.length, 1);
+		assert.equal(outputLines[0].outputRuns.length, 2);
+		assert.ok(outputLines[0].outputRuns[0].id.length >= 1);
+		assert.equal(outputLines[0].outputRuns[0].format!.foregroundColor, ANSIColor.Blue);
+		assert.equal(outputLines[0].outputRuns[0].text, testText);
+		assert.ok(outputLines[0].outputRuns[1].id.length >= 1);
+		assert.equal(outputLines[0].outputRuns[1].format!.foregroundColor, ANSIColor.Green);
+		assert.equal(outputLines[0].outputRuns[1].text, testText);
 	});
 
 	test('Test ANSIOutput with PANGRAM', () => {

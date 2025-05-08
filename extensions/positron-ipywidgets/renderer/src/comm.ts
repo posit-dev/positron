@@ -105,8 +105,26 @@ export class Comm implements base.IClassicComm, Disposable {
 			throw new Error('Callback iopub.output not implemented');
 		}
 
+		let processedBuffers: Uint8Array[] | undefined;
 		if (buffers && buffers.length > 0) {
-			console.warn(`Comm tried to send message with buffers:`, data, buffers);
+			// Convert the incoming buffers (ArrayBuffer or ArrayBufferView) into Uint8Array.
+			// Assumption: Current logic handles standard ArrayBuffer and ArrayBufferView types.
+			// If new ArrayBufferView subtypes with different semantics are introduced,
+			// this conversion logic might need to be updated.
+			processedBuffers = buffers.map(bufferOrView => {
+				if (bufferOrView instanceof ArrayBuffer) {
+					// If it's an ArrayBuffer, create a Uint8Array view of it
+					return new Uint8Array(bufferOrView);
+				} else if (ArrayBuffer.isView(bufferOrView)) {
+					// Create a Uint8Array referencing the same underlying memory segment.
+					// Important: Use byteOffset and byteLength to respect the view's window.
+					return new Uint8Array(bufferOrView.buffer, bufferOrView.byteOffset, bufferOrView.byteLength);
+				} else {
+					console.error(`Invalid buffer type encountered: ${typeof bufferOrView}. Skipping this buffer.`);
+					// Continue to the next buffer or finish processing
+					return undefined;
+				}
+			}).filter(buffer => buffer !== undefined) as Uint8Array[];
 		}
 
 		const msgId = UUID.uuid4();
@@ -123,6 +141,7 @@ export class Comm implements base.IClassicComm, Disposable {
 			comm_id: this.comm_id,
 			msg_id: msgId,
 			data: data,
+			buffers: processedBuffers,
 		});
 
 		return msgId;

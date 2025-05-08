@@ -26,7 +26,7 @@ import { ChatConfiguration } from '../../chat/common/constants.js';
 
 interface IConfiguration extends IWindowsConfiguration {
 	// --- Start Positron ---
-	update?: { mode?: string; autoUpdate?: boolean };
+	update?: { mode?: string; autoUpdate?: boolean; positron: { channel?: string } };
 	// --- End Positron ---
 	debug?: { console?: { wordWrap?: boolean } };
 	editor?: { accessibilitySupport?: 'on' | 'off' | 'auto' };
@@ -55,6 +55,7 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 		'security.restrictUNCAccess',
 		// --- Start Positron ---
 		'update.autoUpdate',
+		'update.positron.channel',
 		// --- End Positron ---
 		'accessibility.verbosity.debug',
 		ChatConfiguration.UnifiedChatView,
@@ -80,6 +81,7 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 
 	// --- Start Positron ---
 	private readonly autoUpdate = new ChangeObserver('boolean');
+	private readonly updateChannel = new ChangeObserver('string');
 	// --- End Positron ---
 
 	constructor(
@@ -145,6 +147,7 @@ export class SettingsChangeRelauncher extends Disposable implements IWorkbenchCo
 
 			// --- Start Positron ---
 			processChanged(this.autoUpdate.handleChange(config.update?.autoUpdate));
+			processChanged(this.updateChannel.handleChange(config.update?.positron.channel));
 			// --- End Positron ---
 
 			// On linux turning on accessibility support will also pass this flag to the chrome renderer, thus a restart is required

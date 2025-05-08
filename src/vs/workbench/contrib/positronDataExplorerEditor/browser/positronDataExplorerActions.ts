@@ -21,7 +21,6 @@ import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInp
 import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
-import { URI } from '../../../../base/common/uri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { toLocalResource } from '../../../../base/common/resources.js';
@@ -750,22 +749,24 @@ class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
 			return;
 		}
 
-		// Parse this URI - gives underlying FS URI if not memory-backed (scheme = duckdb)
-		const parsedDataExplorerURI = PositronDataExplorerUri.parse(originalURI);
-		if (!parsedDataExplorerURI) {
+		let backingUri = PositronDataExplorerUri.backingUri(originalURI);
+		if (!backingUri) {
 			return;
 		}
 
-		// Convert raw duckdb URI to appropriate file URI (scheme = file if local, vscode-remote if server)
-		const localURI = toLocalResource(
-			URI.parse(parsedDataExplorerURI),
-			environmentService.remoteAuthority,
-			pathService.defaultUriScheme
-		);
+		// Convert file URIs to the "local" scheme, i.e. vscode-remote when
+		// running as a server.
+		if (backingUri.scheme === 'file') {
+			backingUri = toLocalResource(
+				backingUri,
+				environmentService.remoteAuthority,
+				pathService.defaultUriScheme
+			);
+		}
 
 		// Invoke editor for file, using default editor (text) association
 		await editorService.openEditor({
-			resource: localURI,
+			resource: backingUri,
 			options: {
 				override: DEFAULT_EDITOR_ASSOCIATION.id,
 				source: EditorOpenSource.USER
