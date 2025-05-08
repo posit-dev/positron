@@ -616,14 +616,17 @@ declare module 'positron' {
 	 * A variable in the runtime's memory or environment.
 	 */
 	export interface RuntimeVariable {
-		/** An internal identifier for the variable */
-		identifier: string;
+		/** An internal access key for the variable */
+		access_key: string;
 
 		/** A human-readable display name for the variable */
-		name: string;
+		display_name: string;
 
 		/** The type of the variable (string, number, etc.) */
-		type: string;
+		display_type: string;
+
+		/** A string representation of the value of the variable */
+		display_value: string;
 
 		/**
 		 * Extended type information naming e.g. the exact class name of the
@@ -631,17 +634,14 @@ declare module 'positron' {
 		 */
 		type_info?: string;
 
-		/** A string representation of the value of the variable */
-		value: string;
-
 		/** The length of the variable, e.g. number of elements in an array */
 		length: number;
 
 		/** The size of a variable, e.g. in bytes */
 		size: number;
 
-		/** Whether the variable can be inspected */
-		can_inspect: boolean;
+		/** Whether the variable has child variables, e.g columns in a data frame */
+		has_children: boolean;
 	}
 
 	/**
@@ -1681,6 +1681,22 @@ declare module 'positron' {
 		 * Positron core.
 		 */
 		export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
+
+		/**
+		 * Get the runtime variables for a session.
+		 *
+		 * @param sessionId The session ID of the session to get the variables for.
+		 * @param accessKeys An optional array of access keys. Each access key
+		 * is an array listing the path a variable. If no access keys are
+		 * provided, all variables will be returned.
+		 *
+		 * @returns A Thenable that resolves with an array of runtime
+		 * variables.
+		 */
+		export function getRuntimeVariables(
+			sessionId: string,
+			accessKeys?: Array<Array<string>>):
+			Thenable<RuntimeVariable[]>;
 
 		/**
 		 * An event that fires when a new runtime is registered.
