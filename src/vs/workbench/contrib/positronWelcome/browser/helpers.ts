@@ -76,35 +76,38 @@ export async function getCodeSettingsPath(
 	const path = await pathService.path;
 	const homedir = await pathService.userHome();
 
-	switch (os) {
-		case platform.OperatingSystem.Windows:
-			if (env['APPDATA']) {
-				return URI.file(path.join(env['APPDATA'], 'Code', 'User', 'settings.json'));
-			} else if (env['USERPROFILE']) {
-				const userProfile = env['USERPROFILE'];
-				return URI.file(path.join(userProfile, 'AppData', 'Roaming', 'Code', 'User', 'settings.json'));
-			} else {
-				return URI.joinPath(homedir, 'AppData', 'Roaming', 'Code', 'User', 'settings.json');
-			}
-
-		case platform.OperatingSystem.Macintosh:
-			return URI.joinPath(homedir, 'Library', 'Application Support', 'Code', 'User', 'settings.json');
-
-		case platform.OperatingSystem.Linux:
-			return URI.joinPath(
-				(env['XDG_CONFIG_HOME'] ?
-					URI.file(env['XDG_CONFIG_HOME']) :
-					URI.joinPath(homedir, '.config')
-				), 'Code', 'User', 'settings.json'
-			);
-
-		default:
-			throw new Error('Platform not supported');
+	let codeDataDir;
+	if (platform.isWeb) {
+		codeDataDir = env['RS_VSCODE_USER_DATA_DIR'] ? URI.file(env['RS_VSCODE_USER_DATA_DIR']) : URI.joinPath(homedir, '.vscode-server');
+	} else {
+		switch (os) {
+			case platform.OperatingSystem.Windows:
+				if (env['APPDATA']) {
+					codeDataDir = URI.file(path.join(env['APPDATA'], 'Code'));
+				} else if (env['USERPROFILE']) {
+					const userProfile = env['USERPROFILE'];
+					codeDataDir = URI.file(path.join(userProfile, 'AppData', 'Roaming', 'Code'));
+				} else {
+					codeDataDir = URI.joinPath(homedir, 'AppData', 'Roaming', 'Code');
+				}
+				break;
+			case platform.OperatingSystem.Macintosh:
+				codeDataDir = URI.joinPath(homedir, 'Library', 'Application Support', 'Code');
+				break;
+			case platform.OperatingSystem.Linux:
+				codeDataDir = URI.joinPath(
+					(env['XDG_CONFIG_HOME'] ?
+						URI.file(env['XDG_CONFIG_HOME']) :
+						URI.joinPath(homedir, '.config')
+					), 'Code'
+				);
+				break;
+			default:
+				throw new Error('Platform not supported');
+		}
 	}
 
-	// TODO @samclark2015: workbench
-	// Check ENV variable for the path to the settings file
-	// Also check default location (~/.vscode-server/User/settings.json)
+	return URI.joinPath(codeDataDir, 'User', 'settings.json');
 }
 
 /**
