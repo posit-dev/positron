@@ -318,7 +318,9 @@ export function registerChatCodeBlockActions() {
 				menu: {
 					id: MenuId.ChatCodeBlock,
 					group: 'navigation',
-					isHiddenByDefault: true,
+					// --- Start Positron ---
+					isHiddenByDefault: false,
+					// --- End Positron ---
 					order: 40,
 				}
 			});
