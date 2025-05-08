@@ -121,11 +121,11 @@ const { electronVersion, msBuildId } = util.getElectronVersion();
 exports.config = {
     version: electronVersion,
     tag: product.electronRepository ? `v${electronVersion}-${msBuildId}` : undefined,
-    productAppName: product.nameLong,
+    productAppName: "Positron Dev",
     // --- Start Positron ---
     companyName: 'Posit Software',
     copyright: 'Copyright (C) 2024 Posit Software, PBC. All rights reserved',
-    darwinIcon: 'resources/darwin/positron.icns',
+    darwinIcon: 'resources/darwin/positron-development.icns',
     // --- End Positron ---
     darwinBundleIdentifier: product.darwinBundleIdentifier,
     darwinApplicationCategoryType: 'public.app-category.developer-tools',

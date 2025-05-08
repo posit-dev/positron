@@ -623,7 +623,7 @@
 	],
 	"compounds": [
 		{
-			"name": "Positron",
+			"name": "Positron Dev",
 			"stopAll": true,
 			"configurations": [
 				"Launch Positron Internal",

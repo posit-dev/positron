@@ -1,6 +1,7 @@
 {
 	"nameShort": "Positron",
-	"nameLong": "Positron",
+	"nameLong": "Positron Dev",
+	"nameDev": "Positron Dev",
 	"positronVersion": "2025.05.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
