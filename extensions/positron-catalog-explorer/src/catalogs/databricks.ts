@@ -353,6 +353,8 @@ function getCodeForUri(
 	switch (languageId + "_" + type) {
 		case "python_file":
 			return getPythonCodeForFile(uri);
+		case "python_table":
+			return getPythonCodeForTable(uri);
 		case "r_file":
 			return getRCodeForFile(uri);
 		case "r_table":
@@ -368,18 +370,48 @@ function getPythonCodeForFile(uri: vscode.Uri): {
 	code: string;
 	dependencies: string[];
 } {
-	const dependencies = ["databricks-sdk"];
+	const dependencies = ["databricks-sdk", "pandas"];
 	const ext = path.extname(uri.path);
 	const varname = nameToIdentifier(
 		path.basename(uri.path).replace(ext, ""),
 	);
 	const code = `import pandas as pd
 from databricks.sdk import WorkspaceClient
+from io import BytesIO
 
 w = WorkspaceClient(host="https://${uri.authority}")
 ${varname} = pd.read_csv(
-    w.files.download("${uri.path}").contents
+    BytesIO(w.files.download("${uri.path}").contents.read())
 )
+`;
+	return { code, dependencies };
+}
+
+function getPythonCodeForTable(uri: vscode.Uri): {
+	code: string;
+	dependencies: string[];
+} {
+	const params = new URLSearchParams(uri.query);
+	const catalog = params.get("catalog");
+	const schema = params.get("schema");
+	const table = uri.path.replace(/^\//, "");
+	const httpPath = params.get("http_path");
+	if (!catalog || !schema || !httpPath) {
+		throw new Error("Malformed Databricks table URI");
+	}
+	const dependencies = ["databricks-sql-connector", "pyarrow", "pandas"];
+	const varname = nameToIdentifier(table);
+	const code = `import pandas as pd
+from databricks import sql
+
+conn = sql.connect(
+  server_hostname="https://${uri.authority}",
+  http_path="${httpPath}",
+)
+
+with conn.cursor() as cursor:
+    cursor.execute("SELECT * FROM \`${catalog}\`.\`${schema}\`.\`${table}\` LIMIT 1000;")
+    ${varname} = cursor.fetchall_arrow().to_pandas()
 `;
 	return { code, dependencies };
 }
