@@ -16,6 +16,9 @@
             "description": "Only Partial IntelliSense supported."
         }
     },
+    "extensionDependencies": [
+        "positron.positron-supervisor"
+    ],
     "publisher": "ms-python",
     "enabledApiProposals": [
         "positronResolveSymlinks",
