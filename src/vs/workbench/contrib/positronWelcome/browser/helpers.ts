@@ -12,6 +12,8 @@ import { PositronImportSettings } from './actions.js';
 import * as platform from '../../../../base/common/platform.js';
 import { localize } from '../../../../nls.js';
 import { env } from '../../../../base/common/process.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { parse } from '../../../../base/common/jsonc.js';
 
 const WAS_PROMPTED_KEY = 'positron.welcome.promptedImport';
 
@@ -99,4 +101,159 @@ export async function getCodeSettingsPath(
 		default:
 			throw new Error('Platform not supported');
 	}
+
+	// TODO @samclark2015: workbench
+	// Check ENV variable for the path to the settings file
+	// Also check default location (~/.vscode-server/User/settings.json)
+}
+
+/**
+ * Merge two JSON settings files.
+ * Returns the merged settings as a string with git merge conflict markers.
+ *
+ * @param fileService File service to read the files
+ * @param existing URI to existing settings file
+ * @param incoming URI to incoming settings file
+ * @returns Merged settings JSON as a string
+ */
+export async function mergeSettingsJson(
+	fileService: IFileService,
+	existing: URI,
+	incoming: URI
+): Promise<string> {
+	// Read the contents of the existing and incoming settings files
+	const existingContents = await fileService.readFile(existing);
+	const incomingContents = await fileService.readFile(incoming);
+
+	// Parse the contents as JSON
+	// Using the `jsonc.parse` function to handle comments and trailing commas
+	const existingJson = parse<Record<string, any>>(existingContents.value.toString());
+	const incomingJson = parse<Record<string, any>>(incomingContents.value.toString());
+
+	// Merge the two JSON objects
+	const mergedJson = mergeObjects(existingJson, incomingJson);
+	// Serialize the merged JSON object to a string with git merge conflict markers
+	const serializedOutput = serializeWithMergeMarkers(mergedJson);
+	return serializedOutput;
+}
+
+/**
+ * Merges two objects, optionally handling nested objects recursively.
+ * In case of conflicts, it marks them using a special structure for later serialization.
+ *
+ * @param existing The existing object to merge.
+ * @param incoming The incoming object to merge.
+ * @returns The merged object with conflicts marked.
+ */
+function mergeObjects(existing: Record<string, any>, incoming: Record<string, any>): Record<string, any> {
+	const merged: Record<string, any> = {};
+	// Create a set of all keys from both objects
+	const allKeys = new Set([...Object.keys(existing), ...Object.keys(incoming)]);
+
+	for (const key of allKeys) {
+		if (key in existing && key in incoming) {
+			// The key exists in both objects
+			if (
+				typeof existing[key] === 'object' &&
+				typeof incoming[key] === 'object' &&
+				!Array.isArray(existing[key]) &&
+				!Array.isArray(incoming[key]) &&
+				existing[key] !== null &&
+				incoming[key] !== null
+			) {
+				// Both values are objects, so we need to merge them recursively
+				// and mark the conflict if it exists
+				merged[key] = mergeObjects(existing[key], incoming[key]);
+			} else if (
+				JSON.stringify(existing[key]) !== JSON.stringify(incoming[key])
+			) {
+				// Otherwise, if a scalar or array with different values, mark as conflict
+				merged[key] = {
+					conflict: true,
+					existing: existing[key],
+					incoming: incoming[key]
+				};
+			} else {
+				// If the values are the same, just take one of them
+				merged[key] = existing[key];
+			}
+		} else if (key in existing) {
+			// The key exists only in the existing object
+			merged[key] = existing[key];
+		} else if (key in incoming) {
+			// The key exists only in the incoming object
+			merged[key] = incoming[key];
+		}
+	}
+
+	return merged;
+}
+
+/**
+ * Serializes a JSON object to a string, adding git merge conflict markers
+ * for conflicting keys.
+ *
+ * @param json The JSON object to serialize.
+ * @param level The current indentation level (used for nested objects).
+ * @returns The serialized JSON string with merge markers.
+ */
+function serializeWithMergeMarkers(json: Record<string, any>, level: number = 1): string {
+	// Start with opening brace for the top level
+	let result = (level === 1) ? '{\n' : '';
+	// Get all keys in the object
+	const keys = Object.keys(json);
+
+	// The proper indentation for all keys, including top-level
+	const keyIndent = '\t'.repeat(level);
+
+	for (let i = 0; i < keys.length; i++) {
+		const key = keys[i];
+		const value = json[key];
+
+		// Serialize the key back into JSON-friendly format
+		const serializedKey = JSON.stringify(key);
+		const isLastKey = i === keys.length - 1;
+		// End with a comma if not the last line
+		const lineEnd = isLastKey ? '' : ',';
+
+		if (typeof value === 'object' && value !== null && value.conflict) {
+			// This is a conflict, so we need to serialize it with merge markers
+			// Serialize the existing and incoming values
+			// making sure to indent them properly
+			const serializedExisting = JSON.stringify(value.existing, null, '\t')
+				.replace(
+					/\n/g,
+					'\n' + '\t'.repeat(level)
+				);
+			const serializedIncoming = JSON.stringify(value.incoming, null, '\t')
+				.replace(
+					/\n/g,
+					'\n' + '\t'.repeat(level)
+				);
+
+			// Add the merge markers
+			result += `<<<<<<< Existing\n`;
+			result += `${keyIndent}${serializedKey}: ${serializedExisting}${lineEnd}\n`;
+			result += `=======\n`;
+			result += `${keyIndent}${serializedKey}: ${serializedIncoming}${lineEnd}\n`;
+			result += `>>>>>>> Incoming\n`;
+		} else if (Array.isArray(value) || typeof value !== 'object') {
+			// This is a simple value or an array, so we can serialize it directly
+			const serializedValue = JSON.stringify(value, null, '\t')
+				.replace(
+					/\n/g,
+					'\n' + '\t'.repeat(level)
+				);
+			result += `${keyIndent}${serializedKey}: ${serializedValue}${lineEnd}\n`;
+		} else {
+			// This is a nested object, so we need to serialize it recursively
+			result += `${keyIndent}${serializedKey}: {\n`;
+			result += serializeWithMergeMarkers(value, level + 1);
+			result += `${keyIndent}}${lineEnd}\n`;
+		}
+	}
+
+
+	// Add closing brace with proper indentation for top level
+	return (level === 1) ? result + '}' : result;
 }
