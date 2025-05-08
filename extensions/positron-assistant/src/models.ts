@@ -573,6 +573,7 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 			model: 'gemini-2.0-flash-exp',
 			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 			apiKey: undefined,
+			toolCalls: true,
 		},
 	};
 
