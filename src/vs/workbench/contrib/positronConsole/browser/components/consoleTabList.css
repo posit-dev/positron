@@ -91,8 +91,9 @@
 	border-radius: 5px;
 }
 
-.tabs-container .tab-button:hover .delete-button {
-	/* Show delete button on hover over tab element */
+.tabs-container .tab-button:hover .delete-button,
+.tabs-container .tab-button:focus-within .delete-button {
+	/* Show delete button on hover or when tab has focus */
 	display: unset;
 }
 

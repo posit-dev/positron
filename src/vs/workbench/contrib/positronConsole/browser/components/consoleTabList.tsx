@@ -46,6 +46,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 
 	// Variables
 	const sessionId = positronConsoleInstance.sessionId;
+	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId;
 
 	const handleDeleteClick = async (e: MouseEvent<HTMLButtonElement>) => {
 		e.stopPropagation();
@@ -222,6 +223,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 			className={`tab-button ${positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId && 'tab-button--active'}`}
 			data-testid={`console-tab-${positronConsoleInstance.sessionMetadata.sessionId}`}
 			role='tab'
+			tabIndex={isActiveTab ? 0 : -1}
 			onClick={() => onClick(positronConsoleInstance)}
 			onMouseDown={mouseDownHandler}
 		>
@@ -273,6 +275,11 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	// Context hooks.
 	const positronConsoleContext = usePositronConsoleContext();
 
+	// Sort console sessions by created time, oldest to newest
+	const consoleInstances = Array.from(positronConsoleContext.positronConsoleInstances.values()).sort((a, b) => {
+		return a.sessionMetadata.createdTimestamp - b.sessionMetadata.createdTimestamp;
+	});
+
 	/**
 	 * Function to change the active console instance that is tied to a specific session
 	 *
@@ -301,10 +308,6 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 		onChangeForegroundSession(sessionId);
 	};
 
-	// Sort console sessions by created time, oldest to newest
-	const consoleInstances = Array.from(positronConsoleContext.positronConsoleInstances.values()).sort((a, b) => {
-		return a.sessionMetadata.createdTimestamp - b.sessionMetadata.createdTimestamp;
-	});
 
 	// Render.
 	return (
@@ -313,6 +316,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			className='tabs-container'
 			role='tablist'
 			style={{ height: props.height, width: props.width }}
+			tabIndex={0}
 		>
 			{consoleInstances.map((positronConsoleInstance) =>
 				<ConsoleTab
