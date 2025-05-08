@@ -613,6 +613,38 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A variable in the runtime's memory or environment.
+	 */
+	export interface RuntimeVariable {
+		/** An internal identifier for the variable */
+		identifier: string;
+
+		/** A human-readable display name for the variable */
+		name: string;
+
+		/** The type of the variable (string, number, etc.) */
+		type: string;
+
+		/**
+		 * Extended type information naming e.g. the exact class name of the
+		 * variable
+		 */
+		type_info?: string;
+
+		/** A string representation of the value of the variable */
+		value: string;
+
+		/** The length of the variable, e.g. number of elements in an array */
+		length: number;
+
+		/** The size of a variable, e.g. in bytes */
+		size: number;
+
+		/** Whether the variable can be inspected */
+		can_inspect: boolean;
+	}
+
+	/**
 	 * The possible types of language model that can be used with the Positron Assistant.
 	 */
 	export enum PositronLanguageModelType {
@@ -664,15 +696,8 @@ declare module 'positron' {
 	 * RuntimeVariablesClient is a client that tracks the variables in the runtime.
 	 */
 	export interface RuntimeVariablesClient extends RuntimeClientInstance {
-		onDidChangeVariables: vscode.Event<Array<Variable>>;
-		getCurrentVariables(): Array<Variable>;
-	}
-
-	export interface Variable {
-		name: string;
-		value: string;
-		length: number;
-		size: number;
+		onDidChangeVariables: vscode.Event<Array<RuntimeVariable>>;
+		getCurrentVariables(): Array<RuntimeVariable>;
 	}
 
 	/**
@@ -1568,7 +1593,8 @@ declare module 'positron' {
 		/**
 		 * Register a language runtime manager with Positron.
 		 *
-		 * @param languageId The language ID for which the runtime
+		 * @param languageId The language ID for which the manager can provide
+		 * runtimes
 		 * @returns A disposable that unregisters the manager when disposed.
 		 *
 		 */
@@ -1944,17 +1970,14 @@ declare module 'positron' {
 			console?: {
 				language: string;
 				version: string;
+				identifier: string;
 				executions: {
 					input: string;
 					output: string;
 					error?: any;
 				}[];
 			};
-			variables?: {
-				name: string;
-				value: string;
-				type: string;
-			}[];
+			variables?: RuntimeVariable[];
 			shell?: string;
 		}
 	}
