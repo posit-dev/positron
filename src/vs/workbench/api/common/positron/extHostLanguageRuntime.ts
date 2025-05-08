@@ -22,6 +22,7 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 
 /**
  * Interface for code execution observers
@@ -1239,6 +1240,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		}
 		throw new Error(`Session with ID '${sessionId}' must be started before ` +
 			`it can be focused.`);
+	}
+
+	public getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>):
+		Promise<Variable[]> {
+		return Promise.resolve([]);
 	}
 
 	/**

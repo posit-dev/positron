@@ -62,6 +62,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		const history = sessionId ? this.summarizeConsoleHistory(sessionId) : [];
 		const context: IPositronChatContext = {
 			console: {
+				identifier: sessionId ?? '',
 				language: runtimeMetadata?.languageName ?? '',
 				version: runtimeMetadata?.languageVersion ?? '',
 				executions: history
@@ -70,11 +71,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 				hasPlots: this.getCurrentPlotUri() !== undefined,
 			},
 			variables: variablesInstance?.variableItems.map((item) => {
-				return {
-					name: item.displayName,
-					value: item.displayValue,
-					type: item.displayType,
-				};
+				return item.variable;
 			}) ?? [],
 		};
 

@@ -693,14 +693,6 @@ declare module 'positron' {
 	}
 
 	/**
-	 * RuntimeVariablesClient is a client that tracks the variables in the runtime.
-	 */
-	export interface RuntimeVariablesClient extends RuntimeClientInstance {
-		onDidChangeVariables: vscode.Event<Array<RuntimeVariable>>;
-		getCurrentVariables(): Array<RuntimeVariable>;
-	}
-
-	/**
 	 * Code attribution sources for code executed by Positron.
 	 */
 	export enum CodeAttributionSource {
@@ -1666,6 +1658,22 @@ declare module 'positron' {
 		export function focusSession(sessionId: string): void;
 
 		/**
+		 * Get the runtime variables for a session.
+		 *
+		 * @param sessionId The session ID of the session to get the variables for.
+		 * @param accessKeys An optional array of access keys. Each access key
+		 * is an array listing the path to a variable. If no access keys are
+		 * provided, all variables will be returned.
+		 *
+		 * @returns A Thenable that resolves with an array of runtime
+		 * variables.
+		 */
+		export function getSessionVariables(
+			sessionId: string,
+			accessKeys?: Array<Array<string>>):
+			Thenable<RuntimeVariable[]>;
+
+		/**
 		 * Register a handler for runtime client instances. This handler will be called
 		 * whenever a new client instance is created by a language runtime of the given
 		 * type.
@@ -1681,22 +1689,6 @@ declare module 'positron' {
 		 * Positron core.
 		 */
 		export function registerClientInstance(clientInstanceId: string): vscode.Disposable;
-
-		/**
-		 * Get the runtime variables for a session.
-		 *
-		 * @param sessionId The session ID of the session to get the variables for.
-		 * @param accessKeys An optional array of access keys. Each access key
-		 * is an array listing the path a variable. If no access keys are
-		 * provided, all variables will be returned.
-		 *
-		 * @returns A Thenable that resolves with an array of runtime
-		 * variables.
-		 */
-		export function getRuntimeVariables(
-			sessionId: string,
-			accessKeys?: Array<Array<string>>):
-			Thenable<RuntimeVariable[]>;
 
 		/**
 		 * An event that fires when a new runtime is registered.

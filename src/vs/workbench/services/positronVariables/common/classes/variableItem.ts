@@ -7,7 +7,7 @@ import { generateUuid } from '../../../../../base/common/uuid.js';
 import { IVariableItem } from '../interfaces/variableItem.js';
 import { VariableOverflow } from './variableOverflow.js';
 import { PositronVariable } from '../../../languageRuntime/common/languageRuntimeVariablesClient.js';
-import { ClipboardFormatFormat } from '../../../languageRuntime/common/positronVariablesComm.js';
+import { ClipboardFormatFormat, Variable } from '../../../languageRuntime/common/positronVariablesComm.js';
 import { ISettableObservable, observableValue } from '../../../../../base/common/observable.js';
 
 /**
@@ -179,6 +179,13 @@ export class VariableItem implements IVariableItem {
 	 */
 	get isRecent() {
 		return this._isRecent;
+	}
+
+	/**
+	 * Get the raw data of the variable from the language runtime.
+	 */
+	get variable(): Variable {
+		return this._variable.data;
 	}
 
 	//#endregion Public Properties
