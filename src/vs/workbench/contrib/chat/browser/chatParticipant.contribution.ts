@@ -89,7 +89,6 @@ const chatViewDescriptor: IViewDescriptor[] = [{
 		ChatContextKeys.panelParticipantRegistered,
 		ChatContextKeys.extensionInvalid
 	)
-	// --- End Positron ---
 }];
 Registry.as<IViewsRegistry>(ViewExtensions.ViewsRegistry).registerViews(chatViewDescriptor, chatViewContainer);
 

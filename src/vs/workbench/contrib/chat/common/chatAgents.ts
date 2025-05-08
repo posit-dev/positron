@@ -313,11 +313,13 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		let testAgentRegistered = false;
 		// --- End Positron ---
 		for (const agent of this.getAgents()) {
+			// --- Start Positron ---
+			if (agent.extensionId.value === 'vscode.vscode-api-tests') {
+				testAgentRegistered = true;
+			}
+			// --- End Positron ---
 			if (agent.isDefault && agent.locations.includes(ChatAgentLocation.EditingSession)) {
 				// --- Start Positron ---
-				if (agent.extensionId.value === 'vscode.vscode-api-tests') {
-					testAgentRegistered = true;
-				}
 				defaultAgentRegistered = true;
 				// --- End Positron ---
 				editingAgentRegistered = true;
