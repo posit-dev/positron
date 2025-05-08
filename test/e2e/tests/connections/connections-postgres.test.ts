@@ -76,6 +76,8 @@ test.describe('Postgres DB Connection', {
 			await app.code.driver.page.locator('.col-name', { hasText: 'SQLAlchemy (postgresql)' }).click();
 
 			await app.code.driver.page.getByRole('button', { name: 'Delete Connection' }).click();
+
+			await app.code.wait(3000);  // small sleep to ensure everything is truly closed
 		});
 	});
 
@@ -135,6 +137,8 @@ test.describe('Postgres DB Connection', {
 			await app.code.driver.page.locator('.col-name', { hasText: 'PqConnection' }).click();
 
 			await app.code.driver.page.getByRole('button', { name: 'Delete Connection' }).click();
+
+			await app.code.wait(3000);  // small sleep to ensure everything is truly closed
 		});
 
 	});
