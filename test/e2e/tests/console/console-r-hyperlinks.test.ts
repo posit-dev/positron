@@ -116,7 +116,7 @@ test.describe('Console Pane: R Hyperlinks', {
 
 	});
 
-	test.skip('R - Verify file hyperlink', {
+	test('R - Verify file hyperlink', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7256' }],
 	}, async function ({ app, r }) {
 
@@ -133,4 +133,3 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 });
-
