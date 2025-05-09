@@ -1243,7 +1243,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	public getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>):
-		Promise<Variable[]> {
+		Promise<Array<Array<Variable>>> {
 		for (let i = 0; i < this._runtimeSessions.length; i++) {
 			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
 				return this._proxy.$getSessionVariables(i, accessKeys);

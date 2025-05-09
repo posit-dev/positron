@@ -190,6 +190,36 @@
         ]
       },
       {
+        "name": "inspectVariables",
+        "displayName": "Inspect Variables",
+        "modelDescription": "Inspect one or more variables in a console session, listing their child variables, if any. Can be used to list the columns in a dataframe or the elements of a list. Returns an array containing an array of child variables for each variable in the request. Suppose we have a session with identifier s-123; to list the columns of a dataframe named 'df' and the the elements of a list named 'bar' inside a list named 'foo', the request would look like { 'sessionIdentifier': 's-123', 'accessKeys': [ ['df'], ['foo', 'bar'] ] } and the response would be an array of arrays, where each inner array contains the child variables of the corresponding variable in the request. The first inner array would contain the columns of the dataframe, and the second inner array would contain the elements of the list 'foo.bar'. Can be called without any access keys to list all root-level variables in the session.",
+        "canBeReferencedInPrompt": false,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionIdentifier": {
+              "type": "string",
+              "description": "The identifier of the console session to inspect."
+            },
+            "accessKeys": {
+              "type": "array",
+              "description": "An array of the variables to inspect. Each entry is an array of strings that represent the path to the variable to inspect, beginning with the root of the session. ",
+              "items": {
+                "type": "array",
+                "description": "A list of access keys that identify a variable by specifying its path.",
+                "items": {
+                  "type": "string",
+                  "description": "An access key that uniquely identifies a variable among its siblings."
+                }
+              }
+            }
+          }
+        },
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
         "name": "getPlot",
         "displayName": "View active plot",
         "modelDescription": "View the current active plot if one exists. Don't invoke this tool if there are no plots in the session.",

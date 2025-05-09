@@ -13,6 +13,7 @@ export enum PositronAssistantToolName {
 	EditFile = 'vscode_editFile_internal',
 	ExecuteCode = 'executeCode',
 	GetPlot = 'getPlot',
+	InspectVariables = 'inspectVariables',
 	SelectionEdit = 'selectionEdit',
 }
 
@@ -250,6 +251,31 @@ export function registerAssistantTools(
 	});
 
 	context.subscriptions.push(getPlotTool);
+
+	const inspectVariablesTool = vscode.lm.registerTool<{ sessionIdentifier: string; accessKeys: Array<Array<string>> }>(PositronAssistantToolName.InspectVariables, {
+		/**
+		 * Called to inspect one or more variables in the current session.
+		 *
+		 * @param options The options for the tool invocation.
+		 * @param token The cancellation token.
+		 *
+		 * @returns A vscode.LanguageModelToolResult.
+		 */
+		invoke: async (options, token) => {
+
+			// Call the Positron API to get the session variables
+			const result = await positron.runtime.getSessionVariables(
+				options.input.sessionIdentifier,
+				options.input.accessKeys);
+
+			// Return the result as a JSON string to the model
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(JSON.stringify(result))
+			]);
+		}
+	});
+
+	context.subscriptions.push(inspectVariablesTool);
 }
 
 /**
