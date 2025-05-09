@@ -22,7 +22,7 @@ import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../b
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 
 // Constants.
-const ACTION_BAR_HEIGHT = 32;
+const ACTION_BAR_HEIGHT = 28;
 const MINIMUM_CONSOLE_TAB_LIST_WIDTH = 64;
 const MINIMUM_CONSOLE_PANE_WIDTH = 120;
 

@@ -71,9 +71,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 
 	return (
 		<div className='chat-action-bar'>
-			<PositronActionBar
-				size='small'
-			>
+			<PositronActionBar>
 				{<LanguageModelIcon provider={positronChatContext.currentProvider?.id ?? ''} />}
 				<ActionBarMenuButton
 					actions={actions}

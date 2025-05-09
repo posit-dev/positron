@@ -64,7 +64,6 @@ export const ActionBar = () => {
 					borderBottom={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
-					size='small'
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton

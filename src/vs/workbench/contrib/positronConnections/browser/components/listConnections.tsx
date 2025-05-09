@@ -196,7 +196,6 @@ const ActionBar = (props: React.PropsWithChildren<ActionBarProps>) => {
 					borderTop={true}
 					paddingLeft={ACTION_BAR_PADDING_LEFT}
 					paddingRight={ACTION_BAR_PADDING_RIGHT}
-					size='small'
 				>
 					<ActionBarRegion location='left'>
 						<ActionBarButton

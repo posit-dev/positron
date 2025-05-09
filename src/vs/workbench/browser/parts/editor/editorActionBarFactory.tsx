@@ -211,7 +211,6 @@ export class EditorActionBarFactory extends Disposable {
 				borderTop={false}
 				paddingLeft={PADDING_LEFT}
 				paddingRight={PADDING_RIGHT}
-				size='small'
 			>
 				{leftActionBarElements.length > 0 &&
 					<ActionBarRegion location='left'>

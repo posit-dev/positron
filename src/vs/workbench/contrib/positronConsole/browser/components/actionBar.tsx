@@ -505,17 +505,14 @@ export const ActionBar = (props: ActionBarProps) => {
 	// Render.
 	return (
 		<PositronActionBarContextProvider {...positronConsoleContext}>
-			<div className='action-bar'>
-				<PositronDynamicActionBar
-					borderBottom={true}
-					borderTop={true}
-					leftActions={leftActions}
-					paddingLeft={kPaddingLeft}
-					paddingRight={kPaddingRight}
-					rightActions={rightActions}
-					size='small'
-				/>
-			</div>
+			<PositronDynamicActionBar
+				borderBottom={true}
+				borderTop={true}
+				leftActions={leftActions}
+				paddingLeft={kPaddingLeft}
+				paddingRight={kPaddingRight}
+				rightActions={rightActions}
+			/>
 		</PositronActionBarContextProvider>
 	);
 };

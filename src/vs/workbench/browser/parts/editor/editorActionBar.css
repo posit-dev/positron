@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .editor-action-bar {
-	height: 32px;
+	height: var(--positronActionBar-height);
 	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
 	--positronActionBar-background: var(--vscode-tab-activeBackground);

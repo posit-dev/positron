@@ -56,7 +56,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars'>
-				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight} size='small'>
+				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					{positronSessionsContext.positronSessions.size} sessions
 				</PositronActionBar>
 			</div>

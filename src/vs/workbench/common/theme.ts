@@ -863,10 +863,10 @@ export const POSITRON_ERROR_FOREGROUND = registerColor('positronError.foreground
 
 // Positron scroll bar border color.
 export const POSITRON_SCROLL_BAR_BORDER = registerColor('positronScrollBar.border', {
-	dark: darken(PANEL_BORDER, 0.25),
-	light: lighten(PANEL_BORDER, 0.5),
-	hcDark: PANEL_BORDER,
-	hcLight: PANEL_BORDER
+	dark: widgetBorder,
+	light: widgetBorder,
+	hcDark: widgetBorder,
+	hcLight: widgetBorder
 }, localize('positronScrollBar.border', "Positron scroll bar border color."));
 
 // < --- Positron Splitter --- >
@@ -1065,10 +1065,10 @@ export const POSITRON_CONTEXT_MENU_SEPARATOR_BACKGROUND = registerColor('positro
 
 // Positron side action bar border color.
 export const POSITRON_SIDE_ACTION_BAR_BORDER = registerColor('positronSideActionBar.border', {
-	dark: '#434b4f',
-	light: '#d9dee2',
-	hcDark: contrastBorder,
-	hcLight: contrastBorder
+	dark: widgetBorder,
+	light: widgetBorder,
+	hcDark: widgetBorder,
+	hcLight: widgetBorder
 }, localize('positronSideActionBar.border', "Positron side action bar border color."));
 
 // Positron side action bar background color.

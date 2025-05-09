@@ -122,61 +122,62 @@ export const PositronTopActionBar = (props: PositronTopActionBarProps) => {
 	return (
 		<PositronTopActionBarContextProvider {...props}>
 			<PositronActionBarContextProvider {...props}>
-				<PositronActionBar
-					borderBottom={true}
-					paddingLeft={kHorizontalPadding}
-					paddingRight={kHorizontalPadding}
-					size='large'
-				>
-					<ActionBarRegion location='left'>
-						<TopActionBarNewMenu />
-						<ActionBarSeparator />
-						<TopActionBarOpenMenu />
-						<ActionBarSeparator />
-						<ActionBarCommandButton
-							ariaLabel={CommandCenter.title(SAVE)}
-							commandId={SAVE}
-							icon={ThemeIcon.fromId('positron-save')}
-						/>
-						<ActionBarCommandButton
-							ariaLabel={CommandCenter.title(SAVE_ALL)}
-							commandId={SAVE_ALL}
-							icon={ThemeIcon.fromId('positron-save-all')}
-						/>
-					</ActionBarRegion>
-					{showCenterUI && (
-						<ActionBarRegion location='center'>
-							<PositronActionBar nestedActionBar={true} size='large'>
-								{showFullCenterUI && (
-									<ActionBarRegion justify='right' location='left' width={60}>
-										<ActionBarCommandButton
-											ariaLabel={CommandCenter.title(NAV_BACK)}
-											commandId={NAV_BACK}
-											icon={ThemeIcon.fromId('chevron-left')}
-										/>
-										<ActionBarCommandButton
-											ariaLabel={CommandCenter.title(NAV_FORWARD)}
-											commandId={NAV_FORWARD}
-											icon={ThemeIcon.fromId('chevron-right')}
-										/>
-									</ActionBarRegion>
-								)}
-								<ActionBarRegion location='center'>
-									<TopActionBarCommandCenter />
-								</ActionBarRegion>
-								{showFullCenterUI && (
-									<ActionBarRegion justify='left' location='right' width={60} />
-								)}
-							</PositronActionBar>
+				<div className='top-action-bar-container'>
+					<PositronActionBar
+						borderBottom={false}
+						paddingLeft={kHorizontalPadding}
+						paddingRight={kHorizontalPadding}
+					>
+						<ActionBarRegion location='left'>
+							<TopActionBarNewMenu />
+							<ActionBarSeparator />
+							<TopActionBarOpenMenu />
+							<ActionBarSeparator />
+							<ActionBarCommandButton
+								ariaLabel={CommandCenter.title(SAVE)}
+								commandId={SAVE}
+								icon={ThemeIcon.fromId('positron-save')}
+							/>
+							<ActionBarCommandButton
+								ariaLabel={CommandCenter.title(SAVE_ALL)}
+								commandId={SAVE_ALL}
+								icon={ThemeIcon.fromId('positron-save-all')}
+							/>
 						</ActionBarRegion>
-					)}
-					<ActionBarRegion gap={6} location='right'>
-						<TopActionBarSessionManager />
 						{showCenterUI && (
-							<TopActionBarCustomFolderMenu />
+							<ActionBarRegion location='center'>
+								<PositronActionBar nestedActionBar={true}>
+									{showFullCenterUI && (
+										<ActionBarRegion justify='right' location='left' width={60}>
+											<ActionBarCommandButton
+												ariaLabel={CommandCenter.title(NAV_BACK)}
+												commandId={NAV_BACK}
+												icon={ThemeIcon.fromId('chevron-left')}
+											/>
+											<ActionBarCommandButton
+												ariaLabel={CommandCenter.title(NAV_FORWARD)}
+												commandId={NAV_FORWARD}
+												icon={ThemeIcon.fromId('chevron-right')}
+											/>
+										</ActionBarRegion>
+									)}
+									<ActionBarRegion location='center'>
+										<TopActionBarCommandCenter />
+									</ActionBarRegion>
+									{showFullCenterUI && (
+										<ActionBarRegion justify='left' location='right' width={60} />
+									)}
+								</PositronActionBar>
+							</ActionBarRegion>
 						)}
-					</ActionBarRegion>
-				</PositronActionBar>
+						<ActionBarRegion gap={6} location='right'>
+							<TopActionBarSessionManager />
+							{showCenterUI && (
+								<TopActionBarCustomFolderMenu />
+							)}
+						</ActionBarRegion>
+					</PositronActionBar>
+				</div>
 			</PositronActionBarContextProvider>
 		</PositronTopActionBarContextProvider>
 	);

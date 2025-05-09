@@ -32,7 +32,7 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
 /**
  * Constants.
  */
-const EDITOR_ACTION_BAR_HEIGHT = 32;
+const EDITOR_ACTION_BAR_HEIGHT = 28;
 export const EDITOR_ACTION_BAR_CONFIGURATION_SETTING = 'editor.actionBar.enabled';
 
 /**
