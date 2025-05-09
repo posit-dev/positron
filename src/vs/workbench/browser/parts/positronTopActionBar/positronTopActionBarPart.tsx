@@ -65,7 +65,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		return this._width;
 	}
 
-	readonly height: number = 34;
+	readonly height: number = 28.5;
 	readonly minimumWidth: number = 0;
 	readonly maximumWidth: number = Number.POSITIVE_INFINITY;
 

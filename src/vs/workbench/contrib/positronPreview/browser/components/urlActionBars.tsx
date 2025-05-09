@@ -164,7 +164,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	return (
 		<PositronActionBarContextProvider {...props}>
 			<div className='action-bars preview-action-bar'>
-				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight} size='small'>
+				<PositronActionBar borderBottom={true} borderTop={true} paddingLeft={kPaddingLeft} paddingRight={kPaddingRight}>
 					<ActionBarRegion location='left'>
 						<ActionBarButton ariaLabel={navigateBack}
 							icon={ThemeIcon.fromId('positron-left-arrow')}

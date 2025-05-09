@@ -6,7 +6,6 @@
 .monaco-workbench .part.positron-top-action-bar {
 	width: 100%;
 	height: 100%;
-	display: flex;
 	cursor: default;
 	font-size: 12px;
 	overflow: visible;

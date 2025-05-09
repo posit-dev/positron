@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .tabs-container {
-	border-top: 0.5px solid var(--positronActionBar-border);
+	border-top: 1px solid var(--positronActionBar-border);
 	background-color: var(--vscode-tab-inactiveBackground);
 	flex-grow: 1;
 	overflow-y: auto;
@@ -112,8 +112,6 @@
 .tabs-container .tab-button .delete-button .codicon {
 	height: 15px;
 	width: 15px;
-
-	vertical-align: middle;
 }
 
 .tabs-container .tab-button .delete-button:hover {
