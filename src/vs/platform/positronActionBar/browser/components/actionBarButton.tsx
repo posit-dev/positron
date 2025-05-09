@@ -50,6 +50,7 @@ type ActionBarButtonCommonProps = {
 	readonly dropdownIndicator?: 'disabled' | 'enabled' | 'enabled-split';
 	readonly dropdownTooltip?: string | (() => string | undefined);
 	readonly fadeIn?: boolean;
+	readonly height?: number;
 	readonly label?: string;
 	readonly maxTextWidth?: number;
 	readonly mouseTrigger?: MouseTrigger;
@@ -195,6 +196,7 @@ export const ActionBarButton = forwardRef<
 				disabled={props.disabled}
 				hoverManager={context.hoverManager}
 				mouseTrigger={props.mouseTrigger}
+				style={{ height: props.height }}
 				tooltip={props.tooltip}
 				onMouseEnter={props.onMouseEnter}
 				onMouseLeave={props.onMouseLeave}
@@ -219,6 +221,7 @@ export const ActionBarButton = forwardRef<
 					disabled={props.disabled}
 					hoverManager={context.hoverManager}
 					mouseTrigger={props.mouseTrigger}
+					style={{ height: props.height }}
 					tooltip={props.tooltip}
 					onMouseEnter={props.onMouseEnter}
 					onMouseLeave={props.onMouseLeave}
