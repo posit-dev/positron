@@ -11,6 +11,8 @@ import { Event } from '../../../../base/common/event.js';
 import { PositronBaseComm, PositronCommOptions } from './positronBaseComm.js';
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
+import { PlotRenderSettings } from './positronPlotComm.js';
+
 /**
  * Items in Params
  */
@@ -23,6 +25,16 @@ export interface Param {
  */
 export interface CallMethodResult {
 	[k: string]: unknown;
+}
+
+/**
+ * Parameters for the DidChangePlotsRenderSettings method.
+ */
+export interface DidChangePlotsRenderSettingsParams {
+	/**
+	 * Plot rendering settings.
+	 */
+	settings: PlotRenderSettings;
 }
 
 /**
@@ -793,6 +805,7 @@ export enum UiFrontendRequest {
 }
 
 export enum UiBackendRequest {
+	DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 	CallMethod = 'call_method'
 }
 
@@ -813,6 +826,22 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
 		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'title', 'is_plot', 'height']);
 		this.onDidClearWebviewPreloads = super.createEventEmitter('clear_webview_preloads', []);
+	}
+
+	/**
+	 * Notification that the settings to render a plot (i.e. the plot size)
+	 * have changed.
+	 *
+	 * Typically fired when the plot component has been resized by the user.
+	 * This notification is useful to produce accurate pre-renderings of
+	 * plots.
+	 *
+	 * @param settings Plot rendering settings.
+	 *
+	 * @returns Unused response to notification
+	 */
+	didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<null> {
+		return super.performRpc('did_change_plots_render_settings', ['settings'], [settings]);
 	}
 
 	/**

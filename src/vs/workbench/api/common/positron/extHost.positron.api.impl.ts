@@ -35,6 +35,7 @@ import { ExtHostAiFeatures } from './extHostAiFeatures.js';
 import { IToolInvocationContext } from '../../../contrib/chat/common/languageModelToolsService.js';
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
+import { ExtHostPlotsService } from './extHostPlotsService.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -76,6 +77,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
 	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
+	const extHostPlotsService = rpcProtocol.set(ExtHostPositronContext.ExtHostPlotsService, new ExtHostPlotsService(rpcProtocol));
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
 			extHostLanguageRuntime, extHostWorkspace, extHostQuickOpen, extHostCommands, extHostContextKeyService));
@@ -184,6 +186,12 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			getConsoleWidth(): Thenable<number> {
 				return extHostConsoleService.getConsoleWidth();
+			},
+			get onDidChangePlotsRenderSettings() {
+				return extHostPlotsService.onDidChangePlotsRenderSettings;
+			},
+			getPlotsRenderSettings(): Thenable<positron.PlotRenderSettings> {
+				return extHostPlotsService.getPlotsRenderSettings();
 			}
 		};
 
@@ -298,6 +306,8 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			RuntimeOnlineState: extHostTypes.RuntimeOnlineState,
 			RuntimeState: extHostTypes.RuntimeState,
 			RuntimeCodeFragmentStatus: extHostTypes.RuntimeCodeFragmentStatus,
+			PlotRenderFormat: extHostTypes.PlotRenderFormat,
+			UiRuntimeNotifications: extHostTypes.UiRuntimeNotifications,
 		};
 	};
 }

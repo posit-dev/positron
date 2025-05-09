@@ -19,9 +19,20 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 
 
 @enum.unique
-class RenderFormat(str, enum.Enum):
+class PlotUnit(str, enum.Enum):
     """
-    Possible values for RenderFormat
+    Possible values for PlotUnit
+    """
+
+    Pixels = "pixels"
+
+    Inches = "inches"
+
+
+@enum.unique
+class PlotRenderFormat(str, enum.Enum):
+    """
+    Possible values for PlotRenderFormat
     """
 
     Png = "png"
@@ -33,17 +44,6 @@ class RenderFormat(str, enum.Enum):
     Pdf = "pdf"
 
     Tiff = "tiff"
-
-
-@enum.unique
-class PlotUnit(str, enum.Enum):
-    """
-    Possible values for PlotUnit
-    """
-
-    Pixels = "pixels"
-
-    Inches = "inches"
 
 
 class IntrinsicSize(BaseModel):
@@ -81,9 +81,9 @@ class PlotResult(BaseModel):
         description="The MIME type of the plot data",
     )
 
-    policy: Optional[RenderPolicy] = Field(
+    settings: Optional[PlotRenderSettings] = Field(
         default=None,
-        description="The policy used to render the plot",
+        description="The settings used to render the plot",
     )
 
 
@@ -101,21 +101,21 @@ class PlotSize(BaseModel):
     )
 
 
-class RenderPolicy(BaseModel):
+class PlotRenderSettings(BaseModel):
     """
-    The policy used to render the plot
+    The settings used to render the plot
     """
 
     size: PlotSize = Field(
-        description="Plot size of the render policy",
+        description="Plot size to render the plot to",
     )
 
     pixel_ratio: Union[StrictInt, StrictFloat] = Field(
         description="The pixel ratio of the display device",
     )
 
-    format: RenderFormat = Field(
-        description="Format of the render policy",
+    format: PlotRenderFormat = Field(
+        description="Format in which to render the plot",
     )
 
 
@@ -163,7 +163,7 @@ class RenderParams(BaseModel):
         description="The pixel ratio of the display device",
     )
 
-    format: RenderFormat = Field(
+    format: PlotRenderFormat = Field(
         description="The requested plot format",
     )
 
@@ -215,7 +215,7 @@ PlotResult.update_forward_refs()
 
 PlotSize.update_forward_refs()
 
-RenderPolicy.update_forward_refs()
+PlotRenderSettings.update_forward_refs()
 
 GetIntrinsicSizeRequest.update_forward_refs()
 

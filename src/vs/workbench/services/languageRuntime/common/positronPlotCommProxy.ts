@@ -7,7 +7,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { IntrinsicSize, PositronPlotComm, RenderFormat } from './positronPlotComm.js';
+import { IntrinsicSize, PositronPlotComm, PlotRenderFormat } from './positronPlotComm.js';
 import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
 
 /**
@@ -41,7 +41,7 @@ export interface RenderRequest {
 	pixel_ratio: number;
 
 	/** The format of the plot */
-	format: RenderFormat;
+	format: PlotRenderFormat;
 }
 
 /**

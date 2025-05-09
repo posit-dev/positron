@@ -5,7 +5,7 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.js';
-import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter } from '../../common/positronPlots.js';
+import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotRenderSettings } from '../../common/positronPlots.js';
 import { IPositronPlotSizingPolicy } from '../../common/sizingPolicy.js';
 import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
 
@@ -89,6 +89,16 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	private readonly _onDidChangeDarkFilterModeEmitter =
 		this._register(new Emitter<DarkFilter>());
 
+	/**
+	 * The onDidChangePlotsRenderSettings event emitter.
+	 */
+	private readonly _onDidChangePlotsRenderSettingsEmitter =
+		this._register(new Emitter<PlotRenderSettings>());
+
+	/** The emitter for the _sizingPolicyEmitter event */
+	private readonly _onDidChangeSizingPolicyEmitter =
+		this._register(new Emitter<IPositronPlotSizingPolicy>());
+
 	//#endregion Private Properties
 
 	//#region Constructor
@@ -98,6 +108,13 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 */
 	constructor() {
 		super();
+	}
+
+	getPlotsRenderSettings(): PlotRenderSettings {
+		throw new Error('Method not implemented.');
+	}
+	setPlotsRenderSettings(settings: PlotRenderSettings): void {
+		throw new Error('Method not implemented.');
 	}
 
 	//#endregion Constructor
@@ -180,6 +197,17 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 * The onDidChangeDarkFilterMode event.
 	 */
 	readonly onDidChangeDarkFilterMode = this._onDidChangeDarkFilterModeEmitter.event;
+
+	/**
+	 * The onDidChangePlotsRenderSettings event.
+	 */
+	readonly onDidChangePlotsRenderSettings = this._onDidChangePlotsRenderSettingsEmitter.event;
+
+	/**
+	 * The onDidChangeSizingPolicy event.
+	 */
+	readonly onDidChangeSizingPolicy = this._onDidChangeSizingPolicyEmitter.event;
+
 
 	/**
 	 * Selects the plot with the specified ID.

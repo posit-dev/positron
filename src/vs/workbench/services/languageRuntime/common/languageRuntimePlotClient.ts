@@ -3,10 +3,10 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
-import { IntrinsicSize, PlotResult, RenderFormat } from './positronPlotComm.js';
+import { IntrinsicSize, PlotResult, PlotRenderFormat } from './positronPlotComm.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { DeferredRender, IRenderedPlot, PositronPlotCommProxy, RenderRequest } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
@@ -170,12 +170,12 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 			// The policy should normally be defined in a pre-render result but we
 			// check just in case
-			if (preRender.policy) {
+			if (preRender.settings) {
 				const uri = `data:${preRender.mime_type};base64,${preRender.data}`;
 				this._lastRender = {
 					uri,
-					size: preRender.policy.size,
-					pixel_ratio: preRender.policy.pixel_ratio,
+					size: preRender.settings.size,
+					pixel_ratio: preRender.settings.pixel_ratio,
 					renderTimeMs: 0,
 				};
 			}
@@ -248,7 +248,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		this._sizingPolicyEmitter.fire(newSizingPolicy);
 	}
 
-	public renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = RenderFormat.Png, preview = false): Promise<IRenderedPlot> {
+	public renderWithSizingPolicy(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
 		return this.render(size ? this._sizingPolicy.getPlotSize(size) : size, pixel_ratio, format, preview);
 	}
 
@@ -263,7 +263,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 * @param preview If true, the plot will be rendered but not stored and no events are emitted.
 	 * @returns A promise that resolves to a rendered image, or rejects with an error.
 	 */
-	public render(size: IPlotSize | undefined, pixel_ratio: number, format = RenderFormat.Png, preview = false): Promise<IRenderedPlot> {
+	public render(size: IPlotSize | undefined, pixel_ratio: number, format = PlotRenderFormat.Png, preview = false): Promise<IRenderedPlot> {
 		// Deal with whole pixels only
 		const sizeInt = size && {
 			height: Math.floor(size.height),
@@ -274,7 +274,8 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		// render request to be made multiple times, e.g. when the UI component
 		// is redrawn without changing the plot size.
 		if (this._lastRender &&
-			this._lastRender.size === sizeInt &&
+			this._lastRender.size?.height === sizeInt?.height &&
+			this._lastRender.size?.width === sizeInt?.width &&
 			this._lastRender.pixel_ratio === pixel_ratio) {
 			// The last render request was the same size; return the last render
 			// result without performing another render.
@@ -429,7 +430,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 		const req = new DeferredRender({
 			size: sizeInt,
 			pixel_ratio: pixel_ratio,
-			format: this._currentRender?.renderRequest.format ?? RenderFormat.Png
+			format: this._currentRender?.renderRequest.format ?? PlotRenderFormat.Png
 		});
 
 		this.scheduleRender(req, 0);
@@ -439,5 +440,12 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	override dispose(): void {
 		this._closeEmitter.fire();
 		super.dispose();
+	}
+
+	/**
+	 * Register a resource for cleanup on disposal.
+	 */
+	public register<T extends IDisposable>(o: T): T {
+		return this._register(o);
 	}
 }

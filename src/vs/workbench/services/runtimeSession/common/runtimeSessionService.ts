@@ -6,9 +6,9 @@
 import { Event } from '../../../../base/common/event.js';
 import { URI } from '../../../../base/common/uri.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
+import { UiClientInstance, IRuntimeClientEvent } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, ILanguageRuntimeSessionState, RuntimeState, ILanguageRuntimeInfo, ILanguageRuntimeStartupFailure, ILanguageRuntimeExit, ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageStream, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageError, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeCodeFragmentStatus, RuntimeExitReason, ILanguageRuntimeMessageResult, ILanguageRuntimeMessageClearOutput, ILanguageRuntimeMessageIPyWidget } from '../../languageRuntime/common/languageRuntimeService.js';
 import { RuntimeClientType, IRuntimeClientInstance } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
-import { IRuntimeClientEvent } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 
@@ -543,9 +543,35 @@ export interface IRuntimeSessionService {
 	 *
 	 */
 	updateActiveLanguages(): void;
+
+	/**
+	 * Event that fires when the UI client has started. This allows other services
+	 * to interact with the UI client, e.g. to send notifications or requests to
+	 * backends.
+	 *
+	 * Note that `UiClientInstance` is a disposable. You can attach
+	 * resources to it (such as event handlers) via the `register()` method, these
+	 * will be cleaned up when the UI client is torn down (e.g. after a
+	 * disconnect).
+	 *
+	 * Dev note: In the future the UI client will move to an extension-land middleware,
+	 * see https://github.com/posit-dev/positron/issues/4997. Do not introduce
+	 * dependencies that can't eventually be solved with regular events.
+	 */
+	readonly onDidStartUiClient: Event<{ sessionId: string; uiClient: UiClientInstance }>;
+
+	/**
+	 * Register handler for the `onDidStartUiClient` event and run handler if already started.
+	 *
+	 * This ensures `handler` is run for both current and future instances of a session's UI client.
+	 *
+	 * @param sessionId The ID of the session to observe.
+	 * @param handler Called with started UI clients.
+	 * @returns An `IDisposable` to clean up the event handler.
+	 */
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable;
 }
 
 export { RuntimeClientType };
 
 export type { IRuntimeClientInstance };
-

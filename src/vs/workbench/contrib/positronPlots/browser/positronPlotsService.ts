@@ -6,11 +6,11 @@
 import * as DOM from '../../../../base/browser/dom.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotMetadata, PlotClientInstance, PlotClientLocation } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind, UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -52,6 +52,7 @@ import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -114,6 +115,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The emitter for the onDidRemovePlot event */
 	private readonly _onDidRemovePlot = new Emitter<string>();
 
+	/** The emitter for the onDidChangePlotsRenderSettings event */
+	private readonly _onDidChangePlotsRenderSettings = new Emitter<PlotRenderSettings>();
+
+	/** The emitter for the _sizingPolicyEmitter event */
+	private readonly _onDidChangeSizingPolicyEmitter = new Emitter<IPositronPlotSizingPolicy>;
+
 	/** The ID Of the currently selected plot, if any */
 	private _selectedPlotId: string | undefined;
 
@@ -150,6 +157,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	private readonly _recentExecutions = new Map<string, string>();
 	private readonly _recentExecutionIds = new Array<string>();
+
+	/** The current plot rendering settings. */
+	private readonly _plotsRenderSettings: ISettableObservable<PlotRenderSettings>;
 
 	/** Creates the Positron plots service instance */
 	constructor(
@@ -198,7 +208,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._selectedPlotId = id;
 			const selectedPlot = this._plots.find((plot) => plot.id === id);
 			if (selectedPlot instanceof PlotClientInstance) {
-				this._selectedSizingPolicy = selectedPlot.sizingPolicy;
+				this.setSelectedSizingPolicy(selectedPlot.sizingPolicy);
 			}
 		}));
 
@@ -350,6 +360,18 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					}
 				}
 			}, WebviewPlotInactiveInterval));
+
+		// Initialise current render settings state. These defaults will be changed
+		// at the first render of the plots pane.
+		this._plotsRenderSettings = observableValue<PlotRenderSettings>('plots-render-settings', {
+			size: {
+				width: 640,
+				height: 400,
+			},
+			pixel_ratio: 1,
+			format: PlotRenderFormat.Png,
+		});
+		this.onDidChangePlotsRenderSettings = Event.fromObservable(this._plotsRenderSettings);
 	}
 
 	private _showPlotsPane() {
@@ -421,7 +443,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (!policy) {
 			throw new Error(`Invalid sizing policy ID: ${id}`);
 		}
-		this._selectedSizingPolicy = policy;
+
+		this.setSelectedSizingPolicy(policy);
 		const selectedPlot = this._plots.find((plot) => this.selectedPlotId === plot.id);
 		if (selectedPlot instanceof PlotClientInstance) {
 			selectedPlot.sizingPolicy = policy;
@@ -680,6 +703,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 			this._register(session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
 		}
+
+		// If this runtime wants plot render settings updates, register handler to
+		// send them over via the UI client. This logic should move to an
+		// extension-side middleware in the future, see
+		// https://github.com/posit-dev/positron/issues/4997.
+		if (session.runtimeMetadata.uiSubscriptions?.includes(UiRuntimeNotifications.DidChangePlotsRenderSettings)) {
+			this._register(this._runtimeSessionService.watchUiClient(session.sessionId, (uiClient) => {
+				// Forward future settings updates. Note that the lifecycle of that event
+				// handler is tied to the UI client itself, not to the lifecycle of the session.
+				uiClient.register(this.onDidChangePlotsRenderSettings(settings => {
+					uiClient.didChangePlotsRenderSettings(settings);
+				}));
+
+				// Send initial settings immediately
+				uiClient.didChangePlotsRenderSettings(this.getPlotsRenderSettings());
+			}));
+		}
 	}
 
 	/**
@@ -735,7 +775,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 * @param fireEvents Whether to fire events for this plot client.
 	 */
 	private registerPlotClient(plotClient: PlotClientInstance, fireEvents: boolean) {
-
 		// Add to our list of plots
 		this._plots.push(plotClient);
 
@@ -745,17 +784,26 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			this._onDidSelectPlot.fire(plotClient.id);
 		}
 
+		// Dispose the plot client when this service is disposed (we own this
+		// object)
+		const disp = this._register(plotClient);
+
 		// Remove the plot from our list when it is closed
-		this._register(plotClient.onDidClose(() => {
-			const index = this._plots.indexOf(plotClient);
-			if (index >= 0) {
-				this._plots.splice(index, 1);
+		plotClient.register({
+			dispose: () => {
+				const index = this._plots.indexOf(plotClient);
+				if (index >= 0) {
+					this._plots.splice(index, 1);
+				}
+
+				// Clear the plot's metadata from storage
+				this._storageService.remove(
+					this.generateStorageKey(plotClient.metadata.session_id, plotClient.metadata.id, plotClient.metadata.location),
+					StorageScope.WORKSPACE);
+
+				disp.dispose();
 			}
-			// Clear the plot's metadata from storage
-			this._storageService.remove(
-				this.generateStorageKey(plotClient.metadata.session_id, plotClient.metadata.id, plotClient.metadata.location),
-				StorageScope.WORKSPACE);
-		}));
+		});
 
 		const selectPlot = () => {
 			// Raise the Plots pane so the user can see the updated plot
@@ -767,19 +815,19 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		};
 
 		// Raise the plot if it's updated by the runtime
-		this._register(plotClient.onDidRenderUpdate((_plot) => {
+		plotClient.register(plotClient.onDidRenderUpdate((_plot) => {
 			selectPlot();
 		}));
 
 		// Focus the plot if the runtime requests it
-		this._register(plotClient.onDidShowPlot(() => {
+		plotClient.register(plotClient.onDidShowPlot(() => {
 			selectPlot();
 		}));
 
-		// Dispose the plot client when this service is disposed (we own this
-		// object)
-		this._register(plotClient);
-	}
+		plotClient.register(plotClient.onDidChangeSizingPolicy((policy) => {
+			this.selectSizingPolicy(policy.id);
+		}));
+  }
 
 	/**
 	 * Creates a new static plot client instance and registers it with the
@@ -818,6 +866,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidReplacePlots: Event<IPositronPlotClient[]> = this._onDidReplacePlots.event;
 	onDidChangeHistoryPolicy: Event<HistoryPolicy> = this._onDidChangeHistoryPolicy.event;
 	onDidChangeDarkFilterMode: Event<DarkFilter> = this._onDidChangeDarkFilterMode.event;
+	onDidChangePlotsRenderSettings: Event<PlotRenderSettings> = this._onDidChangePlotsRenderSettings.event;
+	onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy> = this._onDidChangeSizingPolicyEmitter.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): IPositronPlotClient[] {
@@ -1288,9 +1338,34 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
+	 * Gets the current plot rendering settings.
+	 */
+	public getPlotsRenderSettings(): PlotRenderSettings {
+		return this._plotsRenderSettings.get();
+	}
+
+	/**
+	 * Sets the current plot rendering settings.
+	 *
+	 * @param settings The new settings.
+	 */
+	setPlotsRenderSettings(settings: PlotRenderSettings): void {
+		// Sanitize values in case sizing policies create floating points
+		settings.size.height = Math.floor(settings.size.height);
+		settings.size.width = Math.floor(settings.size.width);
+
+		this._plotsRenderSettings.set(settings, undefined);
+	}
+
+	/**
 	 * Placeholder for service initialization.
 	 */
 	initialize() {
+	}
+
+	private setSelectedSizingPolicy(policy: IPositronPlotSizingPolicy) {
+		this._selectedSizingPolicy = policy;
+		this._onDidChangeSizingPolicyEmitter.fire(policy);
 	}
 }
 

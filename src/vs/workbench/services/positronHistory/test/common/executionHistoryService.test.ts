@@ -23,6 +23,7 @@ import { TestStorageService } from '../../../../test/common/workbenchTestService
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ActiveRuntimeSession } from '../../../runtimeSession/common/activeRuntimeSession.js';
+import { UiClientInstance } from '../../../languageRuntime/common/languageRuntimeUiClient.js';
 
 class TestWorkspaceContextService implements IWorkspaceContextService {
 	private readonly _onWillChangeWorkspaceFolders = new Emitter<IWorkspaceFoldersWillChangeEvent>();
@@ -107,6 +108,9 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 
 	private readonly _onDidUpdateSessionName = new Emitter<ILanguageRuntimeSession>();
 	readonly onDidUpdateSessionName = this._onDidUpdateSessionName.event;
+
+	private readonly _onDidStartUiClient = new Emitter<any>();
+	readonly onDidStartUiClient = this._onDidStartUiClient.event;
 
 	foregroundSession: ILanguageRuntimeSession | undefined;
 
@@ -259,6 +263,10 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 	get onWillStartSessionEmitter() {
 		return this._onWillStartSession;
 	}
+
+  watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable {
+      throw new Error('Method not implemented.');
+  }
 }
 
 class TestRuntimeStartupService implements IRuntimeStartupService {

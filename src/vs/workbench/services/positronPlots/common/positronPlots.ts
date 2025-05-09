@@ -21,6 +21,29 @@ export interface IPositronPlotClient extends IDisposable {
 }
 
 /**
+ * Settings necessary to render a plot in the format expected by the plot widget.
+ */
+export interface PlotRenderSettings {
+	size: {
+		width: number;
+		height: number;
+	};
+	pixel_ratio: number;
+	format: PlotRenderFormat;
+}
+
+/**
+ * Possible formats for rendering a plot.
+ */
+export enum PlotRenderFormat {
+	Png = 'png',
+	Jpeg = 'jpeg',
+	Svg = 'svg',
+	Pdf = 'pdf',
+	Tiff = 'tiff'
+}
+
+/**
  * The set of policies governing when we show the plot history (filmstrip
  * sidebar) in the Plots pane
  */
@@ -115,6 +138,18 @@ export interface IPositronPlotsService {
 	 * plots to display.
 	 */
 	readonly onDidReplacePlots: Event<IPositronPlotClient[]>;
+
+	/**
+	 * Notifies subscribers when the settings for rendering a plot have changed.
+	 * This typically happens when the plot viewpane has been resized.
+	 */
+	readonly onDidChangePlotsRenderSettings: Event<PlotRenderSettings>;
+
+	/**
+	 * Notifies subscribers when the settings for rendering a plot have changed.
+	 * This typically happens when the plot viewpane has been resized.
+	 */
+	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
 
 	/**
 	 * Selects the plot with the specified ID.
@@ -248,6 +283,18 @@ export interface IPositronPlotsService {
 	 * @param plotClient the plot client to unregister
 	 */
 	unregisterPlotClient(plotClient: IPositronPlotClient): void;
+
+	/**
+	 * Gets the current plot rendering settings.
+	 */
+	getPlotsRenderSettings(): PlotRenderSettings;
+
+	/**
+	 * Sets the current plot rendering settings.
+	 *
+	 * @param settings The new settings.
+	 */
+	setPlotsRenderSettings(settings: PlotRenderSettings): void;
 
 	/**
 	 * Placeholder for service initialization.

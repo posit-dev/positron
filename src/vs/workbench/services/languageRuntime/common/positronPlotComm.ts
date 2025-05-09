@@ -52,9 +52,9 @@ export interface PlotResult {
 	mime_type: string;
 
 	/**
-	 * The policy used to render the plot
+	 * The settings used to render the plot
 	 */
-	policy?: RenderPolicy;
+	settings?: PlotRenderSettings;
 
 }
 
@@ -75,11 +75,11 @@ export interface PlotSize {
 }
 
 /**
- * The policy used to render the plot
+ * The settings used to render the plot
  */
-export interface RenderPolicy {
+export interface PlotRenderSettings {
 	/**
-	 * Plot size of the render policy
+	 * Plot size to render the plot to
 	 */
 	size: PlotSize;
 
@@ -89,21 +89,10 @@ export interface RenderPolicy {
 	pixel_ratio: number;
 
 	/**
-	 * Format of the render policy
+	 * Format in which to render the plot
 	 */
-	format: RenderFormat;
+	format: PlotRenderFormat;
 
-}
-
-/**
- * Possible values for RenderFormat
- */
-export enum RenderFormat {
-	Png = 'png',
-	Jpeg = 'jpeg',
-	Svg = 'svg',
-	Pdf = 'pdf',
-	Tiff = 'tiff'
 }
 
 /**
@@ -112,6 +101,17 @@ export enum RenderFormat {
 export enum PlotUnit {
 	Pixels = 'pixels',
 	Inches = 'inches'
+}
+
+/**
+ * Possible values for PlotRenderFormat
+ */
+export enum PlotRenderFormat {
+	Png = 'png',
+	Jpeg = 'jpeg',
+	Svg = 'svg',
+	Pdf = 'pdf',
+	Tiff = 'tiff'
 }
 
 /**
@@ -132,7 +132,7 @@ export interface RenderParams {
 	/**
 	 * The requested plot format
 	 */
-	format: RenderFormat;
+	format: PlotRenderFormat;
 }
 
 /**
@@ -193,7 +193,7 @@ export class PositronPlotComm extends PositronBaseComm {
 	 *
 	 * @returns A rendered plot
 	 */
-	render(size: PlotSize | undefined, pixelRatio: number, format: RenderFormat): Promise<PlotResult> {
+	render(size: PlotSize | undefined, pixelRatio: number, format: PlotRenderFormat): Promise<PlotResult> {
 		return super.performRpc('render', ['size', 'pixel_ratio', 'format'], [size, pixelRatio, format]);
 	}
 

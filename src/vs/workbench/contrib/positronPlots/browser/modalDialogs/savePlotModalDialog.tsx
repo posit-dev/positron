@@ -28,7 +28,7 @@ import { FileFilter } from 'electron';
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { IFileService } from '../../../../../platform/files/common/files.js';
-import { IntrinsicSize, RenderFormat } from '../../../../services/languageRuntime/common/positronPlotComm.js';
+import { IntrinsicSize } from '../../../../services/languageRuntime/common/positronPlotComm.js';
 import { Checkbox } from '../../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { ILogService } from '../../../../../platform/log/common/log.js';
@@ -40,6 +40,7 @@ import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -138,7 +139,7 @@ interface DirectoryState {
 const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const [directory, setDirectory] = React.useState<DirectoryState>({ value: props.suggestedPath ?? URI.file(''), valid: true });
 	const [name, setName] = React.useState({ value: 'plot', valid: true });
-	const [format, setFormat] = React.useState(RenderFormat.Png);
+	const [format, setFormat] = React.useState(PlotRenderFormat.Png);
 	const [enableIntrinsicSize, setEnableIntrinsicSize] = React.useState(props.enableIntrinsicSize);
 	const [width, setWidth] = React.useState({ value: props.plotSize?.width ?? 100, valid: true });
 	const [height, setHeight] = React.useState({ value: props.plotSize?.height ?? 100, valid: true });
@@ -148,7 +149,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const inputRef = React.useRef<HTMLInputElement>(null!);
 
 	const filterEntries: FileFilter[] = [];
-	for (const filter in RenderFormat) {
+	for (const filter in PlotRenderFormat) {
 		filterEntries.push({ extensions: [filter.toLowerCase()], name: filter.toUpperCase() });
 	}
 
@@ -257,7 +258,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		}
 		setRendering(true);
 		try {
-			const plotResult = await generatePreview(RenderFormat.Png);
+			const plotResult = await generatePreview(PlotRenderFormat.Png);
 			setUri(plotResult.uri);
 		} catch (error) {
 			props.logService.error('Error rendering plot:', error);
@@ -266,7 +267,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 		}
 	};
 
-	const generatePreview = async (format: RenderFormat): Promise<IRenderedPlot> => {
+	const generatePreview = async (format: PlotRenderFormat): Promise<IRenderedPlot> => {
 		let size: IPlotSize | undefined;
 		if (!enableIntrinsicSize) {
 			if (!width.value || !height.value) {
@@ -348,11 +349,11 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 								<label>{(() => localize('positron.savePlotModalDialog.format', "Format"))()}
 									<DropDownListBox
 										entries={[
-											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Png, title: RenderFormat.Png.toUpperCase(), value: RenderFormat.Png }),
-											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Jpeg, title: RenderFormat.Jpeg.toUpperCase(), value: RenderFormat.Jpeg }),
-											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Svg, title: RenderFormat.Svg.toUpperCase(), value: RenderFormat.Svg }),
-											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Pdf, title: RenderFormat.Pdf.toUpperCase(), value: RenderFormat.Pdf }),
-											new DropDownListBoxItem<RenderFormat, RenderFormat>({ identifier: RenderFormat.Tiff, title: RenderFormat.Tiff.toUpperCase(), value: RenderFormat.Tiff }),
+											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Png, title: PlotRenderFormat.Png.toUpperCase(), value: PlotRenderFormat.Png }),
+											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Jpeg, title: PlotRenderFormat.Jpeg.toUpperCase(), value: PlotRenderFormat.Jpeg }),
+											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Svg, title: PlotRenderFormat.Svg.toUpperCase(), value: PlotRenderFormat.Svg }),
+											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Pdf, title: PlotRenderFormat.Pdf.toUpperCase(), value: PlotRenderFormat.Pdf }),
+											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Tiff, title: PlotRenderFormat.Tiff.toUpperCase(), value: PlotRenderFormat.Tiff }),
 										]}
 										keybindingService={props.keybindingService}
 										layoutService={props.layoutService}

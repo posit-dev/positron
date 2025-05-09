@@ -16,6 +16,7 @@ import { execSync } from 'child_process';
 import path from 'path';
 
 const commsDir = `${__dirname}`;
+
 let comms = [...new Set(readdirSync(commsDir)
 	.filter(file => file.endsWith('.json'))
 	.map(file => resolveComm(file)))];
@@ -153,10 +154,22 @@ function snakeCaseToSentenceCase(name: string) {
  * string, or undefined if the ref could not be parsed or found.
  */
 function parseRefFromContract(ref: string, contract: any): string | undefined {
+	// The default target is the contract for internal references
+	let target: any = contract;
+
+	// Check for external references (e.g. "schemas.json#/components/schemas/plot_size")
+	const extPointer = externalRefComponents(ref)?.jsonPointer;
+	if (extPointer) {
+		// Here we just return the reference without checking for existence like we
+		// do below. This check is performed at a later step when we generate a
+		// contract for external references.
+		const parts = ref.split('/');
+		return snakeCaseToSentenceCase(parts[parts.length - 1]);
+	}
+
 	// Split the ref into parts, and then walk the contract to find the
 	// referenced object
 	const parts = ref.split('/');
-	let target = contract;
 	for (let i = 0; i < parts.length; i++) {
 		if (parts[i] === '#') {
 			continue;
@@ -167,7 +180,30 @@ function parseRefFromContract(ref: string, contract: any): string | undefined {
 			return undefined;
 		}
 	}
+
 	return snakeCaseToSentenceCase(parts[parts.length - 1]);
+}
+
+/**
+ * Extracts the components of an external reference.
+ *
+ * This function parses a `$ref` string to determine if it points to an external
+ * file and extracts the file path and JSON pointer if applicable.
+ *
+ * @param ref The `$ref` string to parse.
+ * @returns An object containing the `filePath` and `jsonPointer` if the reference
+ *  is external, or `undefined` if it is not.
+ */
+function externalRefComponents(ref: string): { filePath: string; jsonPointer: string } | undefined {
+	const match = ref.match(/^([^#]+)#(.+)$/);
+	if (!match) {
+		return undefined;
+	}
+
+	return {
+		filePath: match[1],
+		jsonPointer: match[2],
+	};
 }
 
 /**
@@ -421,15 +457,53 @@ function* oneOfVisitor(
 }
 
 /**
+ * Collect external references from contracts and returns them as arrays.
+ *
+ * @param contracts The OpenRPC contracts to process
+ * @returns An array of imported symbols grouped by external files. Each element
+ * 	 represents one external file for which we detected external references.
+ * 	 `fileName` is the bare name without `-backend/fronted-openrpc.json` suffix.
+ * 	 `refs` is an array of imported type names.
+ */
+function collectExternalReferences(contracts: any[]): Array<{fileName: string; refs: Array<string>}> {
+	const externalRefs = new Map<string, Set<string>>();
+
+	for (const contract of contracts) {
+		for (const ref of refVisitor(contract)) {
+			const externalRef = externalRefComponents(ref);
+			if (externalRef) {
+				const filePath = externalRef.filePath;
+				const refName = filePath.replace(/\.json$/, '').replace(/-(back|front)end-openrpc$/, '');
+				if (!externalRefs.has(refName)) {
+					externalRefs.set(refName, new Set());
+				}
+
+				const parts = externalRef.jsonPointer.split('/');
+				const schemaName = parts[parts.length - 1];
+				externalRefs.get(refName)!.add(snakeCaseToSentenceCase(schemaName));
+			}
+		}
+	}
+
+	return Array.from(externalRefs.entries()).map(([fileName, refsSet]) => ({
+		fileName,
+		refs: Array.from(refsSet)
+	}));
+}
+
+/**
  * Create a Rust comm for a given OpenRPC contract.
  *
  * @param name The name of the comm
  * @param frontend The OpenRPC contract for the frontend
  * @param backend The OpenRPC contract for the backend
+ * @param external The external schema contract (if any)
  *
  * @returns A generator that yields the Rust code for the comm
  */
 function* createRustComm(name: string, frontend: any, backend: any): Generator<string> {
+	const contracts = [backend, frontend].filter(element => element !== undefined);
+
 	yield `// @generated
 
 /*---------------------------------------------------------------------------------------------
@@ -442,149 +516,34 @@ function* createRustComm(name: string, frontend: any, backend: any): Generator<s
 
 use serde::Deserialize;
 use serde::Serialize;
-
 `;
 
-	const contracts = [backend, frontend];
-	const namedContracts = [{ name: 'Backend', source: backend },
-	{ name: 'Frontend', source: frontend }];
-
-	for (const contract of namedContracts) {
-		const source = contract.source;
-		if (!source) {
-			continue;
-		}
-
-		// Create structs for all object types
-		yield* objectVisitor([], source, function* (context: Array<string>, o: Record<string, any>) {
-			if (o.description) {
-				yield formatComment('/// ', o.description);
-			} else {
-				yield formatComment('/// ',
-					snakeCaseToSentenceCase(context[0]) + ' in ' +
-					snakeCaseToSentenceCase(context[1]));
-			}
-			const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
-			const props = Object.keys(o.properties);
-
-			// Map "any" type to `Value`
-			if (props.length === 0 && o.additionalProperties === true) {
-				return yield `pub type ${snakeCaseToSentenceCase(name)} = serde_json::Value;\n\n`;
-			}
-
-			if (o.rust?.copy === true) {
-				yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
-			} else {
-				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
-			}
-			yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
-
-			for (let i = 0; i < props.length; i++) {
-				const key = props[i];
-				const prop = o.properties[key];
-				if (prop.description) {
-					yield formatComment('\t/// ', prop.description);
-				}
-				if (key === 'type') {
-					yield '\t#[serde(rename = "type")]\n';
-					yield `\tpub ${name}_type: `;
-				} else {
-					yield `\tpub ${key}: `;
-				}
-				if (!o.required || !o.required.includes(key)) {
-					yield 'Option<';
-					yield deriveType(contracts, RustTypeMap, [key, ...context], prop);
-					yield '>';
-
-				} else {
-					yield deriveType(contracts, RustTypeMap, [key, ...context], prop);
-				}
-				if (i < props.length - 1) {
-					yield ',\n';
+	// Add imports for external references
+	const externalReferences = collectExternalReferences(contracts);
+	if (externalReferences.length) {
+		for (const { fileName, refs } of externalReferences) {
+			if (refs.length) {
+				for (const ref of refs) {
+					yield `use super::${fileName}_comm::${ref};`;
 				}
 				yield '\n';
 			}
-			yield '}\n\n';
-		});
+		}
+	}
 
-		// Create enums for all enum types
-		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
-			if (context.length === 1) {
-				// Shared enum at the components.schemas level
-				yield formatComment(`/// `,
-					`Possible values for ` +
-					snakeCaseToSentenceCase(context[0]));
-				yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
-				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
-			} else {
-				// Enum field within another interface
-				yield formatComment(`/// `,
-					`Possible values for ` +
-					snakeCaseToSentenceCase(context[0]) + ` in ` +
-					snakeCaseToSentenceCase(context[1]));
-				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
-				yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
-			}
-			for (let i = 0; i < values.length; i++) {
-				const value = values[i];
-				yield `\t#[serde(rename = "${value}")]\n`;
-				yield `\t#[strum(to_string = "${value}")]\n`;
-				yield `\t${snakeCaseToSentenceCase(value)}`;
-				if (i < values.length - 1) {
-					yield ',\n\n';
-				} else {
-					yield '\n';
-				}
-			}
-			yield '}\n\n';
-		});
+	yield `\n`;
 
-		// Create enums for all oneOf types for unions
-		yield* oneOfVisitor([], source, function* (context: Array<string>, o: Record<string, any>) {
-			if (context.length === 1) {
-				// Shared oneOf at the components.schemas level
-				yield formatComment(`/// `,
-					`Union type ` +
-					snakeCaseToSentenceCase(context[0]));
-				if (o.description) {
-					yield formatComment(`/// `, o.description);
-				}
-				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
-				yield '#[serde(untagged)]\n';
-				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
-			} else {
-				// Enum field within another interface
-				yield formatComment(`/// `,
-					`Union type ` +
-					snakeCaseToSentenceCase(context[0]) + ` in ` +
-					snakeCaseToSentenceCase(context[1]));
-				yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
-				yield '#[serde(untagged)]\n';
-				yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
-			}
-			for (let i = 0; i < o.oneOf.length; i++) {
-				const option = o.oneOf[i];
-				if (option.name === undefined) {
-					throw new Error(`No name in option: ${JSON.stringify(option)}`);
-				}
-				const derivedType = deriveType(contracts, RustTypeMap, [option.name, ...context],
-					option);
-				yield `\t${snakeCaseToSentenceCase(option.name)}(${derivedType})`;
-				if (i < o.oneOf.length - 1) {
-					yield ',\n\n';
-				} else {
-					yield '\n';
-				}
-			}
-			yield '}\n\n';
-		});
+	const namedContracts = [
+		{ name: 'Backend', source: backend },
+		{ name: 'Frontend', source: frontend }
+	];
+
+	for (const contract of contracts) {
+		yield* createRustValueTypes(contract, contracts);
 	}
 
 	// Create parameter objects for each method
 	for (const source of contracts) {
-		if (!source) {
-			continue;
-		}
 		for (const method of source.methods) {
 			if (method.params.length > 0) {
 				yield formatComment(`/// `,
@@ -778,6 +737,259 @@ pub fn ${name}_frontend_reply_from_value(
 }
 
 /**
+ * Process schema fields and create types for objects, enums, and one-ofs.
+ */
+function* createRustValueTypes(source: any, contracts: any[]): Generator<string> {
+	// Create structs for all object types
+	yield* objectVisitor([], source, function* (context: Array<string>, o: Record<string, any>) {
+		if (o.description) {
+			yield formatComment('/// ', o.description);
+		} else {
+			yield formatComment('/// ',
+				snakeCaseToSentenceCase(context[0]) + ' in ' +
+				snakeCaseToSentenceCase(context[1]));
+		}
+		const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+		const props = Object.keys(o.properties);
+
+		// Map "any" type to `Value`
+		if (props.length === 0 && o.additionalProperties === true) {
+			return yield `pub type ${snakeCaseToSentenceCase(name)} = serde_json::Value;\n\n`;
+		}
+
+		if (o.rust?.copy === true) {
+			yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+		} else {
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+		}
+		yield `pub struct ${snakeCaseToSentenceCase(name)} {\n`;
+
+		for (let i = 0; i < props.length; i++) {
+			const key = props[i];
+			const prop = o.properties[key];
+			if (prop.description) {
+				yield formatComment('\t/// ', prop.description);
+			}
+			if (key === 'type') {
+				yield '\t#[serde(rename = "type")]\n';
+				yield `\tpub ${name}_type: `;
+			} else {
+				yield `\tpub ${key}: `;
+			}
+			if (!o.required || !o.required.includes(key)) {
+				yield 'Option<';
+				yield deriveType(contracts, RustTypeMap, [key, ...context], prop);
+				yield '>';
+
+			} else {
+				yield deriveType(contracts, RustTypeMap, [key, ...context], prop);
+			}
+			if (i < props.length - 1) {
+				yield ',\n';
+			}
+			yield '\n';
+		}
+		yield '}\n\n';
+	});
+
+	// Create enums for all enum types
+	yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+		if (context.length === 1) {
+			// Shared enum at the components.schemas level
+			yield formatComment(`/// `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]));
+			yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
+			yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
+		} else {
+			// Enum field within another interface
+			yield formatComment(`/// `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) + ` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
+			yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+		}
+		for (let i = 0; i < values.length; i++) {
+			const value = values[i];
+			yield `\t#[serde(rename = "${value}")]\n`;
+			yield `\t#[strum(to_string = "${value}")]\n`;
+			yield `\t${snakeCaseToSentenceCase(value)}`;
+			if (i < values.length - 1) {
+				yield ',\n\n';
+			} else {
+				yield '\n';
+			}
+		}
+		yield '}\n\n';
+	});
+
+	// Create enums for all oneOf types for unions
+	yield* oneOfVisitor([], source, function* (context: Array<string>, o: Record<string, any>) {
+		if (context.length === 1) {
+			// Shared oneOf at the components.schemas level
+			yield formatComment(`/// `,
+				`Union type ` +
+				snakeCaseToSentenceCase(context[0]));
+			if (o.description) {
+				yield formatComment(`/// `, o.description);
+			}
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+			yield '#[serde(untagged)]\n';
+			yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
+		} else {
+			// Enum field within another interface
+			yield formatComment(`/// `,
+				`Union type ` +
+				snakeCaseToSentenceCase(context[0]) + ` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq)]\n';
+			yield '#[serde(untagged)]\n';
+			yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
+		}
+		for (let i = 0; i < o.oneOf.length; i++) {
+			const option = o.oneOf[i];
+			if (option.name === undefined) {
+				throw new Error(`No name in option: ${JSON.stringify(option)}`);
+			}
+			const derivedType = deriveType(contracts, RustTypeMap, [option.name, ...context],
+				option);
+			yield `\t${snakeCaseToSentenceCase(option.name)}(${derivedType})`;
+			if (i < o.oneOf.length - 1) {
+				yield ',\n\n';
+			} else {
+				yield '\n';
+			}
+		}
+		yield '}\n\n';
+	});
+}
+
+/**
+ * Process schema fields and create types for objects, enums, and one-ofs in Python.
+ */
+function* createPythonValueTypes(source: any, contracts: any[], models: string[]): Generator<string> {
+	// Create enums for all enum types
+	yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+		if (context.length === 1) {
+			// Shared enum at the components.schemas level
+			yield '@enum.unique\n';
+			yield `class ${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
+			yield '    """\n';
+			yield formatComment(`    `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]));
+		} else {
+			// Enum field within another interface
+			yield '@enum.unique\n';
+			yield `class ${snakeCaseToSentenceCase(context[1])}`;
+			yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
+			yield '    """\n';
+			yield formatComment(`    `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) +
+				` in ` +
+				snakeCaseToSentenceCase(context[1]));
+		}
+		yield '    """\n';
+		yield '\n';
+		for (let i = 0; i < values.length; i++) {
+			const value = values[i];
+			yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
+			if (i < values.length - 1) {
+				yield '\n\n';
+			} else {
+				yield '\n';
+			}
+		}
+		yield '\n\n';
+	});
+
+	// Create pydantic models for all object types
+	yield* objectVisitor([], source, function* (
+		context: Array<string>,
+		o: Record<string, any>) {
+
+		let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+		name = snakeCaseToSentenceCase(name);
+
+		// Empty object specs map to `Any`
+		const props = Object.keys(o.properties);
+		if ((!props || !props.length) && o.additionalProperties === true) {
+			return yield `${name} = Any\n`;
+		}
+
+		// Preamble
+		models.push(name);
+		yield `class ${name}(BaseModel):\n`;
+
+		// Docstring
+		if (o.description) {
+			yield '    """\n';
+			yield formatComment('    ', o.description);
+			yield '    """\n';
+			yield '\n';
+		} else {
+			yield '    """\n';
+			yield formatComment('    ', snakeCaseToSentenceCase(context[0]) + ' in ' +
+				snakeCaseToSentenceCase(context[1]));
+			yield '    """\n';
+			yield '\n';
+		}
+
+		// Fields
+		for (const prop of Object.keys(o.properties)) {
+			const schema = o.properties[prop];
+			yield `    ${prop}: `;
+			if (!o.required || !o.required.includes(prop)) {
+				yield 'Optional[';
+				yield deriveType(contracts, PythonTypeMap, [prop, ...context], schema);
+				yield ']';
+			} else {
+				yield deriveType(contracts, PythonTypeMap, [prop, ...context], schema);
+			}
+			yield ' = Field(\n';
+			if (!o.required || !o.required.includes(prop)) {
+				yield `        default=None,\n`;
+			}
+			yield `        description="${schema.description}",\n`;
+			yield `    )\n\n`;
+		}
+		yield '\n\n';
+	});
+
+	// Create declare out-of-line union types
+	yield* oneOfVisitor([], source, function* (
+		context: Array<string>,
+		o: Record<string, any>) {
+
+		let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+		name = snakeCaseToSentenceCase(name);
+
+		// Document origin of union
+		if (o.description) {
+			yield formatComment('# ', o.description);
+		} else if (context.length === 1) {
+			yield formatComment('# ', snakeCaseToSentenceCase(context[0]));
+		} else {
+			yield formatComment('# ', snakeCaseToSentenceCase(context[0]) + ' in ' +
+				snakeCaseToSentenceCase(context[1]));
+		}
+
+		yield `${name} = Union[`;
+		// Options
+		for (const option of o.oneOf) {
+			if (option.name === undefined) {
+				throw new Error(`No name in option: ${JSON.stringify(option)}`);
+			}
+			yield deriveType(contracts, PythonTypeMap, [option.name, ...context], option);
+			yield ', ';
+		}
+		yield ']\n';
+	});
+}
+
+/**
  * Create a Python comm for a given OpenRPC contract.
  *
  * @param name The name of the comm
@@ -786,9 +998,7 @@ pub fn ${name}_frontend_reply_from_value(
  *
  * @returns A generator that yields the Python code for the comm
  */
-function* createPythonComm(name: string,
-	frontend: any,
-	backend: any): Generator<string> {
+function* createPythonComm(name: string, frontend: any, backend: any): Generator<string> {
 	yield `#
 # Copyright (C) 2024-${year} Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
@@ -810,133 +1020,23 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 
 `;
 
+	const contracts = [backend, frontend].filter(element => element !== undefined);
+
+	// Add imports for external references
+	const externalReferences = collectExternalReferences(contracts);
+	if (externalReferences.length) {
+		for (const { fileName, refs } of externalReferences) {
+			if (refs.length) {
+				yield `from .${fileName}_comm import ${refs.join(', ')}\n`;
+			}
+		}
+		yield `\n`;
+	}
+
 	const models = Array<string>();
 
-	const contracts = [backend, frontend];
 	for (const source of contracts) {
-		if (!source) {
-			continue;
-		}
-
-		// Create enums for all enum types
-		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
-			if (context.length === 1) {
-				// Shared enum at the components.schemas level
-				yield '@enum.unique\n';
-				yield `class ${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
-				yield '    """\n';
-				yield formatComment(`    `,
-					`Possible values for ` +
-					snakeCaseToSentenceCase(context[0]));
-			} else {
-				// Enum field within another interface
-				yield '@enum.unique\n';
-				yield `class ${snakeCaseToSentenceCase(context[1])}`;
-				yield `${snakeCaseToSentenceCase(context[0])}(str, enum.Enum):\n`;
-				yield '    """\n';
-				yield formatComment(`    `,
-					`Possible values for ` +
-					snakeCaseToSentenceCase(context[0]) +
-					` in ` +
-					snakeCaseToSentenceCase(context[1]));
-			}
-			yield '    """\n';
-			yield '\n';
-			for (let i = 0; i < values.length; i++) {
-				const value = values[i];
-				yield `    ${snakeCaseToSentenceCase(value)} = "${value}"`;
-				if (i < values.length - 1) {
-					yield '\n\n';
-				} else {
-					yield '\n';
-				}
-			}
-			yield '\n\n';
-		});
-
-		// Create pydantic models for all object types
-		yield* objectVisitor([], source, function* (
-			context: Array<string>,
-			o: Record<string, any>) {
-
-			let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
-			name = snakeCaseToSentenceCase(name);
-
-			// Empty object specs map to `Any`
-			const props = Object.keys(o.properties);
-			if ((!props || !props.length) && o.additionalProperties === true) {
-				return yield `${name} = Any\n`;
-			}
-
-			// Preamble
-			models.push(name);
-			yield `class ${name}(BaseModel):\n`;
-
-			// Docstring
-			if (o.description) {
-				yield '    """\n';
-				yield formatComment('    ', o.description);
-				yield '    """\n';
-				yield '\n';
-			} else {
-				yield '    """\n';
-				yield formatComment('    ', snakeCaseToSentenceCase(context[0]) + ' in ' +
-					snakeCaseToSentenceCase(context[1]));
-				yield '    """\n';
-				yield '\n';
-			}
-
-			// Fields
-			for (const prop of Object.keys(o.properties)) {
-				const schema = o.properties[prop];
-				yield `    ${prop}: `;
-				if (!o.required || !o.required.includes(prop)) {
-					yield 'Optional[';
-					yield deriveType(contracts, PythonTypeMap, [prop, ...context], schema);
-					yield ']';
-				} else {
-					yield deriveType(contracts, PythonTypeMap, [prop, ...context], schema);
-				}
-				yield ' = Field(\n';
-				if (!o.required || !o.required.includes(prop)) {
-					yield `        default=None,\n`;
-				}
-				yield `        description="${schema.description}",\n`;
-				yield `    )\n\n`;
-			}
-			yield '\n\n';
-		});
-
-		// Create declare out-of-line union types
-		yield* oneOfVisitor([], source, function* (
-			context: Array<string>,
-			o: Record<string, any>) {
-
-			let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
-			name = snakeCaseToSentenceCase(name);
-
-			// Document origin of union
-
-			if (o.description) {
-				yield formatComment('# ', o.description);
-			} else if (context.length === 1) {
-				yield formatComment('# ', snakeCaseToSentenceCase(context[0]));
-			} else {
-				yield formatComment('# ', snakeCaseToSentenceCase(context[0]) + ' in ' +
-					snakeCaseToSentenceCase(context[1]));
-			}
-
-			yield `${name} = Union[`;
-			// Options
-			for (const option of o.oneOf) {
-				if (option.name === undefined) {
-					throw new Error(`No name in option: ${JSON.stringify(option)}`);
-				}
-				yield deriveType(contracts, PythonTypeMap, [option.name, ...context], option);
-				yield ', ';
-			}
-			yield ']\n';
-		});
+		yield* createPythonValueTypes(source, contracts, models);
 	}
 
 	if (backend) {
@@ -1020,7 +1120,7 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 	}
 
 	// Create the backend message content class
-	if (backend) {
+	if (backend && backend.methods) {
 		yield `class ${snakeCaseToSentenceCase(name)}BackendMessageContent(BaseModel):\n`;
 		yield `    comm_id: str\n`;
 		if (backend.methods.length === 1) {
@@ -1180,128 +1280,22 @@ function* createTypescriptComm(name: string, frontend: any, backend: any): Gener
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
 `;
-	const contracts = [backend, frontend];
-	const namedContracts = [{ name: 'Backend', source: backend },
-	{ name: 'Frontend', source: frontend }];
+
+	const contracts = [backend, frontend].filter(element => element !== undefined);
+
+	// Add imports for external references
+	const externalReferences = collectExternalReferences(contracts);
+	if (externalReferences.length) {
+		for (const { fileName, refs } of externalReferences) {
+			if (refs.length) {
+				yield `import { ${refs.join(', ')} } from './positron${snakeCaseToSentenceCase(fileName)}Comm.js';\n`;
+			}
+		}
+		yield `\n`;
+	}
 
 	for (const source of contracts) {
-		if (!source) {
-			continue;
-		}
-		yield* objectVisitor([], source,
-			function* (context: Array<string>, o: Record<string, any>): Generator<string> {
-				const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
-				const description = o.description ? o.description :
-					snakeCaseToSentenceCase(context[0]) + ' in ' +
-					snakeCaseToSentenceCase(context[1]);
-				const additionalProperties = o.additionalProperties ? o.additionalProperties : false;
-				yield* createTypescriptInterface(contracts, context, name, description, o.properties,
-					o.required ? o.required : [], additionalProperties);
-			});
-
-		// Create declare out-of-line union types
-		yield* oneOfVisitor([], source, function* (
-			context: Array<string>,
-			o: Record<string, any>) {
-
-			let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
-			name = snakeCaseToSentenceCase(name);
-
-			// Document origin of union
-			if (o.description) {
-				yield formatComment('/// ', o.description);
-			} else if (context.length === 1) {
-				yield formatComment('/// ', snakeCaseToSentenceCase(context[0]));
-			} else {
-				yield formatComment('/// ', snakeCaseToSentenceCase(context[0]) + ' in ' +
-					snakeCaseToSentenceCase(context[1]));
-			}
-			yield `export type ${name} = `;
-			// Options
-			for (let i = 0; i < o.oneOf.length; i++) {
-				const option = o.oneOf[i];
-				if (option.name === undefined) {
-					throw new Error(`No name in option: ${JSON.stringify(option)}`);
-				}
-				yield deriveType(contracts, TypescriptTypeMap, [option.name, ...context], option);
-				if (i < o.oneOf.length - 1) {
-					yield ' | ';
-				}
-			}
-			yield ';\n\n';
-		});
-
-		// Create enums for all enum types
-		yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
-			yield '/**\n';
-			if (context.length === 1) {
-				// Shared enum at the components.schemas level
-				yield formatComment(` * `,
-					`Possible values for ` +
-					snakeCaseToSentenceCase(context[0]));
-				yield ' */\n';
-				yield `export enum ${snakeCaseToSentenceCase(context[0])} {\n`;
-			} else {
-				// Enum field within another interface
-				yield formatComment(` * `,
-					`Possible values for ` +
-					snakeCaseToSentenceCase(context[0]) + ` in ` +
-					snakeCaseToSentenceCase(context[1]));
-				yield ' */\n';
-				yield `export enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
-			}
-			for (let i = 0; i < values.length; i++) {
-				const value = values[i];
-				yield `\t${snakeCaseToSentenceCase(value)} = '${value}'`;
-				if (i < values.length - 1) {
-					yield ',\n';
-				} else {
-					yield '\n';
-				}
-			}
-			yield '}\n\n';
-		});
-
-		// Create parameter objects for each method
-		for (const method of source.methods) {
-			if (method.params.length > 0) {
-				yield '/**\n';
-				yield formatComment(` * `,
-					`Parameters for the ` +
-					snakeCaseToSentenceCase(method.name) + ` ` +
-					`method.`);
-				yield ' */\n';
-				yield `export interface ${snakeCaseToSentenceCase(method.name)}Params {\n`;
-				for (let i = 0; i < method.params.length; i++) {
-					const param = method.params[i];
-					if (param.description) {
-						yield '\t/**\n';
-						yield formatComment('\t * ', param.description);
-						yield '\t */\n';
-					}
-					if (param.schema.enum) {
-						// Use an enum type if the schema has an enum
-						yield `\t${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)};\n`;
-					} else if (param.schema.type === 'object' && Object.keys(param.schema.properties).length === 0) {
-						// Handle the "any" type
-						yield `\t${param.name}: any;\n`;
-					} else {
-						// Otherwise use the type directly
-						yield `\t${param.name}`;
-						if (isOptional(param)) {
-							yield `?`;
-						}
-						yield `: `;
-						yield deriveType(contracts, TypescriptTypeMap, [param.name], param.schema);
-						yield `;\n`;
-					}
-					if (i < method.params.length - 1) {
-						yield '\n';
-					}
-				}
-				yield `}\n\n`;
-			}
-		}
+		yield* createTypescriptValueTypes(source, contracts);
 	}
 
 	if (frontend) {
@@ -1516,6 +1510,158 @@ import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 	}
 
 	yield `}\n\n`;
+}
+
+/**
+ * Process schema fields and create types for objects, enums, and one-ofs in TypeScript.
+ */
+function* createTypescriptValueTypes(source: any, contracts: any[]): Generator<string> {
+	// Create interfaces for all object types
+	yield* objectVisitor([], source,
+		function* (context: Array<string>, o: Record<string, any>): Generator<string> {
+			const name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+			const description = o.description ? o.description :
+				snakeCaseToSentenceCase(context[0]) + ' in ' +
+				snakeCaseToSentenceCase(context[1]);
+			const additionalProperties = o.additionalProperties ? o.additionalProperties : false;
+			yield* createTypescriptInterface(contracts, context, name, description, o.properties,
+				o.required ? o.required : [], additionalProperties);
+		});
+
+	// Create declare out-of-line union types
+	yield* oneOfVisitor([], source, function* (
+		context: Array<string>,
+		o: Record<string, any>) {
+
+		let name = o.name ? o.name : context[0] === 'items' ? context[1] : context[0];
+		name = snakeCaseToSentenceCase(name);
+
+		// Document origin of union
+		if (o.description) {
+			yield formatComment('/// ', o.description);
+		} else if (context.length === 1) {
+			yield formatComment('/// ', snakeCaseToSentenceCase(context[0]));
+		} else {
+			yield formatComment('/// ', snakeCaseToSentenceCase(context[0]) + ' in ' +
+				snakeCaseToSentenceCase(context[1]));
+		}
+		yield `export type ${name} = `;
+		// Options
+		for (let i = 0; i < o.oneOf.length; i++) {
+			const option = o.oneOf[i];
+			if (option.name === undefined) {
+				throw new Error(`No name in option: ${JSON.stringify(option)}`);
+			}
+			yield deriveType(contracts, TypescriptTypeMap, [option.name, ...context], option);
+			if (i < o.oneOf.length - 1) {
+				yield ' | ';
+			}
+		}
+		yield ';\n\n';
+	});
+
+	// Create enums for all enum types
+	yield* enumVisitor([], source, function* (context: Array<string>, values: Array<string>) {
+		yield '/**\n';
+		if (context.length === 1) {
+			// Shared enum at the components.schemas level
+			yield formatComment(` * `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]));
+			yield ' */\n';
+			yield `export enum ${snakeCaseToSentenceCase(context[0])} {\n`;
+		} else {
+			// Enum field within another interface
+			yield formatComment(` * `,
+				`Possible values for ` +
+				snakeCaseToSentenceCase(context[0]) + ` in ` +
+				snakeCaseToSentenceCase(context[1]));
+			yield ' */\n';
+			yield `export enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
+		}
+		for (let i = 0; i < values.length; i++) {
+			const value = values[i];
+			yield `\t${snakeCaseToSentenceCase(value)} = '${value}'`;
+			if (i < values.length - 1) {
+				yield ',\n';
+			} else {
+				yield '\n';
+			}
+		}
+		yield '}\n\n';
+	});
+
+	// Create parameter objects for each method
+	if (source.methods) {
+		for (const method of source.methods) {
+			if (method.params.length > 0) {
+				yield '/**\n';
+				yield formatComment(` * `,
+					`Parameters for the ` +
+					snakeCaseToSentenceCase(method.name) + ` ` +
+					`method.`);
+				yield ' */\n';
+				yield `export interface ${snakeCaseToSentenceCase(method.name)}Params {\n`;
+				for (let i = 0; i < method.params.length; i++) {
+					const param = method.params[i];
+					if (param.description) {
+						yield '\t/**\n';
+						yield formatComment('\t * ', param.description);
+						yield '\t */\n';
+					}
+					if (param.schema.enum) {
+						// Use an enum type if the schema has an enum
+						yield `\t${param.name}: ${snakeCaseToSentenceCase(method.name)}${snakeCaseToSentenceCase(param.name)};\n`;
+					} else if (param.schema.type === 'object' && Object.keys(param.schema.properties).length === 0) {
+						// Handle the "any" type
+						yield `\t${param.name}: any;\n`;
+					} else {
+						// Otherwise use the type directly
+						yield `\t${param.name}`;
+						if (isOptional(param)) {
+							yield `?`;
+						}
+						yield `: `;
+						yield deriveType(contracts, TypescriptTypeMap, [param.name], param.schema);
+						yield `;\n`;
+					}
+					if (i < method.params.length - 1) {
+						yield '\n';
+					}
+				}
+				yield `}\n\n`;
+			}
+		}
+	}
+}
+
+/**
+ * Visitor function for collecting `$ref` references in an OpenRPC contract.
+ * Recursively discovers and yields all `$ref` values.
+ *
+ * @param contract The OpenRPC contract to visit.
+ * @returns A generator that yields each `$ref` reference.
+ */
+function* refVisitor(
+	contract: any,
+): Generator<string> {
+	if (Array.isArray(contract)) {
+		for (const item of contract) {
+			yield* refVisitor(item);
+		}
+		return;
+	}
+
+	if (contract && typeof contract === 'object') {
+		// Found one
+		if (contract.$ref) {
+			yield contract.$ref;
+		}
+
+		for (const key of Object.keys(contract)) {
+			yield* refVisitor(contract[key]);
+		}
+	}
 }
 
 async function createCommInterface() {
