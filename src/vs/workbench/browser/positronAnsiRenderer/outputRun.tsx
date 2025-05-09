@@ -13,10 +13,12 @@ import React, { CSSProperties, MouseEvent } from 'react';
 import { localize } from '../../../nls.js';
 import { Schemas } from '../../../base/common/network.js';
 import * as platform from '../../../base/common/platform.js';
+import { URI } from '../../../base/common/uri.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
 import { INotificationService } from '../../../platform/notification/common/notification.js';
 import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
+import * as DOM from '../../../base/browser/dom.js';
 
 /**
  * Constants.
@@ -73,6 +75,27 @@ export const OutputRun = (props: OutputRunProps) => {
 			url = url
 				.replace(/\\/g, '/')
 				.replace(fileURLThatNeedsASlash, '$1/$2');
+		}
+
+		// For web environments, we need to rewrite file URLs
+		// BEFORE example:
+		// file:///Users/jenny/rrr/positron-learning/testfun/DESCRIPTION
+		// AFTER example:
+		// vscode-remote://localhost:8080/Users/jenny/rrr/positron-learning/testfun/DESCRIPTION
+		try {
+			const fileUri = URI.parse(url);
+			if (fileUri.scheme === Schemas.file && platform.isWeb) {
+				const remoteUri = URI.from({
+					scheme: Schemas.vscodeRemote,
+					authority: DOM.getActiveWindow().location.host,
+					path: fileUri.path,
+					query: fileUri.query,
+					fragment: fileUri.fragment
+				});
+				url = remoteUri.toString();
+			}
+		} catch (e) {
+			console.error('Failed to transform file URL:', e);
 		}
 
 		// Get the line parameter. If it's not present, return the URL.
