@@ -6,7 +6,7 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
-import { localize } from '../../../../nls.js';
+import { localize, localize2 } from '../../../../nls.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
@@ -29,6 +29,12 @@ import { ICommandAndKeybindingRule, KeybindingsRegistry, KeybindingWeight } from
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { Action2, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Codicon } from '../../../../base/common/codicons.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { getNotebookEditorFromEditorPane } from '../../notebook/browser/notebookBrowser.js';
+import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 
 
@@ -265,4 +271,50 @@ function registerNotebookKeybinding({ id, onRun, ...opts }: {
 		...opts
 	});
 }
+
+class ShowNotebookConsoleAction extends Action2 {
+	constructor() {
+		super({
+			id: 'positronNotebook.showNotebookConsole',
+			title: localize2('showNotebookConsole', 'Show Notebook Console'),
+			icon: Codicon.positronNewConsole,
+			f1: true
+		});
+	}
+
+	override run(accessor: ServicesAccessor, ...args: any[]): void {
+		// Get the active notebook instance
+		const notebookService = accessor.get(IPositronNotebookService);
+		const consoleService = accessor.get(IPositronConsoleService);
+		const editorService = accessor.get(IEditorService);
+		const runtimeSessionService = accessor.get(IRuntimeSessionService);
+
+		// First, check for an active Positron notebook
+		const activeNotebook = notebookService.getActiveInstance();
+		if (activeNotebook) {
+			const notebookSession = activeNotebook.currentSession.get();
+			if (!notebookSession) {
+				return;
+			}
+			consoleService.createOrActivateNotebookSession(notebookSession.sessionId);
+			return;
+		}
+
+		// If none, derive the notebook context from the active editor
+		const editor = getNotebookEditorFromEditorPane(editorService.activeEditorPane);
+		if (!editor || !editor.hasModel()) {
+			return;
+		}
+		const notebookUri = editor.textModel.uri;
+		const session = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		if (!session) {
+			throw new Error(`No session found for notebook ${notebookUri.toString()}`);
+		}
+		consoleService.createOrActivateNotebookSession(session.sessionId);
+	}
+
+}
+
+registerAction2(ShowNotebookConsoleAction);
+
 //#endregion Keybindings

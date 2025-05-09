@@ -161,6 +161,15 @@ export interface IPositronConsoleService {
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string): Promise<string>;
 
+
+	/**
+	 * Creates a console session for a notebook session. If there is already
+	 * such a session, activates it.
+	 *
+	 * @param sessionId The session ID of the notebook session.
+	 */
+	createOrActivateNotebookSession(sessionId: string): Promise<void>;
+
 	/**
 	 * Fires when code is executed in any Positron console instance.
 	 */

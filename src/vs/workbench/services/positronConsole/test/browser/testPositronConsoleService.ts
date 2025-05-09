@@ -250,6 +250,10 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		this.addTestConsoleInstance(instance);
 		return instance;
 	}
+
+	createOrActivateNotebookSession(sessionId: string): Promise<void> {
+		throw new Error('Method not implemented.');
+	}
 }
 
 /**

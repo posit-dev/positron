@@ -447,6 +447,24 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}));
 	}
 
+	async createOrActivateNotebookSession(sessionId: string): Promise<void> {
+		// Check to see if any of the current console instances match the session id
+		const positronConsoleInstance = this._positronConsoleInstancesBySessionId.get(
+			sessionId);
+		if (positronConsoleInstance) {
+			await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
+			positronConsoleInstance.focusInput();
+			return;
+		}
+
+		// Get the session associated with the notebook
+		const session = this._runtimeSessionService.getSession(sessionId);
+		if (!session) {
+			throw new Error(`Session ${sessionId} not found.`);
+		}
+		this.startPositronConsoleInstance(session, SessionAttachMode.Connected, true);
+	}
+
 	//#endregion Constructor & Dispose
 
 	//#region IPositronConsoleService Implementation

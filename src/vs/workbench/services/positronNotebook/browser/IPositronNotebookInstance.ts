@@ -84,7 +84,7 @@ export interface IPositronNotebookInstance {
 	 * Observable reference to the current runtime session for the notebook.
 	 * This manages the connection to the kernel and execution environment.
 	 */
-	currentRuntime: ISettableObservable<ILanguageRuntimeSession | undefined>;
+	currentSession: ISettableObservable<ILanguageRuntimeSession | undefined>;
 
 	/**
 	 * State machine that manages cell selection behavior and state.

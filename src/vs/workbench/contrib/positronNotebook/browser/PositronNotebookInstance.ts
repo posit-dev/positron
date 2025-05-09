@@ -253,7 +253,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	/**
 	 * Current runtime for the notebook.
 	 */
-	currentRuntime: ISettableObservable<ILanguageRuntimeSession | undefined, void>;
+	currentSession: ISettableObservable<ILanguageRuntimeSession | undefined, void>;
 
 	/**
 	 * Language for the notebook.
@@ -361,7 +361,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._id = _input.uniqueId;
 		this.cells = observableValue<IPositronNotebookCell[]>('positronNotebookCells', this._cells);
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
-		this.currentRuntime = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
+		this.currentSession = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
 
 		this.contextManager = this._instantiationService.createInstance(PositronNotebookContextKeyManager);
 		this._positronNotebookService.registerInstance(this);
@@ -394,11 +394,11 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this._register(
 			this.runtimeSessionService.onDidStartRuntime((session) => {
 				if (session.metadata.notebookUri && this._isThisNotebook(session.metadata.notebookUri)) {
-					this.currentRuntime.set(session, undefined);
+					this.currentSession.set(session, undefined);
 					this.kernelStatus.set(KernelStatus.Connected, undefined);
 
 					session.onDidEndSession(() => {
-						this.currentRuntime.set(undefined, undefined);
+						this.currentSession.set(undefined, undefined);
 						this.kernelStatus.set(KernelStatus.Disconnected, undefined);
 					});
 				}
