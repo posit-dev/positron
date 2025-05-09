@@ -10,5 +10,6 @@
 	padding-right: 8px;
 	align-items: center;
 	box-sizing: border-box;
+	background-color: var(--positronActionBar-background);
 	border-bottom: 1px solid var(--positronActionBar-border);
 }
