@@ -567,7 +567,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			} else {
 				// There is no registered runtime for the language, so we can't execute code.
 				throw new Error(
-					`Cannot execute code because no there is no registered runtime for the '${languageId}' language.`);
+					`Cannot execute code because there is no registered runtime for the '${languageId}' language.`);
 			}
 		}
 
