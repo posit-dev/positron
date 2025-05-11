@@ -114,9 +114,16 @@ suite('Positron - RuntimeSessionService', () => {
 				'Expected a starting or running console session' :
 				'Expected no starting or running console session',
 		);
+		const actualConsoleSessionForLanguage = runtimeSessionService.getConsoleSessionForLanguage(runtimeMetadata.languageId);
 		assert.strictEqual(
-			runtimeSessionService.getConsoleSessionForLanguage(runtimeMetadata.languageId),
-			expectedState?.consoleSessionForLanguage,
+			actualConsoleSessionForLanguage?.sessionId,
+			expectedState?.consoleSessionForLanguage?.sessionId,
+			`Expected the last used console session for language '${runtimeMetadata.languageId}' `
+			+ `to be '${expectedState?.consoleSessionForLanguage?.sessionId}'. `
+			+ (actualConsoleSessionForLanguage ?
+				`Got '${actualConsoleSessionForLanguage.sessionId}'` :
+				`Got no session`
+			),
 		);
 		assert.strictEqual(
 			runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId),
@@ -148,13 +155,18 @@ suite('Positron - RuntimeSessionService', () => {
 
 	function assertHasSession(
 		session: ILanguageRuntimeSession,
-		overrides?: { activeSessions?: ILanguageRuntimeSession[] },
+		overrides?: {
+			activeSessions?: ILanguageRuntimeSession[];
+			consoleSessionForLanguage?: ILanguageRuntimeSession;
+		},
 	) {
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			assertServiceState({
 				hasStartingOrRunningConsole: true,
 				consoleSession: session,
-				consoleSessionForLanguage: session,
+				consoleSessionForLanguage: (overrides && 'consoleSessionForLanguage' in overrides) ?
+					overrides.consoleSessionForLanguage :
+					session,
 				consoleSessionForRuntime: session,
 				activeSessions: overrides?.activeSessions ?? [session],
 			}, session.runtimeMetadata);
@@ -169,7 +181,10 @@ suite('Positron - RuntimeSessionService', () => {
 
 	function assertSessionIsStarting(
 		session: ILanguageRuntimeSession,
-		overrides?: { activeSessions?: ILanguageRuntimeSession[] },
+		overrides?: {
+			activeSessions?: ILanguageRuntimeSession[];
+			consoleSessionForLanguage?: ILanguageRuntimeSession;
+		},
 	) {
 		assertHasSession(session, overrides);
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Starting);
@@ -317,41 +332,41 @@ suite('Positron - RuntimeSessionService', () => {
 
 					sinon.assert.calledOnce(onWillStartSessionSpy);
 
-					const args = onWillStartSessionSpy.getCall(0).args[0];
+					const event = onWillStartSessionSpy.getCall(0).args[0];
 					if (action === 'restore') {
-						assert.strictEqual(args.startMode, RuntimeStartMode.Reconnecting);
+						assert.strictEqual(event.startMode, RuntimeStartMode.Reconnecting);
 					} else {
-						assert.strictEqual(args.startMode, RuntimeStartMode.Starting);
+						assert.strictEqual(event.startMode, RuntimeStartMode.Starting);
 					}
-					assert.strictEqual(args.session.sessionId, session.sessionId);
-					assert.strictEqual(args.activate, true);
+					assert.strictEqual(event.session.sessionId, session.sessionId);
+					assert.strictEqual(event.activate, true);
 
 					assert.ifError(error);
 				});
 			}
 
-			/**
-			 * TODO: Fix failing tests for console
-			 * see https://github.com/posit-dev/positron/issues/7423
-			 */
-			if (mode === LanguageRuntimeSessionMode.Notebook) {
-				test(`${action} ${mode} fires onDidStartRuntime`, async () => {
-					let error: Error | undefined;
-					const target = sinon.stub<[e: ILanguageRuntimeSession]>().callsFake(session => {
-						try {
-							assertSessionIsStarting(session);
-						} catch (e) {
-							error = e;
-						}
-					});
-					disposables.add(runtimeSessionService.onDidStartRuntime(target));
-
-					const session = await start();
-
-					sinon.assert.calledOnceWithExactly(target, session);
-					assert.ifError(error);
+			test(`${action} ${mode} fires onDidStartRuntime`, async function () {
+				let error: Error | undefined;
+				const onDidStartRuntimeSpy = sinon.stub<[e: ILanguageRuntimeSession]>().callsFake(session => {
+					try {
+						// TODO: Starting a console no longer sets it as the last used console for the language.
+						// That only happens when the session becomes ready...?
+						assertSessionIsStarting(session, { consoleSessionForLanguage: undefined });
+					} catch (e) {
+						error = e;
+					}
 				});
-			}
+				disposables.add(runtimeSessionService.onDidStartRuntime(onDidStartRuntimeSpy));
+
+				const session = await start();
+
+				sinon.assert.calledOnce(onDidStartRuntimeSpy);
+
+				const actualSession = onDidStartRuntimeSpy.getCall(0).args[0];
+				assert.strictEqual(actualSession.sessionId, session.sessionId);
+
+				assert.ifError(error);
+			});
 
 			test(`${action} ${mode} fires events in order`, async () => {
 				const willStartSession = sinon.spy();
