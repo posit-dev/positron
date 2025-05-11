@@ -473,25 +473,19 @@ suite('Positron - RuntimeSessionService', () => {
 				});
 			});
 
-			/**
-			 * TODO: Fix `restore console` iteration of failing test
-			 * see https://github.com/posit-dev/positron/issues/7423
-			 */
-			if (!(action === 'restore' && mode === LanguageRuntimeSessionMode.Console)) {
-				test(`${action} ${mode} concurrently encounters session.start() error`, async () => {
-					// Listen to the onWillStartSession event and stub session.start() to throw an error.
-					const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
-						sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
-					});
-					disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
-
-					// Start twice concurrently. Both should error.
-					await Promise.all([
-						assert.rejects(start()),
-						assert.rejects(start()),
-					]);
+			test(`${action} ${mode} concurrently encounters session.start() error`, async () => {
+				// Listen to the onWillStartSession event and stub session.start() to throw an error.
+				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
+					sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
 				});
-			}
+				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+
+				// Start twice concurrently. Both should error.
+				await Promise.all([
+					assert.rejects(start()),
+					assert.rejects(start()),
+				]);
+			});
 
 			if (mode === LanguageRuntimeSessionMode.Notebook) {
 				test(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
