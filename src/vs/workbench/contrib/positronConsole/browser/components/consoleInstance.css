@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -24,11 +24,11 @@
 }
 
 .console-core .console-instance::-webkit-scrollbar:vertical {
-	border-left: 0.5px solid var(--vscode-positronScrollBar-border);
+	border-left: 1px solid var(--vscode-positronScrollBar-border);
 }
 
 .console-core .console-instance::-webkit-scrollbar:horizontal {
-	border-top: 0.5px solid var(--vscode-positronScrollBar-border);
+	border-top: 1px solid var(--vscode-positronScrollBar-border);
 }
 
 .console-core .console-instance::-webkit-scrollbar-track {

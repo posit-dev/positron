@@ -3,9 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.positron-data-explorer
-.action-bar {
-	height: 32px;
+.positron-data-explorer .action-bar {
+	height: var(--positronActionBar-height);
 	grid-row: action-bar / data-explorer-panel;
 	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
 	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);

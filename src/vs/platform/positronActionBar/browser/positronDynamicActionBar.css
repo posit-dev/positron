@@ -35,22 +35,10 @@
 	background-color: transparent;
 }
 
-.positron-dynamic-action-bar.small {
-	--positronActionBar-height: 32px;
-	--positronActionBar-iconSize: 28px;
-	--positronActionBar-tooltipTop: 30px;
-}
-
-.positron-dynamic-action-bar.large {
-	--positronActionBar-height: 34px;
-	--positronActionBar-iconSize: 28px;
-	--positronActionBar-tooltipTop: 32px;
-}
-
 .positron-dynamic-action-bar.border-top {
-	border-top: 0.5px solid var(--positronActionBar-border);
+	border-top: 1px solid var(--positronActionBar-border);
 }
 
 .positron-dynamic-action-bar.border-bottom {
-	border-bottom: 0.5px solid var(--positronActionBar-border);
+	border-bottom: 1px solid var(--positronActionBar-border);
 }
