@@ -376,19 +376,19 @@ suite('Positron - RuntimeSessionService', () => {
 
 			if (mode === LanguageRuntimeSessionMode.Console) {
 				test(`${action} ${mode} sets foregroundSession`, async () => {
-					const target = sinon.spy();
-					disposables.add(runtimeSessionService.onDidChangeForegroundSession(target));
+					const onDidChangeForegroundSessionSpy = sinon.spy();
+					disposables.add(runtimeSessionService.onDidChangeForegroundSession(onDidChangeForegroundSessionSpy));
 
 					const session = await start();
 
-					assert.strictEqual(runtimeSessionService.foregroundSession, session);
+					assert.strictEqual(runtimeSessionService.foregroundSession?.sessionId, session.sessionId);
 
 					await waitForRuntimeState(session, RuntimeState.Ready);
 
 					// TODO: Feels a bit surprising that this isn't fired. It's because we set the private
 					//       _foregroundSession property instead of the setter. When the 'ready' state is
 					//       entered, we skip setting foregroundSession because it already matches the session.
-					sinon.assert.notCalled(target);
+					sinon.assert.notCalled(onDidChangeForegroundSessionSpy);
 				});
 			}
 
