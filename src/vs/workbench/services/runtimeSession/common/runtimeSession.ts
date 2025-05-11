@@ -309,7 +309,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			.find(({ info }) =>
 				info.session.runtimeMetadata.runtimeId === runtimeId &&
 				info.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
-				(includeExited || info.state !== RuntimeState.Exited)
+				(includeExited || info.state !== RuntimeState.Exited) &&
+				info.state !== RuntimeState.Uninitialized
 			)
 			?.info.session;
 	}
@@ -422,6 +423,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		} else {
 			// Check if there is a console session for this runtime already
+			// TODO: This returns uninitialized sessions.
+			//       If session.start() errors while starting, the session stays in active sessions and gets
+			//       returned here. Is that expected?
 			const existingSession = this.getConsoleSessionForRuntime(runtimeId, true);
 			if (existingSession) {
 				// Set it as the foreground session and return.

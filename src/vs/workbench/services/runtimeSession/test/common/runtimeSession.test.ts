@@ -104,7 +104,10 @@ suite('Positron - RuntimeSessionService', () => {
 
 	function assertServiceState(expectedState?: IServiceState, runtimeMetadata = runtime): void {
 		// Check the active sessions.
-		assert.deepStrictEqual(runtimeSessionService.activeSessions, expectedState?.activeSessions ?? []);
+		assert.deepStrictEqual(
+			runtimeSessionService.activeSessions.map(session => session.sessionId),
+			expectedState?.activeSessions?.map(session => session.sessionId) ?? [],
+		);
 
 		// Check the console session state.
 		assert.strictEqual(
@@ -125,9 +128,16 @@ suite('Positron - RuntimeSessionService', () => {
 				`Got no session`
 			),
 		);
+		const actualConsoleSessionForRuntime = runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId);
 		assert.strictEqual(
-			runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId),
-			expectedState?.consoleSessionForRuntime,
+			actualConsoleSessionForRuntime?.sessionId,
+			expectedState?.consoleSessionForRuntime?.sessionId,
+			`Expected the last used console session for runtime '${runtimeMetadata.runtimeId}' `
+			+ `to be '${expectedState?.consoleSessionForRuntime?.sessionId}'. `
+			+ (actualConsoleSessionForRuntime ?
+				`Got '${actualConsoleSessionForRuntime.sessionId}'` :
+				`Got no session`
+			),
 		);
 		assert.strictEqual(
 			runtimeSessionService.getSession(expectedState?.consoleSession?.sessionId ?? ''),
@@ -416,11 +426,7 @@ suite('Positron - RuntimeSessionService', () => {
 				assertSessionIsStarting(session);
 			});
 
-			/**
-			 * TODO: Fix failing tests for console
-			 * see https://github.com/posit-dev/positron/issues/7423
-			 */
-			test.skip(`${action} ${mode} encounters session.start() error`, async () => {
+			test(`${action} ${mode} encounters session.start() error`, async () => {
 				// Listen to the onWillStartSession event and stub session.start() to throw an error.
 				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
 					sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
@@ -443,18 +449,9 @@ suite('Positron - RuntimeSessionService', () => {
 
 				assert.strictEqual(session1.getRuntimeState(), RuntimeState.Uninitialized);
 
-				if (mode === LanguageRuntimeSessionMode.Console) {
-					assertServiceState({
-						hasStartingOrRunningConsole: false,
-						// Note that getConsoleSessionForRuntime includes uninitialized sessions
-						// but getConsoleSessionForLanguage does not.
-						consoleSessionForLanguage: undefined,
-						consoleSessionForRuntime: session1,
-						activeSessions: [session1],
-					});
-				} else {
-					assertServiceState({ activeSessions: [session1] });
-				}
+				// The session should not be returned by any service methods
+				// but is still considered an active session.
+				assertServiceState({ activeSessions: [session1] });
 
 				sinon.assert.calledOnceWithExactly(didFailStartRuntime, session1);
 				sinon.assert.callOrder(willStartSession, didFailStartRuntime);
