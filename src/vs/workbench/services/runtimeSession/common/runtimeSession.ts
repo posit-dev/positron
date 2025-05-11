@@ -648,18 +648,20 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
+		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
+
+		// Wrap the promise to return void.
+		const resultPromise = startPromise.p.then(() => { });
+
+		// For notebook sessions, track the starting session so that further
+		// requests can return the same pending promise.
 		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			// Create a promise that resolves when the runtime is ready to use.
 			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
-
-			// It's possible that startPromise is never awaited, so we log any errors here
-			// at the debug level since we still expect the error to be handled/logged elsewhere.
-			startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
-
 			this.setStartingSessionMaps(
 				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
 		}
+
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
 		if (this._sessionManagers.length === 0) {
@@ -676,7 +678,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				this.clearStartingSessionMaps(
 					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
 			}
-			throw err;
+			return resultPromise;
 		}
 
 		// Restore the session. This can take some time; it may involve waiting
@@ -694,7 +696,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				this.clearStartingSessionMaps(
 					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
 			}
-			throw err;
+			return resultPromise;
 		}
 
 		// Actually reconnect the session.
@@ -705,7 +707,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			startPromise.error(err);
 		}
 
-		return startPromise.p.then(() => { });
+		return resultPromise;
 	}
 
 	/**
