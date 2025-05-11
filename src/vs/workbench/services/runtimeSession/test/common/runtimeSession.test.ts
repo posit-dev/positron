@@ -312,38 +312,32 @@ suite('Positron - RuntimeSessionService', () => {
 				assertSessionIsStarting(session);
 			});
 
-			/**
-			 * TODO: Fix `restore console` iteration of failing tests
-			 * see https://github.com/posit-dev/positron/issues/7423
-			 */
-			if (!(action === 'restore' && mode === LanguageRuntimeSessionMode.Console)) {
-				test(`${action} ${mode} fires onWillStartSession`, async function () {
-					let error: Error | undefined;
-					const onWillStartSessionSpy = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
-						try {
-							assert.strictEqual(session.getRuntimeState(), RuntimeState.Uninitialized);
-							assertSessionWillStart(mode);
-						} catch (e) {
-							error = e;
-						}
-					});
-					disposables.add(runtimeSessionService.onWillStartSession(onWillStartSessionSpy));
-					const session = await start();
-
-					sinon.assert.calledOnce(onWillStartSessionSpy);
-
-					const event = onWillStartSessionSpy.getCall(0).args[0];
-					if (action === 'restore') {
-						assert.strictEqual(event.startMode, RuntimeStartMode.Reconnecting);
-					} else {
-						assert.strictEqual(event.startMode, RuntimeStartMode.Starting);
+			test(`${action} ${mode} fires onWillStartSession`, async function () {
+				let error: Error | undefined;
+				const onWillStartSessionSpy = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
+					try {
+						assert.strictEqual(session.getRuntimeState(), RuntimeState.Uninitialized);
+						assertSessionWillStart(mode);
+					} catch (e) {
+						error = e;
 					}
-					assert.strictEqual(event.session.sessionId, session.sessionId);
-					assert.strictEqual(event.activate, true);
-
-					assert.ifError(error);
 				});
-			}
+				disposables.add(runtimeSessionService.onWillStartSession(onWillStartSessionSpy));
+				const session = await start();
+
+				sinon.assert.calledOnce(onWillStartSessionSpy);
+
+				const event = onWillStartSessionSpy.getCall(0).args[0];
+				if (action === 'restore') {
+					assert.strictEqual(event.startMode, RuntimeStartMode.Reconnecting);
+				} else {
+					assert.strictEqual(event.startMode, RuntimeStartMode.Starting);
+				}
+				assert.strictEqual(event.session.sessionId, session.sessionId);
+				assert.strictEqual(event.activate, true);
+
+				assert.ifError(error);
+			});
 
 			test(`${action} ${mode} fires onDidStartRuntime`, async function () {
 				let error: Error | undefined;
