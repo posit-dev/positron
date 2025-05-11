@@ -22,7 +22,7 @@ import { TestWorkspaceTrustManagementService } from '../../../../test/common/wor
 
 type IStartSessionTask = (runtimeMetadata?: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
-suite.skip('Positron - RuntimeSessionService', () => {
+suite('Positron - RuntimeSessionService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	const startReason = 'Test requested to start a runtime session';
 	const notebookUri = URI.file('/path/to/notebook');
@@ -531,20 +531,16 @@ suite.skip('Positron - RuntimeSessionService', () => {
 
 					assertSessionIsStarting(result1);
 				});
+
+				test(`${action} ${mode} concurrently`, async function () {
+					const [result1, result2, result3] = await Promise.all([start(), start(), start()]);
+
+					assert.strictEqual(result1, result2);
+					assert.strictEqual(result2, result3);
+
+					assertSessionIsStarting(result1);
+				});
 			}
-
-			/**
-			 * TODO: Fix `restore console` iteration of failing tests
-			 * see https://github.com/posit-dev/positron/issues/7423
-			 */
-			test.skip(`${action} ${mode} concurrently`, async () => {
-				const [result1, result2, result3] = await Promise.all([start(), start(), start()]);
-
-				assert.strictEqual(result1, result2);
-				assert.strictEqual(result2, result3);
-
-				assertSessionIsStarting(result1);
-			});
 
 			if (mode === LanguageRuntimeSessionMode.Console) {
 				test(`${action} console concurrently with no session manager for runtime (#5615)`, async () => {
