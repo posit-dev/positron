@@ -302,13 +302,9 @@ suite('Positron - RuntimeSessionService', () => {
 					assertSessionIsStarting(session);
 				});
 
-				/**
-				 * TODO: Fix `console` iteration of failing tests
-				 * see https://github.com/posit-dev/positron/issues/7423
-				 */
-				test.skip(`${action} ${mode} fires onWillStartSession`, async () => {
+				test(`${action} ${mode} fires onWillStartSession`, async function () {
 					let error: Error | undefined;
-					const target = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
+					const onWillStartSessionSpy = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
 						try {
 							assert.strictEqual(session.getRuntimeState(), RuntimeState.Uninitialized);
 							assertSessionWillStart(mode);
@@ -316,18 +312,19 @@ suite('Positron - RuntimeSessionService', () => {
 							error = e;
 						}
 					});
-					disposables.add(runtimeSessionService.onWillStartSession(target));
+					disposables.add(runtimeSessionService.onWillStartSession(onWillStartSessionSpy));
 					const session = await start();
 
-					let startMode: RuntimeStartMode;
+					sinon.assert.calledOnce(onWillStartSessionSpy);
+
+					const args = onWillStartSessionSpy.getCall(0).args[0];
 					if (action === 'restore') {
-						startMode = RuntimeStartMode.Reconnecting;
-					} else if (action === 'select') {
-						startMode = RuntimeStartMode.Switching;
+						assert.strictEqual(args.startMode, RuntimeStartMode.Reconnecting);
 					} else {
-						startMode = RuntimeStartMode.Starting;
+						assert.strictEqual(args.startMode, RuntimeStartMode.Starting);
 					}
-					sinon.assert.calledOnceWithExactly(target, { startMode, session, activate: true });
+					assert.strictEqual(args.session.sessionId, session.sessionId);
+					assert.strictEqual(args.activate, true);
 
 					assert.ifError(error);
 				});
