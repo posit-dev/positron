@@ -297,26 +297,26 @@ suite('Positron - RuntimeSessionService', () => {
 				}
 			});
 
+			test(`${action} ${mode} sets the expected service state`, async () => {
+				// Check the initial state.
+				assertServiceState();
+
+				const promise = start();
+
+				// Check the state before awaiting the promise.
+				assertSessionWillStart(mode);
+
+				const session = await promise;
+
+				// Check the state after awaiting the promise.
+				assertSessionIsStarting(session);
+			});
+
 			/**
 			 * TODO: Fix `restore console` iteration of failing tests
 			 * see https://github.com/posit-dev/positron/issues/7423
 			 */
 			if (!(action === 'restore' && mode === LanguageRuntimeSessionMode.Console)) {
-				test(`${action} ${mode} sets the expected service state`, async () => {
-					// Check the initial state.
-					assertServiceState();
-
-					const promise = start();
-
-					// Check the state before awaiting the promise.
-					assertSessionWillStart(mode);
-
-					const session = await promise;
-
-					// Check the state after awaiting the promise.
-					assertSessionIsStarting(session);
-				});
-
 				test(`${action} ${mode} fires onWillStartSession`, async function () {
 					let error: Error | undefined;
 					const onWillStartSessionSpy = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {

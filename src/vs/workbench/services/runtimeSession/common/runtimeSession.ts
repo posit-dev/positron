@@ -648,6 +648,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
+		// Validation is complete, set the session as starting before yielding
+		// to the event loop.
+		this.setStartingSessionMaps(
+			sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
 
@@ -655,17 +660,33 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// at the debug level since we still expect the error to be handled/logged elsewhere.
 		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
 
-		// Wrap the promise to return void.
-		const resultPromise = startPromise.p.then(() => { });
-
-		// For notebook sessions, track the starting session so that further
-		// requests can return the same pending promise.
+		// For notebook sessions, update the starting sessions map so that any concurrent
+		// start/restore requests return the same pending promise.
 		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
-			this.setStartingSessionMaps(
+		}
+
+		try {
+			const sessionId = await this.doRestoreRuntimeSession(
+				sessionMetadata, runtimeMetadata, sessionName, activate);
+			startPromise.complete(sessionId);
+		} catch (err) {
+			startPromise.error(err);
+		} finally {
+			// The session is no longer considered starting.
+			this.clearStartingSessionMaps(
 				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
 		}
 
+		return startPromise.p.then(() => { });
+	}
+
+	async doRestoreRuntimeSession(
+		sessionMetadata: IRuntimeSessionMetadata,
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionName: string,
+		activate: boolean,
+	) {
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
 		if (this._sessionManagers.length === 0) {
@@ -673,17 +694,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Get the runtime's manager.
-		let sessionManager: ILanguageRuntimeSessionManager;
-		try {
-			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
-		} catch (err) {
-			startPromise.error(err);
-			if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				this.clearStartingSessionMaps(
-					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-			}
-			return resultPromise;
-		}
+		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 
 		// Restore the session. This can take some time; it may involve waiting
 		// for the extension to finish activating and the network to attempt to
@@ -695,23 +706,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._logService.error(
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
 				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
-			startPromise.error(err);
-			if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				this.clearStartingSessionMaps(
-					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-			}
-			return resultPromise;
+			throw err;
 		}
 
 		// Actually reconnect the session.
-		try {
-			await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate);
-			startPromise.complete(sessionMetadata.sessionId);
-		} catch (err) {
-			startPromise.error(err);
-		}
+		await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate);
 
-		return resultPromise;
+		return sessionMetadata.sessionId;
+
 	}
 
 	/**
