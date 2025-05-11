@@ -651,6 +651,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
 
+		// It's possible that startPromise is never awaited, so we log any errors here
+		// at the debug level since we still expect the error to be handled/logged elsewhere.
+		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
+
 		// Wrap the promise to return void.
 		const resultPromise = startPromise.p.then(() => { });
 
