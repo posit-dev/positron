@@ -165,7 +165,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	private readonly welcomePart: MutableDisposable<ChatViewWelcomePart> = this._register(new MutableDisposable());
 
 	// --- Start Positron ---
-	private actionBarContainer!: ChatActionBarControl;
+	private actionBarContainer?: ChatActionBarControl;
 	// --- End Positron ---
 
 	private bodyDimension: dom.Dimension | undefined;
@@ -523,9 +523,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		this.onDidStyleChange();
 
 		// --- Start Positron ---
-		this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl, this.inputPart));
-		this.actionBarContainer.render(this.container);
-		this.actionBarContainer.onProviderSelected((provider) => this.inputPart.currentProvider = provider);
+		if (this.location === ChatAgentLocation.Panel) {
+			this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl, this.inputPart));
+			this.actionBarContainer.render(this.container);
+			this.actionBarContainer.onProviderSelected((provider) => this.inputPart.currentProvider = provider);
+		}
 		// --- End Positron ---
 
 		// Do initial render
@@ -1295,7 +1297,7 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 
 	layout(height: number, width: number): void {
 		// --- Start Positron ---
-		const actionBarHeight = this.actionBarContainer.height;
+		const actionBarHeight = this.actionBarContainer?.height ?? 0;
 		// --- End Positron ---
 		width = Math.min(width, 850);
 		this.bodyDimension = new dom.Dimension(width, height);
