@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { isWeb } from '../../../../base/common/platform.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { localize } from '../../../../nls.js';
 import { Action2 } from '../../../../platform/actions/common/actions.js';
@@ -14,9 +15,11 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IFilesConfigurationService } from '../../../services/filesConfiguration/common/filesConfigurationService.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
-import { getCodeSettingsPath, mergeSettingsJson, setImportWasPrompted } from './helpers.js';
+import { ITerminalService } from '../../terminal/browser/terminal.js';
+import { getCodeSettingsPathNative, getCodeSettingsPathWeb, mergeSettingsJson, setImportWasPrompted } from './helpers.js';
 
 export class PositronImportSettings extends Action2 {
 	/**
@@ -51,6 +54,10 @@ export class PositronImportSettings extends Action2 {
 		const editorService = accessor.get(IEditorService);
 		const notificationService = accessor.get(INotificationService);
 		const loggingService = accessor.get(ILogService);
+		const terminalService = accessor.get(ITerminalService);
+		const fileConfigurationService = accessor.get(IFilesConfigurationService);
+
+		const disposables = new DisposableStore();
 
 		const positronSettingsPath = await prefService.getEditableSettingsURI(ConfigurationTarget.USER);
 		if (!positronSettingsPath) {
@@ -58,7 +65,10 @@ export class PositronImportSettings extends Action2 {
 			return;
 		}
 
-		const codeSettingsPath = await getCodeSettingsPath(pathService);
+		const codeSettingsPath = await (
+			isWeb ? getCodeSettingsPathWeb(pathService, terminalService) :
+				getCodeSettingsPathNative(pathService)
+		);
 		if (!codeSettingsPath) {
 			loggingService.trace('No Visual Studio Code settings found');
 			return;
@@ -81,13 +91,16 @@ export class PositronImportSettings extends Action2 {
 
 		const editor = editorService.activeEditor;
 		const model = editorService.activeTextEditorControl?.getModel();
+		if (editor) {
+			disposables.add(
+				fileConfigurationService.disableAutoSave(editor)
+			);
+		}
 
 		if (model && 'setValue' in model) {
 			model.setLanguage('jsonl');
 			model.setValue('// Settings imported from Visual Studio Code\n' + mergedSettings);
 		}
-
-		const disposables = new DisposableStore();
 
 		const notification = notificationService.prompt(
 			Severity.Info,

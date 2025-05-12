@@ -14,10 +14,12 @@ import { IStorageService } from '../../../../platform/storage/common/storage.js'
 import { IWorkbenchContribution, registerWorkbenchContribution2, WorkbenchPhase } from '../../../common/contributions.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings, ResetPositronImportPrompt } from './actions.js';
-import { getCodeSettingsPath, getImportWasPrompted, promptImport } from './helpers.js';
+import { getCodeSettingsPathNative, getCodeSettingsPathWeb, getImportWasPrompted, promptImport } from './helpers.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ITerminalService } from '../../terminal/browser/terminal.js';
+import { isWeb } from '../../../../base/common/platform.js';
 
 export const POSITRON_SETTINGS_IMPORT_ENABLE_KEY = 'positron.importSettings.enable';
 class PositronWelcomeContribution extends Disposable implements IWorkbenchContribution {
@@ -29,6 +31,7 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 		@IFileService private readonly fileService: IFileService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@ITerminalService private readonly terminalService: ITerminalService,
 	) {
 		super();
 
@@ -38,7 +41,15 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 			return;
 		}
 
-		getCodeSettingsPath(this.pathService).then(async (codeSettingsPath) => {
+		let pathPromise;
+
+		if (isWeb) {
+			pathPromise = getCodeSettingsPathWeb(this.pathService, this.terminalService);
+		} else {
+			pathPromise = getCodeSettingsPathNative(this.pathService);
+		}
+		pathPromise.then(async (codeSettingsPath) => {
+			console.log('Code settings path:', codeSettingsPath);
 			const codeSettingsExist = await this.fileService.exists(codeSettingsPath);
 
 			this.contextKeyService.createKey('positron.settingsImport.hasCodeSettings', codeSettingsExist);

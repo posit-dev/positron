@@ -14,6 +14,8 @@ import { localize } from '../../../../nls.js';
 import { env } from '../../../../base/common/process.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { parse } from '../../../../base/common/jsonc.js';
+import { ITerminalService } from '../../terminal/browser/terminal.js';
+import { untildify } from '../../../../base/common/labels.js';
 
 const WAS_PROMPTED_KEY = 'positron.welcome.promptedImport';
 
@@ -71,40 +73,53 @@ export async function promptImport(
 	);
 }
 
-export async function getCodeSettingsPath(
-	pathService: IPathService, os: platform.OperatingSystem = platform.OS): Promise<URI> {
+export async function getCodeSettingsPathWeb(
+	pathService: IPathService,
+	terminalService: ITerminalService,
+): Promise<URI> {
+	const homedir = await pathService.userHome();
+
+	const terminalBackend = terminalService.getPrimaryBackend();
+	const terminalEnv = await terminalBackend?.getEnvironment();
+	if (!terminalEnv) {
+		throw new Error('Unable to get terminal environment');
+	}
+	const codeDataDir = terminalEnv['RS_VSCODE_USER_DATA_DIR'] ? URI.file(untildify(terminalEnv['RS_VSCODE_USER_DATA_DIR'], homedir.fsPath)) : URI.joinPath(homedir, '.vscode-server');
+	return URI.joinPath(codeDataDir, 'User', 'settings.json').with({ scheme: pathService.defaultUriScheme });
+}
+
+export async function getCodeSettingsPathNative(
+	pathService: IPathService,
+	os: platform.OperatingSystem = platform.OS
+): Promise<URI> {
 	const path = await pathService.path;
 	const homedir = await pathService.userHome();
 
 	let codeDataDir;
-	if (platform.isWeb) {
-		codeDataDir = env['RS_VSCODE_USER_DATA_DIR'] ? URI.file(env['RS_VSCODE_USER_DATA_DIR']) : URI.joinPath(homedir, '.vscode-server');
-	} else {
-		switch (os) {
-			case platform.OperatingSystem.Windows:
-				if (env['APPDATA']) {
-					codeDataDir = URI.file(path.join(env['APPDATA'], 'Code'));
-				} else if (env['USERPROFILE']) {
-					const userProfile = env['USERPROFILE'];
-					codeDataDir = URI.file(path.join(userProfile, 'AppData', 'Roaming', 'Code'));
-				} else {
-					codeDataDir = URI.joinPath(homedir, 'AppData', 'Roaming', 'Code');
-				}
-				break;
-			case platform.OperatingSystem.Macintosh:
-				codeDataDir = URI.joinPath(homedir, 'Library', 'Application Support', 'Code');
-				break;
-			case platform.OperatingSystem.Linux:
-				codeDataDir = URI.joinPath(
-					(env['XDG_CONFIG_HOME'] ?
-						URI.file(env['XDG_CONFIG_HOME']) :
-						URI.joinPath(homedir, '.config')
-					), 'Code'
-				);
-				break;
-			default:
-				throw new Error('Platform not supported');
-		}
+	switch (os) {
+		case platform.OperatingSystem.Windows:
+			if (env['APPDATA']) {
+				codeDataDir = URI.file(path.join(env['APPDATA'], 'Code'));
+			} else if (env['USERPROFILE']) {
+				const userProfile = env['USERPROFILE'];
+				codeDataDir = URI.file(path.join(userProfile, 'AppData', 'Roaming', 'Code'));
+			} else {
+				codeDataDir = URI.joinPath(homedir, 'AppData', 'Roaming', 'Code');
+			}
+			break;
+		case platform.OperatingSystem.Macintosh:
+			codeDataDir = URI.joinPath(homedir, 'Library', 'Application Support', 'Code');
+			break;
+		case platform.OperatingSystem.Linux:
+			codeDataDir = URI.joinPath(
+				(env['XDG_CONFIG_HOME'] ?
+					URI.file(env['XDG_CONFIG_HOME']) :
+					URI.joinPath(homedir, '.config')
+				), 'Code'
+			);
+			break;
+		default:
+			throw new Error('Platform not supported');
 	}
 
 	return URI.joinPath(codeDataDir, 'User', 'settings.json');
