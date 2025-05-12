@@ -81,8 +81,10 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickDoneButton();
 		await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 		await app.workbench.editor.clickOnTerm('chinook-sqlite.py', 'data_file_path', 4);
-		await app.code.driver.page.keyboard.press('Control+I');
+		const inlineChatShortcut = process.platform === 'darwin' ? 'Meta+I' : 'Control+I';
+		await app.code.driver.page.keyboard.press(inlineChatShortcut);
 		await app.code.driver.page.locator('.chat-widget > .interactive-session').isVisible();
+		await app.workbench.assistant.verifyInlineChatInputsVisible();
 		await app.workbench.quickaccess.runCommand('positron-assistant.addModelConfiguration');
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignOutButton();
