@@ -144,7 +144,7 @@ export function registerAssistantTools(
 
 				/// The message shown to confirm that the user wants to run the code.
 				confirmationMessages: {
-					title: vscode.l10n.t('Execute Code'),
+					title: vscode.l10n.t('Run Code'),
 					message: ''
 				},
 			};

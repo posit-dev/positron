@@ -332,7 +332,11 @@ class ChatToolInvocationSubPart extends Disposable {
 		}
 		const title = toolInvocation.confirmationMessages.title;
 		const message = toolInvocation.confirmationMessages.message;
-		const continueLabel = localize('continue', "Continue");
+		// --- Start Positron ---
+		// Show a clearer message for code to be executed in the Console
+		// const continueLabel = localize('continue', "Continue");
+		const continueLabel = localize('runInConsole', "Run in Console");
+		// --- End Positron ---
 		const continueKeybinding = this.keybindingService.lookupKeybinding(AcceptToolConfirmationActionId)?.getLabel();
 		const continueTooltip = continueKeybinding ? `${continueLabel} (${continueKeybinding})` : continueLabel;
 		const cancelLabel = localize('cancel', "Cancel");
