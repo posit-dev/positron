@@ -701,31 +701,60 @@ suite('Positron - RuntimeSessionService', () => {
 		await assert.rejects(startNotebook(), new Error('Cannot start a notebook session in an untrusted workspace.'));
 	});
 
-	/**
-	 * TODO: Fix failing tests for console
-	 * see https://github.com/posit-dev/positron/issues/7423
-	 */
-	test.skip('select console while another runtime is running for the language', async () => {
+	test('select console while another runtime is running for the language', async () => {
 		const session1 = await startConsole(anotherRuntime);
 		await waitForRuntimeState(session1, RuntimeState.Ready);
 		const session2 = await selectRuntime();
 
-		assert.strictEqual(session1.getRuntimeState(), RuntimeState.Exited);
+		assert.strictEqual(session1.getRuntimeState(), RuntimeState.Ready);
 		assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
 
-		assertSessionIsStarting(session2, { activeSessions: [session1, session2] });
+		// TODO: Maybe dont use assertSessionIsStarting here?
+		assertServiceState({
+			activeSessions: [session1, session2],
+			// TODO: Maybe remove consoleSession and notebookSession from expected state?
+			consoleSession: session1,
+			consoleSessionForLanguage: session2,
+			// TODO: Maybe consoleSessionForRuntime also shouldn't be in assertServiceState?
+			consoleSessionForRuntime: session1,
+			hasStartingOrRunningConsole: true,
+		}, anotherRuntime);
+		assertServiceState({
+			activeSessions: [session1, session2],
+			// TODO: Maybe remove consoleSession and notebookSession from expected state?
+			consoleSession: session2,
+			consoleSessionForLanguage: session2,
+			// TODO: Maybe consoleSessionForRuntime also shouldn't be in assertServiceState?
+			consoleSessionForRuntime: session2,
+			hasStartingOrRunningConsole: true,
+		}, runtime);
+		assert.strictEqual(session1.getRuntimeState(), RuntimeState.Ready);
+		assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
 	});
 
-	/**
-	 * TODO: Fix failing tests for console
-	 * see https://github.com/posit-dev/positron/issues/7423
-	 */
-	test.skip('select console throws if session is still starting', async () => {
-		await startConsole(anotherRuntime);
-		await assert.rejects(
+	test('select console while another runtime is starting for the language', async () => {
+		const [session1, session2] = await Promise.all([
+			startConsole(anotherRuntime),
 			selectRuntime(),
-			new Error('Cannot shut down kernel; it is not (yet) running. (state = starting)'),
-		);
+		]);
+		assert.notStrictEqual(session1.sessionId, session2.sessionId);
+		// TODO: See above todos for here too.
+		assertServiceState({
+			activeSessions: [session1, session2],
+			consoleSession: session1,
+			consoleSessionForLanguage: session2,
+			consoleSessionForRuntime: session1,
+			hasStartingOrRunningConsole: true,
+		}, anotherRuntime);
+		assertServiceState({
+			activeSessions: [session1, session2],
+			consoleSession: session2,
+			consoleSessionForLanguage: session2,
+			consoleSessionForRuntime: session2,
+			hasStartingOrRunningConsole: true,
+		}, runtime);
+		assert.strictEqual(session1.getRuntimeState(), RuntimeState.Starting);
+		assert.strictEqual(session2.getRuntimeState(), RuntimeState.Starting);
 	});
 
 	test('select console to the same runtime sets the foreground session', async () => {
