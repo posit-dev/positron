@@ -81,6 +81,12 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		},
 	};
 
+	capabilities = {
+		vision: true,
+		toolCalling: true,
+		agentMode: true,
+	};
+
 	get providerName(): string {
 		return EchoLanguageModel.source.provider.displayName;
 	}
