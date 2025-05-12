@@ -454,6 +454,18 @@ export class ANSIOutput {
 	private processCharacter(char: string) {
 		// Handle special characters. Otherwise, buffer the character.
 		switch (char) {
+			// BS moves the output column back one character.
+			case '\b': {
+				this.flushBuffer();
+				// When the output column is 0, the backspace is intentionally ignored.
+				// This reflects expected ANSI behavior, where the cursor cannot move
+				// further left than the start of the line.
+				if (this._outputColumn > 0) {
+					this._outputColumn--;
+				}
+				break;
+			}
+
 			// LF sets the pending newline flag.
 			case '\n': {
 				this._pendingNewline = true;

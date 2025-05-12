@@ -10,29 +10,29 @@ import './editorActionBarControl.css';
 import React from 'react';
 
 // Other dependencies.
+import { IEditorGroupView } from './editor.js';
+import { EditorActionBar } from './editorActionBar.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { EditorActionBarFactory } from './editorActionBarFactory.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IMenuService } from '../../../../platform/actions/common/actions.js';
+import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
-import { IEditorGroupView } from './editor.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { EditorActionBar } from './editorActionBar.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { EditorActionBarFactory } from './editorActionBarFactory.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 
 /**
  * Constants.
  */
-const EDITOR_ACTION_BAR_HEIGHT = 32;
+const EDITOR_ACTION_BAR_HEIGHT = 28;
 export const EDITOR_ACTION_BAR_CONFIGURATION_SETTING = 'editor.actionBar.enabled';
 
 /**

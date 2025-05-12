@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
+import './positronActionBarVariables.css';
 import './positronActionBar.css';
 
 // React.
@@ -19,7 +20,6 @@ import { optionalValue, positronClassNames } from '../../../base/common/positron
  * CommonPositronActionBarProps interface.
  */
 interface CommonPositronActionBarProps {
-	size: 'small' | 'large';
 	gap?: number;
 	paddingLeft?: number;
 	paddingRight?: number;
@@ -58,8 +58,7 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 		'positron-action-bar',
 		{ 'border-top': props?.borderTop },
 		{ 'border-bottom': props?.borderBottom },
-		{ 'transparent-background': props?.nestedActionBar },
-		props.size
+		{ 'transparent-background': props?.nestedActionBar }
 	);
 
 	// Handle keyboard navigation

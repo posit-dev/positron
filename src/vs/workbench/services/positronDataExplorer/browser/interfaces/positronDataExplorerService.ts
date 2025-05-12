@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { URI } from '../../../../../base/common/uri.js';
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { IPositronDataExplorerInstance } from './positronDataExplorerInstance.js';
 
@@ -70,9 +71,8 @@ export interface IPositronDataExplorerService {
 	clearFocusedPositronDataExplorer(identifier: string): void;
 
 	/**
-	 * Open a workspace file using the positron-duckdb extension for use with
-	 * the data explorer.
-	 * @param filePath Path to file to open with positron-duckdb extension
+	 * Open a URI in the data explorer using the positron-duckdb extension.
+	 * @param uri The URI, usually a file in the workspace.
 	 */
-	openWithDuckDB(filePath: string): Promise<void>;
+	openWithDuckDB(uri: URI): Promise<void>;
 }

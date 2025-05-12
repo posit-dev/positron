@@ -7,9 +7,9 @@
 import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 
-const CHATBUTTON = '.action-label.codicon-comment-discussion[aria-label^="Chat"]';
+const CHATBUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const ADD_MODEL_LINK = 'a[data-href="command:positron-assistant.addModelConfiguration"]';
-const ADD_MODEL_BUTTON = 'a.action-label[aria-label="Add Language Model"]';
+const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] a.action-label[aria-label="Add Language Model"]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const DONE_BUTTON = 'button.positron-button.action-bar-button.default';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';

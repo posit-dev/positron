@@ -1,19 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 .top-action-bar-custom-folder-menu {
-	flex: 0;
-	width: min-content;
-	margin: 0 6px;
-	height: 26px;
 	display: grid;
 	cursor: pointer;
+	width: min-content;
+	border-radius: 4px;
 	align-items: center;
-	border-radius: 6px;
 	box-sizing: border-box;
 	grid-template-columns: 1fr 1fr;
+	height: var(--positronActionBar-iconSize);
 	color: var(--positronActionBar-foreground);
 	border: 1px solid var(--vscode-positronTopActionBar-selectBorder);
 	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);

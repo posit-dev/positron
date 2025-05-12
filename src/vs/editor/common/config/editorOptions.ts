@@ -2748,7 +2748,10 @@ export class EditorLayoutInfoComputer extends ComputedEditorOption<EditorOption.
 		let lineNumbersWidth = 0;
 		if (showLineNumbers) {
 			const digitCount = Math.max(lineNumbersDigitCount, lineNumbersMinChars);
-			lineNumbersWidth = Math.round(digitCount * maxDigitWidth);
+			// --- Start Positron ---
+			// Use Math.ceil instead of Math.round. Fixes https://github.com/posit-dev/positron/issues/6634.
+			lineNumbersWidth = Math.ceil(digitCount * maxDigitWidth);
+			// --- End Positron ---
 		}
 
 		let glyphMarginWidth = 0;

@@ -149,7 +149,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					borderBottom={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
-					size='small'
 				>
 					<ActionBarButton
 						ariaLabel={tooltipPreviousTopic}
@@ -188,7 +187,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					gap={kSecondaryActionBarGap}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
-					size='small'
 				>
 					<ActionBarRegion location='left'>
 						{currentHelpTitle &&

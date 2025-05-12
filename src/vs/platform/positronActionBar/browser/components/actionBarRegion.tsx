@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,6 +16,7 @@ import { optionalValue, positronClassNames } from '../../../../base/common/posit
  * ActionBarRegionProps interface.
  */
 interface ActionBarRegionProps {
+	gap?: number;
 	width?: number;
 	location: 'left' | 'center' | 'right';
 	justify?: 'left' | 'center' | 'right';
@@ -35,7 +36,13 @@ export const ActionBarRegion = (props: PropsWithChildren<ActionBarRegionProps>) 
 
 	// Render.
 	return (
-		<div className={classNames} style={{ width: optionalValue(props.width, 'auto'), minWidth: optionalValue(props.width, 'auto') }}>
+		<div
+			className={classNames}
+			style={{
+				gap: optionalValue(props.gap, 0),
+				width: optionalValue(props.width, 'auto'),
+				minWidth: optionalValue(props.width, 'auto')
+			}}>
 			{props.children}
 		</div>
 	);

@@ -3,7 +3,9 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from '../../../../nls.js';
+// --- Start Positron ---
+// import { localize } from '../../../../nls.js';
+// --- End Positron ---
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import type { IKeyValueStorage, IExperimentationTelemetry } from 'tas-client-umd';
 import { MementoObject, Memento } from '../../../common/memento.js';
@@ -17,7 +19,10 @@ import { IAssignmentService } from '../../../../platform/assignment/common/assig
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { BaseAssignmentService } from '../../../../platform/assignment/common/assignmentService.js';
 import { workbenchConfigurationNodeBase } from '../../../common/configuration.js';
-import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
+// --- Start Positron ---
+// import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
+import { IConfigurationRegistry, Extensions as ConfigurationExtensions } from '../../../../platform/configuration/common/configurationRegistry.js';
+// --- End Positron ---
 import { IEnvironmentService } from '../../../../platform/environment/common/environment.js';
 
 export const IWorkbenchAssignmentService = createDecorator<IWorkbenchAssignmentService>('WorkbenchAssignmentService');
@@ -142,14 +147,16 @@ registerSingleton(IWorkbenchAssignmentService, WorkbenchAssignmentService, Insta
 const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration);
 registry.registerConfiguration({
 	...workbenchConfigurationNodeBase,
-	'properties': {
-		'workbench.enableExperiments': {
-			'type': 'boolean',
-			'description': localize('workbench.enableExperiments', "Fetches experiments to run from a Microsoft online service."),
-			'default': true,
-			'scope': ConfigurationScope.APPLICATION,
-			'restricted': true,
-			'tags': ['usesOnlineServices']
-		}
-	}
+	// --- Start Positron ---
+	// 'properties': {
+	// 	'workbench.enableExperiments': {
+	// 		'type': 'boolean',
+	// 		'description': localize('workbench.enableExperiments', "Fetches experiments to run from a Microsoft online service."),
+	// 		'default': true,
+	// 		'scope': ConfigurationScope.APPLICATION,
+	// 		'restricted': true,
+	// 		'tags': ['usesOnlineServices']
+	// 	}
+	// }
+	// --- End Positron ---
 });

@@ -107,7 +107,7 @@ async function createTempTable(
 	// Now set up the new table so it will respond to RPCs with a duckdb://${tableName} prefix
 	await dxExec({
 		method: DataExplorerBackendRequest.OpenDataset,
-		params: { uri: `duckdb://${tableName}` }
+		params: { uri: vscode.Uri.from({ scheme: 'duckdb', path: tableName }) }
 	});
 }
 
@@ -117,25 +117,25 @@ async function createTableAsSelect(tableName: string, query: string) {
 	// Now set up the new table so it will respond to RPCs with a duckdb://${tableName} prefix
 	await dxExec({
 		method: DataExplorerBackendRequest.OpenDataset,
-		params: { uri: `duckdb://${tableName}` }
+		params: { uri: vscode.Uri.from({ scheme: 'duckdb', path: tableName }) }
 	});
 }
 
-async function getState(uri: string): Promise<BackendState> {
+async function getState(uri: vscode.Uri): Promise<BackendState> {
 	return dxExec({
 		method: DataExplorerBackendRequest.GetState,
-		uri,
+		uri: uri.toString(),
 		params: {}
 	});
 }
 
 async function getSchema(tableName: string) {
-	const uri = `duckdb://${tableName}`;
+	const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 	const state = await getState(uri);
 	const shape = state.table_shape;
 	return dxExec({
 		method: DataExplorerBackendRequest.GetSchema,
-		uri,
+		uri: uri.toString(),
 		params: {
 			column_indices: Array.from({ length: shape.num_columns }, (_, index) => index)
 		} satisfies GetSchemaParams
@@ -150,12 +150,12 @@ function generateRandomString(length: number) {
 }
 
 async function getAllDataValues(tableName: string, formatOptions?: FormatOptions) {
-	const uri = `duckdb://${tableName}`;
+	const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 	const state = await getState(uri);
 	const shape = state.table_shape;
 	return dxExec({
 		method: DataExplorerBackendRequest.GetDataValues,
-		uri,
+		uri: uri.toString(),
 		params: {
 			columns: Array.from(
 				{ length: shape.num_columns }, (_, i) => i
@@ -191,7 +191,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	});
 
 	test('DuckDB flights.parquet', async () => {
-		const uri = flightParquet;
+		const uri = vscode.Uri.file(flightParquet);
 
 		let result = await dxExec({
 			method: DataExplorerBackendRequest.OpenDataset,
@@ -245,7 +245,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		result = await dxExec({
 			method: DataExplorerBackendRequest.GetSchema,
-			uri,
+			uri: uri.toString(),
 			params: {
 				column_indices: Array.from({ length: 19 }, (_, index) => index)
 			} satisfies GetSchemaParams
@@ -585,14 +585,14 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			}
 		]);
 
-		const uri = `duckdb://${tableName}`;
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 
 		const testSelection = async (kind: TableSelectionKind, selection: Selection, expected: string,
 			format: ExportFormat = ExportFormat.Csv
 		) => {
 			const result = await dxExec({
 				method: DataExplorerBackendRequest.ExportDataSelection,
-				uri,
+				uri: uri.toString(),
 				params: {
 					selection: {
 						kind,
@@ -752,7 +752,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 		await createTableAsSelect(tableName, selectQuery);
 
-		const uri = `duckdb://${tableName}`;
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 
 		const origState = await getState(uri);
 
@@ -913,7 +913,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			// reset to no filters
 			await dxExec({
 				method: DataExplorerBackendRequest.SetRowFilters,
-				uri,
+				uri: uri.toString(),
 				params: { filters: [] }
 			});
 
@@ -923,7 +923,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 			await dxExec({
 				method: DataExplorerBackendRequest.SetRowFilters,
-				uri,
+				uri: uri.toString(),
 				params: {
 					filters
 				} satisfies SetRowFiltersParams
@@ -970,7 +970,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			}
 		]);
 
-		const uri = `duckdb://${tableName}`;
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 
 		// Get original state for reference
 		const origState = await getState(uri);
@@ -995,7 +995,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		// Apply the filter
 		const filterResult = await dxExec({
 			method: DataExplorerBackendRequest.SetRowFilters,
-			uri,
+			uri: uri.toString(),
 			params: { filters: [zeroRowFilter] } satisfies SetRowFiltersParams
 		});
 
@@ -1017,7 +1017,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const testSpecificColumns = async () => {
 			return dxExec({
 				method: DataExplorerBackendRequest.GetDataValues,
-				uri,
+				uri: uri.toString(),
 				params: {
 					columns: [
 						{
@@ -1043,7 +1043,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		const testIndicesSelection = async () => {
 			return dxExec({
 				method: DataExplorerBackendRequest.GetDataValues,
-				uri,
+				uri: uri.toString(),
 				params: {
 					columns: [
 						{
@@ -1064,7 +1064,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		// Remove the filter and verify data comes back
 		await dxExec({
 			method: DataExplorerBackendRequest.SetRowFilters,
-			uri,
+			uri: uri.toString(),
 			params: { filters: [] }
 		});
 
@@ -1084,7 +1084,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		FROM parquet_scan('${flightParquet}') LIMIT 1000`;
 
 		await createTableAsSelect(tableName, selectQuery);
-		const uri = `duckdb://${tableName}`;
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 
 		const fullSchema = await getSchema(tableName);
 		assert.deepStrictEqual(fullSchema.columns[9].column_name, 'carrier');
@@ -1141,7 +1141,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			// reset to no filters
 			await dxExec({
 				method: DataExplorerBackendRequest.SetSortColumns,
-				uri,
+				uri: uri.toString(),
 				params: { sort_keys: [] }
 			});
 
@@ -1156,7 +1156,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 
 			await dxExec({
 				method: DataExplorerBackendRequest.SetSortColumns,
-				uri,
+				uri: uri.toString(),
 				params: { sort_keys: stableSortKeys }
 			});
 
@@ -1212,7 +1212,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 		histogramParams: ColumnHistogramParams,
 		callbackId: string
 	): Promise<ColumnHistogram> {
-		const uri = `duckdb://${tableName}`;
+		const uri = vscode.Uri.from({ scheme: 'duckdb', path: tableName });
 
 		// Create a promise that will resolve when we receive the column profile event
 		let resolveProfilePromise: (value: any) => void;
@@ -1244,7 +1244,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			// Request a histogram
 			await dxExec({
 				method: DataExplorerBackendRequest.GetColumnProfiles,
-				uri,
+				uri: uri.toString(),
 				params: {
 					callback_id: callbackId,
 					profiles: [

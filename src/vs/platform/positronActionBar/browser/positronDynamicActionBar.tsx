@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // CSS.
+import './positronActionBarVariables.css';
 import './positronDynamicActionBar.css';
 
 // React.
@@ -24,7 +25,7 @@ import { CustomContextMenuItem, CustomContextMenuItemOptions } from '../../../wo
 /**
  * Constants.
  */
-export const DEFAULT_ACTION_BAR_BUTTON_WIDTH = 28;
+export const DEFAULT_ACTION_BAR_BUTTON_WIDTH = 24;
 export const DEFAULT_ACTION_BAR_SEPARATOR_WIDTH = 7;
 
 /**
@@ -68,7 +69,6 @@ export interface DynamicActionBarAction {
  * CommonPositronActionBarProps interface.
  */
 interface CommonPositronDynamicActionBarProps {
-	size: 'small' | 'large';
 	paddingLeft?: number;
 	paddingRight?: number;
 	leftActions: DynamicActionBarAction[];
@@ -427,8 +427,7 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 		'positron-dynamic-action-bar',
 		{ 'border-top': props?.borderTop },
 		{ 'border-bottom': props?.borderBottom },
-		{ 'transparent-background': props?.nestedActionBar },
-		props.size
+		{ 'transparent-background': props?.nestedActionBar }
 	);
 
 	// Create the dynamic style.

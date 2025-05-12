@@ -29,6 +29,10 @@ import { IRawChatCommandContribution } from './chatParticipantContribTypes.js';
 import { IChatFollowup, IChatLocationData, IChatProgress, IChatResponseErrorDetails, IChatTaskDto } from './chatService.js';
 import { ChatAgentLocation, ChatMode } from './constants.js';
 
+// --- Start Positron ---
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+// --- End Positron ---
+
 //#region agent service, commands etc
 
 export interface IChatAgentHistoryEntry {
@@ -243,6 +247,9 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 
 	constructor(
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		// --- Start Positron ---
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		// --- End Positron ---
 	) {
 		super();
 		this._hasDefaultAgent = ChatContextKeys.enabled.bindTo(this.contextKeyService);
@@ -302,7 +309,15 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		let editingAgentRegistered = false;
 		let defaultAgentRegistered = false;
 		let toolsAgentRegistered = false;
+		// --- Start Positron ---
+		let testAgentRegistered = false;
+		// --- End Positron ---
 		for (const agent of this.getAgents()) {
+			// --- Start Positron ---
+			if (agent.extensionId.value === 'vscode.vscode-api-tests') {
+				testAgentRegistered = true;
+			}
+			// --- End Positron ---
 			if (agent.isDefault && agent.locations.includes(ChatAgentLocation.EditingSession)) {
 				// --- Start Positron ---
 				defaultAgentRegistered = true;
@@ -316,7 +331,14 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 			}
 		}
 		this._editingAgentRegistered.set(editingAgentRegistered);
-		this._defaultAgentRegistered.set(defaultAgentRegistered);
+		// --- Start Positron ---
+		// Do not register default agents when Assistant is disabled, except for
+		// the API test agent from upstream.
+		// this._defaultAgentRegistered.set(defaultAgentRegistered);
+		if (testAgentRegistered || this.configurationService.getValue('positron.assistant.enable')) {
+			this._defaultAgentRegistered.set(defaultAgentRegistered);
+		}
+		// --- End Positron ---
 		if (toolsAgentRegistered !== this._hasToolsAgentContextKey.get()) {
 			this._hasToolsAgentContextKey.set(toolsAgentRegistered);
 			this._onDidChangeAgents.fire(this.getDefaultAgent(ChatAgentLocation.EditingSession));

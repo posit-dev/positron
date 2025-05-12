@@ -15,16 +15,16 @@
 
 .action-bar-button {
 	padding: 0;
-	height: 28px;
 	border: none;
 	display: flex;
 	margin: 0 1px;
 	cursor: pointer;
 	overflow: visible;
-	border-radius: 6px;
+	border-radius: 4px;
 	align-items: center;
 	box-sizing: border-box;
 	background: transparent;
+	height: var(--positronActionBar-iconSize);
 	color: var(--positronActionBar-foreground);
 }
 
@@ -33,7 +33,7 @@
 }
 
 .action-bar-button.border {
-	height: 26px;
+	height: 22px;
 	background-color: var(--positronActionBar-textInputBackground);
 	border: 1px solid var(--positronActionBar-border);
 }
@@ -57,7 +57,7 @@
 }
 
 .action-bar-button:focus-visible {
-	border-radius: 6px;
+	border-radius: 4px;
 	outline: 1px solid var(--vscode-focusBorder) !important;
 }
 
@@ -80,7 +80,7 @@
 }
 
 .action-bar-button.border .action-bar-button-label {
-	margin-right: 6px;
+	margin-right: 4px;
 }
 
 .action-bar-button.border .action-bar-button-face {
@@ -93,7 +93,7 @@
 }
 
 .action-bar-button-icon {
-	padding: 0 6px;
+	padding: 0 4px;
 	align-items: center;
 	justify-content: center;
 	display: flex !important;
@@ -110,12 +110,12 @@
 
 .action-bar-button-icon.enabled-split {
 	display: flex;
-	padding: 0 2px 0 6px;
+	padding: 0 2px 0 3px;
 }
 
 .action-bar-button-icon.enabled-split:hover {
-	border-radius: 6px;
-	padding: 0 2px 0 6px;
+	border-radius: 4px;
+	padding: 0 2px 0 3px;
 	filter: brightness(90%);
 	background: var(--positronActionBar-hoverBackground);
 }
@@ -131,7 +131,7 @@
 }
 
 .action-bar-button-drop-down-button:hover {
-	border-radius: 6px;
+	border-radius: 4px;
 	filter: brightness(90%);
 	background: var(--positronActionBar-hoverBackground);
 }
