@@ -120,7 +120,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 	}
 
 	/**
-	 * Submits the new session name when the user presses Enter or clicks outside the input field.
+	 * Submits the new session name when the user presses Enter
+	 * or clicks outside the input field.
 	 */
 	const handleRenameSubmit = async () => {
 		// Validate the new session name
@@ -185,9 +186,10 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 	 * Handles keyboard events for the input field.
 	 * If the user presses Enter, the new session name is submitted.
 	 * If the user presses Escape, the rename operation is cancelled.
+	 * Supports copy, cut, paste, and select all operations using Ctrl/Cmd + C/X/V/A.
 	 * @param e The keyboard event
 	 */
-	const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+	const handleKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			handleRenameSubmit();
@@ -197,6 +199,25 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 			setIsRenamingSession(false);
 			// restore the original session name
 			setSessionName(positronConsoleInstance.sessionName);
+		} else if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+			e.preventDefault();
+			// Avoid triggering this action in the console instance
+			e.stopPropagation();
+			// Select all text in the input field
+			if (inputRef.current) {
+				inputRef.current.select();
+			}
+		} else if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'c')) {
+			e.preventDefault();
+			// Copy the selected text to the clipboard
+			positronConsoleContext.clipboardService.writeText(sessionName);
+		} else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+			e.preventDefault();
+			// Avoid triggering this action in the console instance
+			e.stopPropagation();
+			// Paste the text from the clipboard into the input field
+			const newSessionName = await positronConsoleContext.clipboardService.readText();
+			setSessionName(newSessionName);
 		}
 	};
 
@@ -240,8 +261,9 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 					value={sessionName}
 					onBlur={handleRenameSubmit}
 					onChange={e => setSessionName(e.target.value)}
-					onClick={e => e.stopPropagation()}
+					onClick={e => e.stopPropagation()} // Keeps the input field open when clicked
 					onKeyDown={handleKeyDown}
+					onMouseDown={e => e.stopPropagation()} // Allows text selection in the input field
 				/>
 			) : (
 				<>
