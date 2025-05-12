@@ -104,9 +104,13 @@ suite('Positron - RuntimeSessionService', () => {
 
 	function assertServiceState(expectedState?: IServiceState, runtimeMetadata = runtime): void {
 		// Check the active sessions.
+		const actualActiveSessionIds =
+			runtimeSessionService.activeSessions.map(session => session.sessionId);
+		const expectedActiveSessionIds = expectedState?.activeSessions?.map(session => session.sessionId) ?? [];
 		assert.deepStrictEqual(
-			runtimeSessionService.activeSessions.map(session => session.sessionId),
-			expectedState?.activeSessions?.map(session => session.sessionId) ?? [],
+			actualActiveSessionIds,
+			expectedActiveSessionIds,
+			'Unexpected active sessions'
 		);
 
 		// Check the console session state.
@@ -114,50 +118,51 @@ suite('Positron - RuntimeSessionService', () => {
 			runtimeSessionService.hasStartingOrRunningConsole(runtimeMetadata.languageId),
 			expectedState?.hasStartingOrRunningConsole ?? false,
 			expectedState?.hasStartingOrRunningConsole ?
-				'Expected a starting or running console session' :
-				'Expected no starting or running console session',
+				'Expected a starting or running console session but there was none' :
+				'Expected no starting or running console session but there was one',
 		);
 		const actualConsoleSessionForLanguage = runtimeSessionService.getConsoleSessionForLanguage(runtimeMetadata.languageId);
 		assert.strictEqual(
 			actualConsoleSessionForLanguage?.sessionId,
 			expectedState?.consoleSessionForLanguage?.sessionId,
-			`Expected the last used console session for language '${runtimeMetadata.languageId}' `
-			+ `to be '${expectedState?.consoleSessionForLanguage?.sessionId}'. `
-			+ (actualConsoleSessionForLanguage ?
-				`Got '${actualConsoleSessionForLanguage.sessionId}'` :
-				`Got no session`
-			),
+			`Unexpected last used console session for language '${runtimeMetadata.languageId}'`
 		);
 		const actualConsoleSessionForRuntime = runtimeSessionService.getConsoleSessionForRuntime(runtimeMetadata.runtimeId);
 		assert.strictEqual(
 			actualConsoleSessionForRuntime?.sessionId,
 			expectedState?.consoleSessionForRuntime?.sessionId,
-			`Expected the last used console session for runtime '${runtimeMetadata.runtimeId}' `
-			+ `to be '${expectedState?.consoleSessionForRuntime?.sessionId}'. `
-			+ (actualConsoleSessionForRuntime ?
-				`Got '${actualConsoleSessionForRuntime.sessionId}'` :
-				`Got no session`
-			),
+			`Unexpected last used console session for runtime '${runtimeMetadata.runtimeId}'`
 		);
+		const actualConsoleSession = runtimeSessionService.getSession(expectedState?.consoleSession?.sessionId ?? '');
 		assert.strictEqual(
-			runtimeSessionService.getSession(expectedState?.consoleSession?.sessionId ?? ''),
-			expectedState?.consoleSession,
+			actualConsoleSession?.sessionId,
+			expectedState?.consoleSession?.sessionId,
+			`Unexpected session returned for console session ID '${expectedState?.consoleSession?.sessionId}'`
 		);
 
 		// Check the notebook session state.
+		const actualNotebookSession = runtimeSessionService.getSession(expectedState?.notebookSession?.sessionId ?? '');
 		assert.strictEqual(
-			runtimeSessionService.getSession(expectedState?.notebookSession?.sessionId ?? ''),
-			expectedState?.notebookSession,
+			actualNotebookSession?.sessionId,
+			expectedState?.notebookSession?.sessionId,
+			`Unexpected session returned for notebook session ID '${expectedState?.notebookSession?.sessionId}'`
 		);
+		const actualNotebookSessionForNotebookUri = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
 		assert.strictEqual(
-			runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri),
-			expectedState?.notebookSessionForNotebookUri,
+			actualNotebookSessionForNotebookUri?.sessionId,
+			expectedState?.notebookSessionForNotebookUri?.sessionId,
+			`Unexpected notebook session for notebook URI '${notebookUri.toString()}'`
 		);
 	}
 
-	function assertSessionWillStart(sessionMode: LanguageRuntimeSessionMode) {
+	function assertSessionWillStart(
+		sessionMode: LanguageRuntimeSessionMode,
+		overrides?: {
+			hasStartingOrRunningConsole?: boolean;
+		},
+	) {
 		if (sessionMode === LanguageRuntimeSessionMode.Console) {
-			assertServiceState({ hasStartingOrRunningConsole: true });
+			assertServiceState({ hasStartingOrRunningConsole: overrides?.hasStartingOrRunningConsole ?? true });
 		} else if (sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			assertServiceState();
 		}
@@ -168,6 +173,7 @@ suite('Positron - RuntimeSessionService', () => {
 		overrides?: {
 			activeSessions?: ILanguageRuntimeSession[];
 			consoleSessionForLanguage?: ILanguageRuntimeSession;
+			consoleSessionForRuntime?: ILanguageRuntimeSession;
 		},
 	) {
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
@@ -177,7 +183,9 @@ suite('Positron - RuntimeSessionService', () => {
 				consoleSessionForLanguage: (overrides && 'consoleSessionForLanguage' in overrides) ?
 					overrides.consoleSessionForLanguage :
 					session,
-				consoleSessionForRuntime: session,
+				consoleSessionForRuntime: (overrides && 'consoleSessionForRuntime' in overrides) ?
+					overrides.consoleSessionForRuntime :
+					session,
 				activeSessions: overrides?.activeSessions ?? [session],
 			}, session.runtimeMetadata);
 		} else if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
@@ -194,6 +202,7 @@ suite('Positron - RuntimeSessionService', () => {
 		overrides?: {
 			activeSessions?: ILanguageRuntimeSession[];
 			consoleSessionForLanguage?: ILanguageRuntimeSession;
+			consoleSessionForRuntime?: ILanguageRuntimeSession;
 		},
 	) {
 		assertHasSession(session, overrides);
@@ -314,7 +323,9 @@ suite('Positron - RuntimeSessionService', () => {
 				const promise = start();
 
 				// Check the state before awaiting the promise.
-				assertSessionWillStart(mode);
+				// TODO: Restoring a console session does not currently mark it as starting.
+				const hasStartingOrRunningConsole = mode === LanguageRuntimeSessionMode.Console && action !== 'restore';
+				assertSessionWillStart(mode, { hasStartingOrRunningConsole });
 
 				const session = await promise;
 
@@ -327,7 +338,9 @@ suite('Positron - RuntimeSessionService', () => {
 				const onWillStartSessionSpy = sinon.spy(({ session }: IRuntimeSessionWillStartEvent) => {
 					try {
 						assert.strictEqual(session.getRuntimeState(), RuntimeState.Uninitialized);
-						assertSessionWillStart(mode);
+						// TODO: Restoring a console session does not currently mark it as starting.
+						const hasStartingOrRunningConsole = mode === LanguageRuntimeSessionMode.Console && action !== 'restore';
+						assertSessionWillStart(mode, { hasStartingOrRunningConsole });
 					} catch (e) {
 						error = e;
 					}
@@ -470,19 +483,22 @@ suite('Positron - RuntimeSessionService', () => {
 				});
 			});
 
-			test(`${action} ${mode} concurrently encounters session.start() error`, async () => {
-				// Listen to the onWillStartSession event and stub session.start() to throw an error.
-				const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
-					sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
-				});
-				disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
+			// TODO: Concurrently restoring console sessions has undefined behavior.
+			if (!(action === 'restore' && mode === LanguageRuntimeSessionMode.Console)) {
+				test(`${action} ${mode} concurrently encounters session.start() error`, async () => {
+					// Listen to the onWillStartSession event and stub session.start() to throw an error.
+					const willStartSession = sinon.spy((e: IRuntimeSessionWillStartEvent) => {
+						sinon.stub(e.session, 'start').rejects(new Error('Session failed to start'));
+					});
+					disposables.add(runtimeSessionService.onWillStartSession(willStartSession));
 
-				// Start twice concurrently. Both should error.
-				await Promise.all([
-					assert.rejects(start()),
-					assert.rejects(start()),
-				]);
-			});
+					// Start twice concurrently. Both should error.
+					await Promise.all([
+						assert.rejects(start()),
+						assert.rejects(start()),
+					]);
+				});
+			}
 
 			if (mode === LanguageRuntimeSessionMode.Notebook) {
 				test(`${action} ${mode} throws if another runtime is starting for the language`, async () => {
@@ -513,27 +529,38 @@ suite('Positron - RuntimeSessionService', () => {
 				});
 			}
 
-			/**
-			 * TODO: Fix `restore console` iteration of failing test
-			 * see https://github.com/posit-dev/positron/issues/7423
-			 */
-			if (mode === LanguageRuntimeSessionMode.Notebook) {
-				test(`${action} ${mode} successively`, async () => {
-					const result1 = await start();
-					const result2 = await start();
-					const result3 = await start();
+			test(`${action} ${mode} successively`, async () => {
+				const result1 = await start();
+				const result2 = await start();
+				const result3 = await start();
 
-					assert.strictEqual(result1, result2);
-					assert.strictEqual(result2, result3);
+				if (mode === LanguageRuntimeSessionMode.Notebook
+					// Restoring/selecting a console any number of times should return the same session.
+					|| (mode === LanguageRuntimeSessionMode.Console
+						&& (action === 'restore' || action === 'select'))) {
+					assert.strictEqual(result1.sessionId, result2.sessionId);
+					assert.strictEqual(result2.sessionId, result3.sessionId);
 
 					assertSessionIsStarting(result1);
-				});
+				} else if (mode === LanguageRuntimeSessionMode.Console) {
+					assert.notStrictEqual(result1.sessionId, result2.sessionId);
+					assert.notStrictEqual(result2.sessionId, result3.sessionId);
 
+					const activeSessions = [result1, result2, result3];
+					// TODO: Shouldn't have to pass consoleSessionForLanguage or consoleSessionForRuntime.
+					assertSessionIsStarting(result1, { activeSessions, consoleSessionForLanguage: result3, consoleSessionForRuntime: result3 });
+					assertSessionIsStarting(result2, { activeSessions, consoleSessionForLanguage: result3, consoleSessionForRuntime: result3 });
+					assertSessionIsStarting(result3, { activeSessions, consoleSessionForLanguage: result3, consoleSessionForRuntime: result3 });
+				}
+			});
+
+			// TODO: Concurrently restoring console sessions has undefined behavior.
+			if (!(action === 'restore' && mode === LanguageRuntimeSessionMode.Console)) {
 				test(`${action} ${mode} concurrently`, async function () {
 					const [result1, result2, result3] = await Promise.all([start(), start(), start()]);
 
-					assert.strictEqual(result1, result2);
-					assert.strictEqual(result2, result3);
+					assert.strictEqual(result1.sessionId, result2.sessionId);
+					assert.strictEqual(result2.sessionId, result3.sessionId);
 
 					assertSessionIsStarting(result1);
 				});

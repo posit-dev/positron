@@ -652,11 +652,6 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
-		// Validation is complete, set the session as starting before yielding
-		// to the event loop.
-		this.setStartingSessionMaps(
-			sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-
 		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
 
@@ -668,6 +663,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// start/restore requests return the same pending promise.
 		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
 			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
+
+			this.setStartingSessionMaps(
+				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
 		}
 
 		try {
