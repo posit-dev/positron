@@ -55,14 +55,20 @@ export const OutputRun = (props: OutputRunProps) => {
 	 * hyperlink is undefined.
 	 */
 	const buildHyperlinkURL = () => {
-		// If the hyperlink is undefined, return undefined.
 		if (!props.outputRun.hyperlink) {
 			return undefined;
 		}
 
-		// Get the URL. If it's not a file URL, return it.
 		let url = props.outputRun.hyperlink.url;
-		if (!url.startsWith(`${Schemas.file}:`)) {
+		let uri: URI;
+		try {
+			uri = URI.parse(url);
+		} catch (e) {
+			console.error('Failed to parse URL:', e);
+			return url;
+		}
+
+		if (uri.scheme !== Schemas.file) {
 			return url;
 		}
 
@@ -82,20 +88,12 @@ export const OutputRun = (props: OutputRunProps) => {
 		// file:///Users/jenny/rrr/positron-learning/testfun/DESCRIPTION
 		// AFTER example:
 		// vscode-remote://localhost:8080/Users/jenny/rrr/positron-learning/testfun/DESCRIPTION
-		try {
-			const fileUri = URI.parse(url);
-			if (fileUri.scheme === Schemas.file && platform.isWeb) {
-				const remoteUri = URI.from({
-					scheme: Schemas.vscodeRemote,
-					authority: DOM.getActiveWindow().location.host,
-					path: fileUri.path,
-					query: fileUri.query,
-					fragment: fileUri.fragment
-				});
-				url = remoteUri.toString();
-			}
-		} catch (e) {
-			console.error('Failed to transform file URL:', e);
+		if (platform.isWeb) {
+			uri = uri.with({
+				scheme: Schemas.vscodeRemote,
+				authority: DOM.getActiveWindow().location.host
+			});
+			url = uri.toString();
 		}
 
 		// Get the line parameter. If it's not present, return the URL.
