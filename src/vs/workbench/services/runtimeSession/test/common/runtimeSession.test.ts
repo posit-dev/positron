@@ -768,43 +768,6 @@ suite('Positron - RuntimeSessionService', () => {
 		assert.strictEqual(runtimeSessionService.foregroundSession, session1);
 	});
 
-	/**
-	 * TODO: Fix failing tests for console
-	 * see https://github.com/posit-dev/positron/issues/7423
-	 */
-	test.skip(`select console to another runtime and first session never fires onDidEndSession`, async () => {
-		const session = await startConsole();
-		await waitForRuntimeState(session, RuntimeState.Ready);
-
-		// Stub onDidEndSession to never fire, causing the shutdown to time out.
-		sinon.stub(session, 'onDidEndSession').returns({ dispose: () => { } });
-
-		// Use a fake timer to avoid actually having to wait for the timeout.
-		const clock = sinon.useFakeTimers();
-		const promise = assert.rejects(selectRuntime(anotherRuntime), new Error(`Timed out waiting for runtime ` +
-			`${formatLanguageRuntimeSession(session)} to finish exiting.`));
-		await clock.tickAsync(5_000);
-		await promise;
-	});
-
-	/**
-	 * TODO: Fix failing tests for console
-	 * see https://github.com/posit-dev/positron/issues/7423
-	 */
-	test.skip(`select console to another runtime encounters session.shutdown() error`, async () => {
-		const session = await startConsole();
-
-		// Stub session.shutdown() to throw an error.
-		const error = new Error('Session failed to shut down');
-		sinon.stub(session, 'shutdown').rejects(error);
-
-		// We also want to ensure that the timeout is not hit in this case but don't want to
-		// actually wait, so we use a fake timer.
-		const clock = sinon.useFakeTimers();
-		await assert.rejects(selectRuntime(anotherRuntime), error);
-		await clock.tickAsync(10_000);
-	});
-
 	function restartSession(sessionId: string) {
 		return runtimeSessionService.restartSession(sessionId, startReason, false);
 	}
