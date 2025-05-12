@@ -214,8 +214,11 @@ suite('Positron - RuntimeSessionService', () => {
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Restarting);
 	}
 
-	function assertSessionIsReady(session: ILanguageRuntimeSession) {
-		assertHasSession(session);
+	function assertSessionIsReady(
+		session: ILanguageRuntimeSession,
+		overrides?: { activeSessions?: ILanguageRuntimeSession[] },
+	) {
+		assertHasSession(session, overrides);
 		assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
 	}
 
@@ -863,11 +866,7 @@ suite('Positron - RuntimeSessionService', () => {
 			});
 		}
 
-		/**
-		 * TODO: Fix failing tests for console
-		 * see https://github.com/posit-dev/positron/issues/7423
-		 */
-		test.skip(`restart ${mode} in 'uninitialized' state`, async () => {
+		test(`restart ${mode} in 'uninitialized' state`, async () => {
 			// Get a session to the uninitialized state.
 			const state = RuntimeState.Uninitialized;
 
@@ -979,18 +978,25 @@ suite('Positron - RuntimeSessionService', () => {
 			sinon.assert.calledThrice(target);
 		});
 
-		/**
-		 * TODO: Fix failing tests for console
-		 * see https://github.com/posit-dev/positron/issues/7423
-		 */
-		test.skip(`restart ${mode} while 'ready', then start successively`, async () => {
+		test(`restart ${mode} while 'ready', then start successively`, async function () {
 			const session = await start();
 			await waitForRuntimeState(session, RuntimeState.Ready);
 
 			await restartSession(session.sessionId);
 			const newSession = await start();
 
-			assertSessionIsReady(newSession);
+			if (mode === LanguageRuntimeSessionMode.Notebook) {
+				assertSessionIsReady(newSession);
+			} else if (mode === LanguageRuntimeSessionMode.Console) {
+				assertServiceState({
+					activeSessions: [session, newSession],
+					consoleSessionForLanguage: newSession,
+					consoleSessionForRuntime: newSession,
+					hasStartingOrRunningConsole: true,
+				});
+				assert.strictEqual(session.getRuntimeState(), RuntimeState.Ready);
+				assert.strictEqual(newSession.getRuntimeState(), RuntimeState.Starting);
+			}
 		});
 
 		test(`restart ${mode} while 'ready', then start concurrently`, async () => {
