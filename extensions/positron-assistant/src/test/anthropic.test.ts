@@ -108,6 +108,8 @@ suite('AnthropicLanguageModel', () => {
 		const emptyTextPart = new vscode.LanguageModelTextPart('');
 		const whitespaceTextPart = new vscode.LanguageModelTextPart('   \n  ');
 		const nonEmptyTextPart = new vscode.LanguageModelTextPart('Hello');
+		const toolCallPart = new vscode.LanguageModelToolCallPart('test-tool-callId', 'test-tool-name', {});
+		const emptyToolResultPart = new vscode.LanguageModelToolResultPart('test-tool-callId', []);
 
 		const messagesWithVariousContent = [
 			// Message with only empty text content - should be filtered out
@@ -117,7 +119,11 @@ suite('AnthropicLanguageModel', () => {
 			// Message with non-empty text content - should be kept
 			vscode.LanguageModelChatMessage.User([nonEmptyTextPart]),
 			// Message with both empty and non-empty text content - should be kept
-			vscode.LanguageModelChatMessage.Assistant([emptyTextPart, nonEmptyTextPart])
+			vscode.LanguageModelChatMessage.Assistant([emptyTextPart, nonEmptyTextPart]),
+			// Message with tool call - should be kept
+			vscode.LanguageModelChatMessage.Assistant([toolCallPart]),
+			// Message with empty tool result - should be filtered out
+			vscode.LanguageModelChatMessage.User([emptyToolResultPart])
 		];
 
 		// Call the method under test
