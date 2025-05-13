@@ -18,6 +18,7 @@ import { IPositronConsoleInstance } from '../../../../services/positronConsole/b
 import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
+import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -339,6 +340,7 @@ interface ConsoleTabListProps {
 
 export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	const positronConsoleContext = usePositronConsoleContext();
+	const positronConsoleTabFocusedContextKey = PositronConsoleTabFocused.bindTo(positronConsoleContext.contextKeyService);
 
 	const tabListRef = useRef<HTMLDivElement>(null);
 
@@ -346,6 +348,44 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	const consoleInstances = Array.from(positronConsoleContext.positronConsoleInstances.values()).sort((a, b) => {
 		return a.sessionMetadata.createdTimestamp - b.sessionMetadata.createdTimestamp;
 	});
+
+	// Handles setting and resetting the tab focus context key
+	useEffect(() => {
+		// Capture the current tabListRef element to avoid stale ref during cleanup
+		const tabListElement = tabListRef.current;
+		if (!tabListElement) {
+			return;
+		}
+
+		// Set up handlers to track focus of a tab element
+		const handleFocus = (e: FocusEvent) => {
+			// Check if the focused element is a child of tabListElement
+			if (tabListElement.contains(e.target as Node)) {
+				positronConsoleTabFocusedContextKey.set(true);
+			}
+		};
+
+		// Setup handler to reset the context key
+		const handleBlur = (e: FocusEvent) => {
+			// Only reset the context key if focus is moving outside the tab list
+			if (!tabListElement?.contains(e.relatedTarget as Node)) {
+				positronConsoleTabFocusedContextKey.set(false);
+			}
+		};
+
+		// Add event listeners to the tabListRef element
+		if (tabListElement) {
+			tabListElement.addEventListener('focusin', handleFocus);
+			tabListElement.addEventListener('focusout', handleBlur);
+		}
+
+		// Clean up when component unmounts
+		return () => {
+			tabListElement.removeEventListener('focusin', handleFocus);
+			tabListElement.removeEventListener('focusout', handleBlur);
+			positronConsoleTabFocusedContextKey.set(false);
+		};
+	}, [positronConsoleTabFocusedContextKey]);
 
 	/**
 	 * Function to change the active console instance that is tied to a specific session
