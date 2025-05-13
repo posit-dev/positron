@@ -14,6 +14,7 @@ export enum PositronAssistantToolName {
 	ExecuteCode = 'executeCode',
 	GetPlot = 'getPlot',
 	SelectionEdit = 'selectionEdit',
+	MyCustomTool = 'myCustomTool',
 }
 
 /**
@@ -250,6 +251,20 @@ export function registerAssistantTools(
 	});
 
 	context.subscriptions.push(getPlotTool);
+
+	const myCustomTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.MyCustomTool, {
+		prepareInvocation: async (options, token) => {
+			return {
+				invocationMessage: vscode.l10n.t('Running custom blank response tool'),
+				pastTenseMessage: vscode.l10n.t('Ran custom blank response tool.'),
+			};
+		},
+		invoke: async (options, token) => {
+			// Return a blank tool result.
+			return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart('')]);
+		},
+	});
+	context.subscriptions.push(myCustomTool);
 }
 
 /**
