@@ -27,6 +27,7 @@ const APIKEY_RADIO = '.language-model-authentication-method-container input#apiK
 const CHAT_INPUT = '.chat-editor-container .interactive-input-editor textarea.inputarea';
 const SEND_MESSAGE_BUTTON = '.action-container .action-label.codicon-send[aria-label="Send and Dispatch (Enter)"]';
 const NEW_CHAT_BUTTON = '.composite.title .actions-container[aria-label="Chat actions"] .action-item .action-label.codicon-plus[aria-label="New Chat (Ctrl+L)"]';
+const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbars';
 /*
  *  Reuseable Positron Assistant functionality for tests to leverage.
  */
@@ -64,6 +65,11 @@ export class Assistant {
 	async verifyAddModelButtonVisible() {
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Add Language Model');
+	}
+
+	async verifyInlineChatInputsVisible() {
+		await expect(this.code.driver.page.locator(INLINE_CHAT_TOOLBAR)).toBeVisible();
+		await expect(this.code.driver.page.locator(INLINE_CHAT_TOOLBAR)).toBeInViewport({ ratio: 1 });
 	}
 
 	async selectModelProvider(provider: string) {
