@@ -64,32 +64,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 
 	const handleDeleteClick = async (e: MouseEvent<HTMLButtonElement>) => {
 		e.stopPropagation();
-
-		// Prevent the button from being clicked multiple times
-		setDeleteDisabled(true);
-		try {
-			// Updated to support proper deletion of sessions that have
-			// been shutdown or exited.
-			if (positronConsoleContext.runtimeSessionService.getSession(sessionId)) {
-				// Attempt to delete the session from the runtime session service.
-				// This will throw an error if the session is not found.
-				await positronConsoleContext.runtimeSessionService.deleteSession(sessionId);
-			} else {
-				// If the session is not found, it may have been deleted already
-				// or is a provisional session. In this case, we can delete the
-				// session from the Positron Console service.
-				positronConsoleContext.positronConsoleService.deletePositronConsoleSession(sessionId);
-			}
-		} catch (error) {
-			// Show an error notification if the session could not be deleted.
-			positronConsoleContext.notificationService.error(
-				localize('positronDeleteSessionError', "Failed to delete session: {0}", error)
-			);
-			// Re-enable the button if the session could not be deleted.
-			// If it is deleted, the component is destroyed and the
-			// button is no longer clickable anyway.
-			setDeleteDisabled(false);
-		}
+		deleteSession();
 	}
 
 	/**
@@ -131,6 +106,34 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				inputRef.current.select();
 			}
 		}, 0);
+	}
+
+	const deleteSession = async () => {
+		// Prevent the button from being clicked multiple times
+		setDeleteDisabled(true);
+		try {
+			// Updated to support proper deletion of sessions that have
+			// been shutdown or exited.
+			if (positronConsoleContext.runtimeSessionService.getSession(sessionId)) {
+				// Attempt to delete the session from the runtime session service.
+				// This will throw an error if the session is not found.
+				await positronConsoleContext.runtimeSessionService.deleteSession(sessionId);
+			} else {
+				// If the session is not found, it may have been deleted already
+				// or is a provisional session. In this case, we can delete the
+				// session from the Positron Console service.
+				positronConsoleContext.positronConsoleService.deletePositronConsoleSession(sessionId);
+			}
+		} catch (error) {
+			// Show an error notification if the session could not be deleted.
+			positronConsoleContext.notificationService.error(
+				localize('positronDeleteSessionError', "Failed to delete session: {0}", error)
+			);
+			// Re-enable the button if the session could not be deleted.
+			// If it is deleted, the component is destroyed and the
+			// button is no longer clickable anyway.
+			setDeleteDisabled(false);
+		}
 	}
 
 	/**
@@ -265,6 +268,18 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		}
 	};
 
+	/**
+	 * Handles the key down event for the delete button.
+	 * @param e
+	 */
+	const handleDeleteKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			e.stopPropagation();
+			deleteSession();
+		}
+	};
+
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
@@ -320,6 +335,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 							data-testid='trash-session'
 							disabled={deleteDisabled}
 							onClick={handleDeleteClick}
+							onKeyDown={handleDeleteKeyDown}
 							onMouseDown={deleteButtonMouseDownHandler}
 						>
 							<span className='codicon codicon-trash' />
