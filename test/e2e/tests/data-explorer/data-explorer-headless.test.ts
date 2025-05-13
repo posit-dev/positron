@@ -97,6 +97,7 @@ async function verifyCanOpenAsPlaintext(app: Application, searchString: string |
 	const openAnyway = app.code.driver.page.getByText("Open Anyway");
 
 	if (await openAnyway.waitFor({ state: "visible", timeout: 3000 }).then(() => true).catch(() => false)) {
+		await app.code.wait(1000);
 		await openAnyway.click();
 	}
 
