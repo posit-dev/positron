@@ -29,10 +29,10 @@ const MINIMUM_ACTION_CONSOLE_TAB_WIDTH = 110;
 interface ConsoleTabProps {
 	positronConsoleInstance: IPositronConsoleInstance;
 	width: number; // The width of the console tab list.
-	onClick: (instance: IPositronConsoleInstance) => void;
+	onChangeSession: (instance: IPositronConsoleInstance) => void;
 }
 
-const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps) => {
+const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: ConsoleTabProps) => {
 	// Context
 	const positronConsoleContext = usePositronConsoleContext();
 
@@ -42,11 +42,24 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 	const [sessionName, setSessionName] = useState(positronConsoleInstance.sessionName);
 
 	// Refs
+	const tabRef = useRef<HTMLDivElement>(null);
 	const inputRef = React.useRef<HTMLInputElement>(null);
 
 	// Variables
 	const sessionId = positronConsoleInstance.sessionId;
 	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId;
+
+	const handleClick = () => {
+		// Focus the tab element so the PositronConsoleTabFocused context key
+		// gets set and keyboard interactions work as expected.
+		setTimeout(() => {
+			if (tabRef.current) {
+				tabRef.current.focus();
+			}
+		}, 0);
+
+		onChangeSession(positronConsoleInstance);
+	};
 
 	const handleDeleteClick = async (e: MouseEvent<HTMLButtonElement>) => {
 		e.stopPropagation();
@@ -268,6 +281,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 
 	return (
 		<div
+			ref={tabRef}
 			aria-controls={`console-panel-${positronConsoleInstance.sessionMetadata.sessionId}`}
 			aria-label={positronConsoleInstance.sessionName}
 			aria-selected={positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId}
@@ -275,7 +289,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 			data-testid={`console-tab-${positronConsoleInstance.sessionMetadata.sessionId}`}
 			role='tab'
 			tabIndex={isActiveTab ? 0 : -1}
-			onClick={() => onClick(positronConsoleInstance)}
+			onClick={handleClick}
 			onMouseDown={mouseDownHandler}
 		>
 			<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
@@ -338,7 +352,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	 *
 	 * @param {string}   sessionId The Id of the session that should be active
 	 */
-	const onChangeForegroundSession = async (sessionId: string): Promise<void> => {
+	const handleChangeForegroundSession = async (sessionId: string): Promise<void> => {
 		// Find the session
 		const session =
 			positronConsoleContext.runtimeSessionService.getSession(sessionId);
@@ -397,7 +411,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 		if (newIndex !== activeIndex && newIndex >= 0 && newIndex < consoleInstances.length) {
 			// Get the console instance for the new index
 			const consoleInstance = consoleInstances[newIndex];
-			onChangeForegroundSession(consoleInstance.sessionId).then(() => {
+			handleChangeForegroundSession(consoleInstance.sessionId).then(() => {
 				// Focus the tab after it becomes active
 				if (tabListRef.current) {
 					const tabElements = tabListRef.current.children;
@@ -425,7 +439,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 					key={positronConsoleInstance.sessionId}
 					positronConsoleInstance={positronConsoleInstance}
 					width={props.width}
-					onClick={() => onChangeForegroundSession(positronConsoleInstance.sessionId)}
+					onChangeSession={() => handleChangeForegroundSession(positronConsoleInstance.sessionId)}
 				/>
 			)}
 		</div>
