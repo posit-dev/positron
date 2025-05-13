@@ -135,7 +135,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					borderTop={true}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
-					size='small'
 				>
 					<ActionBarRegion location='left'>
 						<GroupingMenuButton />
@@ -165,7 +164,6 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 					gap={kSecondaryActionBarGap}
 					paddingLeft={kPaddingLeft}
 					paddingRight={kPaddingRight}
-					size='small'
 				>
 					<ActionBarRegion location='left'>
 						<VariablesInstanceMenuButton />

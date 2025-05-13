@@ -346,6 +346,15 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 	const navigateHistoryDown = (e: IKeyboardEvent) => {
 
+		// If the history browser is up, update the selected index.
+		if (historyBrowserActiveRef.current) {
+			setHistoryBrowserSelectedIndex(Math.min(
+				historyItemsRef.current.length - 1,
+				historyBrowserSelectedIndexRef.current + 1));
+			consumeKbdEvent(e);
+			return;
+		}
+
 		// Get the position and text model. If it's on the last line, allow forward history
 		// navigation.
 		const position = codeEditorWidgetRef.current.getPosition();
@@ -521,9 +530,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
 						consumeEvent();
 						navigateHistoryUp(e);
-						break;
 					}
 				}
+				break;
 			}
 
 			case KeyCode.KeyN: {
@@ -533,9 +542,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
 						consumeEvent();
 						navigateHistoryDown(e);
-						break;
 					}
 				}
+				break;
 			}
 
 			// Tab processing.
@@ -570,18 +579,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 			// Down arrow processing.
 			case KeyCode.DownArrow: {
-
-				// If the history browser is up, update the selected index.
-				if (historyBrowserActiveRef.current) {
-					setHistoryBrowserSelectedIndex(Math.min(
-						historyItemsRef.current.length - 1,
-						historyBrowserSelectedIndexRef.current + 1));
-					consumeEvent();
-					break;
-				} else {
-					navigateHistoryDown(e);
-				}
-
+				navigateHistoryDown(e);
 				break;
 			}
 

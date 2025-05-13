@@ -78,6 +78,7 @@ export const TopActionBarSessionManager = () => {
 			ariaLabel={CommandCenter.title(command)}
 			border={true}
 			commandId={command}
+			height={24}
 			label={labelText}
 			{
 			...(
