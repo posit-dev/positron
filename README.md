@@ -24,6 +24,9 @@ Positron is built on [Code OSS](https://github.com/microsoft/vscode). To learn a
 
 Install the latest release of Positron from our [website](https://positron.posit.co/download), or find other versions [here on GitHub](https://github.com/posit-dev/positron/releases). Currently, Positron is producing pre-release builds from a continuous integration (CI) system for macOS, Windows, and Linux.
 
+> [!TIP]
+> A gnome keyring dialogue box may appear with first run on Linux distributions with other than systemd init systems.
+
 ## Share your feedback about Positron
 
 We invite you to join us on [GitHub Discussions](https://github.com/posit-dev/positron/discussions) to ask questions and share feedback. [Read more](https://positron.posit.co/feedback) about giving feedback and reporting bugs.
