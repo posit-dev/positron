@@ -1780,7 +1780,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Run handler on future instances, e.g. after reconnect
 		const disposable = this.onDidStartUiClient((event) => {
-			if (event.sessionId !== sessionId) {
+			if (event.sessionId === sessionId) {
 				handler(event.uiClient);
 			}
 		});
