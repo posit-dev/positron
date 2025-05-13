@@ -7,7 +7,7 @@
 import './plotsContainer.css';
 
 // React.
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../../base/browser/dom.js';
@@ -58,6 +58,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 	const positronPlotsContext = usePositronPlotsContext();
 	const plotHistoryRef = React.createRef<HTMLDivElement>();
+	const containerRef = useRef<HTMLDivElement>(undefined!);
 
 	// We generally prefer showing the history on the bottom (making the plot
 	// wider), but if the plot container is too wide, we show it on the right
@@ -111,7 +112,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 			props.positronPlotsService.setPlotsRenderSettings({
 				size,
-				pixel_ratio: DOM.getActiveWindow().devicePixelRatio,
+				pixel_ratio: DOM.getWindow(containerRef.current).devicePixelRatio,
 				format: PlotRenderFormat.Png, // Currently hard-coded
 			});
 		};
@@ -265,7 +266,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
 	return (
-		<div className={'plots-container dark-filter-' + props.darkFilterMode + ' ' + historyEdge}>
+		<div ref={containerRef} className={'plots-container dark-filter-' + props.darkFilterMode + ' ' + historyEdge}>
 			<div className='selected-plot'>
 				{positronPlotsContext.positronPlotInstances.length === 0 &&
 					<div className='plot-placeholder'></div>}
