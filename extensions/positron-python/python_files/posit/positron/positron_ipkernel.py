@@ -23,9 +23,10 @@ from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
 from IPython.core import magic_arguments, oinspect, page
 from IPython.core.error import UsageError
+from IPython.core.formatters import DisplayFormatter, IPythonDisplayFormatter, catch_format_error
 from IPython.core.interactiveshell import ExecutionInfo, ExecutionResult, InteractiveShell
 from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class
-from IPython.utils import PyColorize
+from IPython.utils import PyColorize, dir2
 
 from .access_keys import encode_access_key
 from .connections import ConnectionsService
@@ -220,11 +221,48 @@ _traceback_file_link_re = re.compile(r"^(File \x1b\[\d+;\d+m)(.+):(\d+)")
 original_showwarning = warnings.showwarning
 
 
+class PositronDisplayFormatter(DisplayFormatter):
+    @traitlets.default("ipython_display_formatter")
+    def _default_formatter(self):
+        return PositronIPythonDisplayFormatter(parent=self)
+
+
+class PositronIPythonDisplayFormatter(IPythonDisplayFormatter):
+    print_method = traitlets.ObjectName("_ipython_display_")
+    _return_type = (type(None), bool)
+
+    @catch_format_error
+    def __call__(self, obj):
+        """Compute the format for an object."""
+        try:
+            if obj.__module__ == "plotnine.ggplot":
+                obj.draw(show=True)
+                return True
+        except AttributeError:
+            pass
+        if self.enabled:
+            # lookup registered printer
+            try:
+                printer = self.lookup(obj)
+            except KeyError:
+                pass
+            else:
+                printer(obj)
+                return True
+            # Finally look for special method names
+            method = dir2.get_real_method(obj, self.print_method)
+            if method is not None:
+                method()
+                return True
+        return True
+
+
 class PositronShell(ZMQInteractiveShell):
     kernel: PositronIPyKernel
     object_info_string_level: int
     magics_manager: MagicsManager
     display_pub: ZMQDisplayPublisher
+    display_formatter = traitlets.Instance(PositronDisplayFormatter, allow_none=True)
 
     inspector_class: type[PositronIPythonInspector] = traitlets.Type(
         PositronIPythonInspector,  # type: ignore
@@ -295,6 +333,10 @@ class PositronShell(ZMQInteractiveShell):
                 "__nonzero__": {},
             }
         )
+
+    def init_display_formatter(self):
+        self.display_formatter = PositronDisplayFormatter(parent=self)
+        self.configurables.append(self.display_formatter)
 
     def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """Prior to execution, reset the user environment watch state."""
