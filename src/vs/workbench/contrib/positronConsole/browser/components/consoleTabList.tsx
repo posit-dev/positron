@@ -207,10 +207,40 @@ const ConsoleTab = ({ positronConsoleInstance, width, onClick }: ConsoleTabProps
 			if (inputRef.current) {
 				inputRef.current.select();
 			}
-		} else if ((e.ctrlKey || e.metaKey) && (e.key === 'x' || e.key === 'c')) {
+		} else if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
 			e.preventDefault();
-			// Copy the selected text to the clipboard
-			positronConsoleContext.clipboardService.writeText(sessionName);
+
+			// Check if the input field has a selection
+			const hasSelection = inputRef.current &&
+				typeof inputRef.current.selectionStart === 'number' &&
+				typeof inputRef.current.selectionEnd === 'number';
+
+			if (hasSelection) {
+				// Copy the selected text to the clipboard
+				const start = inputRef.current!.selectionStart as number;
+				const end = inputRef.current!.selectionEnd as number;
+				const selectedText = sessionName.substring(start, end);
+				positronConsoleContext.clipboardService.writeText(selectedText);
+
+				// Remove the selected text from the input field
+				const newValue = sessionName.substring(0, start) + sessionName.substring(end);
+				setSessionName(newValue);
+			}
+		} else if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+			e.preventDefault();
+
+			// Check if the input field has a selection
+			const hasSelection = inputRef.current &&
+				typeof inputRef.current.selectionStart === 'number' &&
+				typeof inputRef.current.selectionEnd === 'number';
+
+			if (hasSelection) {
+				// Copy the selected text to the clipboard
+				const start = inputRef.current!.selectionStart as number;
+				const end = inputRef.current!.selectionEnd as number;
+				const selectedText = sessionName.substring(start, end);
+				positronConsoleContext.clipboardService.writeText(selectedText);
+			}
 		} else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
 			e.preventDefault();
 			// Avoid triggering this action in the console instance
