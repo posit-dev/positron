@@ -129,7 +129,10 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			notify()
 		}, 500);
 
-		return () => clearTimeout(debounceTimer);
+		return () => {
+			clearTimeout(debounceTimer);
+			disposables.dispose();
+		};
 	}, [plotWidth, plotHeight, props.positronPlotsService]);
 
 	/**
