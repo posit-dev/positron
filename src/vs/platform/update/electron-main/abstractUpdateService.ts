@@ -324,8 +324,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 	// --- Start Positron ---
 	// This isn't actually used for Positron updates but is kept to make future merges from upstream easier
-	protected abstract doCheckForUpdates(context: any): void;
-	protected abstract buildUpdateFeedUrl(channel: string): string | undefined;
+	protected abstract buildUpdateFeedUrl(quality: string): string | undefined;
+	protected abstract doCheckForUpdates(explicit: boolean): void;
 	protected updateAvailable(context: IUpdate): void {
 		this.setState(State.AvailableForDownload(context));
 	}

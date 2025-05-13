@@ -5,14 +5,13 @@
 
 import * as cp from 'child_process';
 import * as os from 'os';
-import treeKill from 'tree-kill';
-import { ILogFile } from './driver';
+import { IElement, ILocaleInfo, ILocalizedStrings, ILogFile } from './driver';
 import { Logger, measureAndLog } from './logger';
 import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
 import { PlaywrightDriver } from './playwrightDriver';
 import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
-import { ElectronApplication } from '@playwright/test';
+import { Quality } from './application';
 
 export interface LaunchOptions {
 	codePath?: string;
@@ -22,14 +21,15 @@ export interface LaunchOptions {
 	readonly logger: Logger;
 	logsPath: string;
 	crashesPath: string;
-	readonly verbose?: boolean;
+	verbose?: boolean;
 	readonly extraArgs?: string[];
 	readonly remote?: boolean;
 	readonly web?: boolean;
 	readonly tracing?: boolean;
 	snapshots?: boolean;
 	readonly headless?: boolean;
-	readonly browser?: 'chromium' | 'webkit' | 'firefox';
+	readonly browser?: 'chromium' | 'webkit' | 'firefox' | 'chromium-msedge' | 'chromium-chrome';
+	readonly quality: Quality;
 }
 
 interface ICodeInstance {
@@ -38,18 +38,28 @@ interface ICodeInstance {
 
 const instances = new Set<ICodeInstance>();
 
-function registerInstance(process: cp.ChildProcess, logger: Logger, type: string) {
+function registerInstance(process: cp.ChildProcess, logger: Logger, type: 'electron' | 'server'): { safeToKill: Promise<void> } {
 	const instance = { kill: () => teardown(process, logger) };
 	instances.add(instance);
 
-	process.stdout?.on('data', data => logger.log(`[${type}] stdout: ${data}`));
-	process.stderr?.on('data', error => logger.log(`[${type}] stderr: ${error}`));
+	const safeToKill = new Promise<void>(resolve => {
+		process.stdout?.on('data', data => {
+			const output = data.toString();
+			if (output.indexOf('calling app.quit()') >= 0 && type === 'electron') {
+				setTimeout(() => resolve(), 500 /* give Electron some time to actually terminate fully */);
+			}
+			logger.log(`[${type}] stdout: ${output}`);
+		});
+		process.stderr?.on('data', error => logger.log(`[${type}] stderr: ${error}`));
+	});
 
 	process.once('exit', (code, signal) => {
 		logger.log(`[${type}] Process terminated (pid: ${process.pid}, code: ${code}, signal: ${signal})`);
 
 		instances.delete(instance);
 	});
+
+	return { safeToKill };
 }
 
 async function teardownAll(signal?: number) {
@@ -79,15 +89,15 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		const { serverProcess, driver } = await measureAndLog(() => launchPlaywrightBrowser(options), 'launch playwright (browser)', options.logger);
 		registerInstance(serverProcess, options.logger, 'server');
 
-		return new Code(driver, options.logger, serverProcess);
+		return new Code(driver, options.logger, serverProcess, undefined, options.quality);
 	}
 
 	// Electron smoke tests (playwright)
 	else {
-		const { electronProcess, driver, electronApp } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
-		registerInstance(electronProcess, options.logger, 'electron');
+		const { electronProcess, driver } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
+		const { safeToKill } = registerInstance(electronProcess, options.logger, 'electron');
 
-		return new Code(driver, options.logger, electronProcess, electronApp);
+		return new Code(driver, options.logger, electronProcess, safeToKill, options.quality);
 	}
 }
 
@@ -95,13 +105,12 @@ export class Code {
 
 	readonly driver: PlaywrightDriver;
 
-
 	constructor(
 		driver: PlaywrightDriver,
 		readonly logger: Logger,
 		private readonly mainProcess: cp.ChildProcess,
-		// Only available when running against Electron
-		readonly electronApp?: ElectronApplication
+		private readonly safeToKill: Promise<void> | undefined,
+		readonly quality: Quality
 	) {
 		this.driver = new Proxy(driver, {
 			get(target, prop) {
@@ -126,8 +135,12 @@ export class Code {
 		return await this.driver.startTracing(name);
 	}
 
-	async stopTracing(name: string, persist: boolean, customPath?: string): Promise<void> {
-		return await this.driver.stopTracing(name, persist, customPath);
+	async stopTracing(name: string, persist: boolean): Promise<void> {
+		return await this.driver.stopTracing(name, persist);
+	}
+
+	async sendKeybinding(keybinding: string, accept?: () => Promise<void> | void): Promise<void> {
+		await this.driver.sendKeybinding(keybinding, accept);
 	}
 
 	async didFinishLoad(): Promise<void> {
@@ -141,7 +154,13 @@ export class Code {
 			let done = false;
 
 			// Start the exit flow via driver
-			this.driver.exitApplication();
+			this.driver.close();
+
+			let safeToKill = false;
+			this.safeToKill?.then(() => {
+				this.logger.log('Smoke test exit(): safeToKill() called');
+				safeToKill = true;
+			});
 
 			// Await the exit of the application
 			(async () => {
@@ -149,38 +168,27 @@ export class Code {
 				while (!done) {
 					retries++;
 
+					if (safeToKill) {
+						this.logger.log('Smoke test exit(): call did not terminate the process yet, but safeToKill is true, so we can kill it');
+						this.kill(pid);
+					}
+
 					switch (retries) {
 
-						// after 5 / 10 seconds: try to exit gracefully again
-						case 10:
+						// after 10 seconds: forcefully kill
 						case 20: {
-							this.logger.log('Smoke test exit call did not terminate process after 5-10s, gracefully trying to exit the application again...');
-							this.driver.exitApplication();
+							this.logger.log('Smoke test exit(): call did not terminate process after 10s, forcefully exiting the application...');
+							this.kill(pid);
 							break;
 						}
 
-						// after 20 seconds: forcefully kill
+						// after 20 seconds: give up
 						case 40: {
-							this.logger.log('Smoke test exit call did not terminate process after 20s, forcefully exiting the application...');
-
-							// no need to await since we're polling for the process to die anyways
-							treeKill(pid, err => {
-								try {
-									process.kill(pid, 0); // throws an exception if the process doesn't exist anymore
-									this.logger.log('Failed to kill Electron process tree:', err?.message);
-								} catch (error) {
-									// Expected when process is gone
-								}
-							});
-
-							break;
-						}
-
-						// after 30 seconds: give up
-						case 60: {
+							this.logger.log('Smoke test exit(): call did not terminate process after 20s, giving up');
+							this.kill(pid);
 							done = true;
-							this.logger.log('Smoke test exit call did not terminate process after 30s, giving up');
 							resolve();
+							break;
 						}
 					}
 
@@ -188,6 +196,8 @@ export class Code {
 						process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
 						await this.wait(500);
 					} catch (error) {
+						this.logger.log('Smoke test exit(): call terminated process successfully');
+
 						done = true;
 						resolve();
 					}
@@ -196,8 +206,91 @@ export class Code {
 		}), 'Code#exit()', this.logger);
 	}
 
+	private kill(pid: number): void {
+		try {
+			process.kill(pid, 0); // throws an exception if the process doesn't exist anymore.
+		} catch (e) {
+			this.logger.log('Smoke test kill(): returning early because process does not exist anymore');
+			return;
+		}
+
+		try {
+			this.logger.log(`Smoke test kill(): Trying to SIGTERM process: ${pid}`);
+			process.kill(pid);
+		} catch (e) {
+			this.logger.log('Smoke test kill(): SIGTERM failed', e);
+		}
+	}
+
+	async getElement(selector: string): Promise<IElement | undefined> {
+		return (await this.driver.getElements(selector))?.[0];
+	}
+
+	async getElements(selector: string, recursive: boolean): Promise<IElement[] | undefined> {
+		return this.driver.getElements(selector, recursive);
+	}
+
+	async waitForTextContent(selector: string, textContent?: string, accept?: (result: string) => boolean, retryCount?: number): Promise<string> {
+		accept = accept || (result => textContent !== undefined ? textContent === result : !!result);
+
+		return await this.poll(
+			() => this.driver.getElements(selector).then(els => els.length > 0 ? Promise.resolve(els[0].textContent) : Promise.reject(new Error('Element not found for textContent'))),
+			s => accept!(typeof s === 'string' ? s : ''),
+			`get text content '${selector}'`,
+			retryCount
+		);
+	}
+
+	async waitAndClick(selector: string, xoffset?: number, yoffset?: number, retryCount: number = 200): Promise<void> {
+		await this.poll(() => this.driver.click(selector, xoffset, yoffset), () => true, `click '${selector}'`, retryCount);
+	}
+
+	async waitForSetValue(selector: string, value: string): Promise<void> {
+		await this.poll(() => this.driver.setValue(selector, value), () => true, `set value '${selector}'`);
+	}
+
+	async waitForElements(selector: string, recursive: boolean, accept: (result: IElement[]) => boolean = result => result.length > 0): Promise<IElement[]> {
+		return await this.poll(() => this.driver.getElements(selector, recursive), accept, `get elements '${selector}'`);
+	}
+
+	async waitForElement(selector: string, accept: (result: IElement | undefined) => boolean = result => !!result, retryCount: number = 200): Promise<IElement> {
+		return await this.poll<IElement>(() => this.driver.getElements(selector).then(els => els[0]), accept, `get element '${selector}'`, retryCount);
+	}
+
+	async waitForActiveElement(selector: string, retryCount: number = 200): Promise<void> {
+		await this.poll(() => this.driver.isActiveElement(selector), r => r, `is active element '${selector}'`, retryCount);
+	}
+
+	async waitForTitle(accept: (title: string) => boolean): Promise<void> {
+		await this.poll(() => this.driver.getTitle(), accept, `get title`);
+	}
+
+	async waitForTypeInEditor(selector: string, text: string): Promise<void> {
+		await this.poll(() => this.driver.typeInEditor(selector, text), () => true, `type in editor '${selector}'`);
+	}
+
+	async waitForEditorSelection(selector: string, accept: (selection: { selectionStart: number; selectionEnd: number }) => boolean): Promise<void> {
+		await this.poll(() => this.driver.getEditorSelection(selector), accept, `get editor selection '${selector}'`);
+	}
+
+	async waitForTerminalBuffer(selector: string, accept: (result: string[]) => boolean): Promise<void> {
+		await this.poll(() => this.driver.getTerminalBuffer(selector), accept, `get terminal buffer '${selector}'`);
+	}
+
+	async writeInTerminal(selector: string, value: string): Promise<void> {
+		await this.poll(() => this.driver.writeInTerminal(selector, value), () => true, `writeInTerminal '${selector}'`);
+	}
+
 	async whenWorkbenchRestored(): Promise<void> {
 		await this.poll(() => this.driver.whenWorkbenchRestored(), () => true, `when workbench restored`);
+	}
+
+	getLocaleInfo(): Promise<ILocaleInfo> {
+		return this.driver.getLocaleInfo();
+	}
+
+	getLocalizedStrings(): Promise<ILocalizedStrings> {
+		return this.driver.getLocalizedStrings();
 	}
 
 	getLogs(): Promise<ILogFile[]> {
@@ -243,4 +336,37 @@ export class Code {
 			trial++;
 		}
 	}
+}
+
+export function findElement(element: IElement, fn: (element: IElement) => boolean): IElement | null {
+	const queue = [element];
+
+	while (queue.length > 0) {
+		const element = queue.shift()!;
+
+		if (fn(element)) {
+			return element;
+		}
+
+		queue.push(...element.children);
+	}
+
+	return null;
+}
+
+export function findElements(element: IElement, fn: (element: IElement) => boolean): IElement[] {
+	const result: IElement[] = [];
+	const queue = [element];
+
+	while (queue.length > 0) {
+		const element = queue.shift()!;
+
+		if (fn(element)) {
+			result.push(element);
+		}
+
+		queue.push(...element.children);
+	}
+
+	return result;
 }

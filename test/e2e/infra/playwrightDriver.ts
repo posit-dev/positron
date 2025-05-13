@@ -155,7 +155,7 @@ export class PlaywrightDriver {
 		await this.page.reload();
 	}
 
-	async exitApplication() {
+	async close() {
 
 		// Stop tracing
 		try {
@@ -175,39 +175,11 @@ export class PlaywrightDriver {
 			}
 		}
 
-		// Web: exit via `close` method
-		if (this.options.web) {
-			try {
-				await measureAndLog(() => this.application.close(), 'playwright.close()', this.options.logger);
-			} catch (error) {
-				this.options.logger.log(`Error closing appliction (${error})`);
-			}
-		}
-
-		// Desktop: exit via `driver.exitApplication`
-		else {
-
-			// Log all files in extensionsPath
-			const extensionsPath = this.options.extensionsPath;
-			this.options.logger.log(`Listing files in: ${extensionsPath}`);
-
-			const files = await promises.readdir(extensionsPath);
-			this.options.logger.log(`Files in extensionsPath: ${files.join(', ')}`);
-
-			// Read and log contents of extensions.json (if it exists)
-			const extensionsJsonPath = path.join(extensionsPath, 'extensions.json');
-			try {
-				const extensionsJsonContent = await promises.readFile(extensionsJsonPath, 'utf-8');
-				this.options.logger.log(`Contents of extensions.json:\n${extensionsJsonContent}`);
-			} catch (jsonError) {
-				this.options.logger.log(`extensions.json not found or cannot be read: ${jsonError}`);
-			}
-
-			try {
-				await measureAndLog(() => this.evaluateWithDriver(([driver]) => driver.exitApplication()), 'driver.exitApplication()', this.options.logger);
-			} catch (error) {
-				this.options.logger.log(`Error exiting appliction (${error})`);
-			}
+		//  exit via `close` method
+		try {
+			await measureAndLog(() => this.application.close(), 'playwright.close()', this.options.logger);
+		} catch (error) {
+			this.options.logger.log(`Error closing application (${error})`);
 		}
 
 		// Server: via `teardown`
@@ -248,6 +220,16 @@ export class PlaywrightDriver {
 	private async getDriverHandle(): Promise<playwright.JSHandle<IWindowDriver>> {
 		return this.page.evaluateHandle('window.driver');
 	}
+
+	async isAlive(): Promise<boolean> {
+		try {
+			await this.getDriverHandle();
+			return true;
+		} catch (error) {
+			return false;
+		}
+	}
+}
 
 	/**
 	 * Click and drag from one point to another.
