@@ -53,7 +53,11 @@ test.describe('Headless Data Explorer', {
 	plainTextTestCases.forEach(({ name, file, searchString }) => {
 		test(`Verify can open ${name} file as plaintext`,
 			{ tag: [TestTags.EDITOR_ACTION_BAR] }, async function ({ app, openDataFile }) {
-				await openDataFile(join(`data-files/flights/${file}`));
+				if (process.env.WEB && file === 'flights.csv') {
+					await openDataFile(join(`data-files/flights/small_file.csv`));
+				} else {
+					await openDataFile(join(`data-files/flights/${file}`));
+				}
 				await verifyPlainTextButtonInActionBar(app, true);
 				await verifyCanOpenAsPlaintext(app, searchString);
 			});
