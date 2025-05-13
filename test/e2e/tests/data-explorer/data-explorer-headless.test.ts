@@ -53,11 +53,7 @@ test.describe('Headless Data Explorer', {
 	plainTextTestCases.forEach(({ name, file, searchString }) => {
 		test(`Verify can open ${name} file as plaintext`,
 			{ tag: [TestTags.EDITOR_ACTION_BAR] }, async function ({ app, openDataFile }) {
-				if (process.env.WEB && file === 'flights.csv') {
-					await openDataFile(join(`data-files/flights/small_file.csv`));
-				} else {
-					await openDataFile(join(`data-files/flights/${file}`));
-				}
+				await openDataFile(join(`data-files/flights/${file}`));
 				await verifyPlainTextButtonInActionBar(app, true);
 				await verifyCanOpenAsPlaintext(app, searchString);
 			});
@@ -102,8 +98,7 @@ async function verifyCanOpenAsPlaintext(app: Application, searchString: string |
 	// that the file is large and may take a while to open. This is due to a vs code behavior and file size limit.
 	const openAnyway = app.code.driver.page.getByText("Open Anyway");
 
-	if (await openAnyway.waitFor({ state: "visible", timeout: 3000 }).then(() => true).catch(() => false)) {
-		await app.code.wait(1000);
+	if (await openAnyway.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false)) {
 		await openAnyway.click();
 	}
 
