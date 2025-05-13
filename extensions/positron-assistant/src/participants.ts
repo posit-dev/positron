@@ -274,16 +274,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		}
 
-		// ADD BLANK MESSAGES TO TEST IF THEY ARE FILTERED PROPERLY
-		// Since these are part of the default messages, any messages sent by
-		// the user to the assistant should fail right away if we are not
-		// filtering the blank messages successfully.
-		messages.push(
-			vscode.LanguageModelChatMessage.User(''),
-			vscode.LanguageModelChatMessage.Assistant(''),
-		);
-		// END BLANK MESSAGES
-
 		// Add the persisted chat history to the message thread.
 		const historyMessages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
 		messages.push(...historyMessages);

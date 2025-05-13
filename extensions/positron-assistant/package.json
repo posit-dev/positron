@@ -197,15 +197,6 @@
         "tags": [
           "positron-assistant"
         ]
-      },
-      {
-        "name": "myCustomTool",
-        "displayName": "my custom tool",
-        "modelDescription": "a custom tool",
-        "canBeReferencedInPrompt": false,
-        "tags": [
-          "positron-assistant"
-        ]
       }
     ]
   },
