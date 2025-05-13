@@ -245,7 +245,7 @@ registerAction2(class extends Action2 {
 			category,
 			f1: true,
 			// --- Start Positron ---
-			precondition: IsDevelopmentContext
+			precondition: IsDevelopmentContext,
 			// --- End Positron ---
 			menu: {
 				id: MenuId.MenubarHelpMenu,
