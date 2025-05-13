@@ -25,14 +25,16 @@ export interface ConsoleOutputLinesProps {
  */
 export const ConsoleOutputLines = (props: ConsoleOutputLinesProps) => {
 	// Get services from the context.
-	const { openerService, notificationService } = usePositronConsoleContext();
+	const { openerService, notificationService, environmentService, pathService } = usePositronConsoleContext();
 
 	// Render.
 	return (
 		<OutputLines
 			{...props}
+			environmentService={environmentService}
 			notificationService={notificationService}
 			openerService={openerService}
+			pathService={pathService}
 		/>
 	);
 };

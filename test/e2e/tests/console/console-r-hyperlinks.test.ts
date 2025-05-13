@@ -116,9 +116,7 @@ test.describe('Console Pane: R Hyperlinks', {
 
 	});
 
-	test.skip('R - Verify file hyperlink', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7256' }],
-	}, async function ({ app, r }) {
+	test('R - Verify file hyperlink', async function ({ app, r }) {
 
 		await app.workbench.console.pasteCodeToConsole('library(cli)', true);
 		await app.workbench.console.pasteCodeToConsole('txt <- "Let\'s open a file {.file DESCRIPTION}"', true);
@@ -133,4 +131,3 @@ test.describe('Console Pane: R Hyperlinks', {
 	});
 
 });
-

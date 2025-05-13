@@ -34,7 +34,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	const inputRef = useRef<HTMLInputElement>(undefined!);
 
 	// Get services from the context.
-	const { openerService, notificationService, clipboardService } = usePositronConsoleContext();
+	const { openerService, notificationService, environmentService, pathService, clipboardService } = usePositronConsoleContext();
 
 	/**
 	 * Readies the input.
@@ -211,9 +211,11 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 					outputLine.outputRuns.map(outputRun =>
 						<OutputRun
 							key={outputRun.id}
+							environmentService={environmentService}
 							notificationService={notificationService}
 							openerService={openerService}
 							outputRun={outputRun}
+							pathService={pathService}
 						/>
 					)
 				)}
