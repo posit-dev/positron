@@ -20,7 +20,7 @@
 			],
 			"result": {
 				"schema": {
-					"name": "did_change_plots_render_settings_result",
+					"name": "did_change_plot_render_settings_result",
 					"description": "Unused response to notification",
 					"type": "null"
 				}
