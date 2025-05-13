@@ -6,7 +6,7 @@
 import { URI } from '../../../../base/common/uri.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
-import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
+import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from '../../../../platform/storage/common/storage.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { PositronImportSettings } from './actions.js';
 import * as platform from '../../../../base/common/platform.js';
@@ -25,11 +25,12 @@ export async function getImportWasPrompted(
 	return storageService.getBoolean(WAS_PROMPTED_KEY, StorageScope.PROFILE, false);
 }
 
-export function setImportWasPrompted(
+export async function setImportWasPrompted(
 	storageService: IStorageService,
 	state: boolean = true
 ) {
 	storageService.store(WAS_PROMPTED_KEY, state, StorageScope.PROFILE, StorageTarget.MACHINE);
+	await storageService.flush(WillSaveStateReason.SHUTDOWN);
 }
 
 export async function promptImport(
