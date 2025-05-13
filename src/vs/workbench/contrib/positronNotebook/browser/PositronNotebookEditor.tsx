@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -59,6 +59,8 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 
 
 interface NotebookLayoutInfo {
@@ -129,6 +131,8 @@ export class PositronNotebookEditor extends EditorPane {
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
+		@IPathService private readonly _pathService: IPathService,
 	) {
 		// Call the base class's constructor.
 		super(
@@ -478,6 +482,8 @@ export class PositronNotebookEditor extends EditorPane {
 						logService: this._logService,
 						openerService: this._openerService,
 						notificationService: this._notificationService,
+						environmentService: this._environmentService,
+						pathService: this._pathService,
 						sizeObservable: this._size,
 						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
 						editorService: this._editorService,

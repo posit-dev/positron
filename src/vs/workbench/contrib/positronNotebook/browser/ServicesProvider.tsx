@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -22,6 +22,8 @@ import { IWorkbenchLayoutService } from '../../../services/layout/browser/layout
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IWebviewService } from '../../webview/browser/webview.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 
 /**
  * Bundle of services that are passed to React-Land in the form of context.
@@ -95,6 +97,15 @@ interface ServiceBundle {
 	 */
 	layoutService: IWorkbenchLayoutService;
 
+	/**
+	 * Service for retrieving workbench environment information
+	 */
+	environmentService: IWorkbenchEnvironmentService;
+
+	/**
+	 * Service for managing path-related operations
+	 */
+	pathService: IPathService;
 }
 
 /**

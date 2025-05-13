@@ -27,6 +27,8 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
 
 /**
  * PositronConsoleServices interface. Defines the set of services that are required by the Positron
@@ -37,6 +39,7 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly commandService: ICommandService;
 	readonly contextKeyService: IContextKeyService;
 	readonly editorService: IEditorService;
+	readonly environmentService: IWorkbenchEnvironmentService;
 	readonly executionHistoryService: IExecutionHistoryService;
 	readonly instantiationService: IInstantiationService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
@@ -48,6 +51,7 @@ export interface PositronConsoleServices extends PositronActionBarServices {
 	readonly modelService: IModelService;
 	readonly notificationService: INotificationService;
 	readonly openerService: IOpenerService;
+	readonly pathService: IPathService;
 	readonly positronConsoleService: IPositronConsoleService;
 	readonly positronPlotsService: IPositronPlotsService;
 	readonly viewsService: IViewsService;

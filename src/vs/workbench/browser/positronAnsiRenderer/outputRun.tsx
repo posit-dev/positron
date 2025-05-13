@@ -18,7 +18,9 @@ import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
 import { INotificationService } from '../../../platform/notification/common/notification.js';
 import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
-import * as DOM from '../../../base/browser/dom.js';
+import { toLocalResource } from '../../../base/common/resources.js';
+import { IPathService } from '../../services/path/common/pathService.js';
+import { IWorkbenchEnvironmentService } from '../../services/environment/common/environmentService.js';
 
 /**
  * Constants.
@@ -32,11 +34,13 @@ const fileURLWithLineAndColumn = /^(file:\/\/\/.+):(\d+):(\d+)$/;
 export interface OutputRunProps {
 	readonly openerService: IOpenerService;
 	readonly notificationService: INotificationService;
+	readonly pathService: IPathService;
+	readonly environmentService: IWorkbenchEnvironmentService;
 	readonly outputRun: ANSIOutputRun;
 }
 
 /**
- * ColorType enumeration.
+ * ColorType enumeration.defaultUriAuthority
  */
 enum ColorType {
 	Foreground,
@@ -89,10 +93,11 @@ export const OutputRun = (props: OutputRunProps) => {
 		// AFTER example:
 		// vscode-remote://localhost:8080/Users/jenny/rrr/positron-learning/testfun/DESCRIPTION
 		if (platform.isWeb) {
-			uri = uri.with({
-				scheme: Schemas.vscodeRemote,
-				authority: DOM.getActiveWindow().location.host
-			});
+			uri = toLocalResource(
+				uri,
+				props.environmentService.remoteAuthority,
+				props.pathService.defaultUriScheme
+			);
 			url = uri.toString();
 		}
 
