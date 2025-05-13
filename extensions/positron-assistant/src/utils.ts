@@ -37,8 +37,8 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage2[]): ai.Co
 				if (part instanceof vscode.LanguageModelTextPart) {
 					userContent.push({ type: 'text', text: part.value });
 				} else if (part instanceof vscode.LanguageModelDataPart) {
-					if (isChatImagePart(part.value)) {
-						userContent.push({ type: 'image', image: part.value.data, mimeType: part.value.mimeType });
+					if (isChatImagePart(part)) {
+						userContent.push({ type: 'image', image: part.data, mimeType: part.mimeType });
 					}
 				}
 			}
@@ -171,7 +171,7 @@ export function toLanguageModelChatMessage(turns: vscode.ChatContext['history'])
 	}).filter((message) => !!message);
 }
 
-export function isChatImagePart(part: vscode.LanguageModelDataPart['value']): part is vscode.ChatImagePart {
+export function isChatImagePart(part: vscode.LanguageModelDataPart): boolean {
 	return 'mimeType' in part && isChatImageMimeType(part.mimeType);
 }
 

@@ -207,8 +207,8 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2): Anth
 		} else if (part instanceof vscode.LanguageModelToolResultPart) {
 			content.push(toAnthropicToolResultBlock(part));
 		} else if (part instanceof vscode.LanguageModelDataPart) {
-			if (isChatImagePart(part.value)) {
-				content.push(chatImagePartToAnthropicImageBlock(part.value));
+			if (isChatImagePart(part)) {
+				content.push(chatImagePartToAnthropicImageBlock(part));
 			} else {
 				throw new Error('Unsupported language model data part type on user message');
 			}
@@ -256,7 +256,7 @@ function toAnthropicToolResultBlock(part: vscode.LanguageModelToolResultPart): A
 	};
 }
 
-function chatImagePartToAnthropicImageBlock(part: vscode.ChatImagePart): Anthropic.ImageBlockParam {
+function chatImagePartToAnthropicImageBlock(part: vscode.LanguageModelDataPart): Anthropic.ImageBlockParam {
 	return {
 		type: 'image',
 		source: {
