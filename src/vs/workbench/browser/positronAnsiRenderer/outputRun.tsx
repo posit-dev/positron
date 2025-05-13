@@ -40,7 +40,7 @@ export interface OutputRunProps {
 }
 
 /**
- * ColorType enumeration.defaultUriAuthority
+ * ColorType enumeration.
  */
 enum ColorType {
 	Foreground,
