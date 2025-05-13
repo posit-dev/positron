@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
-import { isChatImagePart } from './utils.js';
+import { hasNonEmptyContent, isChatImagePart } from './utils.js';
 
 export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
 	name: string;
@@ -53,7 +53,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
-		// Filter out messages with empty text content
+		// Filter out messages with empty text or empty tool response content
 		const filteredMessages = messages.filter(hasNonEmptyContent);
 
 		const anthropicMessages = filteredMessages.map(message => toAnthropicMessage(message));
@@ -306,18 +306,4 @@ function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anth
 			// Should not happen.
 			throw new Error(`Unsupported tool mode: ${toolMode}`);
 	}
-}
-
-/**
- * Checks if a message contains any non-empty content.
- * @param message The message to check
- * @returns True if the message has any non-empty content, false otherwise
- */
-function hasNonEmptyContent(message: vscode.LanguageModelChatMessage2): boolean {
-	return message.content.some(part => {
-		if (part instanceof vscode.LanguageModelTextPart) {
-			return part.value.trim() !== '';
-		}
-		return true; // Non-text parts are considered non-empty
-	});
 }

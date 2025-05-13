@@ -41,6 +41,12 @@ else
 fi
 
 echo
+echo "### Positron Assistant tests"
+echo
+npm run test-extension -- -l positron-assistant
+kill_app
+
+echo
 echo "### Positron Code Cells tests"
 echo
 npm run test-extension -- -l positron-code-cells
