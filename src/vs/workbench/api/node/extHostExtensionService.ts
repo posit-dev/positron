@@ -229,11 +229,11 @@ export class ExtHostExtensionService extends AbstractExtHostExtensionService {
 		// Add Positron extension API factory
 		await this._instaService.createInstance(NodeModuleRequireInterceptor, extensionApiFactory, positronExtensionApiFactory, { mine: this._myRegistry, all: this._globalRegistry })
 			.install();
-		// --- End Positron ---
 
 		// ESM loading tricks
-		await this._store.add(this._instaService.createInstance(NodeModuleESMInterceptor, extensionApiFactory, { mine: this._myRegistry, all: this._globalRegistry }))
+		await this._store.add(this._instaService.createInstance(NodeModuleESMInterceptor, extensionApiFactory, positronExtensionApiFactory, { mine: this._myRegistry, all: this._globalRegistry }))
 			.install();
+		// --- End Positron ---
 
 		performance.mark('code/extHost/didInitAPI');
 
