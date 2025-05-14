@@ -15,7 +15,7 @@ import { renderLabelWithIcons } from '../../../../base/browser/ui/iconLabel/icon
 import { IAction } from '../../../../base/common/actions.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { Emitter } from '../../../../base/common/event.js';
+import { Event, Emitter } from '../../../../base/common/event.js';
 import { HistoryNavigator2 } from '../../../../base/common/history.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ResourceSet } from '../../../../base/common/map.js';
@@ -488,7 +488,6 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		}));
 		// --- Start Positron ---
 		this._modelPickerDelegate = {
-			getCurrentModel: () => this._currentLanguageModel,
 			onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
 			onDidChangeProvider: this._onDidChangeCurrentProvider.event,
 			setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {

@@ -722,6 +722,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	// --- Start Positron ---
 	private renderWelcomeViewContentIfNeeded() {
 		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
+			// Pull but discard the welcome view content (to allow code from
+			// upstream to remain unchanged)
+			this.getWelcomeViewContent();
 			return;
 		}
 
@@ -1445,7 +1448,7 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 		const lastElementVisible = this.tree.scrollTop + this.tree.renderHeight >= this.tree.scrollHeight - 2;
 
 		// --- Start Positron ---
-		const contentHeight = Math.max(0, height - inputPartHeight - actionBarHeight);
+		const contentHeight = Math.max(0, height - inputHeight - actionBarHeight);
 		// --- End Positron ---
 		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
 			this.listContainer.style.removeProperty('--chat-current-response-min-height');
