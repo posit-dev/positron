@@ -9,6 +9,7 @@ import { TestPathService } from '../../../../test/browser/workbenchTestServices.
 import { URI } from '../../../../../base/common/uri.js';
 import assert from 'assert';
 import { isLinux, isMacintosh, isWindows, OperatingSystem } from '../../../../../base/common/platform.js';
+import { env } from '../../../../../base/common/process.js';
 
 suite('Positron - PositronWelcome Contribution Helpers', () => {
 	const testPosix = isMacintosh || isLinux ? test : test.skip;
@@ -18,11 +19,15 @@ suite('Positron - PositronWelcome Contribution Helpers', () => {
 	ensureNoDisposablesAreLeakedInTestSuite();
 
 	testPosix('VSCode settings path: ensure correct Linux', async () => {
+		const oldXdgConfig = process.env.XDG_CONFIG_HOME;
+		delete env.XDG_CONFIG_HOME;
+
 		const pathService: IPathService = new TestPathService(
 			URI.parse('/home/test')
 		);
 		const path = await getCodeSettingsPathNative(pathService, OperatingSystem.Linux);
 		assert.deepEqual(path, URI.parse('/home/test/.config/Code/User/settings.json'));
+		env.XDG_CONFIG_HOME = oldXdgConfig;
 	});
 
 	testPosix('VSCode settings path: ensure correct MacOS', async () => {
