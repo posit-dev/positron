@@ -24,6 +24,7 @@ import { localize } from '../../../../nls.js';
 import { IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { INotebookEditorService } from '../../../contrib/notebook/browser/services/notebookEditorService.js';
 import { INotebookKernelMatchResult, INotebookKernel, INotebookKernelService } from '../../../contrib/notebook/common/notebookKernelService.js';
+import { INotebookTextModel } from '../../../contrib/notebook/common/notebookCommon.js';
 
 /**
  * PositronNewProjectService class.
@@ -573,70 +574,133 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	}
 
 	/**
-	 * Connects the currently open notebook editor to the runtime session and selects the appropriate kernel.
-	 * This method assumes it's being called within the context of a Jupyter Notebook project creation.
+	 * Ensures the notebook has a properly selected kernel that matches the project's runtime.
+	 * This eliminates the need for manual kernel selection when creating a new notebook project.
 	 *
-	 * @param sessionListener The event listener for runtime start, used to dispose itself upon completion or error.
+	 * @param notebookTextModel The notebook text model to select a kernel for
+	 * @param runtimeId The runtime ID to match against
+	 * @returns True if kernel was successfully selected, false otherwise
 	 */
-	private async _connectNotebookToRuntime(sessionListener: IDisposable): Promise<void> {
+	private _selectKernelForNotebook(
+		notebookTextModel: INotebookTextModel,
+		runtimeId: string
+	): boolean {
+		const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+		const kernelToSelect = this._findKernelForNotebook(
+			matchingKernels,
+			runtimeId,
+			this._runtimeMetadata?.languageId
+		);
+
+		if (kernelToSelect) {
+			this._notebookKernelService.selectKernelForNotebook(kernelToSelect, notebookTextModel);
+			this._logService.debug(`[New project startup] Selected kernel ${kernelToSelect.id} for notebook`);
+			return true;
+		} else {
+			this._logService.debug(`[New project startup] No suitable kernel found for notebook`);
+			// Consider notifying the user that a kernel needs manual selection if this is problematic.
+			return false;
+		}
+	}
+
+	/**
+	 * Creates the connection between the notebook and its runtime environment,
+	 * enabling code execution. This should be established early in the project
+	 * creation flow to prevent users from having to manually connect later.
+	 *
+	 * @param runtimeId The ID of the runtime to connect
+	 * @param notebookUri The URI of the notebook to connect
+	 * @param sessionName The name to use for the runtime session
+	 * @returns True if successful, false if failed
+	 */
+	private async _establishNotebookRuntimeSession(
+		runtimeId: string,
+		notebookUri: URI,
+		sessionName: string
+	): Promise<boolean> {
 		try {
-			// Get the active notebook editor, if any
-			const notebookEditors = this._notebookEditorService.listNotebookEditors();
-			if (notebookEditors.length > 1) {
-				// This scenario is currently not supported
-				this._logService.error('[New project startup] Multiple notebook editors found. This is not supported.');
-				this._notificationService.error(localize('positronNewProjectService.multipleNotebooksError', 'Multiple notebook editors found. This is not supported.'));
-				return;
-			}
-
-			const notebookEditor = notebookEditors.at(0);
-			if (!notebookEditor) {
-				this._logService.debug('[New project startup] No active notebook editor found for connection.');
-				return;
-			}
-
-			const notebookTextModel = notebookEditor.textModel;
-			if (!notebookTextModel) {
-				this._logService.debug('[New project startup] Notebook editor has no text model for connection.');
-				return;
-			}
-
-			const notebookUri = notebookTextModel.uri;
-			if (!notebookUri) {
-				this._logService.debug('[New project startup] Notebook text model has no URI for connection.');
-				return;
-			}
-
-			// Get the runtime ID from the potentially updated metadata
-			const currentRuntimeId = this._runtimeMetadata?.runtimeId;
-			if (!currentRuntimeId) {
-				this._logService.error('[New project startup] Failed to connect notebook to runtime: No runtime ID available.');
-				return;
-			}
-
-			// Connect the notebook to the runtime session
 			await this._runtimeSessionService.startNewRuntimeSession(
-				currentRuntimeId,
-				this._newProjectConfig?.projectName || 'New Project Notebook',
+				runtimeId,
+				sessionName,
 				LanguageRuntimeSessionMode.Notebook,
 				notebookUri,
 				'New Project Notebook Creation',
 				RuntimeStartMode.Starting,
 				true
 			);
-			this._logService.debug(`[New project startup] Connected notebook ${notebookUri.toString()} to runtime ${currentRuntimeId}`);
 
-			// Find and select the appropriate kernel for the notebook
-			const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
-			const kernelToSelect = this._findKernelForNotebook(matchingKernels, currentRuntimeId, this._runtimeMetadata?.languageId);
+			this._logService.debug(`[New project startup] Connected notebook ${notebookUri.toString()} to runtime ${runtimeId}`);
+			return true;
+		} catch (error) {
+			this._logService.error(`[New project startup] Failed to connect notebook to runtime: ${error}`);
+			return false;
+		}
+	}
 
-			if (kernelToSelect) {
-				this._notebookKernelService.selectKernelForNotebook(kernelToSelect, notebookTextModel);
-				this._logService.debug(`[New project startup] Selected kernel ${kernelToSelect.id} for notebook ${notebookUri.toString()}`);
-			} else {
-				this._logService.debug(`[New project startup] No suitable kernel found for notebook ${notebookUri.toString()}`);
-				// Consider notifying the user that a kernel needs manual selection if this is problematic.
+	/**
+	 * Provides automatic notebook-to-runtime connection as the final step in notebook project creation.
+	 * This addresses issue #7285 where newly created notebooks weren't automatically connecting.
+	 * Without this connection, users would face confusing manual setup steps that contradict
+	 * the streamlined project creation experience we're aiming for.
+	 *
+	 * @param sessionListener The event listener for runtime start, used to dispose itself upon completion or error.
+	 */
+	private async _connectNotebookToRuntime(sessionListener: IDisposable): Promise<void> {
+		try {
+			// Get and validate notebook editor
+			const notebookEditors = this._notebookEditorService.listNotebookEditors();
+
+			if (notebookEditors.length === 0) {
+				this._logService.debug('[New project startup] No notebook editor found for connection.');
+				return;
 			}
+
+			if (notebookEditors.length > 1) {
+				this._logService.error('[New project startup] Multiple notebook editors found. This is not supported.');
+				this._notificationService.error(localize('positronNewProjectService.multipleNotebooksError', 'Multiple notebook editors found. This is not supported.'));
+				return;
+			}
+
+			const editor = notebookEditors[0];
+			if (!editor) {
+				return;
+			}
+
+			// Get and validate notebook model
+			const textModel = editor.textModel;
+
+			if (!textModel) {
+				this._logService.debug('[New project startup] Notebook editor has no text model for connection.');
+				return;
+			}
+
+			if (!textModel.uri) {
+				this._logService.debug('[New project startup] Notebook text model has no URI for connection.');
+				return;
+			}
+
+			// Get runtime ID
+			const runtimeId = this._runtimeMetadata?.runtimeId;
+			if (!runtimeId) {
+				this._logService.error('[New project startup] No runtime ID available for connection.');
+				return;
+			}
+
+			// Connect the notebook to the runtime session
+			const sessionName = this._newProjectConfig?.projectName || 'New Project Notebook';
+			const connected = await this._establishNotebookRuntimeSession(
+				runtimeId,
+				textModel.uri,
+				sessionName
+			);
+
+			if (!connected) {
+				this._logService.error('[New project startup] Establishing notebook runtime session failed.');
+				return;
+			}
+
+			// Find and select the appropriate kernel using the extracted method
+			this._selectKernelForNotebook(textModel, runtimeId);
 		} catch (error) {
 			this._logService.error(`[New project startup] Error during post-init notebook setup: ${error}`);
 			this._notificationService.error(localize('positronNewProjectService.postInitNotebookError', 'Error setting up notebook for new project: {0}', String(error)));
@@ -645,7 +709,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			sessionListener.dispose();
 		}
 	}
-	// --- End Positron ---
 
 	/**
 	 * Removes a pending init task.
@@ -711,6 +774,36 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	}
 
 	/**
+	 * Creates an event listener that bridges the gap between runtime creation and notebook connection.
+	 * This asynchronous approach is necessary because runtime initialization happens after
+	 * notebook creation, and we need to react to the runtime becoming available to complete
+	 * the connection process without user intervention.
+	 *
+	 * @returns The disposable listener that was registered
+	 */
+	private _setupRuntimeSessionListener(): IDisposable {
+		const sessionListener = this._runtimeSessionService.onDidStartRuntime(async (runtimeSession) => {
+			this._logService.debug(`[New project startup] Runtime ${runtimeSession.sessionId} created. Running post-init tasks.`);
+			this._startupPhase.set(NewProjectStartupPhase.PostInitialization, undefined);
+
+			// If we've created a Jupyter Notebook project, connect the notebook to the runtime.
+			if (this._newProjectConfig?.projectType === NewProjectType.JupyterNotebook) {
+				// Pass the listener itself to the connection method to allow self-disposal
+				await this._connectNotebookToRuntime(sessionListener);
+			} else {
+				// For non-notebook projects, dispose the listener immediately
+				sessionListener.dispose();
+			}
+		});
+
+		// Register the listener with the service's disposables to ensure cleanup
+		// if the service is disposed before the listener self-disposes
+		this._register(sessionListener);
+
+		return sessionListener;
+	}
+
+	/**
 	 * Returns the post initialization tasks that need to be performed for the new project.
 	 * @returns Returns the post initialization tasks that need to be performed for the new project.
 	 */
@@ -719,17 +812,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			return new Set();
 		}
 
-		// listen for runtime to be created so that post-init tasks can be run
-		const sessionListener = this._runtimeSessionService.onDidStartRuntime(async (runtimeId) => {
-			this._logService.debug('[New project startup] Runtime created. Running post-init tasks.');
-			this._startupPhase.set(NewProjectStartupPhase.PostInitialization, undefined);
-
-			// If we've created a Jupyter Notebook project, connect the notebook to the runtime.
-			if (this._newProjectConfig?.projectType === NewProjectType.JupyterNotebook) {
-				await this._connectNotebookToRuntime(sessionListener);
-			}
-			sessionListener.dispose();
-		});
+		// Set up the runtime session listener
+		this._setupRuntimeSessionListener();
 
 		const tasks = new Set<NewProjectTask>();
 		if (this._newProjectConfig.useRenv) {
