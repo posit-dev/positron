@@ -28,6 +28,7 @@ export class Sessions {
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
 	private sessionTrashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
+	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -185,6 +186,29 @@ export class Sessions {
 				await expect(this.page.locator('.console-instance[style*="z-index: auto"]').getByText('restarted.')).toBeVisible({ timeout: 90000 });
 				await this.expectStatusToBe(sessionIdOrName, 'idle');
 			}
+		});
+	}
+
+	/**
+	 * Action: Rename the session
+	 */
+	async rename(sessionIdOrName: string, newName: string): Promise<void> {
+		await test.step(`Rename session: ${sessionIdOrName} to ${newName}`, async () => {
+			await this.console.focus();
+			const sessionTab = this.getSessionTab(sessionIdOrName);
+
+			// right-click on the session tab to open the context menu and select "Rename"
+			await sessionTab.click({ button: 'right' });
+			await this.renameMenuItem.hover();
+			await this.page.waitForTimeout(500);
+			await this.renameMenuItem.click();
+
+			// wait for the rename input to be visible and type the new name
+			await expect(sessionTab.getByRole('textbox')).toBeVisible();
+			await this.page.keyboard.type(newName);
+			await this.page.keyboard.press('Enter');
+
+			await this.expectSessionNameToBe(sessionIdOrName, newName);
 		});
 	}
 
@@ -736,6 +760,19 @@ export class Sessions {
 			} else {
 				throw new Error('No sessions found');
 			}
+		});
+	}
+
+	/**
+	 * Verify: Check the name of the session
+	 *
+	 * @param sessionId - the id of the session
+	 * @param expectedName - the expected name of the session
+	 */
+	async expectSessionNameToBe(sessionId: string, expectedName: string) {
+		await test.step(`Verify session name: ${sessionId} is ${expectedName}`, async () => {
+			const sessionTab = this.getSessionTab(sessionId);
+			await expect(sessionTab).toHaveText(expectedName);
 		});
 	}
 
