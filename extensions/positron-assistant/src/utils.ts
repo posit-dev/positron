@@ -51,7 +51,7 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage2[]): ai.Co
 
 			// Add the tool messages.
 			for (const part of message.content) {
-				if (part instanceof vscode.LanguageModelToolResultPart) {
+				if (part instanceof vscode.LanguageModelToolResultPart || part instanceof vscode.LanguageModelToolResultPart2) {
 					const toolCall = toolCalls[part.callId];
 					if (toolCall.name === PositronAssistantToolName.GetPlot) {
 						aiMessages.push(getPlotToolResultToAiMessage(part));
