@@ -12,8 +12,14 @@
 
 .tabs-container .tab-button {
 	background-color: inherit;
-	border: none;
+	/*
+	 * The transparent border allows for a smooth transition when switching tabs.
+	 * The active tab will have a solid border, while the inactive tabs will have
+	 * a transparent border. The transparent border prevents flickering when
+	 * switching between tabs by maintaining the same width for all tabs.
+	 */
 	border-left: 1px solid transparent;
+	color: var(--vscode-foreground);
 	cursor: pointer;
 	height: 22px;
 	padding: 0 10px;
@@ -29,14 +35,6 @@
 	align-items: center;
 }
 
-.tabs-container .tab-button:focus {
-	outline: none;
-}
-
-.tabs-container .tab-button:focus-visible {
-	outline: 1px solid var(--vscode-focusBorder);
-}
-
 .tabs-container .tab-button:hover {
 	background-color: var(--vscode-list-hoverBackground);
 }
@@ -48,10 +46,6 @@
 
 .tabs-container .tab-button--active:hover {
 	background-color: var(--vscode-list-activeSelectionBackground);
-}
-
-.tabs-container .tab-button {
-	color: var(--vscode-foreground);
 }
 
 .tabs-container .tab-button .icon {
@@ -85,6 +79,7 @@
 }
 
 .tabs-container .tab-button .delete-button {
+	/* delete button is hidden by default */
 	display: none;
 
 	background-color: transparent;
@@ -96,24 +91,22 @@
 	border-radius: 5px;
 }
 
-.tabs-container .tab-button .delete-button:focus {
-	outline: none;
-}
-
-.tabs-container .tab-button .delete-button:focus-visible {
-	border-radius: 3px;
-	outline: 1px solid var(--vscode-focusBorder);
-}
-
-.tabs-container .tab-button:hover .delete-button {
+.tabs-container .tab-button:hover .delete-button,
+.tabs-container .tab-button:focus-within .delete-button {
+	/* Show delete button on hover or when tab has focus */
 	display: unset;
+}
+
+.tabs-container .tab-button .delete-button:hover {
+	background-color: var(--vscode-toolbar-hoverBackground);
+}
+
+.tabs-container .tab-button .delete-button:focus {
+	outline: 1px solid var(--vscode-focusBorder);
 }
 
 .tabs-container .tab-button .delete-button .codicon {
 	height: 15px;
 	width: 15px;
-}
-
-.tabs-container .tab-button .delete-button:hover {
-	background-color: var(--vscode-toolbar-hoverBackground);
+	vertical-align: text-bottom;
 }
