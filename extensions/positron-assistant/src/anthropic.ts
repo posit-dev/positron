@@ -206,6 +206,8 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2): Anth
 			content.push(toAnthropicTextBlock(part));
 		} else if (part instanceof vscode.LanguageModelToolResultPart) {
 			content.push(toAnthropicToolResultBlock(part));
+		} else if (part instanceof vscode.LanguageModelToolResultPart2) {
+			content.push(toAnthropicToolResultBlock(part));
 		} else if (part instanceof vscode.LanguageModelDataPart) {
 			if (isChatImagePart(part)) {
 				content.push(chatImagePartToAnthropicImageBlock(part));
