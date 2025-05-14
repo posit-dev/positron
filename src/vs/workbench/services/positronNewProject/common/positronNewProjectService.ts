@@ -557,9 +557,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// Prefer kernels that directly reference the runtime ID or are Positron-specific for the language
 		for (const kernel of matchingKernels.all) {
 			// Kernels may have different ways of identifying runtimes, so we check a few common patterns
-			if (kernel.id.includes(runtimeId) ||
-				(kernel.extension.value.includes('positron') &&
-					languageId && kernel.supportedLanguages.includes(languageId))) {
+			if (kernel.extension.value.includes('positron') &&
+				languageId && kernel.supportedLanguages.includes(languageId)) {
 				return kernel;
 			}
 		}
@@ -774,19 +773,20 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	}
 
 	/**
-	 * Creates an event listener that bridges the gap between runtime creation and notebook connection.
-	 * This asynchronous approach is necessary because runtime initialization happens after
-	 * notebook creation, and we need to react to the runtime becoming available to complete
-	 * the connection process without user intervention.
-	 *
-	 * @returns The disposable listener that was registered
+	 * Returns the post initialization tasks that need to be performed for the new project.
+	 * @returns Returns the post initialization tasks that need to be performed for the new project.
 	 */
-	private _setupRuntimeSessionListener(): IDisposable {
+	private _getPostInitTasks(): Set<NewProjectTask> {
+		if (!this._newProjectConfig) {
+			return new Set();
+		}
+
+		// Set up the runtime session listener
 		const sessionListener = this._runtimeSessionService.onDidStartRuntime(async (runtimeSession) => {
 			this._logService.debug(`[New project startup] Runtime ${runtimeSession.sessionId} created. Running post-init tasks.`);
 			this._startupPhase.set(NewProjectStartupPhase.PostInitialization, undefined);
 
-			// If we've created a Jupyter Notebook project, connect the notebook to the runtime.
+			// If we've created a Jupyter Notebook project we need to connect the notebook to the runtime.
 			if (this._newProjectConfig?.projectType === NewProjectType.JupyterNotebook) {
 				// Pass the listener itself to the connection method to allow self-disposal
 				await this._connectNotebookToRuntime(sessionListener);
@@ -799,21 +799,6 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		// Register the listener with the service's disposables to ensure cleanup
 		// if the service is disposed before the listener self-disposes
 		this._register(sessionListener);
-
-		return sessionListener;
-	}
-
-	/**
-	 * Returns the post initialization tasks that need to be performed for the new project.
-	 * @returns Returns the post initialization tasks that need to be performed for the new project.
-	 */
-	private _getPostInitTasks(): Set<NewProjectTask> {
-		if (!this._newProjectConfig) {
-			return new Set();
-		}
-
-		// Set up the runtime session listener
-		this._setupRuntimeSessionListener();
 
 		const tasks = new Set<NewProjectTask>();
 		if (this._newProjectConfig.useRenv) {
