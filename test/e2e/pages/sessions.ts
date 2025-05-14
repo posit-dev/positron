@@ -682,13 +682,15 @@ export class Sessions {
 	 * @param newName - New session name
 	 */
 	async rename(oldName: string, newName: string) {
-		await this.quickaccess.runCommand('workbench.action.language.runtime.renameSession', { keepOpen: true });
-		await this.quickinput.waitForQuickInputOpened();
-		await this.quickinput.type(oldName);
-		await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0].includes(oldName));
-		await this.quickinput.quickInputList.getByText(oldName).first().click();
-		await this.quickinput.type(newName);
-		await this.code.driver.page.keyboard.press('Enter');
+		await test.step(`Rename session: ${oldName} to ${newName}`, async () => {
+			await this.quickaccess.runCommand('workbench.action.language.runtime.renameSession', { keepOpen: true });
+			await this.quickinput.waitForQuickInputOpened();
+			await this.quickinput.type(oldName);
+			await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0].includes(oldName));
+			await this.quickinput.quickInputList.getByText(oldName).first().click();
+			await this.quickinput.type(newName);
+			await this.code.driver.page.keyboard.press('Enter');
+		});
 	}
 
 	/**
