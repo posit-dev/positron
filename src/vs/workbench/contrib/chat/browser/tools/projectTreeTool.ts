@@ -10,7 +10,6 @@ import { IExplorerService } from '../../../files/browser/files.js';
 import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
 import { ExplorerItem } from '../../../files/common/explorerModel.js';
 import { SortOrder } from '../../../files/common/files.js';
-import { IToolInputProcessor } from '../../common/tools/tools.js';
 
 /**
  * Represents either a file (string) or a directory (tuple with string and children).
@@ -87,13 +86,6 @@ export class ProjectTreeTool implements IToolImpl {
 			invocationMessage: localize('projectTreeTool.invocationMessage', "Constructing project tree"),
 			pastTenseMessage: localize('projectTreeTool.pastTenseMessage', "Constructed project tree"),
 		};
-	}
-}
-
-export class ProjectTreeInputProcessor implements IToolInputProcessor {
-	processInput(input: any) {
-		// No input processing needed for this tool
-		return input;
 	}
 }
 

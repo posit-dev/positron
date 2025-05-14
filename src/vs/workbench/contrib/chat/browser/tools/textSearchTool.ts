@@ -11,7 +11,6 @@ import { IWorkspaceContextService } from '../../../../../platform/workspace/comm
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
 import { IPatternInfo, ISearchConfigurationProperties, ISearchService, resultIsMatch } from '../../../../services/search/common/search.js';
 import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
-import { IToolInputProcessor } from '../../common/tools/tools.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 
@@ -162,10 +161,3 @@ export class TextSearchTool implements IToolImpl {
 }
 
 export interface TextSearchToolParams extends IPatternInfo { }
-
-export class TextSearchToolInputProcessor implements IToolInputProcessor {
-	processInput(input: TextSearchToolParams) {
-		// No input processing needed for this tool
-		return input;
-	}
-}

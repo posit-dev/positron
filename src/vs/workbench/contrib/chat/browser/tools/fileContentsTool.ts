@@ -14,7 +14,6 @@ import { ITextFileService } from '../../../../services/textfile/common/textfiles
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
-import { IToolInputProcessor } from '../../common/tools/tools.js';
 
 const getFileContentsModelDescription = `
 This tool returns the contents of the specified file in the project.
@@ -120,12 +119,5 @@ export class FileContentsTool implements IToolImpl {
 
 export interface FileContentsToolParams {
 	filePath: string;
-}
-
-export class FileContentsToolInputProcessor implements IToolInputProcessor {
-	processInput(input: FileContentsToolParams) {
-		// No input processing needed for this tool
-		return input;
-	}
 }
 
