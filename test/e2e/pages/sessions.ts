@@ -190,29 +190,6 @@ export class Sessions {
 	}
 
 	/**
-	 * Action: Rename the session
-	 */
-	async rename(sessionIdOrName: string, newName: string): Promise<void> {
-		await test.step(`Rename session: ${sessionIdOrName} to ${newName}`, async () => {
-			await this.console.focus();
-			const sessionTab = this.getSessionTab(sessionIdOrName);
-
-			// open the context menu and select "Rename"
-			await sessionTab.click({ button: 'right' });
-			await this.renameMenuItem.hover();
-			await this.page.waitForTimeout(500);
-			await this.renameMenuItem.click();
-
-			// input the new name
-			await expect(sessionTab.getByRole('textbox')).toBeVisible();
-			await this.page.keyboard.type(newName);
-			await this.page.keyboard.press('Enter');
-
-			await this.expectSessionNameToBe(sessionIdOrName, newName);
-		});
-	}
-
-	/**
 	 * Action: Open the metadata dialog and select the desired menu item
 	 *
 	 * @param menuItem - the menu item to click on the metadata dialog
@@ -699,12 +676,12 @@ export class Sessions {
 	}
 
 	/**
-	 * Helper: Rename a session
+	 * Action: Rename a session via command
 	 *
 	 * @param oldName - Name of the session to rename (or part of the name)
 	 * @param newName - New session name
 	 */
-	async renameSession(oldName: string, newName: string) {
+	async rename(oldName: string, newName: string) {
 		await this.quickaccess.runCommand('workbench.action.language.runtime.renameSession', { keepOpen: true });
 		await this.quickinput.waitForQuickInputOpened();
 		await this.quickinput.type(oldName);
@@ -712,6 +689,30 @@ export class Sessions {
 		await this.quickinput.quickInputList.getByText(oldName).first().click();
 		await this.quickinput.type(newName);
 		await this.code.driver.page.keyboard.press('Enter');
+	}
+
+	/**
+	 * Action: Rename a session via UI
+	 *
+	 * @param sessionIdOrName - the id or name of the session
+	 * @param newName - the new name for the session
+	 */
+	async renameViaUI(sessionIdOrName: string, newName: string): Promise<void> {
+		await test.step(`Rename session: ${sessionIdOrName} to ${newName}`, async () => {
+			await this.console.focus();
+			const sessionTab = this.getSessionTab(sessionIdOrName);
+
+			// open the context menu and select "Rename"
+			await sessionTab.click({ button: 'right' });
+			await this.renameMenuItem.hover();
+			await this.page.waitForTimeout(500);
+			await this.renameMenuItem.click();
+
+			// input the new name
+			await expect(sessionTab.getByRole('textbox')).toBeVisible();
+			await this.page.keyboard.type(newName);
+			await this.page.keyboard.press('Enter');
+		});
 	}
 
 	/**
