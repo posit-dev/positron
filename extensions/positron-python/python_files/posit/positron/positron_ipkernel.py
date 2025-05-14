@@ -262,7 +262,7 @@ class PositronShell(ZMQInteractiveShell):
     object_info_string_level: int
     magics_manager: MagicsManager
     display_pub: ZMQDisplayPublisher
-    display_formatter = traitlets.Instance(PositronDisplayFormatter, allow_none=True)
+    display_formatter = traitlets.Instance(PositronDisplayFormatter)
 
     inspector_class: type[PositronIPythonInspector] = traitlets.Type(
         PositronIPythonInspector,  # type: ignore
@@ -336,7 +336,7 @@ class PositronShell(ZMQInteractiveShell):
 
     def init_display_formatter(self):
         self.display_formatter = PositronDisplayFormatter(parent=self)
-        self.configurables.append(self.display_formatter)
+        self.configurables.append(self.display_formatter)  # type: ignore IPython type annotation is wrong
 
     def _handle_pre_run_cell(self, info: ExecutionInfo) -> None:
         """Prior to execution, reset the user environment watch state."""
