@@ -50,7 +50,28 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const sessionId = positronConsoleInstance.sessionId;
 	const isActiveTab = positronConsoleContext.activePositronConsoleInstance?.sessionMetadata.sessionId === sessionId;
 
-	const handleClick = () => {
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Add the onDidUpdateSessionName event handler.
+		disposableStore.add(
+			positronConsoleContext.runtimeSessionService.onDidUpdateSessionName(session => {
+				if (session.sessionId === positronConsoleInstance.sessionId) {
+					setSessionName(session.dynState.sessionName);
+				}
+			})
+		);
+	}, [positronConsoleContext.runtimeSessionService, positronConsoleInstance.sessionId])
+
+	/**
+	 * Handles the click event for the console tab.
+	 * Sets the active console instance and focuses the tab element.
+	 */
+	const handleClick = (e: MouseEvent<HTMLDivElement>) => {
+		// Prevent the console from stealing focus from the tab element
+		e.stopPropagation();
+
 		// Focus the tab element so the PositronConsoleTabFocused context key
 		// gets set and keyboard interactions work as expected.
 		setTimeout(() => {
@@ -62,9 +83,20 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		onChangeSession(positronConsoleInstance);
 	};
 
-	const handleDeleteClick = async (e: MouseEvent<HTMLButtonElement>) => {
+	/**
+	 * The mouse down handler for the parent element of the console tab instance.
+	 * This handler is used to show the context menu when the user right-clicks on a tab.
+	 */
+	const handleMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+		// Prevent the default action and stop the event from propagating.
+		e.preventDefault();
 		e.stopPropagation();
-		deleteSession();
+
+		// Show the context menu when the user right-clicks on a tab or
+		// when the user executes ctrl + left-click on macOS
+		if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
+			showContextMenu(e.clientX, e.clientY);
+		}
 	}
 
 	/**
@@ -84,7 +116,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			run: () => renameConsoleSession()
+			run: () => showRenameInputField()
 		});
 
 		// Show the context menu.
@@ -96,7 +128,10 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		});
 	}
 
-	const renameConsoleSession = async () => {
+	/**
+	 * Shows the rename console session prompt in the UI.
+	 */
+	const showRenameInputField = async () => {
 		// Show a prompt to rename the console session in the UI
 		setIsRenamingSession(true);
 		// Focus the input field after it renders and select all text
@@ -108,37 +143,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		}, 0);
 	}
 
-	const deleteSession = async () => {
-		// Prevent the button from being clicked multiple times
-		setDeleteDisabled(true);
-		try {
-			// Updated to support proper deletion of sessions that have
-			// been shutdown or exited.
-			if (positronConsoleContext.runtimeSessionService.getSession(sessionId)) {
-				// Attempt to delete the session from the runtime session service.
-				// This will throw an error if the session is not found.
-				await positronConsoleContext.runtimeSessionService.deleteSession(sessionId);
-			} else {
-				// If the session is not found, it may have been deleted already
-				// or is a provisional session. In this case, we can delete the
-				// session from the Positron Console service.
-				positronConsoleContext.positronConsoleService.deletePositronConsoleSession(sessionId);
-			}
-		} catch (error) {
-			// Show an error notification if the session could not be deleted.
-			positronConsoleContext.notificationService.error(
-				localize('positronDeleteSessionError', "Failed to delete session: {0}", error)
-			);
-			// Re-enable the button if the session could not be deleted.
-			// If it is deleted, the component is destroyed and the
-			// button is no longer clickable anyway.
-			setDeleteDisabled(false);
-		}
-	}
-
 	/**
-	 * Submits the new session name when the user presses Enter
-	 * or clicks outside the input field.
+	 * Submits the new session name on Enter or blur.
 	 */
 	const handleRenameSubmit = async () => {
 		// Validate the new session name
@@ -173,38 +179,73 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	}
 
 	/**
-	 * The mouse down handler for the parent element of the console tab instance.
-	 * This handler is used to show the context menu when the user right-clicks on a tab.
-	 * @param {MouseEvent<HTMLDivElement>} e The mouse event.
+	 * This function is called when the user clicks on the delete button.
 	 */
-	const mouseDownHandler = (e: MouseEvent<HTMLDivElement>) => {
-		// Prevent the default action and stop the event from propagating.
-		e.preventDefault();
+	const handleDeleteClick = async (e: MouseEvent<HTMLButtonElement>) => {
 		e.stopPropagation();
+		deleteSession();
+	}
 
-		// Show the context menu when the user right-clicks on a tab or
-		// when the user executes ctrl + left-click on macOS
-		if ((e.button === 0 && isMacintosh && e.ctrlKey) || e.button === 2) {
-			showContextMenu(e.clientX, e.clientY);
+	/**
+	 * This function attempts to delete the console instance and the accompanying session.
+	 */
+	const deleteSession = async () => {
+		// Prevent the button from being clicked multiple times
+		setDeleteDisabled(true);
+		try {
+			// Updated to support proper deletion of sessions that have
+			// been shutdown or exited.
+			if (positronConsoleContext.runtimeSessionService.getSession(sessionId)) {
+				// Attempt to delete the session from the runtime session service.
+				// This will throw an error if the session is not found.
+				await positronConsoleContext.runtimeSessionService.deleteSession(sessionId);
+			} else {
+				// If the session is not found, it may have been deleted already
+				// or is a provisional session. In this case, we can delete the
+				// session from the Positron Console service.
+				positronConsoleContext.positronConsoleService.deletePositronConsoleSession(sessionId);
+			}
+		} catch (error) {
+			// Show an error notification if the session could not be deleted.
+			positronConsoleContext.notificationService.error(
+				localize('positronDeleteSessionError', "Failed to delete session: {0}", error)
+			);
+			// Re-enable the button if the session could not be deleted.
+			// If it is deleted, the component is destroyed and the
+			// button is no longer clickable anyway.
+			setDeleteDisabled(false);
 		}
 	}
 
 	/**
 	 * The mouse down handler for the delete button.
-	 * This handler is used to prevent the context menu from showing up when the user right-clicks on the delete button.
-	 * @param e The mouse event.
+	 * This handler is used to prevent the context menu from showing up
+	 * when the user right-clicks on the delete button.
 	 */
-	const deleteButtonMouseDownHandler = (e: MouseEvent<HTMLButtonElement>) => {
+	const handleDeleteMouseDown = (e: MouseEvent<HTMLButtonElement>) => {
 		e.preventDefault();
 		e.stopPropagation();
 	}
+
+	/**
+	 * Handles the key down event for the delete button.
+	 * This function is called when the user presses Enter on the delete button.
+	 * This prevents the rename action from triggering which fires when Enter is
+	 * pressed on the tab element.
+	 */
+	const handleDeleteKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			e.stopPropagation();
+			deleteSession();
+		}
+	};
 
 	/**
 	 * Handles keyboard events for the input field.
 	 * If the user presses Enter, the new session name is submitted.
 	 * If the user presses Escape, the rename operation is cancelled.
 	 * Supports copy, cut, paste, and select all operations using Ctrl/Cmd + C/X/V/A.
-	 * @param e The keyboard event
 	 */
 	const handleKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === 'Enter') {
@@ -268,33 +309,6 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		}
 	};
 
-	/**
-	 * Handles the key down event for the delete button.
-	 * @param e
-	 */
-	const handleDeleteKeyDown = (e: KeyboardEvent<HTMLButtonElement>) => {
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			e.stopPropagation();
-			deleteSession();
-		}
-	};
-
-	useEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Add the onDidUpdateSessionName event handler.
-		disposableStore.add(
-			positronConsoleContext.runtimeSessionService.onDidUpdateSessionName(session => {
-				if (session.sessionId === positronConsoleInstance.sessionId) {
-					setSessionName(session.dynState.sessionName);
-				}
-			})
-		);
-	}, [positronConsoleContext.runtimeSessionService, positronConsoleInstance.sessionId])
-
-
 	return (
 		<div
 			ref={tabRef}
@@ -306,7 +320,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			role='tab'
 			tabIndex={isActiveTab ? 0 : -1}
 			onClick={handleClick}
-			onMouseDown={mouseDownHandler}
+			onMouseDown={handleMouseDown}
 		>
 			<ConsoleInstanceState positronConsoleInstance={positronConsoleInstance} />
 			<img
@@ -336,7 +350,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 							disabled={deleteDisabled}
 							onClick={handleDeleteClick}
 							onKeyDown={handleDeleteKeyDown}
-							onMouseDown={deleteButtonMouseDownHandler}
+							onMouseDown={handleDeleteMouseDown}
 						>
 							<span className='codicon codicon-trash' />
 						</button>
