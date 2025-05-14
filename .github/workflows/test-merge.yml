@@ -69,5 +69,6 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
           notify_on: "failure"
+          comment_junit_failures: true
 
 
