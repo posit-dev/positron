@@ -197,13 +197,13 @@ export class Sessions {
 			await this.console.focus();
 			const sessionTab = this.getSessionTab(sessionIdOrName);
 
-			// right-click on the session tab to open the context menu and select "Rename"
+			// open the context menu and select "Rename"
 			await sessionTab.click({ button: 'right' });
 			await this.renameMenuItem.hover();
 			await this.page.waitForTimeout(500);
 			await this.renameMenuItem.click();
 
-			// wait for the rename input to be visible and type the new name
+			// input the new name
 			await expect(sessionTab.getByRole('textbox')).toBeVisible();
 			await this.page.keyboard.type(newName);
 			await this.page.keyboard.press('Enter');

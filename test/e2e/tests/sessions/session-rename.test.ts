@@ -10,15 +10,12 @@ test.use({
 });
 
 test.describe('Sessions: Rename', {
-	tag: [tags.WIN, tags.WEB_ONLY, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
+	tag: [tags.WEB_ONLY, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL],
+	annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7692' }],
 }, () => {
 
 	test.beforeEach(async function ({ app }) {
 		await app.workbench.variables.togglePane('hide');
-	});
-
-	test.afterEach(async function ({ sessions }) {
-		await sessions.deleteDisconnectedSessions();
 	});
 
 	test('Validate can rename sessions and name persists', async function ({ sessions, runCommand }) {
