@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -13,7 +13,7 @@ import { IWorkspaceTrustManagementService } from '../../../../platform/workspace
 import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from './positronNewProject.js';
 import { Event } from '../../../../base/common/event.js';
 import { Barrier } from '../../../../base/common/async.js';
-import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { joinPath, relativePath } from '../../../../base/common/resources.js';
@@ -21,7 +21,9 @@ import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from './positronN
 import { URI } from '../../../../base/common/uri.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
-import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
+import { INotebookEditorService } from '../../../contrib/notebook/browser/services/notebookEditorService.js';
+import { INotebookKernelMatchResult, INotebookKernel, INotebookKernelService } from '../../../contrib/notebook/common/notebookKernelService.js';
 
 /**
  * PositronNewProjectService class.
@@ -63,6 +65,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
+		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 	) {
 		super();
 
@@ -236,9 +240,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			case NewProjectType.RProject:
 				await this._commandService.executeCommand('r.createNewFile');
 				break;
-			case NewProjectType.JupyterNotebook:
-				await this._commandService.executeCommand('ipynb.newUntitledIpynb');
+			case NewProjectType.JupyterNotebook: {
+				// Use the languageId from the runtime metadata if available, otherwise use 'python' as a default because that's the most common language for Jupyter Notebooks.
+				const languageId = this._newProjectConfig?.runtimeMetadata?.languageId ?? 'python';
+				await this._commandService.executeCommand('ipynb.newUntitledIpynb', languageId);
 				break;
+			}
 			default:
 				this._logService.error(
 					'Cannot determine new file command for unknown project type',
@@ -534,6 +541,113 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	//#endregion Extension Tasks
 
 	/**
+	 * Finds the most suitable kernel for a given notebook based on runtime information.
+	 *
+	 * @param matchingKernels The result object containing potential kernel matches for the notebook.
+	 * @param runtimeId The ID of the runtime associated with the new project.
+	 * @param languageId The language ID associated with the runtime, if available.
+	 * @returns The kernel to select, or undefined if no suitable kernel is found.
+	 */
+	private _findKernelForNotebook(
+		matchingKernels: INotebookKernelMatchResult,
+		runtimeId: string,
+		languageId: string | undefined
+	): INotebookKernel | undefined {
+		// Prefer kernels that directly reference the runtime ID or are Positron-specific for the language
+		for (const kernel of matchingKernels.all) {
+			// Kernels may have different ways of identifying runtimes, so we check a few common patterns
+			if (kernel.id.includes(runtimeId) ||
+				(kernel.extension.value.includes('positron') &&
+					languageId && kernel.supportedLanguages.includes(languageId))) {
+				return kernel;
+			}
+		}
+
+		// Fallback: If no specific match, but only one suggestion exists, use it.
+		if (matchingKernels.suggestions.length === 1) {
+			return matchingKernels.suggestions[0];
+		}
+
+		// No suitable kernel found
+		return undefined;
+	}
+
+	/**
+	 * Connects the currently open notebook editor to the runtime session and selects the appropriate kernel.
+	 * This method assumes it's being called within the context of a Jupyter Notebook project creation.
+	 *
+	 * @param sessionListener The event listener for runtime start, used to dispose itself upon completion or error.
+	 */
+	private async _connectNotebookToRuntime(sessionListener: IDisposable): Promise<void> {
+		try {
+			// Get the active notebook editor, if any
+			const notebookEditors = this._notebookEditorService.listNotebookEditors();
+			if (notebookEditors.length > 1) {
+				// This scenario is currently not supported
+				this._logService.error('[New project startup] Multiple notebook editors found. This is not supported.');
+				this._notificationService.error(localize('positronNewProjectService.multipleNotebooksError', 'Multiple notebook editors found. This is not supported.'));
+				return;
+			}
+
+			const notebookEditor = notebookEditors.at(0);
+			if (!notebookEditor) {
+				this._logService.debug('[New project startup] No active notebook editor found for connection.');
+				return;
+			}
+
+			const notebookTextModel = notebookEditor.textModel;
+			if (!notebookTextModel) {
+				this._logService.debug('[New project startup] Notebook editor has no text model for connection.');
+				return;
+			}
+
+			const notebookUri = notebookTextModel.uri;
+			if (!notebookUri) {
+				this._logService.debug('[New project startup] Notebook text model has no URI for connection.');
+				return;
+			}
+
+			// Get the runtime ID from the potentially updated metadata
+			const currentRuntimeId = this._runtimeMetadata?.runtimeId;
+			if (!currentRuntimeId) {
+				this._logService.error('[New project startup] Failed to connect notebook to runtime: No runtime ID available.');
+				return;
+			}
+
+			// Connect the notebook to the runtime session
+			await this._runtimeSessionService.startNewRuntimeSession(
+				currentRuntimeId,
+				this._newProjectConfig?.projectName || 'New Project Notebook',
+				LanguageRuntimeSessionMode.Notebook,
+				notebookUri,
+				'New Project Notebook Creation',
+				RuntimeStartMode.Starting,
+				true
+			);
+			this._logService.debug(`[New project startup] Connected notebook ${notebookUri.toString()} to runtime ${currentRuntimeId}`);
+
+			// Find and select the appropriate kernel for the notebook
+			const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+			const kernelToSelect = this._findKernelForNotebook(matchingKernels, currentRuntimeId, this._runtimeMetadata?.languageId);
+
+			if (kernelToSelect) {
+				this._notebookKernelService.selectKernelForNotebook(kernelToSelect, notebookTextModel);
+				this._logService.debug(`[New project startup] Selected kernel ${kernelToSelect.id} for notebook ${notebookUri.toString()}`);
+			} else {
+				this._logService.debug(`[New project startup] No suitable kernel found for notebook ${notebookUri.toString()}`);
+				// Consider notifying the user that a kernel needs manual selection if this is problematic.
+			}
+		} catch (error) {
+			this._logService.error(`[New project startup] Error during post-init notebook setup: ${error}`);
+			this._notificationService.error(localize('positronNewProjectService.postInitNotebookError', 'Error setting up notebook for new project: {0}', String(error)));
+		} finally {
+			// Dispose the listener regardless of success or failure
+			sessionListener.dispose();
+		}
+	}
+	// --- End Positron ---
+
+	/**
 	 * Removes a pending init task.
 	 */
 	private _removePendingInitTask(task: NewProjectTask) {
@@ -609,6 +723,11 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		const sessionListener = this._runtimeSessionService.onDidStartRuntime(async (runtimeId) => {
 			this._logService.debug('[New project startup] Runtime created. Running post-init tasks.');
 			this._startupPhase.set(NewProjectStartupPhase.PostInitialization, undefined);
+
+			// If we've created a Jupyter Notebook project, connect the notebook to the runtime.
+			if (this._newProjectConfig?.projectType === NewProjectType.JupyterNotebook) {
+				await this._connectNotebookToRuntime(sessionListener);
+			}
 			sessionListener.dispose();
 		});
 
