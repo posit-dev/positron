@@ -694,13 +694,13 @@ export class Sessions {
 	/**
 	 * Action: Rename a session via UI
 	 *
-	 * @param sessionIdOrName - the id or name of the session
+	 * @param sessionId - the id of the session
 	 * @param newName - the new name for the session
 	 */
-	async renameViaUI(sessionIdOrName: string, newName: string): Promise<void> {
-		await test.step(`Rename session: ${sessionIdOrName} to ${newName}`, async () => {
+	async renameViaUI(sessionId: string, newName: string): Promise<void> {
+		await test.step(`Rename session: ${sessionId} to ${newName}`, async () => {
 			await this.console.focus();
-			const sessionTab = this.getSessionTab(sessionIdOrName);
+			const sessionTab = this.getSessionTab(sessionId);
 
 			// open the context menu and select "Rename"
 			await sessionTab.click({ button: 'right' });
