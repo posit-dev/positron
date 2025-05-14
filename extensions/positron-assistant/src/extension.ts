@@ -83,9 +83,10 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 		return;
 	}
 
-	try {
-		let idx = 0;
-		for (const config of modelConfigs) {
+	let idx = 0;
+	const registeredModels: ModelConfig[] = [];
+	for (const config of modelConfigs) {
+		try {
 			// We need at least one default and one non-default model for the dropdown to appear.
 			// For now, just set the first language model as default.
 			// TODO: Allow for setting a default in the configuration.
@@ -93,16 +94,16 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 
 			await registerModelWithAPI(config, context, isFirst);
 			idx++;
+			registeredModels.push(config);
+		} catch (e) {
+			const failedMessage = vscode.l10n.t('Positron Assistant: Failed to register model configurations.');
+			vscode.window.showErrorMessage(`${failedMessage} ${e}`);
 		}
-
-		// Set context for if we have chat models available for use
-		const hasChatModels = modelConfigs.filter(config => config.type === 'chat').length > 0;
-		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
-
-	} catch (e) {
-		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to register model configurations.');
-		vscode.window.showErrorMessage(`${failedMessage} ${e}`);
 	}
+
+	// Set context for if we have chat models available for use
+	const hasChatModels = registeredModels.filter(config => config.type === 'chat').length > 0;
+	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 }
 
 /**
