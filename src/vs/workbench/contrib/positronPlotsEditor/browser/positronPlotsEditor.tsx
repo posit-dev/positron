@@ -30,7 +30,7 @@ import { EditorPlotsContainer } from './editorPlotsContainer.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
@@ -109,7 +109,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
-		@IStorageService storageService: IStorageService,
+		@IStorageService private readonly storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
@@ -177,7 +177,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 			throw new Error('Plot client not found');
 		}
 
-		input.setName(`Plot: ${this._plotClient.id}`);
+		input.setName(this._plotClient.metadata.suggested_file_name ?? createSuggestedFileNameForPlot(this.storageService));
 
 		this.renderContainer(this._plotClient);
 		this.onSizeChanged((event: ISize) => {

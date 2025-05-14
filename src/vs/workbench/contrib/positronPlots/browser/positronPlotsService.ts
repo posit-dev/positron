@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -53,6 +53,7 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { joinPath } from '../../../../base/common/resources.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -562,7 +563,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					let registered = false;
 					if (storedMetadata) {
 						try {
+							// Parse the plot metadata. If the metadata doesn't have a suggested file name, generate one.
 							const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
+							if (!metadata.suggested_file_name) {
+								metadata.suggested_file_name = createSuggestedFileNameForPlot(this._storageService);
+							}
+
 							const commProxy = this.createCommProxy(client, metadata);
 							plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
 							registered = true;
@@ -581,6 +587,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							parent_id: '',
 							code: '',
 							location: PlotClientLocation.View,
+							suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
 						};
 						const commProxy = this.createCommProxy(client, metadata);
 						plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
@@ -661,6 +668,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					parent_id: event.message.parent_id,
 					code,
 					pre_render: data?.pre_render,
+					suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
 				};
 
 				// Register the plot client
@@ -731,7 +739,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		if (storedMetadata) {
 			try {
+				// Parse the plot metadata. If the metadata doesn't have a suggested file name, generate one.
 				const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
+				if (!metadata.suggested_file_name) {
+					metadata.suggested_file_name = createSuggestedFileNameForPlot(this._storageService);
+				}
 				this.createEditorPlot(metadata, commProxy);
 
 				this.openEditor(plotId, this.getPreferredEditorGroup(), metadata);
@@ -827,7 +839,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		plotClient.register(plotClient.onDidChangeSizingPolicy((policy) => {
 			this.selectSizingPolicy(policy.id);
 		}));
-  }
+	}
 
 	/**
 	 * Creates a new static plot client instance and registers it with the
@@ -840,7 +852,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		sessionId: string,
 		message: ILanguageRuntimeMessageOutput,
 		code?: string) {
-		this.registerNewPlotClient(new StaticPlotClient(sessionId, message, code));
+		this.registerNewPlotClient(new StaticPlotClient(this._storageService, sessionId, message, code));
 	}
 
 	/**
@@ -1007,7 +1019,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					if (plotClient instanceof StaticPlotClient) {
 						// if it's a static plot, save the image to disk
 						const uri = plotClient.uri;
-						this.showSavePlotDialog(uri);
+						this.showSavePlotDialog(uri, plotClient.metadata.suggested_file_name);
 					} else if (plotClient instanceof PlotClientInstance) {
 						// if it's a dynamic plot, present options dialog
 						showSavePlotModalDialog(
@@ -1071,11 +1083,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		return {
 			mime: mime,
 			data: imageData,
-			type: mime.split('/')[1]
+			type: mime.split('/')[1].split(';')[0],
 		};
 	}
 
-	showSavePlotDialog(uri: string) {
+	showSavePlotDialog(uri: string, suggestedFileName?: string) {
 		const dataUri = this.splitPlotDataUri(uri);
 
 		if (!dataUri) {
@@ -1084,19 +1096,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		const extension = dataUri.type;
 
-		this._fileDialogService.showSaveDialog({
-			title: 'Save Plot',
-			filters:
-				[
-					{
-						extensions: [extension],
-						name: extension.toUpperCase(),
-					},
-				],
-		}).then(result => {
-			if (result) {
-				this.savePlotAs({ path: result, uri });
-			}
+		this._fileDialogService.defaultFilePath().then(defaultPath => {
+			const defaultUri = joinPath(defaultPath, suggestedFileName ?? 'plot');
+			this._fileDialogService.showSaveDialog({
+				title: localize('positron.savePlot', "Save Plot"),
+				defaultUri,
+				filters:
+					[
+						{
+							name: extension.toUpperCase(),
+							extensions: [extension],
+						},
+					],
+			}).then(result => {
+				if (result) {
+					this.savePlotAs({ path: result, uri });
+				}
+			});
 		});
 	}
 
