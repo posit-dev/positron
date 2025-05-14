@@ -850,10 +850,7 @@ export function registerLanguageRuntimeActions() {
 					group: 'navigation',
 					id: MenuId.ViewTitle,
 					order: 1,
-					when: ContextKeyExpr.and(
-						ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
-						ContextKeyExpr.equals(`config.${USE_POSITRON_MULTIPLE_CONSOLE_SESSIONS_CONFIG_KEY}`, true),
-					),
+					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
 				}],
 			});
 		}
@@ -879,10 +876,10 @@ export function registerLanguageRuntimeActions() {
 			// Duplicate the current session with the `startNewRuntimeSession` method.
 			await runtimeSessionService.startNewRuntimeSession(
 				currentSession.runtimeMetadata.runtimeId,
-				currentSession.metadata.sessionName,
+				currentSession.dynState.sessionName,
 				currentSession.metadata.sessionMode,
 				undefined,
-				`Duplicated session: ${currentSession.metadata.sessionName}`,
+				`Duplicated session: ${currentSession.dynState.sessionName}`,
 				RuntimeStartMode.Starting,
 				true
 			);
@@ -906,13 +903,7 @@ export function registerLanguageRuntimeActions() {
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
 					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Slash },
 					weight: KeybindingWeight.WorkbenchContrib
-				},
-				menu: [{
-					group: 'navigation',
-					id: MenuId.ViewTitle,
-					order: 1,
-					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
-				}],
+				}
 			});
 		}
 
