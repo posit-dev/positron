@@ -9,11 +9,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
 import { hasNonEmptyContent, isChatImagePart } from './utils.js';
+import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 
 export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
 	name: string;
 	provider: string;
 	identifier: string;
+	maxOutputTokens: number;
 
 	capabilities = {
 		vision: true,
@@ -44,6 +46,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		this._client = new Anthropic({
 			apiKey: _config.apiKey,
 		});
+		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
 	}
 
 	async provideLanguageModelResponse(
@@ -61,8 +64,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
 		const stream = this._client.messages.stream({
 			model: this._config.model,
-			// TODO: How do we decide on default max tokens?
-			max_tokens: options.modelOptions?.maxTokens ?? 1024,
+			max_tokens: options.modelOptions?.maxTokens ?? this.maxOutputTokens,
 			messages: anthropicMessages,
 			tool_choice,
 			tools,

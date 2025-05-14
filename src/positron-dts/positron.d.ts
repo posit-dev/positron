@@ -1780,7 +1780,8 @@ declare module 'positron' {
 			provider: string;
 			identifier: string;
 
-			get providerName(): string;
+			providerName: string;
+			maxOutputTokens: number;
 
 			readonly capabilities?: {
 				readonly vision?: boolean;
@@ -1883,6 +1884,7 @@ declare module 'positron' {
 			project?: string;
 			location?: string;
 			numCtx?: number;
+			maxOutputTokens?: number;
 		}
 
 		/**
