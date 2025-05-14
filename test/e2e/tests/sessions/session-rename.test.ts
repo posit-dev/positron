@@ -44,8 +44,8 @@ test.describe('Sessions: Rename', {
 		const newRName = 'Hello, darling!';
 
 		// Rename sessions
-		await sessions.rename(pySession.name, newPyName);
-		await sessions.rename(rSession.name, newRName);
+		await sessions.renameViaUI(pySession.name, newPyName);
+		await sessions.renameViaUI(rSession.name, newRName);
 
 		// Verify session names persist
 		await sessions.expectSessionNameToBe(pySession.id, newPyName);
