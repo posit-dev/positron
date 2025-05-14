@@ -1145,11 +1145,12 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
  * @param accessor The service accessor.
  * @param sessionId The ID of the session to rename.
  */
-const renameLanguageRuntimeSession = async (accessor: ServicesAccessor, sessionId: string) => {
-	const sessionService = accessor.get(IRuntimeSessionService);
-	const notificationService = accessor.get(INotificationService);
-	const quickInputService = accessor.get(IQuickInputService);
-
+const renameLanguageRuntimeSession = async (
+	sessionService: IRuntimeSessionService,
+	notificationService: INotificationService,
+	quickInputService: IQuickInputService,
+	sessionId: string
+) => {
 	// Prompt the user to enter the new session name.
 	const sessionName = await quickInputService.input({
 		value: '',
@@ -1194,12 +1195,22 @@ registerAction2(class extends Action2 {
 	 * @returns A promise that resolves when the session has been renamed
 	 */
 	async run(accessor: ServicesAccessor) {
+		const sessionService = accessor.get(IRuntimeSessionService);
+		const notificationService = accessor.get(INotificationService);
+		const quickInputService = accessor.get(IQuickInputService);
+
 		// Prompt the user to select a session they want to rename.
 		const session = await selectLanguageRuntimeSession(accessor);
 		if (!session) {
 			return;
 		}
-		await renameLanguageRuntimeSession(accessor, session.sessionId);
+
+		await renameLanguageRuntimeSession(
+			sessionService,
+			notificationService,
+			quickInputService,
+			session.sessionId
+		);
 	}
 });
 
@@ -1229,6 +1240,8 @@ registerAction2(class extends Action2 {
 	 */
 	async run(accessor: ServicesAccessor) {
 		const sessionService = accessor.get(IRuntimeSessionService);
+		const notificationService = accessor.get(INotificationService);
+		const quickInputService = accessor.get(IQuickInputService);
 
 		// Get the active session
 		const session = sessionService.foregroundSession;
@@ -1236,6 +1249,11 @@ registerAction2(class extends Action2 {
 			return;
 		}
 
-		await renameLanguageRuntimeSession(accessor, session.sessionId);
+		await renameLanguageRuntimeSession(
+			sessionService,
+			notificationService,
+			quickInputService,
+			session.sessionId
+		);
 	}
 });
