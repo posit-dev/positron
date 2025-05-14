@@ -183,7 +183,7 @@ export const startEntries: GettingStartedStartEntryContent = [
 			// Replace this command with New Folder from Git
 			// command: 'command:git.clone',
 			command: 'command:positron.workbench.action.newFolderFromGit',
-			command: 'command:git.clone',
+			// --- End Positron --
 		}
 	},
 	{
