@@ -27,6 +27,7 @@ numpy==2.0.2; python_version == '3.9'
 numpy==2.2.4; python_version >= '3.10'
 pandas==2.2.3
 plotly==6.0.1
+plotnine
 polars==1.26.0
 polars[timezone]==1.26.0; sys_platform == 'win32'
 pyarrow==19.0.1
