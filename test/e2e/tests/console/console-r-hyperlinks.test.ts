@@ -132,28 +132,26 @@ test.describe('Console Pane: R Hyperlinks', {
 
 	test('R - Verify file hyperlink with line offset', async function ({ app, r, hotKeys }) {
 
-		const lineEightText = 'readxl';
-
 		await hotKeys.closeAllEditors();
 
 		await app.workbench.console.clearButton.click();
 
 		await app.workbench.console.pasteCodeToConsole('library(cli)', true);
-		await app.workbench.console.pasteCodeToConsole('txt <- "Let\'s open a file {.file DESCRIPTION:8}"', true);
+		await app.workbench.console.pasteCodeToConsole('txt <- "Let\'s open a file {.file static-test-data-files/lineCount.txt:8}"', true);
 		await app.workbench.console.pasteCodeToConsole('cli_text(txt)', true);
 
-		await app.workbench.console.activeConsole.locator('span', { hasText: 'DESCRIPTION' }).nth(3).click();
+		await app.workbench.console.activeConsole.locator('.output-run-hyperlink span', { hasText: 'lineCount.txt' }).click();
 
-		await app.workbench.editor.waitForEditorContents('DESCRIPTION', (contents: string) => {
+		await app.workbench.editor.waitForEditorContents('lineCount.txt', (contents: string) => {
 			const normalizedContents = contents.replace(/\s+/g, ' ').trim();
-			return normalizedContents.includes(lineEightText);
+			return normalizedContents.includes('eight');
 		});
 
 		const cursorTopValue = await app.code.driver.page.locator('.editor .cursor').evaluate((element) => {
 			return window.getComputedStyle(element).getPropertyValue('top');
 		});
 
-		const lineEightTopValue = await app.code.driver.page.locator('div.view-line', { hasText: lineEightText }).evaluate((element) => {
+		const lineEightTopValue = await app.code.driver.page.locator('div.view-line', { hasText: /^eight$/ }).evaluate((element) => {
 			return window.getComputedStyle(element).getPropertyValue('top');
 		});
 
