@@ -12,7 +12,7 @@ import { getPyvenvConfigPathsFrom } from './simplevirtualenvs';
 import { splitLines } from '../../../common/stringUtils';
 
 /** Wraps the "uv" utility, and exposes its functionality. */
-class UvUtils {
+export class UvUtils {
     private static uvPromise: Promise<UvUtils | undefined>;
 
     constructor(public readonly command: string) {}

@@ -32,6 +32,9 @@ import { PythonEnvironment } from '../../envExt/types';
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
 import { Conda } from '../common/environmentManagers/conda';
+import { getUvPythonVersions } from './provider/uvUtils';
+import { UvUtils } from '../common/environmentManagers/uv';
+import { UvCreationProvider } from './provider/uvCreationProvider';
 import {
     createEnvironmentAndRegister,
     getCreateEnvironmentProviders,
@@ -150,7 +153,16 @@ export function registerCreateEnvironmentFeatures(
             },
         ),
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
+        registerCommand(
+            Commands.Is_Uv_Installed,
+            async (): Promise<boolean> => {
+                const uvUtils = await UvUtils.getUvUtils();
+                return uvUtils !== undefined;
+            },
+        ),
+        registerCommand(Commands.Get_Uv_Python_Versions, () => getUvPythonVersions()),
         registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
+        registerCreateEnvironmentProvider(new UvCreationProvider()),
         // --- End Positron ---
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
         registerCreateEnvironmentProvider(condaCreationProvider()),

@@ -19,6 +19,7 @@ import { PVSC_EXTENSION_ID } from '../common/constants';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { CONDA_PROVIDER_ID } from '../pythonEnvironments/creation/provider/condaCreationProvider';
 import { VENV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/venvCreationProvider';
+import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
 import { traceInfo, traceVerbose } from '../logging';
 
 /**
@@ -63,10 +64,10 @@ export async function createEnvironmentAndRegister(
     pythonRuntimeManager: IPythonRuntimeManager,
     options: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
 ): Promise<CreateEnvironmentAndRegisterResult | undefined> {
-    if (!options.providerId || (!options.interpreterPath && !options.condaPythonVersion)) {
+    if (!options.providerId || (!options.interpreterPath && !options.condaPythonVersion && !options.uvPythonVersion)) {
         return {
             error: new Error(
-                'Missing required options for creating an environment. Please specify a provider ID and a Python interpreter path or a Conda Python version.',
+                'Missing required options for creating an environment. Please specify a provider ID and a Python interpreter path or a Conda or uv Python version.',
             ),
         };
     }
@@ -118,6 +119,7 @@ export async function isGlobalPython(interpreterPath: string): Promise<boolean |
 enum EnvProviderToProviderId {
     'Venv' = VENV_PROVIDER_ID,
     'Conda' = CONDA_PROVIDER_ID,
+    'uv' = UV_PROVIDER_ID,
 }
 
 /**
@@ -129,7 +131,7 @@ function getEnabledEnvProviderIds(): string[] {
     if (!envProviderConfig) {
         // If the config hasn't been set, return the default providers
         traceInfo('[getEnabledEnvProviderIds] No environment provider settings configured. Using default providers.');
-        return [VENV_PROVIDER_ID, CONDA_PROVIDER_ID];
+        return [VENV_PROVIDER_ID, CONDA_PROVIDER_ID, UV_PROVIDER_ID];
     }
     const enabledProviderIds = Object.entries(envProviderConfig)
         // filter to include only enabled providers that are supported

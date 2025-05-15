@@ -8,30 +8,28 @@ import { PythonEnvironmentProvider } from '../interfaces/newProjectWizardEnums.j
 import { InterpreterInfo } from './interpreterDropDownUtils.js';
 
 /**
- * CondaPythonVersionInfo interface.
+ * UvPythonVersionInfo interface.
  */
-export interface CondaPythonVersionInfo {
-	preferred: string;
+export interface UvPythonVersionInfo {
 	versions: string[];
 }
 
 /**
- * Empty CondaPythonVersionInfo object.
+ * Empty UvPythonVersionInfo object.
  */
-export const EMPTY_CONDA_PYTHON_VERSION_INFO: CondaPythonVersionInfo = {
-	preferred: '',
+export const EMPTY_UV_PYTHON_VERSION_INFO: UvPythonVersionInfo = {
 	versions: [],
 };
 
 /**
- * Converts a CondaPythonVersionInfo object to DropDownListBoxItem objects.
- * Conda environments have special handling because the Python interpreters don't exist until the conda
+ * Converts a UvPythonVersionInfo object to DropDownListBoxItem objects.
+ * Like Conda, uv environments have special handling because the Python interpreters don't exist until the uv
  * environment is created. As such, we only have the python versions available to us at this point.
- * @param versionInfo The CondaPythonVersionInfo object to convert.
+ * @param versionInfo The UvPythonVersionInfo object to convert.
  * @returns The array of DropDownListBoxItem objects.
  */
-export const condaInterpretersToDropdownItems = (
-	versionInfo: CondaPythonVersionInfo | undefined
+export const uvInterpretersToDropdownItems = (
+	versionInfo: UvPythonVersionInfo | undefined
 ) => {
 	if (!versionInfo) {
 		return [];
@@ -41,12 +39,12 @@ export const condaInterpretersToDropdownItems = (
 			new DropDownListBoxItem<string, InterpreterInfo>({
 				identifier: version,
 				value: {
-					preferred: version === versionInfo.preferred,
+					preferred: false,
 					runtimeId: version,
 					languageName: 'Python',
 					languageVersion: version,
 					runtimePath: '',
-					runtimeSource: PythonEnvironmentProvider.Conda,
+					runtimeSource: PythonEnvironmentProvider.Uv,
 				},
 			})
 	);
