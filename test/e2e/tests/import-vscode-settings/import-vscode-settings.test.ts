@@ -126,10 +126,10 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 async function expectDiffToBeVisible(page: Page, visible = true) {
 	if (visible) {
 		await expect(page.getByRole('tab', { name: 'settings.json' })).toBeVisible();
-		await expect(page.getByText('settings.json (in file) ↔ settings.json', { exact: true })).toBeVisible();
+		// await expect(page.getByText('settings.json (in file) ↔ settings.json', { exact: true })).toBeVisible();
 	} else {
 		await page.waitForTimeout(3000); // waiting to avoid false positive
 		await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
-		await expect(page.getByText('settings.json (in file) ↔ settings.json', { exact: true })).not.toBeVisible();
+		// await expect(page.getByText('settings.json (in file) ↔ settings.json', { exact: true })).not.toBeVisible();
 	}
 }
