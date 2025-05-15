@@ -7,9 +7,10 @@
 import './plotsContainer.css';
 
 // React.
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../../base/browser/dom.js';
 import { DynamicPlotInstance } from './dynamicPlotInstance.js';
 import { DynamicPlotThumbnail } from './dynamicPlotThumbnail.js';
 import { PlotGalleryThumbnail } from './plotGalleryThumbnail.js';
@@ -20,13 +21,17 @@ import { WebviewPlotThumbnail } from './webviewPlotThumbnail.js';
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { DarkFilter, IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
+import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
+import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 
 /**
  * PlotContainerProps interface.
  */
 interface PlotContainerProps {
+	positronPlotsService: IPositronPlotsService,
 	width: number;
 	height: number;
 	x: number;
@@ -53,6 +58,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 	const positronPlotsContext = usePositronPlotsContext();
 	const plotHistoryRef = React.createRef<HTMLDivElement>();
+	const containerRef = useRef<HTMLDivElement>(undefined!);
 
 	// We generally prefer showing the history on the bottom (making the plot
 	// wider), but if the plot container is too wide, we show it on the right
@@ -61,8 +67,8 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 	const historyPx = props.showHistory ? HistoryPx : 0;
 	const historyEdge = historyBottom ? 'history-bottom' : 'history-right';
-	const plotHeight = historyBottom ? props.height - historyPx : props.height;
-	const plotWidth = historyBottom ? props.width : props.width - historyPx;
+	const plotHeight = historyBottom && props.height > 0 ? props.height - historyPx : props.height;
+	const plotWidth = historyBottom || props.width <= 0 ? props.width : props.width - historyPx;
 
 	useEffect(() => {
 		// Ensure the selected plot is visible. We do this so that the history
@@ -82,7 +88,52 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				plotHistory.scrollTop = plotHistory.scrollHeight;
 			}
 		}
-	});
+	}, [plotHistoryRef]);
+
+	useEffect(() => {
+		// Be defensive against null sizes when pane is invisible
+		if (plotWidth <= 0 || plotHeight <= 0) {
+			return;
+		}
+
+		const notify = () => {
+			let policy = props.positronPlotsService.selectedSizingPolicy;
+
+			if (policy instanceof PlotSizingPolicyIntrinsic) {
+				policy = new PlotSizingPolicyAuto;
+			}
+
+			const viewPortSize = {
+				height: plotHeight,
+				width: plotWidth,
+			}
+			let size = policy.getPlotSize(viewPortSize);
+			size = size ? size : viewPortSize;
+
+			props.positronPlotsService.setPlotsRenderSettings({
+				size,
+				pixel_ratio: DOM.getWindow(containerRef.current).devicePixelRatio,
+				format: PlotRenderFormat.Png, // Currently hard-coded
+			});
+		};
+
+		// Renotify if the sizing policy changes
+		const disposables = new DisposableStore();
+		disposables.add(props.positronPlotsService.onDidChangeSizingPolicy((_policy) => {
+			notify();
+		}));
+
+		// Propagate current render settings. Use a debouncer to avoid excessive
+		// messaging to language kernels.
+		const debounceTimer = setTimeout(() => {
+			notify()
+		}, 500);
+
+		return () => {
+			clearTimeout(debounceTimer);
+			disposables.dispose();
+		};
+	}, [plotWidth, plotHeight, props.positronPlotsService]);
 
 	/**
 	 * Renders either a DynamicPlotInstance (resizable plot), a
@@ -113,6 +164,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				visible={props.visible}
 				width={plotWidth} />;
 		}
+
 		return null;
 	};
 
@@ -217,7 +269,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
 	return (
-		<div className={'plots-container dark-filter-' + props.darkFilterMode + ' ' + historyEdge}>
+		<div ref={containerRef} className={'plots-container dark-filter-' + props.darkFilterMode + ' ' + historyEdge}>
 			<div className='selected-plot'>
 				{positronPlotsContext.positronPlotInstances.length === 0 &&
 					<div className='plot-placeholder'></div>}
