@@ -279,6 +279,9 @@ export async function makeMetadata(
 		config.get<string>('shutdownTimeout', 'immediately') !== 'immediately' ?
 			positron.LanguageRuntimeSessionLocation.Machine : positron.LanguageRuntimeSessionLocation.Workspace;
 
+	// Subscribe to UI notifications of interest
+	const uiSubscriptions = [positron.UiRuntimeNotifications.DidChangePlotsRenderSettings];
+
 	const metadata: positron.LanguageRuntimeMetadata = {
 		runtimeId,
 		runtimeName,
@@ -295,6 +298,7 @@ export async function makeMetadata(
 			).toString('base64'),
 		sessionLocation,
 		startupBehavior,
+		uiSubscriptions,
 		extraRuntimeData
 	};
 

@@ -465,6 +465,20 @@ declare module 'positron' {
 		 * when creating a new session from the metadata.
 		 */
 		extraRuntimeData: any;
+
+		/**
+		 * Subscriptions to notifications from the UI. When subscribed, the frontend sends
+		 * notifications to the backend via the UI client.
+		 */
+		uiSubscriptions?: UiRuntimeNotifications[];
+	}
+
+	/**
+	 * UI notifications from frontend to backends.
+	 */
+	export enum UiRuntimeNotifications {
+		/** Notification that the settings for rendering a plot have changed, typically because the plot area did */
+		DidChangePlotsRenderSettings = 'did_change_plots_render_settings',
 	}
 
 	export interface RuntimeSessionMetadata {
@@ -1347,6 +1361,29 @@ declare module 'positron' {
 		installDependencies?: () => Promise<boolean>;
 	}
 
+	/**
+	 * Settings necessary to render a plot in the format expected by the plot widget.
+	 */
+	export interface PlotRenderSettings {
+		size: {
+			width: number;
+			height: number;
+		};
+		pixel_ratio: number;
+		format: PlotRenderFormat;
+	}
+
+	/**
+	 * Possible formats for rendering a plot.
+	 */
+	export enum PlotRenderFormat {
+		Png = 'png',
+		Jpeg = 'jpeg',
+		Svg = 'svg',
+		Pdf = 'pdf',
+		Tiff = 'tiff'
+	}
+
 	namespace languages {
 		/**
 		 * Register a statement range provider.
@@ -1469,6 +1506,18 @@ declare module 'positron' {
 		 * Returns the current width of the console input, in characters.
 		 */
 		export function getConsoleWidth(): Thenable<number>;
+
+		/**
+		 * Fires when the settings necessary to render a plot in the format expected by
+		 * plot widget have changed.
+		 */
+		export const onDidChangePlotsRenderSettings: vscode.Event<PlotRenderSettings>;
+
+		/**
+		 * Returns the settings necessary to render a plot in the format expected by
+		 * plot widget.
+		 */
+		export function getPlotsRenderSettings(): Thenable<PlotRenderSettings>;
 	}
 
 	namespace runtime {
@@ -1814,7 +1863,8 @@ declare module 'positron' {
 			provider: string;
 			identifier: string;
 
-			get providerName(): string;
+			providerName: string;
+			maxOutputTokens: number;
 
 			readonly capabilities?: {
 				readonly vision?: boolean;
@@ -1917,6 +1967,7 @@ declare module 'positron' {
 			project?: string;
 			location?: string;
 			numCtx?: number;
+			maxOutputTokens?: number;
 		}
 
 		/**

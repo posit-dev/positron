@@ -67,7 +67,7 @@
 					"name": "format",
 					"description": "The requested plot format",
 					"schema": {
-						"$ref": "#/components/schemas/render_format"
+						"$ref": "#/components/schemas/plot_render_format"
 					}
 				}
 			],
@@ -85,13 +85,12 @@
 							"description": "The MIME type of the plot data",
 							"type": "string"
 						},
-						"policy": {
-							"description": "The policy used to render the plot",
-							"$ref": "#/components/schemas/render_policy"
+						"settings": {
+							"description": "The settings used to render the plot",
+							"$ref": "#/components/schemas/plot_render_settings"
 						}
 					},
 					"required": [
-						"size",
 						"data",
 						"mime_type"
 					]
@@ -101,6 +100,11 @@
 	],
 	"components": {
 		"schemas": {
+			"plot_unit": {
+				"type": "string",
+				"description": "The unit of measurement of a plot's dimensions",
+				"enum": ["pixels", "inches"]
+			},
 			"plot_size": {
 				"type": "object",
 				"description": "The size of a plot",
@@ -114,30 +118,22 @@
 						"type": "integer"
 					}
 				},
-				"required": [
-					"height",
-					"width"
-				],
+				"required": ["height", "width"],
 				"rust": {
 					"copy": true
 				}
 			},
-			"render_format":{
+			"plot_render_format": {
 				"description": "The requested plot format",
 				"type": "string",
 				"enum": ["png", "jpeg", "svg", "pdf", "tiff"]
 			},
-			"plot_unit": {
-				"type": "string",
-				"description": "The unit of measurement of a plot's dimensions",
-				"enum": ["pixels", "inches"]
-			},
-			"render_policy": {
+			"plot_render_settings": {
 				"type": "object",
-				"description": "The policy used to render the plot",
+				"description": "The settings used to render the plot",
 				"properties": {
 					"size": {
-						"description": "Plot size of the render policy",
+						"description": "Plot size to render the plot to",
 						"$ref": "#/components/schemas/plot_size"
 					},
 					"pixel_ratio": {
@@ -145,15 +141,11 @@
 						"type": "number"
 					},
 					"format": {
-						"description": "Format of the render policy",
-						"$ref": "#/components/schemas/render_format"
+						"description": "Format in which to render the plot",
+						"$ref": "#/components/schemas/plot_render_format"
 					}
 				},
-				"required": [
-					"size",
-					"pixel_ratio",
-					"format"
-				],
+				"required": ["size", "pixel_ratio", "format"],
 				"rust": {
 					"copy": true
 				}

@@ -15,7 +15,8 @@ import { IDriverMetadata, Input } from '../../../services/positronConnections/co
 import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnections.js';
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
-import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
 import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
@@ -159,6 +160,14 @@ export interface ExtHostAiFeaturesShape {
 	$onCompleteLanguageModelConfig(id: string): void;
 }
 
+export interface MainThreadPlotsServiceShape {
+	$getPlotsRenderSettings(): Promise<PlotRenderSettings>;
+}
+
+export interface ExtHostPlotsServiceShape {
+	$onDidChangePlotsRenderSettings(settings: PlotRenderSettings): void;
+}
+
 /**
  * The view state of a preview in the Preview panel. Only one preview can be
  * active at a time (the one currently loaded into the panel); the active
@@ -235,6 +244,7 @@ export const ExtHostPositronContext = {
 	ExtHostConnections: createProxyIdentifier<ExtHostConnectionsShape>('ExtHostConnections'),
 	ExtHostAiFeatures: createProxyIdentifier<ExtHostAiFeaturesShape>('ExtHostAiFeatures'),
 	ExtHostQuickOpen: createProxyIdentifier<ExtHostQuickOpenShape>('ExtHostQuickOpen'),
+	ExtHostPlotsService: createProxyIdentifier<ExtHostPlotsServiceShape>('ExtHostPlotsService'),
 };
 
 export const MainPositronContext = {
@@ -247,4 +257,5 @@ export const MainPositronContext = {
 	MainThreadMethods: createProxyIdentifier<MainThreadMethodsShape>('MainThreadMethods'),
 	MainThreadConnections: createProxyIdentifier<MainThreadConnectionsShape>('MainThreadConnections'),
 	MainThreadAiFeatures: createProxyIdentifier<MainThreadAiFeaturesShape>('MainThreadAiFeatures'),
+	MainThreadPlotsService: createProxyIdentifier<MainThreadPlotsServiceShape>('MainThreadPlotsService'),
 };
