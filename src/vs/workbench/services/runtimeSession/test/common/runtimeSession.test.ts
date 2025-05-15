@@ -1127,8 +1127,13 @@ suite('Positron - RuntimeSessionService', () => {
 	test('updateSessionName updates session name correctly', async () => {
 		// Create a new session
 		const session = await startConsole();
+		const otherSession = await startConsole();
+
 		await waitForRuntimeState(session, RuntimeState.Ready);
+		await waitForRuntimeState(otherSession, RuntimeState.Ready);
+
 		assert.strictEqual(session.dynState.sessionName, runtime.runtimeName, 'Initial session name should match');
+		assert.strictEqual(otherSession.dynState.sessionName, runtime.runtimeName, 'Initial session name should match');
 
 		// Set a new name for the session
 		const newName = 'updated-session-name';
@@ -1136,5 +1141,6 @@ suite('Positron - RuntimeSessionService', () => {
 
 		// Verify the session's name has been updated
 		assert.strictEqual(session.dynState.sessionName, newName, 'Session name should be updated correctly');
+		assert.strictEqual(otherSession.dynState.sessionName, runtime.runtimeName, 'Other session name should remain unchanged');
 	});
 });
