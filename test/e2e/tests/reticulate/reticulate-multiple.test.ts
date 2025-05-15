@@ -37,7 +37,7 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await app.workbench.sessions.renameSession('reticulate', 'sessionOne');
+		await app.workbench.sessions.rename('reticulate', 'sessionOne');
 
 		await verifyReticulateFunctionality(app, rSessionMetaData.id, 'sessionOne');
 
@@ -47,7 +47,7 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
-		await app.workbench.sessions.renameSession('reticulate', 'sessionTwo');
+		await app.workbench.sessions.rename('reticulate', 'sessionTwo');
 
 		await verifyReticulateFunctionality(app, rSessionMetaData2.id, 'sessionTwo', '300', '500', '7');
 
