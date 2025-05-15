@@ -262,7 +262,7 @@ class PositronShell(ZMQInteractiveShell):
     object_info_string_level: int
     magics_manager: MagicsManager
     display_pub: ZMQDisplayPublisher
-    display_formatter = traitlets.Instance(PositronDisplayFormatter)
+    display_formatter: PositronDisplayFormatter = traitlets.Instance(PositronDisplayFormatter)  # type: ignore
 
     inspector_class: type[PositronIPythonInspector] = traitlets.Type(
         PositronIPythonInspector,  # type: ignore
