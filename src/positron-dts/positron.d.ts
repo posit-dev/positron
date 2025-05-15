@@ -2001,6 +2001,9 @@ declare module 'positron' {
 					error?: any;
 				}[];
 			};
+			plots?: {
+				hasPlots: boolean;
+			};
 			variables?: {
 				name: string;
 				value: string;
