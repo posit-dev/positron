@@ -626,13 +626,37 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			}
 
 			// Select kernel
-			this._selectKernelForNotebook(model);
+			await this._selectKernelForNotebook(model);
 		} catch (error) {
 			this._logService.error(`${this._nbLogPrefix} Error during post-init notebook setup: ${String(error)}`);
 			this._notificationService.error(localize('positronNewProjectService.postInitNotebookError', 'Error setting up notebook for new project: {0}', String(error)));
 		} finally {
 			sessionListener.dispose();
 		}
+	}
+
+	/**
+	 * Waits for a kernel matching the given runtimePath to be registered for the notebook.
+	 * Returns the matching kernel if found, otherwise undefined.
+	 *
+	 * We need to wait because the kernel registration is async after the runtime session is started.
+	 *
+	 * @param notebookTextModel The notebook text model to select a kernel for
+	 * @param runtimePath The interpreter path to match
+	 */
+	private async _waitForKernelRegistration(notebookTextModel: INotebookTextModel, runtimePath: string): Promise<INotebookKernel | undefined> {
+		const pollInterval = 200; // ms
+		const maxWait = 10000; // ms
+		const maxPolls = Math.ceil(maxWait / pollInterval);
+		for (let i = 0; i < maxPolls; i++) {
+			const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+			const kernel = matchingKernels.all.find(k => k.description === runtimePath);
+			if (kernel) {
+				return kernel;
+			}
+			await new Promise(res => setTimeout(res, pollInterval));
+		}
+		return undefined;
 	}
 
 	/**
@@ -643,35 +667,44 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 *
 	 * @param notebookTextModel The notebook text model to select a kernel for
 	 */
-	private _selectKernelForNotebook(notebookTextModel: INotebookTextModel) {
-		const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+	private async _selectKernelForNotebook(notebookTextModel: INotebookTextModel) {
 		const runtimePath: string | undefined = this._runtimeMetadata?.runtimePath;
 		const languageId = this._runtimeMetadata?.languageId;
 		this._logService.debug('[New project startup] Kernel selection: runtimePath=', runtimePath);
 
 		let kernelToSelect: INotebookKernel | undefined;
 
-		// 1. If runtimePath is defined (venv or specific interpreter), only do exact match
 		if (runtimePath) {
-			for (const kernel of matchingKernels.all) {
-				if (kernel.description === runtimePath) {
-					this._logService.debug(`[New project startup] Kernel '${kernel.id}' selected: exact match for runtimePath.`);
-					kernelToSelect = kernel;
-					break;
-				}
+			// Wait for the kernel to be registered if needed
+			kernelToSelect = await this._waitForKernelRegistration(notebookTextModel, runtimePath);
+			if (kernelToSelect) {
+				this._logService.debug(`[New project startup] Kernel '${kernelToSelect.id}' selected: exact match for runtimePath after polling.`);
 			}
-		} else {
-			// 2. If no runtimePath, try Positron-specific kernel for the language
-			for (const kernel of matchingKernels.all) {
-				if (kernel.extension.value.includes('positron') && languageId && kernel.supportedLanguages.includes(languageId)) {
-					this._logService.debug(`[New project startup] Kernel '${kernel.id}' selected: Positron-specific for language (no venv).`);
-					kernelToSelect = kernel;
-					break;
+		}
+
+		if (!kernelToSelect) {
+			// Fallback to previous logic if polling failed
+			const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+			if (!runtimePath) {
+				for (const kernel of matchingKernels.all) {
+					if (kernel.extension.value.includes('positron') && languageId && kernel.supportedLanguages.includes(languageId)) {
+						this._logService.debug(`[New project startup] Kernel '${kernel.id}' selected: Positron-specific for language (no venv).`);
+						kernelToSelect = kernel;
+						break;
+					}
+				}
+			} else {
+				// If we have a runtimePath but polling failed, warn the user
+				this._logService.warn('[New project startup] No kernel registered for the new environment after waiting. Falling back to best available kernel.');
+				for (const kernel of matchingKernels.all) {
+					if (kernel.description && kernel.description.includes('.venv')) {
+						kernelToSelect = kernel;
+						break;
+					}
 				}
 			}
 		}
 
-		// No suitable kernel found: show error notification and log
 		if (!kernelToSelect) {
 			// Show a user-facing error toast, but do not break the flow
 			this._notificationService.error('No matching Jupyter kernel was found for the new environment. You will need to select a kernel manually in the notebook.');
