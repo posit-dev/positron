@@ -12,7 +12,7 @@ import { registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
-import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
+import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
@@ -132,6 +132,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 			modelsCopy.push({
 				name: modelConfig.name,
 				identifier: modelConfig.model,
+				maxOutputTokens: modelConfig.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
 			});
 		}
 
@@ -140,6 +141,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				...modelConfig,
 				model: model.identifier,
 				name: model.name,
+				maxOutputTokens: model.maxOutputTokens,
 			};
 			const languageModel = newLanguageModel(newConfig);
 
@@ -151,7 +153,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				version: context.extension.packageJSON.version,
 				capabilities: languageModel.capabilities,
 				maxInputTokens: 0,
-				maxOutputTokens: 0,
+				maxOutputTokens: languageModel.maxOutputTokens,
 				isUserSelectable: true,
 				isDefault: isDefault,
 			});
