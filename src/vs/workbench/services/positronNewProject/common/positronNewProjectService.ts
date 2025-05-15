@@ -23,7 +23,7 @@ import { INotificationService } from '../../../../platform/notification/common/n
 import { localize } from '../../../../nls.js';
 import { IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { INotebookEditorService } from '../../../contrib/notebook/browser/services/notebookEditorService.js';
-import { INotebookKernelMatchResult, INotebookKernel, INotebookKernelService } from '../../../contrib/notebook/common/notebookKernelService.js';
+import { INotebookKernel, INotebookKernelService } from '../../../contrib/notebook/common/notebookKernelService.js';
 import { INotebookTextModel } from '../../../contrib/notebook/common/notebookCommon.js';
 
 /**
@@ -541,65 +541,53 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 	//#endregion Extension Tasks
 
-	/**
-	 * Finds the most suitable kernel for a given notebook based on runtime information.
-	 *
-	 * @param matchingKernels The result object containing potential kernel matches for the notebook.
-	 * @param runtimeId The ID of the runtime associated with the new project.
-	 * @param languageId The language ID associated with the runtime, if available.
-	 * @returns The kernel to select, or undefined if no suitable kernel is found.
-	 */
-	private _findKernelForNotebook(
-		matchingKernels: INotebookKernelMatchResult,
-		runtimeId: string,
-		languageId: string | undefined
-	): INotebookKernel | undefined {
-		// Prefer kernels that directly reference the runtime ID or are Positron-specific for the language
-		for (const kernel of matchingKernels.all) {
-			// Kernels may have different ways of identifying runtimes, so we check a few common patterns
-			if (kernel.extension.value.includes('positron') &&
-				languageId && kernel.supportedLanguages.includes(languageId)) {
-				return kernel;
-			}
-		}
-
-		// Fallback: If no specific match, but only one suggestion exists, use it.
-		if (matchingKernels.suggestions.length === 1) {
-			return matchingKernels.suggestions[0];
-		}
-
-		// No suitable kernel found
-		return undefined;
-	}
 
 	/**
 	 * Ensures the notebook has a properly selected kernel that matches the project's runtime.
 	 * This eliminates the need for manual kernel selection when creating a new notebook project.
 	 *
 	 * @param notebookTextModel The notebook text model to select a kernel for
-	 * @param runtimeId The runtime ID to match against
 	 * @returns True if kernel was successfully selected, false otherwise
 	 */
-	private _selectKernelForNotebook(
-		notebookTextModel: INotebookTextModel,
-		runtimeId: string
-	): boolean {
+	private _selectKernelForNotebook(notebookTextModel: INotebookTextModel): boolean {
 		const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
-		const kernelToSelect = this._findKernelForNotebook(
-			matchingKernels,
-			runtimeId,
-			this._runtimeMetadata?.languageId
-		);
+		const runtimePath: string | undefined = this._runtimeMetadata?.runtimePath;
+		const languageId = this._runtimeMetadata?.languageId;
+		this._logService.debug('[New project startup] Kernel selection: runtimePath=', runtimePath);
 
-		if (kernelToSelect) {
-			this._notebookKernelService.selectKernelForNotebook(kernelToSelect, notebookTextModel);
-			this._logService.debug(`[New project startup] Selected kernel ${kernelToSelect.id} for notebook`);
-			return true;
+		let kernelToSelect: INotebookKernel | undefined;
+
+		// 1. If runtimePath is defined (venv or specific interpreter), only do exact match
+		if (runtimePath) {
+			for (const kernel of matchingKernels.all) {
+				if (kernel.description === runtimePath) {
+					this._logService.debug(`[New project startup] Kernel '${kernel.id}' selected: exact match for runtimePath.`);
+					kernelToSelect = kernel;
+					break;
+				}
+			}
 		} else {
+			// 2. If no runtimePath, try Positron-specific kernel for the language
+			for (const kernel of matchingKernels.all) {
+				if (kernel.extension.value.includes('positron') && languageId && kernel.supportedLanguages.includes(languageId)) {
+					this._logService.debug(`[New project startup] Kernel '${kernel.id}' selected: Positron-specific for language (no venv).`);
+					kernelToSelect = kernel;
+					break;
+				}
+			}
+		}
+
+		// No suitable kernel found: show error notification and log
+		if (!kernelToSelect) {
+			this._logService.warn('[New project startup] No suitable kernel found. Available kernels:', matchingKernels.all.map(k => ({ id: k.id, label: k.label, detail: k.detail, description: k.description, extension: k.extension.value })));
+			this._notificationService.error('No matching Jupyter kernel was found for the new environment. Please select a kernel manually.');
 			this._logService.debug(`[New project startup] No suitable kernel found for notebook`);
-			// Consider notifying the user that a kernel needs manual selection if this is problematic.
 			return false;
 		}
+
+		this._notebookKernelService.selectKernelForNotebook(kernelToSelect, notebookTextModel);
+		this._logService.debug(`[New project startup] Selected kernel ${kernelToSelect.id} for notebook`);
+		return true;
 	}
 
 	/**
@@ -699,7 +687,11 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			}
 
 			// Find and select the appropriate kernel using the extracted method
-			this._selectKernelForNotebook(textModel, runtimeId);
+			const kernelSelected = this._selectKernelForNotebook(textModel);
+			if (!kernelSelected) {
+				this._logService.error('[New project startup] No suitable kernel found for notebook.');
+				return;
+			}
 		} catch (error) {
 			this._logService.error(`[New project startup] Error during post-init notebook setup: ${error}`);
 			this._notificationService.error(localize('positronNewProjectService.postInitNotebookError', 'Error setting up notebook for new project: {0}', String(error)));
