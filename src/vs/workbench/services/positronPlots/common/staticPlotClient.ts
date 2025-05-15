@@ -1,12 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 import { ILanguageRuntimeMessageOutput } from '../../languageRuntime/common/languageRuntimeService.js';
-import { IPositronPlotClient } from './positronPlots.js';
+import { createSuggestedFileNameForPlot, IPositronPlotClient } from './positronPlots.js';
 
 /**
  * Creates a static plot client from a language runtime message.
@@ -16,7 +17,7 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 	public readonly mimeType;
 	public readonly data;
 
-	constructor(sessionId: string, message: ILanguageRuntimeMessageOutput,
+	constructor(storageService: IStorageService, sessionId: string, message: ILanguageRuntimeMessageOutput,
 		public readonly code?: string) {
 		super();
 
@@ -27,6 +28,7 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 			created: Date.parse(message.when),
 			session_id: sessionId,
 			code: code ? code : '',
+			suggested_file_name: createSuggestedFileNameForPlot(storageService),
 		};
 
 		// Find the image MIME type. This is guaranteed to exist since we only create this object if
