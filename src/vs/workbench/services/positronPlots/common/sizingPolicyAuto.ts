@@ -63,6 +63,9 @@ export class PlotSizingPolicyAuto implements IPositronPlotSizingPolicy {
 			}
 		}
 
+		plotSize.height = Math.floor(plotSize.height);
+		plotSize.width = Math.floor(plotSize.width);
+
 		return plotSize;
 	}
 }

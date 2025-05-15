@@ -12,6 +12,7 @@ import { launch as launchPlaywrightBrowser } from './playwrightBrowser';
 import { PlaywrightDriver } from './playwrightDriver';
 import { launch as launchPlaywrightElectron } from './playwrightElectron';
 import { teardown } from './processes';
+import { ElectronApplication } from '@playwright/test';
 
 export interface LaunchOptions {
 	codePath?: string;
@@ -83,10 +84,10 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 
 	// Electron smoke tests (playwright)
 	else {
-		const { electronProcess, driver } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
+		const { electronProcess, driver, electronApp } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
 		registerInstance(electronProcess, options.logger, 'electron');
 
-		return new Code(driver, options.logger, electronProcess);
+		return new Code(driver, options.logger, electronProcess, electronApp);
 	}
 }
 
@@ -94,10 +95,13 @@ export class Code {
 
 	readonly driver: PlaywrightDriver;
 
+
 	constructor(
 		driver: PlaywrightDriver,
 		readonly logger: Logger,
 		private readonly mainProcess: cp.ChildProcess,
+		// Only available when running against Electron
+		readonly electronApp?: ElectronApplication
 	) {
 		this.driver = new Proxy(driver, {
 			get(target, prop) {

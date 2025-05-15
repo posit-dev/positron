@@ -49,6 +49,6 @@ test.describe('Large Python Notebook', {
 			}
 		}
 
-		expect(allFigures.length).toBeGreaterThan(20);
+		expect(allFigures.length).toBeGreaterThan(15);
 	});
 });

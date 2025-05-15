@@ -49,7 +49,7 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
 
-		await app.workbench.sessions.renameSession('reticulate', 'reticulateNew');
+		await app.workbench.sessions.rename('reticulate', 'reticulateNew');
 
 		await verifyReticulateFunctionality(app, `R ${process.env.POSITRON_R_VER_SEL!}`, 'reticulateNew');
 

@@ -68,8 +68,14 @@ npm install
 If you've already installed dependencies, just run the code generator.
 This will (re-)generate code for all comms.
 
-```
+```sh
 npx ts-node generate-comms.ts
+```
+
+If you have `just` installed, then just run `just`:
+
+```sh
+just
 ```
 
 For each contract, this writes Rust, Python, and Typescript modules using the current contract.
@@ -80,6 +86,12 @@ This will (re-)generate code only for the ui and variables comms.
 
 ```
 npx ts-node generate-comms.ts ui variables
+```
+
+You can pass arguments via `just` as well but you'll need to explicitly name the `gen` recipe instead of relying on it being the default:
+
+```
+just gen ui variables
 ```
 
 Above we've targetted two comms by name, "ui" and "variables".

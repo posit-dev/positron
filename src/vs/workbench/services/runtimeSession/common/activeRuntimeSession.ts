@@ -26,12 +26,16 @@ export class ActiveRuntimeSession extends Disposable {
 
 	public workingDirectory: string = '';
 
-	// The event emitter for the onDidReceiveRuntimeEvent event.
-	private readonly _onDidReceiveRuntimeEventEmitter =
-		this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
+	private readonly _onDidReceiveRuntimeEventEmitter = this._register(new Emitter<ILanguageRuntimeGlobalEvent>());
+	private readonly _onUiClientStartedEmitter = this._register(new Emitter<UiClientInstance>());
 
 	/// The UI client instance, if it exists
 	private _uiClient: UiClientInstance | undefined;
+
+	/// Gets the UI client instance, if it has been started.
+	get uiClient(): UiClientInstance | undefined {
+		return this._uiClient;
+	}
 
 	/// The promise that resolves when the UI client is started.
 	private _startingUiClient: DeferredPromise<string> | undefined;
@@ -48,7 +52,7 @@ export class ActiveRuntimeSession extends Disposable {
 		private readonly _commandService: ICommandService,
 		private readonly _logService: ILogService,
 		private readonly _openerService: IOpenerService,
-		private readonly _configurationService: IConfigurationService
+		private readonly _configurationService: IConfigurationService,
 	) {
 		super();
 
@@ -58,6 +62,20 @@ export class ActiveRuntimeSession extends Disposable {
 
 	/// An event that fires when a runtime receives a global event.
 	readonly onDidReceiveRuntimeEvent = this._onDidReceiveRuntimeEventEmitter.event;
+
+	/// Event that fires when the UI client has started. This allows other services
+	/// to interact with the UI client, e.g. to send notifications or requests to
+	/// backends.
+	///
+	/// Note that `UiClientInstance` is a disposable. You can attach
+	/// resources to it (such as event handlers) via the `register()` method, these
+	/// will be cleaned up when the UI client is torn down (e.g. after a
+	/// disconnect).
+	///
+	/// Dev note: In the future the UI client will move to an extension-land middleware,
+	/// see https://github.com/posit-dev/positron/issues/4997. Do not introduce
+	/// dependencies that can't eventually be solved with regular events.
+	readonly onUiClientStarted = this._onUiClientStartedEmitter.event;
 
 	/**
 	 * Register a disposable to be cleaned up when this object is disposed.
@@ -224,6 +242,9 @@ export class ActiveRuntimeSession extends Disposable {
 				}
 			});
 		}));
+
+		// Forward UI client to interested services
+		this._onUiClientStartedEmitter.fire(uiClient);
 
 		return client.getClientId();
 	}

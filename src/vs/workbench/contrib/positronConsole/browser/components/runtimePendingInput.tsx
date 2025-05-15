@@ -28,7 +28,7 @@ export interface RuntimePendingInputProps {
  */
 export const RuntimePendingInput = (props: RuntimePendingInputProps) => {
 	// Get services from the context.
-	const { openerService, notificationService } = usePositronConsoleContext();
+	const { openerService, notificationService, environmentService, pathService } = usePositronConsoleContext();
 
 	// Calculate the prompt width.
 	const promptWidth = Math.ceil(
@@ -47,9 +47,11 @@ export const RuntimePendingInput = (props: RuntimePendingInputProps) => {
 					{outputLine.outputRuns.map(outputRun =>
 						<OutputRun
 							key={outputRun.id}
+							environmentService={environmentService}
 							notificationService={notificationService}
 							openerService={openerService}
 							outputRun={outputRun}
+							pathService={pathService}
 						/>
 					)}
 				</div>

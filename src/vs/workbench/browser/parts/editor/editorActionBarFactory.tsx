@@ -129,7 +129,6 @@ export class EditorActionBarFactory extends Disposable {
 		 */
 		const createMenus = () => {
 			this.createMenu(MenuId.EditorActionsLeft);
-			this.createMenu(MenuId.EditorActionsCenter);
 			this.createMenu(MenuId.EditorActionsRight);
 			this.createMenu(MenuId.EditorTitle);
 		};
@@ -164,13 +163,6 @@ export class EditorActionBarFactory extends Disposable {
 		const leftActionBarElements = this.buildActionBarElements(
 			processedActions,
 			MenuId.EditorActionsLeft,
-			false
-		);
-
-		// Build the center action bar elements from the editor actions center menu.
-		const centerActionBarElements = this.buildActionBarElements(
-			processedActions,
-			MenuId.EditorActionsCenter,
 			false
 		);
 
@@ -215,11 +207,6 @@ export class EditorActionBarFactory extends Disposable {
 				{leftActionBarElements.length > 0 &&
 					<ActionBarRegion location='left'>
 						{leftActionBarElements}
-					</ActionBarRegion>
-				}
-				{centerActionBarElements.length > 0 &&
-					<ActionBarRegion location='center'>
-						{centerActionBarElements}
 					</ActionBarRegion>
 				}
 				{rightActionBarElements.length > 0 &&

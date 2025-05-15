@@ -28,6 +28,7 @@ export class Sessions {
 	currentSessionTab = this.sessionTabs.filter({ has: this.page.locator('.tab-button--active') });
 	sessionPicker = this.page.locator('[id="workbench.parts.positron-top-action-bar"]').locator('.action-bar-region-right').getByRole('button').first();
 	private sessionTrashButton = (sessionId: string) => this.getSessionTab(sessionId).getByTestId('trash-session');
+	private renameMenuItem = this.page.getByRole('menuitem', { name: 'Rename...' });
 
 	// Session status indicators
 	private activeStatus = (session: Locator) => session.locator(ACTIVE_STATUS_ICON);
@@ -675,19 +676,45 @@ export class Sessions {
 	}
 
 	/**
-	 * Helper: Rename a session
+	 * Action: Rename a session via command
 	 *
 	 * @param oldName - Name of the session to rename (or part of the name)
 	 * @param newName - New session name
 	 */
-	async renameSession(oldName: string, newName: string) {
-		await this.quickaccess.runCommand('workbench.action.language.runtime.renameSession', { keepOpen: true });
-		await this.quickinput.waitForQuickInputOpened();
-		await this.quickinput.type(oldName);
-		await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0].includes(oldName));
-		await this.quickinput.quickInputList.getByText(oldName).first().click();
-		await this.quickinput.type(newName);
-		await this.code.driver.page.keyboard.press('Enter');
+	async rename(oldName: string, newName: string) {
+		await test.step(`Rename session: ${oldName} to ${newName}`, async () => {
+			await this.quickaccess.runCommand('workbench.action.language.runtime.renameSession', { keepOpen: true });
+			await this.quickinput.waitForQuickInputOpened();
+			await this.quickinput.type(oldName);
+			await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0].includes(oldName));
+			await this.quickinput.quickInputList.getByText(oldName).first().click();
+			await this.quickinput.type(newName);
+			await this.code.driver.page.keyboard.press('Enter');
+		});
+	}
+
+	/**
+	 * Action: Rename a session via UI
+	 *
+	 * @param sessionId - the id of the session
+	 * @param newName - the new name for the session
+	 */
+	async renameViaUI(sessionId: string, newName: string): Promise<void> {
+		await test.step(`Rename session: ${sessionId} to ${newName}`, async () => {
+			await this.console.focus();
+			const sessionTab = this.getSessionTab(sessionId);
+
+			// open the context menu and select "Rename"
+			await sessionTab.click({ button: 'right' });
+			await this.renameMenuItem.hover();
+			await this.page.waitForTimeout(500);
+			await this.renameMenuItem.click();
+
+			// input the new name
+			await expect(sessionTab.getByRole('textbox')).toBeVisible();
+			await this.page.keyboard.type(newName);
+			await this.page.keyboard.press('Enter');
+		});
 	}
 
 	/**
@@ -736,6 +763,19 @@ export class Sessions {
 			} else {
 				throw new Error('No sessions found');
 			}
+		});
+	}
+
+	/**
+	 * Verify: Check the name of the session
+	 *
+	 * @param sessionId - the id of the session
+	 * @param expectedName - the expected name of the session
+	 */
+	async expectSessionNameToBe(sessionId: string, expectedName: string) {
+		await test.step(`Verify session name: ${sessionId} is ${expectedName}`, async () => {
+			const sessionTab = this.getSessionTab(sessionId);
+			await expect(sessionTab).toHaveText(expectedName);
 		});
 	}
 

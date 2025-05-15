@@ -183,7 +183,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const protectedPackages = (this._ipykernelBundle.paths ?? [])
             .flatMap((path) => fs.readdirSync(path).map((name) => ({ parent: path, name })))
             .filter(({ name }) => code.includes(name));
-        if (!protectedPackages) {
+        if (protectedPackages.length === 0) {
             return false;
         }
 

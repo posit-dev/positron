@@ -25,6 +25,7 @@ import { ActiveRuntimeSession } from './activeRuntimeSession.js';
 import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
+import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -147,6 +148,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidUpdateSessionNameEmitter =
 		this._register(new Emitter<ILanguageRuntimeSession>);
 
+	// The event emitter for the onDidStartUiClient event.
+	private readonly _onDidStartUiClientEmitter =
+		this._register(new Emitter<{ sessionId: string; uiClient: UiClientInstance }>());
+
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -159,7 +164,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IStorageService private readonly _storageService: IStorageService,
-		@IUpdateService private readonly _updateService: IUpdateService
+		@IUpdateService private readonly _updateService: IUpdateService,
 	) {
 
 		super();
@@ -260,6 +265,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 	// An event that fires when a runtime is deleted.
 	readonly onDidDeleteRuntimeSession = this._onDidDeleteRuntimeSessionEmitter.event;
+
+	// An event that fires when a UI client has started in a session.
+	readonly onDidStartUiClient = this._onDidStartUiClientEmitter.event;
 
 	// The event emitter for the onDidUpdateNotebookSessionUri event.
 	private readonly _onDidUpdateNotebookSessionUriEmitter =
@@ -422,6 +430,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		} else {
 			// Check if there is a console session for this runtime already
+			// TODO: This returns uninitialized sessions.
+			//       If session.start() errors while starting, the session stays in active sessions and gets
+			//       returned here. Is that expected?
 			const existingSession = this.getConsoleSessionForRuntime(runtimeId, true);
 			if (existingSession) {
 				// Set it as the foreground session and return.
@@ -648,18 +659,43 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
+		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
-		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			// Create a promise that resolves when the runtime is ready to use.
-			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
-			// It's possible that startPromise is never awaited, so we log any errors here
-			// at the debug level since we still expect the error to be handled/logged elsewhere.
-			startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
+		// It's possible that startPromise is never awaited, so we log any errors here
+		// at the debug level since we still expect the error to be handled/logged elsewhere.
+		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
+
+		// For notebook sessions, update the starting sessions map so that any concurrent
+		// start/restore requests return the same pending promise.
+		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
 			this.setStartingSessionMaps(
 				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
 		}
+
+		try {
+			const sessionId = await this.doRestoreRuntimeSession(
+				sessionMetadata, runtimeMetadata, sessionName, activate);
+			startPromise.complete(sessionId);
+		} catch (err) {
+			startPromise.error(err);
+		} finally {
+			// The session is no longer considered starting.
+			this.clearStartingSessionMaps(
+				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+		}
+
+		return startPromise.p.then(() => { });
+	}
+
+	async doRestoreRuntimeSession(
+		sessionMetadata: IRuntimeSessionMetadata,
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionName: string,
+		activate: boolean,
+	) {
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
 		if (this._sessionManagers.length === 0) {
@@ -667,17 +703,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Get the runtime's manager.
-		let sessionManager: ILanguageRuntimeSessionManager;
-		try {
-			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
-		} catch (err) {
-			startPromise.error(err);
-			if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				this.clearStartingSessionMaps(
-					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-			}
-			throw err;
-		}
+		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 
 		// Restore the session. This can take some time; it may involve waiting
 		// for the extension to finish activating and the network to attempt to
@@ -689,23 +715,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._logService.error(
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
 				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
-			startPromise.error(err);
-			if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				this.clearStartingSessionMaps(
-					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-			}
 			throw err;
 		}
 
 		// Actually reconnect the session.
-		try {
-			await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate);
-			startPromise.complete(sessionMetadata.sessionId);
-		} catch (err) {
-			startPromise.error(err);
-		}
+		await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate);
 
-		return startPromise.p.then(() => { });
+		return sessionMetadata.sessionId;
+
 	}
 
 	/**
@@ -1578,6 +1595,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(session);
 
+			// TODO: Should this fire onDidChangeForegroundSession?
+			//       If so, should it fire immediately or once the session is ready
+			//       (which would already happen if we remove this block)?
 			// Make the newly-started runtime the foreground runtime if it's a console session.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				this._foregroundSession = session;
@@ -1635,12 +1655,23 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Save the new active session info.
-		const activeSession = new ActiveRuntimeSession(session, manager,
-			this._commandService, this._logService, this._openerService, this._configurationService);
+		const activeSession = new ActiveRuntimeSession(
+			session,
+		  manager,
+			this._commandService,
+	 	 	this._logService,
+			this._openerService,
+			this._configurationService,
+		);
 		this._activeSessionsBySessionId.set(session.sessionId, activeSession);
 		this._register(activeSession);
 		this._register(activeSession.onDidReceiveRuntimeEvent(evt => {
 			this._onDidReceiveRuntimeEventEmitter.fire(evt);
+		}));
+
+		// Forwad UI client to interested services once it's available
+	 	activeSession.register(activeSession.onUiClientStarted(uiClient => {
+			this._onDidStartUiClientEmitter.fire({ sessionId: session.sessionId, uiClient });
 		}));
 
 		// Add the onDidChangeRuntimeState event handler.
@@ -1741,6 +1772,32 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				}
 			}, 0);
 		}));
+	}
+
+	/**
+	 * Register handler for the `onDidStartUiClient` event and run handler if already started.
+	 *
+	 * This ensures `handler` is run for both current and future instances of a session's UI client.
+	 *
+	 * @param sessionId The ID of the session to observe.
+	 * @param handler Called with started UI clients.
+	 * @returns An `IDisposable` to clean up the event handler.
+	 */
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable {
+		// Run handler with currently started client, if any
+		const currentUiClient = this.getActiveSession(sessionId)?.uiClient;
+		if (currentUiClient) {
+			handler(currentUiClient);
+		}
+
+		// Run handler on future instances, e.g. after reconnect
+		const disposable = this.onDidStartUiClient((event) => {
+			if (event.sessionId === sessionId) {
+				handler(event.uiClient);
+			}
+		});
+
+		return disposable;
 	}
 
 	/**
