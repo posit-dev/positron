@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
 import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, ClearWebviewPreloadsEvent } from './positronUiComm.js';
@@ -14,6 +14,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { isWeb } from '../../../../base/common/platform.js';
+import { PlotRenderSettings } from '../../positronPlots/common/positronPlots.js';
 
 export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 
@@ -193,6 +194,13 @@ export class UiClientInstance extends Disposable {
 	}
 
 	/**
+	 * Register a resource for cleanup on disposal.
+	 */
+	public register<T extends IDisposable>(o: T): T {
+		return this._register(o);
+	}
+
+	/**
 	 * Opens a file URI in an external browser.
 	 *
 	 * @param url The URL to open in the browser
@@ -261,5 +269,20 @@ export class UiClientInstance extends Disposable {
 	 */
 	public getClientState(): RuntimeClientState {
 		return this._client.clientState.get();
+	}
+
+	/**
+	 * Notification that the settings to render a plot (i.e. the plot size)
+	 * have changed.
+	 *
+	 * Typically fired when the plot component has been resized by the user.
+	 * This notification is useful to produce accurate pre-renderings of
+	 * plots.
+	 *
+	 * @param settings Plot rendering settings
+	 *
+	 */
+	public async didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
+			await this._comm.didChangePlotsRenderSettings(settings);
 	}
 }

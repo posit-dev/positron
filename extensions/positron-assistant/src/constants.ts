@@ -11,3 +11,6 @@ export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
 
 /** Selects all documents. */
 export const ALL_DOCUMENTS_SELECTOR: DocumentSelector = [{ scheme: '*' }];
+
+/** The default max token output if a model's maximum is unknown */
+export const DEFAULT_MAX_TOKEN_OUTPUT = 4_096;

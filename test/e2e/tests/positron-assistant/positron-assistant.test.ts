@@ -81,8 +81,10 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickDoneButton();
 		await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 		await app.workbench.editor.clickOnTerm('chinook-sqlite.py', 'data_file_path', 4);
-		await app.code.driver.page.keyboard.press('Control+I');
+		const inlineChatShortcut = process.platform === 'darwin' ? 'Meta+I' : 'Control+I';
+		await app.code.driver.page.keyboard.press(inlineChatShortcut);
 		await app.code.driver.page.locator('.chat-widget > .interactive-session').isVisible();
+		await app.workbench.assistant.verifyInlineChatInputsVisible();
 		await app.workbench.quickaccess.runCommand('positron-assistant.addModelConfiguration');
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignOutButton();
@@ -129,6 +131,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 */
 	test('Python: Verify running code in console from chat markdown response', async function ({ app, python }) {
 		await app.workbench.assistant.enterChatMessage('Send Python Code');
+		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo = 100');
 		await app.workbench.console.waitForConsoleContents('foo = 100');
 		await app.workbench.variables.expectVariableToBe('foo', '100');
@@ -143,6 +146,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 */
 	test('R: Verify running code in console from chat markdown response', async function ({ app, r }) {
 		await app.workbench.assistant.enterChatMessage('Send R Code');
+		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo <- 200');
 		await app.workbench.console.waitForConsoleContents('foo <- 200');
 		await app.workbench.variables.expectVariableToBe('foo', '200');

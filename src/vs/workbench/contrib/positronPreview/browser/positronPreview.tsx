@@ -33,6 +33,7 @@ import { PreviewHtml } from './previewHtml.js';
 import { HtmlActionBars } from './components/htmlActionBars.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { BasicActionBars } from './components/basicActionBars.js';
 
 /**
  * PositronPreviewProps interface.
@@ -106,7 +107,10 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 
 	const urlToolbar = activePreview && activePreview instanceof PreviewUrl;
 	const htmlToolbar = activePreview && activePreview instanceof PreviewHtml;
-	const showToolbar = urlToolbar || htmlToolbar;
+	const basicToolbar =
+		activePreview && activePreview.viewType === 'notebookRenderer';
+	const showToolbar = urlToolbar || htmlToolbar || basicToolbar;
+
 	// Render.
 	return (
 		<PositronPreviewContextProvider {...props}>
@@ -119,6 +123,9 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 			}
 			{htmlToolbar &&
 				<HtmlActionBars key={activePreview.previewId} preview={activePreview} {...props} />
+			}
+			{basicToolbar &&
+				<BasicActionBars key={activePreview.previewId} preview={activePreview} {...props} />
 			}
 			<PreviewContainer
 				height={height - (showToolbar ? 32 : 0)}

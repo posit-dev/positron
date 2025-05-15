@@ -29,7 +29,8 @@ const IGNORED_JUPYTER_CONFIGURATION_PROPERTIES = new Set([
 	'jupyter.enableCellCodeLens',
 	'jupyter.interactiveWindow.cellMarker.codeRegex',
 	'jupyter.interactiveWindow.cellMarker.decorateCells',
-	'jupyter.interactiveWindow.cellMarker.default',
+	// The cell marker setting is needed for properly exporting notebooks to other formats (see #3903.)
+	// 'jupyter.interactiveWindow.cellMarker.default',
 	'jupyter.interactiveWindow.cellMarker.markdownRegex',
 	'jupyter.interactiveWindow.codeLens.commands',
 	'jupyter.interactiveWindow.codeLens.enable',
