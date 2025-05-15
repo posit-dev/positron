@@ -11,7 +11,10 @@ import { isLanguageModelImagePart } from './languageModelParts.js';
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
  */
-export function toAIMessage(messages: vscode.LanguageModelChatMessage2[]): ai.CoreMessage[] {
+export function toAIMessage(
+	messages: vscode.LanguageModelChatMessage2[],
+	toolResultExperimentalContent: boolean = false
+): ai.CoreMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
 		for (const part of message.content) {
@@ -52,21 +55,29 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage2[]): ai.Co
 			// Add the tool messages.
 			for (const part of message.content) {
 				if (part instanceof vscode.LanguageModelToolResultPart) {
-					const toolCall = toolCalls[part.callId];
-					if (toolCall.name === PositronAssistantToolName.GetPlot) {
-						aiMessages.push(getPlotToolResultToAiMessage(part));
+					if (toolResultExperimentalContent) {
+						const toolCall = toolCalls[part.callId];
+						aiMessages.push(
+							convertToolResultToAiMessageExperimentalContent(part, toolCall)
+						);
 					} else {
-						aiMessages.push({
-							role: 'tool',
-							content: [
-								{
-									type: 'tool-result',
-									toolCallId: part.callId,
-									toolName: toolCall.name,
-									result: part.content,
-								},
-							],
-						});
+						const toolCall = toolCalls[part.callId];
+						if (toolCall.name === PositronAssistantToolName.GetPlot) {
+							aiMessages.push(getPlotToolResultToAiMessage(part));
+						} else {
+							aiMessages.push({
+								role: 'tool',
+								content: [
+									{
+										type: 'tool-result',
+										toolCallId: part.callId,
+										toolName: toolCall.name,
+										result: part.content,
+									},
+								],
+							});
+						}
+
 					}
 				}
 			}
@@ -78,7 +89,10 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage2[]): ai.Co
 					if (part instanceof vscode.LanguageModelTextPart) {
 						return { type: 'text', text: part.value };
 					} else if (part instanceof vscode.LanguageModelToolCallPart) {
-						if (part.name === PositronAssistantToolName.GetPlot) {
+						if (
+							!toolResultExperimentalContent &&
+							part.name === PositronAssistantToolName.GetPlot
+						) {
 							// Vercel AI does not yet support image tool results,
 							// so replace getPlot tool calls with text asking for the plot.
 							// The corresponding tool result will be replaced with a user
@@ -104,6 +118,69 @@ export function toAIMessage(messages: vscode.LanguageModelChatMessage2[]): ai.Co
 
 	// Remove empty messages to keep certain LLM providers happy
 	return aiMessages.filter((message) => message.content.length > 0);
+}
+
+
+/**
+ * Convert a tool result into a Vercel AI message with experimental content.
+ * This is useful for tool results that contain images.
+ */
+function convertToolResultToAiMessageExperimentalContent(
+	part: vscode.LanguageModelToolResultPart,
+	toolCall: vscode.LanguageModelToolCallPart,
+): ai.CoreToolMessage {
+	// If experimental content is enabled for tool calls,
+	// that means tool results can contain images.
+
+	const toolMessage: ai.CoreToolMessage = {
+		role: 'tool',
+		content: [
+			{
+				type: 'tool-result',
+				toolCallId: part.callId,
+				toolName: toolCall.name,
+				result: '',
+			},
+		],
+	};
+
+	// If there's 0 or 1 parts and that part is text, we can just return a
+	// normal CoreToolMessage object with a `result` field.
+	if (
+		part.content.length <= 1 &&
+		part.content.every(
+			(content) => content instanceof vscode.LanguageModelTextPart
+		)
+	) {
+		toolMessage.content[0].result = part.content;
+	} else {
+		// This is a multi-part tool result, and may contain images. We can
+		// convert it to a Vercel AI message with experimental_content.
+		const toolResultContent: ToolResultContent = part.content.map(
+			(content): ToolResultContent[number] => {
+				if (content instanceof vscode.LanguageModelTextPart) {
+					return {
+						type: 'text',
+						text: content.value,
+					};
+				} else if (isLanguageModelImagePart(content)) {
+					return {
+						type: 'image',
+						data: content.value.base64,
+						mimeType: content.value.mimeType,
+					};
+				} else {
+					throw new Error(
+						`Unsupported part type on tool result message`
+					);
+				}
+			}
+		);
+		toolMessage.content[0].result = toolResultContent;
+		toolMessage.content[0].experimental_content = toolResultContent;
+	}
+
+	return toolMessage;
 }
 
 /**
@@ -196,3 +273,16 @@ export function hasNonEmptyContent(message: vscode.LanguageModelChatMessage2): b
 		return true;
 	});
 }
+
+// This type definition is from Vercel AI, but the type is not exported.
+type ToolResultContent = Array<
+	| {
+		type: 'text';
+		text: string;
+	}
+	| {
+		type: 'image';
+		data: string;
+		mimeType?: string;
+	}
+>;
