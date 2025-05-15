@@ -2053,6 +2053,9 @@ declare module 'positron' {
 					error?: any;
 				}[];
 			};
+			plots?: {
+				hasPlots: boolean;
+			};
 			variables?: RuntimeVariable[];
 			shell?: string;
 		}
