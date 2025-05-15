@@ -42,6 +42,7 @@ export const LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID = 'workbench.action.langua
 export const LANGUAGE_RUNTIME_START_SESSION_ID = 'workbench.action.language.runtime.openStartPicker';
 export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.runtime.renameSession';
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
+export const LANGUAGE_RUNTIME_DUPLICATE_SESSION_ID = 'workbench.action.language.runtime.duplicateSession';
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -835,6 +836,57 @@ export function registerLanguageRuntimeActions() {
 	});
 
 	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				icon: Codicon.plus,
+				id: LANGUAGE_RUNTIME_DUPLICATE_SESSION_ID,
+				title: {
+					value: localize('positron.languageRuntime.duplicate.title', 'Duplicate Session'),
+					original: 'Duplicate Session'
+				},
+				category,
+				f1: true,
+				menu: [{
+					group: 'navigation',
+					id: MenuId.ViewTitle,
+					order: 1,
+					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+				}],
+			});
+		}
+
+		async run(accessor: ServicesAccessor) {
+			// Access services
+			const commandService = accessor.get(ICommandService);
+			const runtimeSessionService = accessor.get(IRuntimeSessionService);
+			const notificationService = accessor.get(INotificationService);
+
+			// Get the current foreground session.
+			const currentSession = runtimeSessionService.foregroundSession;
+			if (!currentSession) {
+				await commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
+				return;
+			}
+
+			if (currentSession.metadata.sessionMode !== LanguageRuntimeSessionMode.Console) {
+				notificationService.error(localize('positron.languageRuntime.duplicate.notConsole', 'Cannot duplicate session. The current session is not a console session.'));
+				return;
+			}
+
+			// Duplicate the current session with the `startNewRuntimeSession` method.
+			await runtimeSessionService.startNewRuntimeSession(
+				currentSession.runtimeMetadata.runtimeId,
+				currentSession.dynState.sessionName,
+				currentSession.metadata.sessionMode,
+				undefined,
+				`Duplicated session: ${currentSession.dynState.sessionName}`,
+				RuntimeStartMode.Starting,
+				true
+			);
+		}
+	});
+
+	registerAction2(class extends Action2 {
 		/**
 		 * Constructor.
 		 */
@@ -851,13 +903,7 @@ export function registerLanguageRuntimeActions() {
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
 					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Slash },
 					weight: KeybindingWeight.WorkbenchContrib
-				},
-				menu: [{
-					group: 'navigation',
-					id: MenuId.ViewTitle,
-					order: 1,
-					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
-				}],
+				}
 			});
 		}
 
