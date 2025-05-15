@@ -263,6 +263,13 @@ export function registerAssistantTools(
 		 */
 		invoke: async (options, token) => {
 
+			// If no session identifier is provided, return an empty array.
+			if (!options.input.sessionIdentifier || options.input.sessionIdentifier === 'undefined') {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('[[]]')
+				]);
+			}
+
 			// Call the Positron API to get the session variables
 			const result = await positron.runtime.getSessionVariables(
 				options.input.sessionIdentifier,

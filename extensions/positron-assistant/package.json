@@ -192,7 +192,7 @@
       {
         "name": "inspectVariables",
         "displayName": "Inspect Variables",
-        "modelDescription": "Inspect one or more variables in a console session, listing their child variables, if any. Can be used to list the columns in a dataframe, the items in a column or array, or the elements of a list. Returns an array containing an array of child variables for each variable in the request. Suppose we have a session with identifier s-123; to list the columns of a dataframe named 'df' and the the elements of a list named 'bar' inside a list named 'foo', the request would look like { 'sessionIdentifier': 's-123', 'accessKeys': [ ['df'], ['foo', 'bar'] ] } and the response would be an array of arrays, where each inner array contains the child variables of the corresponding variable in the request. The first inner array would contain the columns of the dataframe, and the second inner array would contain the elements of the list 'foo.bar'. Can be called without any access keys to list all root-level variables in the session.",
+        "modelDescription": "Inspect one or more variables in a console session, listing their child values, if any. Can be used to list the columns in a dataframe, the items in a column or array, or the elements of a list. Returns an array containing an array of children for each variable in the request. IMPORTANT: always use the access_key (even if it is a JSON string), NOT the display_name to refer to a variable. Example: for a session with identifier s-123 and variables [ { display_name: 'df', access_key: 'df-key' }, { 'display_name: 'foo', 'access_key': 'foo-key' } ], a request could be look like { 'sessionIdentifier': 's-123', 'accessKeys': [ ['df-key'], ['foo-key', 'bar-key'] ] }; the response would be an array of arrays, where each inner array contains the child variables of the corresponding variable in the request. The first inner array would contain the columns of the dataframe, and the second inner array would contain the elements of the list 'bar' inside the list 'foo'. Cannot be called when there is no session (the session identifier is empty or not defined). Can be called without any access keys to list all root-level variables in the session.",
         "canBeReferencedInPrompt": false,
         "inputSchema": {
           "type": "object",
@@ -203,7 +203,7 @@
             },
             "accessKeys": {
               "type": "array",
-              "description": "An array of the variables to inspect. Each entry is an array of strings that represent the path to the variable to inspect, beginning with the root of the session. ",
+              "description": "An array of the variables to inspect. Each entry is an array of access keys that represent the path to the variable to inspect.",
               "items": {
                 "type": "array",
                 "description": "A list of access keys that identify a variable by specifying its path.",
