@@ -430,6 +430,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		} else {
 			// Check if there is a console session for this runtime already
+			// TODO: This returns uninitialized sessions.
+			//       If session.start() errors while starting, the session stays in active sessions and gets
+			//       returned here. Is that expected?
 			const existingSession = this.getConsoleSessionForRuntime(runtimeId, true);
 			if (existingSession) {
 				// Set it as the foreground session and return.
@@ -656,18 +659,43 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			return;
 		}
 
+		// Create a promise that resolves when the runtime is ready to use.
 		const startPromise = new DeferredPromise<string>();
-		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-			// Create a promise that resolves when the runtime is ready to use.
-			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
-			// It's possible that startPromise is never awaited, so we log any errors here
-			// at the debug level since we still expect the error to be handled/logged elsewhere.
-			startPromise.p.catch((err) => this._logService.debug(`Error starting session: ${err}`));
+		// It's possible that startPromise is never awaited, so we log any errors here
+		// at the debug level since we still expect the error to be handled/logged elsewhere.
+		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
+
+		// For notebook sessions, update the starting sessions map so that any concurrent
+		// start/restore requests return the same pending promise.
+		if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+			this._startingSessionsBySessionMapKey.set(sessionMapKey, startPromise);
 
 			this.setStartingSessionMaps(
 				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
 		}
+
+		try {
+			const sessionId = await this.doRestoreRuntimeSession(
+				sessionMetadata, runtimeMetadata, sessionName, activate);
+			startPromise.complete(sessionId);
+		} catch (err) {
+			startPromise.error(err);
+		} finally {
+			// The session is no longer considered starting.
+			this.clearStartingSessionMaps(
+				sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
+		}
+
+		return startPromise.p.then(() => { });
+	}
+
+	async doRestoreRuntimeSession(
+		sessionMetadata: IRuntimeSessionMetadata,
+		runtimeMetadata: ILanguageRuntimeMetadata,
+		sessionName: string,
+		activate: boolean,
+	) {
 		// We should already have a session manager registered, since we can't
 		// get here until the extension host has been activated.
 		if (this._sessionManagers.length === 0) {
@@ -675,17 +703,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Get the runtime's manager.
-		let sessionManager: ILanguageRuntimeSessionManager;
-		try {
-			sessionManager = await this.getManagerForRuntime(runtimeMetadata);
-		} catch (err) {
-			startPromise.error(err);
-			if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				this.clearStartingSessionMaps(
-					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-			}
-			throw err;
-		}
+		const sessionManager = await this.getManagerForRuntime(runtimeMetadata);
 
 		// Restore the session. This can take some time; it may involve waiting
 		// for the extension to finish activating and the network to attempt to
@@ -697,23 +715,14 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._logService.error(
 				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
 				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
-			startPromise.error(err);
-			if (sessionMetadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
-				this.clearStartingSessionMaps(
-					sessionMetadata.sessionMode, runtimeMetadata, sessionMetadata.notebookUri);
-			}
 			throw err;
 		}
 
 		// Actually reconnect the session.
-		try {
-			await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate);
-			startPromise.complete(sessionMetadata.sessionId);
-		} catch (err) {
-			startPromise.error(err);
-		}
+		await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate);
 
-		return startPromise.p.then(() => { });
+		return sessionMetadata.sessionId;
+
 	}
 
 	/**
@@ -1586,6 +1595,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Fire the onDidStartRuntime event.
 			this._onDidStartRuntimeEmitter.fire(session);
 
+			// TODO: Should this fire onDidChangeForegroundSession?
+			//       If so, should it fire immediately or once the session is ready
+			//       (which would already happen if we remove this block)?
 			// Make the newly-started runtime the foreground runtime if it's a console session.
 			if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 				this._foregroundSession = session;
