@@ -240,9 +240,11 @@ export const ActivityInput = (props: ActivityInputProps) => {
 						{outputLine.outputRuns.map(outputRun =>
 							<OutputRun
 								key={outputRun.id}
+								environmentService={positronConsoleContext.environmentService}
 								notificationService={positronConsoleContext.notificationService}
 								openerService={positronConsoleContext.openerService}
 								outputRun={outputRun}
+								pathService={positronConsoleContext.pathService}
 							/>
 						)}
 					</div>

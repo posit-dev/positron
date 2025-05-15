@@ -6,6 +6,27 @@
 	},
 	"methods": [
 		{
+			"name": "did_change_plots_render_settings",
+			"summary": "Notification that the settings to render a plot (i.e. the plot size) have changed.",
+			"description": "Typically fired when the plot component has been resized by the user. This notification is useful to produce accurate pre-renderings of plots.",
+			"params": [
+				{
+					"name": "settings",
+					"description": "Plot rendering settings.",
+					"schema": {
+						"$ref": "plot-backend-openrpc.json#/components/schemas/plot_render_settings"
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "did_change_plot_render_settings_result",
+					"description": "Unused response to notification",
+					"type": "null"
+				}
+			}
+		},
+		{
 			"name": "call_method",
 			"summary": "Run a method in the interpreter and return the result to the frontend",
 			"description": "Unlike other RPC methods, `call_method` calls into methods implemented in the interpreter and returns the result back to the frontend using an implementation-defined serialization scheme.",

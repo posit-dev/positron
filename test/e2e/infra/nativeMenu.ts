@@ -3,10 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { MenuItem } from 'electron';
 import { Code } from './code.js';
 import { Locator } from '@playwright/test';
-
 
 export class NativeMenu {
 
@@ -16,10 +14,10 @@ export class NativeMenu {
 
 	}
 
-	async showContextMenu(trigger: () => void): Promise<{ menuId: number; items: MenuItem[] } | undefined> {
-		const shownPromise: Promise<[number, MenuItem[]]> | undefined = this.code.electronApp?.evaluate(({ app }) => {
+	async showContextMenu(trigger: () => void): Promise<{ menuId: number; items: string[] } | undefined> {
+		const shownPromise: Promise<[number, string[]]> | undefined = this.code.electronApp?.evaluate(({ app }) => {
 			return new Promise((resolve) => {
-				const listener: any = (...args: [number, MenuItem[]]) => {
+				const listener: any = (...args: [number, string[]]) => {
 					app.removeListener('e2e:contextMenuShown' as any, listener);
 					resolve(args);
 				};
@@ -52,6 +50,9 @@ export class NativeMenu {
 		const menuItems = await this.showContextMenu(() => menuTrigger.click());
 
 		if (menuItems) {
+			if (!menuItems.items.includes(menuItemLabel)) {
+				throw new Error(`Context menu '${menuItemLabel}' not found. Available items: ${menuItems.items.join(', ')}`);
+			}
 			await this.selectContextMenuItem(menuItems.menuId, menuItemLabel);
 		} else {
 			throw new Error(`Context menu '${menuItemLabel}' did not appear or no menu items found.`);

@@ -252,6 +252,9 @@ configurationRegistry.registerConfiguration({
 			description: nls.localize('chat.unifiedChatView', "Enables the unified view with Ask, Edit, and Agent modes in one view."),
 			default: true,
 			tags: ['preview'],
+			// --- Start Positron ---
+			deprecationMessage: nls.localize('chat.unifiedChatView.deprecated', "This setting must always be enabled.")
+			// --- End Positron ---
 		},
 		[ChatConfiguration.UseFileStorage]: {
 			type: 'boolean',

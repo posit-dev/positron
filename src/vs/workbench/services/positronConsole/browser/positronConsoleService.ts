@@ -757,6 +757,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 
 		this._onDidDeletePositronConsoleInstanceEmitter.fire(consoleInstance);
 
+		// Update the foreground session.
+		// First try to use the last created console session for the runtime.
 		let runtimeSession = this._runtimeSessionService.getConsoleSessionForRuntime(
 			consoleInstance.runtimeMetadata.runtimeId
 		);

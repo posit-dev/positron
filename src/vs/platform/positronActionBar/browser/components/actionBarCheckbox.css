@@ -38,3 +38,7 @@
 	font-size: 12px !important;
 	color: var(--positronActionBar-foreground);
 }
+
+.action-bar-checkbox .checkbox-label {
+	white-space: nowrap;
+}
