@@ -66,7 +66,7 @@ suite('positron API - ai', () => {
 		// Create a proper ChatRequest with required properties
 		// Using 'any' to bypass type checking as we're only testing getPositronChatContext
 		// which only uses the location property from the request
-		const request: any = {
+		const request: Partial<vscode.ChatRequest> = {
 			prompt: 'test request',
 			command: 'ask',
 			references: [],
@@ -90,7 +90,7 @@ suite('positron API - ai', () => {
 			}
 		};
 
-		const context = await positron.ai.getPositronChatContext(request);
+		const context = await positron.ai.getPositronChatContext(request as vscode.ChatRequest);
 
 		assert.ok(context, 'Context should be returned');
 		// Context may contain console, variables, shell, but these may be undefined
