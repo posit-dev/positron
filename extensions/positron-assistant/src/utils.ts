@@ -178,3 +178,21 @@ export function isChatImagePart(part: vscode.LanguageModelDataPart): boolean {
 export function isChatImageMimeType(mimeType: string): mimeType is vscode.ChatImageMimeType {
 	return Object.values(vscode.ChatImageMimeType).includes(mimeType as vscode.ChatImageMimeType);
 }
+
+/**
+* Checks if a message contains any non-empty content.
+* @param message The message to check
+* @returns True if the message has any non-empty content, false otherwise
+*/
+export function hasNonEmptyContent(message: vscode.LanguageModelChatMessage2): boolean {
+	return message.content.some(part => {
+		if (part instanceof vscode.LanguageModelTextPart) {
+			return part.value.trim() !== '';
+		}
+		if (part instanceof vscode.LanguageModelToolResultPart) {
+			return part.content.length > 0;
+		}
+		// Other part types are considered non-empty, such as LanguageModelToolCallPart and LanguageModelDataPart
+		return true;
+	});
+}

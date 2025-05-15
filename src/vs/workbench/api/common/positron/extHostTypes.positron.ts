@@ -385,3 +385,6 @@ export enum CodeAttributionSource {
 	Paste = 'paste',
 	Script = 'script',
 }
+
+export { UiRuntimeNotifications } from '../../../services/languageRuntime/common/languageRuntimeService.js'
+export { PlotRenderSettings, PlotRenderFormat } from '../../../services/positronPlots/common/positronPlots.js';

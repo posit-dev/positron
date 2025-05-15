@@ -79,7 +79,6 @@ export class MenuId {
 	static readonly EditorContextShare = new MenuId('EditorContextShare');
 	// --- Start Positron ---
 	static readonly EditorActionsLeft = new MenuId('EditorActionsLeft');
-	static readonly EditorActionsCenter = new MenuId('EditorActionsCenter');
 	static readonly EditorActionsRight = new MenuId('EditorActionsRight');
 	// --- End Positron ---
 	static readonly EditorTitle = new MenuId('EditorTitle');

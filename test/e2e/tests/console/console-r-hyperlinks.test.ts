@@ -116,9 +116,7 @@ test.describe('Console Pane: R Hyperlinks', {
 
 	});
 
-	test.skip('R - Verify file hyperlink', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7256' }],
-	}, async function ({ app, r }) {
+	test('R - Verify file hyperlink', async function ({ app, r }) {
 
 		await app.workbench.console.pasteCodeToConsole('library(cli)', true);
 		await app.workbench.console.pasteCodeToConsole('txt <- "Let\'s open a file {.file DESCRIPTION}"', true);
@@ -132,5 +130,33 @@ test.describe('Console Pane: R Hyperlinks', {
 
 	});
 
-});
+	test('R - Verify file hyperlink with line offset', async function ({ app, r, hotKeys }) {
 
+		await hotKeys.closeAllEditors();
+
+		await app.workbench.console.clearButton.click();
+
+		await app.workbench.console.pasteCodeToConsole('library(cli)', true);
+		await app.workbench.console.pasteCodeToConsole('txt <- "Let\'s open a file {.file static-test-data-files/lineCount.txt:8}"', true);
+		await app.workbench.console.pasteCodeToConsole('cli_text(txt)', true);
+
+		await app.workbench.console.activeConsole.locator('.output-run-hyperlink span', { hasText: 'lineCount.txt' }).click();
+
+		await app.workbench.editor.waitForEditorContents('lineCount.txt', (contents: string) => {
+			const normalizedContents = contents.replace(/\s+/g, ' ').trim();
+			return normalizedContents.includes('eight');
+		});
+
+		const cursorTopValue = await app.code.driver.page.locator('.editor .cursor').evaluate((element) => {
+			return window.getComputedStyle(element).getPropertyValue('top');
+		});
+
+		const lineEightTopValue = await app.code.driver.page.locator('div.view-line', { hasText: /^eight$/ }).evaluate((element) => {
+			return window.getComputedStyle(element).getPropertyValue('top');
+		});
+
+		expect(cursorTopValue).toBe(lineEightTopValue);
+
+	});
+
+});

@@ -33,15 +33,25 @@ import { PositronViewPane } from '../../../browser/positronViewPane/positronView
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronConsole } from './positronConsole.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { IActionViewItem } from '../../../../base/browser/ui/actionbar/actionbar.js';
+import { IDropdownMenuActionViewItemOptions } from '../../../../base/browser/ui/dropdown/dropdownActionViewItem.js';
+import { Action, IAction } from '../../../../base/common/actions.js';
+import { LANGUAGE_RUNTIME_DUPLICATE_SESSION_ID, LANGUAGE_RUNTIME_START_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/browser/dropdownWithPrimaryActionViewItem.js';
+import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
+import { localize } from '../../../../nls.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -100,6 +110,8 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 * Gets or sets the PositronConsoleFocused context key.
 	 */
 	private _positronConsoleFocusedContextKey: IContextKey<boolean>;
+
+	private readonly _positronActionDisposableStore = new DisposableStore();
 
 	//#endregion Private Properties
 
@@ -220,6 +232,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IModelService private readonly modelService: IModelService,
 		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
+		@IPathService private readonly pathService: IPathService,
 		@IPositronConsoleService private readonly positronConsoleService: IPositronConsoleService,
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
@@ -227,6 +240,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IViewsService private readonly viewsService: IViewsService,
+		@IWorkbenchEnvironmentService private readonly environmentService: IWorkbenchEnvironmentService,
 	) {
 		super(
 			options,
@@ -248,6 +262,10 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			// Relay event for our `IReactComponentContainer` implementation
 			this._onVisibilityChangedEmitter.fire(visible);
 		}));
+
+		this._register(this.runtimeSessionService.onDidStartRuntime(() => this.updateActions()));
+		this._register(this.runtimeSessionService.onDidDeleteRuntimeSession(() => this.updateActions()));
+		this._register(this._positronActionDisposableStore);
 	}
 
 	/**
@@ -286,6 +304,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				editorService={this.editorService}
+				environmentService={this.environmentService}
 				executionHistoryService={this.executionHistoryService}
 				hoverService={this.hoverService}
 				instantiationService={this.instantiationService}
@@ -297,6 +316,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				modelService={this.modelService}
 				notificationService={this.notificationService}
 				openerService={this.openerService}
+				pathService={this.pathService}
 				positronConsoleService={this.positronConsoleService}
 				positronPlotsService={this.positronPlotsService}
 				reactComponentContainer={this}
@@ -346,6 +366,94 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			width,
 			height
 		});
+	}
+
+	private sessionDropdown?: DropdownWithPrimaryActionViewItem;
+
+	override createActionViewItem(action: IAction, options?: IDropdownMenuActionViewItemOptions): IActionViewItem | undefined {
+		if (action.id === LANGUAGE_RUNTIME_DUPLICATE_SESSION_ID) {
+			if (action instanceof MenuItemAction) {
+				this.updateSessionDropdown(action);
+				return this.sessionDropdown;
+			}
+		}
+		return super.createActionViewItem(action, options);
+	}
+
+	private updateSessionDropdown(action?: MenuItemAction) {
+		this._positronActionDisposableStore.clear();
+
+		const dropdownAction = new Action('console.session.quickLaunch', localize('console.session.quickLaunch', 'Quick Launch Session...'), 'codicon-chevron-down', true);
+		this._positronActionDisposableStore.add(dropdownAction);
+
+		if (this.sessionDropdown === undefined && action !== undefined) {
+			this.sessionDropdown = new DropdownWithPrimaryActionViewItem(action, dropdownAction, [], 'console-test-dropdown', {}, this.contextMenuService, this.keybindingService, this.notificationService, this.contextKeyService, this.themeService, this.accessibilityService);
+			this._register(this.sessionDropdown)
+		}
+
+		// Grab the current runtime.
+		const currentRuntime = this.runtimeSessionService.foregroundSession?.runtimeMetadata;
+
+		// Grab the active runtimes.
+		const activeRuntimes = this.runtimeSessionService.activeSessions
+			// Sort by last used, descending.
+			.sort((a, b) => b.lastUsed - a.lastUsed)
+			// Restrict to the first 5.
+			.slice(0, 5)
+			// Map from session to runtime metadata.
+			.map(session => session.runtimeMetadata)
+			// Remove duplicates, and current runtime.
+			.filter((runtime, index, runtimes) =>
+				runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
+			);
+
+		// Add current runtime first, if present.
+		// Allows for "plus" + enter behavior to clone session.
+		if (currentRuntime && this.runtimeSessionService.foregroundSession?.getRuntimeState() !== RuntimeState.Exited) {
+			activeRuntimes.unshift(currentRuntime);
+		}
+
+		const dropdownMenuActions = activeRuntimes.map(runtime => new Action(
+			`console.startSession.${runtime.runtimeId}`,
+			runtime.runtimeName,
+			undefined,
+			true,
+			() => {
+				this.runtimeSessionService.startNewRuntimeSession(
+					runtime.runtimeId,
+					runtime.runtimeName,
+					LanguageRuntimeSessionMode.Console,
+					undefined,
+					'User selected runtime',
+					RuntimeStartMode.Starting,
+					true
+				);
+			})
+		);
+
+		if (dropdownMenuActions.length === 0) {
+			dropdownMenuActions.push(
+				new Action(
+					'console.startSession.none',
+					localize('console.startSession.none', 'No Sessions'),
+					undefined,
+					false
+				)
+			);
+		}
+
+		dropdownMenuActions.push(new Action(
+			'console.startSession.other',
+			localize('console.startSession.other', 'Start Another...'),
+			undefined,
+			true,
+			() => {
+				this.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
+			})
+		);
+
+		dropdownMenuActions.forEach(item => this._positronActionDisposableStore.add(item));
+		this.sessionDropdown?.update(dropdownAction, dropdownMenuActions, 'codicon-chevron-down');
 	}
 
 	//#endregion Public Overrides

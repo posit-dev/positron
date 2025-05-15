@@ -15,10 +15,11 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { toAIMessage } from './utils';
+import { hasNonEmptyContent, toAIMessage } from './utils';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
+import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -29,6 +30,7 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Error Language Model';
 	readonly provider = 'error';
 	readonly identifier = 'error-language-model';
+	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
 	private readonly _message = 'This language model always throws an error message.';
 
 	static source = {
@@ -66,6 +68,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly name = 'Echo Language Model';
 	readonly provider = 'echo';
 	readonly identifier = 'echo-language-model';
+	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
 
 	static source = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -79,6 +82,12 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			name: 'Echo Language Model',
 			model: 'echo',
 		},
+	};
+
+	capabilities = {
+		vision: true,
+		toolCalling: true,
+		agentMode: true,
 	};
 
 	get providerName(): string {
@@ -149,6 +158,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	public readonly name;
 	public readonly provider;
 	public readonly identifier;
+	public readonly maxOutputTokens;
 	protected abstract model: ai.LanguageModelV1;
 
 	capabilities = {
@@ -161,6 +171,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
+		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
 	}
 
 	get providerName(): string {
@@ -206,8 +217,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		let tools: Record<string, ai.Tool> | undefined;
 
+		// Filter out messages with empty text or empty tool response content
+		const filteredMessages = messages.filter(hasNonEmptyContent);
 		// Convert messages to the Vercel AI format
-		const aiMessages = toAIMessage(messages);
+		const aiMessages = toAIMessage(filteredMessages);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
@@ -226,6 +239,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			maxSteps: modelOptions.maxSteps ?? 50,
 			tools: this._config.toolCalls ? tools : undefined,
 			abortSignal: signal,
+			maxTokens: modelOptions.maxTokens ?? this.maxOutputTokens,
 		});
 
 		for await (const part of result.fullStream) {
@@ -592,44 +606,52 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 
 // Note: we don't query for available models using any provider API since it may return ones that are not
 // suitable for chat and we don't want the selection to be too large
-export const availableModels = new Map<string, { name: string; identifier: string }[]>(
+export const availableModels = new Map<string, { name: string; identifier: string; maxOutputTokens?: number }[]>(
 	[
 		['anthropic', [
 			{
 				name: 'Claude 3.7 Sonnet v1',
-				identifier: 'claude-3-7-sonnet-latest'
+				identifier: 'claude-3-7-sonnet-latest',
+				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.5 Sonnet v2',
-				identifier: 'claude-3-5-sonnet-latest'
+				identifier: 'claude-3-5-sonnet-latest',
+				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]],
 		['google', [
 			{
 				name: 'Gemini 2.5 Flash',
 				identifier: 'gemini-2.5-pro-exp-03-25',
+				maxOutputTokens: 65_536, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.5-flash-preview
 			},
 			{
 				name: 'Gemini 2.0 Flash',
 				identifier: 'gemini-2.0-flash-exp',
+				maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-2.0-flash
 			},
 			{
 				name: 'Gemini 1.5 Flash 002',
 				identifier: 'gemini-1.5-flash-002',
+				maxOutputTokens: 8_192, // reference: https://ai.google.dev/gemini-api/docs/models#gemini-1.5-flash
 			},
 		]],
 		['bedrock', [
 			{
 				name: 'Claude 3.7 Sonnet v1 Bedrock',
 				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
+				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.5 Sonnet v2 Bedrock',
-				identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
+				identifier: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.5 Sonnet v1 Bedrock',
 				identifier: 'us.anthropic.claude-3-5-sonnet-20240620-v1:0',
+				maxOutputTokens: 8_192, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 		]]
 	]

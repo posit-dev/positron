@@ -609,9 +609,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	return (
 		<div
 			ref={consoleInstanceRef}
-			aria-controls={`panel-${props.positronConsoleInstance.sessionMetadata.sessionId}`}
+			aria-labelledby={`console-panel-${props.positronConsoleInstance.sessionMetadata.sessionId}`}
 			className='console-instance'
 			data-testid={`console-${props.positronConsoleInstance.sessionMetadata.sessionId}`}
+			role='tabpanel'
 			style={{
 				width: adjustedWidth,
 				height: props.height,
@@ -622,7 +623,8 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			onKeyDown={keyDownHandler}
 			onMouseDown={mouseDownHandler}
 			onScroll={scrollHandler}
-			onWheel={wheelHandler}>
+			onWheel={wheelHandler}
+		>
 			<div
 				ref={consoleInstanceContainerRef}
 				className='console-instance-container'

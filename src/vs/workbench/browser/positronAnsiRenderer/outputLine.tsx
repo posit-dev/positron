@@ -14,11 +14,15 @@ import { OutputRun } from './outputRun.js';
 import { ANSIOutputLine } from '../../../base/common/ansiOutput.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { INotificationService } from '../../../platform/notification/common/notification.js';
+import { IWorkbenchEnvironmentService } from '../../services/environment/common/environmentService.js';
+import { IPathService } from '../../services/path/common/pathService.js';
 
 // OutputLineProps interface.
 export interface OutputLineProps {
 	readonly openerService: IOpenerService;
 	readonly notificationService: INotificationService;
+	readonly pathService: IPathService;
+	readonly environmentService: IWorkbenchEnvironmentService;
 	readonly outputLine: ANSIOutputLine;
 }
 
@@ -39,9 +43,11 @@ export const OutputLine = (props: OutputLineProps) => {
 			{props.outputLine.outputRuns.map(outputRun =>
 				<OutputRun
 					key={outputRun.id}
+					environmentService={props.environmentService}
 					notificationService={props.notificationService}
 					openerService={props.openerService}
 					outputRun={outputRun}
+					pathService={props.pathService}
 				/>
 			)}
 		</div>

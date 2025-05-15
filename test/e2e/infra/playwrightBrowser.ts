@@ -54,8 +54,8 @@ async function launchServer(options: LaunchOptions) {
 		const args = getServerArgs(currentPort, extensionsPath, agentFolder, serverLogsPath, options.verbose);
 		const serverLocation = resolveServerLocation(codeServerPath, logger);
 
-		logger.log(`Attempting to start server on port ${currentPort}`);
-		logger.log(`Command: '${serverLocation}' ${args.join(' ')}`);
+		console.log(`Attempting to start server on port ${currentPort}`);
+		console.log(`Command: '${serverLocation}' ${args.join(' ')}`);
 
 		try {
 			serverProcess = await startServer(serverLocation, args, env, logger);
@@ -211,7 +211,7 @@ function waitForEndpoint(server: ChildProcess, logger: Logger): Promise<string> 
 
 		server.stdout?.on('data', data => {
 			if (!endpointFound) {
-				logger.log(`[server] stdout: ${data}`); // log until endpoint found to diagnose issues
+				console.log(`[server] stdout: ${data}`); // log until endpoint found to diagnose issues
 			}
 
 			const matches = data.toString('ascii').match(/Web UI available at (.+)/);
@@ -224,7 +224,7 @@ function waitForEndpoint(server: ChildProcess, logger: Logger): Promise<string> 
 
 		server.stderr?.on('data', error => {
 			if (!endpointFound) {
-				logger.log(`[server] stderr: ${error}`); // log until endpoint found to diagnose issues
+				console.log(`[server] stderr: ${error}`); // log until endpoint found to diagnose issues
 			}
 
 			if (error.toString().indexOf('EADDRINUSE') !== -1) {

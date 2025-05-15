@@ -45,7 +45,6 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 				plotClient={props.plotClient}
 				zoom={ZoomLevel.OneHundred} />;
 		}
-
 		return null;
 	};
 

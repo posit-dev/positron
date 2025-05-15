@@ -8,12 +8,14 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
-import { isChatImagePart } from './utils.js';
+import { hasNonEmptyContent, isChatImagePart } from './utils.js';
+import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 
 export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
 	name: string;
 	provider: string;
 	identifier: string;
+	maxOutputTokens: number;
 
 	capabilities = {
 		vision: true,
@@ -44,6 +46,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		this._client = new Anthropic({
 			apiKey: _config.apiKey,
 		});
+		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
 	}
 
 	async provideLanguageModelResponse(
@@ -53,7 +56,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
-		// Filter out messages with empty text content
+		// Filter out messages with empty text or empty tool response content
 		const filteredMessages = messages.filter(hasNonEmptyContent);
 
 		const anthropicMessages = filteredMessages.map(message => toAnthropicMessage(message));
@@ -61,8 +64,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
 		const stream = this._client.messages.stream({
 			model: this._config.model,
-			// TODO: How do we decide on default max tokens?
-			max_tokens: options.modelOptions?.maxTokens ?? 1024,
+			max_tokens: options.modelOptions?.maxTokens ?? this.maxOutputTokens,
 			messages: anthropicMessages,
 			tool_choice,
 			tools,
@@ -308,18 +310,4 @@ function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anth
 			// Should not happen.
 			throw new Error(`Unsupported tool mode: ${toolMode}`);
 	}
-}
-
-/**
- * Checks if a message contains any non-empty content.
- * @param message The message to check
- * @returns True if the message has any non-empty content, false otherwise
- */
-function hasNonEmptyContent(message: vscode.LanguageModelChatMessage2): boolean {
-	return message.content.some(part => {
-		if (part instanceof vscode.LanguageModelTextPart) {
-			return part.value.trim() !== '';
-		}
-		return true; // Non-text parts are considered non-empty
-	});
 }

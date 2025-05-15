@@ -13,10 +13,14 @@ import React, { CSSProperties, MouseEvent } from 'react';
 import { localize } from '../../../nls.js';
 import { Schemas } from '../../../base/common/network.js';
 import * as platform from '../../../base/common/platform.js';
+import { URI } from '../../../base/common/uri.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
 import { INotificationService } from '../../../platform/notification/common/notification.js';
 import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
+import { toLocalResource } from '../../../base/common/resources.js';
+import { IPathService } from '../../services/path/common/pathService.js';
+import { IWorkbenchEnvironmentService } from '../../services/environment/common/environmentService.js';
 
 /**
  * Constants.
@@ -30,6 +34,8 @@ const fileURLWithLineAndColumn = /^(file:\/\/\/.+):(\d+):(\d+)$/;
 export interface OutputRunProps {
 	readonly openerService: IOpenerService;
 	readonly notificationService: INotificationService;
+	readonly pathService: IPathService;
+	readonly environmentService: IWorkbenchEnvironmentService;
 	readonly outputRun: ANSIOutputRun;
 }
 
@@ -53,14 +59,20 @@ export const OutputRun = (props: OutputRunProps) => {
 	 * hyperlink is undefined.
 	 */
 	const buildHyperlinkURL = () => {
-		// If the hyperlink is undefined, return undefined.
 		if (!props.outputRun.hyperlink) {
 			return undefined;
 		}
 
-		// Get the URL. If it's not a file URL, return it.
 		let url = props.outputRun.hyperlink.url;
-		if (!url.startsWith(`${Schemas.file}:`)) {
+		let uri: URI;
+		try {
+			uri = URI.parse(url);
+		} catch (e) {
+			console.error('Failed to parse URL:', e);
+			return url;
+		}
+
+		if (uri.scheme !== Schemas.file) {
 			return url;
 		}
 
@@ -73,6 +85,20 @@ export const OutputRun = (props: OutputRunProps) => {
 			url = url
 				.replace(/\\/g, '/')
 				.replace(fileURLThatNeedsASlash, '$1/$2');
+		}
+
+		// For web environments, we need to rewrite file URLs
+		// BEFORE example:
+		// file:///Users/jenny/rrr/positron-learning/testfun/DESCRIPTION
+		// AFTER example:
+		// vscode-remote://localhost:8080/Users/jenny/rrr/positron-learning/testfun/DESCRIPTION
+		if (platform.isWeb) {
+			uri = toLocalResource(
+				uri,
+				props.environmentService.remoteAuthority,
+				props.pathService.defaultUriScheme
+			);
+			url = uri.toString();
 		}
 
 		// Get the line parameter. If it's not present, return the URL.
