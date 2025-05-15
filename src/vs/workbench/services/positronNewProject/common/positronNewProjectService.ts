@@ -401,6 +401,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			if (provider && provider.length > 0) {
 				const runtimeMetadata = this._newProjectConfig.runtimeMetadata;
 				const condaPythonVersion = this._newProjectConfig.condaPythonVersion;
+				const uvPythonVersion = this._newProjectConfig.uvPythonVersion;
 
 				// Ensure the workspace folder is available
 				const workspaceFolder =
@@ -418,9 +419,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 				// Ensure the Python interpreter path is available. This is the global Python
 				// interpreter to use for the new environment. This is only required if we are not
-				// using a conda environment.
+				// using a conda or uv environment.
 				const interpreterPath = runtimeMetadata?.extraRuntimeData?.pythonPath;
-				if (!interpreterPath && !condaPythonVersion) {
+				if (!interpreterPath && !condaPythonVersion && !uvPythonVersion) {
 					const message = this._failedPythonEnvMessage('Could not determine Python interpreter path for new project.');
 					this._logService.error(message);
 					this._notificationService.warn(message);
@@ -441,6 +442,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 							providerId: provider,
 							interpreterPath,
 							condaPythonVersion,
+							uvPythonVersion,
 							// Do not start the environment after creation. We'll install ipykernel
 							// first, then set the environment as the affiliated runtime, which will
 							// be automatically started by the runtimeStartupService.

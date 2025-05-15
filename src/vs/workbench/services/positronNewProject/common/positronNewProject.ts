@@ -95,6 +95,7 @@ export interface NewProjectConfiguration {
 	readonly pythonEnvProviderName: string | undefined;
 	readonly installIpykernel: boolean | undefined;
 	readonly condaPythonVersion: string | undefined;
+	readonly uvPythonVersion: string | undefined;
 	readonly useRenv: boolean | undefined;
 }
 

@@ -23,6 +23,7 @@ import { WizardFormattedTextItem } from './components/wizardFormattedText.js';
 import { LanguageIds, NewProjectType } from '../../services/positronNewProject/common/positronNewProject.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from './utilities/condaUtils.js';
+import { UvPythonVersionInfo, EMPTY_UV_PYTHON_VERSION_INFO } from './utilities/uvUtils.js';
 import { URI } from '../../../base/common/uri.js';
 import { ILabelService } from '../../../platform/label/common/label.js';
 
@@ -71,6 +72,7 @@ export interface NewProjectWizardState {
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
 	pythonEnvProviderId: string | undefined;
 	condaPythonVersion: string | undefined;
+	uvPythonVersion: string | undefined;
 	readonly pythonEnvProviderName: string | undefined;
 	readonly installIpykernel: boolean | undefined;
 	useRenv: boolean | undefined;
@@ -114,6 +116,9 @@ export class NewProjectWizardStateManager
 	private _condaPythonVersion: string | undefined;
 	private _condaPythonVersionInfo: CondaPythonVersionInfo | undefined;
 	private _isCondaInstalled: boolean | undefined;
+	private _uvPythonVersion: string | undefined;
+	private _uvPythonVersionInfo: UvPythonVersionInfo | undefined;
+	private _isUvInstalled: boolean | undefined;
 	// R-specific state.
 	private _useRenv: boolean | undefined;
 	private _minimumRVersion: string | undefined;
@@ -161,6 +166,7 @@ export class NewProjectWizardStateManager
 		this._runtimeStartupComplete = false;
 		this._minimumPythonVersion = undefined;
 		this._condaPythonVersionInfo = undefined;
+		this._uvPythonVersionInfo = undefined;
 		this._minimumRVersion = undefined;
 
 		if (this._services.languageRuntimeService.startupPhase === RuntimeStartupPhase.Complete) {
@@ -400,6 +406,22 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
+	 * Gets the uv Python version.
+	 * @returns The uv Python version.
+	 */
+	get uvPythonVersion(): string | undefined {
+		return this._uvPythonVersion;
+	}
+
+	/**
+	 * Sets the uv Python version.
+	 * @param value The uv Python version.
+	 */
+	set uvPythonVersion(value: string | undefined) {
+		this._uvPythonVersion = value;
+	}
+
+	/**
 	 * Gets the minimum Python version.
 	 * @returns The minimum Python version.
 	 */
@@ -432,6 +454,14 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
+	 * Gets the uv Python version info.
+	 * @returns The uv Python version info.
+	 */
+	get uvPythonVersionInfo(): UvPythonVersionInfo | undefined {
+		return this._uvPythonVersionInfo;
+	}
+
+	/**
 	 * Gets whether Conda is installed.
 	 * @returns Whether Conda is installed.
 	 */
@@ -440,11 +470,27 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
+	 * Gets whether uv is installed.
+	 * @returns Whether uv is installed.
+	 */
+	get isUvInstalled(): boolean | undefined {
+		return this._isUvInstalled;
+	}
+
+	/**
 	 * Gets whether the project uses a Conda environment.
 	 * @returns Whether the project uses a Conda environment.
 	 */
 	get usesCondaEnv(): boolean {
 		return this._usesCondaEnv();
+	}
+
+	/**
+	 * Gets whether the project uses a uv environment.
+	 * @returns Whether the project uses a uv environment.
+	 */
+	get usesUvEnv(): boolean {
+		return this._usesUvEnv();
 	}
 
 	/**
@@ -547,6 +593,7 @@ export class NewProjectWizardStateManager
 			pythonEnvProviderName: this._getEnvProviderName(),
 			installIpykernel: this._installIpykernel,
 			condaPythonVersion: this._condaPythonVersion,
+			uvPythonVersion: this._uvPythonVersion,
 			useRenv: this._useRenv,
 		} satisfies NewProjectWizardState;
 	}
@@ -587,6 +634,11 @@ export class NewProjectWizardStateManager
 		// Set the Conda Python versions.
 		if (!this._condaPythonVersionInfo) {
 			await this._setCondaPythonVersionInfo();
+		}
+
+		// Set the uv Python versions.
+		if (!this._uvPythonVersionInfo) {
+			await this._setUvPythonVersionInfo();
 		}
 	}
 
@@ -770,6 +822,49 @@ export class NewProjectWizardStateManager
 	}
 
 	/**
+	 * Sets the uv Python versions by calling the Python extension.
+	 */
+	private async _setUvPythonVersionInfo() {
+		this._uvPythonVersionInfo = EMPTY_UV_PYTHON_VERSION_INFO;
+
+		if (!this._pythonEnvProviders?.length) {
+			this._services.logService.error('[Project Wizard] No Python environment providers found.');
+			return;
+		}
+
+		// Check if uv is available as an environment provider.
+		const providersIncludeUv = this._pythonEnvProviders.find(
+			(provider) => provider.name === PythonEnvironmentProvider.Uv
+		);
+		if (!providersIncludeUv) {
+			this._services.logService.info('[Project Wizard] uv is not available as an environment provider.');
+			return;
+		}
+
+		// Check if uv is installed.
+		this._isUvInstalled = await this._services.commandService.executeCommand(
+			'python.isUvInstalled'
+		);
+		if (!this._isUvInstalled) {
+			this._services.logService.warn(
+				'[Project Wizard] uv is available as an environment provider, but it is not installed.'
+			);
+			return;
+		}
+
+		// Get the uv Python versions.
+		const pythonVersionInfo: UvPythonVersionInfo | undefined =
+			await this._services.commandService.executeCommand('python.getUvPythonVersions');
+		if (!pythonVersionInfo) {
+			this._services.logService.warn('[Project Wizard] No uv Python versions found.');
+			return;
+		}
+
+		this._uvPythonVersionInfo = pythonVersionInfo;
+		this._uvPythonVersion = this._uvPythonVersionInfo.versions[0];
+	}
+
+	/**
 	 * Determines if the project is using a Conda environment.
 	 * @returns True if the project is using a Conda environment, false otherwise.
 	 */
@@ -778,6 +873,18 @@ export class NewProjectWizardStateManager
 			this._getLangId() === LanguageIds.Python &&
 			this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment &&
 			this._getEnvProviderName() === PythonEnvironmentProvider.Conda
+		);
+	}
+
+	/**
+	 * Determines if the project is using a uv environment.
+	 * @returns True if the project is using a uv environment, false otherwise.
+	 */
+	private _usesUvEnv(): boolean {
+		return (
+			this._getLangId() === LanguageIds.Python &&
+			this._pythonEnvSetupType === EnvironmentSetupType.NewEnvironment &&
+			this._getEnvProviderName() === PythonEnvironmentProvider.Uv
 		);
 	}
 
@@ -804,13 +911,13 @@ export class NewProjectWizardStateManager
 	 * Retrieves the interpreters that match the current language ID and environment setup type if
 	 * applicable.
 	 * @returns The filtered interpreters sorted by runtime source, or undefined if runtime startup is
-	 * not complete or a Conda environment is being used.
+	 * not complete or a Conda or uv environment is being used.
 	 */
 	private async _getFilteredInterpreters(): Promise<ILanguageRuntimeMetadata[] | undefined> {
-		if (this._usesCondaEnv()) {
-			this._services.logService.trace(`[Project Wizard] Conda environments do not have registered runtimes`);
-			// Conda environments do not have registered runtimes. Instead, we have a list of Python
-			// versions available for Conda environments, which is stored in condaPythonVersionInfo.
+		if (this._usesCondaEnv() || this._usesUvEnv()) {
+			this._services.logService.trace(`[Project Wizard] Conda or uv environments do not have registered runtimes`);
+			// Conda and uv environments do not have registered runtimes. Instead, we have a list of Python
+			// versions available for these environments, which is stored in their respective versionInfo.
 			return undefined;
 		}
 
@@ -892,16 +999,18 @@ export class NewProjectWizardStateManager
 			if (existingEnv) {
 				this._pythonEnvProviderId = undefined;
 			}
-			if (this._usesCondaEnv()) {
+			if (this._usesCondaEnv() || this._usesUvEnv()) {
 				this._selectedRuntime = undefined;
 			} else {
 				this._condaPythonVersion = undefined;
+				this._uvPythonVersion = undefined;
 			}
 		} else if (langId === LanguageIds.R) {
 			this._pythonEnvSetupType = undefined;
 			this._pythonEnvProviderId = undefined;
 			this._installIpykernel = undefined;
 			this._condaPythonVersion = undefined;
+			this._uvPythonVersion = undefined;
 		}
 	}
 

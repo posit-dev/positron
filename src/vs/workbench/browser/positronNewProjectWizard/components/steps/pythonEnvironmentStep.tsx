@@ -23,6 +23,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { DropDownListBox } from '../../../positronComponents/dropDownListBox/dropDownListBox.js';
 import { interpretersToDropdownItems } from '../../utilities/interpreterDropDownUtils.js';
 import { condaInterpretersToDropdownItems } from '../../utilities/condaUtils.js';
+import { uvInterpretersToDropdownItems } from '../../utilities/uvUtils.js';
 import { PathDisplay } from '../pathDisplay.js';
 
 // NOTE: If you are making changes to this file, the equivalent R component may benefit from similar
@@ -55,6 +56,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const [condaPythonVersionInfo, setCondaPythonVersionInfo] = useState(context.condaPythonVersionInfo);
 	const [selectedCondaPythonVersion, setSelectedCondaPythonVersion] = useState(context.condaPythonVersion);
 	const [isCondaInstalled, setIsCondaInstalled] = useState(context.isCondaInstalled);
+	const [uvPythonVersionInfo, setUvPythonVersionInfo] = useState(context.uvPythonVersionInfo);
+	const [selectedUvPythonVersion, setSelectedUvPythonVersion] = useState(context.uvPythonVersion);
+	const [isUvInstalled, setIsUvInstalled] = useState(context.isUvInstalled);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -73,6 +77,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			setCondaPythonVersionInfo(context.condaPythonVersionInfo);
 			setSelectedCondaPythonVersion(context.condaPythonVersion);
 			setIsCondaInstalled(context.isCondaInstalled);
+			setUvPythonVersionInfo(context.uvPythonVersionInfo);
+			setSelectedUvPythonVersion(context.uvPythonVersion);
+			setIsUvInstalled(context.isUvInstalled);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
@@ -87,12 +94,20 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				!!condaPythonVersionInfo &&
 				!!condaPythonVersionInfo.versions.length;
 		}
+		if (context.usesUvEnv) {
+			return !!isUvInstalled &&
+				!!uvPythonVersionInfo &&
+				!!uvPythonVersionInfo.versions.length;
+		}
 		return !!interpreters && !!interpreters.length;
 	};
 	// If any of the values are undefined, the interpreters are still loading.
 	const interpretersLoading = () => {
 		if (context.usesCondaEnv) {
 			return isCondaInstalled === undefined || condaPythonVersionInfo === undefined;
+		}
+		if (context.usesUvEnv) {
+			return isUvInstalled === undefined || uvPythonVersionInfo === undefined;
 		}
 		return interpreters === undefined;
 	};
@@ -221,6 +236,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			context.condaPythonVersion = identifier;
 			return;
 		}
+		if (context.usesUvEnv) {
+			// If the environment is for uv, the selected interpreter is the Python version.
+			context.uvPythonVersion = identifier;
+			return;
+		}
 
 		// Update the selected interpreter.
 		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
@@ -261,6 +281,20 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							localize(
 								'pythonInterpreterSubStep.feedback.condaNotInstalled',
 								"Conda is not installed. Please install Conda to create a Conda environment."
+							))()}
+					</WizardFormattedText>
+				);
+			}
+
+			if (context.usesUvEnv) {
+				return (
+					<WizardFormattedText
+						type={WizardFormattedTextType.Warning}
+					>
+						{(() =>
+							localize(
+								'pythonInterpreterSubStep.feedback.uvNotInstalled',
+								"uv is not installed. Please install uv to create a uv environment."
 							))()}
 					</WizardFormattedText>
 				);
@@ -335,6 +369,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			return condaInterpretersToDropdownItems(condaPythonVersionInfo);
 		}
 
+		// uv-specific handling.
+		if (context.usesUvEnv) {
+			return uvInterpretersToDropdownItems(uvPythonVersionInfo);
+		}
+
 		// Otherwise, show the regular interpreters.
 		return interpretersToDropdownItems(
 			interpreters!,
@@ -347,6 +386,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 		if (context.usesCondaEnv) {
 			return selectedCondaPythonVersion;
 		}
+		if (context.usesUvEnv) {
+			return selectedUvPythonVersion;
+		}
 
 		return selectedInterpreter?.runtimeId;
 	};
@@ -355,6 +397,9 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	const disableCreateButton = () => {
 		if (context.usesCondaEnv) {
 			return !selectedCondaPythonVersion;
+		}
+		if (context.usesUvEnv) {
+			return !selectedUvPythonVersion;
 		}
 		return !selectedInterpreter;
 	};

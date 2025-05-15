@@ -33,5 +33,6 @@ export enum EnvironmentSetupType {
  */
 export enum PythonEnvironmentProvider {
 	Venv = 'Venv',
-	Conda = 'Conda'
+	Conda = 'Conda',
+	Uv = 'uv'
 }

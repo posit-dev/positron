@@ -28,14 +28,10 @@ export const locationForNewEnv = (
 	projectName: string,
 	envProviderName: string | undefined,
 ) => {
-	// TODO: this only works for Venv and Conda environments. We'll need to expand on this to add
-	// support for other environment types.
 	const envDir =
-		envProviderName === PythonEnvironmentProvider.Venv
-			? '.venv'
-			: envProviderName === PythonEnvironmentProvider.Conda
-				? '.conda'
-				: '';
+		envProviderName === PythonEnvironmentProvider.Conda
+			? '.conda'
+			: '.venv';
 	return [parentFolder, projectName, envDir];
 };
 
