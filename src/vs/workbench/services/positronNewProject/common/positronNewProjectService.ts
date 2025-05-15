@@ -547,37 +547,32 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 	/**
 	 * Centralised validation helper for notebook connection.
-	 * Ensures exactly one notebook editor is open, the editor has a valid
-	 * notebook text model & URI, and a runtimeId has been captured.
+	 * Prefers the active notebook editor if present, otherwise falls back to the only open notebook editor.
+	 * If no notebook editors are open, or no active notebook editor is present when multiple are open, logs and notifies the user.
 	 *
-	 * All logging / user-notification side-effects are handled here so that
-	 * the calling code can remain linear and easy to follow.
-	 *
-	 * @returns The validated context required to establish a runtime session,
-	 *          or `undefined` if validation failed.
+	 * @returns The validated context required to establish a runtime session, or `undefined` if validation failed.
 	 */
 	private _getNotebookContext(): { model: INotebookTextModel; runtimeId: string } | undefined {
 		const notebookEditors = this._notebookEditorService.listNotebookEditors();
 
-		if (notebookEditors.length === 0) {
-			this._logService.debug(`${this._nbLogPrefix} No notebook editor found for connection.`);
+		// Prefer the active notebook editor if available
+		const activeEditor = (this._notebookEditorService as any).activeNotebookEditor as { textModel?: INotebookTextModel } | undefined;
+		const editor = activeEditor?.textModel
+			? activeEditor
+			: (notebookEditors.length === 1 ? notebookEditors[0] : undefined);
+
+		if (!editor || !editor.textModel) {
+			if (notebookEditors.length === 0) {
+				this._logService.debug(`${this._nbLogPrefix} No notebook editor found for connection.`);
+				this._notificationService.warn('No notebook editor is open. Please open a notebook to connect it to the new environment.');
+			} else {
+				this._logService.error(`${this._nbLogPrefix} No active notebook editor found among multiple open editors.`);
+				this._notificationService.error('Multiple notebook editors are open, but none is active. Please focus the notebook you want to connect.');
+			}
 			return undefined;
 		}
 
-		if (notebookEditors.length > 1) {
-			const message = localize('positronNewProjectService.multipleNotebooksError', 'Multiple notebook editors found. This is not supported.');
-			this._logService.error(`${this._nbLogPrefix} ${message}`);
-			this._notificationService.error(message);
-			return undefined;
-		}
-
-		const editor = notebookEditors[0];
-		const textModel = editor?.textModel;
-		if (!textModel) {
-			this._logService.debug(`${this._nbLogPrefix} Notebook editor has no text model.`);
-			return undefined;
-		}
-
+		const textModel = editor.textModel;
 		if (!textModel.uri) {
 			this._logService.debug(`${this._nbLogPrefix} Notebook text model has no URI.`);
 			return undefined;
@@ -625,6 +620,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 				this._logService.debug(`${this._nbLogPrefix} Connected notebook ${model.uri.toString()} to runtime ${runtimeId}`);
 			} catch (error) {
 				this._logService.error(`${this._nbLogPrefix} Failed to connect notebook to runtime: ${String(error)}`);
+				// Show a user-facing error toast, but do not break the flow
+				this._notificationService.error('Failed to start the runtime environment for your new notebook. You may need to select or start an environment manually.');
 				return;
 			}
 
@@ -643,6 +640,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	/**
 	 * Ensures the notebook has a properly selected kernel that matches the project's runtime.
 	 * This eliminates the need for manual kernel selection when creating a new notebook project.
+	 *
+	 * If no suitable kernel is found, a user-facing error notification is shown, but the flow continues.
 	 *
 	 * @param notebookTextModel The notebook text model to select a kernel for
 	 * @returns True if kernel was successfully selected, false otherwise
@@ -677,8 +676,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 		// No suitable kernel found: show error notification and log
 		if (!kernelToSelect) {
-			this._logService.warn('[New project startup] No suitable kernel found. Available kernels:', matchingKernels.all.map(k => ({ id: k.id, label: k.label, detail: k.detail, description: k.description, extension: k.extension.value })));
-			this._notificationService.error('No matching Jupyter kernel was found for the new environment. Please select a kernel manually.');
+			// Show a user-facing error toast, but do not break the flow
+			this._notificationService.error('No matching Jupyter kernel was found for the new environment. You will need to select a kernel manually in the notebook.');
 			this._logService.debug(`[New project startup] No suitable kernel found for notebook`);
 			return false;
 		}
