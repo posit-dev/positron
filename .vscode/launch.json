@@ -618,7 +618,7 @@
 			"name": "Run generate-comms.ts",
 			"program": "${workspaceFolder}/positron/comms/generate-comms.ts",
 			"runtimeArgs": ["-r", "ts-node/register"],
-			"args": ["ui"]
+			"args": ["variables"]
 		}
 	],
 	"compounds": [

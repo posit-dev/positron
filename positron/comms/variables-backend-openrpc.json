@@ -188,6 +188,128 @@
 					"type": "string"
 				}
 			}
+		},
+		{
+			"name": "table_get_description",
+			"summary": "Get the schema, shape, and other metadata of a table variable",
+			"description": "Get the schema, shape, and other metadata of a table variable.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to the variable to view, as an array of access keys.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "variable_table_description",
+					"description": "The schema, shape, and other metadata of a table variable",
+					"properties": {
+						"schema": {
+							"description": "The schema of the table variable",
+							"$ref": "data_explorer-backend-openrpc.json#/components/schemas/table_schema"
+						},
+						"shape": {
+							"description": "The shape of the table variable",
+							"$ref": "data_explorer-backend-openrpc.json#/components/schemas/table_shape"
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "table_summarize",
+			"summary": "Get column summary statistics for a table variable",
+			"description": "Get summary statistics for a table variable",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to the variable to view, as an array of access keys.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				},
+				{
+					"name": "column_indices",
+					"description": "The column indices (relative to the filtered/selected columns) to summarize",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "integer"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"type": "object",
+					"name": "variable_table_summary",
+					"description": "Summary statistics for requested columns",
+					"required": [
+						"type_display",
+						"null_count"
+					],
+					"properties": {
+						"column_name": {
+							"type": "string",
+							"description": "The name of the column"
+						},
+						"type_display": {
+							"description": "Canonical Positron display name of data type",
+							"$ref": "data_explorer-backend-openrpc.json#/components/schemas/column_display_type"
+						},
+						"null_count": {
+							"type": "integer",
+							"description": "The number of null values"
+						},
+						"min_value": {
+							"type": "string",
+							"description": "Minimum value as string (for numeric types)"
+						},
+						"max_value": {
+							"type": "string",
+							"description": "Maximum value as string (for numeric types)"
+						},
+						"mean": {
+							"type": "string",
+							"description": "Average value as string (for numeric types)"
+						},
+						"median": {
+							"type": "string",
+							"description": "Sample median (50% value) as string (for numeric types)"
+						},
+						"stdev": {
+							"type": "string",
+							"description": "Sample standard deviation as a string (for numeric types)"
+						},
+						"true_count": {
+							"type": "integer",
+							"description": "The number of non-null true values (for boolean types)"
+						},
+						"false_count": {
+							"type": "integer",
+							"description": "The number of non-null false values (for boolean types)"
+						},
+						"num_empty": {
+							"type": "integer",
+							"description": "The number of empty / length-zero values (for string types)"
+						},
+						"num_unique": {
+							"type": "integer",
+							"description": "The exact number of distinct values"
+						}
+					}
+				}
+			}
 		}
 	],
 	"components": {

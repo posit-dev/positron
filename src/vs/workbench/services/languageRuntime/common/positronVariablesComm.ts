@@ -11,6 +11,8 @@ import { Event } from '../../../../base/common/event.js';
 import { PositronBaseComm, PositronCommOptions } from './positronBaseComm.js';
 import { IRuntimeClientInstance } from './languageRuntimeClientInstance.js';
 
+import { TableSchema, TableShape, ColumnDisplayType } from './positronDataExplorerComm.js';
+
 /**
  * A view containing a list of variables in the session.
  */
@@ -59,6 +61,88 @@ export interface FormattedVariable {
 	 * The formatted content of the variable.
 	 */
 	content: string;
+
+}
+
+/**
+ * The schema, shape, and other metadata of a table variable
+ */
+export interface VariableTableDescription {
+	/**
+	 * The schema of the table variable
+	 */
+	schema?: TableSchema;
+
+	/**
+	 * The shape of the table variable
+	 */
+	shape?: TableShape;
+
+}
+
+/**
+ * Summary statistics for requested columns
+ */
+export interface VariableTableSummary {
+	/**
+	 * The name of the column
+	 */
+	column_name?: string;
+
+	/**
+	 * Canonical Positron display name of data type
+	 */
+	type_display: ColumnDisplayType;
+
+	/**
+	 * The number of null values
+	 */
+	null_count: number;
+
+	/**
+	 * Minimum value as string (for numeric types)
+	 */
+	min_value?: string;
+
+	/**
+	 * Maximum value as string (for numeric types)
+	 */
+	max_value?: string;
+
+	/**
+	 * Average value as string (for numeric types)
+	 */
+	mean?: string;
+
+	/**
+	 * Sample median (50% value) as string (for numeric types)
+	 */
+	median?: string;
+
+	/**
+	 * Sample standard deviation as a string (for numeric types)
+	 */
+	stdev?: string;
+
+	/**
+	 * The number of non-null true values (for boolean types)
+	 */
+	true_count?: number;
+
+	/**
+	 * The number of non-null false values (for boolean types)
+	 */
+	false_count?: number;
+
+	/**
+	 * The number of empty / length-zero values (for string types)
+	 */
+	num_empty?: number;
+
+	/**
+	 * The exact number of distinct values
+	 */
+	num_unique?: number;
 
 }
 
@@ -217,6 +301,32 @@ export interface ViewParams {
 }
 
 /**
+ * Parameters for the TableGetDescription method.
+ */
+export interface TableGetDescriptionParams {
+	/**
+	 * The path to the variable to view, as an array of access keys.
+	 */
+	path: Array<string>;
+}
+
+/**
+ * Parameters for the TableSummarize method.
+ */
+export interface TableSummarizeParams {
+	/**
+	 * The path to the variable to view, as an array of access keys.
+	 */
+	path: Array<string>;
+
+	/**
+	 * The column indices (relative to the filtered/selected columns) to
+	 * summarize
+	 */
+	column_indices: Array<number>;
+}
+
+/**
  * Parameters for the Update method.
  */
 export interface UpdateParams {
@@ -323,7 +433,9 @@ export enum VariablesBackendRequest {
 	Delete = 'delete',
 	Inspect = 'inspect',
 	ClipboardFormat = 'clipboard_format',
-	View = 'view'
+	View = 'view',
+	TableGetDescription = 'table_get_description',
+	TableSummarize = 'table_summarize'
 }
 
 export class PositronVariablesComm extends PositronBaseComm {
@@ -417,6 +529,36 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 */
 	view(path: Array<string>): Promise<string> {
 		return super.performRpc('view', ['path'], [path]);
+	}
+
+	/**
+	 * Get the schema, shape, and other metadata of a table variable
+	 *
+	 * Get the schema, shape, and other metadata of a table variable.
+	 *
+	 * @param path The path to the variable to view, as an array of access
+	 * keys.
+	 *
+	 * @returns The schema, shape, and other metadata of a table variable
+	 */
+	tableGetDescription(path: Array<string>): Promise<VariableTableDescription> {
+		return super.performRpc('table_get_description', ['path'], [path]);
+	}
+
+	/**
+	 * Get column summary statistics for a table variable
+	 *
+	 * Get summary statistics for a table variable
+	 *
+	 * @param path The path to the variable to view, as an array of access
+	 * keys.
+	 * @param columnIndices The column indices (relative to the
+	 * filtered/selected columns) to summarize
+	 *
+	 * @returns Summary statistics for requested columns
+	 */
+	tableSummarize(path: Array<string>, columnIndices: Array<number>): Promise<VariableTableSummary> {
+		return super.performRpc('table_summarize', ['path', 'column_indices'], [path, columnIndices]);
 	}
 
 

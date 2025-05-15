@@ -17,6 +17,8 @@ from typing import Any, List, Literal, Optional, Union
 
 from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
+from .data_explorer_comm import TableSchema, TableShape, ColumnDisplayType
+
 
 @enum.unique
 class ClipboardFormatFormat(str, enum.Enum):
@@ -105,6 +107,86 @@ class FormattedVariable(BaseModel):
     )
 
 
+class VariableTableDescription(BaseModel):
+    """
+    The schema, shape, and other metadata of a table variable
+    """
+
+    schema: Optional[TableSchema] = Field(
+        default=None,
+        description="The schema of the table variable",
+    )
+
+    shape: Optional[TableShape] = Field(
+        default=None,
+        description="The shape of the table variable",
+    )
+
+
+class VariableTableSummary(BaseModel):
+    """
+    Summary statistics for requested columns
+    """
+
+    column_name: Optional[StrictStr] = Field(
+        default=None,
+        description="The name of the column",
+    )
+
+    type_display: ColumnDisplayType = Field(
+        description="Canonical Positron display name of data type",
+    )
+
+    null_count: StrictInt = Field(
+        description="The number of null values",
+    )
+
+    min_value: Optional[StrictStr] = Field(
+        default=None,
+        description="Minimum value as string (for numeric types)",
+    )
+
+    max_value: Optional[StrictStr] = Field(
+        default=None,
+        description="Maximum value as string (for numeric types)",
+    )
+
+    mean: Optional[StrictStr] = Field(
+        default=None,
+        description="Average value as string (for numeric types)",
+    )
+
+    median: Optional[StrictStr] = Field(
+        default=None,
+        description="Sample median (50% value) as string (for numeric types)",
+    )
+
+    stdev: Optional[StrictStr] = Field(
+        default=None,
+        description="Sample standard deviation as a string (for numeric types)",
+    )
+
+    true_count: Optional[StrictInt] = Field(
+        default=None,
+        description="The number of non-null true values (for boolean types)",
+    )
+
+    false_count: Optional[StrictInt] = Field(
+        default=None,
+        description="The number of non-null false values (for boolean types)",
+    )
+
+    num_empty: Optional[StrictInt] = Field(
+        default=None,
+        description="The number of empty / length-zero values (for string types)",
+    )
+
+    num_unique: Optional[StrictInt] = Field(
+        default=None,
+        description="The exact number of distinct values",
+    )
+
+
 class Variable(BaseModel):
     """
     A single variable in the runtime.
@@ -182,6 +264,12 @@ class VariablesBackendRequest(str, enum.Enum):
 
     # Request a viewer for a variable
     View = "view"
+
+    # Get the schema, shape, and other metadata of a table variable
+    TableGetDescription = "table_get_description"
+
+    # Get column summary statistics for a table variable
+    TableSummarize = "table_summarize"
 
 
 class ListRequest(BaseModel):
@@ -352,6 +440,68 @@ class ViewRequest(BaseModel):
     )
 
 
+class TableGetDescriptionParams(BaseModel):
+    """
+    Get the schema, shape, and other metadata of a table variable.
+    """
+
+    path: List[StrictStr] = Field(
+        description="The path to the variable to view, as an array of access keys.",
+    )
+
+
+class TableGetDescriptionRequest(BaseModel):
+    """
+    Get the schema, shape, and other metadata of a table variable.
+    """
+
+    params: TableGetDescriptionParams = Field(
+        description="Parameters to the TableGetDescription method",
+    )
+
+    method: Literal[VariablesBackendRequest.TableGetDescription] = Field(
+        description="The JSON-RPC method name (table_get_description)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class TableSummarizeParams(BaseModel):
+    """
+    Get summary statistics for a table variable
+    """
+
+    path: List[StrictStr] = Field(
+        description="The path to the variable to view, as an array of access keys.",
+    )
+
+    column_indices: List[StrictInt] = Field(
+        description="The column indices (relative to the filtered/selected columns) to summarize",
+    )
+
+
+class TableSummarizeRequest(BaseModel):
+    """
+    Get summary statistics for a table variable
+    """
+
+    params: TableSummarizeParams = Field(
+        description="Parameters to the TableSummarize method",
+    )
+
+    method: Literal[VariablesBackendRequest.TableSummarize] = Field(
+        description="The JSON-RPC method name (table_summarize)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class VariablesBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
@@ -361,6 +511,8 @@ class VariablesBackendMessageContent(BaseModel):
         InspectRequest,
         ClipboardFormatRequest,
         ViewRequest,
+        TableGetDescriptionRequest,
+        TableSummarizeRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -423,6 +575,10 @@ InspectedVariable.update_forward_refs()
 
 FormattedVariable.update_forward_refs()
 
+VariableTableDescription.update_forward_refs()
+
+VariableTableSummary.update_forward_refs()
+
 Variable.update_forward_refs()
 
 ListRequest.update_forward_refs()
@@ -446,6 +602,14 @@ ClipboardFormatRequest.update_forward_refs()
 ViewParams.update_forward_refs()
 
 ViewRequest.update_forward_refs()
+
+TableGetDescriptionParams.update_forward_refs()
+
+TableGetDescriptionRequest.update_forward_refs()
+
+TableSummarizeParams.update_forward_refs()
+
+TableSummarizeRequest.update_forward_refs()
 
 UpdateParams.update_forward_refs()
 
