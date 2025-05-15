@@ -12,7 +12,7 @@ import { registerParticipants } from './participants';
 import { newCompletionProvider, registerHistoryTracking } from './completion';
 import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
-import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
+import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
@@ -83,9 +83,10 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 		return;
 	}
 
-	try {
-		let idx = 0;
-		for (const config of modelConfigs) {
+	let idx = 0;
+	const registeredModels: ModelConfig[] = [];
+	for (const config of modelConfigs) {
+		try {
 			// We need at least one default and one non-default model for the dropdown to appear.
 			// For now, just set the first language model as default.
 			// TODO: Allow for setting a default in the configuration.
@@ -93,16 +94,16 @@ export async function registerModels(context: vscode.ExtensionContext, storage: 
 
 			await registerModelWithAPI(config, context, isFirst);
 			idx++;
+			registeredModels.push(config);
+		} catch (e) {
+			const failedMessage = vscode.l10n.t('Positron Assistant: Failed to register model configurations.');
+			vscode.window.showErrorMessage(`${failedMessage} ${e}`);
 		}
-
-		// Set context for if we have chat models available for use
-		const hasChatModels = modelConfigs.filter(config => config.type === 'chat').length > 0;
-		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
-
-	} catch (e) {
-		const failedMessage = vscode.l10n.t('Positron Assistant: Failed to register model configurations.');
-		vscode.window.showErrorMessage(`${failedMessage} ${e}`);
 	}
+
+	// Set context for if we have chat models available for use
+	const hasChatModels = registeredModels.filter(config => config.type === 'chat').length > 0;
+	vscode.commands.executeCommand('setContext', hasChatModelsContextKey, hasChatModels);
 }
 
 /**
@@ -131,6 +132,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 			modelsCopy.push({
 				name: modelConfig.name,
 				identifier: modelConfig.model,
+				maxOutputTokens: modelConfig.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT,
 			});
 		}
 
@@ -139,6 +141,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				...modelConfig,
 				model: model.identifier,
 				name: model.name,
+				maxOutputTokens: model.maxOutputTokens,
 			};
 			const languageModel = newLanguageModel(newConfig);
 
@@ -150,7 +153,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				version: context.extension.packageJSON.version,
 				capabilities: languageModel.capabilities,
 				maxInputTokens: 0,
-				maxOutputTokens: 0,
+				maxOutputTokens: languageModel.maxOutputTokens,
 				isUserSelectable: true,
 				isDefault: isDefault,
 			});

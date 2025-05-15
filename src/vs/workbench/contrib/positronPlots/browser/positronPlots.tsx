@@ -135,7 +135,8 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			<ActionBars {...props} zoomHandler={zoomHandler} zoomLevel={zoom} />
 			<PlotsContainer
 				darkFilterMode={darkFilterMode}
-				height={height - 34}
+				height={height > 0 ? height - 34 : 0}
+				positronPlotsService={props.positronPlotsService}
 				showHistory={showHistory}
 				visible={visible}
 				width={width}

@@ -47,7 +47,7 @@ export function registerContextMenuListener(): void {
 
 		menu.on('menu-will-show', () => {
 			contextMenus.set(contextMenuId, menu);
-			app.emit('e2e:contextMenuShown', contextMenuId, menu.items);
+			app.emit('e2e:contextMenuShown', contextMenuId, menu.items.map(item => item.label));
 		});
 		menu.on('menu-will-close', () => {
 			contextMenus.delete(contextMenuId);
