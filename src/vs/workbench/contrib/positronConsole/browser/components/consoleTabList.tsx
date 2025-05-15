@@ -250,9 +250,13 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	const handleKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === 'Enter') {
 			e.preventDefault();
+			// Avoid triggering this action in the console instance
+			e.stopPropagation();
 			handleRenameSubmit();
 		} else if (e.key === 'Escape') {
 			e.preventDefault();
+			// Avoid triggering this action in the console instance
+			e.stopPropagation();
 			// hide the input field
 			setIsRenamingSession(false);
 			// restore the original session name
@@ -267,7 +271,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			}
 		} else if ((e.ctrlKey || e.metaKey) && e.key === 'x') {
 			e.preventDefault();
-
+			// Avoid triggering this action in the console instance
+			e.stopPropagation();
 			// Check if the input field has a selection
 			const hasSelection = inputRef.current &&
 				typeof inputRef.current.selectionStart === 'number' &&
@@ -286,7 +291,8 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 			}
 		} else if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
 			e.preventDefault();
-
+			// Avoid triggering this action in the console instance
+			e.stopPropagation();
 			// Check if the input field has a selection
 			const hasSelection = inputRef.current &&
 				typeof inputRef.current.selectionStart === 'number' &&
