@@ -309,8 +309,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			.find(({ info }) =>
 				info.session.runtimeMetadata.runtimeId === runtimeId &&
 				info.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console &&
-				(includeExited || info.state !== RuntimeState.Exited) &&
-				info.state !== RuntimeState.Uninitialized
+				(includeExited || info.state !== RuntimeState.Exited)
 			)
 			?.info.session;
 	}
