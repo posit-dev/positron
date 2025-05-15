@@ -209,3 +209,11 @@ jobs:
           TESTRAIL_TITLE: "e2e-windows"
           TESTRAIL_PROJECT: "Positron"
           TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
+
+      - name: Persist Junit report for Slack Notification
+        uses: midleman/slack-workflow-status/.github/actions/upload-artifacts@master
+        if: ${{ !cancelled() }}
+        with:
+          job_name: ${{ github.job }}
+          junit_path: 'test-results/junit.xml'
+          report_url: ${{ steps.gen_report.outputs.report_url }}

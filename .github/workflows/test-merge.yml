@@ -70,5 +70,6 @@ jobs:
           slack_channel: "#positron-test-results"
           notify_on: "failure"
           comment_junit_failures: true
+          emoji_junit_failures: ":small-red-x:"
 
 

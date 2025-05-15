@@ -94,6 +94,7 @@ jobs:
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
+        id: gen_report
         if: ${{ !cancelled() }}
 
       - name: Transform to Playwright Tags $PW_TAGS
@@ -124,6 +125,14 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
+      - name: Persist Junit report for Slack Notification
+        uses: midleman/slack-workflow-status/.github/actions/upload-artifacts@master
+        if: ${{ !cancelled() }}
+        with:
+          job_name: ${{ github.job }}
+          junit_path: 'test-results/junit.xml'
+          report_url: ${{ steps.gen_report.outputs.report_url }}
+
   slack-notify:
     needs: [e2e-electron]
     runs-on: ubuntu-latest
@@ -140,3 +149,5 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
           notify_on: ${{ env.notify_on }}
+          comment_junit_failures: true
+          emoji_junit_failures: ":small-red-x:"
