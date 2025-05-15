@@ -37,6 +37,10 @@
         ],
         "locations": [
           "panel"
+        ],
+        "modes": [
+          "ask",
+          "edit"
         ]
       },
       {
