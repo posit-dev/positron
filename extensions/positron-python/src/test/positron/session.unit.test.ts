@@ -11,6 +11,7 @@ import { interfaces } from 'inversify';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
+import * as fs from '../../client/common/platform/fs-paths';
 import { ILanguageServerOutputChannel } from '../../client/activation/types';
 import { IApplicationShell, IWorkspaceService } from '../../client/common/application/types';
 import {
@@ -231,8 +232,13 @@ suite('Python Runtime Session', () => {
     });
 
     test('Execute: dont uninstall bundled packages', async () => {
-        // Start a console session.
-        const session = createSession(positron.LanguageRuntimeSessionMode.Console);
+        // Mock ipykernelBundle to include fake paths and simulate fs functionality.
+        const _ipykernelBundle: IpykernelBundle = {
+            paths: ['/path/to/ipykernel'],
+        };
+        sinon.stub(fs, 'readdirSync').returns(['ipykernel']);
+
+        const session = createSession(positron.LanguageRuntimeSessionMode.Console, _ipykernelBundle);
         await session.start();
 
         // Spy on the kernel execute method.

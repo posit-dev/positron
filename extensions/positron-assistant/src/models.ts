@@ -15,7 +15,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { toAIMessage } from './utils';
+import { hasNonEmptyContent, toAIMessage } from './utils';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
@@ -79,6 +79,12 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			name: 'Echo Language Model',
 			model: 'echo',
 		},
+	};
+
+	capabilities = {
+		vision: true,
+		toolCalling: true,
+		agentMode: true,
 	};
 
 	get providerName(): string {
@@ -206,8 +212,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		let tools: Record<string, ai.Tool> | undefined;
 
+		// Filter out messages with empty text or empty tool response content
+		const filteredMessages = messages.filter(hasNonEmptyContent);
 		// Convert messages to the Vercel AI format
-		const aiMessages = toAIMessage(messages);
+		const aiMessages = toAIMessage(filteredMessages);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {

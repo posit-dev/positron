@@ -52,7 +52,7 @@ export const usePositronChatState = (services: PositronChatServices): PositronCh
 		}));
 
 		return () => disposableStore.dispose();
-	}, [services.chatInput.modelPickerDelegate, services.languageModelsService]);
+	}, [services.chatInput, services.chatInput.modelPickerDelegate, services.languageModelsService]);
 
 	useEffect(() => {
 		const currentModelId = services.chatInput.currentLanguageModel;
@@ -93,7 +93,7 @@ export const usePositronChatState = (services: PositronChatServices): PositronCh
 		if (currentProvider) {
 			setCurrentProvider(currentProvider);
 		}
-	}, []);
+	}, [services.chatInput.currentProvider]);
 
 	return {
 		languageModels: languageModels,

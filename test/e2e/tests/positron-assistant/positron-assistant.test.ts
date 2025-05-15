@@ -131,6 +131,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 */
 	test('Python: Verify running code in console from chat markdown response', async function ({ app, python }) {
 		await app.workbench.assistant.enterChatMessage('Send Python Code');
+		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo = 100');
 		await app.workbench.console.waitForConsoleContents('foo = 100');
 		await app.workbench.variables.expectVariableToBe('foo', '100');
@@ -145,6 +146,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	 */
 	test('R: Verify running code in console from chat markdown response', async function ({ app, r }) {
 		await app.workbench.assistant.enterChatMessage('Send R Code');
+		await app.workbench.assistant.verifyCodeBlockActions();
 		await app.workbench.assistant.clickChatCodeRunButton('foo <- 200');
 		await app.workbench.console.waitForConsoleContents('foo <- 200');
 		await app.workbench.variables.expectVariableToBe('foo', '200');
