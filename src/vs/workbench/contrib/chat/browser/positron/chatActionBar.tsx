@@ -51,7 +51,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 		});
 
 		return actions;
-	}, [providers,]);
+	}, [props, providers]);
 
 	React.useEffect(() => {
 		if (positronChatContext.currentProvider) {

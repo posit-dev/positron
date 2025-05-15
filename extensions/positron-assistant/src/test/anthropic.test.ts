@@ -108,21 +108,49 @@ suite('AnthropicLanguageModel', () => {
 		const emptyTextPart = new vscode.LanguageModelTextPart('');
 		const whitespaceTextPart = new vscode.LanguageModelTextPart('   \n  ');
 		const nonEmptyTextPart = new vscode.LanguageModelTextPart('Hello');
+		const toolCallPart = new vscode.LanguageModelToolCallPart('test-tool-callId', 'test-tool-name', {});
+		const emptyToolResultPart = new vscode.LanguageModelToolResultPart('test-tool-callId', []);
 
+		// Define test messages with different combinations
 		const messagesWithVariousContent = [
 			// Message with only empty text content - should be filtered out
-			vscode.LanguageModelChatMessage.User([emptyTextPart]),
+			{
+				message: vscode.LanguageModelChatMessage.User([emptyTextPart]),
+				keep: false
+			},
 			// Message with only whitespace - should be filtered out
-			vscode.LanguageModelChatMessage.User([whitespaceTextPart]),
+			{
+				message: vscode.LanguageModelChatMessage.User([whitespaceTextPart]),
+				keep: false
+			},
 			// Message with non-empty text content - should be kept
-			vscode.LanguageModelChatMessage.User([nonEmptyTextPart]),
+			{
+				message: vscode.LanguageModelChatMessage.User([nonEmptyTextPart]),
+				keep: true
+			},
 			// Message with both empty and non-empty text content - should be kept
-			vscode.LanguageModelChatMessage.Assistant([emptyTextPart, nonEmptyTextPart])
+			{
+				message: vscode.LanguageModelChatMessage.Assistant([emptyTextPart, nonEmptyTextPart]),
+				keep: true
+			},
+			// Message with tool call - should be kept
+			{
+				message: vscode.LanguageModelChatMessage.Assistant([toolCallPart]),
+				keep: true
+			},
+			// Message with empty tool result - should be filtered out
+			{
+				message: vscode.LanguageModelChatMessage.User([emptyToolResultPart]),
+				keep: false
+			}
 		];
+
+		const messages = messagesWithVariousContent.map(m => m.message);
+		const numOfMessagesToKeep = messagesWithVariousContent.filter(m => m.keep).length;
 
 		// Call the method under test
 		await model.provideLanguageModelResponse(
-			messagesWithVariousContent,
+			messages,
 			{},
 			'test-extension',
 			mockProgress,
@@ -134,7 +162,7 @@ suite('AnthropicLanguageModel', () => {
 		assert.ok(streamCall, 'Stream method was not called');
 
 		const messagesPassedToAnthropicClient = streamCall.args[0].messages;
-		assert.strictEqual(messagesPassedToAnthropicClient.length, 2, 'Only non-empty messages should be passed to the Anthropic client');
+		assert.strictEqual(messagesPassedToAnthropicClient.length, numOfMessagesToKeep, 'Only non-empty messages should be passed to the Anthropic client');
 
 		// Verify specific message patterns that should be included vs filtered
 		const hasMessageWithNonEmptyContent = messagesPassedToAnthropicClient.some((msg: any) =>

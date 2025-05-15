@@ -42,6 +42,8 @@ import { IPositronConsoleService } from '../../../services/positronConsole/brows
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
+import { IPathService } from '../../../services/path/common/pathService.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 
 /**
  * PositronConsoleViewPane class.
@@ -220,6 +222,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IModelService private readonly modelService: IModelService,
 		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
+		@IPathService private readonly pathService: IPathService,
 		@IPositronConsoleService private readonly positronConsoleService: IPositronConsoleService,
 		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
@@ -227,6 +230,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
 		@IViewsService private readonly viewsService: IViewsService,
+		@IWorkbenchEnvironmentService private readonly environmentService: IWorkbenchEnvironmentService,
 	) {
 		super(
 			options,
@@ -286,6 +290,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				contextKeyService={this.contextKeyService}
 				contextMenuService={this.contextMenuService}
 				editorService={this.editorService}
+				environmentService={this.environmentService}
 				executionHistoryService={this.executionHistoryService}
 				hoverService={this.hoverService}
 				instantiationService={this.instantiationService}
@@ -297,6 +302,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				modelService={this.modelService}
 				notificationService={this.notificationService}
 				openerService={this.openerService}
+				pathService={this.pathService}
 				positronConsoleService={this.positronConsoleService}
 				positronPlotsService={this.positronPlotsService}
 				reactComponentContainer={this}

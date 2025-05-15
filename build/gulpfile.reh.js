@@ -42,6 +42,7 @@ const commit = getVersion(REPO_ROOT);
 const BUILD_ROOT = path.dirname(REPO_ROOT);
 const REMOTE_FOLDER = path.join(REPO_ROOT, 'remote');
 // --- Start Positron ---
+const { compileBuildWithoutManglingTask } = require('./gulpfile.compile');
 const REMOTE_REH_WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'reh-web');
 // --- End Positron ---
 
@@ -557,7 +558,11 @@ function tweakProductForServerWeb(product) {
 			gulp.task(serverTaskCI);
 
 			const serverTask = task.define(`vscode-${type}${dashed(platform)}${dashed(arch)}${dashed(minified)}`, task.series(
-				compileBuildWithManglingTask,
+				// --- Start Positron ---
+				// Only mangle when minified is true. This matches the behavior of gulpfile.vscode:628.
+				// minified ? compileBuildWithManglingTask,
+				minified ? compileBuildWithManglingTask : compileBuildWithoutManglingTask,
+				// --- End Positron ---
 				cleanExtensionsBuildTask,
 				compileNonNativeExtensionsBuildTask,
 				compileExtensionMediaBuildTask,
