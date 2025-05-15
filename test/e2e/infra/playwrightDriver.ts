@@ -6,7 +6,7 @@
 import * as playwright from '@playwright/test';
 // eslint-disable-next-line local/code-import-patterns
 import type { Protocol } from 'playwright-core/types/protocol';
-import path, { dirname, join } from 'path';
+import { dirname, join } from 'path';
 import { promises } from 'fs';
 import { IWindowDriver } from './driver';
 // eslint-disable-next-line local/code-import-patterns
@@ -43,7 +43,10 @@ export class PlaywrightDriver {
 		}
 	}
 
+	// --- Start Positron ---
+	// Added customPath parameter to allow specifying a custom path for the trace file
 	async stopTracing(name: string, persist: boolean = true, customPath?: string): Promise<void> {
+		// --- End Positron ---
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
@@ -51,8 +54,10 @@ export class PlaywrightDriver {
 		try {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
-				// Positron: Windows has issues with long paths, shortened the name
+				// --- Start Positron ---
+				//  Windows has issues with long paths; shortened the name
 				persistPath = customPath || join(this.options.logsPath, `trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}.zip`);
+				// --- End Positron ---
 			}
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing for ${name}`, this.options.logger);
 		} catch (error) {
@@ -140,8 +145,10 @@ export class PlaywrightDriver {
 		return await this._cdpSession.send('Runtime.getProperties', parameters);
 	}
 
-	// Positron: make this method public for access from R/Python fixtures
+	// --- Start Positron ---
+	// Make this method public for access from R/Python fixtures
 	async takeScreenshot(name: string): Promise<void> {
+		// --- End Positron ---
 		try {
 			// Positron: Windows has issues with long paths, shortened the name
 			const persistPath = join(this.options.logsPath, `screenshot-${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
@@ -228,23 +235,5 @@ export class PlaywrightDriver {
 		} catch (error) {
 			return false;
 		}
-	}
-}
-
-	/**
-	 * Click and drag from one point to another.
-	 * @param opts.from The starting point of the drag as x-y coordinates
-	 * @param opts.to The ending point of the drag as x-y coordinates
-	 * @param opts.delta The change in x-y coordinates from the starting point
-	 */
-	async clickAndDrag(opts: { from: { x: number; y: number }; to: { x: number; y: number } }): Promise<void>;
-	async clickAndDrag(opts: { from: { x: number; y: number }; delta: { x?: number; y?: number } }): Promise<void>;
-	async clickAndDrag(opts: { from: { x: number; y: number }; to?: { x: number; y: number }; delta?: { x?: number; y?: number } }): Promise<void> {
-		const from = opts.from;
-		const to = opts.to ?? { x: from.x + (opts.delta?.x ?? 0), y: from.y + (opts.delta?.y ?? 0) };
-		await this.page.mouse.move(from.x, from.y);
-		await this.page.mouse.down();
-		await this.page.mouse.move(to.x, to.y);
-		await this.page.mouse.up();
 	}
 }
