@@ -626,9 +626,7 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			}
 
 			// Select kernel
-			if (!this._selectKernelForNotebook(model)) {
-				this._logService.error(`${this._nbLogPrefix} No suitable kernel found for notebook.`);
-			}
+			this._selectKernelForNotebook(model);
 		} catch (error) {
 			this._logService.error(`${this._nbLogPrefix} Error during post-init notebook setup: ${String(error)}`);
 			this._notificationService.error(localize('positronNewProjectService.postInitNotebookError', 'Error setting up notebook for new project: {0}', String(error)));
@@ -644,9 +642,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	 * If no suitable kernel is found, a user-facing error notification is shown, but the flow continues.
 	 *
 	 * @param notebookTextModel The notebook text model to select a kernel for
-	 * @returns True if kernel was successfully selected, false otherwise
 	 */
-	private _selectKernelForNotebook(notebookTextModel: INotebookTextModel): boolean {
+	private _selectKernelForNotebook(notebookTextModel: INotebookTextModel) {
 		const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
 		const runtimePath: string | undefined = this._runtimeMetadata?.runtimePath;
 		const languageId = this._runtimeMetadata?.languageId;
@@ -679,12 +676,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			// Show a user-facing error toast, but do not break the flow
 			this._notificationService.error('No matching Jupyter kernel was found for the new environment. You will need to select a kernel manually in the notebook.');
 			this._logService.debug(`[New project startup] No suitable kernel found for notebook`);
-			return false;
+			return;
 		}
 
 		this._notebookKernelService.selectKernelForNotebook(kernelToSelect, notebookTextModel);
 		this._logService.debug(`[New project startup] Selected kernel ${kernelToSelect.id} for notebook`);
-		return true;
+		return;
 	}
 
 	/**
