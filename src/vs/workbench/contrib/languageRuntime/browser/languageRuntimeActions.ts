@@ -833,8 +833,8 @@ export function registerLanguageRuntimeActions() {
 		// If the user selected a specific session, set it as the active session if it still exists
 		if (newActiveSession) {
 			runtimeSessionService.foregroundSession = newActiveSession;
-			// Focus the console pane after creating the new session
-			await commandService.executeCommand('workbench.panel.positronConsole.focus');
+			// Drive focus into the Positron console.
+			commandService.executeCommand('workbench.panel.positronConsole.focus');
 		}
 	});
 
@@ -884,11 +884,11 @@ export function registerLanguageRuntimeActions() {
 				undefined,
 				`Duplicated session: ${currentSession.dynState.sessionName}`,
 				RuntimeStartMode.Starting,
-				true
+				false
 			);
 
-			// Focus the console pane after creating the new session
-			await commandService.executeCommand('workbench.panel.positronConsole.focus');
+			// Drive focus into the Positron console.
+			commandService.executeCommand('workbench.panel.positronConsole.focus');
 		}
 	});
 
@@ -923,17 +923,20 @@ export function registerLanguageRuntimeActions() {
 
 			// If the user selected a runtime, set it as the active runtime
 			if (selectedRuntime?.runtimeId) {
-				// Focus the console pane after creating the new session
-				await commandService.executeCommand('workbench.panel.positronConsole.focus');
-				return await runtimeSessionService.startNewRuntimeSession(
+				const sessionId = await runtimeSessionService.startNewRuntimeSession(
 					selectedRuntime.runtimeId,
 					selectedRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined,
 					'User selected runtime',
 					RuntimeStartMode.Starting,
-					true
+					false
 				);
+
+				// Drive focus into the Positron console.
+				commandService.executeCommand('workbench.panel.positronConsole.focus');
+
+				return sessionId;
 			}
 			return undefined;
 		}
