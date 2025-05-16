@@ -283,7 +283,7 @@ class TableSummarizeResult(BaseModel):
 # Additional options for different query types
 QueryTableOptions = Union[TableSummarizeOptions,]
 # Result of a table query
-TableQueryResult = Union[
+QueryTableResult = Union[
     TableDescriptionResult,
     TableSummarizeResult,
 ]

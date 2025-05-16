@@ -47,7 +47,7 @@ import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
+import { QueryTableParams, QueryTableResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 
 /**
@@ -1548,6 +1548,26 @@ export class MainThreadLanguageRuntime
 			const allVars = await client.comm.list();
 			return [allVars.variables];
 		}
+	}
+
+	$querySessionTable(handle: number, accessKey: Array<string>, query: QueryTableParams): Promise<QueryTableResult> {
+		const sessionId = this.findSession(handle).sessionId;
+		const instances = this._positronVariablesService.positronVariablesInstances;
+		for (const instance of instances) {
+			if (instance.session.sessionId === sessionId) {
+				return this.querySessionTable(instance, accessKey, query);
+			}
+		}
+		throw new Error(`No variables provider found for session ${sessionId}`);
+	}
+
+	async querySessionTable(instance: IPositronVariablesInstance, accessKey: Array<string>, query: QueryTableParams):
+		Promise<QueryTableResult> {
+		const client = instance.getClientInstance();
+		if (!client) {
+			throw new Error(`No variables provider available for session ${instance.session.sessionId}`);
+		}
+		return client.comm.queryTable(accessKey, query.query_type, query.options);
 	}
 
 	// Signals that language runtime discovery is complete.

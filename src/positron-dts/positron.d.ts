@@ -1740,8 +1740,8 @@ declare module 'positron' {
 		export function querySessionTable(
 			sessionId: string,
 			accessKey: Array<string>,
-			query: RuntimeQueryTableParams
-		): Thenable<RuntimeQueryTableResult>;
+			query: QueryTableParams
+		): Thenable<QueryTableResult>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called

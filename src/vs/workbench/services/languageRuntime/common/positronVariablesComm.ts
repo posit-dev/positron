@@ -251,7 +251,7 @@ export interface TableSummarizeResult {
 export type QueryTableOptions = TableSummarizeOptions;
 
 /// Result of a table query
-export type TableQueryResult = TableDescriptionResult | TableSummarizeResult;
+export type QueryTableResult = TableDescriptionResult | TableSummarizeResult;
 
 /**
  * Possible values for Format in ClipboardFormat

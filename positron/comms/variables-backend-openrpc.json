@@ -362,7 +362,7 @@
 				]
 			},
 			"query_table_result": {
-				"name": "table_query_result",
+				"name": "query_table_result",
 				"description": "Result of a table query",
 				"oneOf": [
 					{
@@ -378,7 +378,7 @@
 			"table_summarize_options": {
 				"type": "object",
 				"name": "table_summarize_options",
-				"description": "The column indices (relative to the filtered/selected columns) to summarize",
+				"description": "Options for the summarize query type",
 				"properties": {
 					"column_indices": {
 						"type": "array",
