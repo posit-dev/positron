@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings } from '../infra';
+import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, ApplicationOptions, Quality } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -66,7 +66,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);
 
-		const options = {
+		const options: ApplicationOptions = {
 			codePath: process.env.BUILD,
 			workspacePath: WORKSPACE_PATH,
 			userDataDir: join(TEST_DATA_PATH, 'd'),
@@ -80,7 +80,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			headless: project.headless,
 			tracing: true,
 			snapshots,
-
+			quality: Quality.Dev,
 		};
 		options.userDataDir = getRandomUserDataDir(options);
 

@@ -138,9 +138,13 @@ export class Code {
 		return await this.driver.startTracing(name);
 	}
 
-	async stopTracing(name: string, persist: boolean): Promise<void> {
-		return await this.driver.stopTracing(name, persist);
+
+	// --- Start Positron ---
+	// Add custom path argument.
+	async stopTracing(name: string, persist: boolean, customPath?: string): Promise<void> {
+		return await this.driver.stopTracing(name, persist, customPath);
 	}
+	// --- End Positron ---
 
 	async sendKeybinding(keybinding: string, accept?: () => Promise<void> | void): Promise<void> {
 		await this.driver.sendKeybinding(keybinding, accept);
