@@ -32,6 +32,17 @@ class ClipboardFormatFormat(str, enum.Enum):
 
 
 @enum.unique
+class QueryTableQueryType(str, enum.Enum):
+    """
+    Possible values for QueryType in QueryTable
+    """
+
+    Description = "description"
+
+    Summarize = "summarize"
+
+
+@enum.unique
 class VariableKind(str, enum.Enum):
     """
     Possible values for Kind in Variable
@@ -123,7 +134,89 @@ class VariableTableDescription(BaseModel):
     )
 
 
-class VariableTableSummary(BaseModel):
+class Variable(BaseModel):
+    """
+    A single variable in the runtime.
+    """
+
+    access_key: StrictStr = Field(
+        description="A key that uniquely identifies the variable within the runtime and can be used to access the variable in `inspect` requests",
+    )
+
+    display_name: StrictStr = Field(
+        description="The name of the variable, formatted for display",
+    )
+
+    display_value: StrictStr = Field(
+        description="A string representation of the variable's value, formatted for display and possibly truncated",
+    )
+
+    display_type: StrictStr = Field(
+        description="The variable's type, formatted for display",
+    )
+
+    type_info: StrictStr = Field(
+        description="Extended information about the variable's type",
+    )
+
+    size: StrictInt = Field(
+        description="The size of the variable's value in bytes",
+    )
+
+    kind: VariableKind = Field(
+        description="The kind of value the variable represents, such as 'string' or 'number'",
+    )
+
+    length: StrictInt = Field(
+        description="The number of elements in the variable, if it is a collection",
+    )
+
+    has_children: StrictBool = Field(
+        description="Whether the variable has child variables",
+    )
+
+    has_viewer: StrictBool = Field(
+        description="True if there is a viewer available for this variable (i.e. the runtime can handle a 'view' request for this variable)",
+    )
+
+    is_truncated: StrictBool = Field(
+        description="True if the 'value' field is a truncated representation of the variable's value",
+    )
+
+    updated_time: StrictInt = Field(
+        description="The time the variable was created or updated, in milliseconds since the epoch, or 0 if unknown.",
+    )
+
+
+class TableSummarizeOptions(BaseModel):
+    """
+    The column indices (relative to the filtered/selected columns) to
+    summarize
+    """
+
+    column_indices: Optional[List[StrictInt]] = Field(
+        default=None,
+        description="The column indices (relative to the filtered/selected columns) to summarize",
+    )
+
+
+class TableDescriptionResult(BaseModel):
+    """
+    Description of the table variable: shape, schema, and other metadata
+    """
+
+    schema: Optional[TableSchema] = Field(
+        default=None,
+        description="The schema of the table variable",
+    )
+
+    shape: Optional[TableShape] = Field(
+        default=None,
+        description="The shape of the table variable",
+    )
+
+
+class TableSummarizeResult(BaseModel):
     """
     Summary statistics for requested columns
     """
@@ -187,58 +280,13 @@ class VariableTableSummary(BaseModel):
     )
 
 
-class Variable(BaseModel):
-    """
-    A single variable in the runtime.
-    """
-
-    access_key: StrictStr = Field(
-        description="A key that uniquely identifies the variable within the runtime and can be used to access the variable in `inspect` requests",
-    )
-
-    display_name: StrictStr = Field(
-        description="The name of the variable, formatted for display",
-    )
-
-    display_value: StrictStr = Field(
-        description="A string representation of the variable's value, formatted for display and possibly truncated",
-    )
-
-    display_type: StrictStr = Field(
-        description="The variable's type, formatted for display",
-    )
-
-    type_info: StrictStr = Field(
-        description="Extended information about the variable's type",
-    )
-
-    size: StrictInt = Field(
-        description="The size of the variable's value in bytes",
-    )
-
-    kind: VariableKind = Field(
-        description="The kind of value the variable represents, such as 'string' or 'number'",
-    )
-
-    length: StrictInt = Field(
-        description="The number of elements in the variable, if it is a collection",
-    )
-
-    has_children: StrictBool = Field(
-        description="Whether the variable has child variables",
-    )
-
-    has_viewer: StrictBool = Field(
-        description="True if there is a viewer available for this variable (i.e. the runtime can handle a 'view' request for this variable)",
-    )
-
-    is_truncated: StrictBool = Field(
-        description="True if the 'value' field is a truncated representation of the variable's value",
-    )
-
-    updated_time: StrictInt = Field(
-        description="The time the variable was created or updated, in milliseconds since the epoch, or 0 if unknown.",
-    )
+# Additional options for different query types
+TableQueryOptions = Union[TableSummarizeOptions,]
+# Result of a table query
+TableQueryResult = Union[
+    TableDescriptionResult,
+    TableSummarizeResult,
+]
 
 
 @enum.unique
@@ -268,8 +316,8 @@ class VariablesBackendRequest(str, enum.Enum):
     # Get the schema, shape, and other metadata of a table variable
     TableGetDescription = "table_get_description"
 
-    # Get column summary statistics for a table variable
-    TableSummarize = "table_summarize"
+    # Query a table variable, for use from an assistant context
+    QueryTable = "query_table"
 
 
 class ListRequest(BaseModel):
@@ -469,31 +517,36 @@ class TableGetDescriptionRequest(BaseModel):
     )
 
 
-class TableSummarizeParams(BaseModel):
+class QueryTableParams(BaseModel):
     """
-    Get summary statistics for a table variable
+    Query a table variable, for use from an assistant context
     """
 
     path: List[StrictStr] = Field(
         description="The path to the variable to view, as an array of access keys.",
     )
 
-    column_indices: List[StrictInt] = Field(
-        description="The column indices (relative to the filtered/selected columns) to summarize",
+    query_type: QueryTableQueryType = Field(
+        description="The type of query to perform",
+    )
+
+    options: Optional[TableQueryOptions] = Field(
+        default=None,
+        description="Any query type specific options",
     )
 
 
-class TableSummarizeRequest(BaseModel):
+class QueryTableRequest(BaseModel):
     """
-    Get summary statistics for a table variable
+    Query a table variable, for use from an assistant context
     """
 
-    params: TableSummarizeParams = Field(
-        description="Parameters to the TableSummarize method",
+    params: QueryTableParams = Field(
+        description="Parameters to the QueryTable method",
     )
 
-    method: Literal[VariablesBackendRequest.TableSummarize] = Field(
-        description="The JSON-RPC method name (table_summarize)",
+    method: Literal[VariablesBackendRequest.QueryTable] = Field(
+        description="The JSON-RPC method name (query_table)",
     )
 
     jsonrpc: str = Field(
@@ -512,7 +565,7 @@ class VariablesBackendMessageContent(BaseModel):
         ClipboardFormatRequest,
         ViewRequest,
         TableGetDescriptionRequest,
-        TableSummarizeRequest,
+        QueryTableRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -577,9 +630,13 @@ FormattedVariable.update_forward_refs()
 
 VariableTableDescription.update_forward_refs()
 
-VariableTableSummary.update_forward_refs()
-
 Variable.update_forward_refs()
+
+TableSummarizeOptions.update_forward_refs()
+
+TableDescriptionResult.update_forward_refs()
+
+TableSummarizeResult.update_forward_refs()
 
 ListRequest.update_forward_refs()
 
@@ -607,9 +664,9 @@ TableGetDescriptionParams.update_forward_refs()
 
 TableGetDescriptionRequest.update_forward_refs()
 
-TableSummarizeParams.update_forward_refs()
+QueryTableParams.update_forward_refs()
 
-TableSummarizeRequest.update_forward_refs()
+QueryTableRequest.update_forward_refs()
 
 UpdateParams.update_forward_refs()
 

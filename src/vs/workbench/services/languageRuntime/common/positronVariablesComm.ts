@@ -81,72 +81,6 @@ export interface VariableTableDescription {
 }
 
 /**
- * Summary statistics for requested columns
- */
-export interface VariableTableSummary {
-	/**
-	 * The name of the column
-	 */
-	column_name?: string;
-
-	/**
-	 * Canonical Positron display name of data type
-	 */
-	type_display: ColumnDisplayType;
-
-	/**
-	 * The number of null values
-	 */
-	null_count: number;
-
-	/**
-	 * Minimum value as string (for numeric types)
-	 */
-	min_value?: string;
-
-	/**
-	 * Maximum value as string (for numeric types)
-	 */
-	max_value?: string;
-
-	/**
-	 * Average value as string (for numeric types)
-	 */
-	mean?: string;
-
-	/**
-	 * Sample median (50% value) as string (for numeric types)
-	 */
-	median?: string;
-
-	/**
-	 * Sample standard deviation as a string (for numeric types)
-	 */
-	stdev?: string;
-
-	/**
-	 * The number of non-null true values (for boolean types)
-	 */
-	true_count?: number;
-
-	/**
-	 * The number of non-null false values (for boolean types)
-	 */
-	false_count?: number;
-
-	/**
-	 * The number of empty / length-zero values (for string types)
-	 */
-	num_empty?: number;
-
-	/**
-	 * The exact number of distinct values
-	 */
-	num_unique?: number;
-
-}
-
-/**
  * A single variable in the runtime.
  */
 export interface Variable {
@@ -219,11 +153,120 @@ export interface Variable {
 }
 
 /**
+ * The column indices (relative to the filtered/selected columns) to
+ * summarize
+ */
+export interface TableSummarizeOptions {
+	/**
+	 * The column indices (relative to the filtered/selected columns) to
+	 * summarize
+	 */
+	column_indices?: Array<number>;
+
+}
+
+/**
+ * Description of the table variable: shape, schema, and other metadata
+ */
+export interface TableDescriptionResult {
+	/**
+	 * The schema of the table variable
+	 */
+	schema?: TableSchema;
+
+	/**
+	 * The shape of the table variable
+	 */
+	shape?: TableShape;
+
+}
+
+/**
+ * Summary statistics for requested columns
+ */
+export interface TableSummarizeResult {
+	/**
+	 * The name of the column
+	 */
+	column_name?: string;
+
+	/**
+	 * Canonical Positron display name of data type
+	 */
+	type_display: ColumnDisplayType;
+
+	/**
+	 * The number of null values
+	 */
+	null_count: number;
+
+	/**
+	 * Minimum value as string (for numeric types)
+	 */
+	min_value?: string;
+
+	/**
+	 * Maximum value as string (for numeric types)
+	 */
+	max_value?: string;
+
+	/**
+	 * Average value as string (for numeric types)
+	 */
+	mean?: string;
+
+	/**
+	 * Sample median (50% value) as string (for numeric types)
+	 */
+	median?: string;
+
+	/**
+	 * Sample standard deviation as a string (for numeric types)
+	 */
+	stdev?: string;
+
+	/**
+	 * The number of non-null true values (for boolean types)
+	 */
+	true_count?: number;
+
+	/**
+	 * The number of non-null false values (for boolean types)
+	 */
+	false_count?: number;
+
+	/**
+	 * The number of empty / length-zero values (for string types)
+	 */
+	num_empty?: number;
+
+	/**
+	 * The exact number of distinct values
+	 */
+	num_unique?: number;
+
+}
+
+/// Additional options for different query types
+export type TableQueryOptions = TableSummarizeOptions;
+
+/// Result of a table query
+export type TableQueryResult = TableDescriptionResult | TableSummarizeResult;
+
+/**
  * Possible values for Format in ClipboardFormat
  */
 export enum ClipboardFormatFormat {
 	TextHtml = 'text/html',
 	TextPlain = 'text/plain'
+}
+
+/**
+ * Possible values for QueryType in QueryTable
+ */
+export enum QueryTableQueryType {
+	Description = 'description',
+	Summarize = 'summarize'
 }
 
 /**
@@ -311,19 +354,23 @@ export interface TableGetDescriptionParams {
 }
 
 /**
- * Parameters for the TableSummarize method.
+ * Parameters for the QueryTable method.
  */
-export interface TableSummarizeParams {
+export interface QueryTableParams {
 	/**
 	 * The path to the variable to view, as an array of access keys.
 	 */
 	path: Array<string>;
 
 	/**
-	 * The column indices (relative to the filtered/selected columns) to
-	 * summarize
+	 * The type of query to perform
 	 */
-	column_indices: Array<number>;
+	query_type: QueryTableQueryType;
+
+	/**
+	 * Any query type specific options
+	 */
+	options?: TableQueryOptions;
 }
 
 /**
@@ -435,7 +482,7 @@ export enum VariablesBackendRequest {
 	ClipboardFormat = 'clipboard_format',
 	View = 'view',
 	TableGetDescription = 'table_get_description',
-	TableSummarize = 'table_summarize'
+	QueryTable = 'query_table'
 }
 
 export class PositronVariablesComm extends PositronBaseComm {
@@ -546,19 +593,19 @@ export class PositronVariablesComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Get column summary statistics for a table variable
+	 * Query a table variable, for use from an assistant context
 	 *
-	 * Get summary statistics for a table variable
+	 * Query a table variable, for use from an assistant context
 	 *
 	 * @param path The path to the variable to view, as an array of access
 	 * keys.
-	 * @param columnIndices The column indices (relative to the
-	 * filtered/selected columns) to summarize
+	 * @param queryType The type of query to perform
+	 * @param options Any query type specific options
 	 *
-	 * @returns Summary statistics for requested columns
+	 * @returns undefined
 	 */
-	tableSummarize(path: Array<string>, columnIndices: Array<number>): Promise<VariableTableSummary> {
-		return super.performRpc('table_summarize', ['path', 'column_indices'], [path, columnIndices]);
+	queryTable(path: Array<string>, queryType: QueryTableQueryType, options: TableQueryOptions | undefined): Promise<TableQueryResult> {
+		return super.performRpc('query_table', ['path', 'query_type', 'options'], [path, queryType, options]);
 	}
 
 

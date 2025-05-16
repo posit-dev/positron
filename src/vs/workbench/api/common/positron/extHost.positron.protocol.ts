@@ -16,7 +16,7 @@ import { IAvailableDriverMethods } from '../../browser/positron/mainThreadConnec
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IChatAgentData } from '../../../contrib/chat/common/chatAgents.js';
 import { PlotRenderSettings } from '../../../services/positronPlots/common/positronPlots.js';
-import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
+import { Variable, QueryTableResult, QueryTableParams } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 // NOTE: This check is really to ensure that extHost.protocol is included by the TypeScript compiler
@@ -52,6 +52,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$interruptSession(handle: number): Promise<void>;
 	$focusSession(handle: number): void;
 	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
+	$querySessionTable(handle: number, accessKey: Array<string>, query: TableQuery): Promise<TableQueryResult>;
 	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;
 	$emitLanguageRuntimeState(handle: number, clock: number, state: RuntimeState): void;
 	$emitLanguageRuntimeExit(handle: number, exit: ILanguageRuntimeExit): void;

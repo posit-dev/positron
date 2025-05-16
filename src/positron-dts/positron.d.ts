@@ -1730,6 +1730,20 @@ declare module 'positron' {
 			Thenable<Array<Array<RuntimeVariable>>>;
 
 		/**
+		 * Query a tabular dataset within a session. Generally invoked
+		 * from the assistant context via its more granular tools.
+		 *
+		 * @param sessionId The session ID of the session to query a table.
+		 * @param accessKey The access key of the table to query.
+		 * @param query The query to execute.
+		 */
+		export function querySessionTable(
+			sessionId: string,
+			accessKey: Array<string>,
+			query: RuntimeQueryTableParams
+		): Thenable<RuntimeQueryTableResult>;
+
+		/**
 		 * Register a handler for runtime client instances. This handler will be called
 		 * whenever a new client instance is created by a language runtime of the given
 		 * type.

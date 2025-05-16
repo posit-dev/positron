@@ -224,9 +224,9 @@
 			}
 		},
 		{
-			"name": "table_summarize",
-			"summary": "Get column summary statistics for a table variable",
-			"description": "Get summary statistics for a table variable",
+			"name": "query_table",
+			"summary": "Query a table variable, for use from an assistant context",
+			"description": "Query a table variable, for use from an assistant context",
 			"params": [
 				{
 					"name": "path",
@@ -239,75 +239,28 @@
 					}
 				},
 				{
-					"name": "column_indices",
-					"description": "The column indices (relative to the filtered/selected columns) to summarize",
+					"name": "query_type",
+					"description": "The type of query to perform",
 					"schema": {
-						"type": "array",
-						"items": {
-							"type": "integer"
-						}
+						"type": "string",
+						"enum": [
+							"description",
+							"summarize"
+						]
+					}
+				},
+				{
+					"name": "options",
+					"description": "Any query type specific options",
+					"required": false,
+					"schema": {
+						"$ref": "#/components/schemas/table_query_options"
 					}
 				}
 			],
 			"result": {
 				"schema": {
-					"type": "object",
-					"name": "variable_table_summary",
-					"description": "Summary statistics for requested columns",
-					"required": [
-						"type_display",
-						"null_count"
-					],
-					"properties": {
-						"column_name": {
-							"type": "string",
-							"description": "The name of the column"
-						},
-						"type_display": {
-							"description": "Canonical Positron display name of data type",
-							"$ref": "data_explorer-backend-openrpc.json#/components/schemas/column_display_type"
-						},
-						"null_count": {
-							"type": "integer",
-							"description": "The number of null values"
-						},
-						"min_value": {
-							"type": "string",
-							"description": "Minimum value as string (for numeric types)"
-						},
-						"max_value": {
-							"type": "string",
-							"description": "Maximum value as string (for numeric types)"
-						},
-						"mean": {
-							"type": "string",
-							"description": "Average value as string (for numeric types)"
-						},
-						"median": {
-							"type": "string",
-							"description": "Sample median (50% value) as string (for numeric types)"
-						},
-						"stdev": {
-							"type": "string",
-							"description": "Sample standard deviation as a string (for numeric types)"
-						},
-						"true_count": {
-							"type": "integer",
-							"description": "The number of non-null true values (for boolean types)"
-						},
-						"false_count": {
-							"type": "integer",
-							"description": "The number of non-null false values (for boolean types)"
-						},
-						"num_empty": {
-							"type": "integer",
-							"description": "The number of empty / length-zero values (for string types)"
-						},
-						"num_unique": {
-							"type": "integer",
-							"description": "The exact number of distinct values"
-						}
-					}
+					"$ref": "#/components/schemas/table_query_result"
 				}
 			}
 		}
@@ -397,6 +350,118 @@
 					"is_truncated",
 					"updated_time"
 				]
+			},
+			"table_query_options": {
+				"name": "table_query_options",
+				"description": "Additional options for different query types",
+				"oneOf": [
+					{
+						"name": "summarize_options",
+						"$ref": "#/components/schemas/table_summarize_options"
+					}
+				]
+			},
+			"table_query_result": {
+				"name": "table_query_result",
+				"description": "Result of a table query",
+				"oneOf": [
+					{
+						"name": "table_description_result",
+						"$ref": "#/components/schemas/table_description_result"
+					},
+					{
+						"name": "table_summarize_result",
+						"$ref": "#/components/schemas/table_summarize_result"
+					}
+				]
+			},
+			"table_summarize_options": {
+				"type": "object",
+				"name": "table_summarize_options",
+				"description": "The column indices (relative to the filtered/selected columns) to summarize",
+				"properties": {
+					"column_indices": {
+						"type": "array",
+						"description": "The column indices (relative to the filtered/selected columns) to summarize",
+						"items": {
+							"type": "integer"
+						}
+					}
+				}
+			},
+			"table_description_result": {
+				"type": "object",
+				"name": "table_description_result",
+				"description": "Description of the table variable: shape, schema, and other metadata",
+				"properties": {
+					"schema": {
+						"description": "The schema of the table variable",
+						"$ref": "data_explorer-backend-openrpc.json#/components/schemas/table_schema"
+					},
+					"shape": {
+						"description": "The shape of the table variable",
+						"$ref": "data_explorer-backend-openrpc.json#/components/schemas/table_shape"
+					}
+				}
+			},
+			"table_summarize_result": {
+				"type": "object",
+				"name": "table_summarize_result",
+				"description": "Summary statistics for requested columns",
+				"required": [
+					"type_display",
+					"null_count"
+				],
+				"properties": {
+					"column_name": {
+						"type": "string",
+						"description": "The name of the column"
+					},
+					"type_display": {
+						"description": "Canonical Positron display name of data type",
+						"$ref": "data_explorer-backend-openrpc.json#/components/schemas/column_display_type"
+					},
+					"null_count": {
+						"type": "integer",
+						"description": "The number of null values"
+					},
+					"min_value": {
+						"type": "string",
+						"description": "Minimum value as string (for numeric types)"
+					},
+					"max_value": {
+						"type": "string",
+						"description": "Maximum value as string (for numeric types)"
+					},
+					"mean": {
+						"type": "string",
+						"description": "Average value as string (for numeric types)"
+					},
+					"median": {
+						"type": "string",
+						"description": "Sample median (50% value) as string (for numeric types)"
+					},
+					"stdev": {
+						"type": "string",
+						"description": "Sample standard deviation as a string (for numeric types)"
+					},
+					"true_count": {
+						"type": "integer",
+						"description": "The number of non-null true values (for boolean types)"
+					},
+					"false_count": {
+						"type": "integer",
+						"description": "The number of non-null false values (for boolean types)"
+					},
+					"num_empty": {
+						"type": "integer",
+						"description": "The number of empty / length-zero values (for string types)"
+					},
+					"num_unique": {
+						"type": "integer",
+						"description": "The exact number of distinct values"
+					}
+				}
 			}
 		}
 	}
