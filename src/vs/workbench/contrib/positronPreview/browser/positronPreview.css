@@ -5,6 +5,9 @@
 
 .positron-preview-container {
 	position: relative;
+}
+
+.positron-preview-webview {
 	/*
 	 * A web page will have a transparent background by default and browsers commonly set a white background.
 	 * This ensures consistency with light and dark themes where the webview content does not style the background.
