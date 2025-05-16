@@ -15,7 +15,7 @@ import { ILanguageRuntimeClientCreatedEvent, ILanguageRuntimeInfo, ILanguageRunt
 import { ILanguageRuntimeSession, ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -46,6 +46,9 @@ import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostType
 import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
+import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
+import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -1511,6 +1514,35 @@ export class MainThreadLanguageRuntime
 		return this._runtimeSessionService.focusSession(
 			this.findSession(handle).sessionId
 		);
+	}
+
+	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>> {
+		const sessionId = this.findSession(handle).sessionId;
+		const instances = this._positronVariablesService.positronVariablesInstances;
+		for (const instance of instances) {
+			if (instance.session.sessionId === sessionId) {
+				return this.getSessionVariables(instance, accessKeys);
+			}
+		}
+		throw new Error(`No variables provider found for session ${sessionId}`);
+	}
+
+	async getSessionVariables(instance: IPositronVariablesInstance, accessKeys?: Array<Array<string>>):
+		Promise<Array<Array<Variable>>> {
+		const client = instance.getClientInstance();
+		if (!client) {
+			throw new Error(`No variables provider available for session ${instance.session.sessionId}`);
+		}
+		if (accessKeys) {
+			const result = [];
+			for (const accessKey of accessKeys) {
+				result.push((await client.comm.inspect(accessKey)).children);
+			}
+			return result;
+		} else {
+			const allVars = await client.comm.list();
+			return [allVars.variables];
+		}
 	}
 
 	// Signals that language runtime discovery is complete.
