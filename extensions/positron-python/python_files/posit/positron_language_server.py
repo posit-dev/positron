@@ -90,11 +90,11 @@ if __name__ == "__main__":
     handlers = ["console"] if args.logfile is None else ["file"]
     logging_config = {
         "loggers": {
-            "": {
+            "PositronIPKernelApp": {
                 "level": args.loglevel,
                 "handlers": handlers,
             },
-            "PositronIPKernelApp": {
+            "positron._vendor.pygls.protocol.json_rpc": {
                 "level": args.loglevel,
                 "handlers": handlers,
             },
