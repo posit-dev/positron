@@ -536,12 +536,14 @@
                 "python.environmentProviders.enable": {
                     "default": {
                         "Venv": true,
-                        "Conda": true
+                        "Conda": true,
+                        "uv": true
                     },
                     "examples": [
                         {
                             "Venv": true,
-                            "Conda": true
+                            "Conda": true,
+                            "uv": true
                         }
                     ],
                     "markdownDescription": "%python.environmentProviders.enable.markdownDescription%",
@@ -552,6 +554,9 @@
                             "type": "boolean"
                         },
                         "Conda": {
+                            "type": "boolean"
+                        },
+                        "uv": {
                             "type": "boolean"
                         }
                     },
