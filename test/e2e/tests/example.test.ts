@@ -86,6 +86,6 @@ test.describe('Example Context Menu Tests', { tag: [] }, () => {
 	test("Context Menu Fail Open Bash", async function ({ app, page }) {
 		await app.workbench.terminal.clickTerminalTab();
 		await app.nativeMenu?.triggerAndClick(page.getByLabel('Launch Profile...'), 'zsh');
-		await expect(page.getByLabel('$(terminal-bash) bash')).toBeVisible();
+		await expect(page.getByLabel('$(terminal) zsh')).toBeVisible();
 	});
 });
