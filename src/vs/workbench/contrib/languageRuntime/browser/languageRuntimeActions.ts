@@ -884,7 +884,7 @@ export function registerLanguageRuntimeActions() {
 				undefined,
 				`Duplicated session: ${currentSession.dynState.sessionName}`,
 				RuntimeStartMode.Starting,
-				false
+				true
 			);
 
 			// Drive focus into the Positron console.
@@ -930,7 +930,7 @@ export function registerLanguageRuntimeActions() {
 					undefined,
 					'User selected runtime',
 					RuntimeStartMode.Starting,
-					false
+					true
 				);
 
 				// Drive focus into the Positron console.
