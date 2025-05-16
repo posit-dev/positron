@@ -522,7 +522,7 @@ export namespace CreateEnv {
 
     // --- Start Positron ---
     export namespace Uv {
-        export const providerDescription = l10n.t('Creates a `.venv` uv environment in the current workspace');
+        export const providerDescription = l10n.t('Creates a uv virtual environment in the current workspace');
     }
     // --- End Positron ---
 

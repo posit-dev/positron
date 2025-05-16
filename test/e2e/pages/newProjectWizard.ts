@@ -174,7 +174,7 @@ export interface CreateProjectOptions {
 	title: string;
 	status?: 'new' | 'existing';
 	rEnvCheckbox?: boolean;
-	pythonEnv?: 'conda' | 'venv';
+	pythonEnv?: 'conda' | 'venv' | 'uv';
 	initAsGitRepo?: boolean;
 	ipykernelFeedback?: 'show' | 'hide';
 	interpreterPath?: string;
