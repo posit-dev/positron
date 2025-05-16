@@ -220,7 +220,7 @@ function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart):
 /**
  * Convert chat participant history into an array of VSCode language model messages.
  */
-export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): vscode.LanguageModelChatMessage[] {
+export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[] {
 	return turns.map((turn) => {
 		if (turn instanceof vscode.ChatRequestTurn) {
 			let textValue = turn.prompt;

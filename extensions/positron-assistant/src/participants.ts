@@ -96,7 +96,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	readonly followupProvider: vscode.ChatFollowupProvider = {
 		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
 			const system: string = await fs.promises.readFile(`${mdDir}/prompts/chat/followups.md`, 'utf8');
-			const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
+			const messages = toLanguageModelChatMessage(context.history);
 			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
 
 			const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
@@ -226,15 +226,19 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
-		const messages = [
-			// Start with the chat history.
-			// Note that context.history excludes tool calls and results.
-			...toLanguageModelChatMessage(context.history),
-			// Add a user message containing context about the request, workspace, running sessions, etc.
-			await this.getContextMessage(request, response),
-			// Add the user's prompt.
-			vscode.LanguageModelChatMessage.User(request.prompt),
-		];
+
+		// Start with the chat history.
+		// Note that context.history excludes tool calls and results.
+		const messages = toLanguageModelChatMessage(context.history);
+
+		// Add a user message containing context about the request, workspace, running sessions, etc.
+		const contextMessage = await this.getContextMessage(request, response);
+		if (contextMessage) {
+			messages.push(contextMessage);
+		}
+
+		// Add the user's prompt.
+		messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
 
 		// Send the request to the language model.
 		await this.sendLanguageModelRequest(request, response, token, messages, tools, system);
@@ -261,7 +265,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	private async getContextMessage(
 		request: vscode.ChatRequest,
 		response: vscode.ChatResponseStream,
-	): Promise<vscode.LanguageModelChatMessage2> {
+	): Promise<vscode.LanguageModelChatMessage2 | undefined> {
 		// This function returns a single user message containing all context
 		// relevant to a request, including:
 		// 1. A text prompt.
@@ -414,11 +418,19 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			prompts.push(customPrompt);
 		}
 
-		const prompt = prompts.join('\n\n');
-		return vscode.LanguageModelChatMessage2.User([
-			new vscode.LanguageModelTextPart(prompt),
-			...userDataParts,
-		]);
+		const parts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
+		if (prompts.length > 0) {
+			const prompt = prompts.join('\n\n');
+			parts.push(new vscode.LanguageModelTextPart(prompt));
+		}
+
+		parts.push(...userDataParts);
+
+		if (parts.length > 0) {
+			return vscode.LanguageModelChatMessage2.User(parts);
+		}
+
+		return undefined;
 	}
 
 	/** Custom prompt for this participant, added before the user prompt. */
@@ -489,7 +501,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 }
 
 /** The participant used in the chat pane in Ask mode. */
-class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
+export class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Chat;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
