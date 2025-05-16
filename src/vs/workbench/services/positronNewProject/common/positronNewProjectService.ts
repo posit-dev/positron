@@ -637,26 +637,42 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 	/**
 	 * Waits for a kernel matching the given runtimePath to be registered for the notebook.
-	 * Returns the matching kernel if found, otherwise undefined.
-	 *
-	 * We need to wait because the kernel registration is async after the runtime session is started.
+	 * Listens to notebookKernelService.onDidAddKernel to avoid polling. Falls back after 10 s.
 	 *
 	 * @param notebookTextModel The notebook text model to select a kernel for
-	 * @param runtimePath The interpreter path to match
+	 * @param runtimePath The interpreter path to match.
 	 */
-	private async _waitForKernelRegistration(notebookTextModel: INotebookTextModel, runtimePath: string): Promise<INotebookKernel | undefined> {
-		const pollInterval = 200; // ms
-		const maxWait = 10000; // ms
-		const maxPolls = Math.ceil(maxWait / pollInterval);
-		for (let i = 0; i < maxPolls; i++) {
-			const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
-			const kernel = matchingKernels.all.find(k => k.description === runtimePath);
-			if (kernel) {
-				return kernel;
-			}
-			await new Promise(res => setTimeout(res, pollInterval));
+	private async _waitForKernelRegistration(
+		notebookTextModel: INotebookTextModel,
+		runtimePath: string,
+	): Promise<INotebookKernel | undefined> {
+		// Helper to find a matching kernel among currently known ones
+		const findMatch = (): INotebookKernel | undefined => {
+			const matching = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+			return matching.all.find(k => k.description === runtimePath);
+		};
+
+		// Return immediately if a kernel is already registered
+		const existing = findMatch();
+		if (existing) {
+			return existing;
 		}
-		return undefined;
+
+		return new Promise<INotebookKernel | undefined>((resolve) => {
+			// Listener for newly-added kernels
+			const disposable = this._notebookKernelService.onDidAddKernel((kernel) => {
+				if (kernel.description === runtimePath) {
+					disposable.dispose();
+					resolve(kernel);
+				}
+			});
+
+			// Fallback timeout (10 s)
+			setTimeout(() => {
+				disposable.dispose();
+				resolve(undefined);
+			}, 10000);
+		});
 	}
 
 	/**
