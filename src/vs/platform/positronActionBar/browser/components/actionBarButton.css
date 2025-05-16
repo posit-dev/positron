@@ -110,12 +110,12 @@
 
 .action-bar-button-icon.enabled-split {
 	display: flex;
-	padding: 0 2px 0 3px;
+	padding: 0 4px 0 3px;
 }
 
 .action-bar-button-icon.enabled-split:hover {
 	border-radius: 4px;
-	padding: 0 2px 0 3px;
+	padding: 0 4px 0 3px;
 	filter: brightness(90%);
 	background: var(--positronActionBar-hoverBackground);
 }
