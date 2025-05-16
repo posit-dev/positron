@@ -254,13 +254,13 @@
 					"description": "Any query type specific options",
 					"required": false,
 					"schema": {
-						"$ref": "#/components/schemas/table_query_options"
+						"$ref": "#/components/schemas/query_table_options"
 					}
 				}
 			],
 			"result": {
 				"schema": {
-					"$ref": "#/components/schemas/table_query_result"
+					"$ref": "#/components/schemas/query_table_result"
 				}
 			}
 		}
@@ -351,8 +351,8 @@
 					"updated_time"
 				]
 			},
-			"table_query_options": {
-				"name": "table_query_options",
+			"query_table_options": {
+				"name": "query_table_options",
 				"description": "Additional options for different query types",
 				"oneOf": [
 					{
@@ -361,7 +361,7 @@
 					}
 				]
 			},
-			"table_query_result": {
+			"query_table_result": {
 				"name": "table_query_result",
 				"description": "Result of a table query",
 				"oneOf": [

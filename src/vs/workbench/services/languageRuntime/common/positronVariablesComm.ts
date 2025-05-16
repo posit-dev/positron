@@ -248,7 +248,7 @@ export interface TableSummarizeResult {
 }
 
 /// Additional options for different query types
-export type TableQueryOptions = TableSummarizeOptions;
+export type QueryTableOptions = TableSummarizeOptions;
 
 /// Result of a table query
 export type TableQueryResult = TableDescriptionResult | TableSummarizeResult;
@@ -370,7 +370,7 @@ export interface QueryTableParams {
 	/**
 	 * Any query type specific options
 	 */
-	options?: TableQueryOptions;
+	options?: QueryTableOptions;
 }
 
 /**
@@ -604,7 +604,7 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @returns undefined
 	 */
-	queryTable(path: Array<string>, queryType: QueryTableQueryType, options: TableQueryOptions | undefined): Promise<TableQueryResult> {
+	queryTable(path: Array<string>, queryType: QueryTableQueryType, options: QueryTableOptions | undefined): Promise<QueryTableResult> {
 		return super.performRpc('query_table', ['path', 'query_type', 'options'], [path, queryType, options]);
 	}
 

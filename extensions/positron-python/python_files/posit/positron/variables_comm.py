@@ -281,7 +281,7 @@ class TableSummarizeResult(BaseModel):
 
 
 # Additional options for different query types
-TableQueryOptions = Union[TableSummarizeOptions,]
+QueryTableOptions = Union[TableSummarizeOptions,]
 # Result of a table query
 TableQueryResult = Union[
     TableDescriptionResult,
@@ -530,7 +530,7 @@ class QueryTableParams(BaseModel):
         description="The type of query to perform",
     )
 
-    options: Optional[TableQueryOptions] = Field(
+    options: Optional[QueryTableOptions] = Field(
         default=None,
         description="Any query type specific options",
     )
