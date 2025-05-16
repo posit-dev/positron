@@ -256,6 +256,20 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 	// Construct the feedback message for the interpreter step.
 	const interpreterStepFeedback = () => {
 		if (!interpretersLoading() && !interpretersAvailable()) {
+			if (context.usesUvEnv) {
+				return (
+					<WizardFormattedText
+						type={WizardFormattedTextType.Warning}
+					>
+						{(() =>
+							localize(
+								'pythonInterpreterSubStep.feedback.uvNotInstalled',
+								"uv is not installed. Please install uv to create a uv environment."
+							))()}
+					</WizardFormattedText>
+				);
+			}
+
 			// For new environments, if no environment providers were found, show a message to notify
 			// the user that interpreters can't be shown since no environment providers were found.
 			if (envSetupType === EnvironmentSetupType.NewEnvironment) {
@@ -281,20 +295,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 							localize(
 								'pythonInterpreterSubStep.feedback.condaNotInstalled',
 								"Conda is not installed. Please install Conda to create a Conda environment."
-							))()}
-					</WizardFormattedText>
-				);
-			}
-
-			if (context.usesUvEnv) {
-				return (
-					<WizardFormattedText
-						type={WizardFormattedTextType.Warning}
-					>
-						{(() =>
-							localize(
-								'pythonInterpreterSubStep.feedback.uvNotInstalled',
-								"uv is not installed. Please install uv to create a uv environment."
 							))()}
 					</WizardFormattedText>
 				);
