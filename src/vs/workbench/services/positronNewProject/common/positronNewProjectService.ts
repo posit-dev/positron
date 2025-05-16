@@ -484,8 +484,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 				// Check if the newly created runtime metadata was returned
 				if (!result.metadata) {
-					// Warn the user, but don't exit early. We'll still try to continue since the
-					// environment creation was successful.
+					// Warn the user, but don't exit early. We'll still try to
+					// continue since the environment creation was successful.
 					const message = this._failedPythonEnvMessage(`Could not determine interpreter metadata returned from ${createEnvCommand} command. The interpreter may need to be selected manually.`);
 					this._logService.error(message);
 					this._notificationService.warn(message);
