@@ -60,7 +60,7 @@ async function createUvVenv(
         () => {
             dispose();
             if (proc?.exitCode !== 0) {
-                traceError('Error while running venv creation script');
+                traceError('Error while running uv environment creation script');
                 deferred.reject(`Failed to create virtual environment with exitCode: ${proc?.exitCode}`);
             } else {
                 deferred.resolve(venvPath);
