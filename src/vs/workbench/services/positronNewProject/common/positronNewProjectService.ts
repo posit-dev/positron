@@ -688,6 +688,17 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		const languageId = this._runtimeMetadata?.languageId;
 		this._logService.debug('[New project startup] Kernel selection: runtimePath=', runtimePath);
 
+		const matchingInitial = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+		// If a kernel is already selected and it doesn't match our runtime, decide if we should override.
+		if (runtimePath && matchingInitial.selected && matchingInitial.selected.description !== runtimePath) {
+			const hasExecuted = notebookTextModel.cells.some(cell => typeof cell.internalMetadata?.executionOrder === 'number');
+			if (!hasExecuted) {
+				this._logService.debug('[New project startup] Overriding pre-selected kernel because notebook has no execution history.');
+				// We simply clear the selection; the subsequent logic will select the correct kernel.
+				this._notebookKernelService.selectKernelForNotebook(undefined as any, notebookTextModel);
+			}
+		}
+
 		let kernelToSelect: INotebookKernel | undefined;
 
 		if (runtimePath) {

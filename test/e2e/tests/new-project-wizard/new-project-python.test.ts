@@ -85,7 +85,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 		});
 
 		// Wait for the notebook editor to be visible
-		const notebookEditorTab = app.code.driver.page.getByText('Untitled-1.ipynb', { exact: true });
+		const notebookEditorTab = app.code.driver.page.locator('[id="workbench.parts.editor"]').getByText('Untitled-1.ipynb', { exact: true });
 		await expect(notebookEditorTab).toBeVisible();
 
 		// Get the Python version from the session selector button
