@@ -30,7 +30,7 @@ export async function quartoHandler(
 	});
 	const editor = await vscode.window.showTextDocument(document);
 
-	const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
+	const messages = toLanguageModelChatMessage(context.history);
 	messages.push(...[
 		vscode.LanguageModelChatMessage.User(vscode.l10n.t('Convert to Qmd.')),
 	]);
