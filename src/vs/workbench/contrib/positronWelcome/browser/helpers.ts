@@ -141,13 +141,26 @@ export async function mergeSettingsJson(
 	incoming: URI
 ): Promise<string> {
 	// Read the contents of the existing and incoming settings files
-	const existingContents = await fileService.readFile(existing);
-	const incomingContents = await fileService.readFile(incoming);
+	let existingContents;
+	if (await fileService.exists(existing)) {
+		const fileContent = await fileService.readFile(incoming);
+		existingContents = fileContent.value.toString();
+	} else {
+		existingContents = '{}';
+	}
+
+	let incomingContents;
+	if (await fileService.exists(incoming)) {
+		const fileContent = await fileService.readFile(incoming);
+		incomingContents = fileContent.value.toString();
+	} else {
+		incomingContents = '{}';
+	}
 
 	// Parse the contents as JSON
 	// Using the `jsonc.parse` function to handle comments and trailing commas
-	const existingJson = parse<Record<string, any>>(existingContents.value.toString());
-	const incomingJson = parse<Record<string, any>>(incomingContents.value.toString());
+	const existingJson = parse<Record<string, any>>(existingContents);
+	const incomingJson = parse<Record<string, any>>(incomingContents);
 
 	// Merge the two JSON objects
 	const mergedJson = mergeObjects(existingJson, incomingJson);
