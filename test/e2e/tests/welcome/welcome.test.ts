@@ -32,7 +32,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		test('Verify Welcome page content', async function ({ app }) {
 			const { welcome, quickaccess } = app.workbench;
 
-			let OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
+			let OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...', 'Connect to...'];
 
 			if (!app.web && process.platform === 'darwin') {
 				OPEN_BUTTONS_LABELS = ['Open...', 'New Folder...', 'New Folder from Git...'];
