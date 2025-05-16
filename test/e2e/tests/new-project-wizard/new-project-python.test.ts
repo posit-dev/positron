@@ -72,6 +72,38 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 		await verifyProjectCreation(app, projectTitle);
 		await verifyVenEnvStarts(app);
 	});
+
+	test('Python Notebook Project - connects notebook to runtime on startup', async function ({ app }) {
+		const projectTitle = `python-notebook-runtime-${Math.floor(Math.random() * 1000000)}`;
+
+		// Create a new Python notebook project
+		await app.workbench.newProjectWizard.createNewProject({
+			type: ProjectType.JUPYTER_NOTEBOOK,
+			title: projectTitle,
+			status: 'new',
+			pythonEnv: 'venv', // or 'conda' if that's your default
+		});
+
+		// Wait for the notebook editor to be visible
+		const notebookEditorTab = app.code.driver.page.locator('[id="workbench.parts.editor"]').getByText('Untitled-1.ipynb', { exact: true });
+		await expect(notebookEditorTab).toBeVisible();
+
+		// Get the Python version from the session selector button
+		const sessionSelectorButton = app.code.driver.page.getByRole('button', { name: 'Session Selector' });
+		const sessionSelectorText = await sessionSelectorButton.textContent();
+		// Extract the version number (e.g., '3.10.12') from the button text
+		const versionMatch = sessionSelectorText && sessionSelectorText.match(/Python ([0-9]+\.[0-9]+\.[0-9]+)/);
+		const pythonVersion = versionMatch ? versionMatch[1] : undefined;
+		// Fail the test if we can't extract the version
+		expect(pythonVersion, 'Python version should be present in session selector').toBeTruthy();
+
+		// After the runtime starts up the kernel status should be replaced with the kernel name.
+		// The kernel name should contain the Python version from the session selector
+		// Only look within an 'a' tag with class 'kernel-label' to avoid false positives
+		const kernelLabel = app.code.driver.page.locator('a.kernel-label');
+		await expect(kernelLabel).toContainText(`Python ${pythonVersion}`);
+		await expect(kernelLabel).toContainText('.venv');
+	});
 });
 
 // Helper functions
