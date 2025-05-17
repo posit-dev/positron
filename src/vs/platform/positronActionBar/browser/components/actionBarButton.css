@@ -110,7 +110,7 @@
 
 .action-bar-button-icon.enabled-split {
 	display: flex;
-	padding: 0 4px 0 3px;
+	padding: 0 4px;
 }
 
 .action-bar-button-icon.enabled-split:hover {
