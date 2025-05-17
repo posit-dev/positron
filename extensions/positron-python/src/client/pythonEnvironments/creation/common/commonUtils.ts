@@ -18,6 +18,18 @@ export async function showErrorMessageWithLogs(message: string): Promise<void> {
     }
 }
 
+// --- Start Positron ---
+// Same as above but opens the Positron session picker instead
+export async function showPositronErrorMessageWithLogs(message: string): Promise<void> {
+    const result = await showErrorMessage(message, Common.openOutputPanel, Common.selectNewSession);
+    if (result === Common.openOutputPanel) {
+        await executeCommand(Commands.ViewOutput);
+    } else if (result === Common.selectNewSession) {
+        await executeCommand('workbench.action.language.runtime.openActivePicker');
+    }
+}
+// --- End Positron ---
+
 export function getVenvPath(workspaceFolder: WorkspaceFolder): string {
     return path.join(workspaceFolder.uri.fsPath, '.venv');
 }
