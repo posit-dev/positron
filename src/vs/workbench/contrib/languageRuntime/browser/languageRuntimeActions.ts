@@ -825,6 +825,7 @@ export function registerLanguageRuntimeActions() {
 
 	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID, 'Session Selector', async accessor => {
 		// Access services.
+		const commandService = accessor.get(ICommandService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 		// Prompt the user to select a runtime to use.
@@ -832,6 +833,8 @@ export function registerLanguageRuntimeActions() {
 
 		// If the user selected a specific session, set it as the active session if it still exists
 		if (newActiveSession) {
+			// Drive focus into the Positron console.
+			commandService.executeCommand('workbench.panel.positronConsole.focus');
 			runtimeSessionService.foregroundSession = newActiveSession;
 		}
 	});
@@ -874,6 +877,9 @@ export function registerLanguageRuntimeActions() {
 				return;
 			}
 
+			// Drive focus into the Positron console.
+			commandService.executeCommand('workbench.panel.positronConsole.focus');
+
 			// Duplicate the current session with the `startNewRuntimeSession` method.
 			await runtimeSessionService.startNewRuntimeSession(
 				currentSession.runtimeMetadata.runtimeId,
@@ -910,6 +916,7 @@ export function registerLanguageRuntimeActions() {
 
 		async run(accessor: ServicesAccessor) {
 			// Access services.
+			const commandService = accessor.get(ICommandService);
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 			// Prompt the user to select a runtime to start
@@ -917,6 +924,9 @@ export function registerLanguageRuntimeActions() {
 
 			// If the user selected a runtime, set it as the active runtime
 			if (selectedRuntime?.runtimeId) {
+				// Drive focus into the Positron console.
+				commandService.executeCommand('workbench.panel.positronConsole.focus');
+
 				return await runtimeSessionService.startNewRuntimeSession(
 					selectedRuntime.runtimeId,
 					selectedRuntime.runtimeName,
