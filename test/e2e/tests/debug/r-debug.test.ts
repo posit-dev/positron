@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { exec } from 'child_process';
 import { test, tags, expect } from '../_test.setup';
 
 test.use({
