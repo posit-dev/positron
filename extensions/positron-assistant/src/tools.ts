@@ -122,7 +122,11 @@ export function registerAssistantTools(
 
 	context.subscriptions.push(selectionEditTool);
 
-	const executeCodeTool = vscode.lm.registerTool<{ code: string; language: string }>(PositronAssistantToolName.ExecuteCode, {
+	const executeCodeTool = vscode.lm.registerTool<{
+		code: string;
+		language: string;
+		summary: string;
+	}>(PositronAssistantToolName.ExecuteCode, {
 		/**
 		 * Called by Positron to prepare for tool invocation. We use this hook
 		 * to show the user the code that we are about to run, and ask for
@@ -145,7 +149,7 @@ export function registerAssistantTools(
 
 				/// The message shown to confirm that the user wants to run the code.
 				confirmationMessages: {
-					title: vscode.l10n.t('Run in Console'),
+					title: options.input.summary ?? vscode.l10n.t('Run in Console'),
 					message: ''
 				},
 			};
