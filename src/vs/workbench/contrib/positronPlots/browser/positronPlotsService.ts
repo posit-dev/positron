@@ -67,6 +67,9 @@ const WebviewPlotInactiveTimeout = 120_000;
 /** Interval in milliseconds at which inactive webview plots are checked. */
 const WebviewPlotInactiveInterval = 1_000;
 
+/** The key used to store the cached plot thumbnail descriptors */
+const CachedPlotThumbnailDescriptorsKey = 'positron.plots.cachedPlotThumbnailDescriptors';
+
 /** The key used to store the preferred history policy */
 const HistoryPolicyStorageKey = 'positron.plots.historyPolicy';
 
@@ -86,11 +89,22 @@ interface DataUri {
 }
 
 /**
- * PositronPlotsService class.
+ * ICachedPlotThumbnailDescriptor interface.
  */
+interface ICachedPlotThumbnailDescriptor {
+	readonly plotClientId: string;
+	readonly thumbnailURI: string;
+}
+
+/**
+* PositronPlotsService class.
+*/
 export class PositronPlotsService extends Disposable implements IPositronPlotsService {
 	/** Needed for service branding in dependency injector. */
 	declare readonly _serviceBrand: undefined;
+
+	/** The map of cached plot thumbnail descriptors. */
+	private readonly _cachedPlotThumbnailDescriptors = new Map<string, ICachedPlotThumbnailDescriptor>();
 
 	/** The list of Positron plots. */
 	private readonly _plots: IPositronPlotClient[] = [];
@@ -224,8 +238,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			await this.registerWebviewPlotClient(plotClient);
 		}));
 
-		// When the storage service is about to save state, store the current history policy
-		// and storage policy in the workspace storage.
+		// When the storage service is about to save state, store policies and cached plot thumbnail descriptors.
 		this._register(this._storageService.onWillSaveState(() => {
 			this._storageService.store(
 				HistoryPolicyStorageKey,
@@ -250,6 +263,45 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// If we don't, clear the custom plot size from storage
 				this._storageService.store(
 					CustomPlotSizeStorageKey,
+					undefined,
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE);
+			}
+
+			// Enumerate the plot clients and update the cached plot thumbnail descriptors.
+			const keysToDelete: Set<string> = new Set(this._cachedPlotThumbnailDescriptors.keys());
+			this._plots.forEach(plotClient => {
+				keysToDelete.delete(plotClient.id);
+				if (plotClient instanceof PlotClientInstance) {
+					if (plotClient.lastRender?.uri) {
+						this._cachedPlotThumbnailDescriptors.set(plotClient.id, {
+							plotClientId: plotClient.id,
+							thumbnailURI: plotClient.lastRender.uri
+						});
+					}
+				} else if (plotClient instanceof HtmlPlotClient) {
+					if (plotClient.thumbnailUri) {
+						this._cachedPlotThumbnailDescriptors.set(plotClient.id, {
+							plotClientId: plotClient.id,
+							thumbnailURI: plotClient.thumbnailUri
+						});
+					}
+				}
+			});
+
+			// Delete any cached plot thumbnail descriptors that are no longer valid.
+			keysToDelete.forEach(key => this._cachedPlotThumbnailDescriptors.delete(key));
+
+			// Update the cached plot thumbnail descriptors in workspace storage.
+			if (this._cachedPlotThumbnailDescriptors.size) {
+				this._storageService.store(
+					CachedPlotThumbnailDescriptorsKey,
+					JSON.stringify([...this._cachedPlotThumbnailDescriptors.values()]),
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE);
+			} else {
+				this._storageService.store(
+					CachedPlotThumbnailDescriptorsKey,
 					undefined,
 					StorageScope.WORKSPACE,
 					StorageTarget.MACHINE);
@@ -329,6 +381,22 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			StorageScope.WORKSPACE);
 		if (preferredHistoryPolicy && preferredHistoryPolicy) {
 			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
+		}
+
+		// Load the cached plot thumbnail descriptors from workspace storage.
+		const cachedPlotThumbnailDescriptorsJSON = this._storageService.get(CachedPlotThumbnailDescriptorsKey, StorageScope.WORKSPACE);
+		if (cachedPlotThumbnailDescriptorsJSON) {
+			try {
+				// Parse the cached plot thumbnail descriptors.
+				const cachedPlotThumbnailDescriptors = JSON.parse(cachedPlotThumbnailDescriptorsJSON) as ICachedPlotThumbnailDescriptor[];
+
+				// Initialize the cached plot thumbnail descriptors.
+				for (const cachedPlotThumbnailDescriptor of cachedPlotThumbnailDescriptors) {
+					this._cachedPlotThumbnailDescriptors.set(cachedPlotThumbnailDescriptor.plotClientId, cachedPlotThumbnailDescriptor);
+				}
+			} catch (error) {
+				this._logService.error(`Error parsing cached plot thumbnail descriptors: ${error}`);
+			}
 		}
 
 		// When a plot is selected, update its last selected time.
@@ -425,6 +493,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	get darkFilterMode() {
 		return this._selectedDarkFilterMode;
+	}
+
+	/**
+	 * Gets the cached plot thumbnail URI for a given plot ID.
+	 * @param plotId The plot ID to get the thumbnail URI for.
+	 * @returns The thumbnail URI for the plot, or undefined if not found.
+	 */
+	getCachedPlotThumbnailURI(plotId: string) {
+		return this._cachedPlotThumbnailDescriptors.get(plotId)?.thumbnailURI;
 	}
 
 	/**
