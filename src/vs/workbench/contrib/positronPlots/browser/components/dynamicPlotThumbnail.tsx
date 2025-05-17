@@ -39,9 +39,11 @@ export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
 	useEffect(() => {
 		// When the plot is rendered, update the URI. This can happen multiple times if the plot
 		// is resized.
-		props.plotClient.onDidCompleteRender(result => {
+		const disposable = props.plotClient.onDidCompleteRender(result => {
 			setUri(result.uri);
 		});
+
+		return () => disposable.dispose();
 	}, [props.plotClient]);
 
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
