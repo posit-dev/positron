@@ -5,10 +5,18 @@ inputs:
     description: "Base URL of the S3 bucket or CDN for the report"
     required: false
     default: "https://d38p2avprg8il3.cloudfront.net"
+outputs:
+  report-dir:
+    description: "The generated unique report directory name"
+    value: ${{ steps.generate-report-dir.outputs.report_dir }}
+  report-url:
+    description: "The URL to the generated report"
+    value: ${{ steps.generate-report-dir.outputs.report_url }}
 runs:
   using: "composite"
   steps:
     - name: Generate REPORT_DIR
+      id: generate-report-dir
       shell: bash
       run: |
         # Generate a unique REPORT_DIR
@@ -17,12 +25,14 @@ runs:
 
         # Export REPORT_DIR for downstream steps
         echo "REPORT_DIR=$REPORT_DIR" >> $GITHUB_ENV
+        echo "report_dir=$REPORT_DIR" >> $GITHUB_OUTPUT
         echo "Generated REPORT_DIR: $REPORT_DIR"
 
         # Generate the REPORT_URL
         REPORT_URL="${{ inputs.bucket-url }}/$REPORT_DIR/index.html"
         echo "Report URL: $REPORT_URL"
         echo "REPORT_URL=$REPORT_URL" >> $GITHUB_ENV
+        echo "report_url=$REPORT_URL" >> $GITHUB_OUTPUT
 
         # Append REPORT_URL to the GitHub Step summary
         echo "📄 [Playwright Report]($REPORT_URL) <br>" >> $GITHUB_STEP_SUMMARY
