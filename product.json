@@ -265,6 +265,20 @@
 				"multiPlatformServiceUrl": "https://open-vsx.org/api"
 			},
 			"publisherDisplayName": "Posit Software, PBC"
+		},
+		{
+			"name": "GitHub.vscode-pull-request-github",
+			"version": "0.110.0",
+			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
+			"metadata": {
+				"publisherId": {
+					"publisherName": "GitHub",
+					"displayName": "GitHub Pull Requests",
+					"flags": "verified"
+				},
+				"publisherDisplayName": "GitHub",
+				"multiPlatformServiceUrl": "https://open-vsx.org/api"
+			}
 		}
 	],
 	"extensionsGallery": {
