@@ -3,6 +3,22 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * R Debugging Feature
+ *
+ * This feature supports multiple debugging mechanisms for R-based code:
+ * - Browser-based debugging with `browser()` and `debugonce()`
+ * - Error recovery with `options(error = recover)`
+ * - Full integration with Positron's debugging UI, call stack, and variables view
+ *
+ * Debugging flow:
+ * 1. User sets breakpoints using R's native debugging functions (`browser()`, `debugonce()`, etc.)
+ * 2. When execution reaches these points, Positron enters debug mode
+ * 3. User can inspect variables, step through code, and control execution flow
+ * 4. Debugging can be controlled via console commands (s/n/c/Q) or Positron's debugging UI
+ * 5. Variables can be inspected in the console or in the Variables debugging pane
+ */
+
 import { Page } from '@playwright/test';
 import { Application } from '../../infra/index.js';
 import { test, tags, expect } from '../_test.setup';
