@@ -1279,10 +1279,7 @@ registerAction2(class extends Action2 {
 			category,
 			f1: true,
 			keybinding: {
-				primary: KeyCode.F2,
-				mac: {
-					primary: KeyCode.Enter
-				},
+				primary: KeyCode.Enter,
 				when: PositronConsoleTabFocused,
 				weight: KeybindingWeight.WorkbenchContrib
 			}
