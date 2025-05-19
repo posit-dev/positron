@@ -38,7 +38,7 @@ export class Sessions {
 
 	// Session Metadata
 	private metadataButton = this.page.getByRole('button', { name: 'Console information' });
-	private metadataDialog = this.page.getByRole('dialog').locator('.console-instance-info');
+	private metadataDialog = this.page.getByRole('dialog').locator('.console-instance-info').first();
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
