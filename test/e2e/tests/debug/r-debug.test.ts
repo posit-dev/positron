@@ -5,88 +5,121 @@
 
 import { test, tags, expect } from '../_test.setup';
 
-test.use({
-	suiteId: __filename
-});
+test.use({ suiteId: __filename });
 
 test.describe('R Debugging', {
 	tag: [tags.DEBUG, tags.WEB, tags.WIN]
 }, () => {
 
-	test('R - Verify manual break point and debugging with `browser()`',
-		async ({ r, page, executeCode }) => {
-			await executeCode('R', scriptWithBrowser);
+	test.beforeAll(async ({ executeCode }) => {
+		await executeCode('R', `dat <- data.frame(
+			blackberry = c(4, 9, 6),
+			blueberry = c(1, 2, 8),
+			peach = c(59, 150, 10),
+			plum = c(30, 78, 5)
+		)
+		rownames(dat) <- c("calories", "weight", "yumminess")`);
+	});
 
-			// Call the function and hit the breakpoint
-			await executeCode('R', 'fruit_avg(dat, "berry")', { waitForReady: false });
-			await expect(page.getByText('Browse[1]>')).toBeVisible();
+	test.afterEach(async ({ hotKeys, app }) => {
+		await hotKeys.closeAllEditors();
+		await app.workbench.console.clearButton.click();
+	});
 
-			// Verify debug variables section is visible
-			await expect(page.getByRole('button', { name: 'Debug Variables Section' })).toBeVisible();
-			await expect(page.getByLabel('pattern, value "berry"')).toBeVisible();
-			await expect(page.getByLabel('dat, value dat')).toBeVisible();
+	test('R - Verify debugging with `browser()` via console', async ({ page, openFile, runCommand, executeCode }) => {
+		await loadAndTriggerBreakpoint(openFile, runCommand, executeCode);
+		await verifyDebugState(page);
 
-			// Verify the call stack section is visible
-			await expect(page.getByRole('button', { name: 'Call Stack Section' })).toBeVisible();
-			const debugCallStack = page.locator('.debug-call-stack');
-			await expect(debugCallStack.getByText('fruit_avg()fruit_avg()2:')).toBeVisible();
-			await expect(debugCallStack.getByText('<global>fruit_avg(dat, "berry")')).toBeVisible();
+		// Inspect variables manually via console input
+		await inspectConsoleVariable(page, 'pattern', '[1] "berry"');
+		await inspectConsoleVariable(page, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
 
-			// Inspect the pattern variable
-			await page.keyboard.type('pattern');
-			await page.keyboard.press('Enter');
-			await expect(page.getByText('[1] "berry"')).toBeVisible();
+		// Step into the next line using 's'
+		await page.keyboard.type('s');
+		await page.keyboard.press('Enter');
+		await expect(page.getByText(/debug at .*#3: cols <- grep\(pattern, names\(dat\)\)/)).toBeVisible();
 
-			// Inspect the structure of dat
-			await page.keyboard.type('names(dat)');
-			await page.keyboard.press('Enter');
-			await expect(page.getByText('[1] "blackberry" "blueberry"  "peach" "plum"')).toBeVisible({ timeout: 30000 });
+		// Step over to next line using 'n'
+		await page.keyboard.type('n');
+		await page.keyboard.press('Enter');
+		await expect(page.getByText(/debug at .*#4: mini_dat <- dat\[, cols\]/)).toBeVisible();
 
-			// Step to the next line with 'n'
-			await page.keyboard.type('n');
-			await page.keyboard.press('Enter');
-			await expect(page.getByText('debug at #3: cols <- grep(pattern, names(dat))')).toBeVisible();
+		// Continue execution with 'c'
+		await page.keyboard.type('c');
+		await page.keyboard.press('Enter');
+		await expect(page.getByText('Found 2 fruits!')).toBeVisible();
+	});
 
-			// Finally, continue
-			await page.keyboard.type('c');
-			await page.keyboard.press('Enter');
+	test('R - Verify debugging with `browser()` via debugging UI tools', async ({ app, page, openFile, runCommand, executeCode }) => {
+		const { debug } = app.workbench;
 
-			// Confirm expected message appears
-			await expect(page.getByText('Found 2 fruits!')).toBeVisible();
-		});
+		await loadAndTriggerBreakpoint(openFile, runCommand, executeCode);
+		await verifyDebugState(page);
 
-	test('R - Verify interactive recovery mode using `options(error = recover)`', async ({ r, page, app, executeCode }) => {
-		// Set up the R environment and define the function with an intentional bug
-		await executeCode('R', script);
+		// Evaluate values in the console to confirm correct inputs
+		await inspectConsoleVariable(page, 'pattern', '[1] "berry"');
+		await inspectConsoleVariable(page, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
 
-		// Enable interactive recovery mode for errors
+		// Step into and over using debugger UI controls
+		await debug.stepInto();
+		await expect(page.getByText(/debug at .*#3: cols <- grep\(pattern, names\(dat\)\)/)).toBeVisible();
+
+		await debug.stepOver();
+		await expect(page.getByText(/debug at .*#4: mini_dat <- dat\[, cols\]/)).toBeVisible();
+
+		// Continue execution and check final message
+		await debug.continue();
+		await expect(page.getByText('Found 2 fruits!')).toBeVisible();
+	});
+
+	test('R - Verify debugging with `debugonce()` pauses only once', async ({ page, executeCode, openFile, runCommand }) => {
+		await openFile('workspaces/r-debugging/fruit_avg.r');
+		await runCommand('r.sourceCurrentFile');
+
+		await executeCode('R', 'debugonce(fruit_avg)');
+		await executeCode('R', 'fruit_avg(dat, "berry")', { waitForReady: false });
+
+		// First call should pause at debug prompt
+		await expect(page.getByText('Browse[1]>')).toBeVisible();
+
+		// Continue execution
+		await page.keyboard.type('c');
+		await page.keyboard.press('Enter');
+		await expect(page.getByText('Found 2 fruits!')).toBeVisible();
+
+		// Call again — should not pause this time
+		await executeCode('R', 'fruit_avg(dat, "berry")', { waitForReady: false });
+		await expect(page.getByText('Found 2 fruits!')).toHaveCount(2);
+	});
+
+	test('R - Verify debugging with `options(error = recover)` interactive recovery mode', async ({ app, page, openFile, runCommand, executeCode }) => {
+		await openFile('workspaces/r-debugging/fruit_avg.r');
+		await runCommand('r.sourceCurrentFile');
+
+		// Enable recovery mode so errors trigger the interactive debugger
 		await executeCode('R', 'options(error = recover)');
 
-		// Trigger an error by passing a pattern that matches only one column
-		// This causes `rowMeans(mini_dat)` to fail since it's not a matrix
+		// This should throw an error inside rowMeans(mini_dat)
 		await executeCode('R', 'fruit_avg(dat, "black")', { waitForReady: false });
 
-		// Verify the interactive recovery prompt is displayed
+		// Confirm recovery prompt appears and frame selection is offered
 		await expect(page.getByText('Enter a frame number, or 0 to exit')).toBeVisible();
 		await expect(page.getByText('1: fruit_avg(dat, "black")')).toBeVisible();
 
-		// Select the first frame in the call stack (inside the function)
+		// Select the inner function frame to inspect local variables
+		await expect(page.getByText('Selection:')).toBeVisible();
 		await page.keyboard.type('1');
 		await page.keyboard.press('Enter');
 
-		// Validate the error message
+		// Confirm error message appears in sidebar
 		await expect(page.locator('.activity-error-message'))
 			.toContainText("'x' must be an array of at least two dimensions");
 
-		// Inspect a local variable in the selected frame
+		// Check the contents of mini_dat (only one column matched)
 		await app.workbench.console.focus();
-		await page.keyboard.type('mini_dat');
-		await page.keyboard.press('Enter');
+		await inspectConsoleVariable(page, 'mini_dat', '[1] 4 9 6');
 
-		// Confirm that `mini_dat` contains the expected values (only blackberry column)
-		await expect(page.getByText('[1] 4 9 6')).toBeVisible();
-
-		// Exit recovery mode
+		// Quit the debugger and confirm REPL is ready
 		await page.keyboard.type('Q');
 		await page.keyboard.press('Enter');
 		await app.workbench.console.waitForReady('>');
@@ -94,33 +127,30 @@ test.describe('R Debugging', {
 });
 
 
-const scriptWithBrowser = `dat <- data.frame(
-blackberry = c(4, 9, 6),
-blueberry = c(1, 2, 8),
-peach = c(59, 150, 10),
-plum = c(30, 78, 5)
-)
-rownames(dat) <- c("calories", "weight", "yumminess")
+// Helper: validate debugger is paused and expected UI panels are visible
+async function verifyDebugState(page) {
+	await expect(page.getByText('Browse[1]>')).toBeVisible();
 
-fruit_avg <- function(dat, pattern) {
-browser()
-cols <- grep(pattern, names(dat))
-mini_dat <- dat[ , cols]
-message("Found ", ncol(mini_dat), " fruits!")
-rowMeans(mini_dat)
-}`;
+	await expect(page.getByRole('button', { name: 'Debug Variables Section' })).toBeVisible();
+	await expect(page.getByLabel('pattern, value "berry"')).toBeVisible();
+	await expect(page.getByLabel('dat, value dat')).toBeVisible();
 
-const script = `dat <- data.frame(
-blackberry = c(4, 9, 6),
-blueberry = c(1, 2, 8),
-peach = c(59, 150, 10),
-plum = c(30, 78, 5)
-)
-rownames(dat) <- c("calories", "weight", "yumminess")
+	await expect(page.getByRole('button', { name: 'Call Stack Section' })).toBeVisible();
+	const debugCallStack = page.locator('.debug-call-stack');
+	await expect(debugCallStack.getByText('fruit_avg()fruit_avg()2:')).toBeVisible();
+	await expect(debugCallStack.getByText('<global>fruit_avg(dat, "berry")')).toBeVisible();
+}
 
-fruit_avg <- function(dat, pattern) {
-cols <- grep(pattern, names(dat))
-mini_dat <- dat[ , cols]
-message("Found ", ncol(mini_dat), " fruits!")
-rowMeans(mini_dat)
-}`;
+// Helper: evaluate variable in console and validate the result
+async function inspectConsoleVariable(page, name: string, expectedText: string) {
+	await page.keyboard.type(name);
+	await page.keyboard.press('Enter');
+	await expect(page.getByText(expectedText)).toBeVisible({ timeout: 30000 });
+}
+
+// Helper: open R script, source it, and run function call to trigger browser()
+async function loadAndTriggerBreakpoint(openFile, runCommand, executeCode, file = 'fruit_avg_browser.r', pattern = 'berry') {
+	await openFile(`workspaces/r-debugging/${file}`);
+	await runCommand('r.sourceCurrentFile');
+	await executeCode('R', `fruit_avg(dat, "${pattern}")`, { waitForReady: false });
+}
