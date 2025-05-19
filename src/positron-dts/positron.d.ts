@@ -627,6 +627,38 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A variable in the runtime's memory or environment.
+	 */
+	export interface RuntimeVariable {
+		/** An internal access key for the variable */
+		access_key: string;
+
+		/** A human-readable display name for the variable */
+		display_name: string;
+
+		/** The type of the variable (string, number, etc.) */
+		display_type: string;
+
+		/** A string representation of the value of the variable */
+		display_value: string;
+
+		/**
+		 * Extended type information naming e.g. the exact class name of the
+		 * variable
+		 */
+		type_info?: string;
+
+		/** The length of the variable, e.g. number of elements in an array */
+		length: number;
+
+		/** The size of a variable, e.g. in bytes */
+		size: number;
+
+		/** Whether the variable has child variables, e.g columns in a data frame */
+		has_children: boolean;
+	}
+
+	/**
 	 * The possible types of language model that can be used with the Positron Assistant.
 	 */
 	export enum PositronLanguageModelType {
@@ -681,21 +713,6 @@ declare module 'positron' {
 		getClientState(): RuntimeClientState;
 		getClientId(): string;
 		getClientType(): RuntimeClientType;
-	}
-
-	/**
-	 * RuntimeVariablesClient is a client that tracks the variables in the runtime.
-	 */
-	export interface RuntimeVariablesClient extends RuntimeClientInstance {
-		onDidChangeVariables: vscode.Event<Array<Variable>>;
-		getCurrentVariables(): Array<Variable>;
-	}
-
-	export interface Variable {
-		name: string;
-		value: string;
-		length: number;
-		size: number;
 	}
 
 	/**
@@ -1626,7 +1643,8 @@ declare module 'positron' {
 		/**
 		 * Register a language runtime manager with Positron.
 		 *
-		 * @param languageId The language ID for which the runtime
+		 * @param languageId The language ID for which the manager can provide
+		 * runtimes
 		 * @returns A disposable that unregisters the manager when disposed.
 		 *
 		 */
@@ -1696,6 +1714,22 @@ declare module 'positron' {
 		 * Focus a running session
 		 */
 		export function focusSession(sessionId: string): void;
+
+		/**
+		 * Get the runtime variables for a session.
+		 *
+		 * @param sessionId The session ID of the session to get the variables for.
+		 * @param accessKeys An optional array of access keys. Each access key
+		 * is an array listing the path to a variable. If no access keys are
+		 * provided, all variables will be returned.
+		 *
+		 * @returns A Thenable that resolves with an array of runtime
+		 * variables.
+		 */
+		export function getSessionVariables(
+			sessionId: string,
+			accessKeys?: Array<Array<string>>):
+			Thenable<Array<Array<RuntimeVariable>>>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called
@@ -2005,17 +2039,14 @@ declare module 'positron' {
 			console?: {
 				language: string;
 				version: string;
+				identifier: string;
 				executions: {
 					input: string;
 					output: string;
 					error?: any;
 				}[];
 			};
-			variables?: {
-				name: string;
-				value: string;
-				type: string;
-			}[];
+			variables?: RuntimeVariable[];
 			shell?: string;
 		}
 	}

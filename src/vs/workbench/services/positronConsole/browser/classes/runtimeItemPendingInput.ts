@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IConsoleCodeAttribution } from '../interfaces/positronConsoleService.js';
+import { IConsoleCodeAttribution } from '../../common/positronConsoleCodeExecution.js';
 import { RuntimeItemStandard } from './runtimeItem.js';
 
 /**

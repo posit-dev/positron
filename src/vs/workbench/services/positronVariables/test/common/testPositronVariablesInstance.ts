@@ -226,6 +226,10 @@ export class TestPositronVariablesInstance extends Disposable implements IPositr
 		this._onFocusElementEmitter.fire();
 	}
 
+	getClientInstance() {
+		return undefined;
+	}
+
 	//#endregion
 
 	//#region Test Helpers

@@ -11,6 +11,7 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { IExecutionHistoryEntry } from '../../../positronHistory/common/executionHistoryService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
+import { IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../../common/positronConsoleCodeExecution.js';
 
 // Create the decorator for the Positron console service (used in dependency injection).
 export const IPositronConsoleService = createDecorator<IPositronConsoleService>('positronConsoleService');
@@ -32,32 +33,6 @@ export const enum PositronConsoleState {
 	Exiting = 'Exiting',
 	Exited = 'Exited',
 	Disconnected = 'Disconnected'
-}
-
-/**
- * Code attribution sources for code executed in the Console.
- *
- * These are duplicated in the Positron API (`positron.d.ts`) and should be kept
- * in sync.
- */
-export const enum CodeAttributionSource {
-	Assistant = 'assistant',
-	Extension = 'extension',
-	Interactive = 'interactive',
-	Notebook = 'notebook',
-	Paste = 'paste',
-	Script = 'script',
-}
-
-/**
- * A record containing metadata about the code attribution.
- */
-export interface IConsoleCodeAttribution {
-	/** The source of the code to be executed */
-	source: CodeAttributionSource;
-
-	/** An optional dictionary of addition source-specific metadata*/
-	metadata?: Record<string, any>;
 }
 
 /**
@@ -185,29 +160,6 @@ export enum SessionAttachMode {
 
 	/** The console is reattaching to a connected session */
 	Connected = 'connected',
-}
-
-/**
- * Represents a code fragment and its execution options sent to a language runtime.
- */
-export interface ILanguageRuntimeCodeExecutedEvent {
-	/** The language ID of the code fragment */
-	languageId: string;
-
-	/** The code that was executed in the language runtime session */
-	code: string;
-
-	/** The attribution object that describes the source of the code */
-	attribution: IConsoleCodeAttribution;
-
-	/** The runtime that executed the code. */
-	runtimeName: string;
-
-	/** The mode used to execute the code in the language runtime session */
-	mode: RuntimeCodeExecutionMode;
-
-	/** The error disposition used to execute the code in the language runtime session */
-	errorBehavior: RuntimeErrorBehavior;
 }
 
 /**

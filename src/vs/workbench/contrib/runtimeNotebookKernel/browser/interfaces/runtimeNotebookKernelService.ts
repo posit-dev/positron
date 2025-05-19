@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
-import { ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { Event } from '../../../../../base/common/event.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 // Create the decorator for the service (used in dependency injection).
 export const IRuntimeNotebookKernelService = createDecorator<IRuntimeNotebookKernelService>('runtimeNotebookKernelService');
