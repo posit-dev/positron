@@ -566,6 +566,11 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		return await this._proxy.$listOutputChannelsLanguageRuntime(this.handle);
 	}
 
+	async updateSessionName(sessionName: string): Promise<void> {
+		this.dynState.sessionName = sessionName;
+		this._proxy.$updateSessionNameLanguageRuntime(this.handle, sessionName);
+	}
+
 	async showProfile(): Promise<void> {
 		return this._proxy.$showProfileLanguageRuntime(this.handle);
 	}

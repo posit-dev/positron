@@ -1465,6 +1465,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	updateSessionName(sessionName: string): void {
+		// Update the dynamic state with the new values
+		this.dynState.sessionName = sessionName;
+	}
+
 	/**
 	 * Gets the current runtime state of the kernel.
 	 */

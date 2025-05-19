@@ -978,7 +978,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			`Updating session name to ${validatedName} for session ${formatLanguageRuntimeSession(session)}'`);
 
 		// Update the sesion name in its dynamic state
-		session.dynState.sessionName = validatedName;
+		session.updateSessionName(validatedName);
 
 		// Log the end of the session name update
 		this._logService.info(
@@ -1657,9 +1657,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// Save the new active session info.
 		const activeSession = new ActiveRuntimeSession(
 			session,
-		  manager,
+			manager,
 			this._commandService,
-	 	 	this._logService,
+			this._logService,
 			this._openerService,
 			this._configurationService,
 		);
@@ -1670,7 +1670,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}));
 
 		// Forwad UI client to interested services once it's available
-	 	activeSession.register(activeSession.onUiClientStarted(uiClient => {
+		activeSession.register(activeSession.onUiClientStarted(uiClient => {
 			this._onDidStartUiClientEmitter.fire({ sessionId: session.sessionId, uiClient });
 		}));
 
