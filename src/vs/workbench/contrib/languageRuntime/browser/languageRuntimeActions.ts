@@ -44,6 +44,7 @@ export const LANGUAGE_RUNTIME_START_SESSION_ID = 'workbench.action.language.runt
 export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.runtime.renameSession';
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
 export const LANGUAGE_RUNTIME_DUPLICATE_SESSION_ID = 'workbench.action.language.runtime.duplicateSession';
+export const LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID = 'workbench.action.language.runtime.discoverAllRuntimes';
 
 /**
  * Helper function that askses the user to select a language from the list of registered language
@@ -930,6 +931,29 @@ export function registerLanguageRuntimeActions() {
 			return undefined;
 		}
 	});
+
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: LANGUAGE_RUNTIME_DISCOVER_RUNTIMES_ID,
+				title: nls.localize2('workbench.action.language.runtime.discoverAllRuntimes', "Discover All Interpreters"),
+				f1: true,
+				category
+			});
+		}
+
+		async run(accessor: ServicesAccessor) {
+			// Access service.
+			const runtimeStartupService = accessor.get(IRuntimeStartupService);
+
+			// Kick off discovery.
+			runtimeStartupService.discoverAllRuntimes();
+		}
+	});
+
 
 	/**
 	 * Arguments passed to the Execute Code actions.

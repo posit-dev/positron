@@ -638,6 +638,59 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Activates all of the extensions that provide language runtimes, then
+	 * enters the discovery phase, in which each extension is asked to supply
+	 * its language runtime metadata.
+	 */
+	public async discoverAllRuntimes(): Promise<void> {
+
+		// If we have no language packs yet, but were awaiting trust, we need to
+		// wait until the language packs are reloaded with the new trust
+		// settings before we can continue.
+		if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust &&
+			this._languagePacks.size === 0) {
+
+			// Wait up to 5 seconds for the language packs to be reloaded;
+			// this should be very fast since it just requires the extension
+			// host to scan the package JSON files of the extensions. If after 5
+			// seconds we still don't have any language packs, there's no more
+			// work to do; mark as complete so we don't hang in the
+			// AwaitingTrust phase forever.
+			setTimeout(() => {
+				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
+					this.setStartupPhase(RuntimeStartupPhase.Complete);
+				}
+			}, 5000);
+			return;
+		}
+
+		// Filter out any language packs that are disabled.
+		const disabledLanguages = new Array<string>();
+		const enabledLanguages = Array.from(this._languagePacks.keys()).filter(languageId => {
+			if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled) {
+				this._logService.debug(`[Runtime startup] Skipping language runtime discovery for language ID '${languageId}' because its startup behavior is disabled.`);
+				disabledLanguages.push(languageId);
+				return false;
+			}
+			return true;
+		});
+
+		// Activate all extensions that contribute language runtimes.
+		await this.activateExtensionsForLanguages(enabledLanguages);
+
+		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated: [${enabledLanguages.join(', ')}]`);
+
+		// Enter the discovery phase; this triggers us to ask each extension for its
+		// language runtime providers.
+		this.setStartupPhase(RuntimeStartupPhase.Discovering);
+
+		// Ask each extension to provide its language runtime metadata.
+		for (const manager of this._runtimeManagers) {
+			manager.discoverAllRuntimes(disabledLanguages);
+		}
+	}
+
+	/**
 	 * Runs as an event handler when the active runtime changes.
 	 *
 	 * @param runtime The newly active runtime, or undefined if no runtime is active.
@@ -690,59 +743,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				}
 			}
 		}));
-	}
-
-	/**
-	 * Activates all of the extensions that provides language runtimes, then
-	 * enters the discovery phase, in which each extension is asked to supply
-	 * its language runtime metadata.
-	 */
-	private async discoverAllRuntimes() {
-
-		// If we have no language packs yet, but were awaiting trust, we need to
-		// wait until the language packs are reloaded with the new trust
-		// settings before we can continue.
-		if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust &&
-			this._languagePacks.size === 0) {
-
-			// Wait up to 5 seconds for the language packs to be reloaded;
-			// this should be very fast since it just requires the extension
-			// host to scan the package JSON files of the extensions. If after 5
-			// seconds we still don't have any language packs, there's no more
-			// work to do; mark as complete so we don't hang in the
-			// AwaitingTrust phase forever.
-			setTimeout(() => {
-				if (this._startupPhase === RuntimeStartupPhase.AwaitingTrust) {
-					this.setStartupPhase(RuntimeStartupPhase.Complete);
-				}
-			}, 5000);
-			return;
-		}
-
-		// Filter out any language packs that are disabled.
-		const disabledLanguages = new Array<string>();
-		const enabledLanguages = Array.from(this._languagePacks.keys()).filter(languageId => {
-			if (this.getStartupBehavior(languageId) === LanguageStartupBehavior.Disabled) {
-				this._logService.debug(`[Runtime startup] Skipping language runtime discovery for language ID '${languageId}' because its startup behavior is disabled.`);
-				disabledLanguages.push(languageId);
-				return false;
-			}
-			return true;
-		});
-
-		// Activate all extensions that contribute language runtimes.
-		await this.activateExtensionsForLanguages(enabledLanguages);
-
-		this._logService.debug(`[Runtime startup] All extensions contributing language runtimes have been activated: [${enabledLanguages.join(', ')}]`);
-
-		// Enter the discovery phase; this triggers us to ask each extension for its
-		// language runtime providers.
-		this.setStartupPhase(RuntimeStartupPhase.Discovering);
-
-		// Ask each extension to provide its language runtime metadata.
-		for (const manager of this._runtimeManagers) {
-			manager.discoverAllRuntimes(disabledLanguages);
-		}
 	}
 
 	/**
