@@ -1737,11 +1737,11 @@ declare module 'positron' {
 		 * @param accessKey The access key of the table to query.
 		 * @param query The query to execute.
 		 */
-		export function querySessionTable(
-			sessionId: string,
-			accessKey: Array<string>,
-			query: QueryTableParams
-		): Thenable<QueryTableResult>;
+		// export function querySessionTable(
+		// 	sessionId: string,
+		// 	accessKey: Array<string>,
+		// 	query: QueryTableParams
+		// ): Thenable<QueryTableResult>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called
