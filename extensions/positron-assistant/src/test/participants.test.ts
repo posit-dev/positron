@@ -7,8 +7,11 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { PositronAssistantChatParticipant } from '../participants.js';
+import { PositronAssistantChatParticipant, PositronAssistantEditorParticipant } from '../participants.js';
 import { mock } from './utils.js';
+import { readFile } from 'fs/promises';
+import { MARKDOWN_DIR } from '../constants.js';
+import path = require('path');
 
 class TestLanguageModelChatResponse implements vscode.LanguageModelChatResponse {
 	stream: AsyncIterable<string> = {
@@ -76,13 +79,18 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 }
 
 suite('PositronAssistantParticipant', () => {
+	let disposables: vscode.Disposable[];
 	let model: TestLanguageModelChat;
 	let response: TestChatResponseStream;
 	let tokenSource: vscode.CancellationTokenSource;
 	let token: vscode.CancellationToken;
 	let referenceUri: vscode.Uri;
-	let participant: PositronAssistantChatParticipant;
+	let llmsTxtUri: vscode.Uri;
+	let chatParticipant: PositronAssistantChatParticipant;
+	let editorParticipant: PositronAssistantEditorParticipant;
 	setup(() => {
+		disposables = [];
+
 		model = new TestLanguageModelChat();
 		response = new TestChatResponseStream();
 		tokenSource = new vscode.CancellationTokenSource();
@@ -91,13 +99,16 @@ suite('PositronAssistantParticipant', () => {
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 		assert.ok(workspaceFolder, 'This test should be run from the ../test-workspace workspace');
 		referenceUri = vscode.Uri.joinPath(workspaceFolder.uri, 'reference.ts');
+		llmsTxtUri = vscode.Uri.joinPath(workspaceFolder.uri, 'llms.txt');
 
 		const extensionContext = mock<vscode.ExtensionContext>({});
-		participant = new PositronAssistantChatParticipant(extensionContext);
+		chatParticipant = new PositronAssistantChatParticipant(extensionContext);
+		editorParticipant = new PositronAssistantEditorParticipant(extensionContext);
 	});
 
 	teardown(() => {
 		sinon.restore();
+		disposables.forEach((d) => d.dispose());
 	});
 
 	test('should not send context if none is available', async () => {
@@ -108,15 +119,15 @@ suite('PositronAssistantParticipant', () => {
 		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
 
 		// Call the method under test.
-		await participant.requestHandler(request, context, response, token);
+		await chatParticipant.requestHandler(request, context, response, token);
 
 		// There should be only one user message with the user's prompt,
 		// since there is no available context.
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		assert.strictEqual(messages.length, 1, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assert.strictEqual(messages[0].role, vscode.LanguageModelChatMessageRole.User);
-		assertMessageTextEqual(messages[0], request.prompt);
+		assertMessageRole(messages[0], vscode.LanguageModelChatMessageRole.User);
+		assertMessageTextPart(messages[0].content[0], request.prompt);
 	});
 
 	test('should include positron session context', async () => {
@@ -151,19 +162,17 @@ suite('PositronAssistantParticipant', () => {
 		sinon.stub(positron.ai, 'getPositronChatContext').resolves(positronChatContext);
 
 		// Call the method under test.
-		await participant.requestHandler(request, context, response, token);
+		await chatParticipant.requestHandler(request, context, response, token);
 
-		// The first user message should contain the formatted context.
+		// Check the context message.
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
-		assert.ok(messages.length > 0, `Unexpected messages: ${JSON.stringify(messages)}`);
-		const message = messages[0];
-		assert.strictEqual(message.role, vscode.LanguageModelChatMessageRole.User);
 		const c = positronChatContext;
-		assertMessageTextEqual(message,
+		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assertContextMessage(messages[0],
 			`<context>
-<console>
-<executions description="Current active console" language="${c.console!.language}" version="${c.console!.version}">
+<console description="Current active console" language="${c.console!.language}" version="${c.console!.version}">
+<executions>
 <execution>
 ${JSON.stringify(c.console!.executions[0])}
 </execution>
@@ -186,7 +195,7 @@ ${c.plots!.hasPlots ? 'A plot is visible.' : ''}
 </context>`);
 	});
 
-	test('should include file reference', async () => {
+	test('should include file attachment', async () => {
 		// Setup test inputs.
 		const references: vscode.ChatPromptReference[] = [{
 			id: 'test-file-reference',
@@ -200,25 +209,25 @@ ${c.plots!.hasPlots ? 'A plot is visible.' : ''}
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 
 		// Call the method under test.
-		await participant.requestHandler(request, context, response, token);
+		await chatParticipant.requestHandler(request, context, response, token);
 
 		// The first user message should contain the formatted context.
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
-		assert.ok(messages.length > 0, `Unexpected messages: ${JSON.stringify(messages)}`);
-		const message = messages[0];
-		assert.strictEqual(message.role, vscode.LanguageModelChatMessageRole.User);
 		const document = await vscode.workspace.openTextDocument(referenceUri);
 		const filePath = vscode.workspace.asRelativePath(referenceUri);
-		assertMessageTextEqual(message,
-			`<references>
-<reference filePath="${filePath}" description="Full contents of the file" language="${document.languageId}">
+		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
+		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assertContextMessage(messages[0],
+			`<attachments>
+${attachmentsText}
+<attachment filePath="${filePath}" description="Full contents of the file" language="${document.languageId}">
 ${document.getText()}
-</reference>
-</references>`);
+</attachment>
+</attachments>`);
 	});
 
-	test('should include file range reference', async () => {
+	test('should include file range attachment', async () => {
 		// Setup test inputs.
 		const range = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(1, 0));
 		const location = new vscode.Location(referenceUri, range);
@@ -234,35 +243,121 @@ ${document.getText()}
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 
 		// Call the method under test.
-		await participant.requestHandler(request, context, response, token);
+		await chatParticipant.requestHandler(request, context, response, token);
 
 		// The first user message should contain the formatted context.
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
-		assert.ok(messages.length > 0, `Unexpected messages: ${JSON.stringify(messages)}`);
-		const message = messages[0];
-		assert.strictEqual(message.role, vscode.LanguageModelChatMessageRole.User);
 		const document = await vscode.workspace.openTextDocument(referenceUri);
 		const filePath = vscode.workspace.asRelativePath(referenceUri);
-		assertMessageTextEqual(message,
-			`<references>
-<reference filePath="${filePath}" description="Visible region of the active file" language="${document.languageId}" startLine="${range.start.line + 1}" endLine="${range.end.line + 1}">
+		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
+		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assertContextMessage(messages[0],
+			`<attachments>
+${attachmentsText}
+<attachment filePath="${filePath}" description="Visible region of the active file" language="${document.languageId}" startLine="${range.start.line + 1}" endLine="${range.end.line + 1}">
 ${document.getText(range)}
-</reference>
-<reference filePath="${filePath}" description="Full contents of the active file" language="${document.languageId}">
+</attachment>
+<attachment filePath="${filePath}" description="Full contents of the active file" language="${document.languageId}">
 ${document.getText()}
-</reference>
-</references>`);
-	});
-
-	// TODO: Continue here...
-	test('should include llms.txt instructions', async () => {
+</attachment>
+</attachments>`);
 	});
 
 	test('should include image reference', async () => {
+		// Setup test inputs.
+		const data = new Uint8Array();
+		const referenceBinaryData = new vscode.ChatReferenceBinaryData('image/png', async () => data);
+		const reference = {
+			id: 'test-file-reference',
+			name: 'image.png',
+			value: referenceBinaryData,
+			modelDescription: 'Test file description',
+		};
+		const references: vscode.ChatPromptReference[] = [reference];
+		const request = makeChatRequest({ model, references });
+		const context: vscode.ChatContext = { history: [] };
+		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
+		const sendRequestSpy = sinon.spy(model, 'sendRequest');
+
+		// Call the method under test.
+		await chatParticipant.requestHandler(request, context, response, token);
+
+		// The first user message should contain the formatted context.
+		sinon.assert.calledOnce(sendRequestSpy);
+		const [messages,] = sendRequestSpy.getCall(0).args;
+		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
+		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assertContextMessage(messages[0],
+			`<attachments>
+${attachmentsText}
+<img src="${reference.name}" />
+</attachments>`,
+			{
+				mimeType: referenceBinaryData.mimeType,
+				data: data,
+			});
+	});
+
+	test('should include llms.txt instructions', async () => {
+		// Create an llms.txt file in the workspace.
+		const llmsTxtContent = `This is a test llms.txt file.
+It should be included in the chat message.`;
+		disposables.push({
+			dispose: () => {
+				// Delete the llms.txt file from the workspace.
+				vscode.workspace.fs.delete(llmsTxtUri);
+			},
+		});
+		await vscode.workspace.fs.writeFile(llmsTxtUri, Buffer.from(llmsTxtContent));
+
+		// Setup test inputs.
+		const request = makeChatRequest({ model, references: [] });
+		const context: vscode.ChatContext = { history: [] };
+		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
+		const sendRequestSpy = sinon.spy(model, 'sendRequest');
+
+		// Call the method under test.
+		await chatParticipant.requestHandler(request, context, response, token);
+
+		// The first user message should contain the formatted context.
+		sinon.assert.calledOnce(sendRequestSpy);
+		const [messages,] = sendRequestSpy.getCall(0).args;
+		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assertContextMessage(messages[0],
+			`<instructions>
+${llmsTxtContent}
+</instructions>`);
 	});
 
 	test('should include editor information', async () => {
+		const document = await vscode.workspace.openTextDocument(referenceUri);
+		const selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(1, 0));
+		// TODO: Not sure what wholeRange is supposed to be. We don't currently use it.
+		const wholeRange = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(1, 0));
+		const editorData = new vscode.ChatRequestEditorData(document, selection, wholeRange);
+		const request = makeChatRequest({ model, references: [], location2: editorData });
+		const context: vscode.ChatContext = { history: [] };
+		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
+		const sendRequestSpy = sinon.spy(model, 'sendRequest');
+
+		// Call the method under test.
+		await editorParticipant.requestHandler(request, context, response, token);
+
+		// The first user message should contain the formatted context.
+		sinon.assert.calledOnce(sendRequestSpy);
+		const [messages,] = sendRequestSpy.getCall(0).args;
+		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		const filePath = vscode.workspace.asRelativePath(referenceUri);
+		assertContextMessage(messages[0],
+			`<editor description="Current active editor" filePath="${filePath}" language="${document.languageId}" line="${selection.active.line + 1}" column="${selection.active.character + 1}" documentOffset="${document.offsetAt(selection.active)}">
+<document description="Full contents of the active file">
+${document.getText()}
+</document>
+<selection description="Selected text in the active file">
+${document.getText(selection)}
+</selection>
+</editor>`);
 	});
 });
 
@@ -270,6 +365,7 @@ function makeChatRequest(
 	options: {
 		model: vscode.LanguageModelChat;
 		references: vscode.ChatPromptReference[];
+		location2?: vscode.ChatRequest['location2'];
 	},
 ): vscode.ChatRequest {
 	return {
@@ -283,17 +379,53 @@ function makeChatRequest(
 		model: options.model,
 		attempt: 0,
 		location: vscode.ChatLocation.Panel,
-		location2: undefined,
+		location2: options.location2,
 		enableCommandDetection: false,
 		isParticipantDetected: false,
 	};
 }
 
-function assertMessageTextEqual(
+function assertMessageRole(
 	message: vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2,
-	expected: string,
+	expectedRole: vscode.LanguageModelChatMessageRole): void {
+	assert.ok(message.role === expectedRole, `Unexpected message role: ${JSON.stringify(message)}`);
+}
+
+function assertMessageTextPart(
+	part: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)['content'][number],
+	expectedText: string,
+) {
+	assert.ok(part instanceof vscode.LanguageModelTextPart, `Expected a text part, got: ${JSON.stringify(part)}`);
+	assert.strictEqual(part.value, expectedText, 'Unexpected text part value');
+}
+
+function assertMessageDataPart(
+	part: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)['content'][number],
+	expectedMimeType: string,
+	expectedData: Uint8Array,
+) {
+	assert.ok(part instanceof vscode.LanguageModelDataPart, `Expected a data part, got: ${JSON.stringify(part)}`);
+	assert.strictEqual(part.value.mimeType, expectedMimeType, 'Unexpected data part mime type');
+	assert.strictEqual(part.value.data, expectedData, 'Unexpected data part value');
+}
+
+function assertContextMessage(
+	message: vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2,
+	expectedPrompt: string,
+	expectedImage?: { mimeType: string; data: Uint8Array },
 ): void {
-	assert.strictEqual(message.content.length, 1);
-	assert.ok(message.content[0] instanceof vscode.LanguageModelTextPart);
-	assert.strictEqual(message.content[0].value, expected);
+	// Should be a user message.
+	assertMessageRole(message, vscode.LanguageModelChatMessageRole.User);
+
+	// The first part should be a text part with the formatted context.
+	assertMessageTextPart(message.content[0], expectedPrompt);
+
+	if (expectedImage) {
+		// If an image is expected, the second part should be a data part with the image.
+		assert.ok(message.content.length > 1, `Missing context message image part: ${JSON.stringify(message.content)}`);
+		assertMessageDataPart(message.content[1], expectedImage.mimeType, expectedImage.data);
+	} else {
+		// If no image is expected, there should be only one part.
+		assert.strictEqual(message.content.length, 1, `Unexpected message content: ${JSON.stringify(message.content)}`);
+	}
 }
