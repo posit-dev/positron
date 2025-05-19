@@ -52,13 +52,13 @@ const stateLabelReconecting = localize('positronConsoleState.Reconnecting', "Rec
 /**
  * Localized strings for UI.
  */
-const positronInterruptExecution = localize('positronInterruptExecution', "Interrupt execution");
-const positronToggleTrace = localize('positronToggleTrace', "Toggle trace");
-const positronToggleWordWrap = localize('positronToggleWordWrap', "Toggle word wrap");
-const positronClearConsole = localize('positronClearConsole', "Clear console");
-const positronRestartConsole = localize('positronRestartConsole', "Restart console");
-const positronDeleteConsole = localize('positronDeleteConsole', "Delete console");
-const positronOpenInEditor = localize('positronOpenInEditor', "Open in editor");
+const positronInterruptExecution = localize('positronInterruptExecution', "Interrupt Execution");
+const positronToggleTrace = localize('positronToggleTrace', "Toggle Trace");
+const positronToggleWordWrap = localize('positronToggleWordWrap', "Toggle Word Wrap");
+const positronClearConsole = localize('positronClearConsole', "Clear Console");
+const positronRestartConsole = localize('positronRestartConsole', "Restart Console");
+const positronDeleteConsole = localize('positronDeleteConsole', "Delete Console");
+const positronOpenInEditor = localize('positronOpenInEditor', "Open in Editor");
 
 /**
  * Provides a localized label for the given runtime state. Only the transient
