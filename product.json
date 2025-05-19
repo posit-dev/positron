@@ -106,10 +106,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.40",
+			"version": "1.5.42",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "68d0ebaeddfba2a3b07b5baf22bced04ce3ffba2bc82cc49b6dd9b16f26381b0",
+			"sha256": "52a9c67130e8aa9dd6142110de2347b869cba3560f9cd4ec6e8b32c6cc367b4d",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -178,7 +178,6 @@
 				"publisherDisplayName": "ms-toolsai"
 			}
 		},
-
 		{
 			"name": "ms-toolsai.jupyter",
 			"version": "2024.11.0",
@@ -257,7 +256,7 @@
 		},
 		{
 			"name": "posit.air-vscode",
-			"version": "0.10.0",
+			"version": "0.12.0",
 			"repo": "https://github.com/posit-dev/air",
 			"metadata": {
 				"publisherId": "090804ff-7eb2-4fbd-bb61-583e34f2b070",
