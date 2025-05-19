@@ -1,8 +1,10 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Page } from '@playwright/test';
+import { Application } from '../../infra/index.js';
 import { test, tags, expect } from '../_test.setup';
 
 test.use({ suiteId: __filename });
@@ -11,7 +13,7 @@ test.describe('R Debugging', {
 	tag: [tags.DEBUG, tags.WEB, tags.WIN]
 }, () => {
 
-	test.beforeAll(async ({ executeCode }) => {
+	test.beforeAll('Setup fruit data', async ({ executeCode }) => {
 		await executeCode('R', `dat <- data.frame(
 			blackberry = c(4, 9, 6),
 			blueberry = c(1, 2, 8),
@@ -21,78 +23,96 @@ test.describe('R Debugging', {
 		rownames(dat) <- c("calories", "weight", "yumminess")`);
 	});
 
-	test.afterEach(async ({ hotKeys, app }) => {
+	test.afterEach('Reset for next test', async ({ hotKeys, app }) => {
 		await hotKeys.closeAllEditors();
 		await app.workbench.console.clearButton.click();
 	});
 
-	test('R - Verify debugging with `browser()` via console', async ({ page, openFile, runCommand, executeCode }) => {
-		await loadAndTriggerBreakpoint(openFile, runCommand, executeCode);
-		await verifyDebugState(page);
+	test('R - Verify debugging with `browser()` via console', async ({ app, page, openFile, runCommand, executeCode }) => {
+		const { debug, console } = app.workbench;
 
-		// Inspect variables manually via console input
-		await inspectConsoleVariable(page, 'pattern', '[1] "berry"');
-		await inspectConsoleVariable(page, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
+		// Load the file and trigger the breakpoint
+		await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
+		await runCommand('r.sourceCurrentFile');
+		await executeCode('R', `fruit_avg(dat, "berry")`, { waitForReady: false });
+		await debug.expectBrowserModeFrame(1);
+
+		// Verify the debug pane, call stack, and console variables
+		await verifyDebugPane(app);
+		await verifyCallStack(app);
+		await verifyVariableInConsole(page, 'pattern', '[1] "berry"');
+		await verifyVariableInConsole(page, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
 
 		// Step into the next line using 's'
 		await page.keyboard.type('s');
 		await page.keyboard.press('Enter');
-		await expect(page.getByText(/debug at .*#3: cols <- grep\(pattern, names\(dat\)\)/)).toBeVisible();
+		await console.waitForConsoleContents(/debug at .*#3: cols <- grep\(pattern, names\(dat\)\)/);
 
 		// Step over to next line using 'n'
 		await page.keyboard.type('n');
 		await page.keyboard.press('Enter');
-		await expect(page.getByText(/debug at .*#4: mini_dat <- dat\[, cols\]/)).toBeVisible();
+		await console.waitForConsoleContents(/debug at .*#4: mini_dat <- dat\[, cols\]/);
 
 		// Continue execution with 'c'
 		await page.keyboard.type('c');
 		await page.keyboard.press('Enter');
-		await expect(page.getByText('Found 2 fruits!')).toBeVisible();
+		await console.waitForConsoleContents('Found 2 fruits!');
 	});
 
 	test('R - Verify debugging with `browser()` via debugging UI tools', async ({ app, page, openFile, runCommand, executeCode }) => {
-		const { debug } = app.workbench;
+		const { debug, console } = app.workbench;
 
-		await loadAndTriggerBreakpoint(openFile, runCommand, executeCode);
-		await verifyDebugState(page);
+		// Load the file and trigger the breakpoint
+		await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
+		await runCommand('r.sourceCurrentFile');
+		await executeCode('R', `fruit_avg(dat, "berry")`, { waitForReady: false });
+		await debug.expectBrowserModeFrame(1);
 
-		// Evaluate values in the console to confirm correct inputs
-		await inspectConsoleVariable(page, 'pattern', '[1] "berry"');
-		await inspectConsoleVariable(page, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
+		// Verify the debug pane and call stack
+		await verifyDebugPane(app);
+		await verifyCallStack(app);
+		await verifyVariableInConsole(page, 'pattern', '[1] "berry"');
+		await verifyVariableInConsole(page, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
 
-		// Step into and over using debugger UI controls
+		// Step into using the debugger UI controls
 		await debug.stepInto();
-		await expect(page.getByText(/debug at .*#3: cols <- grep\(pattern, names\(dat\)\)/)).toBeVisible();
+		await console.waitForConsoleContents(/debug at .*#3: cols <- grep\(pattern, names\(dat\)\)/);
 
+		// Step over using the debugger UI controls
 		await debug.stepOver();
-		await expect(page.getByText(/debug at .*#4: mini_dat <- dat\[, cols\]/)).toBeVisible();
+		await console.waitForConsoleContents(/debug at .*#4: mini_dat <- dat\[, cols\]/);
 
 		// Continue execution and check final message
 		await debug.continue();
-		await expect(page.getByText('Found 2 fruits!')).toBeVisible();
+		await console.waitForConsoleContents('Found 2 fruits!');
 	});
 
-	test('R - Verify debugging with `debugonce()` pauses only once', async ({ page, executeCode, openFile, runCommand }) => {
+	test('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
+		const { debug, console } = app.workbench;
+
 		await openFile('workspaces/r-debugging/fruit_avg.r');
 		await runCommand('r.sourceCurrentFile');
 
+		// Trigger the function to be debugged (just once)
 		await executeCode('R', 'debugonce(fruit_avg)');
 		await executeCode('R', 'fruit_avg(dat, "berry")', { waitForReady: false });
 
 		// First call should pause at debug prompt
-		await expect(page.getByText('Browse[1]>')).toBeVisible();
+		await debug.expectBrowserModeFrame(1);
 
 		// Continue execution
 		await page.keyboard.type('c');
 		await page.keyboard.press('Enter');
-		await expect(page.getByText('Found 2 fruits!')).toBeVisible();
+		await console.waitForConsoleContents('Found 2 fruits!', { expectedCount: 1 });
 
 		// Call again — should not pause this time
 		await executeCode('R', 'fruit_avg(dat, "berry")', { waitForReady: false });
-		await expect(page.getByText('Found 2 fruits!')).toHaveCount(2);
+		await console.waitForConsoleContents('Found 2 fruits!', { expectedCount: 2 });
 	});
 
 	test('R - Verify debugging with `options(error = recover)` interactive recovery mode', async ({ app, page, openFile, runCommand, executeCode }) => {
+		const { console } = app.workbench;
+
 		await openFile('workspaces/r-debugging/fruit_avg.r');
 		await runCommand('r.sourceCurrentFile');
 
@@ -103,54 +123,48 @@ test.describe('R Debugging', {
 		await executeCode('R', 'fruit_avg(dat, "black")', { waitForReady: false });
 
 		// Confirm recovery prompt appears and frame selection is offered
-		await expect(page.getByText('Enter a frame number, or 0 to exit')).toBeVisible();
-		await expect(page.getByText('1: fruit_avg(dat, "black")')).toBeVisible();
+		await console.waitForConsoleContents('Enter a frame number, or 0 to exit');
+		await console.waitForConsoleContents('1: fruit_avg(dat, "black")');
 
 		// Select the inner function frame to inspect local variables
-		await expect(page.getByText('Selection:')).toBeVisible();
+		await console.waitForConsoleContents('Selection:');
 		await page.keyboard.type('1');
 		await page.keyboard.press('Enter');
 
 		// Confirm error message appears in sidebar
-		await expect(page.locator('.activity-error-message'))
-			.toContainText("'x' must be an array of at least two dimensions");
+		await console.expectConsoleToContainError("'x' must be an array of at least two dimensions");
 
 		// Check the contents of mini_dat (only one column matched)
-		await app.workbench.console.focus();
-		await inspectConsoleVariable(page, 'mini_dat', '[1] 4 9 6');
+		await console.focus();
+		await verifyVariableInConsole(page, 'mini_dat', '[1] 4 9 6');
 
 		// Quit the debugger and confirm REPL is ready
 		await page.keyboard.type('Q');
 		await page.keyboard.press('Enter');
-		await app.workbench.console.waitForReady('>');
+		await console.waitForReady('>');
 	});
 });
 
 
-// Helper: validate debugger is paused and expected UI panels are visible
-async function verifyDebugState(page) {
-	await expect(page.getByText('Browse[1]>')).toBeVisible();
+async function verifyDebugPane(app: Application) {
+	const { debug } = app.workbench;
 
-	await expect(page.getByRole('button', { name: 'Debug Variables Section' })).toBeVisible();
-	await expect(page.getByLabel('pattern, value "berry"')).toBeVisible();
-	await expect(page.getByLabel('dat, value dat')).toBeVisible();
-
-	await expect(page.getByRole('button', { name: 'Call Stack Section' })).toBeVisible();
-	const debugCallStack = page.locator('.debug-call-stack');
-	await expect(debugCallStack.getByText('fruit_avg()fruit_avg()2:')).toBeVisible();
-	await expect(debugCallStack.getByText('<global>fruit_avg(dat, "berry")')).toBeVisible();
+	await debug.expectDebugPaneToContain('pattern, value "berry"');
+	await debug.expectDebugPaneToContain('dat, value dat');
 }
 
-// Helper: evaluate variable in console and validate the result
-async function inspectConsoleVariable(page, name: string, expectedText: string) {
-	await page.keyboard.type(name);
-	await page.keyboard.press('Enter');
-	await expect(page.getByText(expectedText)).toBeVisible({ timeout: 30000 });
+async function verifyCallStack(app: Application) {
+	const { debug } = app.workbench;
+
+	await debug.expectCallStackToContain('fruit_avg()fruit_avg()2:');
+	await debug.expectCallStackToContain('<global>fruit_avg(dat, "berry")');
 }
 
-// Helper: open R script, source it, and run function call to trigger browser()
-async function loadAndTriggerBreakpoint(openFile, runCommand, executeCode, file = 'fruit_avg_browser.r', pattern = 'berry') {
-	await openFile(`workspaces/r-debugging/${file}`);
-	await runCommand('r.sourceCurrentFile');
-	await executeCode('R', `fruit_avg(dat, "${pattern}")`, { waitForReady: false });
+async function verifyVariableInConsole(page: Page, name: string, expectedText: string) {
+	await test.step(`Verify variable in console: ${name}`, async () => {
+		await page.keyboard.type(name);
+		await page.keyboard.press('Enter');
+		await expect(page.getByText(expectedText)).toBeVisible({ timeout: 30000 });
+	});
 }
+
