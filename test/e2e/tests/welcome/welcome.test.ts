@@ -32,10 +32,16 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		test('Verify Welcome page content', async function ({ app }) {
 			const { welcome, quickaccess } = app.workbench;
 
-			let OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...', 'Connect to...'];
+			let OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
 
+			// Button list for macOS
 			if (!app.web && process.platform === 'darwin') {
 				OPEN_BUTTONS_LABELS = ['Open...', 'New Folder...', 'New Folder from Git...'];
+			}
+
+			// On desktop, a "Connect to..." button is shown
+			if (!app.web) {
+				OPEN_BUTTONS_LABELS.push('Connect to...');
 			}
 
 			await expect(welcome.startTitle).toHaveText('Start');
