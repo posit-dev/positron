@@ -113,6 +113,13 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	/**
 	 * {@inheritDoc}
 	 */
+	public async discoverAllRuntimes() {
+		// No-op in test implementation
+	}
+
+	/**
+	 * {@inheritDoc}
+	 */
 	public async getRestoredSessions(): Promise<SerializedSessionMetadata[]> {
 		return this._restoredSessions;
 	}
