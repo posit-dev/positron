@@ -290,10 +290,10 @@ export class KCApi implements PositronSupervisorApi {
 				wrapperPath = 'start';
 				shellArgs.unshift('/b', kernelWrapper);
 			} else {
-				// Use nohup as the wrapper on Unix-like systems
+				// Use nohup as the wrapper on Unix-like systems; this becomes
+				// the first argument to the wrapper script.
 				this._log.appendLine(`Running Kallichore server with nohup to persist sessions`);
-				wrapperPath = 'nohup';
-				shellArgs.unshift(kernelWrapper);
+				shellArgs.unshift('nohup');
 			}
 		}
 
