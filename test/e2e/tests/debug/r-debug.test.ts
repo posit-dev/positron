@@ -47,9 +47,10 @@ test.describe('R Debugging', {
 	test('R - Verify debugging with `browser()` via console', async ({ app, page, openFile, runCommand, executeCode }) => {
 		const { debug, console } = app.workbench;
 
-		// Load the file and trigger the breakpoint
 		await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
 		await runCommand('r.sourceCurrentFile');
+
+		// Trigger the breakpoint
 		await executeCode('R', `fruit_avg(dat, "berry")`, { waitForReady: false });
 		await debug.expectBrowserModeFrame(1);
 
@@ -78,9 +79,10 @@ test.describe('R Debugging', {
 	test('R - Verify debugging with `browser()` via debugging UI tools', async ({ app, page, openFile, runCommand, executeCode }) => {
 		const { debug, console } = app.workbench;
 
-		// Load the file and trigger the breakpoint
 		await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
 		await runCommand('r.sourceCurrentFile');
+
+		// Trigger the breakpoint
 		await executeCode('R', `fruit_avg(dat, "berry")`, { waitForReady: false });
 		await debug.expectBrowserModeFrame(1);
 
@@ -135,14 +137,14 @@ test.describe('R Debugging', {
 		// Enable recovery mode so errors trigger the interactive debugger
 		await executeCode('R', 'options(error = recover)');
 
-		// This should throw an error inside rowMeans(mini_dat)
+		// Trigger an error: this should throw an error inside rowMeans(mini_dat)
 		await executeCode('R', 'fruit_avg(dat, "black")', { waitForReady: false });
 
 		// Confirm recovery prompt appears and frame selection is offered
 		await console.waitForConsoleContents('Enter a frame number, or 0 to exit');
 		await console.waitForConsoleContents('1: fruit_avg(dat, "black")');
 
-		// Select the inner function frame to inspect local variables
+		// Select the inner function frame
 		await console.waitForConsoleContents('Selection:');
 		await page.keyboard.type('1');
 		await page.keyboard.press('Enter');
@@ -150,11 +152,11 @@ test.describe('R Debugging', {
 		// Confirm error message appears in sidebar
 		await console.expectConsoleToContainError("'x' must be an array of at least two dimensions");
 
-		// Check the contents of mini_dat (only one column matched)
+		// Check the contents of mini_dat in the console
 		await console.focus();
 		await verifyVariableInConsole(page, 'mini_dat', '[1] 4 9 6');
 
-		// Quit the debugger and confirm REPL is ready
+		// Quit the debugger
 		await page.keyboard.type('Q');
 		await page.keyboard.press('Enter');
 		await console.waitForReady('>');
