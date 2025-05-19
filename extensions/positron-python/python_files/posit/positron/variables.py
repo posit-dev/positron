@@ -30,7 +30,14 @@ from .variables_comm import (
     InspectedVariable,
     InspectRequest,
     ListRequest,
+    QueryTableOptions,
+    QueryTableQueryType,
     RefreshParams,
+    TableDescriptionResult,
+    TableGetDescriptionParams,
+    TableGetDescriptionRequest,
+    TableSummarizeOptions,
+    TableSummarizeResult,
     UpdateParams,
     Variable,
     VariableKind,
@@ -133,6 +140,9 @@ class VariablesService:
 
         elif isinstance(request, ViewRequest):
             self._perform_view_action(request.params.path)
+
+        elif isinstance(request, QueryTableRequest):
+            self._perform_query_table_action(request.params.path, request.params.options)
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -556,6 +566,30 @@ class VariablesService:
                 JsonRpcErrorCode.INVALID_PARAMS,
                 f"Cannot find variable at '{path}' to inspect",
             )
+
+    def _perform_query_table_action(self, path: list[str], options: QueryTableOptions) -> None:
+        """Performs the query table action."""
+        is_known, value = self._find_var(path)
+        if not is_known:
+            self._send_error(
+                JsonRpcErrorCode.INVALID_PARAMS,
+                f"Cannot find variable at '{path}' to query table",
+            )
+
+        if options.query_type == QueryTableQueryType.Description:
+            self._query_table_description(path, value)
+        elif options.query_type == QueryTableQueryType.Summarize:
+            self._query_table_summarize(path, value, options)
+
+    def _query_table_description(self, path: list[str], value: Any) -> None:
+        """Queries the table description."""
+        pass
+
+    def _query_table_summarize(
+        self, path: list[str], value: Any, options: TableSummarizeOptions
+    ) -> None:
+        """Queries the table summarize."""
+        pass
 
     def _perform_view_action(self, path: list[str]) -> None:
         """Performs the view action depending of the variable type."""
