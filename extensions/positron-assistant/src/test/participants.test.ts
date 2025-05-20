@@ -139,6 +139,7 @@ suite('PositronAssistantParticipant', () => {
 			console: {
 				language: 'python',
 				version: '3.12.0',
+				identifier: 'test-console',
 				executions: [
 					{
 						input: 'x = 1',
@@ -152,9 +153,14 @@ suite('PositronAssistantParticipant', () => {
 			},
 			variables: [
 				{
-					name: 'x',
-					value: '1',
-					type: 'number',
+					access_key: 'x',
+					display_name: 'x',
+					display_type: 'number',
+					display_value: '1',
+					has_children: false,
+					length: 1,
+					size: 1,
+					type_info: 'int',
 				},
 			],
 			shell: 'bash',
@@ -171,7 +177,7 @@ suite('PositronAssistantParticipant', () => {
 		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages[0],
 			`<context>
-<console description="Current active console" language="${c.console!.language}" version="${c.console!.version}">
+<console description="Current active console" language="${c.console!.language}" version="${c.console!.version}" identifier="${c.console!.identifier}">
 <executions>
 <execution>
 ${JSON.stringify(c.console!.executions[0])}

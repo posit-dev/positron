@@ -382,6 +382,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					description: 'Current active console',
 					language: positronContext.console.language,
 					version: positronContext.console.version,
+					identifier: positronContext.console.identifier,
 				})
 			);
 		}
