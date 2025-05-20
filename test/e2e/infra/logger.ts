@@ -3,12 +3,13 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { appendFileSync, writeFileSync } from 'fs';
+import { appendFileSync, writeFileSync, existsSync } from 'fs';
 import { format } from 'util';
 import { EOL } from 'os';
 
 export interface Logger {
 	log(message: string, ...args: any[]): void;
+	setPath?(newPath: string): void;
 }
 
 export class ConsoleLogger implements Logger {
@@ -19,9 +20,22 @@ export class ConsoleLogger implements Logger {
 }
 
 export class FileLogger implements Logger {
+	private path: string;
 
-	constructor(private path: string) {
-		writeFileSync(path, '');
+	constructor(initialPath: string) {
+		this.path = initialPath;
+		this.ensureFileExists(this.path);
+	}
+
+	setPath(newPath: string): void {
+		this.path = newPath;
+		this.ensureFileExists(this.path);
+	}
+
+	private ensureFileExists(path: string): void {
+		if (!existsSync(path)) {
+			writeFileSync(path, '');
+		}
 	}
 
 	log(message: string, ...args: any[]): void {
