@@ -950,7 +950,7 @@ export function registerLanguageRuntimeActions() {
 			const runtimeStartupService = accessor.get(IRuntimeStartupService);
 
 			// Kick off discovery.
-			runtimeStartupService.discoverAllRuntimes();
+			runtimeStartupService.rediscoverAllRuntimes();
 		}
 	});
 

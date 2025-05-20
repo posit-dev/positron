@@ -638,11 +638,31 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Kicks off a refresh of runtime discovery, after initial discovery.
+	 */
+	public async rediscoverAllRuntimes(): Promise<void> {
+
+		// If we we haven't completed discovery once already, don't do anything.
+		if (this._startupPhase !== RuntimeStartupPhase.Complete) {
+			this._logService.warn('[Runtime startup] Runtime discovery refresh called before initial discovery is complete.');
+			return;
+		}
+
+		this._logService.debug('[Runtime startup] Refreshing runtime discovery.');
+		this._discoveryCompleteByExtHostId.forEach((_, extHostId, m) => {
+			m.set(extHostId, false);
+		});
+
+		this.discoverAllRuntimes();
+
+	}
+
+	/**
 	 * Activates all of the extensions that provide language runtimes, then
 	 * enters the discovery phase, in which each extension is asked to supply
 	 * its language runtime metadata.
 	 */
-	public async discoverAllRuntimes(): Promise<void> {
+	private async discoverAllRuntimes(): Promise<void> {
 
 		// If we have no language packs yet, but were awaiting trust, we need to
 		// wait until the language packs are reloaded with the new trust

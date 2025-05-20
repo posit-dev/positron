@@ -125,11 +125,9 @@ export interface IRuntimeStartupService {
 	completeDiscovery(id: number): void;
 
 	/**
-	 * Activates all of the extensions that provide language runtimes, then
-	 * enters the discovery phase, in which each extension is asked to supply
-	 * its language runtime metadata.
+	 * Kick off a user-driven refresh of runtime discovery, after the initial discovery.
 	 */
-	discoverAllRuntimes(): Promise<void>;
+	rediscoverAllRuntimes(): Promise<void>;
 
 	/**
 	 * Get the sessions that were (or will be) restored into this window.
