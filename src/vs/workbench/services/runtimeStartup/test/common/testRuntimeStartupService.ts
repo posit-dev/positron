@@ -113,7 +113,7 @@ export class TestRuntimeStartupService implements IRuntimeStartupService {
 	/**
 	 * {@inheritDoc}
 	 */
-	public async discoverAllRuntimes() {
+	public async rediscoverAllRuntimes() {
 		// No-op in test implementation
 	}
 
