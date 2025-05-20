@@ -400,6 +400,12 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		await this._kernel?.showProfile?.();
 	}
 
+	updateSessionName(sessionName: string): void {
+		// Update the dynamic state of the session
+		this.dynState.sessionName = sessionName;
+		this._kernel?.updateSessionName(sessionName);
+	}
+
 	/**
 	 * Get the LANG env var and all categories of the locale, in R's Sys.getlocale() sense, from
 	 * the R session.

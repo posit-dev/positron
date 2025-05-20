@@ -81,6 +81,7 @@ export interface ExtHostLanguageRuntimeShape {
 	$forceQuitLanguageRuntime(handle: number): Promise<void>;
 	$showOutputLanguageRuntime(handle: number, channel?: LanguageRuntimeSessionChannel): void;
 	$listOutputChannelsLanguageRuntime(handle: number): Promise<LanguageRuntimeSessionChannel[]>;
+	$updateSessionNameLanguageRuntime(handle: number, sessionName: string): void;
 	$showProfileLanguageRuntime(handle: number): void;
 	$discoverLanguageRuntimes(disabledLanguageIds: string[]): void;
 	$recommendWorkspaceRuntimes(disabledLanguageIds: string[]): Promise<ILanguageRuntimeMetadata[]>;
