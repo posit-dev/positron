@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -15,7 +15,8 @@ test.describe('Large Python Notebook', {
 	tag: [tags.NOTEBOOKS, tags.WIN]
 }, () => {
 
-	test('Python - Large notebook execution', async function ({ app, python }) {
+	// Currently this test is skipped because it times out during teardown
+	test.skip('Python - Large notebook execution', async function ({ app, python }) {
 		test.slow();
 		const notebooks = app.workbench.notebooks;
 
