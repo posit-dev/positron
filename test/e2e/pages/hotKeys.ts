@@ -80,18 +80,22 @@ export class HotKeys {
 		await this.pressHotKeys(`Cmd+K F`);
 	}
 
+	public async formatDocument() {
+		await this.pressHotKeys(`Shift+Alt+F`);
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.
 	 * @param keyCombo the hotkeys to press (e.g. "Cmd+Shift+P").
 	 */
-	private async pressHotKeys(keyCombo: string, options: { platformAdjust?: boolean } = {}) {
-		const { platformAdjust = true } = options;
+	private async pressHotKeys(keyCombo: string) {
 		const modifierKey = this.getModifierKey();
 
 		await test.step(`Press hotkeys: ${keyCombo}`, async () => {
 			// Replace "Cmd" with the platform-appropriate modifier key
-			const keySequences = keyCombo.split(' ').map(keys => keys.replace(/Cmd/g, platformAdjust ? modifierKey : 'Cmd'));
+			// and (for Windows and Ubuntu) replace "Option" with "Alt"
+			const keySequences = keyCombo.split(' ').map(keys => keys.replace(/Cmd/g, modifierKey));
 
 			for (const key of keySequences) {
 				await this.code.driver.page.keyboard.press(key);
