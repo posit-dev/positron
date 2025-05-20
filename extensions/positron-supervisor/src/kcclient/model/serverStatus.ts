@@ -24,7 +24,14 @@ export class ServerStatus {
     * The number of seconds any session has been busy, or 0 if all sessions are idle
     */
     'busySeconds': number;
+    /**
+    * The version of the server
+    */
     'version': string;
+    /**
+    * The server\'s operating system process identifier
+    */
+    'processId': number;
 
     static discriminator: string | undefined = undefined;
 
@@ -58,6 +65,11 @@ export class ServerStatus {
             "name": "version",
             "baseName": "version",
             "type": "string"
+        },
+        {
+            "name": "processId",
+            "baseName": "process_id",
+            "type": "number"
         }    ];
 
     static getAttributeTypeMap() {
