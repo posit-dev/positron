@@ -200,14 +200,14 @@
       {
         "name": "inspectVariables",
         "displayName": "Inspect Variables",
-        "modelDescription": "Inspect one or more variables in a console session, listing their child values, if any. Can be used to list the columns in a dataframe, the items in a column or array, or the elements of a list. Returns an array containing an array of children for each variable in the request. IMPORTANT: always use the access_key (even if it is a JSON string), NOT the display_name to refer to a variable. Example: for a session with identifier s-123 and variables [ { display_name: 'df', access_key: 'df-key' }, { 'display_name: 'foo', 'access_key': 'foo-key' } ], a request could be look like { 'sessionIdentifier': 's-123', 'accessKeys': [ ['df-key'], ['foo-key', 'bar-key'] ] }; the response would be an array of arrays, where each inner array contains the child variables of the corresponding variable in the request. The first inner array would contain the columns of the dataframe, and the second inner array would contain the elements of the list 'bar' inside the list 'foo'. Cannot be called when there is no session (the session identifier is empty or not defined). Can be called without any access keys to list all root-level variables in the session.",
+        "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `accessKeys` is empty, lists all root-level variables in the session.\n\nIf the user references a variable by name, first determine the `access_key` from the user context or a previous inspect variables result. Cannot be called when there is no session (the session identifier is empty or not defined).",
         "canBeReferencedInPrompt": false,
         "inputSchema": {
           "type": "object",
           "properties": {
             "sessionIdentifier": {
               "type": "string",
-              "description": "The identifier of the console session to inspect."
+              "description": "The identifier of the session to inspect."
             },
             "accessKeys": {
               "type": "array",
