@@ -120,6 +120,22 @@ export class KCApi implements PositronSupervisorApi {
 		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.restartSupervisor', () => {
 			this.restartSupervisor();
 		}));
+
+		// Listen for changes to the idle shutdown hours config setting; if the
+		// server is running, apply the change immediately
+		if (vscode.env.uiKind === vscode.UIKind.Desktop) {
+			const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
+				if (event.affectsConfiguration('kernelSupervisor.shutdownTimeout')) {
+					if (this._started.isOpen()) {
+						this._log.appendLine(
+							'Updating server configuration with new shutdown timeout: ' +
+							this.getShutdownHours());
+						this.updateIdleTimeout();
+					}
+				}
+			});
+			_context.subscriptions.push(configListener);
+		}
 	}
 
 	/**
