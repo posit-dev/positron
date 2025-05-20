@@ -46,8 +46,11 @@ export class ProjectTreeTool implements IToolImpl {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
 			return {
-				content: [],
-				toolResultMessage: 'No workspace folders found.'
+				content: [{
+					kind: 'text',
+					value: `Project tree can't be constructed because no workspace folders are open`
+				}],
+				toolResultMessage: `Project tree is unavailable when no workspace folders are open`,
 			};
 		}
 

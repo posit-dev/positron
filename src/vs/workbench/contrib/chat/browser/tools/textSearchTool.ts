@@ -88,8 +88,11 @@ export class TextSearchTool implements IToolImpl {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
 			return {
-				content: [],
-				toolResultMessage: 'No workspace folders found.'
+				content: [{
+					kind: 'text',
+					value: `Can't search for text in project because no workspace folders are open`
+				}],
+				toolResultMessage: 'Text search is unavailable when no workspace folders are open',
 			};
 		}
 
