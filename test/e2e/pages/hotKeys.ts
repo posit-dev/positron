@@ -80,10 +80,6 @@ export class HotKeys {
 		await this.pressHotKeys(`Cmd+K F`);
 	}
 
-	public async formatDocument() {
-		await this.pressHotKeys(`Shift+Alt+F`);
-	}
-
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.

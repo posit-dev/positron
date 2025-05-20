@@ -16,11 +16,16 @@ test.describe('Extensions', {
 
 	test('Verify AIR extension basic functionality', {
 		tag: [tags.EXTENSIONS, tags.WEB, tags.WIN]
-	}, async function ({ app, openFile, hotKeys }) {
+	}, async function ({ app, openFile, runCommand }) {
 
 		await openFile('workspaces/r-formatting/bad-formatting.r');
 
-		await hotKeys.formatDocument();
+		// hotKeys approach fails on Ubuntu as key combination is
+		// overriden by Positron
+		await runCommand('command:editor.action.formatDocument', { keepOpen: true });
+		await app.workbench.quickInput.waitForQuickInputOpened();
+		await app.workbench.quickInput.selectQuickInputElementContaining('Air');
+		await app.workbench.quickInput.waitForQuickInputClosed();
 
 		await app.workbench.editor.waitForEditorContents('bad-formatting.r', (contents: string) => {
 			return contents.includes(formattedFile);
