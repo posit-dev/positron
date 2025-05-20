@@ -642,11 +642,37 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	 */
 	public async rediscoverAllRuntimes(): Promise<void> {
 
-		// If we we haven't completed discovery once already, don't do anything.
+		// If we haven't completed discovery once already, don't do anything.
 		if (this._startupPhase !== RuntimeStartupPhase.Complete) {
 			this._logService.warn('[Runtime startup] Runtime discovery refresh called before initial discovery is complete.');
 			return;
 		}
+
+		// Set up event to notify when runtimes are added.
+		const oldRuntimes = this._languageRuntimeService.registeredRuntimes;
+		this._register(
+			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
+				(phase) => {
+					if (phase === RuntimeStartupPhase.Complete) {
+						const newRuntimes = this._languageRuntimeService.registeredRuntimes;
+						const addedRuntimes = newRuntimes.filter(newRuntime => {
+							return !oldRuntimes.some(oldRuntime => {
+								return oldRuntime.runtimeId === newRuntime.runtimeId;
+							});
+						});
+
+						// If any runtimes were added, show a notification.
+						if (addedRuntimes.length > 0) {
+							this._notificationService.info(nls.localize('positron.runtimeStartupService.runtimesAddedMessage',
+								"Found {0} new interpreter{1}: {2}.",
+								addedRuntimes.length,
+								addedRuntimes.length > 1 ? 's' : '',
+								addedRuntimes.map(runtime => { return runtime.runtimeName; }).join(', ')));
+						}
+					}
+				}
+			)
+		);
 
 		this._logService.debug('[Runtime startup] Refreshing runtime discovery.');
 		this._discoveryCompleteByExtHostId.forEach((_, extHostId, m) => {
