@@ -145,8 +145,8 @@ async function verifyVenEnvStarts(app: Application) {
 async function verifyGitFilesArePresent(app: Application) {
 	await test.step('Verify that the .git files are present', async () => {
 		const projectFiles = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
-		expect(projectFiles.getByText('.git')).toBeVisible({ timeout: 50000 });
-		expect(projectFiles.getByText('.gitignore')).toBeVisible();
+		await expect(projectFiles.getByText('.git')).toBeVisible({ timeout: 50000 });
+		await expect(projectFiles.getByText('.gitignore')).toBeVisible();
 		// Ideally, we'd check for the .git folder, but it's not visible in the Explorer
 		// by default due to the default `files.exclude` setting in the workspace.
 	});
