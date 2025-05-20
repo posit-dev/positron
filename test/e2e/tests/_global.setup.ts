@@ -15,7 +15,7 @@ const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 
 async function globalSetup() {
 	fs.rmSync(LOGS_ROOT_PATH, { recursive: true, force: true });
-	prepareTestEnv(ROOT_PATH);
+	prepareTestEnv(ROOT_PATH, LOGS_ROOT_PATH);
 	cloneTestRepo(WORKSPACE_PATH);
 }
 
