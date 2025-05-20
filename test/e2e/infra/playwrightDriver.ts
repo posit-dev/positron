@@ -206,7 +206,7 @@ export class PlaywrightDriver {
 			try {
 				await measureAndLog(() => this.evaluateWithDriver(([driver]) => driver.exitApplication()), 'driver.exitApplication()', this.options.logger);
 			} catch (error) {
-				this.options.logger.log(`Error exiting appliction (${error})`);
+				this.options.logger.log(`Error exiting application (${error})`);
 			}
 		}
 
