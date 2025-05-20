@@ -165,6 +165,13 @@ export interface IPositronPlotsService {
 	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
 
 	/**
+	 * Gets the cached plot thumbnail URI for a given plot ID.
+	 * @param plotId The plot ID to get the thumbnail URI for.
+	 * @returns The thumbnail URI for the plot, or undefined if not found.
+	 */
+	getCachedPlotThumbnailURI(plotId: string): string | undefined;
+
+	/**
 	 * Selects the plot with the specified ID.
 	 *
 	 * @param id The ID of the plot to select.
