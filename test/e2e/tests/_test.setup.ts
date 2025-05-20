@@ -209,8 +209,12 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	// ex: await executeCode('Python', 'print("Hello, world!")');
 	executeCode: async ({ app }, use) => {
-		await use(async (language: 'Python' | 'R', code: string) => {
-			await app.workbench.console.executeCode(language, code);
+		await use(async (language: 'Python' | 'R', code: string, options?: {
+			timeout?: number;
+			waitForReady?: boolean;
+			maximizeConsole?: boolean;
+		}) => {
+			await app.workbench.console.executeCode(language, code, options);
 		});
 	},
 
@@ -470,7 +474,11 @@ interface TestFixtures {
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
 	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
-	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
+	executeCode: (language: 'Python' | 'R', code: string, options?: {
+		timeout?: number;
+		waitForReady?: boolean;
+		maximizeConsole?: boolean;
+	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
 }
