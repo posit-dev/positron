@@ -11,7 +11,7 @@ test.use({
 
 
 test.describe('Extensions', {
-	tag: [tags.EXTENSIONS, tags.WEB],
+	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
 }, () => {
 
 	test('Verify AIR extension basic functionality', {
