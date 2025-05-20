@@ -217,7 +217,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		let tools: Record<string, ai.Tool> | undefined;
 
-		// Filter out messages with empty text or empty tool response content
+		// Ensure all messages have content
 		const updatedMessages = messages.map(ensureMessageContent);
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
