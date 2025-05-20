@@ -163,7 +163,12 @@ class FigureCanvasPositron(FigureCanvasAgg):
 
         # This must be set before setting the size and can't be passed via print_figure else the
         # resulting size won't match the request size.
-        self.figure.set_layout_engine("tight")
+        try:
+            # plotnine plots use their own layout engine, do not override
+            if self.figure._layout_engine.__module__ == "plotnine._mpl.layout_engine":
+                pass
+        except AttributeError:
+            self.figure.set_layout_engine("tight")
 
         # Resize the figure to the requested size in pixels.
         if size is None:
