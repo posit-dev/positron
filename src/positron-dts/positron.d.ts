@@ -1043,9 +1043,9 @@ declare module 'positron' {
 		forceQuit(): Thenable<void>;
 
 		/**
-		 * Update the runtime's dynamic state.
+		 * Update the session name.
 		 *
-		 * @param sessionName The new dynamic state of the runtime
+		 * @param sessionName The new session name
 		 */
 		updateSessionName(sessionName: string): void;
 
