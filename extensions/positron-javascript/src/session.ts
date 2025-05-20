@@ -194,6 +194,11 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 
 	dispose() { }
 
+	updateSessionName(sessionName: string): void {
+		// Update the dynamic state of the session
+		this.dynState.sessionName = sessionName;
+	}
+
 	private emitOutput(parentId: string, output: string) {
 		this._onDidReceiveRuntimeMessage.fire({
 			id: randomUUID(),

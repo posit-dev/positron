@@ -1052,6 +1052,13 @@ declare module 'positron' {
 		forceQuit(): Thenable<void>;
 
 		/**
+		 * Update the session name.
+		 *
+		 * @param sessionName The new session name
+		 */
+		updateSessionName(sessionName: string): void;
+
+		/**
 		 * Show runtime log in output panel.
 		 *
 		 * @param channel The channel to show the output in

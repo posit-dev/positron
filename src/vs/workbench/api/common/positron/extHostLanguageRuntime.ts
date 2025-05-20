@@ -658,6 +658,13 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return this._runtimeSessions[handle].listOutputChannels();
 	}
 
+	$updateSessionNameLanguageRuntime(handle: number, sessionName: string): void {
+		if (handle >= this._runtimeSessions.length) {
+			throw new Error(`Cannot update session name for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
+		}
+		this._runtimeSessions[handle].updateSessionName(sessionName);
+	}
+
 	$showProfileLanguageRuntime(handle: number): Thenable<void> {
 		if (handle >= this._runtimeSessions.length) {
 			throw new Error(`Cannot show profile for runtime: language runtime session handle '${handle}' not found or no longer valid.`);
