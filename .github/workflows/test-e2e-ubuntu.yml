@@ -269,6 +269,3 @@ jobs:
           path: test-logs
           if-no-files-found: ignore
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
