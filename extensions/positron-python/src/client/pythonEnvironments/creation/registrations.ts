@@ -14,7 +14,10 @@ import { registerTriggerForPipInTerminal } from './globalPipInTerminalTrigger';
 import { registerInstalledPackagesDiagnosticsProvider } from './installedPackagesDiagnostic';
 import { registerPyProjectTomlFeatures } from './pyProjectTomlContext';
 
-export function registerAllCreateEnvironmentFeatures(
+// --- Start Positron ---
+// Make this async
+export async function registerAllCreateEnvironmentFeatures(
+    // --- End Positron ---
     disposables: IDisposableRegistry,
     interpreterQuickPick: IInterpreterQuickPick,
     interpreterPathService: IInterpreterPathService,
@@ -22,10 +25,8 @@ export function registerAllCreateEnvironmentFeatures(
     pathUtils: IPathUtils,
     // --- Start Positron ---
     pythonRuntimeManager: IPythonRuntimeManager,
-    // --- End Positron ---
-): void {
-    // --- Start Positron ---
-    registerCreateEnvironmentFeatures(
+): Promise<void> {
+    await registerCreateEnvironmentFeatures(
         disposables,
         interpreterQuickPick,
         interpreterPathService,

@@ -142,7 +142,9 @@ async function activateUnsafe(
 
     // Then we finish activating.
     const componentsActivated = await activateComponents(ext, components, activationStopWatch);
-    activateFeatures(ext, components);
+    // --- Start Positron ---
+    await activateFeatures(ext, components);
+    // --- End Positron ---
 
     const nonBlocking = componentsActivated.map((r) => r.fullyReady);
     const activationPromise = (async () => {

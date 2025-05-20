@@ -33,7 +33,7 @@ import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
 import { Conda } from '../common/environmentManagers/conda';
 import { getUvPythonVersions } from './provider/uvUtils';
-import { UvUtils } from '../common/environmentManagers/uv';
+import { isUvInstalled } from '../common/environmentManagers/uv';
 import { UvCreationProvider } from './provider/uvCreationProvider';
 import {
     createEnvironmentAndRegister,
@@ -85,15 +85,21 @@ export function registerCreateEnvironmentProvider(provider: CreateEnvironmentPro
 
 export const { onCreateEnvironmentStarted, onCreateEnvironmentExited, isCreatingEnvironment } = getCreationEvents();
 
-export function registerCreateEnvironmentFeatures(
+// --- Start Positron ---
+// Make this async
+export async function registerCreateEnvironmentFeatures(
+    // --- End Positron ---
     disposables: IDisposableRegistry,
     interpreterQuickPick: IInterpreterQuickPick,
     interpreterPathService: IInterpreterPathService,
     pathUtils: IPathUtils,
     // --- Start Positron ---
     pythonRuntimeManager: IPythonRuntimeManager,
+): Promise<void> {
+    if (await isUvInstalled()) {
+        disposables.push(registerCreateEnvironmentProvider(new UvCreationProvider()));
+    }
     // --- End Positron ---
-): void {
     disposables.push(
         registerCommand(
             Commands.Create_Environment,
@@ -153,16 +159,9 @@ export function registerCreateEnvironmentFeatures(
             },
         ),
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
-        registerCommand(
-            Commands.Is_Uv_Installed,
-            async (): Promise<boolean> => {
-                const uvUtils = await UvUtils.getUvUtils();
-                return uvUtils !== undefined;
-            },
-        ),
+        registerCommand(Commands.Is_Uv_Installed, async () => isUvInstalled()),
         registerCommand(Commands.Get_Uv_Python_Versions, () => getUvPythonVersions()),
         registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
-        registerCreateEnvironmentProvider(new UvCreationProvider()),
         // --- End Positron ---
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
         registerCreateEnvironmentProvider(condaCreationProvider()),
@@ -177,6 +176,11 @@ export function registerCreateEnvironmentFeatures(
             }
         }),
     );
+    // --- Start Positron ---
+    if (!(await isUvInstalled())) {
+        disposables.push(registerCreateEnvironmentProvider(new UvCreationProvider()));
+    }
+    // --- End Positron ---
 }
 
 export function buildEnvironmentCreationApi(): ProposedCreateEnvironmentAPI {

@@ -20,7 +20,7 @@ import { Output } from '../../../../client/common/process/types';
 import { createDeferred } from '../../../../client/common/utils/async';
 import * as commonUtils from '../../../../client/pythonEnvironments/creation/common/commonUtils';
 import { CreateEnv } from '../../../../client/common/utils/localize';
-import { UvUtils } from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
+import * as uv from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as venvUtils from '../../../../client/pythonEnvironments/creation/provider/venvUtils';
 import {
     CreateEnvironmentProvider,
@@ -32,7 +32,7 @@ chaiUse(chaiAsPromised.default);
 suite('UV Creation provider tests', () => {
     let uvProvider: CreateEnvironmentProvider;
     let progressMock: typemoq.IMock<CreateEnvironmentProgress>;
-    let getUvUtilsStub: sinon.SinonStub;
+    let isUvInstalledStub: sinon.SinonStub;
     let pickPythonVersionStub: sinon.SinonStub;
     let pickWorkspaceFolderStub: sinon.SinonStub;
     let execObservableStub: sinon.SinonStub;
@@ -43,7 +43,8 @@ suite('UV Creation provider tests', () => {
 
     setup(() => {
         pickWorkspaceFolderStub = sinon.stub(wsSelect, 'pickWorkspaceFolder');
-        getUvUtilsStub = sinon.stub(UvUtils, 'getUvUtils');
+        isUvInstalledStub = sinon.stub(uv, 'isUvInstalled');
+        isUvInstalledStub.resolves(true);
         pickPythonVersionStub = sinon.stub(uvUtils, 'pickPythonVersion');
         execObservableStub = sinon.stub(rawProcessApis, 'execObservable');
         withProgressStub = sinon.stub(windowApis, 'withProgress');
@@ -65,20 +66,18 @@ suite('UV Creation provider tests', () => {
     });
 
     test('No uv installed', async () => {
-        getUvUtilsStub.resolves(undefined);
+        isUvInstalledStub.resolves(false);
 
         assert.isUndefined(await uvProvider.createEnvironment());
     });
 
     test('No workspace selected', async () => {
-        getUvUtilsStub.resolves({});
         pickWorkspaceFolderStub.resolves(undefined);
 
         await assert.isRejected(uvProvider.createEnvironment());
     });
 
     test('No python version picked selected', async () => {
-        getUvUtilsStub.resolves({});
         pickWorkspaceFolderStub.resolves({
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
             name: 'workspace1',
@@ -91,7 +90,6 @@ suite('UV Creation provider tests', () => {
     });
 
     test('Create uv environment', async () => {
-        getUvUtilsStub.resolves({});
         const workspace1 = {
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
             name: 'workspace1',
@@ -157,7 +155,6 @@ suite('UV Creation provider tests', () => {
     });
 
     test('Create uv environment failed', async () => {
-        getUvUtilsStub.resolves({});
         pickWorkspaceFolderStub.resolves({
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
             name: 'workspace1',
@@ -210,7 +207,6 @@ suite('UV Creation provider tests', () => {
     });
 
     test('Create uv environment failed (non-zero exit code)', async () => {
-        getUvUtilsStub.resolves({});
         const workspace1 = {
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
             name: 'workspace1',
@@ -268,7 +264,6 @@ suite('UV Creation provider tests', () => {
     });
 
     test('Use existing uv environment', async () => {
-        getUvUtilsStub.resolves({});
         const workspace1 = {
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'workspace1')),
             name: 'workspace1',
@@ -288,7 +283,6 @@ suite('UV Creation provider tests', () => {
     });
 
     test('Create uv environment with options and pre-selected python version', async () => {
-        getUvUtilsStub.resolves({});
         const newProjectWorkspace = {
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'newProjectWorkspace')),
             name: 'newProjectWorkspace',

@@ -20,7 +20,7 @@ import {
     CreateEnvironmentOptions,
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
-import { UvUtils } from '../../common/environmentManagers/uv';
+import { isUvInstalled } from '../../common/environmentManagers/uv';
 import { pickPythonVersion } from './uvUtils';
 
 export const UV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:uv`;
@@ -74,8 +74,8 @@ export class UvCreationProvider implements CreateEnvironmentProvider {
     public async createEnvironment(
         options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
     ): Promise<CreateEnvironmentResult | undefined> {
-        const uvUtils = await UvUtils.getUvUtils();
-        if (!uvUtils) {
+        const uvIsInstalled = await isUvInstalled();
+        if (!uvIsInstalled) {
             traceError('uv is not installed');
             showPositronErrorMessageWithLogs(CreateEnv.Venv.errorCreatingEnvironment);
             return undefined;

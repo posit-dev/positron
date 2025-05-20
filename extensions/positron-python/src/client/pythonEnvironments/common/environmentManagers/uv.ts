@@ -12,7 +12,7 @@ import { getPyvenvConfigPathsFrom } from './simplevirtualenvs';
 import { splitLines } from '../../../common/stringUtils';
 
 /** Wraps the "uv" utility, and exposes its functionality. */
-export class UvUtils {
+class UvUtils {
     private static uvPromise: Promise<UvUtils | undefined>;
 
     constructor(public readonly command: string) {}
@@ -110,4 +110,13 @@ export async function isUvEnvironment(interpreterPath: string): Promise<boolean>
     }
 
     return false;
+}
+
+/**
+ * Checks if uv is installed.
+ * @returns {boolean} Returns true if uv is installed.
+ */
+export async function isUvInstalled(): Promise<boolean> {
+    const uvUtils = await UvUtils.getUvUtils();
+    return uvUtils !== undefined;
 }
