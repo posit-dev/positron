@@ -256,22 +256,36 @@ export function isChatImageMimeType(mimeType: string): mimeType is vscode.ChatIm
 	return Object.values(vscode.ChatImageMimeType).includes(mimeType as vscode.ChatImageMimeType);
 }
 
+const PLACEHOLDER_LANGUAGE_MODEL_TEXT_PART = new vscode.LanguageModelTextPart('<content is empty>');
+
 /**
-* Checks if a message contains any non-empty content.
-* @param message The message to check
-* @returns True if the message has any non-empty content, false otherwise
-*/
-export function hasNonEmptyContent(message: vscode.LanguageModelChatMessage2): boolean {
-	return message.content.some(part => {
-		if (part instanceof vscode.LanguageModelTextPart) {
-			return part.value.trim() !== '';
+ * Ensures that a message contains at least one content part.
+ * If the message is empty, a placeholder text part is added to prevent issues with LLMs.
+ * @param message The message to check and update if necessary
+ * @returns The updated message with guaranteed non-empty content
+ */
+export function ensureMessageContent(message: vscode.LanguageModelChatMessage2) {
+	// If the message content is empty, add a placeholder text part
+	if (message.content.length === 0) {
+		message.content = [PLACEHOLDER_LANGUAGE_MODEL_TEXT_PART];
+		return message;
+	}
+
+	// Replace each empty part with a placeholder text part to avoid empty messages.
+	// Filtering out empty messages altogether can result in missing responses for
+	// certain LLMs, so we replace empty content with a placeholder.
+	for (let i = 0; i < message.content.length; i++) {
+		const part = message.content[i];
+		if (part instanceof vscode.LanguageModelTextPart && part.value.trim() === '') {
+			message.content[i] = PLACEHOLDER_LANGUAGE_MODEL_TEXT_PART;
 		}
-		if (part instanceof vscode.LanguageModelToolResultPart) {
-			return part.content.length > 0;
+		if (part instanceof vscode.LanguageModelToolResultPart && part.content.length === 0) {
+			message.content[i] = new vscode.LanguageModelToolResultPart(part.callId, [PLACEHOLDER_LANGUAGE_MODEL_TEXT_PART]);
 		}
 		// Other part types are considered non-empty, such as LanguageModelToolCallPart and LanguageModelDataPart
-		return true;
-	});
+		// so we don't need to handle empty cases for them.
+	}
+	return message;
 }
 
 // This type definition is from Vercel AI, but the type is not exported.
