@@ -91,6 +91,12 @@
           "default": false,
           "description": "%configuration.attachOnStartup.description%"
         },
+        "kernelSupervisor.runInShell": {
+          "scope": "window",
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.runInShell.description%"
+        },
         "kernelSupervisor.sleepOnStartup": {
           "scope": "window",
           "type": "number",
