@@ -376,7 +376,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 				const dropdownAction = new Action('console.session.quickLaunch', localize('console.session.quickLaunch', 'Quick Launch Session...'), 'codicon-chevron-down', true);
 				this._register(dropdownAction);
 
-				this._sessionDropdown.value = new DropdownWithPrimaryActionViewItem(action, dropdownAction, [], 'console-test-dropdown', {}, this.contextMenuService, this.keybindingService, this.notificationService, this.contextKeyService, this.themeService, this.accessibilityService);
+				this._sessionDropdown.value = new DropdownWithPrimaryActionViewItem(action, dropdownAction, [], '', {}, this.contextMenuService, this.keybindingService, this.notificationService, this.contextKeyService, this.themeService, this.accessibilityService);
 				this.updateSessionDropdown(dropdownAction);
 
 				return this._sessionDropdown.value;
