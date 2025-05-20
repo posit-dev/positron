@@ -209,3 +209,10 @@ jobs:
           TESTRAIL_TITLE: "e2e-windows"
           TESTRAIL_PROJECT: "Positron"
           TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
+
+      - name: Upload Test Logs
+        if: ${{ always() }}
+        uses: actions/upload-artifact@v4
+        with:
+          path: /test-logs
+          if-no-files-found: ignore
