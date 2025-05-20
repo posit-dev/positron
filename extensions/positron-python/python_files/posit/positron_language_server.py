@@ -98,7 +98,7 @@ if __name__ == "__main__":
                 "level": args.loglevel,
                 "handlers": handlers,
             },
-            "positron._vendor.pygls.protocol.json_rpc": {
+            "positron": {
                 "level": args.loglevel,
                 "handlers": handlers,
             },
