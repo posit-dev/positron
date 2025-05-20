@@ -6,7 +6,7 @@
 import * as playwright from '@playwright/test';
 // eslint-disable-next-line local/code-import-patterns
 import type { Protocol } from 'playwright-core/types/protocol';
-import { dirname, join } from 'path';
+import path, { dirname, join } from 'path';
 import { promises } from 'fs';
 import { IWindowDriver } from './driver';
 // eslint-disable-next-line local/code-import-patterns
