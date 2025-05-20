@@ -403,7 +403,7 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		// Wait for the terminal to start and get the PID
-		await terminal.processId;
+		let processId = await terminal.processId;
 
 		// If an HTTP proxy is set, exempt the supervisor from it; since this
 		// is a local server, we generally don't want to route it through a
@@ -426,6 +426,14 @@ export class KCApi implements PositronSupervisorApi {
 			try {
 				const status = await this._api.serverStatus();
 				this._log.appendLine(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
+
+				// Update the process ID; this can be different than the process
+				// ID in the hosting terminal when the supervisor is run in an
+				// shell and/or with nohup
+				if (processId !== status.body.processId) {
+					this._log.appendLine(`Running as pid ${status.body.processId} (terminal pid ${processId})`);
+					processId = status.body.processId;
+				}
 
 				// Make sure the version is the one expected in package.json.
 				const version = this._context.extension.packageJSON.positron.binaryDependencies.kallichore;
@@ -517,7 +525,7 @@ export class KCApi implements PositronSupervisorApi {
 			base_path: this._api.basePath,
 			port,
 			server_path: shellPath,
-			server_pid: await terminal.processId || 0,
+			server_pid: processId || 0,
 			bearer_token: bearerToken,
 			log_path: logFile
 		};
