@@ -20,8 +20,10 @@
  */
 
 import { Page } from '@playwright/test';
-import { Application } from '../../infra/index.js';
+import { Application, SessionMetaData } from '../../infra/index.js';
 import { test, tags, expect } from '../_test.setup';
+
+let session: SessionMetaData;
 
 test.use({ suiteId: __filename });
 
@@ -29,7 +31,8 @@ test.describe('R Debugging', {
 	tag: [tags.DEBUG, tags.WEB, tags.WIN]
 }, () => {
 
-	test.beforeAll('Setup fruit data', async ({ executeCode }) => {
+	test.beforeAll('Setup fruit data', async ({ executeCode, sessions }) => {
+		session = await sessions.start('r');
 		await executeCode('R', `dat <- data.frame(
 			blackberry = c(4, 9, 6),
 			blueberry = c(1, 2, 8),
@@ -116,7 +119,9 @@ test.describe('R Debugging', {
 		await executeCode('R', 'fruit_avg(dat, "berry")', { waitForReady: false });
 
 		// First call should pause at debug prompt
-		await debug.expectBrowserModeFrame(1);
+		// Note: In R 4.3 browser "overcounts" the context depth but it is fixed in R 4.4
+		const frameNumber = session.name.startsWith('R 4.3.') ? 2 : 1;
+		await debug.expectBrowserModeFrame(frameNumber);
 
 		// Continue execution
 		await page.keyboard.type('c');
