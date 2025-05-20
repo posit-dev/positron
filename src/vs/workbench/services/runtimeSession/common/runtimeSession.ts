@@ -1669,7 +1669,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._onDidReceiveRuntimeEventEmitter.fire(evt);
 		}));
 
-		// Forwad UI client to interested services once it's available
+		// Forward UI client to interested services once it's available
 		activeSession.register(activeSession.onUiClientStarted(uiClient => {
 			this._onDidStartUiClientEmitter.fire({ sessionId: session.sessionId, uiClient });
 		}));
