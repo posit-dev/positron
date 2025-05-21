@@ -35,6 +35,9 @@ export interface IConsoleCodeAttribution {
  * Represents a code fragment and its execution options sent to a language runtime.
  */
 export interface ILanguageRuntimeCodeExecutedEvent {
+	/** The session that executed the code */
+	sessionId: string;
+
 	/** The language ID of the code fragment */
 	languageId: string;
 
