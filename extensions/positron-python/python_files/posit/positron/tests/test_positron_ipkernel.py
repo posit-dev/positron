@@ -6,12 +6,14 @@
 import contextlib
 import logging
 import os
+import sys
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import Mock
 
 import pytest
 from ipykernel.compiler import get_tmp_directory
+from IPython.core import ultratb
 from IPython.utils.syspathcontext import prepended_to_syspath
 
 from positron.access_keys import encode_access_key
@@ -174,9 +176,14 @@ def g():
 """
 
 
-def test_console_traceback(
-    shell: PositronShell, tmp_path: Path, mock_displayhook: Mock, monkeypatch
-) -> None:
+@pytest.fixture
+def test_traceback_result(
+    request: pytest.FixtureRequest,
+    shell: PositronShell,
+    tmp_path: Path,
+    mock_displayhook: Mock,
+    monkeypatch,
+) -> tuple[str, Any]:
     # Ensure that we're in console mode.
     monkeypatch.setattr(shell, "session_mode", SessionMode.CONSOLE)
 
@@ -185,12 +192,40 @@ def test_console_traceback(
     # from it.
 
     # Create a temporary module.
-    file = tmp_path / "test_traceback.py"
+    file = tmp_path / f"{request.function.__name__}.py"
     file.write_text(code)
 
     # Temporarily add the module to sys.path and call a function from it, which should error.
     with prepended_to_syspath(str(tmp_path)):
-        shell.run_cell("import test_traceback; test_traceback.g()")
+        shell.run_cell(f"import {request.function.__name__} as test_traceback; test_traceback.g()")
+
+    # This template matches the beginning of each traceback frame. We don't check each entire frame
+    # because syntax highlighted code is full of escape codes. For example, after removing
+    # escape codes a formatted version of below might look like:
+    #
+    # File /private/var/folders/.../test_traceback.py:11, in func()
+    #
+
+    # Check that a single message was sent to the frontend.
+    call_args_list = mock_displayhook.session.send.call_args_list
+    assert len(call_args_list) == 1
+
+    call_args = call_args_list[0]
+
+    # Check that the message was sent over the "error" stream.
+    assert call_args.args[1] == "error"
+
+    exc_content = call_args.args[2]
+
+    return (file, exc_content)
+
+
+@pytest.mark.xfail(
+    sys.version_info >= (3, 11),
+    reason="Python >= 3.11 does not support the traceback format of IPython < 9.0.0",
+)
+def test_console_traceback(shell: PositronShell, test_traceback_result) -> None:
+    file, exc_content = test_traceback_result
 
     # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
     # compare the beginning of each frame of the traceback. The escape codes make it particularly
@@ -215,17 +250,6 @@ def test_console_traceback(
     #
     traceback_frame_header = f"File {colors.filenameEm}{osc8};line={{line}};{uri}{st}{path}:{{line}}{osc8};;{st}{colors.Normal}, in {colors.vName}{{func}}{colors.valEm}(){colors.Normal}"
 
-    # Check that a single message was sent to the frontend.
-    call_args_list = mock_displayhook.session.send.call_args_list
-    assert len(call_args_list) == 1
-
-    call_args = call_args_list[0]
-
-    # Check that the message was sent over the "error" stream.
-    assert call_args.args[1] == "error"
-
-    exc_content = call_args.args[2]
-
     # Check that two frames were included (the top frame is included in the exception value below).
     traceback = exc_content["traceback"]
     assert len(traceback) == 2
@@ -240,6 +264,57 @@ def test_console_traceback(
     # The exception value should include the top of the stack trace.
     assert_ansi_string_startswith(
         exc_content["evalue"], "This is an error!\nCell " + colors.filenameEm
+    )
+
+
+@pytest.mark.xfail(
+    sys.version_info < (3, 11),
+    reason="Python < 3.11 does not support the traceback format of IPython >= 9.0.0",
+)
+def test_console_traceback_ipy9(shell: PositronShell, test_traceback_result) -> None:
+    file, exc_content = test_traceback_result
+
+    # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
+    # compare the beginning of each frame of the traceback. The escape codes make it particularly
+    # challenging.
+    path = str(alias_home(file))
+
+    # Define a few OSC8 escape codes for convenience.
+
+    # Convenient reference to colors from the active scheme.
+    colors = ultratb.theme_table[shell.colors]
+
+    # This template matches the beginning of each traceback frame. We don't check each entire frame
+    # because syntax highlighted code is full of escape codes. For example, after removing
+    # escape codes a formatted version of below might look like:
+    #
+    # File /private/var/folders/.../test_traceback.py:11, in func()
+    #
+    traceback_frame_header = colors.format(
+        [
+            (ultratb.Token.NormalEm, "File "),
+            (ultratb.Token.FilenameEm, f"{path}:{{line}}"),
+            (ultratb.Token.Normal, ", in "),
+            (ultratb.Token.VName, "{func}"),
+            (ultratb.Token.ValEm, "()"),
+        ]
+    )
+
+    # Check that two frames were included (the top frame is included in the exception value below).
+    traceback = exc_content["traceback"]
+    assert len(traceback) == 2
+
+    # Check the beginning of each frame.
+    assert_ansi_string_startswith(traceback[0], traceback_frame_header.format(line=5, func="g"))
+    assert_ansi_string_startswith(traceback[1], traceback_frame_header.format(line=2, func="f"))
+
+    # Check the exception name.
+    assert exc_content["ename"] == "Exception"
+
+    # The exception value should include the top of the stack trace.
+    assert_ansi_string_startswith(
+        exc_content["evalue"],
+        "This is an error!\n" + colors.format([(ultratb.Token.NormalEm, "Cell")]),
     )
 
 
