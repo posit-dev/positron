@@ -20,6 +20,7 @@ This tool returns the contents of the specified file in the project.
 The provided file path must be a path to a file in the workspace or a file that is currently open in the editor.
 The file path can be either absolute or relative to the workspace root.
 The tool will return the contents of the file as a string, along with its size and encoding.
+If the workspace is empty or no workspace folders are open, this tool cannot retrieve file contents.
 `;
 
 export const ExtensionFileContentsToolId = 'positron_getFileContents';

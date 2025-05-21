@@ -21,6 +21,7 @@ Do not use this tool to find files or directories in the workspace, as it is spe
 The search is performed across all files in the project, excluding files and directories that are ignored by the workspace settings.
 The provided pattern is interpreted as text unless indicated to be a regular expression.
 Other search options such as case sensitivity, whole word matching, and multiline matching can be specified.
+If the workspace is empty or no workspace folders are open, this tool cannot search for text.
 `;
 
 export const ExtensionTextSearchToolId = 'positron_findTextInProject';
