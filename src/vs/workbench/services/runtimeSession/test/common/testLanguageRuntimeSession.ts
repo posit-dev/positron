@@ -311,7 +311,7 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 			parent_id: message.parent_id ?? '',
 			event_clock: message.event_clock ?? 0,
 			when: message.when ?? new Date().toISOString(),
-			metadata: message.metadata ?? new Map(),
+			metadata: message.metadata ?? {},
 			buffers: [],
 		};
 	}

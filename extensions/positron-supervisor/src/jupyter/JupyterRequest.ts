@@ -7,13 +7,14 @@ import { JupyterChannel } from './JupyterChannel';
 import { PromiseHandles } from '../async';
 import { JupyterCommand } from './JupyterCommand';
 import { SocketSession } from '../ws/SocketSession';
+import { JupyterMessageType } from './JupyterMessageType.js';
 
 export abstract class JupyterRequest<T, U> extends JupyterCommand<T> {
 	private _promise: PromiseHandles<U> = new PromiseHandles<U>();
 	constructor(
-		requestType: string,
+		requestType: JupyterMessageType,
 		requestPayload: T,
-		public readonly replyType: string,
+		public readonly replyType: JupyterMessageType,
 		channel: JupyterChannel) {
 		super(requestType, requestPayload, channel);
 	}

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -9,5 +9,5 @@
  * @link https://jupyter-client.readthedocs.io/en/stable/messaging.html#kernel-status
  */
 export interface JupyterKernelStatus {
-	execution_state: 'busy' | 'idle' | 'starting';  // eslint-disable-line
+	execution_state: 'busy' | 'idle' | 'starting';
 }
