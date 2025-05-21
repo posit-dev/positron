@@ -21,16 +21,19 @@ import { IRuntimeStartupService } from '../../../../services/runtimeStartup/comm
 import { TestRuntimeStartupService } from '../../../../services/runtimeStartup/test/common/testRuntimeStartupService.js';
 import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { createTestPlotsServiceWithPlots } from '../../../../services/positronPlots/test/common/testPlotsServiceHelper.js';
+import { URI } from '../../../../../base/common/uri.js';
 
 suite('PositronAssistantService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	let instantiationService: TestInstantiationService;
+	let testVariablesService: TestPositronVariablesService;
 	let positronAssistantService: IPositronAssistantService;
-	let testSession: TestLanguageRuntimeSession;
+	let testConsoleSession: TestLanguageRuntimeSession;
+	let testNotebookSession: TestLanguageRuntimeSession;
 
 	setup(async () => {
 		instantiationService = new TestInstantiationService();
-		const testVariablesService = new TestPositronVariablesService();
+		testVariablesService = new TestPositronVariablesService();
 
 		// Set up the test runtime services
 		instantiationService.stub(IPositronVariablesService, disposables.add(testVariablesService));
@@ -39,9 +42,9 @@ suite('PositronAssistantService', () => {
 		createRuntimeServices(instantiationService, disposables);
 		instantiationService.stub(IExecutionHistoryService, disposables.add(instantiationService.createInstance(ExecutionHistoryService)));
 
-		// Create a test runtime session that will be used to execute code
+		// Create test runtime sessions
 		const runtime = createTestLanguageRuntimeMetadata(instantiationService, disposables);
-		testSession = await startTestLanguageRuntimeSession(
+		testConsoleSession = await startTestLanguageRuntimeSession(
 			instantiationService,
 			disposables,
 			{
@@ -51,12 +54,28 @@ suite('PositronAssistantService', () => {
 				startReason: "Test"
 			}
 		);
+		testNotebookSession = await startTestLanguageRuntimeSession(
+			instantiationService,
+			disposables,
+			{
+				runtime,
+				sessionName: "Test Notebook Session",
+				sessionMode: LanguageRuntimeSessionMode.Notebook,
+				startReason: "Test",
+				notebookUri: URI.file('/path/to/notebook.ipynb')
+			}
+		);
 
-		// Wait for the session to be ready
-		await waitForRuntimeState(testSession, RuntimeState.Ready);
+		// Wait for the sessions to be ready
+		await Promise.all([
+			waitForRuntimeState(testConsoleSession, RuntimeState.Ready),
+			waitForRuntimeState(testNotebookSession, RuntimeState.Ready),
+		]);
 
-		// Create a variables instance, which the assistant service will use to determine the active session
-		testVariablesService.createPositronVariablesInstance(testSession, true);
+		// Create variables instances for each session and set the active session
+		testVariablesService.createPositronVariablesInstance(testConsoleSession);
+		testVariablesService.createPositronVariablesInstance(testNotebookSession);
+		testVariablesService.setActivePositronVariablesSession(testConsoleSession.sessionId);
 
 		// Create the service under test with all required services
 		positronAssistantService = disposables.add(instantiationService.createInstance(PositronAssistantService));
@@ -64,6 +83,30 @@ suite('PositronAssistantService', () => {
 
 	teardown(() => {
 		sinon.restore();
+	});
+
+	test('getPositronChatContext returns the active session context', async () => {
+		// Create a chat request
+		const chatRequest: IChatRequestData = {
+			location: ChatAgentLocation.Panel
+		};
+
+		// Get the chat context
+		const context: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
+
+		// Verify the console session is active
+		assert.ok(context.activeSession, 'Session data should be present');
+		assert.strictEqual(context.activeSession.identifier, testConsoleSession.sessionId, 'Console session should be active');
+
+		// Make the notebook session active
+		testVariablesService.setActivePositronVariablesSession(testNotebookSession.sessionId);
+
+		// Get the chat context again
+		const newContext: IPositronChatContext = positronAssistantService.getPositronChatContext(chatRequest);
+
+		// Verify the notebook session is active
+		assert.ok(newContext.activeSession, 'Session data should be present');
+		assert.strictEqual(newContext.activeSession.identifier, testNotebookSession.sessionId, 'Notebook session should be active');
 	});
 
 	test('getPositronChatContext includes session executions in chat context', async () => {
@@ -74,18 +117,18 @@ suite('PositronAssistantService', () => {
 		// First execution: x <- 1 + 2
 
 		// Simulate input and output messages
-		testSession.receiveInputMessage({
+		testConsoleSession.receiveInputMessage({
 			parent_id: executionId1,
 			code: 'x <- 1 + 2',
 			execution_count: 1
 		});
 
-		testSession.receiveStateMessage({
+		testConsoleSession.receiveStateMessage({
 			parent_id: executionId1,
 			state: RuntimeOnlineState.Busy
 		});
 
-		testSession.receiveOutputMessage({
+		testConsoleSession.receiveOutputMessage({
 			parent_id: executionId1,
 			kind: RuntimeOutputKind.Text,
 			data: {
@@ -93,31 +136,31 @@ suite('PositronAssistantService', () => {
 			},
 		});
 
-		testSession.receiveStateMessage({
+		testConsoleSession.receiveStateMessage({
 			parent_id: executionId1,
 			state: RuntimeOnlineState.Idle
 		});
 
 		// Second execution: sqrt(16)
 
-		testSession.receiveInputMessage({
+		testConsoleSession.receiveInputMessage({
 			parent_id: executionId2,
 			code: 'sqrt(16)',
 			execution_count: 2
 		});
 
-		testSession.receiveStateMessage({
+		testConsoleSession.receiveStateMessage({
 			parent_id: executionId2,
 			state: RuntimeOnlineState.Busy
 		});
 
-		testSession.receiveStreamMessage({
+		testConsoleSession.receiveStreamMessage({
 			parent_id: executionId2,
 			name: 'stdout',
 			text: '[1] 4'
 		});
 
-		testSession.receiveStateMessage({
+		testConsoleSession.receiveStateMessage({
 			parent_id: executionId2,
 			state: RuntimeOnlineState.Idle
 		});
@@ -145,52 +188,52 @@ suite('PositronAssistantService', () => {
 		const executionId2 = 'exec2';
 
 		// First execution: print("Hello, world!")
-		testSession.receiveInputMessage({
+		testConsoleSession.receiveInputMessage({
 			parent_id: executionId1,
 			code: 'print("Hello, world!")',
 			execution_count: 1
 		});
 
-		testSession.receiveStateMessage({
+		testConsoleSession.receiveStateMessage({
 			parent_id: executionId1,
 			state: RuntimeOnlineState.Busy
 		});
 
-		testSession.receiveStreamMessage({
+		testConsoleSession.receiveStreamMessage({
 			parent_id: executionId1,
 			name: 'stdout',
 			text: 'Hello, world!'
 		});
 
-		testSession.receiveStateMessage({
+		testConsoleSession.receiveStateMessage({
 			parent_id: executionId1,
 			state: RuntimeOnlineState.Idle
 		});
 
 		// Second execution with error: undefined_variable
-		testSession.execute('undefined_variable', executionId2, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Stop);
+		testConsoleSession.execute('undefined_variable', executionId2, RuntimeCodeExecutionMode.Interactive, RuntimeErrorBehavior.Stop);
 
 		// Simulate input message
-		testSession.receiveInputMessage({
+		testConsoleSession.receiveInputMessage({
 			parent_id: executionId2,
 			code: 'undefined_variable',
 			execution_count: 2
 		});
 
-		testSession.receiveStateMessage({
+		testConsoleSession.receiveStateMessage({
 			parent_id: executionId2,
 			state: RuntimeOnlineState.Busy
 		});
 
 		// Simulate error message
-		testSession.receiveErrorMessage({
+		testConsoleSession.receiveErrorMessage({
 			parent_id: executionId2,
 			name: 'NameError',
 			message: 'name "undefined_variable" is not defined',
 			traceback: ['Traceback (most recent call last):', 'NameError: name "undefined_variable" is not defined']
 		});
 
-		testSession.receiveStateMessage({
+		testConsoleSession.receiveStateMessage({
 			parent_id: executionId2,
 			state: RuntimeOnlineState.Idle
 		});
