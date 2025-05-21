@@ -5,7 +5,7 @@ holoviews
 hvplot
 ibis-framework[duckdb]; python_version >= '3.10'
 ipykernel
-ipython<=8.31.0  # see https://github.com/posit-dev/positron/issues/6604
+ipython
 ipywidgets
 lightning
 matplotlib

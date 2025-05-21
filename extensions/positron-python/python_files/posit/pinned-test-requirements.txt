@@ -18,7 +18,8 @@ hvplot==0.11.2
 ibis-framework[duckdb]==10.4.0; python_version >= '3.10'
 ipykernel==6.29.5
 ipython==8.18.1; python_version == '3.9'
-ipython==8.31.0; python_version >= '3.10'
+ipython==8.31.0; python_version == '3.10'
+ipython==9.2.0; python_version >= '3.11'
 ipywidgets==8.1.5
 lightning==2.5.1
 matplotlib==3.9.4; python_version == '3.9'
