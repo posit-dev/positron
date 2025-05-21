@@ -644,7 +644,6 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 						// --- Start Positron ---
 						// Enable kernel source action providers for Positron kernels
 						const kernel = all.find(kernel => kernel.id === `ms-toolsai.jupyter/${selectedKernelId}` ||
-							kernel.id === `positron.positron-notebook-controllers/${selectedKernelId}` ||
 							kernel.id === `${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}/${selectedKernelId}`);
 						// --- End Positron ---
 						if (kernel) {
@@ -711,7 +710,6 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 					const { all } = await this._getMatchingResult(notebook);
 					// Enable kernel source action providers for Positron kernels
 					const kernel = all.find(kernel => kernel.id === `ms-toolsai.jupyter/${selectedKernelId}` ||
-						kernel.id === `positron.positron-notebook-controllers/${selectedKernelId}` ||
 						kernel.id === `${POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID}/${selectedKernelId}`);
 					if (kernel) {
 						await this._selecteKernel(notebook, kernel);
@@ -743,7 +741,6 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 		// --- Start Positron ---
 		// Remove Positron quickpick items in favor of kernel source action providers
 		const others = matchResult.all.filter(item => item.extension.value !== JUPYTER_EXTENSION_ID &&
-			item.extension.value !== 'positron.positron-notebook-controllers' &&
 			item.extension.value !== POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
 		// --- End Positron ---
 		const quickPickItems: QuickPickInput<KernelQuickPickItem>[] = [];

@@ -65,7 +65,6 @@ class SelectPositronNotebookKernelAction extends Action2 {
 		const gatherKernelPicks = () => {
 			const kernelMatches = notebookKernelService.getMatchingKernel(notebook);
 			const positronKernels = kernelMatches.all.filter(k =>
-				k.extension.value === 'positron.positron-notebook-controllers' ||
 				k.extension.value === POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID);
 			if (positronKernels.length === 0) {
 				quickPick.busy = true;
