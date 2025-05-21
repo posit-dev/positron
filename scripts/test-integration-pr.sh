@@ -64,11 +64,12 @@ echo
 npm run test-extension -- -l positron-connections
 kill_app
 
-echo
-echo "### Positron Run App tests"
-echo
-npm run test-extension -- -l positron-run-app
-kill_app
+# TODO: Flaky test: https://github.com/posit-dev/positron/issues/5823.
+# echo
+# echo "### Positron Run App tests"
+# echo
+# npm run test-extension -- -l positron-run-app
+# kill_app
 
 echo
 echo "### Positron DuckDB tests"
