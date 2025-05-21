@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, ApplicationOptions, Quality } from '../infra';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, ApplicationOptions, Quality, MultiLogger } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -98,7 +98,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
-	app: [async ({ options, logsPath, }, use, workerInfo) => {
+	app: [async ({ options, logsPath, logger }, use, workerInfo) => {
 		const app = createApp(options);
 
 		try {
@@ -124,7 +124,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 			// rename the temp logs dir to the spec name (if available)
 			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
-			await moveAndOverwrite(logsPath, specLogsPath);
+			await moveAndOverwrite(logger, logsPath, specLogsPath);
 		}
 	}, { scope: 'worker', auto: true, timeout: 80000 }],
 
@@ -434,7 +434,7 @@ test.afterAll(async function ({ logger }, testInfo) {
 export { playwrightExpect as expect };
 export { TestTags as tags };
 
-async function moveAndOverwrite(sourcePath, destinationPath) {
+async function moveAndOverwrite(logger: MultiLogger, sourcePath: string, destinationPath: string) {
 	try {
 		await access(sourcePath, constants.F_OK);
 	} catch {
@@ -455,7 +455,11 @@ async function moveAndOverwrite(sourcePath, destinationPath) {
 	// rename source to destination
 	try {
 		await rename(sourcePath, destinationPath);
-	} catch (err) { }
+		logger.setPath(destinationPath);
+		logger.log('Logger path updated to:', destinationPath);
+	} catch (err) {
+		logger.log(`moveAndOverwrite: failed to move ${sourcePath} to ${destinationPath}:`, err);
+	}
 }
 
 interface TestFixtures {
@@ -491,7 +495,7 @@ interface WorkerFixtures {
 	userDataDir: string;
 	app: Application;
 	logsPath: string;
-	logger: Logger;
+	logger: MultiLogger;
 	userSettings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 	};
