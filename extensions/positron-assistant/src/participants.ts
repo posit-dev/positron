@@ -327,7 +327,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						}
 						userParts.push(
 							new vscode.LanguageModelTextPart(`Attached image name: ${reference.name}`),
-							new vscode.LanguageModelDataPart({ data, mimeType: value.mimeType }),
+							new vscode.LanguageModelDataPart(data, value.mimeType),
 						);
 					} else {
 						console.warn(`Positron Assistant: Unsupported chat reference binary data type: ${typeof value}`);

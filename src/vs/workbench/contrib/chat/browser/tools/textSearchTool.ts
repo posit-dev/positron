@@ -10,8 +10,7 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
 import { IPatternInfo, ISearchConfigurationProperties, ISearchService, resultIsMatch } from '../../../../services/search/common/search.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
-import { IToolInputProcessor } from '../../common/tools/tools.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 
@@ -85,7 +84,7 @@ export class TextSearchTool implements IToolImpl {
 		return this._configurationService.getValue<ISearchConfigurationProperties>('search');
 	}
 
-	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _token: CancellationToken): Promise<IToolResult> {
+	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
 			return {
@@ -162,10 +161,3 @@ export class TextSearchTool implements IToolImpl {
 }
 
 export interface TextSearchToolParams extends IPatternInfo { }
-
-export class TextSearchToolInputProcessor implements IToolInputProcessor {
-	processInput(input: TextSearchToolParams) {
-		// No input processing needed for this tool
-		return input;
-	}
-}
