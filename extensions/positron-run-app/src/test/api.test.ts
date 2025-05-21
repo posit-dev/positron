@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { DebugAppOptions, RunAppOptions } from '../positron-run-app';
 import { raceTimeout } from '../utils';
 import { PositronRunAppApiImpl } from '../api';
+import { log } from '../extension.js';
 
 suite('PositronRunApp', () => {
 	// Use a test runtime with a runtimePath of `cat` so that executing a file
@@ -55,6 +56,13 @@ suite('PositronRunApp', () => {
 	let runAppApi: PositronRunAppApiImpl;
 
 	setup(async () => {
+		// Reroute log messages to the console.
+		for (const level of ['trace', 'debug', 'info', 'warn', 'error']) {
+			sinon.stub(log, level as keyof typeof log).callsFake((...args) => {
+				console.info('[PositronRunApp]', ...args);
+			});
+		}
+
 		// Open the test app. Assumes that the tests are run in the ../test-workspace workspace.
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 		assert(workspaceFolder, 'This test should be run from the ../test-workspace workspace');
