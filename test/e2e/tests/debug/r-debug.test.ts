@@ -110,7 +110,7 @@ test.describe('R Debugging', {
 
 
 	test('R - Verify debugger indicator/highlight maintains focus', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7667' }] // uncomment starting at lin 130 when fixed
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7667' }] // uncomment line 134 when fixed
 	},
 		async ({ app, page, openFile, runCommand, executeCode }) => {
 			const { debug, console } = app.workbench;
@@ -128,20 +128,21 @@ test.describe('R Debugging', {
 			await debug.expectCurrentLineToBe(2);
 
 			// Run random code in the console
-			// await executeCode('R', '100 + 100', { waitForReady: false });
-			// await console.waitForConsoleContents('200');
-			// // await page.getByRole('button', { name: 'Restore Panel' }).click(); <--- i don't think we should need this, but we do
+			await executeCode('R', '100 + 100', { waitForReady: false });
+			await console.waitForConsoleContents('[1] 200');
+			await page.getByRole('button', { name: 'Restore Panel' }).click(); // <--- i shouldn't have to do this, right?
 			// await debug.expectCurrentLineIndicatorVisible();
-			// await debug.expectCurrentLineToBe(2);
+			await debug.expectCurrentLineToBe(2);
 
 			// Step over and check current line
 			await debug.stepOver();
 			await debug.expectCurrentLineIndicatorVisible();
 			await debug.expectCurrentLineToBe(3);
 
-			// Step into and check current line
+			// Step into and out and check current line
 			await debug.stepInto();
 			await debug.stepOut();
+			await debug.expectCurrentLineIndicatorVisible();
 			await debug.expectCurrentLineToBe(4);
 
 			// Continue execution and check final message
