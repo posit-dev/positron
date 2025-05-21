@@ -94,11 +94,6 @@ const extensions = [
 		mocha: { timeout: 60_000 }
 	},
 	{
-		label: 'positron-notebook-controllers',
-		workspaceFolder: 'extensions/positron-notebook-controllers/test-workspace',
-		mocha: { timeout: 5_000 }
-	},
-	{
 		label: 'positron-supervisor',
 		workspaceFolder: path.join(os.tmpdir(), `positron-supervisor-${Math.floor(Math.random() * 100000)}`),
 		mocha: { timeout: 60_000 }

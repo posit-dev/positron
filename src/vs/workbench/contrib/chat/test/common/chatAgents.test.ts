@@ -22,6 +22,7 @@ const testAgentData: IChatAgentData = {
 	extensionId: new ExtensionIdentifier(''),
 	extensionPublisherId: '',
 	locations: [],
+	modes: [],
 	metadata: {},
 	slashCommands: [],
 	disambiguation: [],

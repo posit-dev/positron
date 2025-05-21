@@ -19,7 +19,6 @@ const dirs = [
 	'extensions/positron-environment',
 	'extensions/positron-ipywidgets',
 	'extensions/positron-javascript',
-	'extensions/positron-notebook-controllers',
 	'extensions/positron-notebooks',
 	'extensions/positron-r',
 	'extensions/positron-reticulate',

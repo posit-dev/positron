@@ -219,8 +219,11 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		// Filter out messages with empty text or empty tool response content
 		const filteredMessages = messages.filter(hasNonEmptyContent);
-		// Convert messages to the Vercel AI format
-		const aiMessages = toAIMessage(filteredMessages);
+		// Only Anthropic currently supports experimental_content in tool
+		// results.
+		const toolResultExperimentalContent = this.provider === 'anthropic';
+		// Convert messages to the Vercel AI format.
+		const aiMessages = toAIMessage(filteredMessages, toolResultExperimentalContent);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {

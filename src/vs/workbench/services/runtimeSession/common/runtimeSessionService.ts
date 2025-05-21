@@ -226,6 +226,9 @@ export interface ILanguageRuntimeSession extends IDisposable {
 
 	/** Get the label associated with the session. This is a more human-readable name for the session. */
 	getLabel(): string;
+
+	/** Updates the session's name */
+	updateSessionName(sessionName: string): void;
 }
 
 /**

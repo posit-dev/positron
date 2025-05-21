@@ -16,6 +16,8 @@ export type S3FileDownloadOptions = {
 	localFilePath: string;
 };
 
+const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Downloads a file from S3 to the local file system.  Ensure that you locally have an environment variable set like:
  * export AWS_PROFILE='my-dev-profile'
@@ -25,29 +27,31 @@ export type S3FileDownloadOptions = {
  * @throws Error
  **/
 export const downloadFileFromS3 = async (options: S3FileDownloadOptions): Promise<void> => {
+	for (let attempt = 0; attempt < 3; attempt++) {
+		try {
+			const s3 = new S3Client({ region: options.region });
+			const command = new GetObjectCommand({
+				Bucket: options.bucketName,
+				Key: options.key,
+			});
 
-	const s3 = new S3Client({ region: options.region });
+			let response: GetObjectCommandOutput = {
+				$metadata: {}
+			};
+			response = await s3.send(command);
 
-	const command = new GetObjectCommand({
-		Bucket: options.bucketName,
-		Key: options.key,
-	});
+			if (!response.Body || !('pipe' in response.Body)) {
+				throw new Error('Unexpected response from S3: Body is not a stream');
+			}
 
-	let response: GetObjectCommandOutput = {
-		$metadata: {}
-	};
-	try {
-		response = await s3.send(command);
-	} catch (error) {
-		console.error('Error:', (error as any).message, (error as any).stack);
+			const fileStream = createWriteStream(options.localFilePath);
+			const streamPipeline = promisify(pipeline);
+			await streamPipeline(response.Body, fileStream);
+			return;
+		} catch (error) {
+			console.error(`Attempt ${attempt + 1} failed:`, (error as any).message);
+			if (attempt === 2) { throw error; }
+			await wait(1000);
+		}
 	}
-
-	if (!response.Body || !('pipe' in response.Body)) {
-		throw new Error('Unexpected response from S3: Body is not a stream');
-	}
-
-	const fileStream = createWriteStream(options.localFilePath);
-	const streamPipeline = promisify(pipeline);
-	await streamPipeline(response.Body, fileStream);
-
 };

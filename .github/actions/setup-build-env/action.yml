@@ -45,6 +45,14 @@ runs:
       shell: bash
       run: npm exec -- npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install
 
+    - name: Set permissions on SUID sandbox helper
+      shell: bash
+      run: |
+        ELECTRON_ROOT=.build/electron
+        sudo chown root $ELECTRON_ROOT/chrome-sandbox
+        sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+        stat $ELECTRON_ROOT/chrome-sandbox
+
     # Although not directly part of the build environment, this configuration is essential for running unit, integration, and e2e tests.
     - name: Configure xvfb Service
       shell: bash

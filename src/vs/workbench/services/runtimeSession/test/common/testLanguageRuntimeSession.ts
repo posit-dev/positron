@@ -96,6 +96,10 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		this._register(this.onDidChangeRuntimeState(state => this._currentState = state));
 	}
 
+	updateSessionName(sessionName: string): void {
+		this.dynState.sessionName = sessionName;
+	}
+
 	getRuntimeState(): RuntimeState {
 		return this._currentState;
 	}

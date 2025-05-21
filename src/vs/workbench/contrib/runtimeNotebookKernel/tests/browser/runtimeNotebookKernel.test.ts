@@ -23,8 +23,8 @@ import { ICellExecuteUpdate, ICellExecutionComplete, INotebookCellExecution, INo
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { createTestNotebookEditor, TestNotebookExecutionStateService } from '../../../notebook/test/browser/testNotebookEditor.js';
 import { RuntimeNotebookKernel } from '../../browser/runtimeNotebookKernel.js';
-import { ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { CodeAttributionSource } from '../../../../api/common/positron/extHostTypes.positron.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 suite('Positron - RuntimeNotebookKernel', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();

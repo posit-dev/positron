@@ -43,9 +43,10 @@ import { HistoryBrowserPopup } from './historyBrowserPopup.js';
 import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
 import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
 import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
-import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
 import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 // Position enumeration.
 const enum Position {

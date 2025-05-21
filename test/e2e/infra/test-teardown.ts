@@ -28,7 +28,10 @@ export class TestTeardown {
 
 	async discardAllChanges(): Promise<void> {
 		try {
-			execSync('git reset --hard $(git rev-list --max-parents=0 HEAD)', { cwd: this._workspacePathOrFolder });
+			// Get the root commit hash
+			const rootCommitHash = execSync('git rev-list --max-parents=0 HEAD', { cwd: this._workspacePathOrFolder }).toString().trim();
+			// Reset to the root commit
+			execSync(`git reset --hard ${rootCommitHash}`, { cwd: this._workspacePathOrFolder });
 			execSync('git clean -fd', { cwd: this._workspacePathOrFolder });
 		} catch (error) {
 			console.error('Failed to discard changes:', error);

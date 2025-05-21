@@ -8,6 +8,7 @@ import { Event } from '../../../../base/common/event.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from './sizingPolicy.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
+import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 
 export const POSITRON_PLOTS_VIEW_ID = 'workbench.panel.positronPlots';
 
@@ -66,6 +67,18 @@ export enum DarkFilter {
 	/** The dark filter follows the current theme (i.e. it's on in dark themes and off in light themes) */
 	Auto = 'auto'
 }
+
+/**
+ * Creates a suggested file name for a plot.
+ * @param storageService The storage service to use.
+ * @returns A suggested file name for the plot.
+ */
+export const createSuggestedFileNameForPlot = (storageService: IStorageService) => {
+	const key = 'positron.plotNumber';
+	const plotNumber = storageService.getNumber(key, StorageScope.APPLICATION, 0) + 1;
+	storageService.store(key, plotNumber, StorageScope.APPLICATION, StorageTarget.MACHINE);
+	return `plot-${plotNumber}`;
+};
 
 /**
  * IPositronPlotsService interface.
@@ -150,6 +163,13 @@ export interface IPositronPlotsService {
 	 * This typically happens when the plot viewpane has been resized.
 	 */
 	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
+
+	/**
+	 * Gets the cached plot thumbnail URI for a given plot ID.
+	 * @param plotId The plot ID to get the thumbnail URI for.
+	 * @returns The thumbnail URI for the plot, or undefined if not found.
+	 */
+	getCachedPlotThumbnailURI(plotId: string): string | undefined;
 
 	/**
 	 * Selects the plot with the specified ID.

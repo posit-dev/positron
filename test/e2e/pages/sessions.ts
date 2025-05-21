@@ -38,7 +38,7 @@ export class Sessions {
 
 	// Session Metadata
 	private metadataButton = this.page.getByRole('button', { name: 'Console information' });
-	private metadataDialog = this.page.getByRole('dialog').locator('.console-instance-info');
+	private metadataDialog = this.page.getByRole('dialog').locator('.console-instance-info').first();
 	private consoleInstance = (sessionId: string) => this.page.getByTestId(`console-${sessionId}`);
 	private outputChannel = this.page.getByRole('combobox');
 
@@ -960,7 +960,7 @@ export class SessionQuickPick {
 				}
 
 				if (viewAllRuntimes) {
-					await this.code.driver.page.getByRole('textbox', { name: 'input' }).fill('New Session');
+					await this.code.driver.page.getByRole('textbox', { name: /(Select a Session|New Session)/ }).fill('New Session');
 					await this.code.driver.page.keyboard.press('Enter');
 					await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
 				}
