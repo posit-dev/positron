@@ -110,13 +110,14 @@ async function selectLanguage(accessor: ServicesAccessor) {
  * @param accessor The service accessor.
  * @param options The options for the quick pick.
  * @param options.allowStartSession Whether to allow the user to start a new session.
+ * @param options.title The title of the quick pick.
  * @returns The runtime session the user selected, or undefined, if the user canceled the operation.
  */
 const selectLanguageRuntimeSession = async (
 	accessor: ServicesAccessor,
 	options?: {
 		allowStartSession?: boolean;
-		placeholder?: string;
+		title?: string;
 	}): Promise<ILanguageRuntimeSession | undefined> => {
 
 	// Constants
@@ -186,7 +187,7 @@ const selectLanguageRuntimeSession = async (
 		});
 	}
 	const result = await quickInputService.pick(quickPickItems, {
-		title: options?.placeholder || localize('positron.languageRuntime.selectSession', 'Select a Session'),
+		title: options?.title || localize('positron.languageRuntime.selectSession', 'Select a Session'),
 		canPickMany: false,
 		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
 	});
@@ -711,7 +712,7 @@ export function registerLanguageRuntimeActions() {
 
 			// Prompt the user to select a session they want to rename.
 			const session = await selectLanguageRuntimeSession(
-				accessor, { placeholder: 'Select Interpreter Session To Rename' });
+				accessor, { title: 'Select Interpreter Session To Rename' });
 			if (!session) {
 				return;
 			}
@@ -781,7 +782,7 @@ export function registerLanguageRuntimeActions() {
 
 		// Prompt the user to select a language runtime session to restart.
 		const session = await selectLanguageRuntimeSession(
-			accessor, { placeholder: 'Select Interpreter Session To Restart' });
+			accessor, { title: 'Select Interpreter Session To Restart' });
 
 		// Restart the session
 		if (session?.sessionId) {
@@ -808,7 +809,7 @@ export function registerLanguageRuntimeActions() {
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Interpreter Session', async accessor => {
 		(await selectLanguageRuntimeSession(
 			accessor,
-			{ placeholder: 'Select Interpreter Session To Interrupt' }))?.interrupt();
+			{ title: 'Select Interpreter Session To Interrupt' }))?.interrupt();
 	});
 
 	/**
@@ -817,7 +818,7 @@ export function registerLanguageRuntimeActions() {
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.shutdown', 'Shutdown Interpreter Session', async accessor => {
 		(await selectLanguageRuntimeSession(
 			accessor,
-			{ placeholder: 'Select Interpreter Session To Shutdown' }))?.shutdown();
+			{ title: 'Select Interpreter Session To Shutdown' }))?.shutdown();
 	});
 
 	/**
@@ -826,7 +827,7 @@ export function registerLanguageRuntimeActions() {
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.forceQuit', 'Force Quit Interpreter Session', async accessor => {
 		(await selectLanguageRuntimeSession(
 			accessor,
-			{ placeholder: 'Select Interpreter Session To Force Quit' }))?.forceQuit();
+			{ title: 'Select Interpreter Session To Force Quit' }))?.forceQuit();
 	});
 
 	/**
@@ -835,7 +836,7 @@ export function registerLanguageRuntimeActions() {
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.showOutput', 'Show Interpreter Session Output', async accessor => {
 		(await selectLanguageRuntimeSession(
 			accessor,
-			{ placeholder: 'Select Interpreter Session To Show Output' }))?.showOutput();
+			{ title: 'Select Interpreter Session To Show Output' }))?.showOutput();
 	});
 
 	/**
@@ -844,7 +845,7 @@ export function registerLanguageRuntimeActions() {
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.showProfile', 'Show Interpreter Session Profile Report', async accessor => {
 		(await selectLanguageRuntimeSession(
 			accessor,
-			{ placeholder: 'Select Interpreter Session To Show Profile Report' }))?.showProfile();
+			{ title: 'Select Interpreter Session To Show Profile Report' }))?.showProfile();
 	});
 
 	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create Runtime Client Widget', async accessor => {
