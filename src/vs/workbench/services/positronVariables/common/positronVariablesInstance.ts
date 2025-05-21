@@ -553,6 +553,10 @@ export class PositronVariablesInstance extends Disposable implements IPositronVa
 		}
 	}
 
+	getClientInstance(): VariablesClientInstance | undefined {
+		return this._variablesClient;
+	}
+
 	/**
 	 * Processes an updated list of variables from the runtime.
 	 *

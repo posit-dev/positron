@@ -247,7 +247,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 	 * If the user presses Escape, the rename operation is cancelled.
 	 * Supports copy, cut, paste, and select all operations using Ctrl/Cmd + C/X/V/A.
 	 */
-	const handleKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
+	const handleInputKeyDown = async (e: KeyboardEvent<HTMLInputElement>) => {
 		if (e.key === 'Enter') {
 			e.preventDefault();
 			handleRenameSubmit();
@@ -336,7 +336,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 					onBlur={handleRenameSubmit}
 					onChange={e => setSessionName(e.target.value)}
 					onClick={e => e.stopPropagation()} // Keeps the input field open when clicked
-					onKeyDown={handleKeyDown}
+					onKeyDown={handleInputKeyDown}
 					onMouseDown={e => e.stopPropagation()} // Allows text selection in the input field
 				/>
 			) : (

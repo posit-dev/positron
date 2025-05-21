@@ -12,7 +12,7 @@ import { ServicesAccessor } from '../../../../platform/instantiation/common/inst
 import { IQuickInputService, IQuickPickItem, IQuickPickSeparator, QuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
 import { IKeybindingRule, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { LANGUAGE_RUNTIME_ACTION_CATEGORY } from '../common/languageRuntime.js';
-import { CodeAttributionSource, IConsoleCodeAttribution, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeErrorBehavior, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
@@ -27,6 +27,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { localize } from '../../../../nls.js';
+import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { PositronConsoleTabFocused } from '../../../common/contextkeys.js';
 
 // The category for language runtime actions.
@@ -824,6 +825,7 @@ export function registerLanguageRuntimeActions() {
 
 	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_OPEN_ACTIVE_SESSIONS_ID, 'Session Selector', async accessor => {
 		// Access services.
+		const commandService = accessor.get(ICommandService);
 		const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 		// Prompt the user to select a runtime to use.
@@ -831,6 +833,8 @@ export function registerLanguageRuntimeActions() {
 
 		// If the user selected a specific session, set it as the active session if it still exists
 		if (newActiveSession) {
+			// Drive focus into the Positron console.
+			commandService.executeCommand('workbench.panel.positronConsole.focus');
 			runtimeSessionService.foregroundSession = newActiveSession;
 		}
 	});
@@ -873,6 +877,9 @@ export function registerLanguageRuntimeActions() {
 				return;
 			}
 
+			// Drive focus into the Positron console.
+			commandService.executeCommand('workbench.panel.positronConsole.focus');
+
 			// Duplicate the current session with the `startNewRuntimeSession` method.
 			await runtimeSessionService.startNewRuntimeSession(
 				currentSession.runtimeMetadata.runtimeId,
@@ -909,6 +916,7 @@ export function registerLanguageRuntimeActions() {
 
 		async run(accessor: ServicesAccessor) {
 			// Access services.
+			const commandService = accessor.get(ICommandService);
 			const runtimeSessionService = accessor.get(IRuntimeSessionService);
 
 			// Prompt the user to select a runtime to start
@@ -916,6 +924,9 @@ export function registerLanguageRuntimeActions() {
 
 			// If the user selected a runtime, set it as the active runtime
 			if (selectedRuntime?.runtimeId) {
+				// Drive focus into the Positron console.
+				commandService.executeCommand('workbench.panel.positronConsole.focus');
+
 				return await runtimeSessionService.startNewRuntimeSession(
 					selectedRuntime.runtimeId,
 					selectedRuntime.runtimeName,
@@ -1268,10 +1279,7 @@ registerAction2(class extends Action2 {
 			category,
 			f1: true,
 			keybinding: {
-				primary: KeyCode.F2,
-				mac: {
-					primary: KeyCode.Enter
-				},
+				primary: KeyCode.Enter,
 				when: PositronConsoleTabFocused,
 				weight: KeybindingWeight.WorkbenchContrib
 			}

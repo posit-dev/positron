@@ -208,6 +208,15 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 */
 	readonly onDidChangeSizingPolicy = this._onDidChangeSizingPolicyEmitter.event;
 
+	/**
+	 * Gets the cached plot thumbnail URI for a given plot ID.
+	 * @param plotId The plot ID to get the thumbnail URI for.
+	 * @returns The thumbnail URI for the plot, or undefined if not found.
+	 */
+	getCachedPlotThumbnailURI(plotId: string) {
+		// Noop in test implementation. In a real implementation, this would return the URI of the cached thumbnail.
+		return undefined;
+	}
 
 	/**
 	 * Selects the plot with the specified ID.

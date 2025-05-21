@@ -17,6 +17,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	private _executingCode: string | undefined;
 	private _executionCount = 0;
 	private _currentExecutionId = '';
+	private _variables: Map<string, any> = new Map();
 
 	onDidReceiveRuntimeMessage: vscode.Event<positron.LanguageRuntimeMessage> = this._onDidReceiveRuntimeMessage.event;
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState> = this._onDidChangeRuntimeState.event;
@@ -67,6 +68,40 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		// Simulate an error if the code is 'error'
 		if (code === 'error') {
 			this.executeError(id);
+			return;
+		}
+
+		// Parse variable assignment if the code looks like 'set variable name = value'
+		const variableMatch = code.match(/^set\s+variable\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
+		if (variableMatch) {
+			const varName = variableMatch[1];
+			const varValue = variableMatch[2].trim();
+
+			// Store the variable value
+			this._variables.set(varName, varValue);
+
+			// Simulate output acknowledging the variable creation
+			this._onDidReceiveRuntimeMessage.fire({
+				id: this.generateMessageId(),
+				parent_id: id,
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.Stream,
+				name: positron.LanguageRuntimeStreamName.Stdout,
+				text: `Variable '${varName}' set to ${varValue}`
+			} as positron.LanguageRuntimeStream);
+
+			// Simulate result
+			setTimeout(() => {
+				this._onDidReceiveRuntimeMessage.fire({
+					id: this.generateMessageId(),
+					parent_id: id,
+					when: new Date().toISOString(),
+					type: positron.LanguageRuntimeMessageType.Result,
+					data: { 'text/plain': `${varName} = ${varValue}` }
+				} as positron.LanguageRuntimeResult);
+				this.returnToIdle(id);
+			}, 10);
+
 			return;
 		}
 
@@ -163,7 +198,49 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}
 
-	async createClient(_id: string, _type: positron.RuntimeClientType, _params: any, _metadata?: any): Promise<void> {
+	async createClient(clientId: string, type: positron.RuntimeClientType, _params: any, _metadata?: any): Promise<void> {
+		// If this is a variables client, handle variable requests
+		if (type === positron.RuntimeClientType.Variables) {
+			// Initialize with variables if we have any
+			if (this._variables.size > 0) {
+				// Create message to send initial variables
+				const variables: positron.RuntimeVariable[] = [];
+				const messageId = this.generateMessageId();
+
+				for (const [name, value] of this._variables.entries()) {
+					variables.push({
+						access_key: name,
+						display_name: name,
+						display_value: String(value),
+						display_type: 'string',
+						type_info: 'string',
+						length: String(value).length,
+						size: String(value).length,
+						has_children: false
+					});
+				}
+
+				// Send a comm message with the variables
+				setTimeout(() => {
+					this._onDidReceiveRuntimeMessage.fire({
+						id: messageId,
+						parent_id: '',
+						when: new Date().toISOString(),
+						type: positron.LanguageRuntimeMessageType.CommData,
+						comm_id: clientId,
+						data: {
+							jsonrpc: '2.0',
+							method: 'refresh',
+							params: {
+								variables: variables,
+								length: variables.length,
+								version: 0
+							}
+						}
+					} as positron.LanguageRuntimeCommMessage);
+				}, 10);
+			}
+		}
 		return Promise.resolve();
 	}
 
@@ -175,8 +252,87 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		return;
 	}
 
-	sendClientMessage(_client_id: string, _message_id: string, _message: any): void {
-		return;
+	sendClientMessage(client_id: string, message_id: string, message: any): void {
+		// Handle variable-specific requests
+		if (message && message.method === 'list') {
+			// Return list of all variables
+			const variables: positron.RuntimeVariable[] = [];
+
+			for (const [name, value] of this._variables.entries()) {
+				variables.push({
+					access_key: name,
+					display_name: name,
+					display_value: String(value),
+					display_type: 'string',
+					type_info: 'string',
+					length: String(value).length,
+					size: String(value).length,
+					has_children: false
+				});
+			}
+
+			// Send response
+			this._onDidReceiveRuntimeMessage.fire({
+				id: this.generateMessageId(),
+				parent_id: message_id,
+				when: new Date().toISOString(),
+				type: positron.LanguageRuntimeMessageType.CommData,
+				comm_id: client_id,
+				data: {
+					jsonrpc: '2.0',
+					result: {
+						variables: variables,
+						length: variables.length,
+						version: 0
+					},
+					id: message_id
+				}
+			} as positron.LanguageRuntimeCommMessage);
+		} else if (message && message.method === 'inspect') {
+			// Inspect specific variable(s)
+			const path = message.params?.path;
+			if (path && Array.isArray(path)) {
+				// Find the variable at the specified path
+				const varName = path[0];
+				const value = this._variables.get(varName);
+
+				if (value !== undefined) {
+					// Send response with empty children since we don't have nested variables in this test
+					this._onDidReceiveRuntimeMessage.fire({
+						id: this.generateMessageId(),
+						parent_id: message_id,
+						when: new Date().toISOString(),
+						type: positron.LanguageRuntimeMessageType.CommData,
+						comm_id: client_id,
+						data: {
+							jsonrpc: '2.0',
+							result: {
+								children: [],
+								length: 0
+							},
+							id: message_id
+						}
+					} as positron.LanguageRuntimeCommMessage);
+				} else {
+					// Variable not found
+					this._onDidReceiveRuntimeMessage.fire({
+						id: this.generateMessageId(),
+						parent_id: message_id,
+						when: new Date().toISOString(),
+						type: positron.LanguageRuntimeMessageType.CommData,
+						comm_id: client_id,
+						data: {
+							jsonrpc: '2.0',
+							error: {
+								code: -32602, // Invalid params code
+								message: `Can't inspect; variable not found: ${path.join('.')}`
+							},
+							id: message_id
+						}
+					} as positron.LanguageRuntimeCommMessage);
+				}
+			}
+		}
 	}
 
 	replyToPrompt(_id: string, _reply: string): void {
@@ -222,6 +378,11 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 	}
 
 	dispose() {
+	}
+
+	updateSessionName(sessionName: string): void {
+		// Update the dynamic state of the session
+		this.dynState.sessionName = sessionName;
 	}
 }
 
@@ -600,5 +761,84 @@ suite('positron API - executeCode', () => {
 		assert.strictEqual(event.code, 'print("event")', 'Code should match');
 		assert.strictEqual(event.attribution.source, positron.CodeAttributionSource.Extension,
 			'Correctly attributed to execution via an extension');
+	});
+
+	test('getSessionVariables returns correct variables', async () => {
+		// Setup a runtime manager and session
+		const manager = new TestLanguageRuntimeManager();
+		const managerDisposable = positron.runtime.registerLanguageRuntimeManager('test', manager);
+		disposables.push(managerDisposable);
+
+		// Wait for the runtime to be registered
+		await poll(
+			async () => (await positron.runtime.getRegisteredRuntimes())
+				.filter(runtime => runtime.languageId === 'test'),
+			runtimes => runtimes.length > 0,
+			'test runtime should be registered'
+		);
+
+		// Execute some code to create variables in the session
+		await positron.runtime.executeCode(
+			'test',
+			'set variable x = 42',
+			false,
+			false,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Stop
+		);
+
+		// Execute second variable
+		await positron.runtime.executeCode(
+			'test',
+			'set variable y = hello',
+			false,
+			false,
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Stop
+		);
+
+		// Get the session ID from the active sessions
+		const activeSessions = await positron.runtime.getActiveSessions();
+		const testSession = activeSessions.find(s => s.runtimeMetadata.languageId === 'test');
+		assert.ok(testSession, 'There should be one test session');
+
+		const sessionId = testSession.metadata.sessionId;
+
+		// Test getting all variables
+		const allVars = await positron.runtime.getSessionVariables(sessionId);
+		assert.ok(Array.isArray(allVars), 'Result should be an array');
+		assert.ok(allVars.length > 0, 'There should be at least one variable returned');
+
+		// Find our test variables
+		const xVar = allVars.flat().find(v => v.display_name === 'x');
+		assert.ok(xVar, 'Variable "x" should be in the session');
+		assert.strictEqual(xVar?.display_value, '42', 'Variable "x" should have value "42"');
+
+		const yVar = allVars.flat().find(v => v.display_name === 'y');
+		assert.ok(yVar, 'Variable "y" should be in the session');
+		assert.strictEqual(yVar?.display_value, 'hello', 'Variable "y" should have value "hello"');
+
+		// Test getting multiple specific variables
+		const multiVars = await positron.runtime.getSessionVariables(
+			sessionId,
+			[['x'], ['y']] // Access key paths for multiple variables
+		);
+		console.log('multiVars', multiVars);
+		assert.ok(Array.isArray(multiVars), 'Result should be an array');
+		assert.strictEqual(multiVars.length, 2, 'Result should contain two variable paths');
+		assert.strictEqual(multiVars[0].length, 0, 'x symbol should be empty');
+		assert.strictEqual(multiVars[1].length, 0, 'y symbol should be empty');
+
+		// Test requesting a variable that doesn't exist
+		try {
+			await positron.runtime.getSessionVariables(
+				sessionId,
+				[['z']] // Access key that doesn't exist
+			);
+			assert.fail('Expected getSessionVariables to throw for non-existent variable');
+		} catch (error) {
+			// Expected behavior - getSessionVariables should throw when the variable doesn't exist
+			assert.ok(error.message.includes('z'), 'Error should mention the missing variable name');
+		}
 	});
 });

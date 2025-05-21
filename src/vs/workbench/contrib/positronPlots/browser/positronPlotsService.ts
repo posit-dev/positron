@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -53,6 +53,7 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { joinPath } from '../../../../base/common/resources.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -65,6 +66,9 @@ const WebviewPlotInactiveTimeout = 120_000;
 
 /** Interval in milliseconds at which inactive webview plots are checked. */
 const WebviewPlotInactiveInterval = 1_000;
+
+/** The key used to store the cached plot thumbnail descriptors */
+const CachedPlotThumbnailDescriptorsKey = 'positron.plots.cachedPlotThumbnailDescriptors';
 
 /** The key used to store the preferred history policy */
 const HistoryPolicyStorageKey = 'positron.plots.historyPolicy';
@@ -85,11 +89,22 @@ interface DataUri {
 }
 
 /**
- * PositronPlotsService class.
+ * ICachedPlotThumbnailDescriptor interface.
  */
+interface ICachedPlotThumbnailDescriptor {
+	readonly plotClientId: string;
+	readonly thumbnailURI: string;
+}
+
+/**
+* PositronPlotsService class.
+*/
 export class PositronPlotsService extends Disposable implements IPositronPlotsService {
 	/** Needed for service branding in dependency injector. */
 	declare readonly _serviceBrand: undefined;
+
+	/** The map of cached plot thumbnail descriptors. */
+	private readonly _cachedPlotThumbnailDescriptors = new Map<string, ICachedPlotThumbnailDescriptor>();
 
 	/** The list of Positron plots. */
 	private readonly _plots: IPositronPlotClient[] = [];
@@ -223,8 +238,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			await this.registerWebviewPlotClient(plotClient);
 		}));
 
-		// When the storage service is about to save state, store the current history policy
-		// and storage policy in the workspace storage.
+		// When the storage service is about to save state, store policies and cached plot thumbnail descriptors.
 		this._register(this._storageService.onWillSaveState(() => {
 			this._storageService.store(
 				HistoryPolicyStorageKey,
@@ -249,6 +263,45 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				// If we don't, clear the custom plot size from storage
 				this._storageService.store(
 					CustomPlotSizeStorageKey,
+					undefined,
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE);
+			}
+
+			// Enumerate the plot clients and update the cached plot thumbnail descriptors.
+			const keysToDelete: Set<string> = new Set(this._cachedPlotThumbnailDescriptors.keys());
+			this._plots.forEach(plotClient => {
+				keysToDelete.delete(plotClient.id);
+				if (plotClient instanceof PlotClientInstance) {
+					if (plotClient.lastRender?.uri) {
+						this._cachedPlotThumbnailDescriptors.set(plotClient.id, {
+							plotClientId: plotClient.id,
+							thumbnailURI: plotClient.lastRender.uri
+						});
+					}
+				} else if (plotClient instanceof HtmlPlotClient) {
+					if (plotClient.thumbnailUri) {
+						this._cachedPlotThumbnailDescriptors.set(plotClient.id, {
+							plotClientId: plotClient.id,
+							thumbnailURI: plotClient.thumbnailUri
+						});
+					}
+				}
+			});
+
+			// Delete any cached plot thumbnail descriptors that are no longer valid.
+			keysToDelete.forEach(key => this._cachedPlotThumbnailDescriptors.delete(key));
+
+			// Update the cached plot thumbnail descriptors in workspace storage.
+			if (this._cachedPlotThumbnailDescriptors.size) {
+				this._storageService.store(
+					CachedPlotThumbnailDescriptorsKey,
+					JSON.stringify([...this._cachedPlotThumbnailDescriptors.values()]),
+					StorageScope.WORKSPACE,
+					StorageTarget.MACHINE);
+			} else {
+				this._storageService.store(
+					CachedPlotThumbnailDescriptorsKey,
 					undefined,
 					StorageScope.WORKSPACE,
 					StorageTarget.MACHINE);
@@ -328,6 +381,22 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			StorageScope.WORKSPACE);
 		if (preferredHistoryPolicy && preferredHistoryPolicy) {
 			this._selectedHistoryPolicy = preferredHistoryPolicy as HistoryPolicy;
+		}
+
+		// Load the cached plot thumbnail descriptors from workspace storage.
+		const cachedPlotThumbnailDescriptorsJSON = this._storageService.get(CachedPlotThumbnailDescriptorsKey, StorageScope.WORKSPACE);
+		if (cachedPlotThumbnailDescriptorsJSON) {
+			try {
+				// Parse the cached plot thumbnail descriptors.
+				const cachedPlotThumbnailDescriptors = JSON.parse(cachedPlotThumbnailDescriptorsJSON) as ICachedPlotThumbnailDescriptor[];
+
+				// Initialize the cached plot thumbnail descriptors.
+				for (const cachedPlotThumbnailDescriptor of cachedPlotThumbnailDescriptors) {
+					this._cachedPlotThumbnailDescriptors.set(cachedPlotThumbnailDescriptor.plotClientId, cachedPlotThumbnailDescriptor);
+				}
+			} catch (error) {
+				this._logService.error(`Error parsing cached plot thumbnail descriptors: ${error}`);
+			}
 		}
 
 		// When a plot is selected, update its last selected time.
@@ -424,6 +493,15 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	 */
 	get darkFilterMode() {
 		return this._selectedDarkFilterMode;
+	}
+
+	/**
+	 * Gets the cached plot thumbnail URI for a given plot ID.
+	 * @param plotId The plot ID to get the thumbnail URI for.
+	 * @returns The thumbnail URI for the plot, or undefined if not found.
+	 */
+	getCachedPlotThumbnailURI(plotId: string) {
+		return this._cachedPlotThumbnailDescriptors.get(plotId)?.thumbnailURI;
 	}
 
 	/**
@@ -562,7 +640,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					let registered = false;
 					if (storedMetadata) {
 						try {
+							// Parse the plot metadata. If the metadata doesn't have a suggested file name, generate one.
 							const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
+							if (!metadata.suggested_file_name) {
+								metadata.suggested_file_name = createSuggestedFileNameForPlot(this._storageService);
+							}
+
 							const commProxy = this.createCommProxy(client, metadata);
 							plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
 							registered = true;
@@ -581,6 +664,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							parent_id: '',
 							code: '',
 							location: PlotClientLocation.View,
+							suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
 						};
 						const commProxy = this.createCommProxy(client, metadata);
 						plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
@@ -661,6 +745,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					parent_id: event.message.parent_id,
 					code,
 					pre_render: data?.pre_render,
+					suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
 				};
 
 				// Register the plot client
@@ -731,7 +816,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		if (storedMetadata) {
 			try {
+				// Parse the plot metadata. If the metadata doesn't have a suggested file name, generate one.
 				const metadata = JSON.parse(storedMetadata) as IPositronPlotMetadata;
+				if (!metadata.suggested_file_name) {
+					metadata.suggested_file_name = createSuggestedFileNameForPlot(this._storageService);
+				}
 				this.createEditorPlot(metadata, commProxy);
 
 				this.openEditor(plotId, this.getPreferredEditorGroup(), metadata);
@@ -827,7 +916,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		plotClient.register(plotClient.onDidChangeSizingPolicy((policy) => {
 			this.selectSizingPolicy(policy.id);
 		}));
-  }
+	}
 
 	/**
 	 * Creates a new static plot client instance and registers it with the
@@ -840,7 +929,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		sessionId: string,
 		message: ILanguageRuntimeMessageOutput,
 		code?: string) {
-		this.registerNewPlotClient(new StaticPlotClient(sessionId, message, code));
+		this.registerNewPlotClient(new StaticPlotClient(this._storageService, sessionId, message, code));
 	}
 
 	/**
@@ -1007,7 +1096,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					if (plotClient instanceof StaticPlotClient) {
 						// if it's a static plot, save the image to disk
 						const uri = plotClient.uri;
-						this.showSavePlotDialog(uri);
+						this.showSavePlotDialog(uri, plotClient.metadata.suggested_file_name);
 					} else if (plotClient instanceof PlotClientInstance) {
 						// if it's a dynamic plot, present options dialog
 						showSavePlotModalDialog(
@@ -1071,11 +1160,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		return {
 			mime: mime,
 			data: imageData,
-			type: mime.split('/')[1]
+			type: mime.split('/')[1].split(';')[0],
 		};
 	}
 
-	showSavePlotDialog(uri: string) {
+	showSavePlotDialog(uri: string, suggestedFileName?: string) {
 		const dataUri = this.splitPlotDataUri(uri);
 
 		if (!dataUri) {
@@ -1084,19 +1173,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		const extension = dataUri.type;
 
-		this._fileDialogService.showSaveDialog({
-			title: 'Save Plot',
-			filters:
-				[
-					{
-						extensions: [extension],
-						name: extension.toUpperCase(),
-					},
-				],
-		}).then(result => {
-			if (result) {
-				this.savePlotAs({ path: result, uri });
-			}
+		this._fileDialogService.defaultFilePath().then(defaultPath => {
+			const defaultUri = joinPath(defaultPath, suggestedFileName ?? 'plot');
+			this._fileDialogService.showSaveDialog({
+				title: localize('positron.savePlot', "Save Plot"),
+				defaultUri,
+				filters:
+					[
+						{
+							name: extension.toUpperCase(),
+							extensions: [extension],
+						},
+					],
+			}).then(result => {
+				if (result) {
+					this.savePlotAs({ path: result, uri });
+				}
+			});
 		});
 	}
 

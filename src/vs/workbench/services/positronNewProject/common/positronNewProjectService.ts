@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -13,7 +13,7 @@ import { IWorkspaceTrustManagementService } from '../../../../platform/workspace
 import { CreateEnvironmentResult, IPositronNewProjectService, NewProjectConfiguration, NewProjectStartupPhase, NewProjectTask, NewProjectType, POSITRON_NEW_PROJECT_CONFIG_STORAGE_KEY } from './positronNewProject.js';
 import { Event } from '../../../../base/common/event.js';
 import { Barrier } from '../../../../base/common/async.js';
-import { ILanguageRuntimeMetadata } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { joinPath, relativePath } from '../../../../base/common/resources.js';
@@ -21,7 +21,10 @@ import { DOT_IGNORE_JUPYTER, DOT_IGNORE_PYTHON, DOT_IGNORE_R } from './positronN
 import { URI } from '../../../../base/common/uri.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
-import { IRuntimeSessionService } from '../../runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
+import { INotebookEditorService } from '../../../contrib/notebook/browser/services/notebookEditorService.js';
+import { INotebookKernel, INotebookKernelService } from '../../../contrib/notebook/common/notebookKernelService.js';
+import { INotebookTextModel } from '../../../contrib/notebook/common/notebookCommon.js';
 
 /**
  * PositronNewProjectService class.
@@ -53,6 +56,9 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	// Runtime metadata for the new project
 	private _runtimeMetadata: ILanguageRuntimeMetadata | undefined;
 
+	// Add a single log prefix for notebook-startup related messages
+	private readonly _nbLogPrefix = '[New project notebook]';
+
 	// Create the Positron New Project service instance.
 	constructor(
 		@IWorkspaceContextService private readonly _contextService: IWorkspaceContextService,
@@ -63,6 +69,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
+		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
+		@INotebookKernelService private readonly _notebookKernelService: INotebookKernelService,
 	) {
 		super();
 
@@ -236,9 +244,12 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			case NewProjectType.RProject:
 				await this._commandService.executeCommand('r.createNewFile');
 				break;
-			case NewProjectType.JupyterNotebook:
-				await this._commandService.executeCommand('ipynb.newUntitledIpynb');
+			case NewProjectType.JupyterNotebook: {
+				// Use the languageId from the runtime metadata if available, otherwise use 'python' as a default because that's the most common language for Jupyter Notebooks.
+				const languageId = this._newProjectConfig?.runtimeMetadata?.languageId ?? 'python';
+				await this._commandService.executeCommand('ipynb.newUntitledIpynb', languageId);
 				break;
+			}
 			default:
 				this._logService.error(
 					'Cannot determine new file command for unknown project type',
@@ -473,8 +484,8 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 
 				// Check if the newly created runtime metadata was returned
 				if (!result.metadata) {
-					// Warn the user, but don't exit early. We'll still try to continue since the
-					// environment creation was successful.
+					// Warn the user, but don't exit early. We'll still try to
+					// continue since the environment creation was successful.
 					const message = this._failedPythonEnvMessage(`Could not determine interpreter metadata returned from ${createEnvCommand} command. The interpreter may need to be selected manually.`);
 					this._logService.error(message);
 					this._notificationService.warn(message);
@@ -532,6 +543,206 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 	}
 
 	//#endregion Extension Tasks
+
+
+	/**
+	 * Centralised validation helper for notebook connection.
+	 * Prefers the active notebook editor if present, otherwise falls back to the only open notebook editor.
+	 * If no notebook editors are open, or no active notebook editor is present when multiple are open, logs and notifies the user.
+	 *
+	 * @returns The validated context required to establish a runtime session, or `undefined` if validation failed.
+	 */
+	private _getNotebookContext(): { model: INotebookTextModel; runtimeId: string } | undefined {
+		const notebookEditors = this._notebookEditorService.listNotebookEditors();
+
+		// Prefer the active notebook editor if available
+		const activeEditor = (this._notebookEditorService as any).activeNotebookEditor as { textModel?: INotebookTextModel } | undefined;
+		const editor = activeEditor?.textModel
+			? activeEditor
+			: (notebookEditors.length === 1 ? notebookEditors[0] : undefined);
+
+		if (!editor || !editor.textModel) {
+			if (notebookEditors.length === 0) {
+				this._logService.debug(`${this._nbLogPrefix} No notebook editor found for connection.`);
+				this._notificationService.warn('No notebook editor is open. Please open a notebook to connect it to the new environment.');
+			} else {
+				this._logService.error(`${this._nbLogPrefix} No active notebook editor found among multiple open editors.`);
+				this._notificationService.error('Multiple notebook editors are open, but none is active. Please focus the notebook you want to connect.');
+			}
+			return undefined;
+		}
+
+		const textModel = editor.textModel;
+		if (!textModel.uri) {
+			this._logService.debug(`${this._nbLogPrefix} Notebook text model has no URI.`);
+			return undefined;
+		}
+
+		const runtimeId = this._runtimeMetadata?.runtimeId;
+		if (!runtimeId) {
+			this._logService.error(`${this._nbLogPrefix} No runtime ID available for connection.`);
+			return undefined;
+		}
+
+		return { model: textModel, runtimeId };
+	}
+
+	/**
+	 * Provides automatic notebook-to-runtime connection as the final step in notebook project creation.
+	 * This addresses issue #7285 where newly created notebooks weren't automatically connecting.
+	 * Without this connection, users would face confusing manual setup steps that contradict
+	 * the streamlined project creation experience we're aiming for.
+	 *
+	 * @param sessionListener The event listener for runtime start, used to dispose itself upon completion or error.
+	 */
+	private async _connectNotebookToRuntime(sessionListener: IDisposable): Promise<void> {
+		try {
+			// Validate context in a single place
+			const context = this._getNotebookContext();
+			if (!context) {
+				return; // All logging handled by helper
+			}
+
+			const { model, runtimeId } = context;
+			const sessionName = this._newProjectConfig?.projectName ?? 'New Project Notebook';
+
+			// Start / attach runtime session
+			try {
+				await this._runtimeSessionService.startNewRuntimeSession(
+					runtimeId,
+					sessionName,
+					LanguageRuntimeSessionMode.Notebook,
+					model.uri,
+					'New Project Notebook Creation',
+					RuntimeStartMode.Starting,
+					true
+				);
+				this._logService.debug(`${this._nbLogPrefix} Connected notebook ${model.uri.toString()} to runtime ${runtimeId}`);
+			} catch (error) {
+				this._logService.error(`${this._nbLogPrefix} Failed to connect notebook to runtime: ${String(error)}`);
+				// Show a user-facing error toast, but do not break the flow
+				this._notificationService.error('Failed to start the runtime environment for your new notebook. You may need to select or start an environment manually.');
+				return;
+			}
+
+			// Select kernel
+			await this._selectKernelForNotebook(model);
+		} catch (error) {
+			this._logService.error(`${this._nbLogPrefix} Error during post-init notebook setup: ${String(error)}`);
+			this._notificationService.error(localize('positronNewProjectService.postInitNotebookError', 'Error setting up notebook for new project: {0}', String(error)));
+		} finally {
+			sessionListener.dispose();
+		}
+	}
+
+	/**
+	 * Waits for a kernel matching the given runtimePath to be registered for the notebook.
+	 * Listens to notebookKernelService.onDidAddKernel to avoid polling. Falls back after 10 s.
+	 *
+	 * @param notebookTextModel The notebook text model to select a kernel for
+	 * @param runtimePath The interpreter path to match.
+	 */
+	private async _waitForKernelRegistration(
+		notebookTextModel: INotebookTextModel,
+		runtimePath: string,
+	): Promise<INotebookKernel | undefined> {
+		// Helper to find a matching kernel among currently known ones
+		const findMatch = (): INotebookKernel | undefined => {
+			const matching = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+			return matching.all.find(k => k.description === runtimePath);
+		};
+
+		// Return immediately if a kernel is already registered
+		const existing = findMatch();
+		if (existing) {
+			return existing;
+		}
+
+		return new Promise<INotebookKernel | undefined>((resolve) => {
+			// Listener for newly-added kernels
+			const disposable = this._notebookKernelService.onDidAddKernel((kernel) => {
+				if (kernel.description === runtimePath) {
+					disposable.dispose();
+					resolve(kernel);
+				}
+			});
+
+			// Fallback timeout (10 s)
+			setTimeout(() => {
+				disposable.dispose();
+				resolve(undefined);
+			}, 10000);
+		});
+	}
+
+	/**
+	 * Ensures the notebook has a properly selected kernel that matches the project's runtime.
+	 * This eliminates the need for manual kernel selection when creating a new notebook project.
+	 *
+	 * If no suitable kernel is found, a user-facing error notification is shown, but the flow continues.
+	 *
+	 * @param notebookTextModel The notebook text model to select a kernel for
+	 */
+	private async _selectKernelForNotebook(notebookTextModel: INotebookTextModel) {
+		const runtimePath: string | undefined = this._runtimeMetadata?.runtimePath;
+		const languageId = this._runtimeMetadata?.languageId;
+		this._logService.debug('[New project startup] Kernel selection: runtimePath=', runtimePath);
+
+		const matchingInitial = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+		// If a kernel is already selected and it doesn't match our runtime, decide if we should override.
+		if (runtimePath && matchingInitial.selected && matchingInitial.selected.description !== runtimePath) {
+			const hasExecuted = notebookTextModel.cells.some(cell => typeof cell.internalMetadata?.executionOrder === 'number');
+			if (!hasExecuted) {
+				this._logService.debug('[New project startup] Overriding pre-selected kernel because notebook has no execution history.');
+				// We simply clear the selection; the subsequent logic will select the correct kernel.
+				this._notebookKernelService.selectKernelForNotebook(undefined as any, notebookTextModel);
+			}
+		}
+
+		let kernelToSelect: INotebookKernel | undefined;
+
+		if (runtimePath) {
+			// Wait for the kernel to be registered if needed
+			kernelToSelect = await this._waitForKernelRegistration(notebookTextModel, runtimePath);
+			if (kernelToSelect) {
+				this._logService.debug(`[New project startup] Kernel '${kernelToSelect.id}' selected: exact match for runtimePath after polling.`);
+			}
+		}
+
+		if (!kernelToSelect) {
+			// Fallback to previous logic if polling failed
+			const matchingKernels = this._notebookKernelService.getMatchingKernel(notebookTextModel);
+			if (!runtimePath) {
+				for (const kernel of matchingKernels.all) {
+					if (kernel.extension.value.includes('positron') && languageId && kernel.supportedLanguages.includes(languageId)) {
+						this._logService.debug(`[New project startup] Kernel '${kernel.id}' selected: Positron-specific for language (no venv).`);
+						kernelToSelect = kernel;
+						break;
+					}
+				}
+			} else {
+				// If we have a runtimePath but polling failed, warn the user
+				this._logService.warn('[New project startup] No kernel registered for the new environment after waiting. Falling back to best available kernel.');
+				for (const kernel of matchingKernels.all) {
+					if (kernel.description && kernel.description.includes('.venv')) {
+						kernelToSelect = kernel;
+						break;
+					}
+				}
+			}
+		}
+
+		if (!kernelToSelect) {
+			// Show a user-facing error toast, but do not break the flow
+			this._notificationService.error('No matching Jupyter kernel was found for the new environment. You will need to select a kernel manually in the notebook.');
+			this._logService.debug(`[New project startup] No suitable kernel found for notebook`);
+			return;
+		}
+
+		this._notebookKernelService.selectKernelForNotebook(kernelToSelect, notebookTextModel);
+		this._logService.debug(`[New project startup] Selected kernel ${kernelToSelect.id} for notebook`);
+		return;
+	}
 
 	/**
 	 * Removes a pending init task.
@@ -605,12 +816,24 @@ export class PositronNewProjectService extends Disposable implements IPositronNe
 			return new Set();
 		}
 
-		// listen for runtime to be created so that post-init tasks can be run
-		const sessionListener = this._runtimeSessionService.onDidStartRuntime(async (runtimeId) => {
-			this._logService.debug('[New project startup] Runtime created. Running post-init tasks.');
+		// Set up the runtime session listener
+		const sessionListener = this._runtimeSessionService.onDidStartRuntime(async (runtimeSession) => {
+			this._logService.debug(`[New project startup] Runtime ${runtimeSession.sessionId} created. Running post-init tasks.`);
 			this._startupPhase.set(NewProjectStartupPhase.PostInitialization, undefined);
-			sessionListener.dispose();
+
+			// If we've created a Jupyter Notebook project we need to connect the notebook to the runtime.
+			if (this._newProjectConfig?.projectType === NewProjectType.JupyterNotebook) {
+				// Pass the listener itself to the connection method to allow self-disposal
+				await this._connectNotebookToRuntime(sessionListener);
+			} else {
+				// For non-notebook projects, dispose the listener immediately
+				sessionListener.dispose();
+			}
 		});
+
+		// Register the listener with the service's disposables to ensure cleanup
+		// if the service is disposed before the listener self-disposes
+		this._register(sessionListener);
 
 		const tasks = new Set<NewProjectTask>();
 		if (this._newProjectConfig.useRenv) {

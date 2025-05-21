@@ -89,7 +89,7 @@ function getQuartoLinux(version: string): Stream {
  */
 export function getQuartoStream(): Stream {
 	// quarto version
-	const version = '1.6.40';
+	const version = '1.7.31';
 
 	fancyLog(`Synchronizing quarto ${version}...`);
 

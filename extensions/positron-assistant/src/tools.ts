@@ -13,6 +13,7 @@ export enum PositronAssistantToolName {
 	EditFile = 'vscode_editFile_internal',
 	ExecuteCode = 'executeCode',
 	GetPlot = 'getPlot',
+	InspectVariables = 'inspectVariables',
 	SelectionEdit = 'selectionEdit',
 }
 
@@ -121,7 +122,11 @@ export function registerAssistantTools(
 
 	context.subscriptions.push(selectionEditTool);
 
-	const executeCodeTool = vscode.lm.registerTool<{ code: string; language: string }>(PositronAssistantToolName.ExecuteCode, {
+	const executeCodeTool = vscode.lm.registerTool<{
+		code: string;
+		language: string;
+		summary: string;
+	}>(PositronAssistantToolName.ExecuteCode, {
 		/**
 		 * Called by Positron to prepare for tool invocation. We use this hook
 		 * to show the user the code that we are about to run, and ask for
@@ -144,7 +149,7 @@ export function registerAssistantTools(
 
 				/// The message shown to confirm that the user wants to run the code.
 				confirmationMessages: {
-					title: vscode.l10n.t('Run in Console'),
+					title: options.input.summary ?? vscode.l10n.t('Run in Console'),
 					message: ''
 				},
 			};
@@ -250,6 +255,38 @@ export function registerAssistantTools(
 	});
 
 	context.subscriptions.push(getPlotTool);
+
+	const inspectVariablesTool = vscode.lm.registerTool<{ sessionIdentifier: string; accessKeys: Array<Array<string>> }>(PositronAssistantToolName.InspectVariables, {
+		/**
+		 * Called to inspect one or more variables in the current session.
+		 *
+		 * @param options The options for the tool invocation.
+		 * @param token The cancellation token.
+		 *
+		 * @returns A vscode.LanguageModelToolResult.
+		 */
+		invoke: async (options, token) => {
+
+			// If no session identifier is provided, return an empty array.
+			if (!options.input.sessionIdentifier || options.input.sessionIdentifier === 'undefined') {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('[[]]')
+				]);
+			}
+
+			// Call the Positron API to get the session variables
+			const result = await positron.runtime.getSessionVariables(
+				options.input.sessionIdentifier,
+				options.input.accessKeys);
+
+			// Return the result as a JSON string to the model
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(JSON.stringify(result))
+			]);
+		}
+	});
+
+	context.subscriptions.push(inspectVariablesTool);
 }
 
 /**

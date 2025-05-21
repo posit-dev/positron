@@ -21,7 +21,7 @@ import { PositronModalPopup } from '../../../../browser/positronComponents/posit
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
-const positronConsoleInfo = localize('positron.console.info.label', "Console information");
+const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
 
 const OutputChannelNames = {

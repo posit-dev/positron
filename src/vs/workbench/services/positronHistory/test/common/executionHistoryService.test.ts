@@ -264,9 +264,9 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		return this._onWillStartSession;
 	}
 
-  watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable {
-      throw new Error('Method not implemented.');
-  }
+	watchUiClient(sessionId: string, handler: (uiClient: UiClientInstance) => void): IDisposable {
+		throw new Error('Method not implemented.');
+	}
 }
 
 class TestRuntimeStartupService implements IRuntimeStartupService {
@@ -447,6 +447,9 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 		};
 		this.runtimeMetadata = TestLanguageRuntimeMetadata;
 		this.metadata = createSessionMetadata(sessionId);
+	}
+	updateSessionName(sessionName: string): void {
+		this.dynState.sessionName = sessionName;
 	}
 
 	cleanup(): Thenable<void> {

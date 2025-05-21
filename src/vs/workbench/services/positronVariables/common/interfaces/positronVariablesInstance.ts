@@ -9,6 +9,7 @@ import { IVariableGroup } from './variableGroup.js';
 import { IVariableOverflow as IVariableOverflow } from './variableOverflow.js';
 import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeClientState, RuntimeClientStatus } from '../../../languageRuntime/common/languageRuntimeClientInstance.js';
+import { VariablesClientInstance } from '../../../languageRuntime/common/languageRuntimeVariablesClient.js';
 
 /**
  * PositronVariablesGrouping enumeration.
@@ -180,4 +181,9 @@ export interface IPositronVariablesInstance {
 	 * Focuses element in the variable tree.
 	 */
 	focusElement(): void;
+
+	/**
+	 * Gets the underlying variables instance, if it exists.
+	 */
+	getClientInstance(): VariablesClientInstance | undefined;
 }

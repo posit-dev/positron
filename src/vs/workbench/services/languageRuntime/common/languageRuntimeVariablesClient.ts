@@ -238,6 +238,13 @@ export class VariablesClientInstance extends Disposable {
 		await this._comm.view(path);
 	}
 
+	/**
+	 * Gets the underlying comm client.
+	 */
+	public get comm(): PositronVariablesComm {
+		return this._comm;
+	}
+
 	// Private methods -------------------------------------------------
 
 	/**
