@@ -17,7 +17,7 @@ test.describe('Large Python Notebook', {
 
 	test.afterAll(async function ({ hotKeys }) {
 		// If we don't close the editor, the test teardown fails
-		await hotKeys.closeAllEditors()
+		await hotKeys.closeAllEditors();
 	});
 
 	test('Python - Large notebook execution', async function ({ app, python }) {

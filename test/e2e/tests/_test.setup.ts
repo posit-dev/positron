@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, FileLogger, ApplicationOptions, Quality } from '../infra'; import { PackageManager } from '../pages/utils/packageManager';
+import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, FileLogger, ApplicationOptions, Quality, MultiLogger } from '../infra'; import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -454,11 +454,8 @@ async function moveAndOverwrite(logger: Logger, sourcePath: string, destinationP
 	// rename source to destination
 	try {
 		await rename(sourcePath, destinationPath);
-		if (logger instanceof FileLogger) {
-			console.log('Marie! setting logger new path:', destinationPath);
-			logger.setPath(destinationPath);
-			logger.log('Logger path updated to:', destinationPath);
-		}
+		(logger as MultiLogger).setPath(destinationPath);
+		logger.log('Logger path updated to:', destinationPath);
 	} catch (err) {
 		logger.log(`moveAndOverwrite: failed to move ${sourcePath} to ${destinationPath}:`, err);
 	}

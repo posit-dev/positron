@@ -6,10 +6,11 @@
 import { appendFileSync, writeFileSync, existsSync } from 'fs';
 import { format } from 'util';
 import { EOL } from 'os';
+import path from 'path';
 
 export interface Logger {
 	log(message: string, ...args: any[]): void;
-	setPath?(newPath: string): void;
+	setPath?(dir: string, filename?: string): void;
 }
 
 export class ConsoleLogger implements Logger {
@@ -27,8 +28,8 @@ export class FileLogger implements Logger {
 		this.ensureFileExists(this.path);
 	}
 
-	setPath(newPath: string): void {
-		this.path = newPath;
+	setPath(dir: string, filename = 'e2e-test-runner.log'): void {
+		this.path = path.join(dir, filename);
 		this.ensureFileExists(this.path);
 	}
 
@@ -52,6 +53,14 @@ export class FileLogger implements Logger {
 export class MultiLogger implements Logger {
 
 	constructor(private loggers: Logger[]) { }
+
+	setPath(dir: string, filename = 'e2e-test-runner.log'): void {
+		for (const logger of this.loggers) {
+			if (logger.setPath) {
+				logger.setPath(dir, filename);
+			}
+		}
+	}
 
 	log(message: string, ...args: any[]): void {
 		for (const logger of this.loggers) {
