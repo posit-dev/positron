@@ -372,26 +372,31 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Add Positron IDE context to the prompt.
 		const positronContext = await positron.ai.getPositronChatContext(request);
 		const positronContextPrompts: string[] = [];
-		if (positronContext.console) {
-			const executions = positronContext.console.executions
+		if (positronContext.activeSession) {
+			const executions = positronContext.activeSession.executions
 				.map((e) => xml.node('execution', JSON.stringify(e)))
 				.join('\n');
 			positronContextPrompts.push(
-				xml.node('console',
+				xml.node('session',
 					xml.node('executions', executions ?? ''), {
-					description: 'Current active console',
-					language: positronContext.console.language,
-					version: positronContext.console.version,
-					identifier: positronContext.console.identifier,
+					description: 'Current active session',
+					language: positronContext.activeSession.language,
+					version: positronContext.activeSession.version,
+					mode: positronContext.activeSession.mode,
+					identifier: positronContext.activeSession.identifier,
 				})
 			);
 		}
 		if (positronContext.variables) {
+			const content = positronContext.variables
+				.map((v) => xml.node('variable', JSON.stringify(v)))
+				.join('\n');
+			const description = content.length > 0 ?
+				'Variables defined in the current session' :
+				'No variables defined in the current session';
 			positronContextPrompts.push(
-				xml.node('variables', positronContext.variables
-					.map((v) => xml.node('variable', JSON.stringify(v)))
-					.join('\n'), {
-					description: 'Variables defined in the current session',
+				xml.node('variables', content, {
+					description,
 				})
 			);
 		}
