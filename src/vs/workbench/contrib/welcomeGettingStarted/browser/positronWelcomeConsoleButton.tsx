@@ -10,7 +10,7 @@ import React from 'react';
 import { localize } from '../../../../nls.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { ActionButton } from '../../positronNotebook/browser/utilityComponents/ActionButton.js';
-import { LANGUAGE_RUNTIME_START_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { LANGUAGE_RUNTIME_START_NEW_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
 
 interface WelcomeConsoleButtonProps {
 	commandService: ICommandService;
@@ -18,7 +18,7 @@ interface WelcomeConsoleButtonProps {
 
 export function WelcomeConsoleButton(props: WelcomeConsoleButtonProps) {
 	const handlePressed = () => {
-		props.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
+		props.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_SESSION_ID);
 	}
 
 	// Render.

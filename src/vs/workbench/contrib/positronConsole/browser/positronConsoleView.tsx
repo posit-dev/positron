@@ -47,7 +47,7 @@ import { IWorkbenchEnvironmentService } from '../../../services/environment/comm
 import { IActionViewItem } from '../../../../base/browser/ui/actionbar/actionbar.js';
 import { IDropdownMenuActionViewItemOptions } from '../../../../base/browser/ui/dropdown/dropdownActionViewItem.js';
 import { Action, IAction } from '../../../../base/common/actions.js';
-import { LANGUAGE_RUNTIME_DUPLICATE_SESSION_ID, LANGUAGE_RUNTIME_START_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
+import { LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_SESSION_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
 import { DropdownWithPrimaryActionViewItem } from '../../../../platform/actions/browser/dropdownWithPrimaryActionViewItem.js';
 import { MenuItemAction } from '../../../../platform/actions/common/actions.js';
 import { localize } from '../../../../nls.js';
@@ -371,7 +371,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	}
 
 	override createActionViewItem(action: IAction, options?: IDropdownMenuActionViewItemOptions): IActionViewItem | undefined {
-		if (action.id === LANGUAGE_RUNTIME_DUPLICATE_SESSION_ID) {
+		if (action.id === LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID) {
 			if (action instanceof MenuItemAction) {
 				const dropdownAction = new Action('console.session.quickLaunch', localize('console.session.quickLaunch', 'Quick Launch Session...'), 'codicon-chevron-down', true);
 				this._register(dropdownAction);
@@ -443,7 +443,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			undefined,
 			true,
 			() => {
-				this.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
+				this.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_SESSION_ID);
 			})
 		);
 
