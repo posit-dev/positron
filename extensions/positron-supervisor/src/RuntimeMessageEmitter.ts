@@ -16,7 +16,6 @@ import { JupyterClearOutput } from './jupyter/JupyterClearOutput';
 import { JupyterErrorReply } from './jupyter/JupyterErrorReply';
 import { JupyterStreamOutput } from './jupyter/JupyterStreamOutput';
 import { JupyterInputRequest } from './jupyter/JupyterInputRequest';
-import { JupyterUpdateDisplayData } from './jupyter/JupyterUpdateDisplayData.js';
 import { isEnumMember } from './util.js';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 

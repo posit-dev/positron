@@ -845,7 +845,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			// Check to see if there are any tags that look like they belong in
 			// a standalone HTML document.
 			const htmlContent = message.data['text/html'];
-			if (/<(script|html|body|iframe|!DOCTYPE)/.test(htmlContent)) {
+			if (htmlContent && /<(script|html|body|iframe|!DOCTYPE)/.test(htmlContent)) {
 				// This looks like standalone HTML.
 				if (htmlContent.includes('<table') ||
 					htmlContent.includes('<!DOCTYPE')) {
