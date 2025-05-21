@@ -136,10 +136,11 @@ suite('PositronAssistantParticipant', () => {
 		const context: vscode.ChatContext = { history: [] };
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 		const positronChatContext: positron.ai.ChatContext = {
-			console: {
+			activeSession: {
+				identifier: 'test-console',
 				language: 'python',
 				version: '3.12.0',
-				identifier: 'test-console',
+				mode: positron.LanguageRuntimeSessionMode.Console,
 				executions: [
 					{
 						input: 'x = 1',
@@ -177,13 +178,13 @@ suite('PositronAssistantParticipant', () => {
 		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages[0],
 			`<context>
-<console description="Current active console" language="${c.console!.language}" version="${c.console!.version}" identifier="${c.console!.identifier}">
+<session description="Current active session" language="${c.activeSession!.language}" version="${c.activeSession!.version}" mode="console" identifier="${c.activeSession!.identifier}">
 <executions>
 <execution>
-${JSON.stringify(c.console!.executions[0])}
+${JSON.stringify(c.activeSession!.executions[0])}
 </execution>
 </executions>
-</console>
+</session>
 
 <variables description="Variables defined in the current session">
 <variable>
