@@ -744,7 +744,6 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.addModelConfiguration)`;
 		} else {
 			welcomeTitle = localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant");
-			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
 			// eslint-disable-next-line local/code-no-unexternalized-strings
 			welcomeText = localize('positronAssistant.welcomeMessageReady', `Positron Assistant is an AI coding companion designed to accelerate and enhance your data science projects.
 
@@ -754,10 +753,7 @@ Click on $(attach) or type \`#\` to add context, such as files to your Positron 
 
 Type \`/\` to use predefined quick commands such as \`/help\` or \`/quarto\`.
 
-The {guide-link} explains the possibilities and capabilities of Positron Assistant.
-
 Always verify results. AI assistants can sometimes produce incorrect code.`);
-			welcomeText = welcomeText.replace('{guide-link}', `\n\n[${guideLinkMessage}](https://positron.posit.co)`);
 		}
 
 		dom.clearNode(this.welcomeMessageContainer);
