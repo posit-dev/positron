@@ -35,27 +35,24 @@ export function isWebviewPreloadMessage(htmlContent: string): boolean {
 	return false;
 }
 
-const MIME_TYPE_HOLOVIEWS_LOAD = 'application/vnd.holoviews_load.v0+json';
-const MIME_TYPE_HOLOVIEWS_EXEC = 'application/vnd.holoviews_exec.v0+json';
-const MIME_TYPE_BOKEH_EXEC = 'application/vnd.bokehjs_exec.v0+json';
-const MIME_TYPE_BOKEH_LOAD = 'application/vnd.bokehjs_load.v0+json';
-const MIME_TYPE_POSITRON_WEBVIEW_FLAG = 'application/positron-webview-load.v0+json';
-const MIME_TYPE_PLOTLY = 'application/vnd.plotly.v1+json';
-const MIME_TYPE_PLAIN = 'text/plain';
-const MIME_TYPE_HTML = 'text/html';
-
+/**
+ * MIME types used for webview content handling
+ */
 const MIME_TYPES = {
-	HOLOVIEWS_LOAD: MIME_TYPE_HOLOVIEWS_LOAD,
-	HOLOVIEWS_EXEC: MIME_TYPE_HOLOVIEWS_EXEC,
-	BOKEH_EXEC: MIME_TYPE_BOKEH_EXEC,
-	BOKEH_LOAD: MIME_TYPE_BOKEH_LOAD,
-	POSITRON_WEBVIEW_FLAG: MIME_TYPE_POSITRON_WEBVIEW_FLAG,
-	PLOTLY: MIME_TYPE_PLOTLY,
-	PLAIN: MIME_TYPE_PLAIN,
-	HTML: MIME_TYPE_HTML
-};
+	HOLOVIEWS_LOAD: 'application/vnd.holoviews_load.v0+json',
+	HOLOVIEWS_EXEC: 'application/vnd.holoviews_exec.v0+json',
+	BOKEH_EXEC: 'application/vnd.bokehjs_exec.v0+json',
+	BOKEH_LOAD: 'application/vnd.bokehjs_load.v0+json',
+	POSITRON_WEBVIEW_FLAG: 'application/positron-webview-load.v0+json',
+	PLOTLY: 'application/vnd.plotly.v1+json',
+	PLAIN: 'text/plain',
+	HTML: 'text/html'
+} as const;
 
-const webviewReplayMimeTypes = new Set([
+/**
+ * Set of MIME types that indicate content should be replayed in webviews
+ */
+const webviewReplayMimeTypes = new Set<string>([
 	MIME_TYPES.HOLOVIEWS_LOAD,
 	MIME_TYPES.HOLOVIEWS_EXEC,
 	MIME_TYPES.BOKEH_EXEC,
@@ -102,10 +99,6 @@ export function isWebviewDisplayMessage(mimeTypesOrMsg: string[] | ILanguageRunt
 }
 
 
-
-type WebviewContentType = 'display' | 'preload' | null;
-
-
 /**
  * Determines if a set of notebook cell outputs contains mime types that require webview handling.
  * This is used to check if outputs need special webview processing, either for:
@@ -115,7 +108,7 @@ type WebviewContentType = 'display' | 'preload' | null;
  * @param outputs Array of output objects containing mime types to check
  * @returns The type of webview message ('display', 'preload') or null if not handled
  */
-export function getWebviewMessageType(outputs: { mime: string }[]): WebviewContentType {
+export function getWebviewMessageType(outputs: { mime: string }[]): 'display' | 'preload' | null {
 	const mimeTypes = outputs.map(output => output.mime);
 	if (isWebviewDisplayMessage(mimeTypes)) {
 		return 'display';
