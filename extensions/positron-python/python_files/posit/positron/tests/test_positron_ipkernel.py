@@ -183,7 +183,7 @@ def test_traceback_result(
     tmp_path: Path,
     mock_displayhook: Mock,
     monkeypatch,
-) -> tuple[str, Any]:
+) -> tuple[Path, Any]:
     # Ensure that we're in console mode.
     monkeypatch.setattr(shell, "session_mode", SessionMode.CONSOLE)
 
@@ -282,7 +282,7 @@ def test_console_traceback_ipy9(shell: PositronShell, test_traceback_result) -> 
     # Define a few OSC8 escape codes for convenience.
 
     # Convenient reference to colors from the active scheme.
-    colors = ultratb.theme_table[shell.colors]
+    colors = ultratb.theme_table[shell.colors]  # type: ignore
 
     # This template matches the beginning of each traceback frame. We don't check each entire frame
     # because syntax highlighted code is full of escape codes. For example, after removing
@@ -292,11 +292,11 @@ def test_console_traceback_ipy9(shell: PositronShell, test_traceback_result) -> 
     #
     traceback_frame_header = colors.format(
         [
-            (ultratb.Token.NormalEm, "File "),
-            (ultratb.Token.FilenameEm, f"{path}:{{line}}"),
-            (ultratb.Token.Normal, ", in "),
-            (ultratb.Token.VName, "{func}"),
-            (ultratb.Token.ValEm, "()"),
+            (ultratb.Token.NormalEm, "File "),  # type: ignore
+            (ultratb.Token.FilenameEm, f"{path}:{{line}}"),  # type: ignore
+            (ultratb.Token.Normal, ", in "),  # type: ignore
+            (ultratb.Token.VName, "{func}"),  # type: ignore
+            (ultratb.Token.ValEm, "()"),  # type: ignore
         ]
     )
 
@@ -314,7 +314,7 @@ def test_console_traceback_ipy9(shell: PositronShell, test_traceback_result) -> 
     # The exception value should include the top of the stack trace.
     assert_ansi_string_startswith(
         exc_content["evalue"],
-        "This is an error!\n" + colors.format([(ultratb.Token.NormalEm, "Cell")]),
+        "This is an error!\n" + colors.format([(ultratb.Token.NormalEm, "Cell")]),  # type: ignore
     )
 
 
