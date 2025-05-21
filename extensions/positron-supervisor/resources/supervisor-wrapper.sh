@@ -18,7 +18,10 @@ if [ $# -lt 2 ]; then
 	exit 1
 fi
 
-# Check if the first argument is "nohup"
+# Check if the first argument is "nohup". If it is, we'll run the supervisor
+# process with nohup, rather than running it directly. This is used to prevent
+# the supervisor from exiting when Positron does when the user has configured
+# the supervisor to run in the background.
 use_nohup=false
 if [ "$1" = "nohup" ]; then
 	use_nohup=true
@@ -35,7 +38,8 @@ fi
 output_file="$1"
 shift
 
-# Get the user's default shell
+# Get the user's default shell. We run the program in a login shell to allow for
+# startup and environment variable customization in e.g. .bash_profile
 DEFAULT_SHELL=$SHELL
 
 # If $SHELL is not set, try to use the environment
