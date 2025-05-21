@@ -15,8 +15,12 @@ test.describe('Large Python Notebook', {
 	tag: [tags.NOTEBOOKS, tags.WIN]
 }, () => {
 
-	// Currently this test is skipped because it times out during teardown
-	test.skip('Python - Large notebook execution', async function ({ app, python }) {
+	test.afterAll(async function ({ hotKeys }) {
+		// If we don't close the editor, the test teardown fails
+		await hotKeys.closeAllEditors()
+	});
+
+	test('Python - Large notebook execution', async function ({ app, python }) {
 		test.slow();
 		const notebooks = app.workbench.notebooks;
 
