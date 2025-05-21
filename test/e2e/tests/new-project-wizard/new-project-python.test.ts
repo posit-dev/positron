@@ -11,6 +11,7 @@ test.use({
 });
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
+// Not running uv either because it is not installed on windows for now
 test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJECT_WIZARD] }, () => {
 
 	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, sessions, python }) {
@@ -105,7 +106,7 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 		await expect(kernelLabel).toContainText('.venv');
 	});
 
-	test('New env: uv environment', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+	test('New env: uv environment', { tag: [tags.CRITICAL] }, async function ({ app }) {
 		const projectTitle = addRandomNumSuffix('new-uv');
 
 		await createNewProject(app, {
