@@ -65,9 +65,10 @@ suite('AnthropicLanguageModel', () => {
 	 */
 	test('provideLanguageModelResponse filters empty messages and different LanguageModelTextPart contents correctly', async () => {
 		// Create test messages with different combinations of empty/non-empty content
+		const nonEmptyText = 'Hello';
 		const emptyTextPart = new vscode.LanguageModelTextPart('');
 		const whitespaceTextPart = new vscode.LanguageModelTextPart('   \n  ');
-		const nonEmptyTextPart = new vscode.LanguageModelTextPart('Hello');
+		const nonEmptyTextPart = new vscode.LanguageModelTextPart(nonEmptyText);
 
 		// Define test messages with different combinations
 		const messagesWithVariousContent = [
@@ -114,12 +115,13 @@ suite('AnthropicLanguageModel', () => {
 		const streamCall = mockClient.messages.stream.getCall(0);
 		assert.ok(streamCall, 'Stream method was not called');
 
+		// We expect two messages with non-empty content to be passed to the Anthropic client
 		const messagesPassedToAnthropicClient = streamCall.args[0].messages;
 		assert.strictEqual(messagesPassedToAnthropicClient.length, numOfMessagesToKeep, 'Only non-empty messages should be passed to the Anthropic client');
 
-		// Verify specific message patterns that should be included vs filtered
-		const hasMessageWithNonEmptyContent = messagesPassedToAnthropicClient.some((msg: any) =>
-			msg.content.some((content: any) => content.type === 'text' && content.text === 'Hello')
+		// Verify each passed message has the non-empty content we expect
+		const hasMessageWithNonEmptyContent = messagesPassedToAnthropicClient.every((msg: any) =>
+			msg.content.some((content: any) => content.type === 'text' && content.text === nonEmptyText)
 		);
 		assert.strictEqual(hasMessageWithNonEmptyContent, true, 'Messages with non-empty content should be included');
 	});
@@ -129,9 +131,6 @@ suite('AnthropicLanguageModel', () => {
 		const toolCallId1 = 'test-tool-callId-1';
 		const toolCallEmptyPart = new vscode.LanguageModelToolCallPart(toolCallId1, `${toolCallId1}-tool`, {});
 		const emptyToolResultPartOriginal = new vscode.LanguageModelToolResultPart(toolCallId1, []);
-		const emptyToolResultPartExpected = new vscode.LanguageModelToolResultPart(toolCallId1, [
-			new vscode.LanguageModelTextPart(EMPTY_TOOL_RESULT_PLACEHOLDER),
-		]);
 
 		// 2nd tool call with non-empty result
 		const toolCallId2 = 'test-tool-callId-2';
