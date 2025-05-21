@@ -282,6 +282,9 @@ def test_console_traceback_ipy9(shell: PositronShell, test_traceback_result) -> 
     # Define a few OSC8 escape codes for convenience.
 
     # Convenient reference to colors from the active scheme.
+
+    # NOTE (here and below): Ignoring types related to `theme_table` and `ultratb.Token`
+    # as they will report undefined in Python<3.11.
     colors = ultratb.theme_table[shell.colors]  # type: ignore
 
     # This template matches the beginning of each traceback frame. We don't check each entire frame
