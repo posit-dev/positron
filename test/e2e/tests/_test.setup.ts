@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, FileLogger, ApplicationOptions, Quality, MultiLogger } from '../infra'; import { PackageManager } from '../pages/utils/packageManager';
+import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, ApplicationOptions, Quality, MultiLogger } from '../infra'; import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
