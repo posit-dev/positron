@@ -117,7 +117,8 @@ suite('PositronRunApp', () => {
 		assert(terminal, 'Terminal not found');
 	}
 
-	test('appLauncher: shell integration supported', async () => {
+	// TODO: Flaky test: https://github.com/posit-dev/positron/issues/5823.
+	test.skip('appLauncher: shell integration supported', async () => {
 		// Run the application.
 		await verifyRunTestApplication();
 
