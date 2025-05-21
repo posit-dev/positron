@@ -452,7 +452,6 @@ async function moveAndOverwrite(logger: Logger, sourcePath: string, destinationP
 	try {
 		await rename(sourcePath, destinationPath);
 		if (logger instanceof FileLogger) {
-			console.log('Marie! setting logger new path:', destinationPath);
 			logger.setPath(destinationPath);
 			logger.log('Logger path updated to:', destinationPath);
 		}
