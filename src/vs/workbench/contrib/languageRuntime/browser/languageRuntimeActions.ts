@@ -499,8 +499,7 @@ export function registerLanguageRuntimeActions() {
 	/**
 	 * Action used to select a registered language runtime (aka interpreter).
 	 *
-	 * NOTE: This is a convenience action that is used by the notebook controller
-	 * and service.
+	 * NOTE: This is a convenience action that is used by the notebook services
 	 */
 	registerAction2(class PickInterpreterAction extends Action2 {
 		constructor() {
