@@ -26,7 +26,7 @@ from IPython.core.error import UsageError
 from IPython.core.formatters import DisplayFormatter, IPythonDisplayFormatter, catch_format_error
 from IPython.core.interactiveshell import ExecutionInfo, ExecutionResult, InteractiveShell
 from IPython.core.magic import Magics, MagicsManager, line_magic, magics_class
-from IPython.utils import PyColorize, dir2
+from IPython.utils import PyColorize
 
 from .access_keys import encode_access_key
 from .connections import ConnectionsService
