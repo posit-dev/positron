@@ -188,6 +188,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const customSystem = (await this.getSystemPrompt(request)) ?? '';
 		const system = defaultSystem + customSystem;
 
+		// Get the IDE context for the request.
+		const positronContext = await positron.ai.getPositronChatContext(request);
+
 		// List of tools for use by the language model.
 		const tools: vscode.LanguageModelChatTool[] = vscode.lm.tools.filter(
 			tool => {
@@ -204,7 +207,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// to see if it requires confirmation, but that information isn't
 					// currently exposed in `vscode.LanguageModelChatTool`.
 					case PositronAssistantToolName.ExecuteCode:
-						return inChatPane;
+						return inChatPane &&
+							// The execute code tool does not yet support notebook sessions.
+							positronContext.activeSession?.mode !== positron.LanguageRuntimeSessionMode.Notebook;
 					// Only include the documentEdit tool in an editor and if there is
 					// no selection.
 					case PositronAssistantToolName.DocumentEdit:
@@ -231,7 +236,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const messages = toLanguageModelChatMessage(context.history);
 
 		// Add a user message containing context about the request, workspace, running sessions, etc.
-		const contextMessage = await this.getContextMessage(request, response);
+		const contextMessage = await this.getContextMessage(request, response, positronContext);
 		if (contextMessage) {
 			messages.push(contextMessage);
 		}
@@ -264,6 +269,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	private async getContextMessage(
 		request: vscode.ChatRequest,
 		response: vscode.ChatResponseStream,
+		positronContext: positron.ai.ChatContext,
 	): Promise<vscode.LanguageModelChatMessage2 | undefined> {
 		// This function returns a single user message containing all context
 		// relevant to a request, including:
@@ -370,7 +376,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		}
 
 		// Add Positron IDE context to the prompt.
-		const positronContext = await positron.ai.getPositronChatContext(request);
 		const positronContextPrompts: string[] = [];
 		if (positronContext.activeSession) {
 			const executions = positronContext.activeSession.executions
