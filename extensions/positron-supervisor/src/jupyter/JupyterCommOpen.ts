@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,11 +10,11 @@
  */
 export interface JupyterCommOpen {
 	/** The ID of the comm (as a GUID) */
-	comm_id: string;  // eslint-disable-line
+	comm_id: string;
 
 	/** The name of the comm to open */
-	target_name: string;   // eslint-disable-line
+	target_name: string;
 
 	/** Additional data to use to initialize the comm */
-	data: object;
+	data: Record<string, unknown>;
 }

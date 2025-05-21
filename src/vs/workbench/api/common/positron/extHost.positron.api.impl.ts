@@ -281,7 +281,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 
 		// --- End Positron ---
 
-		return <typeof positron>{
+		return {
 			version: initData.positronVersion,
 			buildNumber: initData.positronBuildNumber,
 			runtime,
