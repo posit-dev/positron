@@ -711,6 +711,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
+    updateSessionName(sessionName: string): void {
+        this.dynState.sessionName = sessionName;
+        this._kernel?.updateSessionName(sessionName);
+    }
+
     private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
         const ext = vscode.extensions.getExtension('positron.positron-supervisor');
         if (!ext) {

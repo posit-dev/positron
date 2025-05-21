@@ -26,7 +26,12 @@ export class FileLogger implements Logger {
 
 	log(message: string, ...args: any[]): void {
 		const date = new Date().toISOString();
-		appendFileSync(this.path, `[${date}] ${format(message, ...args)}${EOL}`);
+		const formattedMessage = `[${date}] ${format(message, ...args)}${EOL}`;
+		try {
+			appendFileSync(this.path, formattedMessage);
+		} catch (error) {
+			console.log('FileLogger error, falling back to console:', formattedMessage.trim(), error);
+		}
 	}
 }
 

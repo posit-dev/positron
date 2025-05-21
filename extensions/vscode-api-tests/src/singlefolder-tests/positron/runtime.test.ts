@@ -379,6 +379,11 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 
 	dispose() {
 	}
+
+	updateSessionName(sessionName: string): void {
+		// Update the dynamic state of the session
+		this.dynState.sessionName = sessionName;
+	}
 }
 
 function testLanguageRuntimeMetadata(): positron.LanguageRuntimeMetadata {

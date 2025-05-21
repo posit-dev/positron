@@ -6,7 +6,7 @@
 import * as playwright from '@playwright/test';
 // eslint-disable-next-line local/code-import-patterns
 import type { Protocol } from 'playwright-core/types/protocol';
-import path, { dirname, join } from 'path';
+import { dirname, join } from 'path';
 import { promises } from 'fs';
 import { IWindowDriver } from './driver';
 // eslint-disable-next-line local/code-import-patterns
@@ -20,6 +20,20 @@ export class PlaywrightDriver {
 
 	private static traceCounter = 1;
 	private static screenShotCounter = 1;
+
+	private static readonly vscodeToPlaywrightKey: { [key: string]: string } = {
+		cmd: 'Meta',
+		ctrl: 'Control',
+		shift: 'Shift',
+		enter: 'Enter',
+		escape: 'Escape',
+		right: 'ArrowRight',
+		up: 'ArrowUp',
+		down: 'ArrowDown',
+		left: 'ArrowLeft',
+		home: 'Home',
+		esc: 'Escape'
+	};
 
 	constructor(
 		private readonly application: playwright.Browser | playwright.ElectronApplication,
@@ -43,7 +57,10 @@ export class PlaywrightDriver {
 		}
 	}
 
+	// --- Start Positron ---
+	// Added customPath parameter to allow specifying a custom path for the trace file
 	async stopTracing(name: string, persist: boolean = true, customPath?: string): Promise<void> {
+		// --- End Positron ---
 		if (!this.options.tracing) {
 			return; // tracing disabled
 		}
@@ -51,15 +68,16 @@ export class PlaywrightDriver {
 		try {
 			let persistPath: string | undefined = undefined;
 			if (persist) {
-				// Positron: Windows has issues with long paths, shortened the name
+				// --- Start Positron ---
+				//  Windows has issues with long paths; shortened the name
 				persistPath = customPath || join(this.options.logsPath, `trace-${PlaywrightDriver.traceCounter++}-${name.replace(/\s+/g, '-')}.zip`);
+				// --- End Positron ---
 			}
 			await measureAndLog(() => this.context.tracing.stopChunk({ path: persistPath }), `stopTracing for ${name}`, this.options.logger);
 		} catch (error) {
 			// Ignore
 		}
 	}
-
 	async didFinishLoad(): Promise<void> {
 		await this.whenLoaded;
 	}
@@ -140,8 +158,10 @@ export class PlaywrightDriver {
 		return await this._cdpSession.send('Runtime.getProperties', parameters);
 	}
 
-	// Positron: make this method public for access from R/Python fixtures
+	// --- Start Positron ---
+	// Make this method public for access from R/Python fixtures
 	async takeScreenshot(name: string): Promise<void> {
+		// --- End Positron ---
 		try {
 			// Positron: Windows has issues with long paths, shortened the name
 			const persistPath = join(this.options.logsPath, `screenshot-${PlaywrightDriver.screenShotCounter++}-${name.replace(/\s+/g, '-')}.png`);
@@ -155,7 +175,7 @@ export class PlaywrightDriver {
 		await this.page.reload();
 	}
 
-	async exitApplication() {
+	async close() {
 
 		// Stop tracing
 		try {
@@ -175,39 +195,11 @@ export class PlaywrightDriver {
 			}
 		}
 
-		// Web: exit via `close` method
-		if (this.options.web) {
-			try {
-				await measureAndLog(() => this.application.close(), 'playwright.close()', this.options.logger);
-			} catch (error) {
-				this.options.logger.log(`Error closing appliction (${error})`);
-			}
-		}
-
-		// Desktop: exit via `driver.exitApplication`
-		else {
-
-			// Log all files in extensionsPath
-			const extensionsPath = this.options.extensionsPath;
-			this.options.logger.log(`Listing files in: ${extensionsPath}`);
-
-			const files = await promises.readdir(extensionsPath);
-			this.options.logger.log(`Files in extensionsPath: ${files.join(', ')}`);
-
-			// Read and log contents of extensions.json (if it exists)
-			const extensionsJsonPath = path.join(extensionsPath, 'extensions.json');
-			try {
-				const extensionsJsonContent = await promises.readFile(extensionsJsonPath, 'utf-8');
-				this.options.logger.log(`Contents of extensions.json:\n${extensionsJsonContent}`);
-			} catch (jsonError) {
-				this.options.logger.log(`extensions.json not found or cannot be read: ${jsonError}`);
-			}
-
-			try {
-				await measureAndLog(() => this.evaluateWithDriver(([driver]) => driver.exitApplication()), 'driver.exitApplication()', this.options.logger);
-			} catch (error) {
-				this.options.logger.log(`Error exiting appliction (${error})`);
-			}
+		//  exit via `close` method
+		try {
+			await measureAndLog(() => this.application.close(), 'playwright.close()', this.options.logger);
+		} catch (error) {
+			this.options.logger.log(`Error closing application (${error})`);
 		}
 
 		// Server: via `teardown`
@@ -227,18 +219,97 @@ export class PlaywrightDriver {
 		}
 	}
 
+	async sendKeybinding(keybinding: string, accept?: () => Promise<void> | void) {
+		const chords = keybinding.split(' ');
+		for (let i = 0; i < chords.length; i++) {
+			const chord = chords[i];
+			if (i > 0) {
+				await this.wait(100);
+			}
+
+			if (keybinding.startsWith('Alt') || keybinding.startsWith('Control') || keybinding.startsWith('Backspace')) {
+				await this.page.keyboard.press(keybinding);
+				return;
+			}
+
+			const keys = chord.split('+');
+			const keysDown: string[] = [];
+			for (let i = 0; i < keys.length; i++) {
+				if (keys[i] in PlaywrightDriver.vscodeToPlaywrightKey) {
+					keys[i] = PlaywrightDriver.vscodeToPlaywrightKey[keys[i]];
+				}
+				await this.page.keyboard.down(keys[i]);
+				keysDown.push(keys[i]);
+			}
+			while (keysDown.length > 0) {
+				await this.page.keyboard.up(keysDown.pop()!);
+			}
+		}
+
+		if (accept) {
+			await accept();
+		}
+	}
+
+	async click(selector: string, xoffset?: number | undefined, yoffset?: number | undefined) {
+		const { x, y } = await this.getElementXY(selector, xoffset, yoffset);
+		await this.page.mouse.click(x + (xoffset ? xoffset : 0), y + (yoffset ? yoffset : 0));
+	}
+
+	async setValue(selector: string, text: string) {
+		return this.page.evaluate(([driver, selector, text]) => driver.setValue(selector, text), [await this.getDriverHandle(), selector, text] as const);
+	}
+
+	async getTitle() {
+		return this.page.title();
+	}
+
+	async isActiveElement(selector: string) {
+		return this.page.evaluate(([driver, selector]) => driver.isActiveElement(selector), [await this.getDriverHandle(), selector] as const);
+	}
+
+	async getElements(selector: string, recursive: boolean = false) {
+		return this.page.evaluate(([driver, selector, recursive]) => driver.getElements(selector, recursive), [await this.getDriverHandle(), selector, recursive] as const);
+	}
+
+	async getElementXY(selector: string, xoffset?: number, yoffset?: number) {
+		return this.page.evaluate(([driver, selector, xoffset, yoffset]) => driver.getElementXY(selector, xoffset, yoffset), [await this.getDriverHandle(), selector, xoffset, yoffset] as const);
+	}
+
+	async typeInEditor(selector: string, text: string) {
+		return this.page.evaluate(([driver, selector, text]) => driver.typeInEditor(selector, text), [await this.getDriverHandle(), selector, text] as const);
+	}
+
+	async getEditorSelection(selector: string) {
+		return this.page.evaluate(([driver, selector]) => driver.getEditorSelection(selector), [await this.getDriverHandle(), selector] as const);
+	}
+
+	async getTerminalBuffer(selector: string) {
+		return this.page.evaluate(([driver, selector]) => driver.getTerminalBuffer(selector), [await this.getDriverHandle(), selector] as const);
+	}
+
+	async writeInTerminal(selector: string, text: string) {
+		return this.page.evaluate(([driver, selector, text]) => driver.writeInTerminal(selector, text), [await this.getDriverHandle(), selector, text] as const);
+	}
+
+	async getLocaleInfo() {
+		return this.evaluateWithDriver(([driver]) => driver.getLocaleInfo());
+	}
+
+	async getLocalizedStrings() {
+		return this.evaluateWithDriver(([driver]) => driver.getLocalizedStrings());
+	}
+
 	async getLogs() {
 		return this.page.evaluate(([driver]) => driver.getLogs(), [await this.getDriverHandle()] as const);
 	}
 
 	private async evaluateWithDriver<T>(pageFunction: PageFunction<IWindowDriver[], T>) {
-		const driverHandle = await this.getDriverHandle();
-		const driver = driverHandle as unknown as IWindowDriver; // Explicit cast
-		return this.page.evaluate(pageFunction, [driver]);
+		return this.page.evaluate(pageFunction, [await this.getDriverHandle()]);
 	}
 
 	wait(ms: number): Promise<void> {
-		return new Promise<void>(resolve => setTimeout(resolve, ms));
+		return wait(ms);
 	}
 
 	whenWorkbenchRestored(): Promise<void> {
@@ -249,6 +320,16 @@ export class PlaywrightDriver {
 		return this.page.evaluateHandle('window.driver');
 	}
 
+	async isAlive(): Promise<boolean> {
+		try {
+			await this.getDriverHandle();
+			return true;
+		} catch (error) {
+			return false;
+		}
+	}
+
+	// --- Start Positron ---
 	/**
 	 * Click and drag from one point to another.
 	 * @param opts.from The starting point of the drag as x-y coordinates
@@ -265,4 +346,9 @@ export class PlaywrightDriver {
 		await this.page.mouse.move(to.x, to.y);
 		await this.page.mouse.up();
 	}
+	// --- End Positron ---
+}
+
+export function wait(ms: number): Promise<void> {
+	return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
