@@ -123,7 +123,7 @@ test.describe('R Debugging', {
 			await debug.expectBrowserModeFrame(1);
 
 			// Verify current line indicator is visible
-			await page.getByRole('button', { name: 'Restore Panel' }).click();
+			await page.getByRole('button', { name: 'Restore Panel' }).click(); // <-- i shouldn't have to do this, right?
 			await debug.expectCurrentLineIndicatorVisible();
 			await debug.expectCurrentLineToBe(2);
 
