@@ -240,21 +240,7 @@ class PositronIPythonDisplayFormatter(IPythonDisplayFormatter):
                 return True
         except AttributeError:
             pass
-        if self.enabled:
-            # lookup registered printer
-            try:
-                printer = self.lookup(obj)
-            except KeyError:
-                pass
-            else:
-                printer(obj)
-                return True
-            # Finally look for special method names
-            method = dir2.get_real_method(obj, self.print_method)
-            if method is not None:
-                method()
-                return True
-        return True
+        return super().__call__(obj)
 
 
 class PositronShell(ZMQInteractiveShell):
