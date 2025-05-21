@@ -53,6 +53,11 @@ on:
         description: "Comma-separated list of tags to skip."
         type: string
         default: ""
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -262,7 +267,7 @@ jobs:
           TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
 
       - name: Upload Test Logs
-        if: ${{ always() }}
+        if: ${{ inputs.upload_logs }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ inputs.project }}-logs
