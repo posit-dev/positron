@@ -21,7 +21,8 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, ApplicationOptions, Quality, MultiLogger } from '../infra'; import { PackageManager } from '../pages/utils/packageManager';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, ApplicationOptions, Quality, MultiLogger } from '../infra';
+import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
 const TEMP_DIR = `temp-${randomUUID()}`;
@@ -433,7 +434,7 @@ test.afterAll(async function ({ logger }, testInfo) {
 export { playwrightExpect as expect };
 export { TestTags as tags };
 
-async function moveAndOverwrite(logger: Logger, sourcePath: string, destinationPath: string) {
+async function moveAndOverwrite(logger: MultiLogger, sourcePath: string, destinationPath: string) {
 	try {
 		await access(sourcePath, constants.F_OK);
 	} catch {
@@ -454,7 +455,7 @@ async function moveAndOverwrite(logger: Logger, sourcePath: string, destinationP
 	// rename source to destination
 	try {
 		await rename(sourcePath, destinationPath);
-		(logger as MultiLogger).setPath(destinationPath);
+		logger.setPath(destinationPath);
 		logger.log('Logger path updated to:', destinationPath);
 	} catch (err) {
 		logger.log(`moveAndOverwrite: failed to move ${sourcePath} to ${destinationPath}:`, err);
@@ -494,7 +495,7 @@ interface WorkerFixtures {
 	userDataDir: string;
 	app: Application;
 	logsPath: string;
-	logger: Logger;
+	logger: MultiLogger;
 	userSettings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 	};

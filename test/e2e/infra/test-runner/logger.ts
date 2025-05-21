@@ -16,7 +16,7 @@ const VERBOSE = process.env.VERBOSE === 'true';
  * @param logsRootPath the root path for the logs
  * @returns Logger instance
  */
-export function createLogger(logsRootPath: string, logsFileName = 'e2e-test-runner.log'): Logger {
+export function createLogger(logsRootPath: string, logsFileName = 'e2e-test-runner.log'): MultiLogger {
 	const loggers: Logger[] = [];
 
 	if (VERBOSE) {
