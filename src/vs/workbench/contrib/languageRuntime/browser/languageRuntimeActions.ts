@@ -638,7 +638,7 @@ export function registerLanguageRuntimeActions() {
 				icon: Codicon.plus,
 				id: LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID,
 				title: {
-					value: localize('positron.languageRuntime.duplicate.title', 'Duplicate Interpreter Session'),
+					value: localize('positron.languageRuntime.duplicateSession.title', 'Duplicate Active Interpreter Session'),
 					original: 'Duplicate Session'
 				},
 				category,
