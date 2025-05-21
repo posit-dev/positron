@@ -304,11 +304,13 @@ export class PlaywrightDriver {
 		return this.page.evaluate(([driver]) => driver.getLogs(), [await this.getDriverHandle()] as const);
 	}
 
+	// --- Start Positron ---
 	private async evaluateWithDriver<T>(pageFunction: PageFunction<IWindowDriver[], T>) {
 		const driverHandle = await this.getDriverHandle();
 		const driver = driverHandle as unknown as IWindowDriver; // Explicit cast
 		return this.page.evaluate(pageFunction, [driver]);
 	}
+	// --- End Positron ---
 
 	wait(ms: number): Promise<void> {
 		return wait(ms);
