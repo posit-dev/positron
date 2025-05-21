@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
-import { ensureMessageContent, isChatImagePart } from './utils.js';
+import { isChatImagePart, processMessages } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 
 export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -56,9 +56,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
-		const anthropicMessages = messages
-			.map(ensureMessageContent)
-			.map(toAnthropicMessage);
+		const anthropicMessages = processMessages(messages).map(toAnthropicMessage);
 		const tools = options.tools?.map(tool => toAnthropicTool(tool));
 		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
 		const stream = this._client.messages.stream({
@@ -150,9 +148,11 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			});
 		} else {
 			// For LanguageModelChatMessage, ensure it has non-empty message content
-			const transformedMessage = ensureMessageContent(text);
-			const anthropicMessage = toAnthropicMessage(transformedMessage);
-			messages.push(anthropicMessage);
+			const processedMessages = processMessages([text]);
+			if (processedMessages.length === 0) {
+				return 0;
+			}
+			messages.push(...processedMessages.map(toAnthropicMessage));
 		}
 		const result = await this._client.messages.countTokens({
 			model: this._config.model,

@@ -256,36 +256,66 @@ export function isChatImageMimeType(mimeType: string): mimeType is vscode.ChatIm
 	return Object.values(vscode.ChatImageMimeType).includes(mimeType as vscode.ChatImageMimeType);
 }
 
-const PLACEHOLDER_LANGUAGE_MODEL_TEXT_PART = new vscode.LanguageModelTextPart('<content is empty>');
+export const EMPTY_TOOL_RESULT_PLACEHOLDER = 'tool result is empty';
 
 /**
- * Ensures that a message contains at least one content part.
- * If the message is empty, a placeholder text part is added to prevent issues with LLMs.
- * @param message The message to check and update if necessary
- * @returns The updated message with guaranteed non-empty content
+ * Processes a message to ensure it has non-empty tool result parts.
+ * If a tool result part is empty, it replaces it with a placeholder.
+ * This is a workaround for LLMs that don't handle empty tool result parts well.
+ * @param message The message to process
+ * @returns A new message with empty tool result parts replaced with a placeholder
  */
-export function ensureMessageContent(message: vscode.LanguageModelChatMessage2) {
-	// If the message content is empty, add a placeholder text part
-	if (message.content.length === 0) {
-		message.content = [PLACEHOLDER_LANGUAGE_MODEL_TEXT_PART];
-		return message;
+function processEmptyToolResults(message: vscode.LanguageModelChatMessage2) {
+	let replacedEmptyToolResult = false;
+	const updatedContent = message.content.map(part => {
+		if (part instanceof vscode.LanguageModelToolResultPart && part.content.length === 0) {
+			replacedEmptyToolResult = true;
+			return new vscode.LanguageModelToolResultPart(
+				part.callId,
+				[new vscode.LanguageModelTextPart(EMPTY_TOOL_RESULT_PLACEHOLDER)],
+			);
+		}
+		// For other parts, such as LanguageModelToolCallPart or LanguageModelDataPart,
+		// just return them as is, as we expect them to be non-empty.
+		return part;
+	});
+
+	if (replacedEmptyToolResult) {
+		return new vscode.LanguageModelChatMessage2(
+			message.role,
+			updatedContent,
+			message.name,
+		);
 	}
 
-	// Replace each empty part with a placeholder text part to avoid empty messages.
-	// Filtering out empty messages altogether can result in missing responses for
-	// certain LLMs, so we replace empty content with a placeholder.
-	for (let i = 0; i < message.content.length; i++) {
-		const part = message.content[i];
-		if (part instanceof vscode.LanguageModelTextPart && part.value.trim() === '') {
-			message.content[i] = PLACEHOLDER_LANGUAGE_MODEL_TEXT_PART;
-		}
-		if (part instanceof vscode.LanguageModelToolResultPart && part.content.length === 0) {
-			message.content[i] = new vscode.LanguageModelToolResultPart(part.callId, [PLACEHOLDER_LANGUAGE_MODEL_TEXT_PART]);
-		}
-		// Other part types are considered non-empty, such as LanguageModelToolCallPart and LanguageModelDataPart
-		// so we don't need to handle empty cases for them.
-	}
 	return message;
+}
+
+/**
+ * Checks if a message has content.
+ * A message is considered to have non-empty content if it contains at one least item
+ * in its content array that is not an empty/whitespace LanguageModelTextPart.
+ * @param message The message to check
+ * @returns Whether the message has non-empty content
+ */
+function hasContent(message: vscode.LanguageModelChatMessage2) {
+	return message.content.length > 0 &&
+		!message.content.every(
+			part => part instanceof vscode.LanguageModelTextPart && part.value.trim() === ''
+		);
+}
+
+/**
+ * Processes an array of messages to ensure they have non-empty content,
+ * filtering out any messages that do not meet this criteria and filling in
+ * placeholders for empty tool result parts.
+ * @param messages The messages to process
+ * @returns
+ */
+export function processMessages(messages: vscode.LanguageModelChatMessage2[]) {
+	return messages
+		.filter(hasContent)
+		.map(processEmptyToolResults);
 }
 
 // This type definition is from Vercel AI, but the type is not exported.
