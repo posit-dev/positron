@@ -55,7 +55,7 @@ if [ -z "$DEFAULT_SHELL" ] || [ ! -x "$DEFAULT_SHELL" ]; then
 fi
 
 # Print the command line to the log file
-echo $DEFAULT_SHELL --login -c "$@" >> "$output_file"
+echo "$DEFAULT_SHELL" --login -c "$@" >> "$output_file"
 
 # Quote the arguments to handle single quotes and spaces correctly
 QUOTED_ARGS=""
