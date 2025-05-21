@@ -36,7 +36,7 @@ import { ActivityItem, RuntimeItemActivity } from './classes/runtimeItemActivity
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
@@ -87,7 +87,7 @@ const formatCallbackTrace = (callback: string, languageRuntimeMessage: ILanguage
  * @param traceback The traceback.
  * @returns The formatted traceback.
  */
-const formatOutputData = (data: Record<string, string>) => {
+const formatOutputData = (data: ILanguageRuntimeMessageOutputData) => {
 	let result = '\nOutput:';
 	if (!data['text/plain']) {
 		result += ' None';
@@ -2047,7 +2047,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				let html = Object.hasOwnProperty.call(languageRuntimeMessageOutput.data,
 					'text/html');
 				if (html) {
-					const htmlContent = languageRuntimeMessageOutput.data['text/html'].toLowerCase();
+					const htmlContent = languageRuntimeMessageOutput.data['text/html']!.toLowerCase();
 					if (htmlContent.indexOf('<script') >= 0 ||
 						htmlContent.indexOf('<body') >= 0 ||
 						htmlContent.indexOf('<html') >= 0 ||
@@ -2085,7 +2085,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 							languageRuntimeMessageOutput.id,
 							languageRuntimeMessageOutput.parent_id,
 							new Date(languageRuntimeMessageOutput.when),
-							languageRuntimeMessageOutput.data['text/html'],
+							languageRuntimeMessageOutput.data['text/html']!,
 							languageRuntimeMessageOutput.data['text/plain']
 						)
 					);

@@ -46,6 +46,7 @@ export enum LanguageRuntimeStreamName {
 export enum RuntimeOnlineState {
     Idle = 'idle',
     Busy = 'busy',
+    Starting = 'starting',
 }
 
 export enum RuntimeState {

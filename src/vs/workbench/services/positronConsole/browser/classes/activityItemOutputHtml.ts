@@ -31,7 +31,7 @@ export class ActivityItemOutputHtml extends ActivityItem {
 		parentId: string,
 		when: Date,
 		readonly html: string,
-		readonly text: string,
+		readonly text: string | undefined,
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);

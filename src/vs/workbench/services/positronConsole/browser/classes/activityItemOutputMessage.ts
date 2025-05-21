@@ -6,6 +6,7 @@
 import { ActivityItem } from './activityItem.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
+import { ILanguageRuntimeMessageOutputData } from '../../../languageRuntime/common/languageRuntimeService.js';
 
 /**
  * ActivityItemOutputMessage class.
@@ -38,7 +39,7 @@ export class ActivityItemOutputMessage extends ActivityItem {
 		id: string,
 		parentId: string,
 		when: Date,
-		readonly data: Record<string, string>
+		readonly data: ILanguageRuntimeMessageOutputData
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);

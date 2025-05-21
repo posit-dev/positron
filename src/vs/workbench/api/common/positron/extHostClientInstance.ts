@@ -15,7 +15,7 @@ import { ILanguageRuntimeMessageCommData, ILanguageRuntimeMessageCommOpen } from
  * @param id The message ID. Can be used to correlate requests and responses.
  * @param data The message data.
  */
-export type ExtHostClientMessageSender = (id: string, data: object) => void;
+export type ExtHostClientMessageSender = (id: string, data: Record<string, unknown>) => void;
 
 /**
  * A client instance that communicates with the back end via a message channel.
@@ -28,7 +28,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	private readonly _onDidChangeClientState = new Emitter<positron.RuntimeClientState>();
 
 	// Emitter for data sent from the back-end to the front end.
-	private readonly _onDidSendData = new Emitter<positron.RuntimeClientOutput<any>>();
+	private readonly _onDidSendData = new Emitter<positron.RuntimeClientOutput<Record<string, unknown>>>();
 
 	// The current client state.
 	private _state: positron.RuntimeClientState;
@@ -90,7 +90,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	 *
 	 * @param message The message data to send.
 	 */
-	sendMessage(data: object): void {
+	sendMessage(data: Record<string, unknown>): void {
 		const id = `${this.getClientId()}-${this._messageCounter++}`;
 		this.sender(id, data);
 	}
@@ -98,7 +98,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	/**
 	 * Performs an RPC call to the back end.
 	 */
-	performRpcWithBuffers<T>(data: object): Promise<positron.RuntimeClientOutput<T>> {
+	performRpcWithBuffers<T>(data: Record<string, unknown>): Promise<positron.RuntimeClientOutput<T>> {
 		// Create an RPC ID and a promise to resolve when the RPC is complete.
 		const id = `${this.getClientId()}-${this._messageCounter++}`;
 		const rpc = new DeferredPromise<positron.RuntimeClientOutput<T>>();
@@ -125,7 +125,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	 * This method is a convenience wrapper around {@link performRpcWithBuffers} that returns
 	 * only the data portion of the RPC response.
 	 */
-	async performRpc<T>(data: object): Promise<T> {
+	async performRpc<T>(data: Record<string, unknown>): Promise<T> {
 		return (await this.performRpcWithBuffers<T>(data)).data;
 	}
 
@@ -141,7 +141,7 @@ export class ExtHostRuntimeClientInstance implements positron.RuntimeClientInsta
 	 * Note that RPC replies don't fire this event; they are returned as
 	 * promises from `performRpc`.
 	 */
-	onDidSendEvent: Event<positron.RuntimeClientOutput<object>>;
+	onDidSendEvent: Event<positron.RuntimeClientOutput<Record<string, unknown>>>;
 
 	getClientState(): positron.RuntimeClientState {
 		return this._state;

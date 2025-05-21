@@ -64,6 +64,9 @@ declare module 'positron' {
 	 * The set of possible statuses for a language runtime while online
 	 */
 	export enum RuntimeOnlineState {
+		/** The runtime is starting up */
+		Starting = 'starting',
+
 		/** The runtime is ready to execute code. */
 		Idle = 'idle',
 
@@ -180,6 +183,9 @@ declare module 'positron' {
 		 */
 		Transferred = 'transferred',
 
+		/** The runtime exited because the extension hosting it was stopped. */
+		ExtensionHost = 'extensionHost',
+
 		/**
 		 * The runtime exited for an unknown reason. This typically means that
 		 * it exited unexpectedly but with a normal exit code (0).
@@ -232,7 +238,7 @@ declare module 'positron' {
 		type: LanguageRuntimeMessageType;
 
 		/** Additional metadata, if any */
-		metadata?: Map<any, any>;
+		metadata?: Record<string, unknown>;
 
 		/** Additional binary data, if any */
 		buffers?: Array<Uint8Array>;
@@ -249,7 +255,7 @@ declare module 'positron' {
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
-		data: Record<string, any>;
+		data: Record<string, unknown>;
 	}
 
 	/**
@@ -981,7 +987,7 @@ declare module 'positron' {
 		 * @param params A set of parameters to pass to the client; specific to the client type
 		 * @param metadata A set of metadata to pass to the client; specific to the client type
 		 */
-		createClient(id: string, type: RuntimeClientType, params: any, metadata?: any): Thenable<void>;
+		createClient(id: string, type: RuntimeClientType, params: Record<string, unknown>, metadata?: Record<string, unknown>): Thenable<void>;
 
 		/**
 		 * List all clients, optionally filtered by type.
@@ -999,7 +1005,7 @@ declare module 'positron' {
 		 * will be sent back to the client via the `onDidReceiveRuntimeMessage` event, with
 		 * the `parent_id` field set to the `message_id` given here.
 		 */
-		sendClientMessage(client_id: string, message_id: string, message: any): void;
+		sendClientMessage(client_id: string, message_id: string, message: Record<string, unknown>): void;
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;

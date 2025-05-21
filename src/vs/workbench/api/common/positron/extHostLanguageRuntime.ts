@@ -86,7 +86,7 @@ class ExecutionObserver implements IDisposable {
 
 	onOutputMessage(message: ILanguageRuntimeMessageOutput) {
 		if (this.observer && message.data) {
-			const imageMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'];
+			const imageMimeTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/svg+xml'] as const;
 			for (const mimeType of imageMimeTypes) {
 				if (message.data[mimeType] && this.observer.onPlot) {
 					this.observer.onPlot(message.data[mimeType]);

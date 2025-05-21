@@ -1,11 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { JupyterChannel } from './JupyterChannel';
 import { JupyterCommand } from './JupyterCommand';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
+import { JupyterMessageType } from './JupyterMessageType.js';
 
 
 export class InputReplyCommand extends JupyterCommand<JupyterInputReply> {
@@ -16,7 +17,7 @@ export class InputReplyCommand extends JupyterCommand<JupyterInputReply> {
 	 * @param value The value the user entered for the input request
 	 */
 	constructor(readonly parent: JupyterMessageHeader | null, value: string) {
-		super('input_reply', { value }, JupyterChannel.Stdin);
+		super(JupyterMessageType.InputReply, { value }, JupyterChannel.Stdin);
 	}
 
 	protected override createParentHeader(): JupyterMessageHeader | null {

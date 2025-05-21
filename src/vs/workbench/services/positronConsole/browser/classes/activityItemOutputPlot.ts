@@ -6,6 +6,7 @@
 import { ActivityItem } from './activityItem.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
+import { ILanguageRuntimeMessageOutputData } from '../../../languageRuntime/common/languageRuntimeService.js';
 
 /**
  * ActivityItemOutputPlot class.
@@ -53,7 +54,7 @@ export class ActivityItemOutputPlot extends ActivityItem {
 		id: string,
 		parentId: string,
 		when: Date,
-		readonly data: Record<string, string>,
+		readonly data: ILanguageRuntimeMessageOutputData,
 		readonly onSelected: () => void
 	) {
 		// Call the base class's constructor.
@@ -69,10 +70,10 @@ export class ActivityItemOutputPlot extends ActivityItem {
 		// Get the MIME type and data.
 		this.mimeType = imageKey!;
 		if (this.mimeType === 'image/svg+xml') {
-			const svgData = encodeURIComponent(data[imageKey!]);
+			const svgData = encodeURIComponent(data[this.mimeType]!);
 			this.plotUri = `data:${this.mimeType};utf8,${svgData}`;
 		} else {
-			this.plotUri = `data:${this.mimeType};base64,${data[imageKey!]}`;
+			this.plotUri = `data:${this.mimeType};base64,${data[this.mimeType]!}`;
 		}
 
 		// If the output is empty, don't render any output lines; otherwise, process the output into

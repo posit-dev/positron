@@ -844,7 +844,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		if (mimeTypes.includes('text/html')) {
 			// Check to see if there are any tags that look like they belong in
 			// a standalone HTML document.
-			const htmlContent = message.data['text/html'];
+			const htmlContent = message.data['text/html']!;
 
 			if (isWebviewPreloadMessage(htmlContent)) {
 				return RuntimeOutputKind.WebviewPreload;
