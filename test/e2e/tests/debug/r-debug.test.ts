@@ -108,6 +108,48 @@ test.describe('R Debugging', {
 		await console.waitForConsoleContents('Found 2 fruits!');
 	});
 
+
+	test('R - Verify debugger indicator/highlight maintains focus', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7667' }] // uncomment starting at lin 130 when fixed
+	},
+		async ({ app, page, openFile, runCommand, executeCode }) => {
+			const { debug, console } = app.workbench;
+
+			await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
+			await runCommand('r.sourceCurrentFile');
+
+			// Trigger the breakpoint
+			await executeCode('R', `fruit_avg(dat, "berry")`, { waitForReady: false });
+			await debug.expectBrowserModeFrame(1);
+
+			// Verify current line indicator is visible
+			await page.getByRole('button', { name: 'Restore Panel' }).click();
+			await debug.expectCurrentLineIndicatorVisible();
+			await debug.expectCurrentLineToBe(2);
+
+			// Run random code in the console
+			// await executeCode('R', '100 + 100', { waitForReady: false });
+			// await console.waitForConsoleContents('200');
+			// // await page.getByRole('button', { name: 'Restore Panel' }).click(); <--- i don't think we should need this, but we do
+			// await debug.expectCurrentLineIndicatorVisible();
+			// await debug.expectCurrentLineToBe(2);
+
+			// Step over and check current line
+			await debug.stepOver();
+			await debug.expectCurrentLineIndicatorVisible();
+			await debug.expectCurrentLineToBe(3);
+
+			// Step into and check current line
+			await debug.stepInto();
+			await debug.stepOut();
+			await debug.expectCurrentLineToBe(4);
+
+			// Continue execution and check final message
+			await debug.continue();
+			await console.waitForConsoleContents('Found 2 fruits!');
+		});
+
+
 	test('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
 		const { debug, console } = app.workbench;
 

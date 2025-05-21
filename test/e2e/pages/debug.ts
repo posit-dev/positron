@@ -137,4 +137,25 @@ export class Debug {
 			await expect(this.code.driver.page.getByText(`Browse[${number}]>`)).toBeVisible();
 		});
 	}
+
+	/**
+	 * Verify: the current line is the specified line number
+	 *
+	 * @param lineNumber
+	 */
+	async expectCurrentLineToBe(lineNumber: number): Promise<void> {
+		await test.step(`Verify current line is: ${lineNumber}`, async () => {
+			await expect(this.code.driver.page.locator('[id="workbench.parts.editor"]').locator('.line-numbers.active-line-number')).toHaveText(lineNumber.toString());
+		});
+	}
+
+	/**
+	 * Verify: the current line indicator is visible
+	 * Note: This does not check the line number, only that the indicator is present
+	 */
+	async expectCurrentLineIndicatorVisible(): Promise<void> {
+		await test.step('Verify current line indicator is visible', async () => {
+			await expect(this.code.driver.page.locator('.codicon-debug-stackframe')).toBeVisible();
+		});
+	}
 }
