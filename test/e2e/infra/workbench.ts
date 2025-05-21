@@ -39,6 +39,7 @@ import { Sessions } from '../pages/sessions';
 import { Search } from '../pages/search.js';
 import { Assistant } from '../pages/positronAssistant.js';
 import { HotKeys } from '../pages/hotKeys.js';
+// add the import with class here for the connect.ts file
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -118,5 +119,6 @@ export class Workbench {
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
 		this.assistant = new Assistant(code);
+		// add to the constructor the creator of the instance of this class
 	}
 }
