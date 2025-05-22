@@ -42,6 +42,7 @@ export enum TestTags {
 	OUTPUT = '@:output',
 	PLOTS = '@:plots',
 	PROBLEMS = '@:problems',
+	PUBLISHER = '@:publisher',
 	REFERENCES = '@:references',
 	R_MARKDOWN = '@:r-markdown',
 	R_PKG_DEVELOPMENT = '@:r-pkg-development',
