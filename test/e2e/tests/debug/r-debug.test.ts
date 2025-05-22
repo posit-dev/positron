@@ -110,27 +110,26 @@ test.describe('R Debugging', {
 
 
 	test('R - Verify debugger indicator/highlight maintains focus', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7667' }] // uncomment line 134 when fixed
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7667' }] // uncomment line 133 when fixed
 	},
 		async ({ app, page, openFile, runCommand, executeCode }) => {
 			const { debug, console } = app.workbench;
 
 			await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
 			await runCommand('r.sourceCurrentFile');
+			await page.waitForTimeout(500); // not sure why but in browser only this is needed to allow source to load
 
 			// Trigger the breakpoint
-			await executeCode('R', `fruit_avg(dat, "berry")`, { waitForReady: false });
+			await console.pasteCodeToConsole(`fruit_avg(dat, "berry")`, true);
 			await debug.expectBrowserModeFrame(1);
 
 			// Verify current line indicator is visible
-			await page.getByRole('button', { name: 'Restore Panel' }).click(); // <-- i shouldn't have to do this, right?
 			await debug.expectCurrentLineIndicatorVisible();
 			await debug.expectCurrentLineToBe(2);
 
 			// Run random code in the console
-			await executeCode('R', '100 + 100', { waitForReady: false });
+			await console.pasteCodeToConsole('100 + 100', true);
 			await console.waitForConsoleContents('[1] 200');
-			await page.getByRole('button', { name: 'Restore Panel' }).click(); // <--- i shouldn't have to do this, right?
 			// await debug.expectCurrentLineIndicatorVisible();
 			await debug.expectCurrentLineToBe(2);
 
