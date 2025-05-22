@@ -424,6 +424,9 @@ class TestLanguageRuntimeSession extends Disposable implements ILanguageRuntimeS
 	private readonly _onDidReceiveRuntimeMessageState = new Emitter<any>();
 	readonly onDidReceiveRuntimeMessageState = this._onDidReceiveRuntimeMessageState.event;
 
+	private readonly _onDidReceiveRuntimeMessageUpdateOutput = new Emitter<any>();
+	readonly onDidReceiveRuntimeMessageUpdateOutput = this._onDidReceiveRuntimeMessageUpdateOutput.event;
+
 	private readonly _onDidEndSession = new Emitter<ILanguageRuntimeExit>();
 	readonly onDidEndSession = this._onDidEndSession.event;
 

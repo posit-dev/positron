@@ -18,6 +18,7 @@ import { JupyterStreamOutput } from './jupyter/JupyterStreamOutput';
 import { JupyterInputRequest } from './jupyter/JupyterInputRequest';
 import { isEnumMember } from './util.js';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
+import { JupyterUpdateDisplayData } from './jupyter/JupyterUpdateDisplayData.js';
 
 /**
  * An emitter for runtime messages; translates Jupyter messages into language
@@ -73,6 +74,9 @@ export class RuntimeMessageEmitter {
 			case JupyterMessageType.Stream:
 				this.onStreamOutput(msg, msg.content as JupyterStreamOutput);
 				break;
+			case JupyterMessageType.UpdateDisplayData:
+				this.onUpdateDisplayData(msg, msg.content as JupyterUpdateDisplayData);
+				break;
 		}
 	}
 
@@ -109,6 +113,7 @@ export class RuntimeMessageEmitter {
 			parent_id: message.parent_header?.msg_id,
 			when: message.header.date,
 			type: positron.LanguageRuntimeMessageType.Result,
+			output_id: data.transient?.display_id,
 			data: data.data,
 			metadata: message.metadata,
 		};
@@ -123,11 +128,14 @@ export class RuntimeMessageEmitter {
 	 * @param data The display_data message
 	 */
 	onDisplayData(message: JupyterMessage, data: JupyterDisplayData) {
+		// NOTE: We don't yet include data.metadata i.e. display metadata,
+		//       which is not the same as message.metadata.
 		const runtimeMessage: positron.LanguageRuntimeOutput = {
 			id: message.header.msg_id,
 			parent_id: message.parent_header?.msg_id,
 			when: message.header.date,
 			type: positron.LanguageRuntimeMessageType.Output,
+			output_id: data.transient?.display_id,
 			data: data.data,
 			metadata: message.metadata,
 		};
@@ -163,7 +171,7 @@ export class RuntimeMessageEmitter {
 	 */
 	onKernelStatus(message: JupyterMessage, data: JupyterKernelStatus) {
 		if (!isEnumMember(data.execution_state, positron.RuntimeOnlineState)) {
-			throw new Error(`Unexpected JupyterKernelStatus.execution_state: ${data.execution_state}`);
+			throw new Error(`Unexpected JupyterKernelStatus.execution_state: ${data}`);
 		}
 		const runtimeMessage: positron.LanguageRuntimeState = {
 			id: message.header.msg_id,
@@ -248,7 +256,7 @@ export class RuntimeMessageEmitter {
 	 */
 	private onStreamOutput(message: JupyterMessage, data: JupyterStreamOutput) {
 		if (!isEnumMember(data.name, positron.LanguageRuntimeStreamName)) {
-			throw new Error(`Unexpected JupyterStreamOutput.name: ${data.name}`);
+			throw new Error(`Unexpected JupyterStreamOutput.name: ${data}`);
 		}
 		const runtimeMessage: positron.LanguageRuntimeStream = {
 			id: message.header.msg_id,
@@ -257,6 +265,28 @@ export class RuntimeMessageEmitter {
 			type: positron.LanguageRuntimeMessageType.Stream,
 			name: data.name,
 			text: data.text,
+			metadata: message.metadata,
+		};
+		this._emitter.fire(runtimeMessage);
+	}
+
+	/**
+	 * Converts a Jupyter update_display_data message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The update_display_data message
+	 */
+	private onUpdateDisplayData(message: JupyterMessage, data: JupyterUpdateDisplayData) {
+		// NOTE: We don't yet include data.metadata i.e. display metadata,
+		//       which is not the same as message.metadata.
+		const runtimeMessage: positron.LanguageRuntimeUpdateOutput = {
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.UpdateOutput,
+			output_id: data.transient.display_id,
+			data: data.data,
 			metadata: message.metadata,
 		};
 		this._emitter.fire(runtimeMessage);
