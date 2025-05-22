@@ -19,8 +19,10 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
 import { IEditorService } from '../../editor/common/editorService.js';
 import { NotebookEditorInput } from '../../../contrib/notebook/common/notebookEditorInput.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IPositronConsoleInstance, IPositronConsoleService } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronConsoleService } from '../../positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronNotebookEditorInput } from '../../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
+import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
+import { ILanguageRuntimeCodeExecutedEvent } from '../../positronConsole/common/positronConsoleCodeExecution.js';
 
 /**
  * PositronVariablesService class.
@@ -65,6 +67,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	/**
 	 * Constructor.
 	 * @param _runtimeSessionService The language runtime service.
+	 * @param _runtimeNotebookKernelService The runtime notebook kernel service.
 	 * @param _logService The log service.
 	 * @param _notificationService The notification service.
 	 * @param _accessibilityService The accessibility service.
@@ -73,6 +76,7 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	 */
 	constructor(
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeNotebookKernelService private readonly _runtimeNotebookKernelService: IRuntimeNotebookKernelService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
@@ -128,14 +132,14 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 			this.setActivePositronVariablesSession(e.sessionId);
 		}));
 
-		// Set up listeners for any existing console instances
-		this._positronConsoleService.positronConsoleInstances.forEach(instance => {
-			instance.addDisposables(instance.onDidExecuteCode(() => this._watchForConsoleCodeExecution(instance)));
-		});
+		// Listen for console code execution events
+		this._register(this._positronConsoleService.onDidExecuteCode(e => {
+			this._watchForCodeExecution(e);
+		}));
 
-		// Listen for console instances executing code
-		this._register(this._positronConsoleService.onDidStartPositronConsoleInstance((instance) => {
-			instance.addDisposables(instance.onDidExecuteCode(() => this._watchForConsoleCodeExecution(instance)));
+		// List for notebook code execution events
+		this._register(this._runtimeNotebookKernelService.onDidExecuteCode(e => {
+			this._watchForCodeExecution(e);
 		}));
 
 		// Listen for editor changes
@@ -263,17 +267,16 @@ export class PositronVariablesService extends Disposable implements IPositronVar
 	}
 
 	/**
-	 * Handles code execution in a console instance by updating the active variables if follow mode is enabled.
-	 * @param instance The console instance that executed code
+	 * Handles code execution by updating the active variables if follow mode is enabled.
+	 * @param event The code executed event
 	 */
-	private _watchForConsoleCodeExecution(instance: IPositronConsoleInstance): void {
+	private _watchForCodeExecution(event: ILanguageRuntimeCodeExecutedEvent): void {
 		// Check for feature flag for session following editor being on before proceeding
 		if (!this._inFollowMode) {
 			return;
 		}
-		this._setActivePositronVariablesBySession(instance.sessionId);
+		this._setActivePositronVariablesBySession(event.sessionId);
 	}
-
 
 	/**
 	 * Creates or assigns a Positron variables instance for the specified session.

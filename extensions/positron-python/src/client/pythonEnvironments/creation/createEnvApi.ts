@@ -32,6 +32,9 @@ import { PythonEnvironment } from '../../envExt/types';
 import { getCondaPythonVersions } from './provider/condaUtils';
 import { IPythonRuntimeManager } from '../../positron/manager';
 import { Conda } from '../common/environmentManagers/conda';
+import { getUvPythonVersions } from './provider/uvUtils';
+import { isUvInstalled } from '../common/environmentManagers/uv';
+import { UvCreationProvider } from './provider/uvCreationProvider';
 import {
     createEnvironmentAndRegister,
     getCreateEnvironmentProviders,
@@ -48,8 +51,9 @@ class CreateEnvironmentProviders {
         this._createEnvProviders = [];
     }
 
-    public add(provider: CreateEnvironmentProvider) {
-        // --- Start Positron ---
+    // --- Start Positron ---
+    // Added toTopOfList param
+    public add(provider: CreateEnvironmentProvider, toTopOfList: boolean) {
         if (!isEnvProviderEnabled(provider.id)) {
             traceLog(`${provider.name} environment provider ${provider.id} is not enabled...skipping registration`);
             return;
@@ -59,6 +63,12 @@ class CreateEnvironmentProviders {
         if (this._createEnvProviders.filter((p) => p.id === provider.id).length > 0) {
             throw new Error(`Create Environment provider with id ${provider.id} already registered`);
         }
+        // --- Start Positron ---
+        if (toTopOfList) {
+            this._createEnvProviders.unshift(provider);
+            return;
+        }
+        // --- End Positron ---
         this._createEnvProviders.push(provider);
     }
 
@@ -73,8 +83,14 @@ class CreateEnvironmentProviders {
 
 const _createEnvironmentProviders: CreateEnvironmentProviders = new CreateEnvironmentProviders();
 
-export function registerCreateEnvironmentProvider(provider: CreateEnvironmentProvider): Disposable {
-    _createEnvironmentProviders.add(provider);
+// --- Start Positron ---
+// Added toTopOfList param
+export function registerCreateEnvironmentProvider(
+    provider: CreateEnvironmentProvider,
+    toTopOfList: boolean = false,
+): Disposable {
+    _createEnvironmentProviders.add(provider, toTopOfList);
+    // --- End Positron ---
     return new Disposable(() => {
         _createEnvironmentProviders.remove(provider);
     });
@@ -82,15 +98,18 @@ export function registerCreateEnvironmentProvider(provider: CreateEnvironmentPro
 
 export const { onCreateEnvironmentStarted, onCreateEnvironmentExited, isCreatingEnvironment } = getCreationEvents();
 
-export function registerCreateEnvironmentFeatures(
+// --- Start Positron ---
+// Changed this function to be async
+export async function registerCreateEnvironmentFeatures(
+    // --- End Positron ---
     disposables: IDisposableRegistry,
     interpreterQuickPick: IInterpreterQuickPick,
     interpreterPathService: IInterpreterPathService,
     pathUtils: IPathUtils,
     // --- Start Positron ---
     pythonRuntimeManager: IPythonRuntimeManager,
+): Promise<void> {
     // --- End Positron ---
-): void {
     disposables.push(
         registerCommand(
             Commands.Create_Environment,
@@ -153,10 +172,15 @@ export function registerCreateEnvironmentFeatures(
             },
         ),
         registerCommand(Commands.Get_Conda_Python_Versions, () => getCondaPythonVersions()),
+        registerCommand(Commands.Is_Uv_Installed, async () => await isUvInstalled()),
+        registerCommand(Commands.Get_Uv_Python_Versions, () => getUvPythonVersions()),
         registerCommand(Commands.Is_Global_Python, (interpreterPath: string) => isGlobalPython(interpreterPath)),
         // --- End Positron ---
         registerCreateEnvironmentProvider(new VenvCreationProvider(interpreterQuickPick)),
         registerCreateEnvironmentProvider(condaCreationProvider()),
+        // --- Start Positron ---
+        registerCreateEnvironmentProvider(new UvCreationProvider(), await isUvInstalled()),
+        // --- End Positron ---
         onCreateEnvironmentExited(async (e: EnvironmentDidCreateEvent) => {
             if (e.path && e.options?.selectEnvironment) {
                 await interpreterPathService.update(

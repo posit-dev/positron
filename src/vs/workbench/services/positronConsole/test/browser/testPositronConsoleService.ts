@@ -171,23 +171,13 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string
 	): Promise<string> {
-		const runtimeName = 'Test Runtime';
-
 		// Create a code executed event
-		const event: ILanguageRuntimeCodeExecutedEvent = {
-			languageId,
-			code,
-			attribution,
-			runtimeName,
-			mode: mode || RuntimeCodeExecutionMode.Interactive,
-			errorBehavior: errorBehavior || RuntimeErrorBehavior.Continue
-		};
+		const event = this.createTestCodeExecutedEvent(languageId, code, attribution);
 
 		// Fire the code executed event
 		this._onDidExecuteCodeEmitter.fire(event);
 
-		// In a test environment, just return a dummy session ID
-		return 'test-session-id';
+		return event.sessionId;
 	}
 
 	/**
@@ -222,7 +212,10 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive,
 		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue
 	): ILanguageRuntimeCodeExecutedEvent {
+		// Try to use the active console, or fall back to a dummy session ID
+		const sessionId = this._activePositronConsoleInstance?.sessionId || 'test-session-id';
 		return {
+			sessionId,
 			languageId,
 			code,
 			attribution,
@@ -464,6 +457,7 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		executionId?: string
 	): void {
 		const event: ILanguageRuntimeCodeExecutedEvent = {
+			sessionId: this.sessionId,
 			languageId: this.runtimeMetadata.languageId,
 			code,
 			attribution,

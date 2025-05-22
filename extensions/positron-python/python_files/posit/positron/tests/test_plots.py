@@ -350,3 +350,25 @@ def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None
     # Plots are closed and cleared.
     assert not plots_service._plots  # noqa: SLF001
     assert all(comm._closed for comm in plot_comms)  # noqa: SLF001
+
+
+def test_plotnine_close_then_show(shell: PositronShell, plots_service: PlotsService) -> None:
+    """Test that a plotnine plot renders and then closes comm correctly."""
+    shell.run_cell("""\
+from plotnine import ggplot, geom_point, aes, stat_smooth, facet_wrap
+from plotnine.data import mtcars
+
+(
+    ggplot(mtcars, aes("wt", "mpg", color="factor(gear)"))
+    + geom_point()
+    + stat_smooth(method="lm")
+    + facet_wrap("gear")
+)\
+""").raise_error()
+    plot_comm = cast("DummyComm", plots_service._plots[0]._comm.comm)  # noqa: SLF001
+
+    assert plot_comm.messages == [
+        comm_open_message(_CommTarget.Plot),
+        json_rpc_notification("show", {}),
+    ]
+    assert not plot_comm._closed  # noqa: SLF001

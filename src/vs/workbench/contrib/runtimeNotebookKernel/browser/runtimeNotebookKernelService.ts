@@ -18,7 +18,7 @@ import { INotebookKernelService } from '../../notebook/common/notebookKernelServ
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { ActiveNotebookHasRunningRuntimeManager } from '../common/activeNotebookHasRunningRuntime.js';
 import { registerRuntimeNotebookKernelActions } from './runtimeNotebookKernelActions.js';
-import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
+import { IRuntimeNotebookKernelService } from '../common/interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
