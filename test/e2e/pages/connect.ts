@@ -11,8 +11,15 @@ export class PositConnect {
 		console.log('Deleting user content');
 		const connectApiUrl = `${process.env.E2E_CONNECT_SERVER}__api__/v1/`
 		const headers = { 'Authorization': `Key ${process.env.E2E_CONNECT_APIKEY}` };
-		const userGuid = await fetch(connectApiUrl + 'user', { headers: headers })['guid'];
-		console.log('User GUID:', userGuid);
+		const userGuid = (await (await fetch(connectApiUrl + 'user', { headers: headers })).json()).guid;
+
+		const appInfo = await (await fetch(connectApiUrl + `content?owner_guid=${userGuid}`, { headers: headers })).json();
+		const contentGuids: string[] = [];
+		for (const app of appInfo) {
+			contentGuids.push(app['guid'] as string);
+		}
+
+		console.log(contentGuids);
 
 	}
 };

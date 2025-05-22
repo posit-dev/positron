@@ -11,9 +11,9 @@ test.use({
 });
 
 test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.QUARTO] }, () => {
-	test.afterAll(async function ({ app }) {
+	/*test.afterAll(async function ({ app }) {
 		await app.workbench.positConnect.deleteUserContent();
-	});
+	});*/
 
 	test('Debug deletion of file', async function ({ app }) {
 		await app.workbench.positConnect.deleteUserContent();
