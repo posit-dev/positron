@@ -89,11 +89,13 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 		await expect(notebookEditorTab).toBeVisible();
 
 		// Get the Python version from the session selector button
-		const sessionSelectorButton = app.code.driver.page.getByRole('button', { name: 'Session Selector' });
+		const sessionSelectorButton = app.code.driver.page.getByRole('button', { name: 'Select Interpreter Session' });
 		const sessionSelectorText = await sessionSelectorButton.textContent();
+
 		// Extract the version number (e.g., '3.10.12') from the button text
 		const versionMatch = sessionSelectorText && sessionSelectorText.match(/Python ([0-9]+\.[0-9]+\.[0-9]+)/);
 		const pythonVersion = versionMatch ? versionMatch[1] : undefined;
+
 		// Fail the test if we can't extract the version
 		expect(pythonVersion, 'Python version should be present in session selector').toBeTruthy();
 
