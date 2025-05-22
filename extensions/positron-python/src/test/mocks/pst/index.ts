@@ -36,6 +36,7 @@ export enum LanguageRuntimeMessageType {
     CommData = 'comm_data',
     CommClosed = 'comm_closed',
     IPyWidget = 'ipywidget',
+    UpdateOutput = 'update_output',
 }
 
 export enum LanguageRuntimeStreamName {

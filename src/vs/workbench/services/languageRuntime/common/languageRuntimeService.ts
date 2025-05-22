@@ -167,6 +167,31 @@ export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 
 	/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 	readonly data: ILanguageRuntimeMessageOutputData;
+
+	/**
+	 * The optional identifier of the output. If specified, this output can be referenced
+	 * in future messages e.g. when * {@link ILanguageRuntimeMessageUpdateOutput updating an output}.
+	 */
+	readonly output_id?: string;
+}
+
+/**
+ * LanguageRuntimeUpdateOutput is a LanguageRuntimeMessage instructing the frontend
+ * to update the output of a previous runtime execution.
+ */
+export interface ILanguageRuntimeMessageUpdateOutput extends ILanguageRuntimeMessage {
+	/**
+	 * The kind of output this message contains. Output messages often have
+	 * multiple representations (as text, as HTML, etc.); this enum is used to
+	 * determine how the output is presented in Positron.
+	 */
+	readonly kind: RuntimeOutputKind;
+
+	/** The updated output data */
+	readonly data: ILanguageRuntimeMessageOutputData;
+
+	/** The identifier of the output to update */
+	readonly output_id: string;
 }
 
 /**
@@ -520,6 +545,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message that should be handled by an IPyWidget */
 	IPyWidget = 'ipywidget',
+
+	/** A message representing a request to update an output */
+	UpdateOutput = 'update_output',
 }
 
 /**

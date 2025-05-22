@@ -58,6 +58,9 @@ declare module 'positron' {
 
 		/** A message that should be handled by an IPyWidget */
 		IPyWidget = 'ipywidget',
+
+		/** A message representing a request to update an output */
+		UpdateOutput = 'update_output',
 	}
 
 	/**
@@ -256,6 +259,24 @@ declare module 'positron' {
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
 		data: Record<string, unknown>;
+
+		/**
+		 * The optional identifier of the output. If specified, this output can be referenced
+		 * in future messages e.g. when * {@link LanguageRuntimeUpdateOutput updating an output}.
+		 */
+		output_id?: string;
+	}
+
+	/**
+	 * LanguageRuntimeUpdateOutput is a LanguageRuntimeMessage instructing the frontend
+	 * to update the output of a previous runtime execution.
+	 */
+	export interface LanguageRuntimeUpdateOutput extends LanguageRuntimeMessage {
+		/** The updated output data */
+		data: Record<string, unknown>;
+
+		/** The identifier of the output to update */
+		output_id: string;
 	}
 
 	/**
