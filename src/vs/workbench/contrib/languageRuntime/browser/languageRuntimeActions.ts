@@ -776,20 +776,22 @@ export function registerLanguageRuntimeActions() {
 	/**
 	 * Action that allows the user to restart an active session.
 	 */
-	registerLanguageRuntimeAction(LANGUAGE_RUNTIME_RESTART_SESSION_ID, 'Restart Interpreter Session', async accessor => {
-		// Access services.
-		const sessionService = accessor.get(IRuntimeSessionService);
+	registerLanguageRuntimeAction(
+		LANGUAGE_RUNTIME_RESTART_SESSION_ID,
+		'Restart Interpreter Session',
+		async accessor => {
+			const sessionService = accessor.get(IRuntimeSessionService);
 
-		// Prompt the user to select a language runtime session to restart.
-		const session = await selectLanguageRuntimeSession(
-			accessor, { title: 'Select Interpreter Session To Restart' });
+			// Prompt the user to select a language runtime session to restart.
+			const session = await selectLanguageRuntimeSession(
+				accessor, { title: 'Select Interpreter Session To Restart' });
 
-		// Restart the session
-		if (session?.sessionId) {
-			sessionService.restartSession(session.sessionId,
-				`'Restart Interpreter Session' command invoked`);
-		}
-	},
+			// Restart the session
+			if (session?.sessionId) {
+				sessionService.restartSession(session.sessionId,
+					`'Restart Interpreter Session' command invoked`);
+			}
+		},
 		[
 			{
 				weight: KeybindingWeight.WorkbenchContrib,
@@ -804,12 +806,18 @@ export function registerLanguageRuntimeActions() {
 	);
 
 	/**
-	 * Action that allows the user to interrupt an active session.
+	 * Action that allows the user to interrupt the active session.
 	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Interpreter Session', async accessor => {
-		(await selectLanguageRuntimeSession(
-			accessor,
-			{ title: 'Select Interpreter Session To Interrupt' }))?.interrupt();
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.interrupt', 'Interrupt Active Interpreter Session', async accessor => {
+		const sessionService = accessor.get(IRuntimeSessionService);
+
+		// Get the active session
+		const session = sessionService.foregroundSession;
+		if (!session) {
+			return;
+		}
+
+		session.interrupt();
 	});
 
 	/**
@@ -822,30 +830,48 @@ export function registerLanguageRuntimeActions() {
 	});
 
 	/**
-	 * Action that allows the user to force-quit an active session.
+	 * Action that allows the user to force-quit the active session.
 	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.forceQuit', 'Force Quit Interpreter Session', async accessor => {
-		(await selectLanguageRuntimeSession(
-			accessor,
-			{ title: 'Select Interpreter Session To Force Quit' }))?.forceQuit();
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.forceQuit', 'Force Quit Active Interpreter Session', async accessor => {
+		const sessionService = accessor.get(IRuntimeSessionService);
+
+		// Get the active session
+		const session = sessionService.foregroundSession;
+		if (!session) {
+			return;
+		}
+
+		session.forceQuit();
 	});
 
 	/**
-	 * Action that allows the user to show the output channel for an active session.
+	 * Action that allows the user to show the output channel for the active session.
 	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.showOutput', 'Show Interpreter Session Output', async accessor => {
-		(await selectLanguageRuntimeSession(
-			accessor,
-			{ title: 'Select Interpreter Session To Show Output' }))?.showOutput();
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.showOutput', 'Show Active Interpreter Session Output', async accessor => {
+		const sessionService = accessor.get(IRuntimeSessionService);
+
+		// Get the active session
+		const session = sessionService.foregroundSession;
+		if (!session) {
+			return;
+		}
+
+		session.showOutput();
 	});
 
 	/**
 	 * Action that allows the user to show the profile report for an active session.
 	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.showProfile', 'Show Interpreter Session Profile Report', async accessor => {
-		(await selectLanguageRuntimeSession(
-			accessor,
-			{ title: 'Select Interpreter Session To Show Profile Report' }))?.showProfile();
+	registerLanguageRuntimeAction('workbench.action.languageRuntime.showProfile', 'Show Active Interpreter Session Profile Report', async accessor => {
+		const sessionService = accessor.get(IRuntimeSessionService);
+
+		// Get the active session
+		const session = sessionService.foregroundSession;
+		if (!session) {
+			return;
+		}
+
+		session.showProfile();
 	});
 
 	registerAction2(class ExecuteCodeInConsoleAction extends Action2 {
