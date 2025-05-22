@@ -39,8 +39,7 @@
           "panel"
         ],
         "modes": [
-          "ask",
-          "edit"
+          "ask"
         ]
       },
       {
@@ -85,6 +84,9 @@
         "isDefault": true,
         "locations": [
           "panel"
+        ],
+        "modes": [
+          "edit"
         ]
       }
     ],
