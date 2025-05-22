@@ -40,7 +40,7 @@ interface RuntimeClientInstanceQuickPickItem extends IQuickPickItem { runtimeCli
 // Action IDs
 export const LANGUAGE_RUNTIME_SELECT_SESSION_ID = 'workbench.action.language.runtime.selectSession';
 export const LANGUAGE_RUNTIME_START_NEW_SESSION_ID = 'workbench.action.language.runtime.startNewSession';
-export const LANGUAGE_RUNTIME_RESTART_SESSION_ID = 'workbench.action.language.runtime.restartSession';
+export const LANGUAGE_RUNTIME_RESTART_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.restartActiveSession';
 export const LANGUAGE_RUNTIME_RENAME_SESSION_ID = 'workbench.action.language.runtime.renameSession';
 export const LANGUAGE_RUNTIME_RENAME_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.renameActiveSession';
 export const LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID = 'workbench.action.language.runtime.duplicateActiveSession';
@@ -777,20 +777,21 @@ export function registerLanguageRuntimeActions() {
 	 * Action that allows the user to restart an active session.
 	 */
 	registerLanguageRuntimeAction(
-		LANGUAGE_RUNTIME_RESTART_SESSION_ID,
-		'Restart Interpreter Session',
+		LANGUAGE_RUNTIME_RESTART_ACTIVE_SESSION_ID,
+		'Restart Active Interpreter Session',
 		async accessor => {
 			const sessionService = accessor.get(IRuntimeSessionService);
 
-			// Prompt the user to select a language runtime session to restart.
-			const session = await selectLanguageRuntimeSession(
-				accessor, { title: 'Select Interpreter Session To Restart' });
+			// Get the active session
+			const session = sessionService.foregroundSession;
+			if (!session) {
+				return;
+			}
 
 			// Restart the session
-			if (session?.sessionId) {
-				sessionService.restartSession(session.sessionId,
-					`'Restart Interpreter Session' command invoked`);
-			}
+			sessionService.restartSession(session.sessionId,
+				`'Restart Active Interpreter Session' command invoked`);
+
 		},
 		[
 			{
