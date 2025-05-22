@@ -12,7 +12,7 @@ test.use({
 
 test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER] }, () => {
 	test.slow();
-	test.afterAll('Debug deletion of file', async function ({ app }) {
+	test.afterAll('Delete file from Posit Connect', async function ({ app }) {
 		await app.workbench.positConnect.deleteUserContent();
 	});
 
