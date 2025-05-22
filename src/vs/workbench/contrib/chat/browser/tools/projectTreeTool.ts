@@ -22,8 +22,7 @@ The project tree is represented as a nested array, where each entry can be eithe
 This tool ignores node_modules, __pycache__, dist directories, certain files like .DS_Store, Thumbs.db, and desktop.ini. and files with certain extensions like *.o, *.a, *.so, *.pyo.
 This tool does not provide information for specific files or directories, but rather gives an overview of the entire project structure.
 This tool is helpful for locating files and directories in the workspace.
-This tool only needs to be called once per conversation, unless files or directories are added, removed, moved, or renamed in the workspace.
-If the workspace is empty or no workspace folders are open, this tool cannot generate a project tree.
+Do not use this tool when no workspace folders are open.
 `;
 
 export const ExtensionProjectTreeId = 'positron_getProjectTree';
@@ -46,13 +45,7 @@ export class ProjectTreeTool implements IToolImpl {
 	async invoke(_invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
-			return {
-				content: [{
-					kind: 'text',
-					value: `Project tree can't be constructed because no workspace folders are open`
-				}],
-				toolResultMessage: `Project tree is unavailable when no workspace folders are open`,
-			};
+			throw new Error(`Can't construct project tree because no workspace folders are open`);
 		}
 
 		const workspaceTrees: DirectoryItem[][] = [];
