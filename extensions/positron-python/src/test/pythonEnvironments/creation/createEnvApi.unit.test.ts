@@ -42,7 +42,9 @@ suite('Create Environment APIs', () => {
     let pythonRuntimeManager: typemoq.IMock<IPythonRuntimeManager>;
     // --- End Positron ---
 
-    setup(() => {
+    // --- Start Positron ---
+    setup(async () => {
+        // --- End Positron ---
         showQuickPickStub = sinon.stub(windowApis, 'showQuickPick');
         showInformationMessageStub = sinon.stub(windowApis, 'showInformationMessage');
 
@@ -71,7 +73,9 @@ suite('Create Environment APIs', () => {
 
         pathUtils.setup((p) => p.getDisplayName(typemoq.It.isAny())).returns(() => 'test');
 
-        registerCreateEnvironmentFeatures(
+        // --- Start Positron ---
+        await registerCreateEnvironmentFeatures(
+            // --- End Positron ---
             disposables,
             interpreterQuickPick.object,
             interpreterPathService.object,

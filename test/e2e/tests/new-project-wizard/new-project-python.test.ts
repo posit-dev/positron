@@ -11,6 +11,7 @@ test.use({
 });
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
+// Not running uv either because it is not installed on windows for now
 test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJECT_WIZARD] }, () => {
 
 	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, sessions, python }) {
@@ -104,6 +105,20 @@ test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJEC
 		await expect(kernelLabel).toContainText(`Python ${pythonVersion}`);
 		await expect(kernelLabel).toContainText('.venv');
 	});
+
+	test('New env: uv environment', { tag: [tags.CRITICAL] }, async function ({ app }) {
+		const projectTitle = addRandomNumSuffix('new-uv');
+
+		await createNewProject(app, {
+			type: ProjectType.PYTHON_PROJECT,
+			title: projectTitle,
+			status: 'new',
+			pythonEnv: 'uv',  // test relies on uv already installed on machine
+		});
+
+		await verifyProjectCreation(app, projectTitle);
+		await verifyUvEnvStarts(app);
+	});
 });
 
 // Helper functions
@@ -139,6 +154,12 @@ async function verifyCondaEnvStarts(app: Application) {
 async function verifyVenEnvStarts(app: Application) {
 	await test.step('Verify venv environment starts', async () => {
 		await app.workbench.console.waitForConsoleContents('(Venv: .venv) started.');
+	});
+}
+
+async function verifyUvEnvStarts(app: Application) {
+	await test.step('Verify uv environment starts', async () => {
+		await app.workbench.console.waitForConsoleContents('(Uv: .venv) started.');
 	});
 }
 
