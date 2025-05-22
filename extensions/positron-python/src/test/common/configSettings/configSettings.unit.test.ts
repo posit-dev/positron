@@ -276,7 +276,10 @@ suite('Python Settings', async () => {
         });
     }
 
-    suite('pyrefly languageServer settings', async () => {
+    // --- Start Positron ---
+    // We are using Jedi as the default language server, and it is not configurable.
+    suite.skip('pyrefly languageServer settings', async () => {
+        // --- End Positron ---
         const values = [
             { pyreflyInstalled: true, pyreflyDisabled: false, languageServerDisabled: true },
             { pyreflyInstalled: true, pyreflyDisabled: true, languageServerDisabled: false },
