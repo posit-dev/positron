@@ -950,7 +950,7 @@ export function registerLanguageRuntimeActions() {
 			super({
 				id: 'workbench.action.executeCode.console',
 				title: nls.localize2('positron.command.executeCode.console', "Execute Code in Console"),
-				f1: true,
+				f1: false,
 				category
 			});
 		}
@@ -1043,6 +1043,8 @@ export function registerLanguageRuntimeActions() {
 	 *
 	 * Typically used to for code that is executed for its side effects, rather
 	 * than for its output. Doesn't auto-start sessions.
+	 *
+	 * Commonly used by users by creating a keyboard shortcut for this action.
 	 */
 	registerAction2(class ExecuteSilentlyAction extends Action2 {
 		private static _counter = 0;
