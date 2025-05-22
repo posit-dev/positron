@@ -99,7 +99,7 @@ export function registerCreateEnvironmentProvider(
 export const { onCreateEnvironmentStarted, onCreateEnvironmentExited, isCreatingEnvironment } = getCreationEvents();
 
 // --- Start Positron ---
-// Make this async
+// Changed this function to be async
 export async function registerCreateEnvironmentFeatures(
     // --- End Positron ---
     disposables: IDisposableRegistry,

@@ -15,7 +15,7 @@ import { registerInstalledPackagesDiagnosticsProvider } from './installedPackage
 import { registerPyProjectTomlFeatures } from './pyProjectTomlContext';
 
 // --- Start Positron ---
-// Make this async
+// Changed this function to be async
 export async function registerAllCreateEnvironmentFeatures(
     // --- End Positron ---
     disposables: IDisposableRegistry,

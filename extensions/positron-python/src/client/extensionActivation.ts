@@ -99,7 +99,7 @@ export async function activateComponents(
 }
 
 // --- Start Positron ---
-// Make this async
+// Changed this function to be async
 export async function activateFeatures(ext: ExtensionState, _components: Components): Promise<void> {
     // --- End Positron ---
     const interpreterQuickPick: IInterpreterQuickPick = ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(
