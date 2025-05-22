@@ -379,7 +379,8 @@ function makeChatRequest(
 		prompt: 'Hello, world!',
 		command: undefined,
 		references: options.references,
-		tools: [],
+		tools: new Map(),
+		toolSelection: undefined,
 		toolReferences: [],
 		toolInvocationToken: undefined as vscode.ChatParticipantToolToken,
 		model: options.model,
@@ -411,8 +412,8 @@ function assertMessageDataPart(
 	expectedData: Uint8Array,
 ) {
 	assert.ok(part instanceof vscode.LanguageModelDataPart, `Expected a data part, got: ${JSON.stringify(part)}`);
-	assert.strictEqual(part.value.mimeType, expectedMimeType, 'Unexpected data part mime type');
-	assert.strictEqual(part.value.data, expectedData, 'Unexpected data part value');
+	assert.strictEqual(part.mimeType, expectedMimeType, 'Unexpected data part mime type');
+	assert.strictEqual(part.data, expectedData, 'Unexpected data part value');
 }
 
 function assertContextMessage(
