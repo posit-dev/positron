@@ -56,10 +56,10 @@ test('Verify Publisher functionality in Positron with Shiny app deployment as ex
 	const saveButton = page.locator('.action-bar-button-icon.codicon.codicon-positron-save').first();
 	await saveButton.click(); // up to here it works
 
-	// below doesn't work: I've tried multiple ways to click the button
-	const frame = page.frameLocator('iframe[src*="vscode-webview://"][src*="index.html"]');
-	await frame.locator('vscode-button[data-automation="deploy-button"] >>> button.control').click();
-
-
-
+	// now below works as well (until deploy button)
+	const outerFrame = page.frameLocator('iframe.webview.ready');
+	const innerFrame = outerFrame.frameLocator('iframe#active-frame');
+	const deployButton = innerFrame.locator('vscode-button[data-automation="deploy-button"] >>> button');
+	await deployButton.waitFor({ state: 'visible' });
+	await deployButton.click();
 });
