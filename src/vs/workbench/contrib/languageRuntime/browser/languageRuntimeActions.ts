@@ -848,69 +848,93 @@ export function registerLanguageRuntimeActions() {
 			{ title: 'Select Interpreter Session To Show Profile Report' }))?.showProfile();
 	});
 
-	registerLanguageRuntimeAction('workbench.action.language.runtime.openClient', 'Create Runtime Client Widget', async accessor => {
-		// Access services.
-		const quickInputService = accessor.get(IQuickInputService);
+	registerAction2(class ExecuteCodeInConsoleAction extends Action2 {
 
-		// Prompt the user to select a session
-		const session = await selectLanguageRuntimeSession(accessor);
-		if (!session) {
-			return;
+		constructor() {
+			super({
+				id: 'workbench.action.language.runtime.openClient',
+				title: nls.localize2('positron.command.openClient', "Create Runtime Client Widget"),
+				f1: false,
+				category
+			});
 		}
 
-		// Prompt the user to select the runtime client type.
-		const selection = await quickInputService.pick<RuntimeClientTypeQuickPickItem>(
-			[
-				{
-					id: generateUuid(),
-					label: 'Environment Pane',
-					runtimeClientType: RuntimeClientType.Variables,
-				}
-			],
-			{
-				canPickMany: false,
-				placeHolder: `Select runtime client for ${session.runtimeMetadata.runtimeName}`
-			}
-		);
+		async run(accessor: ServicesAccessor) {
+			// Access services.
+			const quickInputService = accessor.get(IQuickInputService);
 
-		// If the user selected a runtime client type, create the client for it.
-		if (selection) {
-			session.createClient(selection.runtimeClientType, null);
+			// Prompt the user to select a session
+			const session = await selectLanguageRuntimeSession(accessor);
+			if (!session) {
+				return;
+			}
+
+			// Prompt the user to select the runtime client type.
+			const selection = await quickInputService.pick<RuntimeClientTypeQuickPickItem>(
+				[
+					{
+						id: generateUuid(),
+						label: 'Environment Pane',
+						runtimeClientType: RuntimeClientType.Variables,
+					}
+				],
+				{
+					canPickMany: false,
+					placeHolder: `Select runtime client for ${session.runtimeMetadata.runtimeName}`
+				}
+			);
+
+			// If the user selected a runtime client type, create the client for it.
+			if (selection) {
+				session.createClient(selection.runtimeClientType, null);
+			}
 		}
 	});
 
-	registerLanguageRuntimeAction('workbench.action.language.runtime.closeClient', 'Close Runtime Client Widget', async accessor => {
-		const quickInputService = accessor.get(IQuickInputService);
+	registerAction2(class ExecuteCodeInConsoleAction extends Action2 {
 
-		// Prompt the user to select a session
-		const session = await selectLanguageRuntimeSession(accessor);
-		if (!session) {
-			return;
+		constructor() {
+			super({
+				id: 'workbench.action.language.runtime.closeClient',
+				title: nls.localize2('positron.command.closeClient', "Close Runtime Client Widget"),
+				f1: false,
+				category
+			});
 		}
 
-		// Get the runtime client instances for the session.
-		const runtimeClientInstances = await session.listClients();
-		if (!runtimeClientInstances.length) {
-			alert('No clients are currently started.');
-			return;
-		}
+		async run(accessor: ServicesAccessor) {
+			const quickInputService = accessor.get(IQuickInputService);
 
-		// Create runtime client instance quick pick items.
-		const runtimeClientInstanceQuickPickItems = runtimeClientInstances.map<RuntimeClientInstanceQuickPickItem>(runtimeClientInstance => ({
-			id: generateUuid(),
-			label: runtimeClientInstance.getClientType(),
-			runtimeClientInstance,
-		} satisfies RuntimeClientInstanceQuickPickItem));
+			// Prompt the user to select a session
+			const session = await selectLanguageRuntimeSession(accessor);
+			if (!session) {
+				return;
+			}
 
-		// Prompt the user to select a runtime client instance.
-		const selection = await quickInputService.pick<RuntimeClientInstanceQuickPickItem>(runtimeClientInstanceQuickPickItems, {
-			canPickMany: false,
-			placeHolder: nls.localize('Client Close Selection Placeholder', 'Close Client for {0}', session.runtimeMetadata.runtimeName)
-		});
+			// Get the runtime client instances for the session.
+			const runtimeClientInstances = await session.listClients();
+			if (!runtimeClientInstances.length) {
+				alert('No clients are currently started.');
+				return;
+			}
 
-		// If the user selected a runtime client instance, dispose it.
-		if (selection) {
-			selection.runtimeClientInstance.dispose();
+			// Create runtime client instance quick pick items.
+			const runtimeClientInstanceQuickPickItems = runtimeClientInstances.map<RuntimeClientInstanceQuickPickItem>(runtimeClientInstance => ({
+				id: generateUuid(),
+				label: runtimeClientInstance.getClientType(),
+				runtimeClientInstance,
+			} satisfies RuntimeClientInstanceQuickPickItem));
+
+			// Prompt the user to select a runtime client instance.
+			const selection = await quickInputService.pick<RuntimeClientInstanceQuickPickItem>(runtimeClientInstanceQuickPickItems, {
+				canPickMany: false,
+				placeHolder: nls.localize('Client Close Selection Placeholder', 'Close Client for {0}', session.runtimeMetadata.runtimeName)
+			});
+
+			// If the user selected a runtime client instance, dispose it.
+			if (selection) {
+				selection.runtimeClientInstance.dispose();
+			}
 		}
 	});
 
