@@ -256,19 +256,22 @@ export function isChatImageMimeType(mimeType: string): mimeType is vscode.ChatIm
 	return Object.values(vscode.ChatImageMimeType).includes(mimeType as vscode.ChatImageMimeType);
 }
 
-export const EMPTY_TOOL_RESULT_PLACEHOLDER = 'tool result is empty';
+export const EMPTY_TOOL_RESULT_PLACEHOLDER = '';
 
 /**
  * Processes a message to ensure it has non-empty tool result parts.
  * If a tool result part is empty, it replaces it with a placeholder.
  * This is a workaround for LLMs that don't handle empty tool result parts well.
+ * @todo: We may be able to remove this handling in the future, to save on token count,
+ * once LLMs are better at handling empty tool result parts.
  * @param message The message to process
  * @returns A new message with empty tool result parts replaced with a placeholder
  */
 function processEmptyToolResults(message: vscode.LanguageModelChatMessage2) {
 	let replacedEmptyToolResult = false;
 	const updatedContent = message.content.map(part => {
-		if (part instanceof vscode.LanguageModelToolResultPart && part.content.length === 0) {
+		const isToolResult = part instanceof vscode.LanguageModelToolResultPart || part instanceof vscode.LanguageModelToolResultPart2;
+		if (isToolResult && part.content.length === 0) {
 			replacedEmptyToolResult = true;
 			return new vscode.LanguageModelToolResultPart(
 				part.callId,
