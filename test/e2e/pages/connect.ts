@@ -17,14 +17,20 @@ export class PositConnect {
 		const contentGuids: string[] = [];
 		for (const app of appInfo) {
 			contentGuids.push(app['guid'] as string);
+
+			console.log(contentGuids);
+			if (contentGuids.length > 0) {
+				for (const guid of contentGuids) {
+					const response = await fetch(`${connectApiUrl}content/${guid}`, {
+						method: 'DELETE',
+						headers: headers
+					});
+					// 204 response = app deleted
+					if (response.status !== 204) {
+						throw new Error(`Failed to delete content with GUID: ${guid}`);
+					}
+				}
+			}
 		}
-
-		console.log(contentGuids);
-
 	}
 };
-
-
-// make a clean up for the shiny app, look at clipboard to get an example of what a cleanup for a page looks like
-
-// after this is added, go to workbench.ts and add an instance of this so that I can use it through the workbench
