@@ -170,7 +170,7 @@ const selectLanguageRuntimeSession = async (
 	// Show quick pick to select an active runtime or show all runtimes.
 	const quickPickItems: QuickPickItem[] = [
 		{
-			label: localize('positron.languageRuntime.activeSessions', 'Active Sessions'),
+			label: localize('positron.languageRuntime.activeSessions', 'Active Interpreter Sessions'),
 			type: 'separator',
 		},
 		...activeRuntimeItems,
@@ -181,13 +181,13 @@ const selectLanguageRuntimeSession = async (
 
 	if (options?.allowStartSession) {
 		quickPickItems.push({
-			label: localize('positron.languageRuntime.newSession', 'New Session...'),
+			label: localize('positron.languageRuntime.newSession', 'New Interpreter Session...'),
 			id: startNewRuntimeId,
 			alwaysShow: true
 		});
 	}
 	const result = await quickInputService.pick(quickPickItems, {
-		title: options?.title || localize('positron.languageRuntime.selectSession', 'Select a Session'),
+		title: options?.title || localize('positron.languageRuntime.selectSession', 'Select Interpreter Session'),
 		canPickMany: false,
 		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
 	});
@@ -407,7 +407,7 @@ const selectNewLanguageRuntime = async (
 	const selectedRuntime = await quickInputService.pick(
 		runtimeItems,
 		{
-			title: localize('positron.languageRuntime.startSession', 'Start a New Session'),
+			title: localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
 			canPickMany: false
 		}
 	);
@@ -588,7 +588,7 @@ export function registerLanguageRuntimeActions() {
 				icon: Codicon.plus,
 				id: LANGUAGE_RUNTIME_START_NEW_SESSION_ID,
 				title: {
-					value: localize('workbench.action.language.runtime.startSession', "Start New Interpreter Session"),
+					value: localize('positron.languageRuntime.startSession', 'Start New Interpreter Session'),
 					original: 'Start New Interpreter Session'
 				},
 				category,
