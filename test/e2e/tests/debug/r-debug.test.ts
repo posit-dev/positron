@@ -109,10 +109,10 @@ test.describe('R Debugging', {
 	});
 
 
-	test('R - Verify debugger indicator/highlight maintains focus', {
+	test('R - Verify debugger indicator/highlight maintains focus during code execution', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7667' }] // uncomment line 133 when fixed
 	},
-		async ({ app, page, openFile, runCommand, executeCode }) => {
+		async ({ app, page, openFile, runCommand }) => {
 			const { debug, console } = app.workbench;
 
 			await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
@@ -149,6 +149,37 @@ test.describe('R Debugging', {
 			await console.waitForConsoleContents('Found 2 fruits!');
 		});
 
+	test('R - Verify call stack behavior and order', async ({ app }) => {
+		const { debug, console, editors } = app.workbench;
+
+		// Trigger the breakpoint
+		await console.pasteCodeToConsole(`outer <- function(x) {
+				inner(x)
+				}
+
+				inner <- function(y) {
+				browser()
+				y + 1
+				}
+
+				outer(5)`, true);
+		await debug.expectBrowserModeFrame(1);
+
+		// Verify call stack order
+		await debug.expectCallStackAtIndex(0, 'inner()inner()2:');
+		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)2:');
+		await debug.expectCallStackAtIndex(2, '<global>outer(5)');
+
+		// Verify the call stack redirects to correct data frame(s)
+		await debug.selectCallStackAtIndex(0);
+		await editors.expectEditorToContain('inner <- function(y) {');
+
+		await debug.selectCallStackAtIndex(1);
+		await editors.expectEditorToContain('outer <- function(x) {');
+
+		await debug.selectCallStackAtIndex(2);
+		await editors.expectEditorToContain('outer(5)');
+	});
 
 	test('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
 		const { debug, console } = app.workbench;
@@ -157,7 +188,7 @@ test.describe('R Debugging', {
 		await runCommand('r.sourceCurrentFile');
 
 		// Trigger the function to be debugged (just once)
-		await executeCode('R', 'debugonce(fruit_avg)');
+		await executeCode('R', 'debugonce(fruit_avg)', { waitForReady: false });
 		await executeCode('R', 'fruit_avg(dat, "berry")', { waitForReady: false });
 
 		// First call should pause at debug prompt
@@ -221,8 +252,8 @@ async function verifyDebugPane(app: Application) {
 async function verifyCallStack(app: Application) {
 	const { debug } = app.workbench;
 
-	await debug.expectCallStackToContain('fruit_avg()fruit_avg()2:');
-	await debug.expectCallStackToContain('<global>fruit_avg(dat, "berry")');
+	await debug.expectCallStackAtIndex(0, 'fruit_avg()fruit_avg()2:');
+	await debug.expectCallStackAtIndex(1, '<global>fruit_avg(dat, "berry")');
 }
 
 async function verifyVariableInConsole(page: Page, name: string, expectedText: string) {
