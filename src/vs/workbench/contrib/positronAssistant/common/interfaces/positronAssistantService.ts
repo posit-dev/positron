@@ -7,6 +7,8 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { Event } from '../../../../../base/common/event.js';
 import { ChatAgentLocation } from '../../../chat/common/constants.js';
 import { Variable } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
+import { UriComponents } from '../../../../../base/common/uri.js';
+import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
 export const IPositronAssistantService = createDecorator<IPositronAssistantService>('positronAssistantService');
@@ -18,10 +20,12 @@ export interface IChatRequestData {
 }
 
 export interface IPositronChatContext {
-	console?: {
+	activeSession?: {
 		identifier: string;
 		language: string;
 		version: string;
+		mode: LanguageRuntimeSessionMode;
+		notebookUri?: UriComponents;
 		executions: {
 			input: string;
 			output: string;
@@ -31,7 +35,7 @@ export interface IPositronChatContext {
 	plots?: {
 		hasPlots: boolean;
 	};
-	variables?: Variable[];
+	variables: Variable[];
 	shell?: string;
 }
 

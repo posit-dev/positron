@@ -2659,6 +2659,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
+			sessionId: this._session.sessionId,
 			code,
 			mode,
 			attribution,
@@ -2759,6 +2760,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
+			sessionId: this._session.sessionId,
 			code,
 			mode,
 			attribution,

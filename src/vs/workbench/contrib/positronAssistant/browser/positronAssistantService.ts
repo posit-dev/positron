@@ -6,7 +6,6 @@
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { PositronVariablesInstance } from '../../../services/positronVariables/common/positronVariablesInstance.js';
@@ -18,6 +17,7 @@ import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
+import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 /**
  * PositronAssistantService class.
@@ -35,14 +35,13 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	//#region Constructor
 
 	constructor(
-		@IPositronConsoleService private readonly _consoleService: IPositronConsoleService,
 		@IPositronVariablesService private readonly _variableService: IPositronVariablesService,
 		@IPositronPlotsService private readonly _plotService: IPositronPlotsService,
 		@ITerminalService private readonly _terminalService: ITerminalService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IExecutionHistoryService private readonly _historyService: IExecutionHistoryService
+		@IExecutionHistoryService private readonly _historyService: IExecutionHistoryService,
 	) {
 		super();
 	}
@@ -54,19 +53,9 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 
 	getPositronChatContext(request: IChatRequestData): IPositronChatContext {
 		const variablesInstance = this._variableService.activePositronVariablesInstance as PositronVariablesInstance | undefined;
-
-		const runtimeMetadata =
-			this._consoleService.activePositronConsoleInstance?.runtimeMetadata;
-		const sessionId =
-			this._consoleService.activePositronConsoleInstance?.sessionId;
-		const history = sessionId ? this.summarizeConsoleHistory(sessionId) : [];
+		const activeSession = variablesInstance && this.summarizeSession(variablesInstance.session);
 		const context: IPositronChatContext = {
-			console: {
-				identifier: sessionId ?? '',
-				language: runtimeMetadata?.languageName ?? '',
-				version: runtimeMetadata?.languageVersion ?? '',
-				executions: history
-			},
+			activeSession,
 			plots: {
 				hasPlots: this.getCurrentPlotUri() !== undefined,
 			},
@@ -83,10 +72,31 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	}
 
 	/**
-	 * Summarizes the console history for a given session. This is used to
+	 * Summarizes a given session as context for a language model.
+	 *
+	 * @param session The session to summarize
+	 * @returns The summarized session context
+	 */
+	private summarizeSession(session: ILanguageRuntimeSession): IPositronChatContext['activeSession'] {
+		const executions = this.summarizeExecutionHistory(session.metadata.sessionId);
+		const sessionContext: IPositronChatContext['activeSession'] = {
+			identifier: session.metadata.sessionId,
+			language: session.runtimeMetadata.languageName,
+			version: session.runtimeMetadata.languageVersion,
+			mode: session.metadata.sessionMode,
+			executions,
+		};
+		if (session.metadata.notebookUri) {
+			sessionContext.notebookUri = session.metadata.notebookUri.toJSON();
+		}
+		return sessionContext;
+	}
+
+	/**
+	 * Summarizes the execution history for a given session. This is used to
 	 * provide context to the language model.
 	 *
-	 * Console history can grow unbounded, and models have a limited context
+	 * Execution history can grow unbounded, and models have a limited context
 	 * window, so we need to summarize the history. To do this, we start with
 	 * the newest entries and work backwards, adding entries until we reach a
 	 * maximum size. Some larger entries may be truncated so that there's still
@@ -96,7 +106,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	 * @param sessionId The ID of the session to summarize
 	 * @returns Up to 8KB of the most recent execution history entries
 	 */
-	summarizeConsoleHistory(sessionId: string) {
+	summarizeExecutionHistory(sessionId: string) {
 		const history = this._historyService.getExecutionEntries(sessionId);
 		const summarized = [];
 		let currentCost = 0;

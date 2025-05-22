@@ -2043,10 +2043,12 @@ declare module 'positron' {
 		 * The context in which a chat request is made.
 		 */
 		export interface ChatContext {
-			console?: {
+			activeSession?: {
+				identifier: string;
 				language: string;
 				version: string;
-				identifier: string;
+				mode: LanguageRuntimeSessionMode;
+				notebookUri?: vscode.Uri;
 				executions: {
 					input: string;
 					output: string;

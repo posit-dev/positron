@@ -8,6 +8,7 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeSession } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeClientState, RuntimeClientStatus } from '../../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { IPositronVariablesInstance, PositronVariablesGrouping, PositronVariablesSorting, VariableEntry } from '../../common/interfaces/positronVariablesInstance.js';
+import { VariableItem } from '../../common/classes/variableItem.js';
 
 /**
  * TestPositronVariablesInstance class.
@@ -55,6 +56,11 @@ export class TestPositronVariablesInstance extends Disposable implements IPositr
 	 */
 	private _entries: VariableEntry[] = [];
 
+	/**
+	 * Variable items.
+	 */
+	private _items: Map<string, VariableItem> = new Map();
+
 	//#endregion
 
 	/**
@@ -88,6 +94,13 @@ export class TestPositronVariablesInstance extends Disposable implements IPositr
 
 	set grouping(value: PositronVariablesGrouping) {
 		this._grouping = value;
+	}
+
+	/**
+	 * Gets the variable items.
+	 */
+	get variableItems(): VariableItem[] {
+		return Array.from(this._items.values());
 	}
 
 	/**
