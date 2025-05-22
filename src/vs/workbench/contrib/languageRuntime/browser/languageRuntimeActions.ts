@@ -821,15 +821,6 @@ export function registerLanguageRuntimeActions() {
 	});
 
 	/**
-	 * Action that allows the user to shutdown an active session.
-	 */
-	registerLanguageRuntimeAction('workbench.action.languageRuntime.shutdown', 'Shutdown Interpreter Session', async accessor => {
-		(await selectLanguageRuntimeSession(
-			accessor,
-			{ title: 'Select Interpreter Session To Shutdown' }))?.shutdown();
-	});
-
-	/**
 	 * Action that allows the user to force-quit the active session.
 	 */
 	registerLanguageRuntimeAction('workbench.action.languageRuntime.forceQuit', 'Force Quit Active Interpreter Session', async accessor => {
