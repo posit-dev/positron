@@ -3219,7 +3219,7 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 		 * Default options for the editor action bar.
 		 */
 		const defaults: EditorActionBarOptions = {
-			hiddenForLanguages: []
+			hiddenForLanguages: ['plaintext']
 		};
 
 		// Call the base class's constructor.
@@ -3235,9 +3235,9 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 					},
 					'markdownDescription': nls.localize(
 						'editor.actionbar.hiddenForLanguages',
-						"Configure languages for which the Editor Action Bar will be hidden. For example, `python` will hide the Editor Action Bar for all Python files and `r` will hide the Editor Action Bar for all R files. `*` will hide the Editor Action Bar for all languages.",
+						"Configures the languages for which the action bar will be hidden. For example, `python` will hide the action bar for Python files, `r` will hide the action bar for R files, and `plaintext` will hide the action bar for plain text files. Use `*` to hide the action bar for all languages. The default is `plaintext`.",
 					),
-					'default': [],
+					'default': defaults.hiddenForLanguages,
 					'scope': ConfigurationScope.RESOURCE,
 				},
 			}

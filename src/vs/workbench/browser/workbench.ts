@@ -48,9 +48,6 @@ import { AccessibilityProgressSignalScheduler } from '../../platform/accessibili
 import { setProgressAcccessibilitySignalScheduler } from '../../base/browser/ui/progressbar/progressAccessibilitySignal.js';
 import { AccessibleViewRegistry } from '../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { NotificationAccessibleView } from './parts/notifications/notificationAccessibleView.js';
-// --- Start Positron ---
-import { EDITOR_ACTION_BAR_HIDDEN_FOR_LANGUAGES_SETTING } from './parts/editor/editorActionBarControl.js';
-// --- End Positron ---
 
 export interface IWorkbenchOptions {
 
@@ -219,29 +216,6 @@ export class Workbench extends Layout {
 
 		// Configuration changes
 		this._register(configurationService.onDidChangeConfiguration(e => this.updateFontAliasing(e, configurationService)));
-
-		// --- Start Positron ---
-		// Add a onDidChangeConfiguration event listener to listen for changes to the editor action
-		// bar configuration setting. This is a temporary workaround that hides editor actions when
-		// the user has configured the editor action bar to be enabled. Eventually, editor actions
-		// will be replaced by the editor action bar. This approach allows testers to use both the
-		// editor actions and the editor action bar by adjusting the editor actions location after
-		// enabling the editor action bar.
-		this._register(configurationService.onDidChangeConfiguration(async e => {
-			if (e.affectsConfiguration(EDITOR_ACTION_BAR_HIDDEN_FOR_LANGUAGES_SETTING)) {
-
-
-
-				// console.log('+++++++++++++++ Workbench EDITOR_ACTION_BAR_HIDDEN_FOR_SETTING CHANGED');
-				// console.log(e);
-
-				// let a = configurationService.getValue<string[]>(EDITOR_ACTION_BAR_HIDDEN_FOR_LANGUAGES_SETTING);
-
-				// console.log('+++++ Workbench EDITOR_ACTION_BAR_HIDDEN_FOR_SETTING a: ' + a);
-
-			}
-		}));
-		// --- End Positron ---
 
 		// Font Info
 		if (isNative) {
