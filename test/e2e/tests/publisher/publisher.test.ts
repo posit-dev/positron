@@ -10,56 +10,71 @@ test.use({
 	suiteId: __filename
 });
 
-// This test aims to verify basic Publisher's functionality
-test('Verify Publisher functionality in Positron with Shiny app deployment as example', { tag: [tags.WEB, tags.WIN, tags.QUARTO] }, async function ({ app, openFile, logger, page, python }, testInfo) {
+test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.QUARTO] }, () => {
+	test.afterAll(async function ({ app }) {
+		await app.workbench.positConnect.deleteUserContent();
+	});
 
-	await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
+	test('Debug deletion of file', async function ({ app }) {
+		await app.workbench.positConnect.deleteUserContent();
+	});
 
-	const deployPublisherButton = page.getByRole('button', { name: 'Deploy with Posit Publisher' });
-	await deployPublisherButton.click();
+	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, logger, page, python }, testInfo) {
+		test.slow();
+		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
 
-	await app.workbench.quickInput.waitForQuickInputOpened();
-	await app.workbench.quickInput.type('shiny-py-example');
-	await page.keyboard.press('Enter');
+		const deployPublisherButton = page.getByRole('button', { name: 'Deploy with Posit Publisher' });
+		await deployPublisherButton.click();
 
-	await app.workbench.quickInput.type(process.env.E2E_CONNECT_SERVER!);
-	await page.keyboard.press('Enter');
+		await app.workbench.quickInput.waitForQuickInputOpened();
+		await app.workbench.quickInput.type('shiny-py-example');
+		await page.keyboard.press('Enter');
 
-	await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
-	await page.keyboard.press('Enter');
+		await app.workbench.quickInput.type(process.env.E2E_CONNECT_SERVER!);
+		await page.keyboard.press('Enter');
 
-	await app.workbench.quickInput.type('shiny-py-example');
-	await page.keyboard.press('Enter');
+		await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
+		await page.keyboard.press('Enter');
 
-	// shadow dom note
+		await app.workbench.quickInput.type('shiny-py-example');
+		await page.keyboard.press('Enter');
 
-	const editorContainer = page.locator('[id="workbench\\.parts\\.editor"]');
-	const dynamicTomlLineRegex = /deployment-.*?\.toml/;
-	// if someone changes the structure of the toml file, this regex will not work
-	const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
+		const editorContainer = page.locator('[id="workbench\\.parts\\.editor"]');
+		const dynamicTomlLineRegex = /deployment-.*?\.toml/;
+		const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
 
-	await targetLine.scrollIntoViewIfNeeded({ timeout: 20000 });
-	await expect(targetLine).toBeVisible({ timeout: 10000 });
+		await targetLine.scrollIntoViewIfNeeded({ timeout: 20000 });
+		await expect(targetLine).toBeVisible({ timeout: 10000 });
 
-	await targetLine.click();
+		await targetLine.click();
+		await page.keyboard.press('End');
+		await page.keyboard.type(',');
 
-	await page.keyboard.press('End');
-	await page.keyboard.type(',')
+		await page.keyboard.press('Enter');
+		await page.keyboard.type("'/shared.py',");
+		await page.keyboard.press('Enter');
+		await page.keyboard.type("'/styles.css',");
+		await page.keyboard.press('Enter');
+		await page.keyboard.type("'/tips.csv'");
 
-	await page.keyboard.press('Enter');
-	await page.keyboard.type("'/shared.py',");
-	await page.keyboard.press('Enter');
-	await page.keyboard.type("'/styles.css',");
-	await page.keyboard.press('Enter');
-	await page.keyboard.type("'/tips.csv'");
+		const saveButton = page.locator('.action-bar-button-icon.codicon.codicon-positron-save').first();
+		await saveButton.click();
 
-	const saveButton = page.locator('.action-bar-button-icon.codicon.codicon-positron-save').first();
-	await saveButton.click(); // up to here it works
+		const outerFrame = page.frameLocator('iframe.webview.ready');
+		const innerFrame = outerFrame.frameLocator('iframe#active-frame');
+		const deployButton = innerFrame.locator('vscode-button[data-automation="deploy-button"] >>> button');
+		await deployButton.waitFor({ state: 'visible' });
+		await deployButton.click();
 
-	// now below works as well (until deploy button)
-	const outerFrame = page.frameLocator('iframe.webview.ready');
-	const innerFrame = outerFrame.frameLocator('iframe#active-frame');
-	const deployButton = innerFrame.locator('vscode-button[data-automation="deploy-button"] >>> button');
-	await deployButton.waitFor({ state: 'visible' });
-	await deployButton.click();
+		const viewLogLink = innerFrame.locator('a.webview-link', { hasText: 'View Log' });
+		await viewLogLink.waitFor({ state: 'visible' });
+		await viewLogLink.click();
+
+		const toast = page.locator('.notification-list-item-message span', {
+			hasText: 'Deployment was successful',
+		});
+		await toast.waitFor({ state: 'visible', timeout: 120000 });
+		await expect(toast).toBeVisible();
+
+	});
 });
