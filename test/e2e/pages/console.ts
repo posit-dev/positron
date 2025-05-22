@@ -17,6 +17,7 @@ const EMPTY_CONSOLE = '.positron-console .empty-console';
 const INTERRUPT_RUNTIME = 'div.action-bar-button-face .codicon-positron-interrupt-runtime';
 const SUGGESTION_LIST = '.suggest-widget .monaco-list-row';
 const CONSOLE_LINES = `${ACTIVE_CONSOLE_INSTANCE} div span`;
+const ERROR = '.activity-error-message';
 
 /*
  *  Reuseable Positron console functionality for tests to leverage.  Includes the ability to select an interpreter and execute code which
@@ -30,6 +31,7 @@ export class Console {
 	activeConsole: Locator;
 	suggestionList: Locator;
 	private consoleTab: Locator;
+	private error: Locator;
 
 	get emptyConsole() {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
@@ -43,6 +45,7 @@ export class Console {
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
 		this.consoleTab = this.code.driver.page.getByRole('tab', { name: 'Console', exact: true });
+		this.error = this.code.driver.page.locator(ERROR);
 	}
 
 
@@ -141,23 +144,23 @@ export class Console {
 	}
 
 	async waitForConsoleContents(
-		consoleText: string,
+		consoleTextOrRegex: string | RegExp,
 		options: {
 			timeout?: number;
 			expectedCount?: number;
 			exact?: boolean;
 		} = {}
 	): Promise<string[]> {
-		return await test.step(`Verify console contains: ${consoleText}`, async () => {
+		return await test.step(`Verify console contains: ${consoleTextOrRegex}`, async () => {
 			const { timeout = 15000, expectedCount = 1, exact = false } = options;
 
 			if (expectedCount === 0) {
 				const startTime = Date.now();
 				while (Date.now() - startTime < timeout) {
-					const errorMessage = `Expected text "${consoleText}" to not appear, but it did.`;
+					const errorMessage = `Expected text "${consoleTextOrRegex}" to not appear, but it did.`;
 
 					try {
-						const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText);
+						const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleTextOrRegex);
 						const count = await matchingLines.count();
 
 						if (count > 0) {
@@ -175,7 +178,7 @@ export class Console {
 			}
 
 			// Normal case: waiting for `expectedCount` occurrences
-			const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleText, { exact });
+			const matchingLines = this.code.driver.page.locator(CONSOLE_LINES).getByText(consoleTextOrRegex, { exact });
 
 			await expect(matchingLines).toHaveCount(expectedCount, { timeout });
 			return expectedCount ? matchingLines.allTextContents() : [];
@@ -301,6 +304,12 @@ export class Console {
 	async expectSuggestionListToContain(label: string): Promise<void> {
 		await test.step(`Expect console suggestion list to contain: ${label}`, async () => {
 			await this.code.driver.page.locator('.suggest-widget').getByLabel(label).isVisible();
+		});
+	}
+
+	async expectConsoleToContainError(error: string): Promise<void> {
+		await test.step(`Expect console to contain error: ${error}`, async () => {
+			await expect(this.error).toContainText(error);
 		});
 	}
 }

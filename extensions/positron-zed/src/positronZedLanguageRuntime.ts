@@ -1267,6 +1267,11 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 
 	dispose(): void { }
 
+	updateSessionName(sessionName: string): void {
+		// Update the dynamic state with the new values.
+		this.dynState.sessionName = sessionName;
+	}
+
 	//#endregion LanguageRuntime Implementation
 
 	//#region Private Methods

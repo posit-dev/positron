@@ -13,8 +13,7 @@ import { GroupsOrder, IEditorGroupsService } from '../../../../services/editor/c
 import { ITextFileService } from '../../../../services/textfile/common/textfiles.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
-import { IToolInputProcessor } from '../../common/tools/tools.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
 
 const getFileContentsModelDescription = `
 This tool returns the contents of the specified file in the project.
@@ -52,7 +51,7 @@ export class FileContentsTool implements IToolImpl {
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 	) { }
 
-	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _token: CancellationToken): Promise<IToolResult> {
+	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
 		const { filePath } = invocation.parameters as FileContentsToolParams;
 
 		// Construct the file URI
@@ -120,12 +119,5 @@ export class FileContentsTool implements IToolImpl {
 
 export interface FileContentsToolParams {
 	filePath: string;
-}
-
-export class FileContentsToolInputProcessor implements IToolInputProcessor {
-	processInput(input: FileContentsToolParams) {
-		// No input processing needed for this tool
-		return input;
-	}
 }
 

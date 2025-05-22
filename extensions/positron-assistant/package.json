@@ -37,6 +37,10 @@
         ],
         "locations": [
           "panel"
+        ],
+        "modes": [
+          "ask",
+          "edit"
         ]
       },
       {
@@ -182,6 +186,10 @@
             "language": {
               "type": "string",
               "description": "The programming language of the code."
+            },
+            "summary": {
+              "type": "string",
+              "description": "A very short summary of the task the code is performing, beginning with a verb and not to exceed 7 words. Shown to the user to help them understand what the code will do."
             }
           }
         },

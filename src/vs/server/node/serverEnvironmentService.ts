@@ -46,6 +46,7 @@ export const serverOptions: OptionDescriptions<Required<ServerParsedArgs>> = {
 	'log': OPTIONS['log'],
 	'logsPath': OPTIONS['logsPath'],
 	'force-disable-user-env': OPTIONS['force-disable-user-env'],
+	'enable-proposed-api': OPTIONS['enable-proposed-api'],
 
 	/* ----- vs code web options ----- */
 
@@ -192,6 +193,7 @@ export interface ServerParsedArgs {
 	'logsPath'?: string;
 
 	'force-disable-user-env'?: boolean;
+	'enable-proposed-api'?: string[];
 
 	/* ----- vs code web options ----- */
 

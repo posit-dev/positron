@@ -5,7 +5,6 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -19,7 +18,6 @@ import { INotebookKernelService } from '../../notebook/common/notebookKernelServ
 import { INotebookService } from '../../notebook/common/notebookService.js';
 import { ActiveNotebookHasRunningRuntimeManager } from '../common/activeNotebookHasRunningRuntime.js';
 import { registerRuntimeNotebookKernelActions } from './runtimeNotebookKernelActions.js';
-import { isRuntimeNotebookKernelEnabled } from '../common/runtimeNotebookKernelConfig.js';
 import { IRuntimeNotebookKernelService } from './interfaces/runtimeNotebookKernelService.js';
 import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
@@ -54,7 +52,6 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 	onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent> = this._didExecuteCodeEmitter.event;
 
 	constructor(
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILogService private readonly _logService: ILogService,
@@ -70,12 +67,6 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 
 		// Create the active notebook has running runtime context manager.
 		this._register(this._instantiationService.createInstance(ActiveNotebookHasRunningRuntimeManager));
-
-		// If runtime notebook kernels are disabled, do not proceed.
-		// In that case, the positron-notebook-controllers extension will register its own kernels.
-		if (!isRuntimeNotebookKernelEnabled(this._configurationService)) {
-			return;
-		}
 
 		// Create a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {

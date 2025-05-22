@@ -2,6 +2,7 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { BinaryLike } from 'crypto';
 import { exists as folderExists } from '../common/files';
 
 const PATH_SSH_USER_DIR = path.join(os.homedir(), '.ssh');
@@ -20,7 +21,7 @@ export async function checkNewHostInHostkeys(host: string): Promise<boolean> {
 
         const [hostEncripted_] = line.split(' ');
         const [salt_, hostHash_] = hostEncripted_.substring(HASH_MAGIC.length).split(HASH_DELIM);
-        const hostHash = crypto.createHmac('sha1', Buffer.from(salt_, 'base64')).update(host).digest();
+        const hostHash = crypto.createHmac('sha1', Buffer.from(salt_, 'base64') as BinaryLike).update(host).digest();
         if (hostHash.toString('base64') === hostHash_) {
             return false;
         }
@@ -35,7 +36,7 @@ export async function addHostToHostFile(host: string, hostKey: Buffer, type: str
     }
 
     const salt = crypto.randomBytes(20);
-    const hostHash = crypto.createHmac('sha1', salt).update(host).digest();
+    const hostHash = crypto.createHmac('sha1', salt as BinaryLike).update(host).digest();
 
     const entry = `${HASH_MAGIC}${salt.toString('base64')}${HASH_DELIM}${hostHash.toString('base64')} ${type} ${hostKey.toString('base64')}\n`;
     await fs.promises.appendFile(KNOW_HOST_FILE, entry);

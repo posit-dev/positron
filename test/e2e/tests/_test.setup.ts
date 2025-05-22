@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Logger, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings } from '../infra';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, ApplicationOptions, Quality, MultiLogger } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -66,7 +66,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);
 
-		const options = {
+		const options: ApplicationOptions = {
 			codePath: process.env.BUILD,
 			workspacePath: WORKSPACE_PATH,
 			userDataDir: join(TEST_DATA_PATH, 'd'),
@@ -80,7 +80,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			headless: project.headless,
 			tracing: true,
 			snapshots,
-
+			quality: Quality.Dev,
 		};
 		options.userDataDir = getRandomUserDataDir(options);
 
@@ -98,7 +98,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(app);
 	}, { scope: 'test', timeout: 60000 }],
 
-	app: [async ({ options, logsPath, }, use, workerInfo) => {
+	app: [async ({ options, logsPath, logger }, use, workerInfo) => {
 		const app = createApp(options);
 
 		try {
@@ -124,7 +124,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 			// rename the temp logs dir to the spec name (if available)
 			const specLogsPath = path.join(path.dirname(logsPath), SPEC_NAME || `worker-${workerInfo.workerIndex}`);
-			await moveAndOverwrite(logsPath, specLogsPath);
+			await moveAndOverwrite(logger, logsPath, specLogsPath);
 		}
 	}, { scope: 'worker', auto: true, timeout: 80000 }],
 
@@ -209,8 +209,12 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	// ex: await executeCode('Python', 'print("Hello, world!")');
 	executeCode: async ({ app }, use) => {
-		await use(async (language: 'Python' | 'R', code: string) => {
-			await app.workbench.console.executeCode(language, code);
+		await use(async (language: 'Python' | 'R', code: string, options?: {
+			timeout?: number;
+			waitForReady?: boolean;
+			maximizeConsole?: boolean;
+		}) => {
+			await app.workbench.console.executeCode(language, code, options);
 		});
 	},
 
@@ -430,7 +434,7 @@ test.afterAll(async function ({ logger }, testInfo) {
 export { playwrightExpect as expect };
 export { TestTags as tags };
 
-async function moveAndOverwrite(sourcePath, destinationPath) {
+async function moveAndOverwrite(logger: MultiLogger, sourcePath: string, destinationPath: string) {
 	try {
 		await access(sourcePath, constants.F_OK);
 	} catch {
@@ -451,7 +455,11 @@ async function moveAndOverwrite(sourcePath, destinationPath) {
 	// rename source to destination
 	try {
 		await rename(sourcePath, destinationPath);
-	} catch (err) { }
+		logger.setPath(destinationPath);
+		logger.log('Logger path updated to:', destinationPath);
+	} catch (err) {
+		logger.log(`moveAndOverwrite: failed to move ${sourcePath} to ${destinationPath}:`, err);
+	}
 }
 
 interface TestFixtures {
@@ -470,7 +478,11 @@ interface TestFixtures {
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
 	runCommand: (command: string, options?: { keepOpen?: boolean; exactMatch?: boolean }) => Promise<void>;
-	executeCode: (language: 'Python' | 'R', code: string) => Promise<void>;
+	executeCode: (language: 'Python' | 'R', code: string, options?: {
+		timeout?: number;
+		waitForReady?: boolean;
+		maximizeConsole?: boolean;
+	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
 }
@@ -483,7 +495,7 @@ interface WorkerFixtures {
 	userDataDir: string;
 	app: Application;
 	logsPath: string;
-	logger: Logger;
+	logger: MultiLogger;
 	userSettings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 	};

@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags } from '../_test.setup';
+import { test, tags, expect } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -23,23 +23,43 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 		await theDoc.waitFor({ state: 'attached' });
 	});
 
-	test('Python - Verify Viewer displays great-tables output', { tag: [tags.WEB] }, async function ({ app, logger, python }) {
-
-		// extra clean up - https://github.com/posit-dev/positron/issues/4604
-		// without this, on ubuntu, the Enter key send to the console
-		// won't work because the pasted code is out of view
-		await app.workbench.console.clearButton.click();
-
-		logger.log('Sending code to console');
-		await app.workbench.console.pasteCodeToConsole(pythonGreatTablesScript);
-		await app.workbench.console.sendEnterKey();
-
+	test('Python - Verify Viewer displays great-tables output and can be cleared', { tag: [tags.WEB] }, async function ({ app, logger, page, python }) {
+		// Clearing viewer output button has now been implemented. Hence, modifications herein ensure that the button functionality works.
+		// Locators
 		const apricot = app.workbench.viewer.getViewerLocator('td').filter({ hasText: 'apricot' });
-		await apricot.waitFor({ state: 'attached', timeout: 60000 });
+		const clearButton = page.locator('.positron-action-bar').getByRole('button', { name: 'Clear the content' });
 
-		// Note that there is not a control to clear the viewer at this point
+		// TestStep1: Initial viewer content should be displayed once user runs GreatTablesScript in Console
+		await test.step('Display initial viewer content', async () => {
+			await app.workbench.console.clearButton.click();
+			logger.log('Sending code to console');
+			await app.workbench.console.pasteCodeToConsole(pythonGreatTablesScript);
+			await app.workbench.console.sendEnterKey();
+			await expect(apricot).toBeVisible({ timeout: 30000 });
+		});
+
+		// TestStep2: User can click on the 'Clear the content' button in Positron action bar (under Viewer tab)
+		await test.step('Click the clear button', async () => {
+			await expect(clearButton).toBeVisible();
+			await clearButton.click();
+		});
+
+		// TestStep3: After user clicked the button, element is NOT present in the DOM, by using detached state.
+		await test.step('Verify content disappeared', async () => {
+			await apricot.waitFor({ state: 'detached', timeout: 30000 });
+		});
+
+		/* Additional comments: to be addressed in the future or limitations
+		- Extra clean up - https://github.com/posit-dev/positron/issues/4604
+		- Without this, on ubuntu, the Enter key sends to the console
+		- It won't work because the pasted code is out of view
+		- Additional points for discussion with team:
+		-- Is keeping the Python scripts in the end the best method?
+		-- Should we have a separate file containing scripts and importing them here?
+		-- Having the scripts in the end is a bit impractical, regarding visibility. Thoughts?
+		*/
+
 	});
-
 
 	test('R - Verify Viewer displays modelsummary output', { tag: [tags.WEB] }, async function ({ app, logger, r }) {
 		logger.log('Sending code to console');

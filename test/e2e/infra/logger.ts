@@ -3,12 +3,14 @@
  *  Licensed under the MIT License. See License.txt in the project root for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { appendFileSync, writeFileSync } from 'fs';
+import { appendFileSync, writeFileSync, existsSync } from 'fs';
 import { format } from 'util';
 import { EOL } from 'os';
+import path from 'path';
 
 export interface Logger {
 	log(message: string, ...args: any[]): void;
+	setPath?(dir: string, filename?: string): void;
 }
 
 export class ConsoleLogger implements Logger {
@@ -19,20 +21,46 @@ export class ConsoleLogger implements Logger {
 }
 
 export class FileLogger implements Logger {
+	private path: string;
 
-	constructor(private path: string) {
-		writeFileSync(path, '');
+	constructor(initialPath: string) {
+		this.path = initialPath;
+		this.ensureFileExists(this.path);
+	}
+
+	setPath(dir: string, filename = 'e2e-test-runner.log'): void {
+		this.path = path.join(dir, filename);
+		this.ensureFileExists(this.path);
+	}
+
+	private ensureFileExists(path: string): void {
+		if (!existsSync(path)) {
+			writeFileSync(path, '');
+		}
 	}
 
 	log(message: string, ...args: any[]): void {
 		const date = new Date().toISOString();
-		appendFileSync(this.path, `[${date}] ${format(message, ...args)}${EOL}`);
+		const formattedMessage = `[${date}] ${format(message, ...args)}${EOL}`;
+		try {
+			appendFileSync(this.path, formattedMessage);
+		} catch (error) {
+			console.log('FileLogger error, falling back to console:', formattedMessage.trim(), error);
+		}
 	}
 }
 
 export class MultiLogger implements Logger {
 
 	constructor(private loggers: Logger[]) { }
+
+	setPath(dir: string, filename = 'e2e-test-runner.log'): void {
+		for (const logger of this.loggers) {
+			if (logger.setPath) {
+				logger.setPath(dir, filename);
+			}
+		}
+	}
 
 	log(message: string, ...args: any[]): void {
 		for (const logger of this.loggers) {

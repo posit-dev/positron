@@ -65,7 +65,7 @@ const extensions = [
 	// --- Start Positron ---
 	{
 		label: 'positron-assistant',
-		workspaceFolder: path.join(os.tmpdir(), `positron-assistant-${Math.floor(Math.random() * 100000)}`),
+		workspaceFolder: 'extensions/positron-assistant/test-workspace',
 		mocha: { timeout: 60_000 }
 	},
 	{
@@ -92,11 +92,6 @@ const extensions = [
 		label: 'positron-run-app',
 		workspaceFolder: 'extensions/positron-run-app/test-workspace',
 		mocha: { timeout: 60_000 }
-	},
-	{
-		label: 'positron-notebook-controllers',
-		workspaceFolder: 'extensions/positron-notebook-controllers/test-workspace',
-		mocha: { timeout: 5_000 }
 	},
 	{
 		label: 'positron-supervisor',

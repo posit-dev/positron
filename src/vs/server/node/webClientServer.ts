@@ -25,7 +25,7 @@ import { CancellationToken } from '../../base/common/cancellation.js';
 import { URI } from '../../base/common/uri.js';
 import { streamToBuffer } from '../../base/common/buffer.js';
 import { IProductConfiguration } from '../../base/common/product.js';
-import { isString } from '../../base/common/types.js';
+import { isString, Mutable } from '../../base/common/types.js';
 import { CharCode } from '../../base/common/charCode.js';
 import { IExtensionManifest } from '../../platform/extensions/common/extensions.js';
 import { ICSSDevelopmentService } from '../../platform/cssDev/node/cssDevService.js';
@@ -406,7 +406,7 @@ export class WebClientServer {
 		const vscodeBase = relativePath(req.url!);
 		// --- End PWB ---
 
-		const productConfiguration = {
+		const productConfiguration: Partial<Mutable<IProductConfiguration>> = {
 			embedderIdentifier: 'server-distro',
 			// --- Start PWB: web prefix, proxy port url, custom extensions gallery ---
 			rootEndpoint: base,
@@ -414,6 +414,12 @@ export class WebClientServer {
 			extensionsGallery: this._productService.extensionsGallery,
 			// --- End PWB ---
 		} satisfies Partial<IProductConfiguration>;
+
+		const proposedApi = this._environmentService.args['enable-proposed-api'];
+		if (proposedApi?.length) {
+			productConfiguration.extensionsEnabledWithApiProposalVersion ??= [];
+			productConfiguration.extensionsEnabledWithApiProposalVersion.push(...proposedApi);
+		}
 
 		if (!this._environmentService.isBuilt) {
 			try {

@@ -7,10 +7,9 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExplorerService } from '../../../files/browser/files.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
 import { ExplorerItem } from '../../../files/common/explorerModel.js';
 import { SortOrder } from '../../../files/common/files.js';
-import { IToolInputProcessor } from '../../common/tools/tools.js';
 
 /**
  * Represents either a file (string) or a directory (tuple with string and children).
@@ -43,7 +42,7 @@ export class ProjectTreeTool implements IToolImpl {
 		@IExplorerService private readonly _explorerService: IExplorerService,
 	) { }
 
-	async invoke(_invocation: IToolInvocation, _countTokens: CountTokensCallback, _token: CancellationToken): Promise<IToolResult> {
+	async invoke(_invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
 			return {
@@ -87,13 +86,6 @@ export class ProjectTreeTool implements IToolImpl {
 			invocationMessage: localize('projectTreeTool.invocationMessage', "Constructing project tree"),
 			pastTenseMessage: localize('projectTreeTool.pastTenseMessage', "Constructed project tree"),
 		};
-	}
-}
-
-export class ProjectTreeInputProcessor implements IToolInputProcessor {
-	processInput(input: any) {
-		// No input processing needed for this tool
-		return input;
 	}
 }
 

@@ -678,6 +678,15 @@ declare module 'positron' {
 	}
 
 	/**
+	 * The possible modes for a Positron Assistant chat request.
+	 */
+	export enum PositronChatMode {
+		Ask = 'ask',
+		Edit = 'edit',
+		Agent = 'agent',
+	}
+
+	/**
 	 * A message received from a runtime client instance.
 	 */
 	export interface RuntimeClientOutput<T> {
@@ -1041,6 +1050,13 @@ declare module 'positron' {
 		 * should forcibly terminate any underlying processes.
 		 */
 		forceQuit(): Thenable<void>;
+
+		/**
+		 * Update the session name.
+		 *
+		 * @param sessionName The new session name
+		 */
+		updateSessionName(sessionName: string): void;
 
 		/**
 		 * Show runtime log in output panel.
@@ -1914,6 +1930,7 @@ declare module 'positron' {
 				description: string;
 				isSticky?: boolean;
 			}[];
+			modes: PositronChatMode[];
 			locations: PositronChatAgentLocation[];
 			disambiguation: { category: string; description: string; examples: string[] }[];
 		}
@@ -2035,6 +2052,9 @@ declare module 'positron' {
 					output: string;
 					error?: any;
 				}[];
+			};
+			plots?: {
+				hasPlots: boolean;
 			};
 			variables?: RuntimeVariable[];
 			shell?: string;

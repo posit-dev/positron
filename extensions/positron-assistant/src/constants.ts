@@ -9,6 +9,9 @@ import { DocumentSelector } from 'vscode-languageclient';
 /** The extension root directory. */
 export const EXTENSION_ROOT_DIR = path.join(__dirname, '..');
 
+/** Directory containing markdown files (e.g. prompt templates). */
+export const MARKDOWN_DIR = path.join(EXTENSION_ROOT_DIR, 'src', 'md');
+
 /** Selects all documents. */
 export const ALL_DOCUMENTS_SELECTOR: DocumentSelector = [{ scheme: '*' }];
 

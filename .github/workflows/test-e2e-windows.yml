@@ -32,6 +32,11 @@ on:
         description: "Whether or not to report results to Currents."
         type: boolean
         default: true
+      upload_logs:
+        required: false
+        description: "Whether or not to upload e2e test logs."
+        type: boolean
+        default: false
 
   workflow_dispatch:
     inputs:
@@ -209,3 +214,12 @@ jobs:
           TESTRAIL_TITLE: "e2e-windows"
           TESTRAIL_PROJECT: "Positron"
           TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
+
+      - name: Upload Test Logs
+        if: ${{ inputs.upload_logs }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-win-logs
+          path: test-logs
+          if-no-files-found: ignore
+

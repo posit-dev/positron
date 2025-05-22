@@ -8,6 +8,7 @@ import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { PlaceholderThumbnail } from './placeholderThumbnail.js';
+import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 
 /**
@@ -24,21 +25,25 @@ interface DynamicPlotThumbnailProps {
  * @returns The rendered component.
  */
 export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
-
-	const [uri, setUri] = useState('');
+	const context = usePositronPlotsContext();
+	const [uri, setUri] = useState(() => {
+		// If the plot is already rendered, set the URI; otherwise, try to use the cached URI until
+		// the plot is rendered.
+		if (props.plotClient.lastRender) {
+			return props.plotClient.lastRender.uri;
+		} else {
+			return context.positronPlotsService.getCachedPlotThumbnailURI(props.plotClient.id);
+		}
+	});
 
 	useEffect(() => {
-		// If the plot is already rendered, show the URI; otherwise, wait for
-		// the plot to render.
-		if (props.plotClient.lastRender) {
-			setUri(props.plotClient.lastRender.uri);
-		}
-
 		// When the plot is rendered, update the URI. This can happen multiple times if the plot
 		// is resized.
-		props.plotClient.onDidCompleteRender((result) => {
+		const disposable = props.plotClient.onDidCompleteRender(result => {
 			setUri(result.uri);
 		});
+
+		return () => disposable.dispose();
 	}, [props.plotClient]);
 
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
