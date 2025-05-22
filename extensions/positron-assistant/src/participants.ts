@@ -369,10 +369,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		}
 
-		// Note if no workspace folders are open, which affects workspace-related tools.
-		if (!vscode.workspace.workspaceFolders || vscode.workspace.workspaceFolders.length === 0) {
-			prompts.push(xml.node('workspace', 'No workspace folders open.'));
-		}
+		// Note if any folders are open in the workspace.
+		const areFoldersOpen = !!vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0;
+		prompts.push(xml.node('workspace', `Workspace folders are open: ${areFoldersOpen}`));
 
 		// Add Positron IDE context to the prompt.
 		const positronContext = await positron.ai.getPositronChatContext(request);
