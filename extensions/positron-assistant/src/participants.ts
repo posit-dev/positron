@@ -3,16 +3,16 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as fs from 'fs';
+import * as xml from './xml.js';
 
-import { EXTENSION_ROOT_DIR } from './constants';
+import { MARKDOWN_DIR } from './constants';
 import { isChatImageMimeType, toLanguageModelChatMessage } from './utils';
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './tools.js';
-
-const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -94,8 +94,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	readonly followupProvider: vscode.ChatFollowupProvider = {
 		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
-			const system: string = await fs.promises.readFile(`${mdDir}/prompts/chat/followups.md`, 'utf8');
-			const messages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
+			const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'followups.md'), 'utf8');
+			const messages = toLanguageModelChatMessage(context.history);
 			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
 
 			const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
@@ -129,11 +129,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 			// Show an extra configuration link if there are no configured models yet
 			if (getStoredModels(this._context).length === 0) {
-				welcomeText = await fs.promises.readFile(`${mdDir}/welcome.md`, 'utf8');
+				welcomeText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'welcome.md'), 'utf8');
 				const commandUri = vscode.Uri.parse('command:positron-assistant.addModelConfiguration');
 				welcomeText += `\n\n[${addLanguageModelMessage}](${commandUri})`;
 			} else {
-				welcomeText = await fs.promises.readFile(`${mdDir}/welcomeready.md`, 'utf8');
+				welcomeText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'welcomeready.md'), 'utf8');
 				// TODO: Replace with guide link once it has been created
 				const guideLink = vscode.Uri.parse('https://positron.posit.co');
 				welcomeText = welcomeText.replace('{guide-link}', `[${vscode.l10n.t('Positron Assistant User Guide')}](${guideLink})`);
@@ -223,8 +223,21 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		);
 
-		// Construct the language model request.
-		const messages = await this.getDefaultMessages(request, context, response);
+		// Construct the transient message thread sent to the language model.
+		// Note that this is not the same as the chat history shown in the UI.
+
+		// Start with the chat history.
+		// Note that context.history excludes tool calls and results.
+		const messages = toLanguageModelChatMessage(context.history);
+
+		// Add a user message containing context about the request, workspace, running sessions, etc.
+		const contextMessage = await this.getContextMessage(request, response);
+		if (contextMessage) {
+			messages.push(contextMessage);
+		}
+
+		// Add the user's prompt.
+		messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
 
 		// Send the request to the language model.
 		await this.sendLanguageModelRequest(request, response, token, messages, tools, system);
@@ -238,7 +251,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	}
 
 	private async getDefaultSystemPrompt(): Promise<string> {
-		return await fs.promises.readFile(`${mdDir}/prompts/chat/default.md`, 'utf8');
+		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 	}
 
 	/**
@@ -248,17 +261,18 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		return undefined;
 	}
 
-	private async getDefaultMessages(
+	private async getContextMessage(
 		request: vscode.ChatRequest,
-		context: vscode.ChatContext,
 		response: vscode.ChatResponseStream,
-	) {
-		// The transient message thread sent to the language model.
-		// This will include messages from the persisted chat history,
-		// but this message thread will not be persisted.
-		const messages: vscode.LanguageModelChatMessage2[] = [];
+	): Promise<vscode.LanguageModelChatMessage2 | undefined> {
+		// This function returns a single user message containing all context
+		// relevant to a request, including:
+		// 1. A text prompt.
+		const prompts: string[] = [];
+		// 2. Binary data (e.g. image attachments).
+		const userDataParts: vscode.LanguageModelDataPart[] = [];
 
-		// If the workspace has an llms.txt document, add it's current value to the message thread.
+		// If the workspace has an llms.txt document, add it's current value to the prompt.
 		const llmsDocument = await openLlmsTextDocument();
 		if (llmsDocument) {
 			const llmsText = llmsDocument.getText();
@@ -266,68 +280,78 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				// Add the file as a reference in the response.
 				response.reference(llmsDocument.uri);
 
-				// Add the contents of the file to the message thread.
-				messages.push(
-					vscode.LanguageModelChatMessage.User(llmsText),
-					vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
-				);
+				// Add the contents of the file to the prompt
+				prompts.push(xml.node('instructions', llmsText));
 			}
 		}
 
-		// Add the persisted chat history to the message thread.
-		const historyMessages: vscode.LanguageModelChatMessage[] = toLanguageModelChatMessage(context.history);
-		messages.push(...historyMessages);
-
-		// Add Positron specific context to the message thread.
-		const positronContext = await positron.ai.getPositronChatContext(request);
-		messages.push(
-			vscode.LanguageModelChatMessage.User(JSON.stringify(positronContext)),
-			vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
-		);
-
-		// If the user has explicitly attached files as context, add them to the message thread.
+		// If the user has explicitly attached files as context, add them to the prompt.
 		if (request.references.length > 0) {
-			const attachmentsText = await fs.promises.readFile(`${mdDir}/prompts/chat/attachments.md`, 'utf8');
-			const userParts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [
-				new vscode.LanguageModelTextPart(attachmentsText)
-			];
+			const attachmentPrompts: string[] = [];
 			for (const reference of request.references) {
 				const value = reference.value;
 				if (value instanceof vscode.Location) {
-					const description = reference.modelDescription;
+					// The user attached a range of a file -
+					// usually the automatically attached visible region of the active file.
+
 					const document = await vscode.workspace.openTextDocument(value.uri);
+					const path = vscode.workspace.asRelativePath(value.uri);
 					const documentText = document.getText();
-					const selectionText = document.getText(value.range);
-					const ref = {
-						id: reference.id,
-						uri: value.uri.toString(),
-						description,
-						documentText,
-						selectionText,
-					};
+					const visibleText = document.getText(value.range);
+
 					// Add the file as a reference in the response.
 					// Although the reference includes a range, we provide the full document text as context
 					// and can't distinguish which part the model uses, so we don't include the range in the
 					// response reference.
 					response.reference(value.uri);
-					userParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
+
+					// Add the visible region prompt.
+					attachmentPrompts.push(xml.node('attachment', visibleText, {
+						filePath: path,
+						description: 'Visible region of the active file',
+						language: document.languageId,
+						startLine: value.range.start.line + 1,
+						endLine: value.range.end.line + 1,
+					}));
+
+					// Add the full document text prompt.
+					attachmentPrompts.push(xml.node('attachment', documentText, {
+						filePath: path,
+						description: 'Full contents of the active file',
+						language: document.languageId,
+					}));
 				} else if (value instanceof vscode.Uri) {
+					// The user attached a file - usually a manually attached file in the workspace.
 					const document = await vscode.workspace.openTextDocument(value);
+					const path = vscode.workspace.asRelativePath(value);
 					const documentText = document.getText();
-					const ref = { id: reference.id, uri: value.toString(), documentText };
+
 					// Add the file as a reference in the response.
 					response.reference(value);
-					userParts.push(new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`));
+
+					// Attach the full document text.
+					attachmentPrompts.push(xml.node('attachment', documentText, {
+						filePath: path,
+						description: 'Full contents of the file',
+						language: document.languageId,
+					}));
 				} else if (value instanceof vscode.ChatReferenceBinaryData) {
 					if (isChatImageMimeType(value.mimeType)) {
+						// The user attached an image - usually a pasted image or screenshot of the IDE.
 						const data = await value.data();
+
+						// If the binary data is associated with a file, add it as a reference in the response.
 						if (value.reference) {
-							// If the binary data is associated with a file, add it as a reference in the response.
 							response.reference(value.reference);
 						}
-						userParts.push(
-							new vscode.LanguageModelTextPart(`Attached image name: ${reference.name}`),
-							new vscode.LanguageModelDataPart(data, value.mimeType),
+
+						// Attach the image.
+						attachmentPrompts.push(xml.leaf('img', {
+							src: reference.name,
+						}));
+
+						userDataParts.push(
+							vscode.LanguageModelDataPart.image(data, value.mimeType),
 						);
 					} else {
 						console.warn(`Positron Assistant: Unsupported chat reference binary data type: ${typeof value}`);
@@ -336,32 +360,88 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					console.warn(`Positron Assistant: Unsupported reference type: ${typeof value}`);
 				}
 			}
-			messages.push(
-				vscode.LanguageModelChatMessage2.User(userParts),
-				vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
-			);
+
+			if (attachmentPrompts.length > 0) {
+				// Add the attachments to the prompt.
+				const attachmentsText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
+				const attachmentsContent = `${attachmentsText}\n${attachmentPrompts.join('\n')}`;
+				prompts.push(xml.node('attachments', attachmentsContent));
+			}
 		}
 
-		// Subclasses can override `getMessages` to add custom messages before the user prompt.
-		const customMessages = await this.getMessages(request);
-		messages.push(...customMessages);
+		// Add Positron IDE context to the prompt.
+		const positronContext = await positron.ai.getPositronChatContext(request);
+		const positronContextPrompts: string[] = [];
+		if (positronContext.console) {
+			const executions = positronContext.console.executions
+				.map((e) => xml.node('execution', JSON.stringify(e)))
+				.join('\n');
+			positronContextPrompts.push(
+				xml.node('console',
+					xml.node('executions', executions ?? ''), {
+					description: 'Current active console',
+					language: positronContext.console.language,
+					version: positronContext.console.version,
+					identifier: positronContext.console.identifier,
+				})
+			);
+		}
+		if (positronContext.variables) {
+			positronContextPrompts.push(
+				xml.node('variables', positronContext.variables
+					.map((v) => xml.node('variable', JSON.stringify(v)))
+					.join('\n'), {
+					description: 'Variables defined in the current session',
+				})
+			);
+		}
+		if (positronContext.shell) {
+			positronContextPrompts.push(
+				xml.node('shell', positronContext.shell, {
+					description: 'Current active shell',
+				})
+			);
+		}
+		if (positronContext.plots && positronContext.plots.hasPlots) {
+			positronContextPrompts.push(
+				xml.node('plots', 'A plot is visible.')
+			);
+		}
+		if (positronContextPrompts.length > 0) {
+			prompts.push(xml.node('context', positronContextPrompts.join('\n\n')));
+		}
 
-		// User prompt
-		messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
+		// Subclasses can override `getCustomPrompt` to append to the context message prompt.
+		const customPrompt = await this.getCustomPrompt(request);
+		if (customPrompt.length > 0) {
+			prompts.push(customPrompt);
+		}
 
-		return messages;
+		const parts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
+		if (prompts.length > 0) {
+			const prompt = prompts.join('\n\n');
+			parts.push(new vscode.LanguageModelTextPart(prompt));
+		}
+
+		parts.push(...userDataParts);
+
+		if (parts.length > 0) {
+			return vscode.LanguageModelChatMessage2.User(parts);
+		}
+
+		return undefined;
 	}
 
-	/** Custom language model messages for this participant, added before the user prompt. */
-	protected async getMessages(request: vscode.ChatRequest): Promise<vscode.LanguageModelChatMessage[]> {
-		return [];
+	/** Custom prompt for this participant, added before the user prompt. */
+	protected async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
+		return '';
 	}
 
 	private async sendLanguageModelRequest(
 		request: vscode.ChatRequest,
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
-		messages: vscode.LanguageModelChatMessage2[],
+		messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[],
 		tools: vscode.LanguageModelChatTool[],
 		system: string,
 	): Promise<void> {
@@ -420,11 +500,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 }
 
 /** The participant used in the chat pane in Ask mode. */
-class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
+export class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Chat;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
-		return await fs.promises.readFile(`${mdDir}/prompts/chat/filepaths.md`, 'utf8');
+		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
 	}
 }
 
@@ -433,53 +513,60 @@ class PositronAssistantTerminalParticipant extends PositronAssistantParticipant 
 	id = ParticipantID.Terminal;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
-		return await fs.promises.readFile(`${mdDir}/prompts/chat/terminal.md`, 'utf8');
+		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'terminal.md'), 'utf8');
 	}
 }
 
 /** The participant used in editor inline chats. */
-class PositronAssistantEditorParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
+export class PositronAssistantEditorParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Editor;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
 		if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
-			throw new Error('Editor participant only supports editor requests');
+			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
 		}
 
 		// If the user has not selected text, use the prompt for the whole document.
 		if (request.location2.selection.isEmpty) {
-			return await fs.promises.readFile(`${mdDir}/prompts/chat/editor.md`, 'utf8');
+			return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
 		}
 
 		// If the user has selected text, generate a new version of the selection.
-		return await fs.promises.readFile(`${mdDir}/prompts/chat/selection.md`, 'utf8');
+		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selection.md'), 'utf8');
 	}
 
-	async getMessages(request: vscode.ChatRequest): Promise<vscode.LanguageModelChatMessage[]> {
+	async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
 		if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
-			throw new Error('Editor participant only supports editor requests');
+			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
 		}
+
+		// Note: in this case, the current visible region of the document is not
+		// included as an attachment in the request.
 
 		// When invoked from the editor, add document and selection context
 		const document = request.location2.document;
 		const selection = request.location2.selection;
 		const selectedText = document.getText(selection);
 		const documentText = document.getText();
-		const ref = {
-			id: document.uri.toString(),
-			documentText,
-			selectedText,
-			line: selection.active.line + 1, // 1-based line numbering for the model
-			column: selection.active.character,
-			documentOffset: document.offsetAt(selection.active)
-		};
-		const textParts: vscode.LanguageModelTextPart[] = [
-			new vscode.LanguageModelTextPart(`\n\n${JSON.stringify(ref)}`)
-		];
-		return [
-			vscode.LanguageModelChatMessage.User(textParts),
-			vscode.LanguageModelChatMessage.Assistant('Acknowledged.'),
-		];
+		const filePath = vscode.workspace.asRelativePath(document.uri);
+		return xml.node('editor',
+			[
+				xml.node('document', documentText, {
+					description: 'Full contents of the active file',
+				}),
+				xml.node('selection', selectedText, {
+					description: 'Selected text in the active file',
+				})
+			].join('\n'),
+			{
+				description: 'Current active editor',
+				filePath,
+				language: document.languageId,
+				line: selection.active.line + 1,
+				column: selection.active.character + 1,
+				documentOffset: document.offsetAt(selection.active),
+			},
+		);
 	}
 }
 
@@ -493,7 +580,7 @@ class PositronAssistantEditParticipant extends PositronAssistantParticipant impl
 	id = ParticipantID.Edit;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
-		return await fs.promises.readFile(`${mdDir}/prompts/chat/filepaths.md`, 'utf8');
+		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
 	}
 }
 
