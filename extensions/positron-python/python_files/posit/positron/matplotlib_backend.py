@@ -161,9 +161,11 @@ class FigureCanvasPositron(FigureCanvasAgg):
         # Set the device pixel ratio to the requested value.
         self._set_device_pixel_ratio(pixel_ratio)  # type: ignore
 
-        # This must be set before setting the size and can't be passed via print_figure else the
-        # resulting size won't match the request size.
-        self.figure.set_layout_engine("tight")
+        # Check if user has set layout engine for their plot. If layout engine is not "tight",
+        # the resulting size may differ slightly from the request size. However, the layout engine
+        # drastically changes the output, so we should respect the user's choice.
+        if not self.figure.get_layout_engine():
+            self.figure.set_layout_engine("tight")
 
         # Resize the figure to the requested size in pixels.
         if size is None:
