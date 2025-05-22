@@ -268,7 +268,7 @@ const createInterpreterGroups = (
 };
 
 /**
- * Helper function that askses the user to select a language runtime from
+ * Helper function that asks the user to select a language runtime from
  * the list of registered language runtimes.
  *
  * This can be used to start a session for a registered language runtime.
