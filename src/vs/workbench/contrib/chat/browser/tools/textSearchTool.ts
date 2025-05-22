@@ -21,6 +21,7 @@ Do not use this tool to find files or directories in the workspace, as it is spe
 The search is performed across all files in the project, excluding files and directories that are ignored by the workspace settings.
 The provided pattern is interpreted as text unless indicated to be a regular expression.
 Other search options such as case sensitivity, whole word matching, and multiline matching can be specified.
+Do not use this tool when no workspace folders are open.
 `;
 
 export const ExtensionTextSearchToolId = 'positron_findTextInProject';
@@ -87,10 +88,7 @@ export class TextSearchTool implements IToolImpl {
 	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
-			return {
-				content: [],
-				toolResultMessage: 'No workspace folders found.'
-			};
+			throw new Error(`Can't search for text in project because no workspace folders are open. Open a workspace folder before using this tool.`);
 		}
 
 		// Set up the text search query

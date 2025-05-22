@@ -427,6 +427,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			prompts.push(customPrompt);
 		}
 
+		// Add default context items to the prompt just before the prompts are joined.
+		// This ordering helps with verifying the context items in tests, as we can expect
+		// them to be at the end of the prompt.
+		prompts.push(...getDefaultContextItems());
+
 		const parts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
 		if (prompts.length > 0) {
 			const prompt = prompts.join('\n\n');
@@ -623,4 +628,18 @@ async function openLlmsTextDocument(): Promise<vscode.TextDocument | undefined> 
 
 	const llmsDocument = await vscode.workspace.openTextDocument(fileUri);
 	return llmsDocument;
+}
+
+/**
+ * Retrieve the default context items to include in the prompt.
+ * @returns A list of default context items to include in the prompt.
+ */
+export function getDefaultContextItems(): string[] {
+	const defaultPrompts = [];
+
+	// Note if any folders are open in the workspace.
+	const areFoldersOpen = !!vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0;
+	defaultPrompts.push(xml.node('workspace', `Workspace folders are open: ${areFoldersOpen}`));
+
+	return defaultPrompts;
 }

@@ -20,6 +20,7 @@ This tool returns the contents of the specified file in the project.
 The provided file path must be a path to a file in the workspace or a file that is currently open in the editor.
 The file path can be either absolute or relative to the workspace root.
 The tool will return the contents of the file as a string, along with its size and encoding.
+Do not use this tool when no workspace folders are open.
 `;
 
 export const ExtensionFileContentsToolId = 'positron_getFileContents';
@@ -59,7 +60,7 @@ export class FileContentsTool implements IToolImpl {
 		if (isAbsolute(filePath)) {
 			uri = URI.file(filePath);
 			if (!this.fileIsOpenOrInsideWorkspace(uri)) {
-				throw new Error(`File contents for ${filePath} can't be retrieved because the file is not open or inside the current workspace`);
+				throw new Error(`Can't retrieve file contents for ${filePath} because the file is not open or inside the current workspace. Ensure the file is open in an editor or inside the workspace.`);
 			}
 		} else {
 			// If the file path is relative, try to resolve it against the workspace folders
@@ -72,7 +73,7 @@ export class FileContentsTool implements IToolImpl {
 				}
 			}
 			if (!uri) {
-				throw new Error(`File contents for ${filePath} can't be retrieved because the file is not open or inside any folders in the current workspace`);
+				throw new Error(`Can't retrieve file contents for ${filePath} because the file is not open or inside the current workspace. Ensure the file is open in an editor or inside the workspace.`);
 			}
 		}
 
