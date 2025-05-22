@@ -60,7 +60,7 @@ export class FileContentsTool implements IToolImpl {
 		if (isAbsolute(filePath)) {
 			uri = URI.file(filePath);
 			if (!this.fileIsOpenOrInsideWorkspace(uri)) {
-				throw new Error(`Can't retrieve file contents for ${filePath} because the file is not open or inside the current workspace`);
+				throw new Error(`Can't retrieve file contents for ${filePath} because the file is not open or inside the current workspace. Ensure the file is open in an editor or inside the workspace.`);
 			}
 		} else {
 			// If the file path is relative, try to resolve it against the workspace folders
@@ -73,7 +73,7 @@ export class FileContentsTool implements IToolImpl {
 				}
 			}
 			if (!uri) {
-				throw new Error(`Can't retrieve file contents for ${filePath} because the file is not open or inside the current workspace`);
+				throw new Error(`Can't retrieve file contents for ${filePath} because the file is not open or inside the current workspace. Ensure the file is open in an editor or inside the workspace.`);
 			}
 		}
 

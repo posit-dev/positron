@@ -88,7 +88,7 @@ export class TextSearchTool implements IToolImpl {
 	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
-			throw new Error(`Can't search for text in project because no workspace folders are open`);
+			throw new Error(`Can't search for text in project because no workspace folders are open. Open a workspace folder before using this tool.`);
 		}
 
 		// Set up the text search query
