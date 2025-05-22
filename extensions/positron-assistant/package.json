@@ -84,7 +84,7 @@
         "isSticky": false,
         "isDefault": true,
         "locations": [
-          "editing-session"
+          "panel"
         ]
       }
     ],
