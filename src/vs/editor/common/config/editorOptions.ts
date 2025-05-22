@@ -15,7 +15,7 @@ import { EDITOR_MODEL_DEFAULTS } from '../core/textModelDefaults.js';
 import { USUAL_WORD_SEPARATORS } from '../core/wordHelper.js';
 import * as nls from '../../../nls.js';
 import { AccessibilitySupport } from '../../../platform/accessibility/common/accessibility.js';
-import { IConfigurationPropertySchema } from '../../../platform/configuration/common/configurationRegistry.js';
+import { ConfigurationScope, IConfigurationPropertySchema } from '../../../platform/configuration/common/configurationRegistry.js';
 // --- Start Positron ---
 // Avoid "Unused import" error from commented code below
 // import product from '../../../platform/product/common/product.js';
@@ -3197,10 +3197,9 @@ class EditorLineHeight extends EditorFloatOption<EditorOption.lineHeight> {
  */
 export interface IEditorActionBarOptions {
 	/**
-	 * Enable the editor action bar.
-	 * Defaults to false.
+	 * Hides the action bar for the specified languages.
 	 */
-	enabled?: boolean;
+	hiddenForLanguages?: string[];
 }
 
 /**
@@ -3220,7 +3219,7 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 		 * Default options for the editor action bar.
 		 */
 		const defaults: EditorActionBarOptions = {
-			enabled: true,
+			hiddenForLanguages: []
 		};
 
 		// Call the base class's constructor.
@@ -3229,14 +3228,18 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 			'actionBar',
 			defaults,
 			{
-				'editor.actionBar.enabled': {
-					type: 'boolean',
-					default: defaults.enabled,
-					description: nls.localize(
-						'actionBar.enabled',
-						"Controls whether the action bar is shown."
+				'editor.actionBar.hiddenForLanguages': {
+					'type': 'array',
+					'items': {
+						'type': 'string'
+					},
+					'markdownDescription': nls.localize(
+						'editor.actionbar.hiddenForLanguages',
+						"Configure languages for which the Editor Action Bar will be hidden. For example, `python` will hide the Editor Action Bar for all Python files and `r` will hide the Editor Action Bar for all R files. `*` will hide the Editor Action Bar for all languages.",
 					),
-				}
+					'default': [],
+					'scope': ConfigurationScope.RESOURCE,
+				},
 			}
 		);
 	}
@@ -3250,10 +3253,38 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 		if (!_input || typeof _input !== 'object') {
 			return this.defaultValue;
 		}
-		const input = _input as IEditorActionBarOptions;
-		return {
-			enabled: boolean(input.enabled, this.defaultValue.enabled),
+
+		// Check if the input is an instance of IEditorActionBarOptions.
+		const editorActionBarOptions = _input as EditorActionBarOptions;
+		if (!Array.isArray(editorActionBarOptions.hiddenForLanguages)) {
+			return this.defaultValue;
+		}
+
+		// Fix up the hidden for languages array.
+		const hiddenForLanguages = new Set<string>();
+		for (const language of editorActionBarOptions.hiddenForLanguages) {
+			if (typeof language === 'string') {
+				const trimmedLanguage = language.trim();
+				if (trimmedLanguage.length > 0) {
+					hiddenForLanguages.add(trimmedLanguage.toLowerCase());
+				}
+			}
+		}
+
+		// * overrides all languages.
+		if (hiddenForLanguages.has('*')) {
+			return {
+				hiddenForLanguages: ['*']
+			};
+		}
+
+		// Create the validated editor action bar options.
+		const validatedEditorActionBarOptions: EditorActionBarOptions = {
+			hiddenForLanguages: Array.from(hiddenForLanguages).sort((a, b) => a.localeCompare(b))
 		};
+
+		// Return the validated editor action bar options.
+		return validatedEditorActionBarOptions;
 	}
 }
 

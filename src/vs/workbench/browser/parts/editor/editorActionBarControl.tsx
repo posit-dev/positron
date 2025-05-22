@@ -14,6 +14,7 @@ import { IEditorGroupView } from './editor.js';
 import { EditorActionBar } from './editorActionBar.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { EditorActionBarFactory } from './editorActionBarFactory.js';
+import { isCodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IMenuService } from '../../../../platform/actions/common/actions.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -33,7 +34,7 @@ import { IAccessibilityService } from '../../../../platform/accessibility/common
  * Constants.
  */
 const EDITOR_ACTION_BAR_HEIGHT = 28;
-export const EDITOR_ACTION_BAR_CONFIGURATION_SETTING = 'editor.actionBar.enabled';
+export const EDITOR_ACTION_BAR_HIDDEN_FOR_LANGUAGES_SETTING = 'editor.actionBar.hiddenForLanguages';
 
 /**
  * EditorActionBarControl class.
@@ -159,18 +160,18 @@ export class EditorActionBarControl extends Disposable {
 /**
  * EditorActionBarControlFactory class.
  */
-export class EditorActionBarControlFactory {
+export class EditorActionBarControlFactory extends Disposable {
 	//#region Private Properties
-
-	/**
-	 * The disposables.
-	 */
-	private readonly _disposables = new DisposableStore();
 
 	/**
 	 * The control disposables.
 	 */
 	private readonly _controlDisposables = new DisposableStore();
+
+	/**
+	 * The control disposables.
+	 */
+	private readonly _eventDisposables = new DisposableStore();
 
 	/**
 	 * Gets or sets the editor action bar control.
@@ -180,7 +181,7 @@ export class EditorActionBarControlFactory {
 	/**
 	 * Gets the onDidEnablementChange event emitter.
 	 */
-	private readonly _onDidEnablementChangeEmitter = this._disposables.add(new Emitter<void>());
+	private readonly _onDidEnablementChangeEmitter = this._register(new Emitter<void>());
 
 	//#endregion Private Properties
 
@@ -217,41 +218,72 @@ export class EditorActionBarControlFactory {
 		private readonly _container: HTMLElement,
 		private readonly _editorGroup: IEditorGroupView,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		//@IEditorService private readonly _editorService: IEditorService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
-		// Check if the configuration setting is enabled. If so, create the control.
-		if (this._configurationService.getValue<boolean>(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
-			this.createControl();
-		}
+		super();
 
 		/**
 		 * Add the onDidCloseEditor event listener to listen for when an editor is closed.
 		 */
-		this._disposables.add(this._editorGroup.onDidCloseEditor(() => {
+		this._register(this._editorGroup.onDidCloseEditor(() => {
 			// TODO
+		}));
+
+		/**
+		 * Add the onDidActiveEditorChange event listener to listen for when the active editor changes.
+		 */
+		this._register(this._editorGroup.onDidActiveEditorChange(event => {
+			// Dispose of event handlers.
+			this._eventDisposables.clear();
+
+			// If there isn't an active editor, disable the editor action bar and return.
+			if (!event.editor) {
+				this.updateEnablement(false);
+				return;
+			}
+
+			// If the active editor is a Data Explorer, enable the editor action bar and return.
+			if (event.editor.typeId === 'workbench.input.positronDataExplorer') {
+				this.updateEnablement(true);
+				return;
+			}
+
+			// Get the active editor pane. If there isn't one, disable the editor action bar and return.
+			const activeEditorPane = this._editorGroup.activeEditorPane;
+			if (!activeEditorPane) {
+				this.updateEnablement(false);
+				return;
+			}
+
+			// Get editor control. If it's not code editor, disable the editor action bar and return.
+			const editorControl = activeEditorPane.getControl();
+			if (!isCodeEditor(editorControl)) {
+				this.updateEnablement(false);
+				return;
+			}
+
+			// Get the text model. If there isn't one, disable the editor action bar and return.
+			const textModel = editorControl.getModel();
+			if (!textModel) {
+				this.updateEnablement(false);
+				return;
+			}
+
+			if (textModel) {
+				this.updateEnablementForLanguage(textModel.getLanguageId());
+				this._eventDisposables.add(textModel.onDidChangeLanguage(e => {
+					this.updateEnablementForLanguage(e.newLanguage);
+				}));
+			}
 		}));
 
 		// Add the onDidChangeConfiguration event listener to listen for changes to the
 		// configuration setting.
-		this._disposables.add(this._configurationService.onDidChangeConfiguration(e => {
+		this._register(this._configurationService.onDidChangeConfiguration(e => {
 			// Check if the configuration setting has changed.
-			if (e.affectsConfiguration(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
-				// Process the change.
-				if (this._configurationService.getValue(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
-					// Create the control, if it doesn't exist.
-					if (!this._control) {
-						this.createControl();
-					}
-				} else {
-					// Destroy the control, if it exists.
-					if (this._control) {
-						this._controlDisposables.clear();
-						this._control = undefined;
-					}
-				}
+			if (e.affectsConfiguration(EDITOR_ACTION_BAR_HIDDEN_FOR_LANGUAGES_SETTING)) {
 
-				// Fire the onDidEnablementChange event.
-				this._onDidEnablementChangeEmitter.fire();
 			}
 		}));
 	}
@@ -259,26 +291,49 @@ export class EditorActionBarControlFactory {
 	/**
 	 * Disposes the factory.
 	 */
-	dispose(): void {
-		this._disposables.dispose();
+	override dispose(): void {
 		this._controlDisposables.dispose();
+		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
 
 	//#region Private Methods
 
+	private updateEnablementForLanguage(language: string) {
+		if (language === 'python') {
+			this.updateEnablement(true);
+		} else {
+			this.updateEnablement(false);
+		}
+	}
+
 	/**
-	 * Creates the control.
-	 * @returns The control.
+	 * Updates enablement.
+	 * @param enabled true to enable, false to disable.
 	 */
-	private createControl() {
-		// Create the control.
-		this._control = this._controlDisposables.add(this._instantiationService.createInstance(
-			EditorActionBarControl,
-			this._container,
-			this._editorGroup
-		));
+	private updateEnablement(enabled: boolean) {
+		// Update enablement.
+		if (enabled) {
+			// Create the control, if it doesn't exist.
+			if (!this._control) {
+				// Create the control.
+				this._control = this._controlDisposables.add(this._instantiationService.createInstance(
+					EditorActionBarControl,
+					this._container,
+					this._editorGroup
+				));
+			}
+		} else {
+			// Destroy the control, if it exists.
+			if (this._control) {
+				this._controlDisposables.clear();
+				this._control = undefined;
+			}
+		}
+
+		// Fire the onDidEnablementChange event.
+		this._onDidEnablementChangeEmitter.fire();
 	}
 
 	//#endregion Private Methods

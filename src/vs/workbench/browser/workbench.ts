@@ -49,9 +49,7 @@ import { setProgressAcccessibilitySignalScheduler } from '../../base/browser/ui/
 import { AccessibleViewRegistry } from '../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { NotificationAccessibleView } from './parts/notifications/notificationAccessibleView.js';
 // --- Start Positron ---
-// eslint-disable-next-line no-duplicate-imports
-import { LayoutSettings, EditorActionsLocation } from '../services/layout/browser/layoutService.js';
-import { EDITOR_ACTION_BAR_CONFIGURATION_SETTING } from './parts/editor/editorActionBarControl.js';
+import { EDITOR_ACTION_BAR_HIDDEN_FOR_LANGUAGES_SETTING } from './parts/editor/editorActionBarControl.js';
 // --- End Positron ---
 
 export interface IWorkbenchOptions {
@@ -230,15 +228,17 @@ export class Workbench extends Layout {
 		// editor actions and the editor action bar by adjusting the editor actions location after
 		// enabling the editor action bar.
 		this._register(configurationService.onDidChangeConfiguration(async e => {
-			// Check whether the editor action bar configuration setting has changed.
-			if (e.affectsConfiguration(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
-				// Process the editor action bar configuration setting.
-				await configurationService.updateValue(
-					LayoutSettings.EDITOR_ACTIONS_LOCATION,
-					configurationService.getValue(EDITOR_ACTION_BAR_CONFIGURATION_SETTING) ?
-						EditorActionsLocation.HIDDEN :
-						EditorActionsLocation.DEFAULT
-				);
+			if (e.affectsConfiguration(EDITOR_ACTION_BAR_HIDDEN_FOR_LANGUAGES_SETTING)) {
+
+
+
+				// console.log('+++++++++++++++ Workbench EDITOR_ACTION_BAR_HIDDEN_FOR_SETTING CHANGED');
+				// console.log(e);
+
+				// let a = configurationService.getValue<string[]>(EDITOR_ACTION_BAR_HIDDEN_FOR_LANGUAGES_SETTING);
+
+				// console.log('+++++ Workbench EDITOR_ACTION_BAR_HIDDEN_FOR_SETTING a: ' + a);
+
 			}
 		}));
 		// --- End Positron ---

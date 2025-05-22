@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize, localize2 } from '../../../../nls.js';
-import { Action2, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
+import { Action2, MenuId } from '../../../../platform/actions/common/actions.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { Categories } from '../../../../platform/action/common/actionCommonCategories.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
@@ -60,4 +60,4 @@ export class ToggleActionBarAction extends Action2 {
 /**
  * Registers the action.
  */
-registerAction2(ToggleActionBarAction);
+// registerAction2(ToggleActionBarAction);
