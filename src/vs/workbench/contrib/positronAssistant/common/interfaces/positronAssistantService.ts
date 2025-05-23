@@ -23,6 +23,7 @@ export interface IPositronChatContext {
 	activeSession?: {
 		identifier: string;
 		language: string;
+		packages: string[];
 		version: string;
 		mode: LanguageRuntimeSessionMode;
 		notebookUri?: UriComponents;

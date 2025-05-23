@@ -18,6 +18,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { Emitter } from '../../../../base/common/event.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { RuntimeSession } from '../../positronRuntimeSessions/browser/components/runtimeSession.js';
 //import { getInstalledPackages } from '../common/packages.js';
 
 /**
@@ -43,6 +45,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExecutionHistoryService private readonly _historyService: IExecutionHistoryService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
 	) {
 		super();
 	}
@@ -56,7 +59,6 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		const variablesInstance = this._variableService.activePositronVariablesInstance as PositronVariablesInstance | undefined;
 		const activeSession = variablesInstance && this.summarizeSession(variablesInstance.session);
 
-		//const packages = await this.getInstalledPackagesFromExtension();
 		const context: IPositronChatContext = {
 			activeSession,
 			plots: {
@@ -76,13 +78,13 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 
 	/*
 	private async getInstalledPackagesFromExtension(): Promise<{ name: string; version: string }[] | undefined> {
-		const extension = await this.extensionService.getExtension('positron.assistant');
+		const extension = await this._extensionService.getExtension('positron.assistant');
 		if (!extension) {
 			console.error('Positron Assistant extension not found');
 			return undefined;
 		}
 
-		const api = extension.exports;
+		const api = (extension as any).exports;// as PositronAssistantAPI;
 		if (!api || !api.getInstalledPackages) {
 			console.error('Positron Assistant API not available');
 			return undefined;
@@ -90,7 +92,27 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 
 		return await api.getInstalledPackages();
 	}
-*/
+		*/
+
+	/*
+private getInstalledPackages(session: ILanguageRuntimeSession): Promise<{ name: string; version: string }[] | undefined> {
+	let code = '';
+	if (session.runtimeMetadata.languageName === 'python') {
+		code = `
+import json
+import importlib.metadata
+installed_packages = [f"{dist.metadata['Name']} ({dist.version})" for dist in importlib.metadata.distributions()]
+print(json.dumps(installed_packages))
+`;
+	} else if (session.runtimeMetadata.languageName === 'r') {
+
+		code = `
+installed_packages <- installed.packages()
+`;
+	}
+	session.execute(code);
+}
+	*/
 
 	/**
 	 * Summarizes a given session as context for a language model.
@@ -100,6 +122,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	 */
 	private summarizeSession(session: ILanguageRuntimeSession): IPositronChatContext['activeSession'] {
 		const executions = this.summarizeExecutionHistory(session.metadata.sessionId);
+		const packages = await this.getInstalledPackagesFromExtension();
 		const sessionContext: IPositronChatContext['activeSession'] = {
 			identifier: session.metadata.sessionId,
 			language: session.runtimeMetadata.languageName,
