@@ -940,8 +940,8 @@ export class Sessions {
  */
 export class SessionQuickPick {
 	private quickInputTitleBar = this.code.driver.page.locator('.quick-input-titlebar');
-	private sessionQuickMenu = this.quickInputTitleBar.getByText(/(Select a Session)|(Start a New Session)/);
-	allSessionsMenu = this.quickInputTitleBar.getByText(/Start a New Session/);
+	private sessionQuickMenu = this.quickInputTitleBar.getByText(/(Select Interpreter Session)|(Start New Interpreter Session)/);
+	allSessionsMenu = this.quickInputTitleBar.getByText(/Start New Interpreter Session/);
 
 	constructor(private code: Code, private sessions: Sessions) { }
 
@@ -960,9 +960,9 @@ export class SessionQuickPick {
 				}
 
 				if (viewAllRuntimes) {
-					await this.code.driver.page.getByRole('textbox', { name: /(Select a Session|New Session)/ }).fill('New Session');
+					await this.code.driver.page.getByRole('textbox', { name: /(Select Interpreter Session|New Interpreter Session)/ }).fill('New Session');
 					await this.code.driver.page.keyboard.press('Enter');
-					await expect(this.code.driver.page.getByText(/Start a New Session/)).toBeVisible({ timeout: 1000 });
+					await expect(this.code.driver.page.getByText(/Start New Interpreter Session/)).toBeVisible({ timeout: 1000 });
 				}
 			}, 'Open Session QuickPick Menu').toPass({ intervals: [500], timeout: 10000 });
 		});
