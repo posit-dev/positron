@@ -3235,7 +3235,7 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 					},
 					'markdownDescription': nls.localize(
 						'editor.actionbar.hiddenForLanguages',
-						"Configures the languages for which the action bar will be hidden. For example, `python` will hide the action bar for Python files, `r` will hide the action bar for R files, and `plaintext` will hide the action bar for plain text files. Use `*` to hide the action bar for all languages.",
+						"Configures the language identifiers for which the action bar will be hidden. For example, `python` will hide the action bar for Python files, `r` will hide the action bar for R files, and `plaintext` will hide the action bar for plain text files. Use `*` to hide the action bar for all languages. (See [Known Language Identifiers](https://code.visualstudio.com/docs/languages/identifiers#_known-language-identifiers) for a complete list of language identifiers.)",
 					),
 					'default': defaults.hiddenForLanguages,
 					'scope': ConfigurationScope.RESOURCE,
