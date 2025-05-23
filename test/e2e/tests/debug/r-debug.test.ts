@@ -153,16 +153,18 @@ test.describe('R Debugging', {
 		const { debug, console, editors } = app.workbench;
 
 		// Trigger the breakpoint
-		await console.pasteCodeToConsole(`outer <- function(x) {
-				inner(x)
-				}
+		await console.pasteCodeToConsole(`
+		outer <- function(x) {
+			inner(x)
+		}
 
-				inner <- function(y) {
-				browser()
-				y + 1
-				}
+		inner <- function(y) {
+			browser()
+			y + 1
+		}
 
-				outer(5)`, true);
+		outer(5)`, true);
+
 		await debug.expectBrowserModeFrame(1);
 
 		// Verify call stack order
