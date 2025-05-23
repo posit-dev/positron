@@ -2053,6 +2053,11 @@ declare module 'positron' {
 					output: string;
 					error?: any;
 				}[];
+				// installed packages
+				packages?: {
+					name: string;
+					version: string;
+				}[];
 			};
 			plots?: {
 				hasPlots: boolean;

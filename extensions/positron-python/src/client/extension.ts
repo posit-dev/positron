@@ -47,6 +47,7 @@ import { GLOBAL_PERSISTENT_KEYS } from './common/persistentState';
 // --- Start Positron ---
 
 import { activatePositron } from './positron/extension';
+import { registerPythonLanguageModelTools } from '../llm-tools/llm-tools';
 
 // --- End Positron ---
 
@@ -91,6 +92,7 @@ export async function activate(context: IExtensionContext): Promise<PythonExtens
         // Run in the background.
         .ignoreErrors();
 
+    registerPythonLanguageModelTools(context, serviceContainer);
     // --- End Positron ---
 
     sendStartupTelemetry(ready, durations, stopWatch, serviceContainer, isFirstSession)
@@ -214,3 +216,4 @@ function notifyUser(msg: string) {
         traceError('Failed to Notify User', ex);
     }
 }
+

@@ -14,6 +14,7 @@ import { registerAssistantTools } from './tools.js';
 import { registerCopilotService } from './copilot.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
+import { getInstalledPackages } from './packages.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -266,4 +267,7 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}));
 	}
+	return {
+		getInstalledPackages
+	};
 }

@@ -18,6 +18,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { Emitter } from '../../../../base/common/event.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+//import { getInstalledPackages } from '../common/packages.js';
 
 /**
  * PositronAssistantService class.
@@ -54,6 +55,8 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	getPositronChatContext(request: IChatRequestData): IPositronChatContext {
 		const variablesInstance = this._variableService.activePositronVariablesInstance as PositronVariablesInstance | undefined;
 		const activeSession = variablesInstance && this.summarizeSession(variablesInstance.session);
+
+		//const packages = await this.getInstalledPackagesFromExtension();
 		const context: IPositronChatContext = {
 			activeSession,
 			plots: {
@@ -70,6 +73,24 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 
 		return context;
 	}
+
+	/*
+	private async getInstalledPackagesFromExtension(): Promise<{ name: string; version: string }[] | undefined> {
+		const extension = await this.extensionService.getExtension('positron.assistant');
+		if (!extension) {
+			console.error('Positron Assistant extension not found');
+			return undefined;
+		}
+
+		const api = extension.exports;
+		if (!api || !api.getInstalledPackages) {
+			console.error('Positron Assistant API not available');
+			return undefined;
+		}
+
+		return await api.getInstalledPackages();
+	}
+*/
 
 	/**
 	 * Summarizes a given session as context for a language model.
