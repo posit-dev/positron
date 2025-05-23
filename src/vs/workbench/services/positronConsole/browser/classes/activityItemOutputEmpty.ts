@@ -3,18 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from '../../../../../nls.js';
 import { ActivityItem } from './activityItem.js';
 
 /**
- * Localized strings.
+ * Represents an empty output by a language runtime.
  */
-const positronHTMLOutput = localize('positronHTMLOutput', "[HTML output]");
-
-/**
- * Represents formatted HTML output by a language runtime.
- */
-export class ActivityItemOutputHtml extends ActivityItem {
+export class ActivityItemOutputEmpty extends ActivityItem {
 	//#region Constructor
 
 	/**
@@ -23,16 +17,12 @@ export class ActivityItemOutputHtml extends ActivityItem {
 	 * @param id The identifier.
 	 * @param parentId The parent identifier.
 	 * @param when The date.
-	 * @param html The HTML content returned from the runtime.
-	 * @param text The text content returned from the runtime.
 	 * @param outputId The optional identifier of the output associated with this activity item.
 	 */
 	constructor(
 		id: string,
 		parentId: string,
 		when: Date,
-		readonly html: string,
-		readonly text: string | undefined,
 		readonly outputId?: string
 	) {
 		// Call the base class's constructor.
@@ -49,8 +39,9 @@ export class ActivityItemOutputHtml extends ActivityItem {
 	 * @returns The clipboard representation of the activity item.
 	 */
 	public override getClipboardRepresentation(commentPrefix: string): string[] {
-		return [commentPrefix + (this.text ?? positronHTMLOutput)];
+		return [];
 	}
 
 	//#endregion Public Methods
 }
+
