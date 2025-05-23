@@ -183,7 +183,6 @@ export class EditorActionBarControlFactory {
 	 */
 	private readonly _editorDisposables = new DisposableStore();
 
-
 	/**
 	 * Gets or sets the editor action bar control.
 	 */
@@ -244,6 +243,7 @@ export class EditorActionBarControlFactory {
 	dispose(): void {
 		this._disposables.dispose();
 		this._controlDisposables.dispose();
+		this._editorDisposables.dispose();
 	}
 
 	//#endregion Constructor & Dispose
