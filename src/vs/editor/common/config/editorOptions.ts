@@ -3235,7 +3235,7 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 					},
 					'markdownDescription': nls.localize(
 						'editor.actionbar.hiddenForLanguages',
-						"Configures the languages for which the action bar will be hidden. For example, `python` will hide the action bar for Python files, `r` will hide the action bar for R files, and `plaintext` will hide the action bar for plain text files. Use `*` to hide the action bar for all languages. The default is `plaintext`.",
+						"Configures the languages for which the action bar will be hidden. For example, `python` will hide the action bar for Python files, `r` will hide the action bar for R files, and `plaintext` will hide the action bar for plain text files. Use `*` to hide the action bar for all languages.",
 					),
 					'default': defaults.hiddenForLanguages,
 					'scope': ConfigurationScope.RESOURCE,
