@@ -38,6 +38,7 @@ import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, ITo
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
 import { ToolProgress } from '../../common/languageModelToolsService.js';
+import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
 // --- End Positron ---
 
 const codeInstructions = `
@@ -127,9 +128,17 @@ export class EditTool implements IToolImpl {
 		};
 		// const parameters = invocation.parameters as EditToolParams;
 		const parameters = updatedParams as EditToolParams;
+
+		// const fileUri = URI.revive(parameters.file); // TODO@roblourens do revive in MainThreadLanguageModelTools
+		// Use the same logic as the fileContentsTool to get the URI for the file.
+		let fileUri: URI | undefined = undefined;
+		try {
+			fileUri = getUriForFileOpenOrInsideWorkspace(filePath, this.workspaceContextService, this.editorGroupsService);
+		} catch (error) {
+			throw new Error(`Can't edit file: ${JSON.stringify(error)}`);
+		}
 		// --- End Positron ---
 
-		const fileUri = URI.revive(parameters.file); // TODO@roblourens do revive in MainThreadLanguageModelTools
 		const uri = CellUri.parse(fileUri)?.notebook || fileUri;
 
 		if (!this.workspaceContextService.isInsideWorkspace(uri) && !this.notebookService.getNotebookTextModel(uri)) {

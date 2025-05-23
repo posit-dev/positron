@@ -4,16 +4,15 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { CancellationToken } from '../../../../../base/common/cancellation.js';
-import { isAbsolute } from '../../../../../base/common/path.js';
-import { isEqual } from '../../../../../base/common/resources.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
-import { GroupsOrder, IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
+import { IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 import { ITextFileService } from '../../../../services/textfile/common/textfiles.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
+import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
 
 const getFileContentsModelDescription = `
 This tool returns the contents of the specified file in the project.
@@ -57,24 +56,10 @@ export class FileContentsTool implements IToolImpl {
 
 		// Construct the file URI
 		let uri: URI | undefined = undefined;
-		if (isAbsolute(filePath)) {
-			uri = URI.file(filePath);
-			if (!this.fileIsOpenOrInsideWorkspace(uri)) {
-				throw new Error(`Can't retrieve file contents for ${filePath} because the file is not open or inside the current workspace. Ensure the file is open in an editor or inside the workspace.`);
-			}
-		} else {
-			// If the file path is relative, try to resolve it against the workspace folders
-			const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
-			for (const folder of workspaceFolders) {
-				const resolvedUri = folder.toResource(filePath);
-				if (this.fileIsOpenOrInsideWorkspace(resolvedUri)) {
-					uri = resolvedUri;
-					break;
-				}
-			}
-			if (!uri) {
-				throw new Error(`Can't retrieve file contents for ${filePath} because the file is not open or inside the current workspace. Ensure the file is open in an editor or inside the workspace.`);
-			}
+		try {
+			uri = getUriForFileOpenOrInsideWorkspace(filePath, this._workspaceContextService, this._editorGroupsService);
+		} catch (error) {
+			throw new Error(`Can't retrieve file contents: ${JSON.stringify(error)}`);
 		}
 
 		// The file is in the workspace, so grab the file contents
@@ -100,21 +85,6 @@ export class FileContentsTool implements IToolImpl {
 			invocationMessage: localize('fileContentsTool.invocationMessage', "Retrieving file contents"),
 			pastTenseMessage: localize('fileContentsTool.pastTenseMessage', "Retrieved file contents"),
 		};
-	}
-
-	fileIsOpenOrInsideWorkspace(uri: URI): boolean {
-		// Check if the file is inside the workspace
-		if (this._workspaceContextService.isInsideWorkspace(uri)) {
-			return true;
-		}
-
-		// Otherwise, check if the file is open in any editor
-		const groupsByLastActive = this._editorGroupsService.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE);
-		return groupsByLastActive.some((group) => {
-			return group.editors.some((editor) => {
-				return isEqual(editor.resource, uri);
-			});
-		});
 	}
 }
 
