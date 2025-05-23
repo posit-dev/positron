@@ -618,6 +618,11 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
+				name: 'Claude 4 Opus',
+				identifier: 'claude-opus-4-20250514',
+				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
+			{
 				name: 'Claude 3.7 Sonnet v1',
 				identifier: 'claude-3-7-sonnet-latest',
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
@@ -650,6 +655,11 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 				name: 'Claude 4 Sonnet Bedrock',
 				identifier: 'anthropic.claude-sonnet-4-20250514-v1:0',
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
+			{
+				name: 'Claude 4 Opus Bedrock',
+				identifier: 'anthropic.claude-opus-4-20250514-v1:0',
+				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 3.7 Sonnet v1 Bedrock',
