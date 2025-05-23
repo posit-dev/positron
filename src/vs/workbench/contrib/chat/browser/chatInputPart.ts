@@ -1151,17 +1151,19 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 					}
 					if (this._currentLanguageModel) {
 						// ModelPickerDelegate has been moved to the constructor so it is available for Positron's provider picker.
-						// const itemDelegate: IModelPickerDelegate = {
-						// 	getCurrentModel: () => this._currentLanguageModel,
-						// 	onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
-						// 	setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
-						// 		// The user changed the language model, so we don't wait for the persisted option to be registered
-						// 		this._waitForPersistedLanguageModel.clear();
-						// 		this.setCurrentLanguageModel(model);
-						// 		this.renderAttachedContext();
-						// 	},
-						// 	getModels: () => this.getModels()
-						// };
+						/*
+						const itemDelegate: IModelPickerDelegate = {
+							getCurrentModel: () => this._currentLanguageModel,
+							onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
+							setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
+								// The user changed the language model, so we don't wait for the persisted option to be registered
+								this._waitForPersistedLanguageModel.clear();
+								this.setCurrentLanguageModel(model);
+								this.renderAttachedContext();
+							},
+							getModels: () => this.getModels()
+						};
+						*/
 
 						// Positron needs to communicate with the picker so it can update when the provider changes
 						const itemDelegate = this._modelPickerDelegate;
