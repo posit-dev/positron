@@ -59,7 +59,7 @@ export class FileContentsTool implements IToolImpl {
 		try {
 			uri = getUriForFileOpenOrInsideWorkspace(filePath, this._workspaceContextService, this._editorGroupsService);
 		} catch (error) {
-			throw new Error(`Can't retrieve file contents: ${JSON.stringify(error)}`);
+			throw new Error(`Can't retrieve file contents: ${error.message}`);
 		}
 
 		// The file is in the workspace, so grab the file contents

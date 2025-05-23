@@ -24,7 +24,21 @@ export function getUriForFileOpenOrInsideWorkspace(
 		// If the file path is relative, try to resolve it against the workspace folders
 		const workspaceFolders = workspaceContextService.getWorkspace().folders;
 		for (const folder of workspaceFolders) {
-			const resolvedUri = folder.toResource(filePath);
+			let relativePath = filePath;
+			// This is kinda whack, but in a multi-root workspace, we need to check if the relative path starts
+			// with the folder name to avoid constructing a URI that has the folder name twice.
+			// For example, if the folder is "myFolder" and the relative path is "myFolder/src/file.txt",
+			// we want to construct "myFolder/src/file.txt" instead of "myFolder/myFolder/src/file.txt".
+			if (workspaceFolders.length > 1) {
+				const folderName = folder.name;
+				if (relativePath.startsWith(folderName + '/') || relativePath.startsWith(folderName + '\\')) {
+					relativePath = relativePath.slice(folderName.length + 1);
+				} else {
+					// If the filePath does not start with this folder's name, skip to next folder
+					continue;
+				}
+			}
+			const resolvedUri = folder.toResource(relativePath);
 			if (fileIsOpenOrInsideWorkspace(resolvedUri, workspaceContextService, editorGroupsService)) {
 				uri = resolvedUri;
 				break;
