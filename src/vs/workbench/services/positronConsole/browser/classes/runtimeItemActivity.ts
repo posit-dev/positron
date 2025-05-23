@@ -11,6 +11,14 @@ import { ActivityItemOutputPlot } from './activityItemOutputPlot.js';
 import { ActivityItemErrorMessage } from './activityItemErrorMessage.js';
 import { ActivityItemOutputMessage } from './activityItemOutputMessage.js';
 import { ActivityItemInput, ActivityItemInputState } from './activityItemInput.js';
+import { ActivityItemOutputEmpty } from './activityItemOutputEmpty.js';
+
+/** The ActivityItemOutput type alias. */
+export type ActivityItemOutput =
+	ActivityItemOutputEmpty |
+	ActivityItemOutputHtml |
+	ActivityItemOutputMessage |
+	ActivityItemOutputPlot;
 
 /**
  * The ActivityItem type alias.
@@ -19,9 +27,7 @@ export type ActivityItem =
 	ActivityItemStream |
 	ActivityItemErrorMessage |
 	ActivityItemInput |
-	ActivityItemOutputHtml |
-	ActivityItemOutputMessage |
-	ActivityItemOutputPlot |
+	ActivityItemOutput |
 	ActivityItemPrompt;
 
 /**

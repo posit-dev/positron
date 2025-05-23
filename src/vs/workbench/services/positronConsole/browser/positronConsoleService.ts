@@ -9,7 +9,7 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { ICodeEditor } from '../../../../editor/browser/editorBrowser.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { Disposable, DisposableStore, IDisposable } from '../../../../base/common/lifecycle.js';
-import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { IViewsService } from '../../views/common/viewsService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -32,11 +32,11 @@ import { RuntimeItemRestartButton } from './classes/runtimeItemRestartButton.js'
 import { ActivityItemErrorMessage } from './classes/activityItemErrorMessage.js';
 import { ActivityItemOutputMessage } from './classes/activityItemOutputMessage.js';
 import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.js';
-import { ActivityItem, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
+import { ActivityItem, ActivityItemOutput, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
 import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
-import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
 import { IRuntimeStartupService, ISessionRestoreFailedEvent, SerializedSessionMetadata } from '../../runtimeStartup/common/runtimeStartupService.js';
@@ -44,6 +44,7 @@ import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } 
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
+import { ActivityItemOutputEmpty } from './classes/activityItemOutputEmpty.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -83,9 +84,17 @@ const formatCallbackTrace = (callback: string, languageRuntimeMessage: ILanguage
 	`${callback} (ID: ${languageRuntimeMessage.id} Parent ID: ${languageRuntimeMessage.parent_id} When: ${formatTimestamp(new Date(languageRuntimeMessage.when))})`;
 
 /**
- * Formats a traceback.
- * @param traceback The traceback.
- * @returns The formatted traceback.
+ * Formats an output message.
+ * @param message The message to format.
+ * @returns The formatted output message.
+ */
+const formatOutputMessage = (message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput) =>
+	message.output_id ? `Output ID: ${message.output_id}` : '' + formatOutputData(message.data);
+
+/**
+ * Formats output data.
+ * @param data The output data.
+ * @returns The formatted output data.
  */
 const formatOutputData = (data: ILanguageRuntimeMessageOutputData) => {
 	let result = '\nOutput:';
@@ -1364,7 +1373,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		// so there is feedback that the interrupt was processed.
 		if (runtimeState === RuntimeState.Ready || runtimeState === RuntimeState.Idle) {
 			const id = generateUuid();
-			this.addOrUpdateUpdateRuntimeItemActivity(
+			this.addOrUpdateRuntimeItemActivity(
 				id,
 				new ActivityItemInput(
 					id,
@@ -1977,7 +1986,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			}
 
 			// Add or update the runtime item activity.
-			this.addOrUpdateUpdateRuntimeItemActivity(
+			this.addOrUpdateRuntimeItemActivity(
 				languageRuntimeMessageInput.parent_id,
 				new ActivityItemInput(
 					languageRuntimeMessageInput.id,
@@ -2012,7 +2021,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			);
 
 			// Add or update the runtime item activity.
-			this.addOrUpdateUpdateRuntimeItemActivity(
+			this.addOrUpdateRuntimeItemActivity(
 				languageRuntimeMessagePrompt.parent_id,
 				this._activeActivityItemPrompt
 			);
@@ -2025,85 +2034,39 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				if (this._trace) {
 					this.addRuntimeItemTrace(
 						formatCallbackTrace('onDidReceiveRuntimeMessageOutput', languageRuntimeMessageOutput) +
-						formatOutputData(languageRuntimeMessageOutput.data)
+						formatOutputMessage(languageRuntimeMessageOutput)
 					);
 				}
 
-				if (
-					languageRuntimeMessageOutput.kind === RuntimeOutputKind.ViewerWidget ||
-					languageRuntimeMessageOutput.kind === RuntimeOutputKind.IPyWidget
-				) {
-					// If this message will be handled by the viewer or plots pane, we can break
-					// early to avoid displaying potentially long output in the console.
-					return;
+				// Create an activity item representing the message.
+				const activityItemOutput = this.createActivityItemOutput(languageRuntimeMessageOutput);
+
+				// If the runtime specified an output ID, update all activity items with the given output ID.
+				if (languageRuntimeMessageOutput.output_id) {
+					this.updateActivityItemOutputs(languageRuntimeMessageOutput.output_id, activityItemOutput);
 				}
 
-				// Check to see if the data contains an image by checking the record for the
-				// "image/" mime type.
-				const images = Object.keys(languageRuntimeMessageOutput.data).find(
-					key => key.startsWith('image/'));
-
-				// Check to see if the data contains any HTML
-				let html = Object.hasOwnProperty.call(languageRuntimeMessageOutput.data,
-					'text/html');
-				if (html) {
-					const htmlContent = languageRuntimeMessageOutput.data['text/html']!.toLowerCase();
-					if (htmlContent.indexOf('<script') >= 0 ||
-						htmlContent.indexOf('<body') >= 0 ||
-						htmlContent.indexOf('<html') >= 0 ||
-						htmlContent.indexOf('<iframe') >= 0 ||
-						htmlContent.indexOf('<!doctype') >= 0) {
-						// We only want to render HTML fragments for now; if it has
-						// scripts or looks like it is a self-contained document,
-						// hard pass. In the future, we'll need to render those in a
-						// sandboxed environment.
-						html = false;
-					}
-				}
-
-				if (images) {
-					// It's an image, so create a plot activity item.
-					this.addOrUpdateUpdateRuntimeItemActivity(
-						languageRuntimeMessageOutput.parent_id,
-						new ActivityItemOutputPlot(
-							languageRuntimeMessageOutput.id,
-							languageRuntimeMessageOutput.parent_id,
-							new Date(languageRuntimeMessageOutput.when),
-							languageRuntimeMessageOutput.data, () => {
-								// This callback runs when the user clicks on the
-								// plot; when they do this, we'll select it in the
-								// Plots pane.
-								this._onDidSelectPlotEmitter.fire(languageRuntimeMessageOutput.id);
-							}
-						)
-					);
-				} else if (html) {
-					// It's HTML, so show the HTML.
-					this.addOrUpdateUpdateRuntimeItemActivity(
-						languageRuntimeMessageOutput.parent_id,
-						new ActivityItemOutputHtml(
-							languageRuntimeMessageOutput.id,
-							languageRuntimeMessageOutput.parent_id,
-							new Date(languageRuntimeMessageOutput.when),
-							languageRuntimeMessageOutput.data['text/html']!,
-							languageRuntimeMessageOutput.data['text/plain']
-						)
-					);
-				} else {
-					// It's a plain old text output, so create a text activity item.
-					this.addOrUpdateUpdateRuntimeItemActivity(
-						languageRuntimeMessageOutput.parent_id,
-						new ActivityItemOutputMessage(
-							languageRuntimeMessageOutput.id,
-							languageRuntimeMessageOutput.parent_id,
-							new Date(languageRuntimeMessageOutput.when),
-							languageRuntimeMessageOutput.data
-						)
-					);
-				}
+				// Also add the output activity item for this execution.
+				this.addOrUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, activityItemOutput);
 			});
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
+
+		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageUpdateOutput((languageRuntimeMessageUpdateOutput) => {
+			// If trace is enabled, add a trace runtime item.
+			if (this._trace) {
+				this.addRuntimeItemTrace(
+					formatCallbackTrace('onDidReceiveRuntimeMessageUpdateOutput', languageRuntimeMessageUpdateOutput) +
+					formatOutputMessage(languageRuntimeMessageUpdateOutput)
+				);
+			}
+
+			// Create an activity item representing the message.
+			const activityItemOutput = this.createActivityItemOutput(languageRuntimeMessageUpdateOutput);
+
+			// Update all activity items with the given output ID.
+			this.updateActivityItemOutputs(languageRuntimeMessageUpdateOutput.output_id, activityItemOutput);
+		}));
 
 		// Add the onDidReceiveRuntimeMessageStream event handler.
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
@@ -2121,7 +2084,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			// Handle stdout and stderr.
 			if (languageRuntimeMessageStream.name === 'stdout') {
-				this.addOrUpdateUpdateRuntimeItemActivity(
+				this.addOrUpdateRuntimeItemActivity(
 					languageRuntimeMessageStream.parent_id,
 					new ActivityItemStream(
 						languageRuntimeMessageStream.id,
@@ -2132,7 +2095,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					)
 				);
 			} else if (languageRuntimeMessageStream.name === 'stderr') {
-				this.addOrUpdateUpdateRuntimeItemActivity(
+				this.addOrUpdateRuntimeItemActivity(
 					languageRuntimeMessageStream.parent_id,
 					new ActivityItemStream(
 						languageRuntimeMessageStream.id,
@@ -2160,7 +2123,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				}
 
 				// Add or update the runtime item activity.
-				this.addOrUpdateUpdateRuntimeItemActivity(
+				this.addOrUpdateRuntimeItemActivity(
 					languageRuntimeMessageError.parent_id,
 					new ActivityItemErrorMessage(
 						languageRuntimeMessageError.id,
@@ -2485,6 +2448,92 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	}
 
 	/**
+	 * Create an output activity item from a runtime message.
+	 * @param id The activity item ID.
+	 * @param message The runtime message.
+	 * @returns The output activity item.
+	 */
+	private createActivityItemOutput(
+		message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput,
+	): ActivityItemOutput {
+		// Don't handle outputs routed to the viewer or plots pane.
+		// They likely have long outputs that are not suitable for the console.
+		if (message.kind === RuntimeOutputKind.ViewerWidget ||
+			message.kind === RuntimeOutputKind.IPyWidget) {
+			// TODO: Comment
+			// Return an empty activity item output.
+			// This is to match Jupyter Lab.
+			// Even though the output is routed to another pane,
+			// the user should be able to subsequently output to the same output ID,
+			// and it should render in place of this empty activity item.
+			return new ActivityItemOutputEmpty(
+				message.id,
+				message.parent_id,
+				new Date(message.when),
+				message.output_id
+			);
+		}
+
+		// Check to see if the data contains an image by checking the record for the
+		// "image/" mime type.
+		const images = Object.keys(message.data).find(
+			key => key.startsWith('image/'));
+
+		// Check to see if the data contains any HTML
+		let html = Object.hasOwnProperty.call(message.data,
+			'text/html');
+		if (html) {
+			const htmlContent = message.data['text/html']!.toLowerCase();
+			if (htmlContent.indexOf('<script') >= 0 ||
+				htmlContent.indexOf('<body') >= 0 ||
+				htmlContent.indexOf('<html') >= 0 ||
+				htmlContent.indexOf('<iframe') >= 0 ||
+				htmlContent.indexOf('<!doctype') >= 0) {
+				// We only want to render HTML fragments for now; if it has
+				// scripts or looks like it is a self-contained document,
+				// hard pass. In the future, we'll need to render those in a
+				// sandboxed environment.
+				html = false;
+			}
+		}
+
+		if (images) {
+			// It's an image, so create a plot activity item.
+			return new ActivityItemOutputPlot(
+				message.id,
+				message.parent_id,
+				new Date(message.when),
+				message.data, () => {
+					// This callback runs when the user clicks on the
+					// plot; when they do this, we'll select it in the
+					// Plots pane.
+					this._onDidSelectPlotEmitter.fire(message.id);
+				},
+				message.output_id
+			);
+		} else if (html) {
+			// It's HTML, so show the HTML.
+			return new ActivityItemOutputHtml(
+				message.id,
+				message.parent_id,
+				new Date(message.when),
+				message.data['text/html']!,
+				message.data['text/plain'],
+				message.output_id
+			);
+		} else {
+			// It's a plain old text output, so create a text activity item.
+			return new ActivityItemOutputMessage(
+				message.id,
+				message.parent_id,
+				new Date(message.when),
+				message.data,
+				message.output_id
+			);
+		}
+	}
+
+	/**
 	 * Remove all restart buttons from the console. We do this once a runtime
 	 * has become ready, since at that point the restart is complete.
 	 */
@@ -2727,7 +2776,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			// Add the provisional ActivityItemInput. This provisional ActivityItemInput will be
 			// replaced with the real ActivityItemInput when the runtime sends it (which can take a
 			// moment or two to happen).
-			this.addOrUpdateUpdateRuntimeItemActivity(id, activityItemInput);
+			this.addOrUpdateRuntimeItemActivity(id, activityItemInput);
 		}
 
 		// If this is an interactive submission, check to see the text we just executed is
@@ -2784,7 +2833,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param parentId The parent identifier.
 	 * @param activityItem The activity item.
 	 */
-	private addOrUpdateUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItem) {
+	private addOrUpdateRuntimeItemActivity(parentId: string, activityItem: ActivityItem) {
 		// Find the activity runtime item. If it was found, add the activity item to it. If not, add
 		// a new activity runtime item.
 		const runtimeItemActivity = this._runtimeItemActivities.get(parentId);
@@ -2801,6 +2850,29 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const runtimeItemActivity = new RuntimeItemActivity(parentId, activityItem);
 			this._runtimeItemActivities.set(parentId, runtimeItemActivity);
 			this.addRuntimeItem(runtimeItemActivity);
+		}
+	}
+
+	private updateActivityItemOutputs(outputId: string, activityItem: ActivityItemOutput) {
+		// Find the output activity items to update.
+		for (const runtimeItemActivity of this._runtimeItemActivities.values()) {
+			for (const [index, item] of runtimeItemActivity.activityItems.entries()) {
+				if ('outputId' in item && item.outputId === outputId) {
+					// Replace the original activity item with an updated one.
+					// NOTE: We may end up with an activity item whose parent ID does not match
+					//       its parent runtime item's ID. For example, the activity item's parent
+					//       ID could point to a message that generated an update_output message.
+					//       The activity item would be the child of a runtime item with ID pointing
+					//       to a message that generated the original output message.
+					runtimeItemActivity.activityItems[index] = activityItem;
+
+					// Optimize scrollback.
+					this.optimizeScrollback();
+
+					// Fire the onDidChangeRuntimeItems event.
+					this._onDidChangeRuntimeItemsEmitter.fire();
+				}
+			}
 		}
 	}
 

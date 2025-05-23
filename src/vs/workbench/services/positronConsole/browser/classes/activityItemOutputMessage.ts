@@ -34,12 +34,14 @@ export class ActivityItemOutputMessage extends ActivityItem {
 	 * @param parentId The parent identifier.
 	 * @param when The date.
 	 * @param data The data.
+	 * @param outputId The optional identifier of the output associated with this activity item.
 	 */
 	constructor(
 		id: string,
 		parentId: string,
 		when: Date,
-		readonly data: ILanguageRuntimeMessageOutputData
+		readonly data: ILanguageRuntimeMessageOutputData,
+		readonly outputId?: string
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);

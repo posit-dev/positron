@@ -49,13 +49,15 @@ export class ActivityItemOutputPlot extends ActivityItem {
 	 * @param when The date.
 	 * @param data The data.
 	 * @param onSelected A callback that is invoked when the item is selected.
+	 * @param outputId The optional identifier of the output associated with this activity item.
 	 */
 	constructor(
 		id: string,
 		parentId: string,
 		when: Date,
 		readonly data: ILanguageRuntimeMessageOutputData,
-		readonly onSelected: () => void
+		readonly onSelected: () => void,
+		readonly outputId?: string,
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);
