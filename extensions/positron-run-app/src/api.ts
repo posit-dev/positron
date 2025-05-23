@@ -26,6 +26,8 @@ const isRunningOnPwb = !!process.env.RS_SERVER_URL && isPositronWeb;
 // Timeouts.
 const terminalOutputTimeout = 25_000;
 const didPreviewUrlTimeout = terminalOutputTimeout + 5_000;
+/** Time between creating a terminal and receiving its onDidChangeTerminalShellIntegration event. */
+const shellIntegrationTimeout = 5_000;
 
 type PositronProxyInfo = {
 	proxyPath: string;
@@ -96,13 +98,14 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		this._runApplicationDisposableByName.get(options.name)?.dispose();
 		this._runApplicationDisposableByName.delete(options.name);
 
+		progress.report({ message: vscode.l10n.t('Preparing the terminal...') });
+
 		// Save the active document if it's dirty.
 		if (document.isDirty) {
 			await document.save();
 		}
 
 		// Get the preferred runtime for the document's language.
-		progress.report({ message: vscode.l10n.t('Getting interpreter information...') });
 		const runtime = await this.getPreferredRuntime(document.languageId);
 		if (!runtime) {
 			return;
@@ -119,7 +122,6 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 
 		// Get the terminal options for the application.
-		progress.report({ message: vscode.l10n.t('Getting terminal options...') });
 		const terminalOptions = await options.getTerminalOptions(runtime, document, urlPrefix);
 		if (!terminalOptions) {
 			return;
@@ -141,11 +143,27 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			env: terminalOptions.env,
 		});
 
+		// Create a promise that resolves when shell integration is ready for the terminal,
+		// or after a timeout.
+		const shellIntegrationPromise = isShellIntegrationEnabledAndSupported ?
+			new Promise<vscode.TerminalShellIntegration>((resolve) => {
+				const disposable = vscode.window.onDidChangeTerminalShellIntegration(async (e) => {
+					if (e.terminal === terminal) {
+						disposable.dispose();
+						resolve(e.shellIntegration);
+					}
+				});
+				this._runApplicationDisposableByName.set(options.name, disposable);
+			}) :
+			// If shell integration is disabled or unsupported, resolve immediately.
+			// This is to avoid waiting a few seconds before _every_ application run
+			// in unsupported shells.
+			Promise.resolve(undefined);
+
 		// Reveal the new terminal.
 		terminal.show(true);
 
 		// Wait for existing terminals to close, or a timeout.
-		progress.report({ message: vscode.l10n.t('Closing existing terminals...') });
 		await raceTimeout(
 			Promise.allSettled(existingTerminals.map((terminal) => {
 				// Create a promise that resolves when the terminal is closed.
@@ -168,44 +186,45 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 			() => log.warn('Timed out waiting for existing terminals to close. Proceeding anyway'),
 		);
 
-		// Create a disposables store for this session.
+		const shellIntegration = await raceTimeout(
+			shellIntegrationPromise,
+			shellIntegrationTimeout,
+			() => log.warn('Timed out waiting for shell integration to be ready'),
+		);
 
-		// Create a promise that resolves when the server URL has been previewed,
-		// or an error has occurred, or it times out.
-		const didPreviewUrl = raceTimeout(
-			new Promise<boolean>((resolve) => {
-				const disposable = vscode.window.onDidStartTerminalShellExecution(async e => {
-					// Remember that shell integration is supported.
-					await this.setShellIntegrationSupported(true);
-
-					if (e.terminal === terminal) {
-						const previewOptions: AppPreviewOptions = {
-							proxyInfo,
-							urlPath: options.urlPath,
-							appReadyMessage: options.appReadyMessage,
-							appUrlStrings: options.appUrlStrings,
-						};
-						const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, previewOptions);
-						if (didPreviewUrl) {
-							resolve(didPreviewUrl);
-						}
-					}
-				});
-				this._runApplicationDisposableByName.set(options.name, disposable);
-			}),
-			didPreviewUrlTimeout,
-			async () => {
-				await this.setShellIntegrationSupported(false);
-			});
-
-		// Execute the command.
 		progress.report({ message: vscode.l10n.t('Starting application...') });
-		terminal.sendText(terminalOptions.commandLine, true);
 
-		if (isShellIntegrationEnabledAndSupported && !await didPreviewUrl) {
-			log.warn('Failed to preview URL using shell integration');
+		if (shellIntegration) {
+			log.info('Shell integration is supported. Executing command with shell integration.');
+
+			// Remember that shell integration is supported.
+			await this.setShellIntegrationSupported(true);
+
+			// Execute the command.
+			const execution = shellIntegration.executeCommand(terminalOptions.commandLine);
+
+			// Wait for the server URL in the execution output.
+			const previewOptions: AppPreviewOptions = {
+				proxyInfo,
+				urlPath: options.urlPath,
+				appReadyMessage: options.appReadyMessage,
+				appUrlStrings: options.appUrlStrings,
+			};
+			await previewUrlInExecutionOutput(execution, previewOptions);
+		} else {
+			log.info('Shell integration not supported. Executing command without shell integration.');
+
 			// TODO: If a port was provided, we could poll the server until it responds,
 			//       then open the URL in the viewer pane.
+
+			// Execute the command without shell integration.
+			terminal.sendText(terminalOptions.commandLine, true);
+
+			// Remember that shell integration is not supported to display the guide in future runs.
+			await this.setShellIntegrationSupported(false);
+
+			// Guide the user to use a supported shell.
+			showShellIntegrationNotSupportedMessage().catch(() => { });
 		}
 	}
 
@@ -264,7 +283,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 
 		// Get the debug config for the application.
-		progress.report({ message: vscode.l10n.t('Getting debug configuration...') });
+		progress.report({ message: vscode.l10n.t('Preparing debug session...') });
 		const debugConfig = await options.getDebugConfiguration(runtime, document, urlPrefix);
 		if (!debugConfig) {
 			return;
@@ -280,7 +299,6 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		// Stop the application's current debug session, if one exists.
 		const activeDebugSession = vscode.debug.activeDebugSession;
 		if (activeDebugSession?.name === debugConfig.name) {
-			progress.report({ message: vscode.l10n.t('Stopping existing debug session...') });
 			await vscode.debug.stopDebugging(activeDebugSession);
 		}
 

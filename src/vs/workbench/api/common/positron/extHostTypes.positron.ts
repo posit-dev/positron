@@ -371,7 +371,6 @@ export enum PositronChatAgentLocation {
 	Terminal = 'terminal',
 	Notebook = 'notebook',
 	Editor = 'editor',
-	EditingSession = 'editing-session',
 }
 
 /**

@@ -674,7 +674,6 @@ declare module 'positron' {
 		Terminal = 'terminal',
 		Notebook = 'notebook',
 		Editor = 'editor',
-		EditingSession = 'editing-session',
 	}
 
 	/**
