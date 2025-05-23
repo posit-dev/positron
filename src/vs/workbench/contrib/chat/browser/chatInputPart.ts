@@ -15,7 +15,7 @@ import { renderLabelWithIcons } from '../../../../base/browser/ui/iconLabel/icon
 import { IAction } from '../../../../base/common/actions.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Codicon } from '../../../../base/common/codicons.js';
-import { Event, Emitter } from '../../../../base/common/event.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { HistoryNavigator2 } from '../../../../base/common/history.js';
 import { Disposable, DisposableStore, IDisposable, MutableDisposable, toDisposable } from '../../../../base/common/lifecycle.js';
 import { ResourceSet } from '../../../../base/common/map.js';
@@ -352,7 +352,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		return `chat.currentLanguageProvider.${this.location}`;
 	}
 
-	private _modelPickerDelegate!: ModelPickerDelegate;
+	private _modelPickerDelegate!: IModelPickerDelegate;
 
 	// allows setting the language model from React
 	public changeLanguageModel(newLanguageModel: ILanguageModelChatMetadataAndIdentifier) {
@@ -488,9 +488,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		}));
 		// --- Start Positron ---
 		this._modelPickerDelegate = {
+			getCurrentModel: () => this._currentLanguageModel,
 			onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
 			onDidChangeProvider: this._onDidChangeCurrentProvider.event,
 			setModel: (model: ILanguageModelChatMetadataAndIdentifier) => {
+				// The user changed the language model, so we don't wait for the persisted option to be registered
+				this._waitForPersistedLanguageModel.clear();
 				this.setCurrentLanguageModel(model);
 				this.renderAttachedContext();
 			},
@@ -1147,6 +1150,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 						this.setCurrentLanguageModel(models[0]);
 					}
 					if (this._currentLanguageModel) {
+						// ModelPickerDelegate has been moved to the constructor so it is available for Positron's provider picker.
+						/*
 						const itemDelegate: IModelPickerDelegate = {
 							getCurrentModel: () => this._currentLanguageModel,
 							onDidChangeModel: this._onDidChangeCurrentLanguageModel.event,
@@ -1158,7 +1163,12 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 							},
 							getModels: () => this.getModels()
 						};
+						*/
+
+						// Positron needs to communicate with the picker so it can update when the provider changes
+						const itemDelegate = this._modelPickerDelegate;
 						return this.modelWidget = this.instantiationService.createInstance(ModelPickerActionItem, action, this._currentLanguageModel, itemDelegate);
+						// --- End Positron ---
 					}
 				} else if (action.id === ToggleAgentModeActionId && action instanceof MenuItemAction) {
 					const delegate: IModePickerDelegate = {
@@ -1645,16 +1655,6 @@ class ChatSubmitDropdownActionItem extends DropdownWithPrimaryActionViewItem {
 		this._register(menu.onDidChange(() => setActions()));
 	}
 }
-
-// --- Start Positron ---
-export interface ModelPickerDelegate {
-	onDidChangeModel: Event<ILanguageModelChatMetadataAndIdentifier>;
-	onDidChangeProvider: Event<IPositronChatProvider | undefined>;
-	setModel(selectedModelId: ILanguageModelChatMetadataAndIdentifier): void;
-	getModels(): ILanguageModelChatMetadataAndIdentifier[];
-	setProvider(providerId: IPositronChatProvider): void;
-}
-// --- End Positron ---
 
 const chatInputEditorContainerSelector = '.interactive-input-editor';
 setupSimpleEditorSelectionStyling(chatInputEditorContainerSelector);
