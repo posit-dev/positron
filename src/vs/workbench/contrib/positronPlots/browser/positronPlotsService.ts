@@ -52,7 +52,7 @@ import { ILabelService } from '../../../../platform/label/common/label.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 
