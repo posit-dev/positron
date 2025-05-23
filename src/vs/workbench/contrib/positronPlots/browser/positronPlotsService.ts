@@ -54,6 +54,7 @@ import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
 import { joinPath } from '../../../../base/common/resources.js';
+import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -165,6 +166,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	private _plotCommProxies = new Map<string, PositronPlotCommProxy>();
 
 	/**
+	 * A map of render queues, keyed by session ID. Each session has its own render queue
+	 * to ensure only one plot render at a time is executed per session.
+	 */
+	private _renderQueues = new Map<string, PositronPlotRenderQueue>();
+
+	/**
 	 * A map of recently executed code; the map is from the parent ID to the
 	 * code executed. We keep around the last 10 executions so that when a plot
 	 * is emitted, we can generally find the code that generated it and display
@@ -205,6 +212,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Register for language runtime service startups
 		this._register(this._runtimeSessionService.onDidStartRuntime((runtime) => {
 			this.attachRuntime(runtime);
+		}));
+
+		// Register for session deletions to clean up render queues
+		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession((sessionId) => {
+			// Remove the render queue for this session
+			this._renderQueues.delete(sessionId);
 		}));
 
 		// Register for UI comm events
@@ -1390,7 +1403,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private createCommProxy(client: IRuntimeClientInstance<any, any>, metadata: IPositronPlotMetadata) {
-		const commProxy = new PositronPlotCommProxy(client);
+		// Get or create the render queue for this session
+		let renderQueue = this._renderQueues.get(metadata.session_id);
+		if (!renderQueue) {
+			const session = this._runtimeSessionService.getSession(metadata.session_id);
+			if (session) {
+				renderQueue = new PositronPlotRenderQueue(session, this._logService);
+				this._renderQueues.set(metadata.session_id, renderQueue);
+			}
+		}
+
+		const commProxy = new PositronPlotCommProxy(client, renderQueue);
 		this._plotCommProxies.set(metadata.id, commProxy);
 
 		this._register(commProxy.onDidClose(() => {

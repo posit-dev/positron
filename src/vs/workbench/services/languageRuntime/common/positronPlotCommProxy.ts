@@ -4,91 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { DeferredPromise } from '../../../../base/common/async.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { IntrinsicSize, PositronPlotComm, PlotRenderFormat } from './positronPlotComm.js';
-import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
+import { IntrinsicSize, PositronPlotComm } from './positronPlotComm.js';
+import { DeferredRender, PositronPlotRenderQueue } from './positronPlotRenderQueue.js';
 
-/**
- * A rendered plot.
- */
-export interface IRenderedPlot {
-	/** The size of the plot, in logical pixels, if known */
-	size?: IPlotSize;
-
-	/** The pixel ratio of the device for which the plot was rendered */
-	pixel_ratio: number;
-
-	/** The plot's image URI. The URI includes the plot itself as a base64-encoded string. */
-	uri: string;
-
-	/** The time to render the plot. */
-	renderTimeMs: number;
-}
-
-/**
- * A request to render a plot.
- */
-export interface RenderRequest {
-	/**
-	 * The size of the plot, in logical pixels. If undefined, the plot will be rendered at its
-	 * intrinsic size, if known.
-	 */
-	size?: IPlotSize;
-
-	/** The pixel ratio of the device for which the plot was rendered */
-	pixel_ratio: number;
-
-	/** The format of the plot */
-	format: PlotRenderFormat;
-}
-
-/**
- * A deferred render request. Used to track the state of a render request that
- * hasn't been fulfilled; mostly a thin wrapper over a `DeferredPromise` that
- * includes the original render request.
- */
-export class DeferredRender {
-	private readonly deferred: DeferredPromise<IRenderedPlot>;
-
-	constructor(public readonly renderRequest: RenderRequest) {
-		this.deferred = new DeferredPromise<IRenderedPlot>();
-	}
-
-	/**
-	 * Whether the render request has been completed in some way (either by
-	 * completing successfully, or by being cancelled or errored).
-	 */
-	get isComplete(): boolean {
-		return this.deferred.isSettled;
-	}
-
-	/**
-	 * Cancel the render request.
-	 */
-	cancel(): void {
-		this.deferred.cancel();
-	}
-
-	/**
-	 * Report an error to the render request.
-	 */
-	error(err: Error): void {
-		this.deferred.error(err);
-	}
-
-	/**
-	 * Complete the render request.
-	 */
-	complete(plot: IRenderedPlot): void {
-		this.deferred.complete(plot);
-	}
-
-	get promise(): Promise<IRenderedPlot> {
-		return this.deferred.p;
-	}
-}
 
 export class PositronPlotCommProxy extends Disposable {
 	/**
@@ -149,7 +69,8 @@ export class PositronPlotCommProxy extends Disposable {
 	private readonly _didSetIntrinsicSizeEmitter = new Emitter<IntrinsicSize | undefined>();
 
 	constructor(
-		client: IRuntimeClientInstance<any, any>) {
+		client: IRuntimeClientInstance<any, any>,
+		private readonly _sessionRenderQueue?: PositronPlotRenderQueue) {
 		super();
 
 		this._comm = new PositronPlotComm(client, { render: { timeout: 30000 }, get_intrinsic_size: { timeout: 30000 } });
@@ -235,6 +156,23 @@ export class PositronPlotCommProxy extends Disposable {
 	 * @param request The render request to perform
 	 */
 	public render(request: DeferredRender): void {
+		// If we have a session render queue, use it
+		if (this._sessionRenderQueue) {
+			this._currentRender = request;
+
+			// The session render queue will handle scheduling and rendering
+			const result = this._sessionRenderQueue.queue(request.renderRequest, this._comm);
+			result.promise.then((result) => {
+				if (result) {
+					request.complete(result);
+				}
+			}).catch((err) => {
+				request.error(err);
+			});
+			return;
+		}
+
+		// Otherwise, use our own queueing logic
 		// Record the time that the render started so clients can estimate the render time
 		const startedTime = Date.now();
 

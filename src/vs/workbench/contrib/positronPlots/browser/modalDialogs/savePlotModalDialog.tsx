@@ -34,13 +34,13 @@ import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/posit
 import { ILogService } from '../../../../../platform/log/common/log.js';
 import { formatPlotUnit, PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
 import { IPositronModalDialogsService } from '../../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
 import { IPathService } from '../../../../services/path/common/pathService.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
+import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
 
 export interface SavePlotOptions {
 	uri: string;
