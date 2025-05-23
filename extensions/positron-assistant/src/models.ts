@@ -613,6 +613,11 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 	[
 		['anthropic', [
 			{
+				name: 'Claude 4 Sonnet',
+				identifier: 'claude-sonnet-4-20250514',
+				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
+			{
 				name: 'Claude 3.7 Sonnet v1',
 				identifier: 'claude-3-7-sonnet-latest',
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
@@ -641,6 +646,11 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 			},
 		]],
 		['bedrock', [
+			{
+				name: 'Claude 4 Sonnet Bedrockss',
+				identifier: 'anthropic.claude-sonnet-4-20250514-v1:0',
+				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
 			{
 				name: 'Claude 3.7 Sonnet v1 Bedrock',
 				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
