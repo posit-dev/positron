@@ -54,8 +54,8 @@ async function launchServer(options: LaunchOptions) {
 		const args = getServerArgs(currentPort, extensionsPath, agentFolder, serverLogsPath, options.verbose);
 		const serverLocation = resolveServerLocation(codeServerPath, logger);
 
-		console.log(`Attempting to start server on port ${currentPort}`);
-		console.log(`Command: '${serverLocation}' ${args.join(' ')}`);
+		logger.log(`Attempting to start server on port ${currentPort}`);
+		logger.log(`Command: '${serverLocation}' ${args.join(' ')}`);
 
 		try {
 			serverProcess = await startServer(serverLocation, args, env, logger);
@@ -139,9 +139,11 @@ async function startServer(
 async function launchBrowser(options: LaunchOptions, endpoint: string) {
 	const { logger, workspacePath, tracing, snapshots, headless } = options;
 
-	const browser = await measureAndLog(() => playwright[options.browser ?? 'chromium'].launch({
+	const [browserType, browserChannel] = (options.browser ?? 'chromium').split('-');
+	const browser = await measureAndLog(() => playwright[browserType as unknown as 'chromium' | 'webkit' | 'firefox'].launch({
 		headless: headless ?? false,
-		timeout: 0
+		timeout: 0,
+		channel: browserChannel,
 	}), 'playwright#launch', logger);
 
 	browser.on('disconnected', () => logger.log(`Playwright: browser disconnected`));
@@ -209,7 +211,7 @@ function waitForEndpoint(server: ChildProcess, logger: Logger): Promise<string> 
 
 		server.stdout?.on('data', data => {
 			if (!endpointFound) {
-				console.log(`[server] stdout: ${data}`); // log until endpoint found to diagnose issues
+				logger.log(`[server] stdout: ${data}`); // log until endpoint found to diagnose issues
 			}
 
 			const matches = data.toString('ascii').match(/Web UI available at (.+)/);
@@ -222,7 +224,7 @@ function waitForEndpoint(server: ChildProcess, logger: Logger): Promise<string> 
 
 		server.stderr?.on('data', error => {
 			if (!endpointFound) {
-				console.log(`[server] stderr: ${error}`); // log until endpoint found to diagnose issues
+				logger.log(`[server] stderr: ${error}`); // log until endpoint found to diagnose issues
 			}
 
 			if (error.toString().indexOf('EADDRINUSE') !== -1) {

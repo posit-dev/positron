@@ -115,14 +115,18 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	// Main useEffect hook.
 	useEffect(() => {
+		const disposables = new DisposableStore();
 		// Register for active Positron console instance changes.
-		positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(activePositronConsoleInstance => {
+		disposables.add(positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(activePositronConsoleInstance => {
 			setActivePositronConsoleInstance(activePositronConsoleInstance);
 			setInterruptible(activePositronConsoleInstance?.state === PositronConsoleState.Busy);
 			setInterrupting(false);
 			setCanShutdown(activePositronConsoleInstance?.attachedRuntimeSession?.getRuntimeState() !== RuntimeState.Exited);
 			setCanStart(activePositronConsoleInstance?.attachedRuntimeSession?.getRuntimeState() === RuntimeState.Exited);
-		});
+		}));
+		return () => {
+			disposables.dispose();
+		};
 	}, [positronConsoleContext.positronConsoleService]);
 
 	// Active Positron console instance useEffect hook.

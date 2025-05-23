@@ -285,6 +285,7 @@ export interface IRelaxedExtensionManifest {
 	// --- End Positron ---
 	description?: string;
 	main?: string;
+	type?: string;
 	browser?: string;
 	preview?: boolean;
 	// For now this only supports pointing to l10n bundle files

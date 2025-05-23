@@ -872,6 +872,10 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	public dispose() {
 		return this.pythonSession.dispose();
 	}
+
+	public updateSessionName(sessionName: string): void {
+		this.pythonSession.updateSessionName(sessionName);
+	}
 }
 class ReticulateRuntimeMetadata implements positron.LanguageRuntimeMetadata {
 	extraRuntimeData: any = {

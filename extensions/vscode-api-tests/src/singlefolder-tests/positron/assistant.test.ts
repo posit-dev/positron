@@ -40,6 +40,10 @@ suite('positron API - ai', () => {
 			metadata: {
 				isSticky: true
 			},
+			modes: [
+				positron.PositronChatMode.Ask,
+				positron.PositronChatMode.Edit,
+			],
 			slashCommands: [
 				{
 					name: 'test',

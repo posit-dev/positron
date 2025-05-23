@@ -156,8 +156,11 @@ export const DataExplorer = () => {
 			)
 		});
 
+		// Create a disposable store for event handlers within this layout effect
+		const disposableStore = new DisposableStore();
+
 		// Add the onDidChangeConfiguration event handler.
-		context.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
+		disposableStore.add(context.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
 			// When something in the editor changes, determine whether it's font-related and, if it
 			// is, apply the new font info.
 			if (configurationChangeEvent.affectsConfiguration('editor')) {
@@ -188,11 +191,12 @@ export const DataExplorer = () => {
 					});
 				}
 			}
-		});
+		}));
 
-		// Return the cleanup function.
+		// Return the cleanup function that disposes event listeners and cleans up resources
 		return () => {
 			context.instance.tableDataDataGridInstance.setWidthCalculators(undefined);
+			disposableStore.dispose();
 		};
 	}, [context.configurationService, context.instance.tableDataDataGridInstance]);
 

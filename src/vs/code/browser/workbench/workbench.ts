@@ -619,6 +619,7 @@ function readCookie(name: string): string | undefined {
 		settingsSyncOptions: config.settingsSyncOptions ? { enabled: config.settingsSyncOptions.enabled, } : undefined,
 		workspaceProvider: WorkspaceProvider.create(config),
 		urlCallbackProvider: new LocalStorageURLCallbackProvider(config.callbackRoute),
+		additionalTrustedDomains: [mainWindow.location.origin],
 		// --- PWB Start: proxy port url ---
 		resolveExternalUri: (uri: URI): Promise<URI> => {
 			let resolvedUri = uri;

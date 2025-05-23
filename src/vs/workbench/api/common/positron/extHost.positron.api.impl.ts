@@ -36,6 +36,7 @@ import { IToolInvocationContext } from '../../../contrib/chat/common/languageMod
 import { IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { ExtHostEnvironment } from './extHostEnvironment.js';
 import { ExtHostPlotsService } from './extHostPlotsService.js';
+import { URI } from '../../../../base/common/uri.js';
 
 /**
  * Factory interface for creating an instance of the Positron API.
@@ -266,7 +267,16 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				return extHostAiFeatures.responseProgress(context, part);
 			},
 			getPositronChatContext(request: vscode.ChatRequest): Thenable<positron.ai.ChatContext> {
-				return extHostAiFeatures.getPositronChatContext(request);
+				return extHostAiFeatures.getPositronChatContext(request)
+					.then((context) => {
+						return {
+							...context,
+							activeSession: context.activeSession && {
+								...context.activeSession,
+								notebookUri: context.activeSession.notebookUri && URI.revive(context.activeSession.notebookUri),
+							},
+						};
+					});
 			},
 			getSupportedProviders(): Thenable<string[]> {
 				return extHostAiFeatures.getSupportedProviders();
@@ -295,6 +305,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
 			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,
+			PositronChatMode: extHostTypes.PositronChatMode,
 			RuntimeClientType: extHostTypes.RuntimeClientType,
 			RuntimeClientState: extHostTypes.RuntimeClientState,
 			RuntimeExitReason: extHostTypes.RuntimeExitReason,

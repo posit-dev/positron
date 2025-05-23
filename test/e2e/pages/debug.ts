@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code';
 
 
@@ -36,14 +36,18 @@ export class Debug {
 	}
 
 	async setBreakpointOnLine(lineNumber: number): Promise<void> {
-		await expect(this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
-		await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 } });
-		await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH)).toBeVisible();
+		await test.step(`Debug: Set breakpoint on line ${lineNumber}`, async () => {
+			await expect(this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`)).toBeVisible();
+			await this.code.driver.page.locator(`${GLYPH_AREA}(${lineNumber})`).click({ position: { x: 5, y: 5 } });
+			await expect(this.code.driver.page.locator(BREAKPOINT_GLYPH)).toBeVisible();
+		});
 	}
 
 	async startDebugging(): Promise<void> {
-		await this.code.driver.page.keyboard.press('F5');
-		await expect(this.code.driver.page.locator(STOP)).toBeVisible();
+		await test.step('Debug: Start', async () => {
+			await this.code.driver.page.keyboard.press('F5');
+			await expect(this.code.driver.page.locator(STOP)).toBeVisible();
+		});
 	}
 
 	async getVariables(): Promise<string[]> {
@@ -61,19 +65,27 @@ export class Debug {
 	}
 
 	async stepOver(): Promise<any> {
-		await this.code.driver.page.locator(STEP_OVER).click();
+		await test.step('Debug: Step over', async () => {
+			await this.code.driver.page.locator(STEP_OVER).click();
+		});
 	}
 
 	async stepInto(): Promise<any> {
-		await this.code.driver.page.locator(STEP_INTO).click();
+		await test.step('Debug: Step into', async () => {
+			await this.code.driver.page.locator(STEP_INTO).click();
+		});
 	}
 
 	async stepOut(): Promise<any> {
-		await this.code.driver.page.locator(STEP_OUT).click();
+		await test.step('Debug: Step out', async () => {
+			await this.code.driver.page.locator(STEP_OUT).click();
+		});
 	}
 
 	async continue(): Promise<any> {
-		await this.code.driver.page.locator(CONTINUE).click();
+		await test.step('Debug: Continue', async () => {
+			await this.code.driver.page.locator(CONTINUE).click();
+		});
 	}
 
 	async getStack(): Promise<IStackFrame[]> {
@@ -88,5 +100,62 @@ export class Debug {
 		}
 
 		return stack;
+	}
+
+	/**
+	 * Verify: The debug pane is visible and contains the specified variable
+	 *
+	 * @param variableLabel The label of the variable to check in the debug pane
+	 */
+	async expectDebugPaneToContain(variableLabel: string): Promise<void> {
+		await test.step(`Verify debug pane contains: ${variableLabel}`, async () => {
+			await expect(this.code.driver.page.getByRole('button', { name: 'Debug Variables Section' })).toBeVisible();
+			await expect(this.code.driver.page.getByLabel(variableLabel)).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: The call stack is visible and contains the specified item
+	 *
+	 * @param item The item to check in the call stack
+	 */
+	async expectCallStackToContain(item: string): Promise<void> {
+		await test.step(`Verify call stack contains: ${item}`, async () => {
+			await expect(this.code.driver.page.getByRole('button', { name: 'Call Stack Section' })).toBeVisible();
+			const debugCallStack = this.code.driver.page.locator('.debug-call-stack');
+			await expect(debugCallStack.getByText(item)).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: In browser mode at the specified frame
+	 *
+	 * @param number The frame number to check in the browser mode
+	 */
+	async expectBrowserModeFrame(number: number): Promise<void> {
+		await test.step(`Verify in browser mode: frame ${number}`, async () => {
+			await expect(this.code.driver.page.getByText(`Browse[${number}]>`)).toBeVisible();
+		});
+	}
+
+	/**
+	 * Verify: the current line is the specified line number
+	 *
+	 * @param lineNumber
+	 */
+	async expectCurrentLineToBe(lineNumber: number): Promise<void> {
+		await test.step(`Verify current line is: ${lineNumber}`, async () => {
+			await expect(this.code.driver.page.locator('[id="workbench.parts.editor"]').locator('.line-numbers.active-line-number')).toHaveText(lineNumber.toString());
+		});
+	}
+
+	/**
+	 * Verify: the current line indicator is visible
+	 * Note: This does not check the line number, only that the indicator is present
+	 */
+	async expectCurrentLineIndicatorVisible(): Promise<void> {
+		await test.step('Verify current line indicator is visible', async () => {
+			await expect(this.code.driver.page.locator('.codicon-debug-stackframe')).toBeVisible();
+		});
 	}
 }

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,6 +14,11 @@ test.use({
 test.describe('Large Python Notebook', {
 	tag: [tags.NOTEBOOKS, tags.WIN]
 }, () => {
+
+	test.afterAll(async function ({ hotKeys }) {
+		// If we don't close the editor, the test teardown fails
+		await hotKeys.closeAllEditors();
+	});
 
 	test('Python - Large notebook execution', async function ({ app, python }) {
 		test.slow();

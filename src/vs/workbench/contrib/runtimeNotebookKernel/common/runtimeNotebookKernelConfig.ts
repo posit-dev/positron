@@ -4,12 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ConfigurationScope, Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
 
-export const POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY = 'positron.runtimeNotebookKernel.enable';
 export const NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY = 'notebook.experimental.showExecutionInfo';
 
 /**
@@ -20,26 +18,11 @@ export const NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY = 'notebook.experimen
  */
 export const POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID = 'positron.runtime-notebook-kernels';
 
-/**
- * Check whether runtime notebook kernels are enabled.
- */
-export function isRuntimeNotebookKernelEnabled(configurationService: IConfigurationService) {
-	return configurationService.getValue<boolean>(POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY);
-}
-
 const configurationRegistry = Registry.as<IConfigurationRegistry>(Extensions.Configuration);
 configurationRegistry.registerConfiguration({
 	...positronConfigurationNodeBase,
 	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
-		[POSITRON_RUNTIME_NOTEBOOK_KERNEL_ENABLED_KEY]: {
-			type: 'boolean',
-			default: true,
-			markdownDescription: localize(
-				'positron.runtimeNotebookKernel.enable.description',
-				'Enable runtime notebook kernels which live in the main thread instead of in the extension host. Requires a restart to take effect.'
-			),
-		},
 		[NOTEBOOK_EXPERIMENTAL_SHOW_EXECUTION_INFO_KEY]: {
 			type: 'boolean',
 			default: false,

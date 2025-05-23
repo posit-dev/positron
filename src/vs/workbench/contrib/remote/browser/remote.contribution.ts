@@ -13,10 +13,6 @@ import { RemoteStatusIndicator } from './remoteIndicator.js';
 import { AutomaticPortForwarding, ForwardedPortsView, PortRestore } from './remoteExplorer.js';
 import { InitialRemoteConnectionHealthContribution } from './remoteConnectionHealth.js';
 
-// --- Start Positron ---
-import { registerRemoteConfiguration } from './remoteConfiguration.js';
-// --- End Positron ---
-
 const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
 registerWorkbenchContribution2(ShowCandidateContribution.ID, ShowCandidateContribution, WorkbenchPhase.BlockRestore);
 registerWorkbenchContribution2(TunnelFactoryContribution.ID, TunnelFactoryContribution, WorkbenchPhase.BlockRestore);
@@ -27,7 +23,3 @@ workbenchContributionsRegistry.registerWorkbenchContribution(PortRestore, Lifecy
 workbenchContributionsRegistry.registerWorkbenchContribution(AutomaticPortForwarding, LifecyclePhase.Eventually);
 workbenchContributionsRegistry.registerWorkbenchContribution(RemoteMarkers, LifecyclePhase.Eventually);
 workbenchContributionsRegistry.registerWorkbenchContribution(InitialRemoteConnectionHealthContribution, LifecyclePhase.Restored);
-
-// --- Start Positron ---
-registerRemoteConfiguration();
-// --- End Positron ---

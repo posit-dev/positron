@@ -520,6 +520,12 @@ export namespace CreateEnv {
         export const errorDeletingEnvironment = l10n.t('Error while deleting existing ".conda" environment.');
     }
 
+    // --- Start Positron ---
+    export namespace Uv {
+        export const providerDescription = l10n.t('Creates a `uv` virtual environment in the current workspace');
+    }
+    // --- End Positron ---
+
     export namespace Trigger {
         export const workspaceTriggerMessage = l10n.t(
             'A virtual environment is not currently selected for your Python interpreter. Would you like to create a virtual environment?',

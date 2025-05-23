@@ -10,8 +10,7 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
 import { IPatternInfo, ISearchConfigurationProperties, ISearchService, resultIsMatch } from '../../../../services/search/common/search.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
-import { IToolInputProcessor } from '../../common/tools/tools.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 
@@ -22,6 +21,7 @@ Do not use this tool to find files or directories in the workspace, as it is spe
 The search is performed across all files in the project, excluding files and directories that are ignored by the workspace settings.
 The provided pattern is interpreted as text unless indicated to be a regular expression.
 Other search options such as case sensitivity, whole word matching, and multiline matching can be specified.
+Do not use this tool when no workspace folders are open.
 `;
 
 export const ExtensionTextSearchToolId = 'positron_findTextInProject';
@@ -85,13 +85,10 @@ export class TextSearchTool implements IToolImpl {
 		return this._configurationService.getValue<ISearchConfigurationProperties>('search');
 	}
 
-	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _token: CancellationToken): Promise<IToolResult> {
+	async invoke(invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
-			return {
-				content: [],
-				toolResultMessage: 'No workspace folders found.'
-			};
+			throw new Error(`Can't search for text in project because no workspace folders are open. Open a workspace folder before using this tool.`);
 		}
 
 		// Set up the text search query
@@ -162,10 +159,3 @@ export class TextSearchTool implements IToolImpl {
 }
 
 export interface TextSearchToolParams extends IPatternInfo { }
-
-export class TextSearchToolInputProcessor implements IToolInputProcessor {
-	processInput(input: TextSearchToolParams) {
-		// No input processing needed for this tool
-		return input;
-	}
-}

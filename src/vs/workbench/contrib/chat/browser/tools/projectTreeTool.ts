@@ -7,10 +7,9 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { IExplorerService } from '../../../files/browser/files.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
 import { ExplorerItem } from '../../../files/common/explorerModel.js';
 import { SortOrder } from '../../../files/common/files.js';
-import { IToolInputProcessor } from '../../common/tools/tools.js';
 
 /**
  * Represents either a file (string) or a directory (tuple with string and children).
@@ -23,7 +22,7 @@ The project tree is represented as a nested array, where each entry can be eithe
 This tool ignores node_modules, __pycache__, dist directories, certain files like .DS_Store, Thumbs.db, and desktop.ini. and files with certain extensions like *.o, *.a, *.so, *.pyo.
 This tool does not provide information for specific files or directories, but rather gives an overview of the entire project structure.
 This tool is helpful for locating files and directories in the workspace.
-This tool only needs to be called once per conversation, unless files or directories are added, removed, moved, or renamed in the workspace.
+Do not use this tool when no workspace folders are open.
 `;
 
 export const ExtensionProjectTreeId = 'positron_getProjectTree';
@@ -43,13 +42,10 @@ export class ProjectTreeTool implements IToolImpl {
 		@IExplorerService private readonly _explorerService: IExplorerService,
 	) { }
 
-	async invoke(_invocation: IToolInvocation, _countTokens: CountTokensCallback, _token: CancellationToken): Promise<IToolResult> {
+	async invoke(_invocation: IToolInvocation, _countTokens: CountTokensCallback, _progress: ToolProgress, _token: CancellationToken): Promise<IToolResult> {
 		const workspaceFolders = this._workspaceContextService.getWorkspace().folders;
 		if (workspaceFolders.length === 0) {
-			return {
-				content: [],
-				toolResultMessage: 'No workspace folders found.'
-			};
+			throw new Error(`Can't construct project tree because no workspace folders are open. Open a workspace folder before using this tool.`);
 		}
 
 		const workspaceTrees: DirectoryItem[][] = [];
@@ -87,13 +83,6 @@ export class ProjectTreeTool implements IToolImpl {
 			invocationMessage: localize('projectTreeTool.invocationMessage', "Constructing project tree"),
 			pastTenseMessage: localize('projectTreeTool.pastTenseMessage', "Constructed project tree"),
 		};
-	}
-}
-
-export class ProjectTreeInputProcessor implements IToolInputProcessor {
-	processInput(input: any) {
-		// No input processing needed for this tool
-		return input;
 	}
 }
 

@@ -40,8 +40,8 @@ export function toAIMessage(
 				if (part instanceof vscode.LanguageModelTextPart) {
 					userContent.push({ type: 'text', text: part.value });
 				} else if (part instanceof vscode.LanguageModelDataPart) {
-					if (isChatImagePart(part.value)) {
-						userContent.push({ type: 'image', image: part.value.data, mimeType: part.value.mimeType });
+					if (isChatImagePart(part)) {
+						userContent.push({ type: 'image', image: part.data, mimeType: part.mimeType });
 					}
 				}
 			}
@@ -54,7 +54,7 @@ export function toAIMessage(
 
 			// Add the tool messages.
 			for (const part of message.content) {
-				if (part instanceof vscode.LanguageModelToolResultPart) {
+				if (part instanceof vscode.LanguageModelToolResultPart || part instanceof vscode.LanguageModelToolResultPart2) {
 					if (toolResultExperimentalContent) {
 						const toolCall = toolCalls[part.callId];
 						aiMessages.push(
@@ -220,7 +220,7 @@ function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart):
 /**
  * Convert chat participant history into an array of VSCode language model messages.
  */
-export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): vscode.LanguageModelChatMessage[] {
+export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[] {
 	return turns.map((turn) => {
 		if (turn instanceof vscode.ChatRequestTurn) {
 			let textValue = turn.prompt;
@@ -248,7 +248,7 @@ export function toLanguageModelChatMessage(turns: vscode.ChatContext['history'])
 	}).filter((message) => !!message);
 }
 
-export function isChatImagePart(part: vscode.LanguageModelDataPart['value']): part is vscode.ChatImagePart {
+export function isChatImagePart(part: vscode.LanguageModelDataPart): boolean {
 	return 'mimeType' in part && isChatImageMimeType(part.mimeType);
 }
 
@@ -256,22 +256,69 @@ export function isChatImageMimeType(mimeType: string): mimeType is vscode.ChatIm
 	return Object.values(vscode.ChatImageMimeType).includes(mimeType as vscode.ChatImageMimeType);
 }
 
+export const EMPTY_TOOL_RESULT_PLACEHOLDER = '';
+
 /**
-* Checks if a message contains any non-empty content.
-* @param message The message to check
-* @returns True if the message has any non-empty content, false otherwise
-*/
-export function hasNonEmptyContent(message: vscode.LanguageModelChatMessage2): boolean {
-	return message.content.some(part => {
-		if (part instanceof vscode.LanguageModelTextPart) {
-			return part.value.trim() !== '';
+ * Processes a message to ensure it has non-empty tool result parts.
+ * If a tool result part is empty, it replaces it with a placeholder.
+ * This is a workaround for LLMs that don't handle empty tool result parts well.
+ * @todo: We may be able to remove this handling in the future, to save on token count,
+ * once LLMs are better at handling empty tool result parts.
+ * @param message The message to process
+ * @returns A new message with empty tool result parts replaced with a placeholder
+ */
+function processEmptyToolResults(message: vscode.LanguageModelChatMessage2) {
+	let replacedEmptyToolResult = false;
+	const updatedContent = message.content.map(part => {
+		const isToolResult = part instanceof vscode.LanguageModelToolResultPart || part instanceof vscode.LanguageModelToolResultPart2;
+		if (isToolResult && part.content.length === 0) {
+			replacedEmptyToolResult = true;
+			return new vscode.LanguageModelToolResultPart(
+				part.callId,
+				[new vscode.LanguageModelTextPart(EMPTY_TOOL_RESULT_PLACEHOLDER)],
+			);
 		}
-		if (part instanceof vscode.LanguageModelToolResultPart) {
-			return part.content.length > 0;
-		}
-		// Other part types are considered non-empty, such as LanguageModelToolCallPart and LanguageModelDataPart
-		return true;
+		// For other parts, such as LanguageModelToolCallPart or LanguageModelDataPart,
+		// just return them as is, as we expect them to be non-empty.
+		return part;
 	});
+
+	if (replacedEmptyToolResult) {
+		return new vscode.LanguageModelChatMessage2(
+			message.role,
+			updatedContent,
+			message.name,
+		);
+	}
+
+	return message;
+}
+
+/**
+ * Checks if a message has content.
+ * A message is considered to have non-empty content if it contains at one least item
+ * in its content array that is not an empty/whitespace LanguageModelTextPart.
+ * @param message The message to check
+ * @returns Whether the message has non-empty content
+ */
+function hasContent(message: vscode.LanguageModelChatMessage2) {
+	return message.content.length > 0 &&
+		!message.content.every(
+			part => part instanceof vscode.LanguageModelTextPart && part.value.trim() === ''
+		);
+}
+
+/**
+ * Processes an array of messages to ensure they have non-empty content,
+ * filtering out any messages that do not meet this criteria and filling in
+ * placeholders for empty tool result parts.
+ * @param messages The messages to process
+ * @returns
+ */
+export function processMessages(messages: vscode.LanguageModelChatMessage2[]) {
+	return messages
+		.filter(hasContent)
+		.map(processEmptyToolResults);
 }
 
 // This type definition is from Vercel AI, but the type is not exported.

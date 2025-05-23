@@ -41,7 +41,7 @@ import { SerializableObjectWithBuffers } from '../../../services/extensions/comm
 import { isWebviewReplayMessage } from '../../../contrib/positronWebviewPreloads/browser/utils.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
-import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
+import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
@@ -564,6 +564,11 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 	async listOutputChannels(): Promise<LanguageRuntimeSessionChannel[]> {
 		return await this._proxy.$listOutputChannelsLanguageRuntime(this.handle);
+	}
+
+	async updateSessionName(sessionName: string): Promise<void> {
+		this.dynState.sessionName = sessionName;
+		this._proxy.$updateSessionNameLanguageRuntime(this.handle, sessionName);
 	}
 
 	async showProfile(): Promise<void> {

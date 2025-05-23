@@ -15,7 +15,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { hasNonEmptyContent, toAIMessage } from './utils';
+import { processMessages, toAIMessage } from './utils';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
@@ -217,13 +217,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		let tools: Record<string, ai.Tool> | undefined;
 
-		// Filter out messages with empty text or empty tool response content
-		const filteredMessages = messages.filter(hasNonEmptyContent);
+		// Ensure all messages have content
+		const processedMessages = processMessages(messages);
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
 		const toolResultExperimentalContent = this.provider === 'anthropic';
 		// Convert messages to the Vercel AI format.
-		const aiMessages = toAIMessage(filteredMessages, toolResultExperimentalContent);
+		const aiMessages = toAIMessage(processedMessages, toolResultExperimentalContent);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
@@ -613,6 +613,16 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 	[
 		['anthropic', [
 			{
+				name: 'Claude 4 Sonnet',
+				identifier: 'claude-sonnet-4-20250514',
+				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
+			{
+				name: 'Claude 4 Opus',
+				identifier: 'claude-opus-4-20250514',
+				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
+			{
 				name: 'Claude 3.7 Sonnet v1',
 				identifier: 'claude-3-7-sonnet-latest',
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
@@ -641,6 +651,16 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 			},
 		]],
 		['bedrock', [
+			{
+				name: 'Claude 4 Sonnet Bedrock',
+				identifier: 'anthropic.claude-sonnet-4-20250514-v1:0',
+				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
+			{
+				name: 'Claude 4 Opus Bedrock',
+				identifier: 'anthropic.claude-opus-4-20250514-v1:0',
+				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+			},
 			{
 				name: 'Claude 3.7 Sonnet v1 Bedrock',
 				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',

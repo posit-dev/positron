@@ -5,13 +5,14 @@ holoviews
 hvplot
 ibis-framework[duckdb]; python_version >= '3.10'
 ipykernel
-ipython<=8.31.0  # see https://github.com/posit-dev/positron/issues/6604
+ipython
 ipywidgets
 lightning
 matplotlib
 numpy
 pandas
 plotly
+plotnine
 polars
 polars[timezone]; sys_platform == 'win32'
 pyarrow
