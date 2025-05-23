@@ -17,6 +17,7 @@ import { ILanguageModelToolsService } from '../../common/languageModelToolsServi
 import { ProjectTreeTool, ProjectTreeToolData } from '../../browser/tools/projectTreeTool.js';
 import { TextSearchTool, TextSearchToolData } from './textSearchTool.js';
 import { FileContentsTool, FileContentsToolData } from './fileContentsTool.js';
+import { EditTool, EditToolData } from './editFileTool.js';
 
 export class PositronBuiltinToolsContribution extends Disposable implements IWorkbenchContribution {
 
@@ -31,7 +32,8 @@ export class PositronBuiltinToolsContribution extends Disposable implements IWor
 		const toolDescriptors = [
 			{ data: ProjectTreeToolData, ctor: ProjectTreeTool },
 			{ data: TextSearchToolData, ctor: TextSearchTool },
-			{ data: FileContentsToolData, ctor: FileContentsTool }
+			{ data: FileContentsToolData, ctor: FileContentsTool },
+			{ data: EditToolData, ctor: EditTool },
 		];
 
 		for (const { data, ctor } of toolDescriptors) {
