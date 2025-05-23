@@ -316,7 +316,8 @@ export class EditorActionBarControlFactory {
 
 	/**
 	 * Udpates the enablement for the specified language.
-	 * @param language
+	 * @param language The language.
+	 * @param editorActionBarOptions The editor action bar options.
 	 */
 	private updateEnablementForLanguageAndOptions(language: string, editorActionBarOptions: EditorActionBarOptions) {
 		// Make a set of the hidden languages.
