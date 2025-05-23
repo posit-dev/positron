@@ -39,8 +39,7 @@
           "panel"
         ],
         "modes": [
-          "ask",
-          "edit"
+          "ask"
         ]
       },
       {
@@ -84,7 +83,10 @@
         "isSticky": false,
         "isDefault": true,
         "locations": [
-          "editing-session"
+          "panel"
+        ],
+        "modes": [
+          "edit"
         ]
       }
     ],
