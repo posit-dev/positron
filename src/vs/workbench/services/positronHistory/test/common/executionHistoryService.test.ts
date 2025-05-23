@@ -319,6 +319,10 @@ class TestRuntimeStartupService implements IRuntimeStartupService {
 		// No-op in test implementation
 	}
 
+	public async rediscoverAllRuntimes() {
+		// No-op in test implementation
+	}
+
 	registerRuntimeManager(_manager: IRuntimeManager): IDisposable {
 		return Disposable.None;
 	}
