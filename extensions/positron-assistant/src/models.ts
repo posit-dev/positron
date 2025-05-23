@@ -15,7 +15,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { hasNonEmptyContent, toAIMessage } from './utils';
+import { processMessages, toAIMessage } from './utils';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
@@ -217,13 +217,13 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		let tools: Record<string, ai.Tool> | undefined;
 
-		// Filter out messages with empty text or empty tool response content
-		const filteredMessages = messages.filter(hasNonEmptyContent);
+		// Ensure all messages have content
+		const processedMessages = processMessages(messages);
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
 		const toolResultExperimentalContent = this.provider === 'anthropic';
 		// Convert messages to the Vercel AI format.
-		const aiMessages = toAIMessage(filteredMessages, toolResultExperimentalContent);
+		const aiMessages = toAIMessage(processedMessages, toolResultExperimentalContent);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {

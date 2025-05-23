@@ -111,3 +111,12 @@ export async function isUvEnvironment(interpreterPath: string): Promise<boolean>
 
     return false;
 }
+
+/**
+ * Checks if uv is installed.
+ * @returns {boolean} Returns true if uv is installed.
+ */
+export async function isUvInstalled(): Promise<boolean> {
+    const uvUtils = await UvUtils.getUvUtils();
+    return uvUtils !== undefined;
+}

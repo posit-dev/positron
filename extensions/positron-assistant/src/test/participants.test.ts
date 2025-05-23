@@ -7,11 +7,14 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { PositronAssistantChatParticipant, PositronAssistantEditorParticipant } from '../participants.js';
+import { getDefaultContextItems, PositronAssistantChatParticipant, PositronAssistantEditorParticipant } from '../participants.js';
 import { mock } from './utils.js';
 import { readFile } from 'fs/promises';
 import { MARKDOWN_DIR } from '../constants.js';
 import path = require('path');
+
+/** We expect 2 messages by default: 1 for the user's prompt, and 1 containing at least the default context */
+const DEFAULT_EXPECTED_MESSAGE_COUNT = 2;
 
 class TestLanguageModelChatResponse implements vscode.LanguageModelChatResponse {
 	stream: AsyncIterable<string> = {
@@ -111,25 +114,6 @@ suite('PositronAssistantParticipant', () => {
 		disposables.forEach((d) => d.dispose());
 	});
 
-	test('should not send context if none is available', async () => {
-		// Setup test inputs.
-		const request = makeChatRequest({ model, references: [] });
-		const context: vscode.ChatContext = { history: [] };
-		const sendRequestSpy = sinon.spy(model, 'sendRequest');
-		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
-
-		// Call the method under test.
-		await chatParticipant.requestHandler(request, context, response, token);
-
-		// There should be only one user message with the user's prompt,
-		// since there is no available context.
-		sinon.assert.calledOnce(sendRequestSpy);
-		const [messages,] = sendRequestSpy.getCall(0).args;
-		assert.strictEqual(messages.length, 1, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertMessageRole(messages[0], vscode.LanguageModelChatMessageRole.User);
-		assertMessageTextPart(messages[0].content[0], request.prompt);
-	});
-
 	test('should include positron session context', async () => {
 		// Setup test inputs.
 		const request = makeChatRequest({ model, references: [] });
@@ -175,7 +159,7 @@ suite('PositronAssistantParticipant', () => {
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		const c = positronChatContext;
-		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages[0],
 			`<context>
 <session description="Current active session" language="${c.activeSession!.language}" version="${c.activeSession!.version}" mode="console" identifier="${c.activeSession!.identifier}">
@@ -224,7 +208,7 @@ ${c.plots!.hasPlots ? 'A plot is visible.' : ''}
 		const document = await vscode.workspace.openTextDocument(referenceUri);
 		const filePath = vscode.workspace.asRelativePath(referenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
-		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages[0],
 			`<attachments>
 ${attachmentsText}
@@ -258,7 +242,7 @@ ${document.getText()}
 		const document = await vscode.workspace.openTextDocument(referenceUri);
 		const filePath = vscode.workspace.asRelativePath(referenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
-		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages[0],
 			`<attachments>
 ${attachmentsText}
@@ -294,7 +278,7 @@ ${document.getText()}
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
-		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages[0],
 			`<attachments>
 ${attachmentsText}
@@ -330,7 +314,7 @@ It should be included in the chat message.`;
 		// The first user message should contain the formatted context.
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
-		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages[0],
 			`<instructions>
 ${llmsTxtContent}
@@ -354,7 +338,7 @@ ${llmsTxtContent}
 		// The first user message should contain the formatted context.
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
-		assert.strictEqual(messages.length, 2, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		const filePath = vscode.workspace.asRelativePath(referenceUri);
 		assertContextMessage(messages[0],
 			`<editor description="Current active editor" filePath="${filePath}" language="${document.languageId}" line="${selection.active.line + 1}" column="${selection.active.character + 1}" documentOffset="${document.offsetAt(selection.active)}">
@@ -426,7 +410,8 @@ function assertContextMessage(
 	assertMessageRole(message, vscode.LanguageModelChatMessageRole.User);
 
 	// The first part should be a text part with the formatted context.
-	assertMessageTextPart(message.content[0], expectedPrompt);
+	const fullPrompt = `${expectedPrompt}${expectedPrompt.length > 0 ? '\n\n' : ''}${getDefaultContextItems().join('\n')}`;
+	assertMessageTextPart(message.content[0], fullPrompt);
 
 	if (expectedImage) {
 		// If an image is expected, the second part should be a data part with the image.

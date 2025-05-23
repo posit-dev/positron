@@ -61,13 +61,19 @@ suite('Positron Create Environment APIs', () => {
     const envOptionsWithInfo = {
         withInterpreterPath: { ...envOptions },
         withCondaPythonVersion: { ...envOptions, interpreterPath: undefined, condaPythonVersion: '3.12' },
+        withUvPythonVersion: { ...envOptions, interpreterPath: undefined, uvPythonVersion: '3.13' },
     };
     const envOptionsMissingInfo = {
         noProviderId: { ...envOptions, providerId: undefined },
-        noPythonSpecified: { ...envOptions, interpreterPath: undefined, condaPythonVersion: undefined },
+        noPythonSpecified: {
+            ...envOptions,
+            interpreterPath: undefined,
+            condaPythonVersion: undefined,
+            uvPythonVersion: undefined,
+        },
     };
 
-    setup(() => {
+    setup(async () => {
         registerCommandStub = sinon.stub(commandApis, 'registerCommand');
         handleCreateEnvironmentCommandStub = sinon.stub(createEnvironmentApis, 'handleCreateEnvironmentCommand');
 
@@ -92,7 +98,7 @@ suite('Positron Create Environment APIs', () => {
         }));
         pathUtils.setup((p) => p.getDisplayName(typemoq.It.isAny())).returns(() => 'test');
 
-        registerCreateEnvironmentFeatures(
+        await registerCreateEnvironmentFeatures(
             disposables,
             interpreterQuickPick.object,
             interpreterPathService.object,

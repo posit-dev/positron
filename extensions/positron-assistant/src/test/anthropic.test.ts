@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import * as sinon from 'sinon';
 import { AnthropicLanguageModel } from '../anthropic';
 import { ModelConfig } from '../config';
+import { EMPTY_TOOL_RESULT_PLACEHOLDER } from '../utils.js';
 
 suite('AnthropicLanguageModel', () => {
 	let model: AnthropicLanguageModel;
@@ -58,61 +59,24 @@ suite('AnthropicLanguageModel', () => {
 		sinon.restore();
 	});
 
-	test('provideLanguageModelResponse should filter out messages with empty text content', async () => {
-		// Create test messages
-		const emptyTextPart = new vscode.LanguageModelTextPart('');
-		const nonEmptyTextPart = new vscode.LanguageModelTextPart('Hello');
-
-		const messagesWithEmpty = [
-			// Message with only empty text content
-			vscode.LanguageModelChatMessage.User([emptyTextPart]),
-			// Message with non-empty text content
-			vscode.LanguageModelChatMessage.User([nonEmptyTextPart]),
-			// Message with both empty and non-empty text content
-			vscode.LanguageModelChatMessage.Assistant([emptyTextPart, nonEmptyTextPart])
-		];
-
-		// Call the method under test
-		await model.provideLanguageModelResponse(
-			messagesWithEmpty,
-			{},
-			'test-extension',
-			mockProgress,
-			mockCancellationToken
-		);
-
-		// Check that messages were filtered before being passed to the Anthropic client
-		const streamCall = mockClient.messages.stream.getCall(0);
-		assert.ok(streamCall, 'Stream method was not called');
-
-		// The empty message should be filtered out
-		const messagesPassedToAnthropicClient = streamCall.args[0].messages;
-		assert.strictEqual(messagesPassedToAnthropicClient.length, 2, 'Only non-empty messages should be passed to the Anthropic client');
-
-		// Verify that the message with only empty content was filtered out
-		const hasEmptyMessage = messagesPassedToAnthropicClient.some((msg: any) => {
-			return msg.content.length === 0 ||
-				(msg.content.length === 1 &&
-					msg.content[0].type === 'text' &&
-					msg.content[0].text === '');
-		});
-		assert.strictEqual(hasEmptyMessage, false, 'Messages with only empty content should be filtered out');
-	});
-
 	/**
 	 * Test the filtering behavior by checking the messages passed to Anthropic
-	 * when a message with empty content is included.
+	 * when a message with empty LanguageModelTextPart content is included.
 	 */
-	test('provideLanguageModelResponse filters empty messages correctly with different content mixes', async () => {
+	test('provideLanguageModelResponse filters empty messages and different LanguageModelTextPart contents correctly', async () => {
 		// Create test messages with different combinations of empty/non-empty content
+		const nonEmptyText = 'Hello';
 		const emptyTextPart = new vscode.LanguageModelTextPart('');
 		const whitespaceTextPart = new vscode.LanguageModelTextPart('   \n  ');
-		const nonEmptyTextPart = new vscode.LanguageModelTextPart('Hello');
-		const toolCallPart = new vscode.LanguageModelToolCallPart('test-tool-callId', 'test-tool-name', {});
-		const emptyToolResultPart = new vscode.LanguageModelToolResultPart('test-tool-callId', []);
+		const nonEmptyTextPart = new vscode.LanguageModelTextPart(nonEmptyText);
 
 		// Define test messages with different combinations
 		const messagesWithVariousContent = [
+			// Message with no content - should be filtered out
+			{
+				message: vscode.LanguageModelChatMessage.User([]),
+				keep: false
+			},
 			// Message with only empty text content - should be filtered out
 			{
 				message: vscode.LanguageModelChatMessage.User([emptyTextPart]),
@@ -133,16 +97,6 @@ suite('AnthropicLanguageModel', () => {
 				message: vscode.LanguageModelChatMessage.Assistant([emptyTextPart, nonEmptyTextPart]),
 				keep: true
 			},
-			// Message with tool call - should be kept
-			{
-				message: vscode.LanguageModelChatMessage.Assistant([toolCallPart]),
-				keep: true
-			},
-			// Message with empty tool result - should be filtered out
-			{
-				message: vscode.LanguageModelChatMessage.User([emptyToolResultPart]),
-				keep: false
-			}
 		];
 
 		const messages = messagesWithVariousContent.map(m => m.message);
@@ -161,13 +115,77 @@ suite('AnthropicLanguageModel', () => {
 		const streamCall = mockClient.messages.stream.getCall(0);
 		assert.ok(streamCall, 'Stream method was not called');
 
+		// We expect two messages with non-empty content to be passed to the Anthropic client
 		const messagesPassedToAnthropicClient = streamCall.args[0].messages;
 		assert.strictEqual(messagesPassedToAnthropicClient.length, numOfMessagesToKeep, 'Only non-empty messages should be passed to the Anthropic client');
 
-		// Verify specific message patterns that should be included vs filtered
-		const hasMessageWithNonEmptyContent = messagesPassedToAnthropicClient.some((msg: any) =>
-			msg.content.some((content: any) => content.type === 'text' && content.text === 'Hello')
+		// Verify each passed message has the non-empty content we expect
+		const hasMessageWithNonEmptyContent = messagesPassedToAnthropicClient.every((msg: any) =>
+			msg.content.some((content: any) => content.type === 'text' && content.text === nonEmptyText)
 		);
 		assert.strictEqual(hasMessageWithNonEmptyContent, true, 'Messages with non-empty content should be included');
+	});
+
+	test('provideLanguageModelResponse processes LanguageModelToolCallPart and LanguageModelToolResultPart contents correctly', async () => {
+		// 1st tool call with empty result
+		const toolCallId1 = 'test-tool-callId-1';
+		const toolCallEmptyPart = new vscode.LanguageModelToolCallPart(toolCallId1, `${toolCallId1}-tool`, {});
+		const emptyToolResultPartOriginal = new vscode.LanguageModelToolResultPart(toolCallId1, []);
+
+		// 2nd tool call with non-empty result
+		const toolCallId2 = 'test-tool-callId-2';
+		const toolCallNonEmptyPart = new vscode.LanguageModelToolCallPart(toolCallId2, `${toolCallId2}-tool`, {});
+		const nonEmptyToolResultPart = new vscode.LanguageModelToolResultPart(toolCallId2, [
+			new vscode.LanguageModelTextPart('This is a non-empty tool result'),
+		]);
+
+		const messagesWithToolContent = [
+			// Tool call - should be passed
+			{
+				message: vscode.LanguageModelChatMessage.Assistant([toolCallEmptyPart]),
+			},
+			// Tool result with empty content - should be passed, but replaced with a placeholder
+			{
+				message: vscode.LanguageModelChatMessage.User([emptyToolResultPartOriginal]),
+				expectedText: EMPTY_TOOL_RESULT_PLACEHOLDER
+			},
+			// Tool call - should be passed
+			{
+				message: vscode.LanguageModelChatMessage.Assistant([toolCallNonEmptyPart]),
+			},
+			// Tool result with non-empty content - should be passed as is
+			{
+				message: vscode.LanguageModelChatMessage.User([nonEmptyToolResultPart]),
+			},
+		];
+
+		const messages = messagesWithToolContent.map(m => m.message);
+		const numOfMessagesToKeep = messagesWithToolContent.length;
+
+		// Call the method under test
+		await model.provideLanguageModelResponse(
+			messages,
+			{},
+			'test-extension',
+			mockProgress,
+			mockCancellationToken
+		);
+
+		// Check that messages were processed correctly
+		const streamCall = mockClient.messages.stream.getCall(0);
+		assert.ok(streamCall, 'Stream method was not called');
+
+		const messagesPassedToAnthropicClient = streamCall.args[0].messages;
+		assert.strictEqual(messagesPassedToAnthropicClient.length, numOfMessagesToKeep, 'All messages should be passed to the Anthropic client');
+
+		messagesWithToolContent.forEach((msg, index) => {
+			const expectedText = msg.expectedText;
+			if (!expectedText) {
+				return;
+			}
+			// sample actualContent: [{"type":"tool_result","tool_use_id":"test-tool-callId-1","content":[{"type":"text","text":"tool result is empty"}]}]
+			const actualText = messagesPassedToAnthropicClient[index].content[0].content[0].text;
+			assert.deepStrictEqual(actualText, expectedText, `Message text at index ${index} should match the expected text`);
+		});
 	});
 });

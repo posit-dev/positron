@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { DebugAppOptions, RunAppOptions } from '../positron-run-app';
 import { raceTimeout } from '../utils';
 import { PositronRunAppApiImpl } from '../api';
+import { log } from '../extension.js';
 
 suite('PositronRunApp', () => {
 	// Use a test runtime with a runtimePath of `cat` so that executing a file
@@ -51,10 +52,16 @@ suite('PositronRunApp', () => {
 
 	let uri: vscode.Uri;
 	let previewUrlStub: sinon.SinonStub;
-	let sendTextSpy: sinon.SinonSpy | undefined;
 	let runAppApi: PositronRunAppApiImpl;
 
 	setup(async () => {
+		// Reroute log messages to the console.
+		for (const level of ['trace', 'debug', 'info', 'warn', 'error']) {
+			sinon.stub(log, level as keyof typeof log).callsFake((...args) => {
+				console.info('[PositronRunApp]', ...args);
+			});
+		}
+
 		// Open the test app. Assumes that the tests are run in the ../test-workspace workspace.
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 		assert(workspaceFolder, 'This test should be run from the ../test-workspace workspace');
@@ -75,16 +82,6 @@ suite('PositronRunApp', () => {
 
 		// Stub the preview URL function.
 		previewUrlStub = sinon.stub(positron.window, 'previewUrl');
-
-		// Stub `vscode.window.createTerminal` to spy on the created terminal's `sendText` method.
-		const originalCreateTerminal = vscode.window.createTerminal;
-		sendTextSpy = undefined;
-		sinon.stub(vscode.window, 'createTerminal')
-			.callsFake(options => {
-				const terminal = originalCreateTerminal(options);
-				sendTextSpy = sinon.spy(terminal, 'sendText');
-				return terminal;
-			});
 
 		// Enable shell integration.
 		await vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').update('enabled', true);
@@ -121,12 +118,19 @@ suite('PositronRunApp', () => {
 		// Run the application.
 		await verifyRunTestApplication();
 
-		// Check that the expected text was sent to the terminal.
-		assert(sendTextSpy, 'Terminal.sendText spy not created');
-		sinon.assert.calledOnceWithExactly(sendTextSpy, `${runtime.runtimePath} ${uri.fsPath}`, true);
-
 		// Check that the expected URL was previewed.
 		sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+	});
+
+	test('applauncher: shell integration disabled', async () => {
+		// Disable shell integration.
+		await vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').update('enabled', false);
+
+		// Run the application.
+		await verifyRunTestApplication();
+
+		// Check that the expected URL was not previewed.
+		sinon.assert.notCalled(previewUrlStub);
 	});
 
 	test('appLauncher: shell integration disabled, user enables and reruns', async () => {
@@ -151,11 +155,6 @@ suite('PositronRunApp', () => {
 		// Run the application.
 		await verifyRunTestApplication();
 
-		// Check that the expected text was sent to the terminal.
-		assert(sendTextSpy, 'Terminal.sendText spy not created');
-		sinon.assert.calledOnceWithExactly(sendTextSpy, `${runtime.runtimePath} ${uri.fsPath}`, true);
-		sendTextSpy = undefined;
-
 		// Wait for the expected URL to be previewed.
 		const didPreviewExpectedUrl = await raceTimeout(didPreviewExpectedUrlPromise, 10_000);
 		assert(didPreviewExpectedUrl, 'Timed out waiting for URL preview');
@@ -165,10 +164,6 @@ suite('PositronRunApp', () => {
 			vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').get('enabled'),
 			'Shell integration not enabled',
 		);
-
-		// Check that the expected text was sent to the terminal again.
-		assert(sendTextSpy, 'Terminal.sendText spy not created');
-		sinon.assert.calledOnceWithExactly(sendTextSpy, `${runtime.runtimePath} ${uri.fsPath}`, true);
 	});
 
 	test('debugApplication: shell integration supported', async () => {
@@ -177,6 +172,17 @@ suite('PositronRunApp', () => {
 
 		// Check that the expected URL was previewed.
 		sinon.assert.calledOnceWithMatch(previewUrlStub, localhostUriMatch);
+	});
+
+	test('debugApplication: shell integration disabled', async () => {
+		// Disable shell integration.
+		await vscode.workspace.getConfiguration('terminal.integrated.shellIntegration').update('enabled', false);
+
+		// Debug the test application.
+		await runAppApi.debugApplication(debugAppOptions);
+
+		// Check that the expected URL was not previewed.
+		sinon.assert.notCalled(previewUrlStub);
 	});
 
 	test('debugApplication: shell integration disabled, user enables and reruns', async () => {
