@@ -10,7 +10,7 @@ import { ParticipantService } from './participants.js';
 
 export enum PositronAssistantToolName {
 	DocumentEdit = 'documentEdit',
-	EditFile = 'vscode_editFile_internal',
+	EditFile = 'positron_editFile_internal',
 	ExecuteCode = 'executeCode',
 	GetPlot = 'getPlot',
 	InspectVariables = 'inspectVariables',
