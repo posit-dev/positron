@@ -652,12 +652,14 @@ registerAction2(ShowEditorActionsAction);
 
 // --- Start Positron ---
 // Do not append the Editor Actions Position submenu. It has been replaced by the Editor Action Bar.
-// MenuRegistry.appendMenuItem(MenuId.MenubarAppearanceMenu, {
-// 	submenu: MenuId.EditorActionsPositionSubmenu,
-// 	title: localize('editorActionsPosition', "Editor Actions Position"),
-// 	group: '3_workbench_layout_move',
-// 	order: 11
-// });
+/*
+MenuRegistry.appendMenuItem(MenuId.MenubarAppearanceMenu, {
+	submenu: MenuId.EditorActionsPositionSubmenu,
+	title: localize('editorActionsPosition', "Editor Actions Position"),
+	group: '3_workbench_layout_move',
+	order: 11
+});
+*/
 // --- End Positron ---
 
 // --- Configure Tabs Layout
