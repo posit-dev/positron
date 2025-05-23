@@ -20,7 +20,7 @@ import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { PositronConsoleFocused } from '../../../common/contextkeys.js';
+import { PositronConsoleFocused, PositronConsoleInstancesExistContext } from '../../../common/contextkeys.js';
 import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
@@ -115,6 +115,12 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	 * Holds session dropdown button
 	 */
 	private readonly _sessionDropdown: MutableDisposable<DropdownWithPrimaryActionViewItem> = this._register(new MutableDisposable());
+
+	/**
+	 * Context key used to track if there are any Positron console instances.
+	 * This is used to determine if we show the "+" session dropdown button.
+	 */
+	private _positronConsoleInstancesExistContextKey: IContextKey<boolean>;
 
 	//#endregion Private Properties
 
@@ -257,8 +263,9 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			themeService,
 			hoverService);
 
-		// Bind the PositronConsoleFocused context key.
+		// Bind the context keys
 		this._positronConsoleFocusedContextKey = PositronConsoleFocused.bindTo(contextKeyService);
+		this._positronConsoleInstancesExistContextKey = PositronConsoleInstancesExistContext.bindTo(contextKeyService);
 
 		// Register the onDidChangeBodyVisibility event handler.
 		this._register(this.onDidChangeBodyVisibility(visible => {
@@ -268,6 +275,16 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 
 		this._register(this.runtimeSessionService.onDidStartRuntime(() => this.updateActions()));
 		this._register(this.runtimeSessionService.onDidDeleteRuntimeSession(() => this.updateActions()));
+
+		// Update the context key used to manage the session dropdown when the console instances change.
+		this._register(this.positronConsoleService.onDidStartPositronConsoleInstance(() => {
+			this.updateConsoleInstancesExistContext();
+		}));
+
+		// Update the context key used to manage the session dropdown when the console instances change.
+		this._register(this.positronConsoleService.onDidDeletePositronConsoleInstance(() => {
+			this.updateConsoleInstancesExistContext();
+		}));
 	}
 
 	/**
@@ -333,6 +350,9 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		const focusTracker = this._register(DOM.trackFocus(this.element));
 		this._register(focusTracker.onDidFocus(() => this.focusChanged(true)));
 		this._register(focusTracker.onDidBlur(() => this.focusChanged(false)));
+
+		// Initialize context key state
+		this.updateConsoleInstancesExistContext();
 	}
 
 	/**
@@ -371,7 +391,8 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	}
 
 	override createActionViewItem(action: IAction, options?: IDropdownMenuActionViewItemOptions): IActionViewItem | undefined {
-		if (action.id === LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID) {
+		// Do not create the session dropdown if there are no Positron console instances.
+		if (action.id === LANGUAGE_RUNTIME_DUPLICATE_ACTIVE_SESSION_ID && this.positronConsoleService.positronConsoleInstances.length > 0) {
 			if (action instanceof MenuItemAction) {
 				const dropdownAction = new Action('console.session.quickLaunch', localize('console.session.quickLaunch', 'Quick Launch Session...'), 'codicon-chevron-down', true);
 				this._register(dropdownAction);
@@ -450,6 +471,11 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		dropdownMenuActions.forEach(action => this._register(action));
 
 		this._sessionDropdown.value?.update(dropdownAction, dropdownMenuActions, 'codicon-chevron-down');
+	}
+
+	private updateConsoleInstancesExistContext(): void {
+		const hasInstances = this.positronConsoleService.positronConsoleInstances.length > 0;
+		this._positronConsoleInstancesExistContextKey.set(hasInstances);
 	}
 
 	//#endregion Public Overrides

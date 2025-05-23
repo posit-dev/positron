@@ -27,7 +27,7 @@ import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.
 import { Codicon } from '../../../../base/common/codicons.js';
 import { localize } from '../../../../nls.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { PositronConsoleTabFocused } from '../../../common/contextkeys.js';
+import { PositronConsoleInstancesExistContext, PositronConsoleTabFocused } from '../../../common/contextkeys.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -593,6 +593,15 @@ export function registerLanguageRuntimeActions() {
 				},
 				category,
 				f1: true,
+				menu: [{
+					group: 'navigation',
+					id: MenuId.ViewTitle,
+					order: 1,
+					when: ContextKeyExpr.and(
+						ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+						PositronConsoleInstancesExistContext.negate()
+					),
+				}],
 				keybinding: {
 					primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Slash,
 					mac: { primary: KeyMod.WinCtrl | KeyMod.Shift | KeyCode.Slash },
@@ -647,7 +656,10 @@ export function registerLanguageRuntimeActions() {
 					group: 'navigation',
 					id: MenuId.ViewTitle,
 					order: 1,
-					when: ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+					when: ContextKeyExpr.and(
+						ContextKeyExpr.equals('view', POSITRON_CONSOLE_VIEW_ID),
+						PositronConsoleInstancesExistContext
+					),
 				}],
 			});
 		}
@@ -661,7 +673,6 @@ export function registerLanguageRuntimeActions() {
 			// Get the current foreground session.
 			const currentSession = runtimeSessionService.foregroundSession;
 			if (!currentSession) {
-				await commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_SESSION_ID);
 				return;
 			}
 
