@@ -82,6 +82,8 @@ test.describe('R Debugging', {
 
 		await console.focus();
 		await page.keyboard.press('Q');
+		await page.keyboard.press('Enter');
+		await console.waitForReady('>');
 	});
 
 	test('R - Verify debugger indicator/highlight maintains focus during code execution', {
