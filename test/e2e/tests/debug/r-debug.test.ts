@@ -47,6 +47,83 @@ test.describe('R Debugging', {
 		await app.workbench.console.clearButton.click();
 	});
 
+	test('R - Verify call stack behavior and order', async ({ app, page }) => {
+		const { debug, console, editors } = app.workbench;
+
+		// Trigger the breakpoint
+		await console.pasteCodeToConsole(`
+		outer <- function(x) {
+			inner(x)
+		}
+
+		inner <- function(y) {
+			browser()
+			y + 1
+		}
+
+		outer(5)`, true);
+
+		await debug.expectBrowserModeFrame(1);
+
+		// Verify call stack order
+		await debug.expectCallStackAtIndex(0, 'inner()inner()2:');
+		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)2:');
+		await debug.expectCallStackAtIndex(2, '<global>outer(5)');
+
+		// Verify the call stack redirects to correct data frame(s)
+		await debug.selectCallStackAtIndex(0);
+		await editors.expectEditorToContain('inner <- function(y) {');
+
+		await debug.selectCallStackAtIndex(1);
+		await editors.expectEditorToContain('outer <- function(x) {');
+
+		await debug.selectCallStackAtIndex(2);
+		await editors.expectEditorToContain('outer(5)');
+
+		await console.focus();
+		await page.keyboard.press('Q');
+	});
+
+	test('R - Verify debugger indicator/highlight maintains focus during code execution', {
+		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7667' }] // uncomment line 133 when fixed
+	},
+		async ({ app, page, openFile, runCommand }) => {
+			const { debug, console } = app.workbench;
+
+			await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
+			await runCommand('r.sourceCurrentFile');
+			await page.waitForTimeout(500); // not sure why but in browser only this is needed to allow source to load
+
+			// Trigger the breakpoint
+			await console.pasteCodeToConsole(`fruit_avg(dat, "berry")`, true);
+			await debug.expectBrowserModeFrame(1);
+
+			// Verify current line indicator is visible
+			await debug.expectCurrentLineIndicatorVisible();
+			await debug.expectCurrentLineToBe(2);
+
+			// Run random code in the console
+			await console.pasteCodeToConsole('100 + 100', true);
+			await console.waitForConsoleContents('[1] 200');
+			// await debug.expectCurrentLineIndicatorVisible();
+			await debug.expectCurrentLineToBe(2);
+
+			// Step over and check current line
+			await debug.stepOver();
+			await debug.expectCurrentLineIndicatorVisible();
+			await debug.expectCurrentLineToBe(3);
+
+			// Step into and out and check current line
+			await debug.stepInto();
+			await debug.stepOut();
+			await debug.expectCurrentLineIndicatorVisible();
+			await debug.expectCurrentLineToBe(4);
+
+			// Continue execution and check final message
+			await debug.continue();
+			await console.waitForConsoleContents('Found 2 fruits!');
+		});
+
 	test('R - Verify debugging with `browser()` via console', async ({ app, page, openFile, runCommand, executeCode }) => {
 		const { debug, console } = app.workbench;
 
@@ -106,81 +183,6 @@ test.describe('R Debugging', {
 		// Continue execution and check final message
 		await debug.continue();
 		await console.waitForConsoleContents('Found 2 fruits!');
-	});
-
-
-	test('R - Verify debugger indicator/highlight maintains focus during code execution', {
-		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/7667' }] // uncomment line 133 when fixed
-	},
-		async ({ app, page, openFile, runCommand }) => {
-			const { debug, console } = app.workbench;
-
-			await openFile(`workspaces/r-debugging/fruit_avg_browser.r`);
-			await runCommand('r.sourceCurrentFile');
-			await page.waitForTimeout(500); // not sure why but in browser only this is needed to allow source to load
-
-			// Trigger the breakpoint
-			await console.pasteCodeToConsole(`fruit_avg(dat, "berry")`, true);
-			await debug.expectBrowserModeFrame(1);
-
-			// Verify current line indicator is visible
-			await debug.expectCurrentLineIndicatorVisible();
-			await debug.expectCurrentLineToBe(2);
-
-			// Run random code in the console
-			await console.pasteCodeToConsole('100 + 100', true);
-			await console.waitForConsoleContents('[1] 200');
-			// await debug.expectCurrentLineIndicatorVisible();
-			await debug.expectCurrentLineToBe(2);
-
-			// Step over and check current line
-			await debug.stepOver();
-			await debug.expectCurrentLineIndicatorVisible();
-			await debug.expectCurrentLineToBe(3);
-
-			// Step into and out and check current line
-			await debug.stepInto();
-			await debug.stepOut();
-			await debug.expectCurrentLineIndicatorVisible();
-			await debug.expectCurrentLineToBe(4);
-
-			// Continue execution and check final message
-			await debug.continue();
-			await console.waitForConsoleContents('Found 2 fruits!');
-		});
-
-	test('R - Verify call stack behavior and order', async ({ app }) => {
-		const { debug, console, editors } = app.workbench;
-
-		// Trigger the breakpoint
-		await console.pasteCodeToConsole(`
-		outer <- function(x) {
-			inner(x)
-		}
-
-		inner <- function(y) {
-			browser()
-			y + 1
-		}
-
-		outer(5)`, true);
-
-		await debug.expectBrowserModeFrame(1);
-
-		// Verify call stack order
-		await debug.expectCallStackAtIndex(0, 'inner()inner()2:');
-		await debug.expectCallStackAtIndex(1, 'outer(5)inner(x)2:');
-		await debug.expectCallStackAtIndex(2, '<global>outer(5)');
-
-		// Verify the call stack redirects to correct data frame(s)
-		await debug.selectCallStackAtIndex(0);
-		await editors.expectEditorToContain('inner <- function(y) {');
-
-		await debug.selectCallStackAtIndex(1);
-		await editors.expectEditorToContain('outer <- function(x) {');
-
-		await debug.selectCallStackAtIndex(2);
-		await editors.expectEditorToContain('outer(5)');
 	});
 
 	test('R - Verify debugging with `debugonce()` pauses only once', async ({ app, page, executeCode, openFile, runCommand }) => {
