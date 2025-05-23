@@ -164,8 +164,13 @@ export class EditorActionBarControl extends Disposable {
 /**
  * EditorActionBarControlFactory class.
  */
-export class EditorActionBarControlFactory extends Disposable {
+export class EditorActionBarControlFactory {
 	//#region Private Properties
+
+	/**
+	 * The disposables.
+	 */
+	private readonly _disposables = new DisposableStore();
 
 	/**
 	 * The control disposables.
@@ -187,7 +192,7 @@ export class EditorActionBarControlFactory extends Disposable {
 	/**
 	 * Gets the onDidEnablementChange event emitter.
 	 */
-	private readonly _onDidEnablementChangeEmitter = this._register(new Emitter<void>());
+	private readonly _onDidEnablementChangeEmitter = this._disposables.add(new Emitter<void>());
 
 	//#endregion Private Properties
 
@@ -224,13 +229,10 @@ export class EditorActionBarControlFactory extends Disposable {
 		private readonly _editorGroup: IEditorGroupView,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
-		// Call the base class's constructor.
-		super();
-
 		/**
 		 * Add the onDidActiveEditorChange event listener to listen for when the active editor changes.
 		 */
-		this._register(this._editorGroup.onDidActiveEditorChange(e => {
+		this._disposables.add(this._editorGroup.onDidActiveEditorChange(e => {
 			// Set up the editor.
 			this.setupEditor(e.editor);
 		}));
@@ -239,9 +241,9 @@ export class EditorActionBarControlFactory extends Disposable {
 	/**
 	 * Disposes the factory.
 	 */
-	override dispose(): void {
+	dispose(): void {
+		this._disposables.dispose();
 		this._controlDisposables.dispose();
-		super.dispose();
 	}
 
 	//#endregion Constructor & Dispose
