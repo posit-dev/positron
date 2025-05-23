@@ -135,7 +135,7 @@ export class EditTool implements IToolImpl {
 		try {
 			fileUri = getUriForFileOpenOrInsideWorkspace(filePath, this.workspaceContextService, this.editorGroupsService);
 		} catch (error) {
-			throw new Error(`Can't edit file: ${JSON.stringify(error)}`);
+			throw new Error(`Can't edit file: ${error.message}`);
 		}
 		// --- End Positron ---
 
