@@ -9,6 +9,14 @@ import { URI } from '../../../../../base/common/uri.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { GroupsOrder, IEditorGroupsService } from '../../../../services/editor/common/editorGroupsService.js';
 
+/**
+ * Constructs a URI for a file path that is either absolute or relative to the workspace.
+ * The file must either be open in an editor or inside a folder within the workspace.
+ * @param filePath The file path to check. It can be either absolute or relative.
+ * @param workspaceContextService The workspace context service
+ * @param editorGroupsService The editor groups service
+ * @returns The URI of the file or throws an error if the file is not open or inside the workspace.
+ */
 export function getUriForFileOpenOrInsideWorkspace(
 	filePath: string,
 	workspaceContextService: IWorkspaceContextService,
@@ -51,6 +59,13 @@ export function getUriForFileOpenOrInsideWorkspace(
 	return uri;
 }
 
+/**
+ * Checks if a file is open in any editor or inside the workspace.
+ * @param uri The URI of the file to check
+ * @param workspaceContextService The workspace context service
+ * @param editorGroupsService The editor groups service
+ * @returns Whether the file is open in any editor or inside the workspace
+ */
 function fileIsOpenOrInsideWorkspace(
 	uri: URI,
 	workspaceContextService: IWorkspaceContextService,
