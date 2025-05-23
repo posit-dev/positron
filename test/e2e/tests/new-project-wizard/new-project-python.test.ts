@@ -12,7 +12,7 @@ test.use({
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
 // Not running uv either because it is not installed on windows for now
-test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJECT_WIZARD] }, () => {
+test.describe('Python - New Project Wizard', { tag: [tags.MODAL, tags.NEW_PROJECT_WIZARD, tags.WEB] }, () => {
 
 	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, sessions, python }) {
 		const projectTitle = addRandomNumSuffix('ipykernel-installed');
@@ -178,6 +178,6 @@ async function verifyGitStatus(app: Application) {
 		// Git status should show that we're on the main branch
 		await app.workbench.terminal.createTerminal();
 		await app.workbench.terminal.runCommandInTerminal('git status');
-		await app.workbench.terminal.waitForTerminalText('On branch main');
+		await app.workbench.terminal.waitForTerminalText('On branch main', { web: app.web });
 	});
 }
