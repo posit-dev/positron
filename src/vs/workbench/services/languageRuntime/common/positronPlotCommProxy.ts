@@ -70,7 +70,7 @@ export class PositronPlotCommProxy extends Disposable {
 
 	constructor(
 		client: IRuntimeClientInstance<any, any>,
-		private readonly _sessionRenderQueue?: PositronPlotRenderQueue) {
+		private readonly _sessionRenderQueue: PositronPlotRenderQueue) {
 		super();
 
 		this._comm = new PositronPlotComm(client, { render: { timeout: 30000 }, get_intrinsic_size: { timeout: 30000 } });
@@ -137,7 +137,9 @@ export class PositronPlotCommProxy extends Disposable {
 		if (this._currentIntrinsicSize) {
 			return this._currentIntrinsicSize;
 		}
-		this._currentIntrinsicSize = this._comm.getIntrinsicSize()
+
+		// Use the session render queue to ensure operations don't overlap
+		this._currentIntrinsicSize = this._sessionRenderQueue.queueIntrinsicSizeRequest(this._comm)
 			.then((intrinsicSize) => {
 				this._intrinsicSize = intrinsicSize;
 				this._receivedIntrinsicSize = true;
@@ -156,60 +158,17 @@ export class PositronPlotCommProxy extends Disposable {
 	 * @param request The render request to perform
 	 */
 	public render(request: DeferredRender): void {
-		// If we have a session render queue, use it
-		if (this._sessionRenderQueue) {
-			this._currentRender = request;
+		this._currentRender = request;
 
-			// The session render queue will handle scheduling and rendering
-			const result = this._sessionRenderQueue.queue(request.renderRequest, this._comm);
-			result.promise.then((result) => {
-				if (result) {
-					request.complete(result);
-				}
-			}).catch((err) => {
-				request.error(err);
-			});
-			return;
-		}
-
-		// Otherwise, use our own queueing logic
-		// Record the time that the render started so clients can estimate the render time
-		const startedTime = Date.now();
-
-		// Perform the RPC request and resolve the promise when the response is received
-		const renderRequest = request.renderRequest;
-		this._comm.render(renderRequest.size,
-			renderRequest.pixel_ratio,
-			renderRequest.format).then((response) => {
-
-				// Ignore if the request was cancelled or already fulfilled
-				if (!request.isComplete) {
-					// The render was successful; record the render time so we can estimate it
-					// for future renders.
-					const finishedTime = Date.now();
-					const renderTimeMs = finishedTime - startedTime;
-
-					// The server returned a rendered plot image; save it and resolve the promise
-					const uri = `data:${response.mime_type};base64,${response.data}`;
-					const renderResult = {
-						...request.renderRequest,
-						uri,
-						renderTimeMs
-					};
-					request.complete(renderResult);
-				}
-
-				// If there is a queued render request, promote it to the current
-				// request and perform it now.
-				if (this._renderQueue.length > 0) {
-					const queuedRender = this._renderQueue.shift();
-					if (queuedRender) {
-						this._currentRender = queuedRender;
-						this.render(queuedRender);
-					}
-				}
-			}).catch((err) => {
-				request.error(err);
-			});
+		// The session render queue will handle scheduling and rendering
+		const result = this._sessionRenderQueue.queue(request.renderRequest, this._comm);
+		result.promise.then((result) => {
+			if (result) {
+				request.complete(result);
+			}
+		}).catch((err) => {
+			request.error(err);
+		});
+		return;
 	}
 }

@@ -8,7 +8,20 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
 import { RuntimeState } from './languageRuntimeService.js';
-import { PlotRenderFormat, PositronPlotComm } from './positronPlotComm.js';
+import { PlotRenderFormat, PositronPlotComm, IntrinsicSize } from './positronPlotComm.js';
+
+/**
+ * The type of operation being queued.
+ */
+export enum OperationType {
+	Render = 'render',
+	GetIntrinsicSize = 'get_intrinsic_size'
+}
+
+/**
+ * The result of a plot operation.
+ */
+export type PlotOperationResult = IRenderedPlot | IntrinsicSize | undefined;
 
 /**
  * A rendered plot.
@@ -28,6 +41,29 @@ export interface IRenderedPlot {
 }
 
 /**
+ * A request to perform an operation on a plot (render or get intrinsic size).
+ */
+export interface PlotOperationRequest {
+	/**
+	 * The type of operation to perform.
+	 */
+	type: OperationType;
+
+	/**
+	 * For render operations: the size of the plot, in logical pixels.
+	 * If undefined, the plot will be rendered at its intrinsic size, if known.
+	 * For intrinsic size operations: not used.
+	 */
+	size?: IPlotSize;
+
+	/** For render operations: the pixel ratio of the device for which the plot was rendered */
+	pixel_ratio?: number;
+
+	/** For render operations: the format of the plot */
+	format?: PlotRenderFormat;
+}
+
+/**
  * A request to render a plot.
  */
 export interface RenderRequest {
@@ -42,6 +78,52 @@ export interface RenderRequest {
 
 	/** The format of the plot */
 	format: PlotRenderFormat;
+}
+
+/**
+ * A deferred plot operation request. Used to track the state of an operation request
+ * that hasn't been fulfilled; mostly a thin wrapper over a `DeferredPromise` that
+ * includes the original operation request.
+ */
+export class DeferredPlotOperation {
+	private readonly deferred: DeferredPromise<PlotOperationResult>;
+
+	constructor(public readonly operationRequest: PlotOperationRequest) {
+		this.deferred = new DeferredPromise<PlotOperationResult>();
+	}
+
+	/**
+	 * Whether the operation request has been completed in some way (either by
+	 * completing successfully, or by being cancelled or errored).
+	 */
+	get isComplete(): boolean {
+		return this.deferred.isSettled;
+	}
+
+	/**
+	 * Cancel the operation request.
+	 */
+	cancel(): void {
+		this.deferred.cancel();
+	}
+
+	/**
+	 * Report an error to the operation request.
+	 */
+	error(err: Error): void {
+		this.deferred.error(err);
+	}
+
+	/**
+	 * Complete the operation request.
+	 */
+	complete(result: PlotOperationResult): void {
+		this.deferred.complete(result);
+	}
+
+	get promise(): Promise<PlotOperationResult> {
+		return this.deferred.p;
+	}
 }
 
 /**
@@ -90,6 +172,13 @@ export class DeferredRender {
 	}
 }
 
+export class QueuedOperation {
+	constructor(
+		public readonly operation: DeferredPlotOperation,
+		public readonly comm: PositronPlotComm) {
+	}
+}
+
 export class QueuedRender {
 	constructor(
 		public readonly render: DeferredRender,
@@ -98,8 +187,8 @@ export class QueuedRender {
 }
 
 export class PositronPlotRenderQueue {
-	private readonly _queue: QueuedRender[] = [];
-	private _isRendering = false;
+	private readonly _queue: QueuedOperation[] = [];
+	private _isProcessing = false;
 
 	constructor(private readonly _session: ILanguageRuntimeSession,
 		private readonly _logService: ILogService
@@ -117,79 +206,155 @@ export class PositronPlotRenderQueue {
 	}
 
 	/**
+	 * Queue a plot operation request.
+	 *
+	 * @param request The operation request to queue
+	 * @param comm The comm to use for the operation
+	 */
+	public queueOperation(request: PlotOperationRequest, comm: PositronPlotComm): DeferredPlotOperation {
+		const deferredOperation = new DeferredPlotOperation(request);
+		this._queue.push(new QueuedOperation(deferredOperation, comm));
+
+		this._logService.debug(`[PPRQ - ${this._session.sessionId}] Received request for ${request.type} operation: ${JSON.stringify(request)} (${comm.clientId}); queue length: ${this._queue.length})`);
+		// If the session is idle, start processing the queue.
+		if (this._session.getRuntimeState() === RuntimeState.Idle) {
+			this.processQueue();
+		}
+		return deferredOperation;
+	}
+
+	/**
 	 * Queue a render request.
 	 *
 	 * @param request The render request to queue
 	 */
 	public queue(request: RenderRequest, comm: PositronPlotComm): DeferredRender {
-		const deferredRender = new DeferredRender(request);
-		this._queue.push(new QueuedRender(deferredRender, comm));
+		// Convert render request to operation request for unified handling
+		const operationRequest: PlotOperationRequest = {
+			type: OperationType.Render,
+			size: request.size,
+			pixel_ratio: request.pixel_ratio,
+			format: request.format
+		};
 
-		this._logService.debug(`[PPRQ - ${this._session.sessionId}] Received request to render plot: ${JSON.stringify(request)} (${comm.clientId}); queue length: ${this._queue.length})`);
-		// If the session is idle, start processing the queue.
-		if (this._session.getRuntimeState() === RuntimeState.Idle) {
-			this.processQueue();
-		}
+		const deferredOperation = this.queueOperation(operationRequest, comm);
+		const deferredRender = new DeferredRender(request);
+
+		// Bridge the operation result to the render result
+		deferredOperation.promise.then((result) => {
+			if (result && typeof result === 'object' && 'uri' in result) {
+				deferredRender.complete(result as IRenderedPlot);
+			} else {
+				deferredRender.error(new Error('Invalid render result'));
+			}
+		}).catch((err) => {
+			deferredRender.error(err);
+		});
+
 		return deferredRender;
 	}
 
 	/**
-	 * Process the render queue. If a render is already in progress, this will
+	 * Queue an intrinsic size request.
+	 *
+	 * @param comm The comm to use for the operation
+	 */
+	public queueIntrinsicSizeRequest(comm: PositronPlotComm): Promise<IntrinsicSize | undefined> {
+		const operationRequest: PlotOperationRequest = {
+			type: OperationType.GetIntrinsicSize
+		};
+
+		const deferredOperation = this.queueOperation(operationRequest, comm);
+		return deferredOperation.promise.then((result) => {
+			if (result === undefined || (typeof result === 'object' && 'width' in result && 'height' in result)) {
+				return result as IntrinsicSize | undefined;
+			} else {
+				throw new Error('Invalid intrinsic size result');
+			}
+		});
+	}
+
+	/**
+	 * Process the operation queue. If an operation is already in progress, this will
 	 * do nothing.
 	 */
 	private processQueue(): void {
 		// Nothing to do if the queue is empty.
 		if (this._queue.length === 0) {
-			this._isRendering = false;
+			this._isProcessing = false;
 			return;
 		}
 
-		// Don't allow re-entrant rendering.
-		if (this._isRendering) {
+		// Don't allow re-entrant processing.
+		if (this._isProcessing) {
 			return;
 		}
 
-		this._isRendering = true;
-		const queuedRender = this._queue.shift();
-		if (!queuedRender) {
-			this._isRendering = false;
+		this._isProcessing = true;
+		const queuedOperation = this._queue.shift();
+		if (!queuedOperation) {
+			this._isProcessing = false;
 			return;
 		}
 
-		this._logService.debug(`[PPRQ - ${this._session.sessionId}] Processing render request: ${JSON.stringify(queuedRender.render.renderRequest)} (${queuedRender.comm.clientId}); queue length: ${this._queue.length})`);
+		this._logService.debug(`[PPRQ - ${this._session.sessionId}] Processing ${queuedOperation.operation.operationRequest.type} request: ${JSON.stringify(queuedOperation.operation.operationRequest)} (${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
 
-		// Record the time that the render started so clients can estimate the render time
+		// Record the time that the operation started
 		const startedTime = Date.now();
-		const renderRequest = queuedRender.render.renderRequest;
+		const operationRequest = queuedOperation.operation.operationRequest;
 
-		queuedRender.comm.render(renderRequest.size,
-			renderRequest.pixel_ratio,
-			renderRequest.format).then((response) => {
-				// The render was successful; record the render time so we can estimate it
-				// for future renders.
-				const finishedTime = Date.now();
-				const renderTimeMs = finishedTime - startedTime;
+		if (operationRequest.type === OperationType.Render) {
+			// Handle render operation
+			queuedOperation.comm.render(operationRequest.size,
+				operationRequest.pixel_ratio!,
+				operationRequest.format!).then((response) => {
+					// The render was successful; record the render time
+					const finishedTime = Date.now();
+					const renderTimeMs = finishedTime - startedTime;
 
-				// The server returned a rendered plot image; save it and resolve the promise
-				const uri = `data:${response.mime_type};base64,${response.data}`;
-				const renderResult = {
-					...queuedRender.render.renderRequest,
-					uri,
-					renderTimeMs
-				};
-				queuedRender.render.complete(renderResult);
+					// The server returned a rendered plot image; save it and resolve the promise
+					const uri = `data:${response.mime_type};base64,${response.data}`;
+					const renderResult: IRenderedPlot = {
+						size: operationRequest.size,
+						pixel_ratio: operationRequest.pixel_ratio!,
+						uri,
+						renderTimeMs
+					};
+					queuedOperation.operation.complete(renderResult);
 
-				this._logService.debug(`[PPRQ - ${this._session.sessionId}] Completed render request: ${JSON.stringify(queuedRender.render.renderRequest)} (${queuedRender.comm.clientId}); queue length: ${this._queue.length})`);
+					this._logService.debug(`[PPRQ - ${this._session.sessionId}] Completed render request: ${JSON.stringify(operationRequest)} (${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
 
-				// Mark rendering as complete and process the next item in the queue
-				this._isRendering = false;
+					// Mark processing as complete and process the next item in the queue
+					this._isProcessing = false;
+					this.processQueue();
+				}).catch((err) => {
+					// Handle the error and continue processing the queue
+					queuedOperation.operation.error(err);
+					this._isProcessing = false;
+					this.processQueue();
+				});
+		} else if (operationRequest.type === OperationType.GetIntrinsicSize) {
+			// Handle intrinsic size operation
+			queuedOperation.comm.getIntrinsicSize().then((intrinsicSize) => {
+				queuedOperation.operation.complete(intrinsicSize);
+
+				this._logService.debug(`[PPRQ - ${this._session.sessionId}] Completed intrinsic size request: ${JSON.stringify(operationRequest)} (${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
+
+				// Mark processing as complete and process the next item in the queue
+				this._isProcessing = false;
 				this.processQueue();
 			}).catch((err) => {
 				// Handle the error and continue processing the queue
-				queuedRender.render.error(err);
-				this._isRendering = false;
+				queuedOperation.operation.error(err);
+				this._isProcessing = false;
 				this.processQueue();
 			});
+		} else {
+			// Unknown operation type
+			queuedOperation.operation.error(new Error(`Unknown operation type: ${operationRequest.type}`));
+			this._isProcessing = false;
+			this.processQueue();
+		}
 	}
 }
 

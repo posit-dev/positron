@@ -1402,7 +1402,17 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		plotClient.dispose();
 	}
 
-	private createCommProxy(client: IRuntimeClientInstance<any, any>, metadata: IPositronPlotMetadata) {
+	/**
+	 * Creates a new communication proxy for the given client and metadata.
+	 *
+	 * @param client
+	 * @param metadata
+	 * @returns A new PositronPlotCommProxy instance.
+	 */
+	private createCommProxy(
+		client: IRuntimeClientInstance<any, any>,
+		metadata: IPositronPlotMetadata): PositronPlotCommProxy {
+
 		// Get or create the render queue for this session
 		let renderQueue = this._renderQueues.get(metadata.session_id);
 		if (!renderQueue) {
@@ -1410,6 +1420,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			if (session) {
 				renderQueue = new PositronPlotRenderQueue(session, this._logService);
 				this._renderQueues.set(metadata.session_id, renderQueue);
+			} else {
+				this._logService.error(`Cannot find session ${metadata.session_id} for plot ${metadata.id}.`);
+				throw new Error(`Cannot find session ${metadata.session_id} for plot ${metadata.id}`);
 			}
 		}
 
