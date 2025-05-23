@@ -3219,7 +3219,7 @@ class EditorActionBar extends BaseEditorOption<EditorOption.actionBar, IEditorAc
 		 * Default options for the editor action bar.
 		 */
 		const defaults: EditorActionBarOptions = {
-			hiddenForLanguages: ['plaintext']
+			hiddenForLanguages: []
 		};
 
 		// Call the base class's constructor.
