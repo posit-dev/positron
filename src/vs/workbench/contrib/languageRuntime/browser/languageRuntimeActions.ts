@@ -992,7 +992,7 @@ export function registerLanguageRuntimeActions() {
 			super({
 				id: 'workbench.action.executeCode.console',
 				title: nls.localize2('positron.command.executeCode.console', "Execute Code in Console"),
-				f1: false,
+				f1: true,
 				category
 			});
 		}
