@@ -60,6 +60,10 @@ export class NewSession {
     * The Jupyter protocol version supported by the underlying kernel
     */
     'protocolVersion'?: string = '5.3';
+    /**
+    * Whether to run the session inside a login shell; only relevant on POSIX systems
+    */
+    'runInShell'?: boolean = false;
 
     static discriminator: string | undefined = undefined;
 
@@ -123,6 +127,11 @@ export class NewSession {
             "name": "protocolVersion",
             "baseName": "protocol_version",
             "type": "string"
+        },
+        {
+            "name": "runInShell",
+            "baseName": "run_in_shell",
+            "type": "boolean"
         }    ];
 
     static getAttributeTypeMap() {

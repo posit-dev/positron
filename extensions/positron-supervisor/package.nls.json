@@ -20,6 +20,7 @@
 	"configuration.connectionTimeout.description": "Timeout in seconds for connecting to the kernel's sockets",
 	"configuration.attachOnStartup.description": "Run <f5> before starting up Jupyter kernel (when supported)",
 	"configuration.sleepOnStartup.description": "Sleep for n seconds before starting up Jupyter kernel (when supported)",
+	"configuration.runInShell.description": "Run kernels in a login shell (on Unix-like systems)",
 	"command.positron.supervisor.category": "Kernel Supervisor",
 	"command.showKernelSupervisorLog.title": "Show the Kernel Supervisor Log",
 	"command.reconnectSession.title": "Reconnect the Current Session",

@@ -411,6 +411,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._extra!.sleepOnStartup!.init(args, delay);
 		}
 
+		// Whether to run the kernel in a login shell. Kallichore ignores this
+		// on Windows.
+		const runInShell = config.get('runInShell', true);
+
 		// Create the session in the underlying API
 		const session: NewSession = {
 			argv: args,
@@ -421,6 +425,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			continuationPrompt: '',
 			env: varActions,
 			workingDirectory: workingDir,
+			runInShell,
 			username: os.userInfo().username,
 			interruptMode,
 			connectionTimeout,
