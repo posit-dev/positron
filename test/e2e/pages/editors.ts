@@ -83,4 +83,14 @@ export class Editors {
 			await expect(this.suggestionList).toHaveCount(count);
 		});
 	}
+
+	/**
+	 * Verify: editor contains the specified text
+	 * @param text The text to check in the editor
+	 */
+	async expectEditorToContain(text: string): Promise<void> {
+		await test.step(`Verify editor contains: ${text}`, async () => {
+			await expect(this.code.driver.page.locator('[id="workbench.parts.editor"]').getByRole('code').getByText(text)).toBeVisible();
+		});
+	}
 }
