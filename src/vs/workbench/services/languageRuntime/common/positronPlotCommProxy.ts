@@ -161,14 +161,6 @@ export class PositronPlotCommProxy extends Disposable {
 		this._currentRender = request;
 
 		// The session render queue will handle scheduling and rendering
-		const result = this._sessionRenderQueue.queue(request.renderRequest, this._comm);
-		result.promise.then((result) => {
-			if (result) {
-				request.complete(result);
-			}
-		}).catch((err) => {
-			request.error(err);
-		});
-		return;
+		this._sessionRenderQueue.queue(request, this._comm);
 	}
 }

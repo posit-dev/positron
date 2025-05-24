@@ -845,12 +845,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	private createEditorPlot(metadata: IPositronPlotMetadata, commProxy: PositronPlotCommProxy) {
 		const plot = this.createRuntimePlotClient(commProxy, metadata, PlotClientLocation.Editor);
-		plot.onDidClose(() => {
+		this._register(plot.onDidClose(() => {
 			this._editorPlots.delete(metadata.id);
 			this._storageService.remove(
 				this.generateStorageKey(metadata.session_id, metadata.id, metadata.location),
 				StorageScope.WORKSPACE);
-		});
+		}));
 		this._editorPlots.set(metadata.id, plot);
 	}
 

@@ -201,6 +201,12 @@ export class PositronPlotRenderQueue {
 					this._logService.debug(`[PPRQ - ${this._session.sessionId}] Runtime idle, processing queue.`);
 					this.processQueue();
 				}
+			} else if (this._session.getRuntimeState() === RuntimeState.Exited) {
+				this._queue.forEach((queuedOperation) => {
+					queuedOperation.operation.cancel();
+					this._logService.debug(`[PPRQ - ${this._session.sessionId}] Runtime exited, cancelling operation: ${JSON.stringify(queuedOperation.operation.operationRequest)} (${queuedOperation.comm.clientId})`);
+				});
+				this._queue.length = 0;
 			}
 		});
 	}
@@ -228,17 +234,16 @@ export class PositronPlotRenderQueue {
 	 *
 	 * @param request The render request to queue
 	 */
-	public queue(request: RenderRequest, comm: PositronPlotComm): DeferredRender {
+	public queue(deferredRender: DeferredRender, comm: PositronPlotComm): DeferredRender {
 		// Convert render request to operation request for unified handling
 		const operationRequest: PlotOperationRequest = {
 			type: OperationType.Render,
-			size: request.size,
-			pixel_ratio: request.pixel_ratio,
-			format: request.format
+			size: deferredRender.renderRequest.size,
+			pixel_ratio: deferredRender.renderRequest.pixel_ratio,
+			format: deferredRender.renderRequest.format
 		};
 
 		const deferredOperation = this.queueOperation(operationRequest, comm);
-		const deferredRender = new DeferredRender(request);
 
 		// Bridge the operation result to the render result
 		deferredOperation.promise.then((result) => {
@@ -294,6 +299,12 @@ export class PositronPlotRenderQueue {
 		const queuedOperation = this._queue.shift();
 		if (!queuedOperation) {
 			this._isProcessing = false;
+			return;
+		}
+
+		// Don't process if the session is not idle. The queue will be processed
+		// when the session becomes idle again.
+		if (this._session.getRuntimeState() !== RuntimeState.Idle) {
 			return;
 		}
 
