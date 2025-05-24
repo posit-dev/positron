@@ -41,6 +41,7 @@ export class Console {
 		this.restartButton = this.code.driver.page.getByLabel('Restart console');
 		this.clearButton = this.code.driver.page.getByLabel('Clear console');
 		this.trashButton = this.code.driver.page.getByTestId('trash-session');
+		// TODO @dhruvisompura: This needs to be updated since this now creates or duplicates a session
 		this.newSessionButton = this.code.driver.page.getByRole('toolbar', { name: 'Console actions' }).getByRole('button', { name: 'Start a New Session' });
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);

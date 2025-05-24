@@ -126,7 +126,7 @@ export class UnsupportedPythonVersionService extends BaseDiagnosticsService {
                         prompt: Common.selectNewSession,
                         command: commandFactory.createCommand(diagnostic, {
                             type: 'executeVSCCommand',
-                            options: 'workbench.action.language.runtime.openActivePicker',
+                            options: 'workbench.action.language.runtime.selectSession',
                         }),
                     },
                     {

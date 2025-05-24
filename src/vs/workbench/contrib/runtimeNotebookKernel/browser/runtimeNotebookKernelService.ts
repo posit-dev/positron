@@ -23,6 +23,7 @@ import { NotebookExecutionStatus } from './notebookExecutionStatus.js';
 import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { LANGUAGE_RUNTIME_SELECT_RUNTIME_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
 
 /**
  * The affinity of a kernel for a notebook.
@@ -134,7 +135,7 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 					{
 						label: 'Select Environment...',
 						command: {
-							id: 'workbench.action.languageRuntime.pick',
+							id: LANGUAGE_RUNTIME_SELECT_RUNTIME_ID,
 							title: 'Select Environment',
 						},
 					}

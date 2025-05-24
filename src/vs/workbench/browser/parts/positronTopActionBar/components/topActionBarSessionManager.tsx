@@ -17,6 +17,7 @@ import { ActionBarCommandButton } from '../../../../../platform/positronActionBa
 import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { localize } from '../../../../../nls.js';
+import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
 
 const startSession = localize('positron.console.startSession', "Start Session");
 
@@ -38,8 +39,8 @@ export const TopActionBarSessionManager = () => {
 	const hasActiveConsoleSessions = context.runtimeSessionService.activeSessions.find(
 		session => session.metadata.sessionMode === LanguageRuntimeSessionMode.Console);
 	const command = hasActiveConsoleSessions
-		? 'workbench.action.language.runtime.openActivePicker'
-		: 'workbench.action.language.runtime.openStartPicker';
+		? LANGUAGE_RUNTIME_SELECT_SESSION_ID
+		: LANGUAGE_RUNTIME_START_NEW_SESSION_ID;
 
 	// Main useEffect.
 	useEffect(() => {
