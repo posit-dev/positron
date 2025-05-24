@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DeferredPromise } from '../../../../base/common/async.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
@@ -186,15 +187,16 @@ export class QueuedRender {
 	}
 }
 
-export class PositronPlotRenderQueue {
+export class PositronPlotRenderQueue extends Disposable {
 	private readonly _queue: QueuedOperation[] = [];
 	private _isProcessing = false;
 
 	constructor(private readonly _session: ILanguageRuntimeSession,
 		private readonly _logService: ILogService
 	) {
+		super();
 		this._logService.debug('PositronPlotRenderQueue: created for session ' + this._session.sessionId);
-		this._session.onDidChangeRuntimeState(() => {
+		this._register(this._session.onDidChangeRuntimeState(() => {
 
 			if (this._session.getRuntimeState() === RuntimeState.Idle) {
 				if (this._queue.length > 0) {
@@ -208,7 +210,7 @@ export class PositronPlotRenderQueue {
 				});
 				this._queue.length = 0;
 			}
-		});
+		}));
 	}
 
 	/**
@@ -302,12 +304,6 @@ export class PositronPlotRenderQueue {
 			return;
 		}
 
-		// Don't process if the session is not idle. The queue will be processed
-		// when the session becomes idle again.
-		if (this._session.getRuntimeState() !== RuntimeState.Idle) {
-			return;
-		}
-
 		this._logService.debug(`[PPRQ - ${this._session.sessionId}] Processing ${queuedOperation.operation.operationRequest.type} request: ${JSON.stringify(queuedOperation.operation.operationRequest)} (${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
 
 		// Record the time that the operation started
@@ -334,13 +330,10 @@ export class PositronPlotRenderQueue {
 					queuedOperation.operation.complete(renderResult);
 
 					this._logService.debug(`[PPRQ - ${this._session.sessionId}] Completed render request: ${JSON.stringify(operationRequest)} (${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
-
-					// Mark processing as complete and process the next item in the queue
-					this._isProcessing = false;
-					this.processQueue();
 				}).catch((err) => {
-					// Handle the error and continue processing the queue
 					queuedOperation.operation.error(err);
+				}).finally(() => {
+					// Mark processing as complete and process the next item in the queue
 					this._isProcessing = false;
 					this.processQueue();
 				});
@@ -350,13 +343,11 @@ export class PositronPlotRenderQueue {
 				queuedOperation.operation.complete(intrinsicSize);
 
 				this._logService.debug(`[PPRQ - ${this._session.sessionId}] Completed intrinsic size request: ${JSON.stringify(operationRequest)} (${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
-
-				// Mark processing as complete and process the next item in the queue
-				this._isProcessing = false;
-				this.processQueue();
 			}).catch((err) => {
-				// Handle the error and continue processing the queue
+				// Handle the error
 				queuedOperation.operation.error(err);
+			}).finally(() => {
+				// Mark processing as complete and process the next item in the queue
 				this._isProcessing = false;
 				this.processQueue();
 			});

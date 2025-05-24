@@ -1419,6 +1419,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			const session = this._runtimeSessionService.getSession(metadata.session_id);
 			if (session) {
 				renderQueue = new PositronPlotRenderQueue(session, this._logService);
+				this._register(renderQueue);
 				this._renderQueues.set(metadata.session_id, renderQueue);
 			} else {
 				this._logService.error(`Cannot find session ${metadata.session_id} for plot ${metadata.id}.`);

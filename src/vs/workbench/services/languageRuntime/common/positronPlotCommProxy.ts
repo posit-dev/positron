@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,11 +20,6 @@ export class PositronPlotCommProxy extends Disposable {
 	 * The underlying comm
 	 */
 	private _comm: PositronPlotComm;
-
-	/**
-	 * The render queue. If a render is in progress, new renders are queued
-	 */
-	private _renderQueue = new Array<DeferredRender>();
 
 	/**
 	 * The intrinsic size of the plot, if known.
@@ -75,6 +70,11 @@ export class PositronPlotCommProxy extends Disposable {
 
 		this._comm = new PositronPlotComm(client, { render: { timeout: 30000 }, get_intrinsic_size: { timeout: 30000 } });
 
+		this._register(this._closeEmitter);
+		this._register(this._renderUpdateEmitter);
+		this._register(this._didShowPlotEmitter);
+		this._register(this._didSetIntrinsicSizeEmitter);
+
 		const clientStateEvent = Event.fromObservable(client.clientState);
 
 		// Connect close emitter event
@@ -85,7 +85,6 @@ export class PositronPlotCommProxy extends Disposable {
 
 				// Silently cancel any pending render requests
 				this._currentRender?.cancel();
-				this._renderQueue.forEach((render) => render.cancel());
 			}
 		}));
 

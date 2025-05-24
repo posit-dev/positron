@@ -73,9 +73,9 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 			// a backend and therefore doesn't need to be removed from the list
 			// of active plot instances.)
 			if (plotInstance instanceof PlotClientInstance) {
-				plotInstance.onDidClose(() => {
+				disposableStore.add(plotInstance.onDidClose(() => {
 					setPositronPlotInstances(positronPlotInstances => positronPlotInstances.filter(p => p !== plotInstance));
-				});
+				}));
 			}
 		}));
 
