@@ -19,6 +19,7 @@ import path from 'path';
 // eslint-disable-next-line import/no-duplicates
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 import { findInterpretersInDir } from '../../../common/commonUtils';
+import { getUvDirs } from '../../../common/environmentManagers/uv';
 // --- End Positron ---
 
 export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
@@ -92,12 +93,16 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
  * `getAdditionalEnvDirs()` for the equivalent handling using the native locator.
  *
  * @param searchDepth Number of levels of sub-directories to recurse when looking for interpreters.
- *                    Default is 2 levels.
+ *                    Default is 3 levels because the uv directory structure is 3 levels deep.
  * @returns Paths to Python binaries found in additional locations for Posix systems.
  */
-async function getAdditionalPosixBinDirs(searchDepth = 2): Promise<string[]> {
+async function getAdditionalPosixBinDirs(searchDepth = 3): Promise<string[]> {
     const additionalDirs = [];
-    for (const location of ADDITIONAL_POSIX_BIN_PATHS) {
+    const searchPaths = ADDITIONAL_POSIX_BIN_PATHS;
+    const uvDirs = await getUvDirs();
+    searchPaths.push(...uvDirs);
+
+    for (const location of searchPaths) {
         const executables = findInterpretersInDir(location, searchDepth);
         for await (const entry of executables) {
             const { filename } = entry;
