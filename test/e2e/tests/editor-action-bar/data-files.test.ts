@@ -41,7 +41,11 @@ test.describe('Editor Action Bar: Data Files', {
 	tag: [tags.WEB, tags.WIN, tags.EDITOR_ACTION_BAR, tags.DATA_EXPLORER]
 }, () => {
 
-	test.beforeAll(async function ({ app }) {
+	test.beforeAll(async function ({ app, page }) {
+		// The editor action bar is shown and hidden based on the language of the file that is opened.
+		// Wait a sufficient amount of time for the languages to be loaded. This is is a temporary
+		// measure until we can work out how best to determine when the tests below should begin.
+		await page.waitForTimeout(3000);
 		editorActionBar = app.workbench.editorActionBar;
 	});
 

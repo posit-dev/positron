@@ -4346,10 +4346,9 @@ declare namespace monaco.editor {
 	 */
 	export interface IEditorActionBarOptions {
 		/**
-		 * Enable the editor action bar.
-		 * Defaults to false.
+		 * Hides the action bar for the specified languages.
 		 */
-		enabled?: boolean;
+		hiddenForLanguages?: string[];
 	}
 
 	/**

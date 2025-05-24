@@ -14,7 +14,6 @@ import './inspectEditorTokens/inspectEditorTokens.js';
 import './quickaccess/gotoLineQuickAccess.js';
 import './quickaccess/gotoSymbolQuickAccess.js';
 import './saveParticipants.js';
-import './toggleActionBar.js';
 import './toggleColumnSelection.js';
 import './toggleMinimap.js';
 import './toggleOvertype.js';

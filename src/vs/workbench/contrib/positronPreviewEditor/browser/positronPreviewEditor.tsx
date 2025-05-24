@@ -117,6 +117,11 @@ export class PositronPreviewEditor
 		if (!this._positronReactRenderer) {
 			this._positronReactRenderer = new PositronReactRenderer(this._container);
 		}
+
+		if (this._preview) {
+			this._preview.dispose();
+		}
+
 		this._preview = this._positronPreviewService.editorWebview(previewId);
 
 		this._positronReactRenderer.render(

@@ -146,6 +146,19 @@ export class EditorActionBarFactory extends Disposable {
 		}));
 	}
 
+	/**
+	 * Disposes the action bar factory.
+	 */
+	override dispose() {
+		// Dispose the menu disposable stores.
+		this._menuDisposableStores.forEach(disposableStore => {
+			disposableStore.dispose();
+		});
+
+		// Call the base class's dispose method.
+		super.dispose();
+	}
+
 	//#endregion Constructor
 
 	//#region Public Methods
