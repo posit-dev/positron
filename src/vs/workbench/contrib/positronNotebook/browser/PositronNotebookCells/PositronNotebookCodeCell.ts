@@ -10,10 +10,10 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { parseOutputData } from '../getOutputContents.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCell.js';
 import { PositronNotebookInstance } from '../PositronNotebookInstance.js';
-import { PositronWebviewPreloadService } from '../../../positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
 import { IPositronNotebookCodeCell, NotebookCellOutputs } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { IPositronWebviewPreloadService } from '../../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { pickPreferredOutputItem } from './notebookOutputUtils.js';
+import { getWebviewMessageType } from '../../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 
 export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implements IPositronNotebookCodeCell {
 	override kind: CellKind.Code = CellKind.Code;
@@ -59,7 +59,7 @@ export class PositronNotebookCodeCell extends PositronNotebookCellGeneral implem
 				parsed: parseOutputData(preferredOutput),
 			};
 
-			const preloadMessageType = PositronWebviewPreloadService.getWebviewMessageType(outputs);
+			const preloadMessageType = getWebviewMessageType(outputs);
 
 			if (preloadMessageType) {
 				parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({

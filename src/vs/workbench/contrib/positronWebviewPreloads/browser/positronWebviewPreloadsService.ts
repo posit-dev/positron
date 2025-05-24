@@ -13,7 +13,7 @@ import { IPositronNotebookOutputWebviewService, INotebookOutputWebview } from '.
 import { NotebookMultiMessagePlotClient } from '../../positronPlots/browser/notebookMultiMessagePlotClient.js';
 import { UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
-import { isWebviewDisplayMessage, isWebviewReplayMessage } from './utils.js';
+import { isWebviewDisplayMessage, getWebviewMessageType } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
 
 /**
@@ -143,26 +143,6 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 		};
 	}
 
-	/**
-	 * Determines if a set of notebook cell outputs contains mime types that require webview handling.
-	 * This is used to check if outputs need special webview processing, either for:
-	 * 1. Display messages that create new webviews (e.g. interactive plots)
-	 * 2. Replay messages that need to be stored for later playback in webviews
-	 *
-	 * @param outputs Array of output objects containing mime types to check
-	 * @returns The type of webview message ('display', 'preload') or null if not handled
-	 */
-	static getWebviewMessageType(outputs: { mime: string }[]): NotebookPreloadOutputResults['preloadMessageType'] | null {
-		const mimeTypes = outputs.map(output => output.mime);
-		if (isWebviewDisplayMessage(mimeTypes)) {
-			return 'display';
-		}
-		if (isWebviewReplayMessage(mimeTypes)) {
-			return 'preload';
-		}
-
-		return null;
-	}
 
 	/**
 	 * Add a notebook output to service. Either for display or preload.
@@ -187,7 +167,7 @@ export class PositronWebviewPreloadService extends Disposable implements IPositr
 
 		// Check if this output contains any mime types that require webview handling
 		// Returns undefined for outputs that don't need webview processing (e.g., plain text, images)
-		const messageType = PositronWebviewPreloadService.getWebviewMessageType(outputs);
+		const messageType = getWebviewMessageType(outputs);
 		if (!messageType) {
 			return undefined;
 		}
