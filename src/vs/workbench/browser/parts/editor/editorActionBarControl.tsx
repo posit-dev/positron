@@ -32,7 +32,9 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { SettingsEditor2Input } from '../../../services/preferences/common/preferencesEditorInput.js';
 import { EditorActionBarOptions, EditorOption } from '../../../../editor/common/config/editorOptions.js';
+import { NotebookOutputEditorInput } from '../../../contrib/notebook/browser/outputEditor/notebookOutputEditorInput.js';
 import { PositronDataExplorerEditorInput } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerEditorInput.js';
+import { NotebookEditorInput } from '../../../contrib/notebook/common/notebookEditorInput.js';
 
 /**
  * Constants.
@@ -261,6 +263,12 @@ export class EditorActionBarControlFactory {
 		// If there isn't an active editor, disable the editor action bar and return.
 		if (!editorInput) {
 			this.updateEnablement(false);
+			return;
+		}
+
+		// Notebooks always enable editor action bar.
+		if (editorInput.typeId === NotebookEditorInput.ID || editorInput.typeId === NotebookOutputEditorInput.ID) {
+			this.updateEnablement(true);
 			return;
 		}
 
