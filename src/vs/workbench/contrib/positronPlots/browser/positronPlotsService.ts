@@ -217,6 +217,12 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		// Register for session deletions to clean up render queues
 		this._register(this._runtimeSessionService.onDidDeleteRuntimeSession((sessionId) => {
 			// Remove the render queue for this session
+			if (this._renderQueues.has(sessionId)) {
+				const renderQueue = this._renderQueues.get(sessionId);
+				if (renderQueue) {
+					renderQueue.dispose();
+				}
+			}
 			this._renderQueues.delete(sessionId);
 		}));
 
