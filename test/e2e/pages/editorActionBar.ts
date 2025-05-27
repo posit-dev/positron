@@ -25,7 +25,7 @@ export class EditorActionBar {
 	async clickButton(
 		button: 'Split Editor Right' | 'Split Editor Down' | 'Preview' | 'Open Changes' | 'Open in Viewer' | 'Move into new window' | 'Open as Plain Text File'
 	): Promise<void> {
-		const buttonLocator = this.page.getByLabel(button, { exact: true });
+		const buttonLocator = this.page.getByLabel(button, { exact: true }).nth(0);
 
 		if (button === 'Split Editor Down') {
 			// Special case: "Split Editor Down" requires holding Alt key
