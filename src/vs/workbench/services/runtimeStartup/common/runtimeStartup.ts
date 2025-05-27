@@ -785,7 +785,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// language runtime providers.
 		this.setStartupPhase(RuntimeStartupPhase.Discovering);
 
-		// Ask each extension to provide its language runtime metadata.
+		// Ask each extension host to provide its language runtime metadata.
 		for (const manager of this._runtimeManagers) {
 			manager.discoverAllRuntimes(disabledLanguages);
 		}
