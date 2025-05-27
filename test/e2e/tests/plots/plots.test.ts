@@ -187,11 +187,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await runScriptAndValidatePlot(app, ipyleaflet, '.leaflet-container');
 		});
 
-		test.skip('Python - Verify hvplot can load with plotly extension [C766660]', {
+		test('Python - Verify hvplot can load with plotly extension [C766660]', {
 			tag: [tags.WEB, tags.WIN],
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5991' }],
 		}, async function ({ app }) {
-			await runScriptAndValidatePlot(app, plotly, '.plotly');
+			// run line by line due to https://github.com/posit-dev/positron/issues/5991
+			await runScriptAndValidatePlot(app, plotly, '.plotly', false, true);
 		});
 
 		test('Python - Verify ipytree Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
@@ -465,9 +466,12 @@ const options: ComparisonOptions = {
 	ignore: 'antialiasing',
 };
 
-async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false) {
-	await app.workbench.console.pasteCodeToConsole(script);
-	await app.workbench.console.sendEnterKey();
+async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false, runLineByLine = false) {
+	const lines: string[] = runLineByLine ? script.split('\n') : [script];
+	for (const line of lines) {
+		await app.workbench.console.pasteCodeToConsole(line);
+		await app.workbench.console.sendEnterKey();
+	}
 	await app.code.wait(3000); // give plot time to render before interacting with quick input
 	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 	await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
