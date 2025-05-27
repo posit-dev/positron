@@ -180,8 +180,8 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter",
-			"version": "2024.11.0",
-			"sha256sum": "8a91481baeb1afcdc6af910e66e330b242ce414b3ee1d4b9357ad934f92971fb",
+			"version": "2025.4.1",
+			"sha256sum": "7c6dfe9cfdfb7a6accc6973d730c1607ad6483c6405b912dd606002525aedb5a",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -196,8 +196,8 @@
 		},
 		{
 			"name": "ms-pyright.pyright",
-			"version": "1.1.397",
-			"sha256sum": "76011d78bd75e16feadade36c517edef224677979086cd1af3df20cd5ce2b16a",
+			"version": "1.1.401",
+			"sha256sum": "981fd1ec52e00844a49f94a0332528fc24d71e207cc7580e0c4140681c49eac9",
 			"repo": "https://github.com/Microsoft/pyright",
 			"metadata": {
 				"id": "593fe6a5-513e-4cb3-abfb-5b9f5fe39802",
@@ -212,7 +212,7 @@
 		},
 		{
 			"name": "ms-python.debugpy",
-			"version": "2025.0.1",
+			"version": "2025.6.0",
 			"repo": "https://github.com/microsoft/vscode-python-debugger",
 			"metadata": {
 				"id": "4bd5d2c9-9d65-401a-b0b2-7498d9f17615",
@@ -228,7 +228,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.12.1",
+			"version": "1.16.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
