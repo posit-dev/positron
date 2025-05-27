@@ -34,9 +34,10 @@ export class PositConnect {
 		}
 	}
 
+	// To prevent flakiness, this function always add the file name after app.py, which is guaranteed to be present
 	async selectFilesForDeploy(files: string[]) {
 		const editorContainer = this.code.driver.page.locator('[id="workbench.parts.editor"]');
-		const dynamicTomlLineRegex = /deployment-.*?\.toml/;
+		const dynamicTomlLineRegex = 'app.py';
 		const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
 
 		await targetLine.scrollIntoViewIfNeeded({ timeout: 20000 });
@@ -44,13 +45,13 @@ export class PositConnect {
 
 		await targetLine.click();
 		await this.code.driver.page.keyboard.press('End');
-		await this.code.driver.page.keyboard.type(',');
 
-		for (const file of files) {
-			await this.code.driver.page.keyboard.press('Enter');
-			await this.code.driver.page.keyboard.type(`'/${file}'${file === files[files.length - 1] ? '' : ','}`);
+		for (let i = 0; i < files.length; i++) {
+			if (i > 0) {
+				await this.code.driver.page.keyboard.press('Enter');
+			}
+			await this.code.driver.page.keyboard.type(`'/${files[i]}',`);
 		}
-
 		const saveButton = this.code.driver.page.locator('.action-bar-button-icon.codicon.codicon-positron-save').first();
 		await saveButton.click();
 	}

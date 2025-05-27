@@ -44,7 +44,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await page.keyboard.press('Enter');
 		});
 
-		await test.step('Add files to deployment-***.toml and save', async () => {
+		await test.step('Add files to deployment file (after app.py) and save', async () => {
 			const files = ['shared.py', 'styles.css', 'tips.csv'];
 			await app.workbench.positConnect.selectFilesForDeploy(files);
 		});
@@ -69,7 +69,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			// Not needed thanks to PR 7840, but this is an example of implementation
 			// await app.workbench.popups.closeSpecificToast('Import your settings from Visual Studio Code into Positron?');
 			await page.getByRole('button', { name: 'Maximize Panel' }).click();
-			// The next twi await expects are a bit redundant on purpose. If "Deploy Bundle isn't visible, test should quickly fail (5secs).
+			// The next two await expects are a bit redundant on purpose. If "Deploy Bundle" isn't visible, test should quickly fail (5secs).
 			await expect(page.locator('span.monaco-highlighted-label:has-text("Deploy Bundle")')).toBeVisible({ timeout: 5000 });
 			// Then, checkmark next to it might take a bit long to appear, which is expected.
 			await expect(page.locator('.monaco-list-row:has-text("Deploy Bundle") .custom-view-tree-node-item-icon.codicon.codicon-check')).toBeVisible({ timeout: 90000 });

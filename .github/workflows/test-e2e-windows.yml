@@ -60,6 +60,8 @@ jobs:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
       AWS_S3_BUCKET: positron-test-reports
+      E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
+      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
 
     steps:
       - uses: actions/checkout@v4
