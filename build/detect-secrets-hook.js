@@ -26,6 +26,9 @@ function detectSecretsHook(reporter) {
 				break;
 		}
 		reporter(message, true);
+
+		// Exit the process with an error so that the pre-commit hook fails
+		process.exit(error.status);
 	}
 	return es.through(function () { /* noop, important for the stream to end */ });
 }
