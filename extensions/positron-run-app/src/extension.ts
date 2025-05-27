@@ -11,12 +11,6 @@ import { AppLauncherTerminalLinkProvider } from './terminalLinkProvider.js';
 
 export const log = vscode.window.createOutputChannel('App Launcher', { log: true });
 
-export enum Config {
-	ShellIntegrationEnabled = 'terminal.integrated.shellIntegration.enabled',
-	ShowEnableShellIntegrationMessage = 'positron.appLauncher.showEnableShellIntegrationMessage',
-	ShowShellIntegrationNotSupportedMessage = 'positron.appLauncher.showShellIntegrationNotSupportedMessage',
-}
-
 export async function activate(context: vscode.ExtensionContext): Promise<PositronRunApp> {
 	context.subscriptions.push(log);
 

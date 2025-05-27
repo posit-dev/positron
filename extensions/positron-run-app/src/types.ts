@@ -5,6 +5,12 @@
 
 import * as vscode from 'vscode';
 
+export enum Config {
+	ShellIntegrationEnabled = 'terminal.integrated.shellIntegration.enabled',
+	ShowEnableShellIntegrationMessage = 'positron.appLauncher.showEnableShellIntegrationMessage',
+	ShowShellIntegrationNotSupportedMessage = 'positron.appLauncher.showShellIntegrationNotSupportedMessage',
+}
+
 export type PositronProxyInfo = {
 	proxyPath: string;
 	externalUri: vscode.Uri;
