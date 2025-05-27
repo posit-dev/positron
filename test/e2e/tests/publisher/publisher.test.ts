@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { join } from 'path';
 import { test, tags, expect } from '../_test.setup';
+
 
 test.use({
 	suiteId: __filename
@@ -16,10 +16,10 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		await app.workbench.positConnect.deleteUserContent();
 	});
 
-	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, logger, page, python }, testInfo) {
+	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, page, openFile }) {
 		test.slow();
 		await test.step('Open file', async () => {
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'shiny-py-example', 'app.py'));
+			await openFile('workspaces/shiny-py-example/app.py');
 		});
 
 		await test.step('Click on Publish button', async () => {
@@ -45,28 +45,9 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await page.keyboard.press('Enter');
 		});
 
-		// This is a long step to insert the other files into the toml file, after last line.
-		await test.step('Add shared.py, styles.css, tips.csv to deployment-***.toml and save', async () => {
-			const editorContainer = page.locator('[id="workbench\\.parts\\.editor"]');
-			const dynamicTomlLineRegex = /deployment-.*?\.toml/;
-			const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
-
-			await targetLine.scrollIntoViewIfNeeded({ timeout: 20000 });
-			await expect(targetLine).toBeVisible({ timeout: 10000 });
-
-			await targetLine.click();
-			await page.keyboard.press('End');
-			await page.keyboard.type(',');
-
-			await page.keyboard.press('Enter');
-			await page.keyboard.type("'/shared.py',");
-			await page.keyboard.press('Enter');
-			await page.keyboard.type("'/styles.css',");
-			await page.keyboard.press('Enter');
-			await page.keyboard.type("'/tips.csv'");
-
-			const saveButton = page.locator('.action-bar-button-icon.codicon.codicon-positron-save').first();
-			await saveButton.click();
+		await test.step('Add files to deployment-***.toml and save', async () => {
+			const files = ['shared.py', 'styles.css', 'tips.csv'];
+			await app.workbench.positConnect.selectFilesForDeploy(files);
 		});
 
 		// This step was tricky due to button being inside iframe --> iframe --> shadow DOM (for any left pane interactivity, check this approach)
@@ -75,7 +56,6 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		const deployButton = innerFrame.locator('vscode-button[data-automation="deploy-button"] >>> button');
 
 		await test.step('Click on Deploy Your Project button', async () => {
-			await deployButton.waitFor({ state: 'visible' });
 			await deployButton.click();
 		});
 
@@ -85,14 +65,13 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await viewLogLink.click();
 		});
 
-
-		// This step may be flacky due to deployment toast sometimes showing failure despite successful deployment
-		await test.step('Verify deployment was successful', async () => {
-			const toast = page.locator('.notification-list-item-message span', {
-				hasText: 'Deployment was successful',
-			});
-			await toast.waitFor({ state: 'visible', timeout: 120000 });
-			await expect(toast).toBeVisible();
+		// This step verifies deployment process kicks in. See discussion in #connect channel, posted 05/23.
+		await test.step('Verify deployments process gets kicked in by Publisher (out of scope: whether deployment succeeds', async () => {
+			// Not needed thanks to PR 7840, but this is an example of implementation
+			// await app.workbench.popups.closeSpecificToast('Import your settings from Visual Studio Code into Positron?');
+			await page.getByRole('button', { name: 'Maximize Panel' }).click();
+			await page.getByRole('button', { name: 'Maximize Panel' }).click();
+			await expect(page.locator('.monaco-list-row:has-text("Run Content") .codicon.codicon-check')).toBeVisible({ timeout: 90000 });
 		});
 	});
 });

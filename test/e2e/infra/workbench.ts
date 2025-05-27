@@ -120,6 +120,6 @@ export class Workbench {
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
 		this.assistant = new Assistant(code);
-		this.positConnect = new PositConnect();
+		this.positConnect = new PositConnect(code);
 	}
 }
