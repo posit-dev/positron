@@ -133,3 +133,9 @@
 .language-model-modal-dialog .content-area {
 	padding: 16px 16px 0 16px;
 }
+
+.language-model-error.error.error-msg {
+	width: 80%;
+	text-wrap: auto;
+	word-break: break-word;
+}
