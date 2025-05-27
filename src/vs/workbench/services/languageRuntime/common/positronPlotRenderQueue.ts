@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DeferredPromise } from '../../../../base/common/async.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
@@ -200,6 +200,12 @@ export class PositronPlotRenderQueue extends Disposable {
 	private readonly _queue: QueuedOperation[] = [];
 	private _isProcessing = false;
 
+	/**
+	 * Map of comm close listeners, keyed by comm client ID. This ensures we only
+	 * register one listener per comm and can clean them up properly.
+	 */
+	private readonly _commCloseListeners = new Map<string, IDisposable>();
+
 	constructor(
 		private readonly _session: ILanguageRuntimeSession,
 		private readonly _logService: ILogService
@@ -235,6 +241,9 @@ export class PositronPlotRenderQueue extends Disposable {
 	public queueOperation(request: PlotOperationRequest, comm: PositronPlotComm): DeferredPlotOperation {
 		const deferredOperation = new DeferredPlotOperation(request);
 		this._queue.push(new QueuedOperation(deferredOperation, comm));
+
+		// Ensure we have a close listener for this comm
+		this.ensureCommCloseListener(comm);
 
 		this.trace(
 			`Received request for ${request.type} operation: ` +
@@ -344,6 +353,8 @@ export class PositronPlotRenderQueue extends Disposable {
 		// Nothing to do if the queue is empty.
 		if (this._queue.length === 0) {
 			this._isProcessing = false;
+			// Clean up any unused close listeners when queue is empty
+			this.cleanupUnusedCloseListeners();
 			return;
 		}
 
@@ -385,9 +396,6 @@ export class PositronPlotRenderQueue extends Disposable {
 						renderTimeMs
 					};
 					queuedOperation.operation.complete(renderResult);
-
-					this.trace(`Completed render request: ${JSON.stringify(operationRequest)} ` +
-						`(${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
 				}).catch((err) => {
 					queuedOperation.operation.error(err);
 				}).finally(() => {
@@ -399,8 +407,6 @@ export class PositronPlotRenderQueue extends Disposable {
 			// Handle intrinsic size operation
 			queuedOperation.comm.getIntrinsicSize().then((intrinsicSize) => {
 				queuedOperation.operation.complete(intrinsicSize);
-				this.trace(`Completed intrinsic size request: ${JSON.stringify(operationRequest)} ` +
-					`(${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
 			}).catch((err) => {
 				// Handle the error
 				queuedOperation.operation.error(err);
@@ -417,8 +423,103 @@ export class PositronPlotRenderQueue extends Disposable {
 		}
 	}
 
+	/**
+	 * Emit a trace log message for the render queue.
+	 *
+	 * @param message The message to log
+	 */
 	private trace(message: string): void {
 		this._logService.trace(`[RenderQueue ${this._session.sessionId}] ${message}`);
+	}
+
+	/**
+	 * Ensure that a close listener is registered for the given comm.
+	 *
+	 * @param comm The comm to register a close listener for
+	 */
+	private ensureCommCloseListener(comm: PositronPlotComm): void {
+		const clientId = comm.clientId;
+
+		// If we already have a listener for this comm, don't register another
+		if (this._commCloseListeners.has(clientId)) {
+			return;
+		}
+
+		// Register a close listener for this comm
+		const closeListener = comm.onDidClose(() => {
+			this.cancelOperationsForClosedComm(clientId);
+			// Clean up the listener from our map
+			this._commCloseListeners.delete(clientId);
+		});
+		this._commCloseListeners.set(clientId, closeListener);
+	}
+
+	/**
+	 * Cancel all pending operations for a comm that has closed.
+	 *
+	 * @param clientId The client ID of the comm that closed
+	 */
+	private cancelOperationsForClosedComm(clientId: string): void {
+		let cancelledCount = 0;
+
+		// Iterate through the queue in reverse order to safely remove items
+		for (let i = this._queue.length - 1; i >= 0; i--) {
+			const queuedOperation = this._queue[i];
+
+			// Check if this operation belongs to the closed comm
+			if (queuedOperation.comm.clientId === clientId) {
+				// Cancel the operation
+				queuedOperation.operation.cancel();
+
+				// Remove it from the queue
+				this._queue.splice(i, 1);
+				cancelledCount++;
+			}
+		}
+
+		if (cancelledCount > 0) {
+			this.trace(`Cancelled ${cancelledCount} operations for closed comm ${clientId}`);
+		}
+	}
+
+	/**
+	 * Clean up close listeners for comms that no longer have any operations in the queue.
+	 * This helps prevent memory leaks by removing unnecessary listeners.
+	 */
+	private cleanupUnusedCloseListeners(): void {
+		// Get all comm client IDs that currently have operations in the queue
+		const activeCommIds = new Set(this._queue.map(op => op.comm.clientId));
+
+		// Find close listeners for comms that are no longer in the queue
+		const unusedListeners: string[] = [];
+		for (const [clientId] of this._commCloseListeners) {
+			if (!activeCommIds.has(clientId)) {
+				unusedListeners.push(clientId);
+			}
+		}
+
+		// Dispose and remove unused listeners
+		for (const clientId of unusedListeners) {
+			const listener = this._commCloseListeners.get(clientId);
+			if (listener) {
+				listener.dispose();
+				this._commCloseListeners.delete(clientId);
+			}
+		}
+	}
+
+	/**
+	 * Override dispose to clean up all close listeners when the render queue is disposed.
+	 */
+	override dispose(): void {
+		// Dispose all close listeners
+		for (const [clientId, listener] of this._commCloseListeners) {
+			listener.dispose();
+			this.trace(`Cleaned up close listener for comm ${clientId}`);
+		}
+		this._commCloseListeners.clear();
+
+		super.dispose();
 	}
 }
 
