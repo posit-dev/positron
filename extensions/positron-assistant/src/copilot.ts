@@ -11,6 +11,7 @@ import { ExtensionContext } from 'vscode';
 import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { platform } from 'os';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
+import { setTimeout } from 'timers/promises';
 
 interface EditorPluginInfo {
 	name: string;
@@ -162,8 +163,15 @@ export class CopilotService implements vscode.Disposable {
 			'Cancel');
 
 		if (shouldLogin) {
-			await client.sendRequest(ExecuteCommandRequest.type, response.command);
-			return true;
+			try {
+				await Promise.race([
+					client.sendRequest(ExecuteCommandRequest.type, response.command),
+					setTimeout(60_000).then(() => Promise.reject(new Error('Timeout')))
+				]);
+				return true;
+			} catch (error) {
+				return false;
+			}
 		} else {
 			return false;
 		}
