@@ -74,7 +74,10 @@ suite('Jedi LSP - analysis Options', () => {
         expect(result.initializationOptions.hover.disable.keyword.all).to.deep.equal(true);
         expect(result.initializationOptions.workspace.extraPaths).to.deep.equal([]);
         expect(result.initializationOptions.workspace.symbols.maxSymbols).to.deep.equal(0);
-        expect(result.initializationOptions.semantic_tokens.enable).to.deep.equal(true);
+        // --- Start Positron ---
+        // Semantic tokens are not enabled in Jedi by default.
+        // expect(result.initializationOptions.semantic_tokens.enable).to.deep.equal(true);
+        // --- End Positron ---
     });
 
     test('With interpreter path', async () => {
