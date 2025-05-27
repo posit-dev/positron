@@ -20,6 +20,7 @@ const CONTINUE = `.debug-toolbar .action-label[aria-label*="Continue"]`;
 const STEP_OUT = `.debug-toolbar .action-label[aria-label*="Step Out"]`;
 
 const STACK_FRAME = `${VIEWLET} .monaco-list-row .stack-frame`;
+const DEBUG_CALL_STACK = '.debug-call-stack';
 
 export interface IStackFrame {
 	name: string;
@@ -30,6 +31,10 @@ export interface IStackFrame {
  *  Reuseable Positron debug functionality for tests to leverage
  */
 export class Debug {
+	debugVariablesSection = this.code.driver.page.getByRole('button', { name: 'Debug Variables Section' });
+	callStackSection = this.code.driver.page.getByRole('button', { name: 'Call Stack Section' });
+	callStack = this.code.driver.page.locator(DEBUG_CALL_STACK);
+	stackAtIndex = (index: number) => this.callStack.locator(`.monaco-list-row[data-index="${index}"]`);
 
 	constructor(private code: Code) {
 
@@ -103,27 +108,39 @@ export class Debug {
 	}
 
 	/**
+	 * Action: select item in the call stack at the specified index
+	 *
+	 * @param stackPosition An index in the call stack to select
+	 */
+	async selectCallStackAtIndex(stackPosition: number): Promise<void> {
+		await test.step(`Debug: Select call stack at index ${stackPosition}`, async () => {
+			await this.stackAtIndex(stackPosition).click();
+		});
+	}
+
+	/**
 	 * Verify: The debug pane is visible and contains the specified variable
 	 *
 	 * @param variableLabel The label of the variable to check in the debug pane
 	 */
 	async expectDebugPaneToContain(variableLabel: string): Promise<void> {
 		await test.step(`Verify debug pane contains: ${variableLabel}`, async () => {
-			await expect(this.code.driver.page.getByRole('button', { name: 'Debug Variables Section' })).toBeVisible();
+			await expect(this.debugVariablesSection).toBeVisible();
 			await expect(this.code.driver.page.getByLabel(variableLabel)).toBeVisible();
 		});
 	}
 
 	/**
-	 * Verify: The call stack is visible and contains the specified item
+	 * Verify: The call stack is visible and contains the specified item at the specified position
 	 *
+	 * @param stackPosition The expected position (data-index) of the item in the call stack
 	 * @param item The item to check in the call stack
+	 *
 	 */
-	async expectCallStackToContain(item: string): Promise<void> {
-		await test.step(`Verify call stack contains: ${item}`, async () => {
-			await expect(this.code.driver.page.getByRole('button', { name: 'Call Stack Section' })).toBeVisible();
-			const debugCallStack = this.code.driver.page.locator('.debug-call-stack');
-			await expect(debugCallStack.getByText(item)).toBeVisible();
+	async expectCallStackAtIndex(stackPosition: number, item: string): Promise<void> {
+		await test.step(`Verify call stack at index {${stackPosition}}: ${item}`, async () => {
+			await expect(this.callStackSection).toBeVisible();
+			await expect(this.stackAtIndex(stackPosition)).toContainText(item);
 		});
 	}
 

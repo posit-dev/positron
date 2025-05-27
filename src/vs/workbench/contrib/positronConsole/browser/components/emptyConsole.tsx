@@ -13,7 +13,7 @@ import React from 'react';
 import { localize } from '../../../../../nls.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { LANGUAGE_RUNTIME_START_SESSION_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
+import { LANGUAGE_RUNTIME_START_NEW_SESSION_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
 
 // Load localized copy for control.
 const noSessionRunning = localize('positron.console.empty.noSessionRunning', "There is no session running.");
@@ -30,7 +30,7 @@ export const EmptyConsole = () => {
 	const positronConsoleContext = usePositronConsoleContext();
 
 	const handlePressed = () => {
-		positronConsoleContext.commandService.executeCommand(LANGUAGE_RUNTIME_START_SESSION_ID);
+		positronConsoleContext.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_SESSION_ID);
 	};
 
 	// Render.

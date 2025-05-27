@@ -653,12 +653,12 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 		['bedrock', [
 			{
 				name: 'Claude 4 Sonnet Bedrock',
-				identifier: 'anthropic.claude-sonnet-4-20250514-v1:0',
+				identifier: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
 				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{
 				name: 'Claude 4 Opus Bedrock',
-				identifier: 'anthropic.claude-opus-4-20250514-v1:0',
+				identifier: 'us.anthropic.claude-opus-4-20250514-v1:0',
 				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
 			},
 			{

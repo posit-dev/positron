@@ -28,11 +28,19 @@ test.use({
 	suiteId: __filename
 });
 
+let workspaceSettings: string;
+
 test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] }, () => {
-	test.beforeAll(async ({ vscodeUserSettings, positronUserSettings, runCommand }) => {
+	test.beforeAll(async ({ vscodeUserSettings, positronUserSettings, runCommand, app }) => {
+		workspaceSettings = await app.workbench.settings.backupWorkspaceSettings();
+		await app.workbench.settings.removeWorkspaceSettings(['positron.importSettings.enable']);
 		await vscodeUserSettings.ensureExists();
 		await positronUserSettings.ensureExists();
 		await runCommand('workbench.action.reloadWindow');
+	});
+
+	test.afterAll(async ({ app }) => {
+		await app.workbench.settings.restoreWorkspaceSettings(workspaceSettings);
 	});
 
 	test.beforeEach(async ({ sessions, hotKeys }) => {

@@ -43,7 +43,7 @@ export class NewProjectWizard {
 	 * @param projectType The project type to select.
 	 */
 	async setProjectType(projectType: ProjectType) {
-		this.code.driver.page.locator('label').filter({ hasText: projectType }).click({ force: true });
+		await this.code.driver.page.locator('label').filter({ hasText: projectType }).click({ force: true });
 		await this.clickWizardButton(WizardButton.NEXT);
 	}
 

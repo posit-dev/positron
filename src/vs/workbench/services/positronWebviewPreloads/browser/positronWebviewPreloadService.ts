@@ -10,25 +10,6 @@ import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js
 import { IPositronNotebookInstance } from '../../positronNotebook/browser/IPositronNotebookInstance.js';
 
 export const POSITRON_HOLOVIEWS_ID = 'positronWebviewPreloadService';
-export const MIME_TYPE_HOLOVIEWS_LOAD = 'application/vnd.holoviews_load.v0+json';
-export const MIME_TYPE_HOLOVIEWS_EXEC = 'application/vnd.holoviews_exec.v0+json';
-export const MIME_TYPE_BOKEH_EXEC = 'application/vnd.bokehjs_exec.v0+json';
-export const MIME_TYPE_BOKEH_LOAD = 'application/vnd.bokehjs_load.v0+json';
-export const MIME_TYPE_POSITRON_WEBVIEW_FLAG = 'application/positron-webview-load.v0+json';
-export const MIME_TYPE_PLOTLY = 'application/vnd.plotly.v1+json';
-export const MIME_TYPE_PLAIN = 'text/plain';
-export const MIME_TYPE_HTML = 'text/html';
-
-export const MIME_TYPES = {
-	HOLOVIEWS_LOAD: MIME_TYPE_HOLOVIEWS_LOAD,
-	HOLOVIEWS_EXEC: MIME_TYPE_HOLOVIEWS_EXEC,
-	BOKEH_EXEC: MIME_TYPE_BOKEH_EXEC,
-	BOKEH_LOAD: MIME_TYPE_BOKEH_LOAD,
-	POSITRON_WEBVIEW_FLAG: MIME_TYPE_POSITRON_WEBVIEW_FLAG,
-	PLOTLY: MIME_TYPE_PLOTLY,
-	PLAIN: MIME_TYPE_PLAIN,
-	HTML: MIME_TYPE_HTML
-};
 
 export const IPositronWebviewPreloadService = createDecorator<IPositronWebviewPreloadService>(POSITRON_HOLOVIEWS_ID);
 

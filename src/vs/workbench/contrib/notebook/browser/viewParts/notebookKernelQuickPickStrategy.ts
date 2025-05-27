@@ -40,6 +40,7 @@ import { areSameExtensions } from '../../../../../platform/extensionManagement/c
 // eslint-disable-next-line no-duplicate-imports
 import { DeferredPromise } from '../../../../../base/common/async.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../../runtimeNotebookKernel/common/runtimeNotebookKernelConfig.js';
+import { LANGUAGE_RUNTIME_SELECT_RUNTIME_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
 // --- End Positron ---
 type KernelPick = IQuickPickItem & { kernel: INotebookKernel };
 function isKernelPick(item: QuickPickInput<IQuickPickItem>): item is KernelPick {
@@ -566,7 +567,7 @@ export class KernelPickerMRUStrategy extends KernelPickerStrategyBase {
 		// 	return this.displaySelectAnotherQuickPick(editor, items.length === 1 && items[0] === pick);
 		// }
 
-		if (pick.id === 'workbench.action.languageRuntime.pick') {
+		if (pick.id === LANGUAGE_RUNTIME_SELECT_RUNTIME_ID) {
 			this._handleKernelQuickPick(pick, editor);
 		}
 		// --- End Positron ---

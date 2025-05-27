@@ -120,6 +120,22 @@ export class KCApi implements PositronSupervisorApi {
 		_context.subscriptions.push(vscode.commands.registerCommand('positron.supervisor.restartSupervisor', () => {
 			this.restartSupervisor();
 		}));
+
+		// Listen for changes to the idle shutdown hours config setting; if the
+		// server is running, apply the change immediately
+		if (vscode.env.uiKind === vscode.UIKind.Desktop) {
+			const configListener = vscode.workspace.onDidChangeConfiguration((event) => {
+				if (event.affectsConfiguration('kernelSupervisor.shutdownTimeout')) {
+					if (this._started.isOpen()) {
+						this._log.appendLine(
+							'Updating server configuration with new shutdown timeout: ' +
+							this.getShutdownHours());
+						this.updateIdleTimeout();
+					}
+				}
+			});
+			_context.subscriptions.push(configListener);
+		}
 	}
 
 	/**
@@ -290,10 +306,10 @@ export class KCApi implements PositronSupervisorApi {
 				wrapperPath = 'start';
 				shellArgs.unshift('/b', kernelWrapper);
 			} else {
-				// Use nohup as the wrapper on Unix-like systems
+				// Use nohup as the wrapper on Unix-like systems; this becomes
+				// the first argument to the wrapper script.
 				this._log.appendLine(`Running Kallichore server with nohup to persist sessions`);
-				wrapperPath = 'nohup';
-				shellArgs.unshift(kernelWrapper);
+				shellArgs.unshift('nohup');
 			}
 		}
 
@@ -312,43 +328,12 @@ export class KCApi implements PositronSupervisorApi {
 			shellArgs.push('--connection-file', connectionFile);
 		}
 
-		// Compute the appropriate value for the idle shutdown hours setting.
-		//
-		// This setting is primarily used in Remote SSH mode to allow kernel
-		// sessions to persist even when Positron itself is closed. In this
-		// scenario, we want keep the sessions alive for a period of time so
-		// they are still running when the user reconnects to the remote host,
-		// but we don't want them to run forever (unless the user wants to and
-		// understands the implications).
-		if (shutdownTimeout === 'immediately') {
-			// In desktop mode, when not persisting sessions, set the idle
-			// timeout to 1 hour. This is a defensive move since we generally
-			// expect the server to exit when the enclosing terminal closes;
-			// the 1 hour idle timeout ensures that it will eventually exit if
-			// the process is orphaned for any reason.
-			if (vscode.env.uiKind === vscode.UIKind.Desktop) {
-				shellArgs.push('--idle-shutdown-hours', '1');
-			}
-
-			// In web mode, we do not set an idle timeout at all by default,
-			// since it is normal for the front end to be disconnected for long
-			// periods of time.
-		} else if (shutdownTimeout === 'when idle') {
-			// Set the idle timeout to 0 hours, which causes the server to exit
-			// 30 seconds after the last session becomes idle.
-			shellArgs.push('--idle-shutdown-hours', '0');
-		} else if (shutdownTimeout !== 'indefinitely') {
-			// All other values of this setting are numbers that we can pass
-			// directly to the supervisor.
-			try {
-				// Attempt to parse the value as an integer
-				const hours = parseInt(shutdownTimeout, 10);
-				shellArgs.push('--idle-shutdown-hours', hours.toString());
-			} catch (err) {
-				// Should never happen since we provide all the values, but log
-				// it if it does.
-				this._log.appendLine(`Invalid hour value for kernelSupervisor.shutdownTimeout: '${shutdownTimeout}'; persisting sessions indefinitely`);
-			}
+		// Set the idle shutdown hours from the configuration. This is used to
+		// determine how long to wait before shutting down the server when
+		// idle.
+		const idleShutdownHours = this.getShutdownHours();
+		if (idleShutdownHours >= 0) {
+			shellArgs.push('--idle-shutdown-hours', idleShutdownHours.toString());
 		}
 
 		// Start the server in a new terminal
@@ -418,7 +403,7 @@ export class KCApi implements PositronSupervisorApi {
 		}));
 
 		// Wait for the terminal to start and get the PID
-		await terminal.processId;
+		let processId = await terminal.processId;
 
 		// If an HTTP proxy is set, exempt the supervisor from it; since this
 		// is a local server, we generally don't want to route it through a
@@ -441,6 +426,14 @@ export class KCApi implements PositronSupervisorApi {
 			try {
 				const status = await this._api.serverStatus();
 				this._log.appendLine(`Kallichore ${status.body.version} server online with ${status.body.sessions} sessions`);
+
+				// Update the process ID; this can be different than the process
+				// ID in the hosting terminal when the supervisor is run in an
+				// shell and/or with nohup
+				if (processId !== status.body.processId) {
+					this._log.appendLine(`Running as pid ${status.body.processId} (terminal pid ${processId})`);
+					processId = status.body.processId;
+				}
 
 				// Make sure the version is the one expected in package.json.
 				const version = this._context.extension.packageJSON.positron.binaryDependencies.kallichore;
@@ -532,11 +525,72 @@ export class KCApi implements PositronSupervisorApi {
 			base_path: this._api.basePath,
 			port,
 			server_path: shellPath,
-			server_pid: await terminal.processId || 0,
+			server_pid: processId || 0,
 			bearer_token: bearerToken,
 			log_path: logFile
 		};
 		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
+	}
+
+	/***
+	 * Get the number of hours to wait before shutting down the server when idle.
+	 *
+	 * Special values:
+	 * 0  Shut down immediately after the last session becomes idle, with a 30 minute
+	 *      grace period.
+	 * -1 Let the server run indefinitely.
+	 */
+	getShutdownHours(): number {
+		// In web mode, never set an idle timeout since the server is expected to
+		// be running for long periods of time.
+		if (vscode.env.uiKind === vscode.UIKind.Web) {
+			return -1;
+		}
+
+		// In other modes, get the shutdown timeout from the configuration.
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
+		const shutdownTimeout = config.get<string>('shutdownTimeout', 'immediately');
+
+		// Compute the appropriate value for the idle shutdown hours setting.
+		//
+		// This setting is primarily used in Remote SSH mode to allow kernel
+		// sessions to persist even when Positron itself is closed. In this
+		// scenario, we want keep the sessions alive for a period of time so
+		// they are still running when the user reconnects to the remote host,
+		// but we don't want them to run forever (unless the user wants to and
+		// understands the implications).
+		if (shutdownTimeout === 'immediately') {
+			// In desktop mode, when not persisting sessions, set the idle
+			// timeout to 1 hour. This is a defensive move since we generally
+			// expect the server to exit when the enclosing terminal closes;
+			// the 1 hour idle timeout ensures that it will eventually exit if
+			// the process is orphaned for any reason.
+			if (vscode.env.uiKind === vscode.UIKind.Desktop) {
+				return 1;
+			}
+
+			// In web mode, we do not set an idle timeout at all by default,
+			// since it is normal for the front end to be disconnected for long
+			// periods of time.
+		} else if (shutdownTimeout === 'when idle') {
+			// Set the idle timeout to 0 hours, which causes the server to exit
+			// 30 seconds after the last session becomes idle.
+			return 0;
+		} else if (shutdownTimeout !== 'indefinitely') {
+			// All other values of this setting are numbers that we can pass
+			// directly to the supervisor.
+			try {
+				// Attempt to parse the value as an integer
+				const hours = parseInt(shutdownTimeout, 10);
+				return hours;
+			} catch (err) {
+				// Should never happen since we provide all the values, but log
+				// it if it does.
+				this._log.appendLine(`Invalid hour value for kernelSupervisor.shutdownTimeout: '${shutdownTimeout}'; persisting sessions indefinitely`);
+			}
+		}
+
+		return -1;
 	}
 
 	/**
@@ -585,10 +639,31 @@ export class KCApi implements PositronSupervisorApi {
 		this._started.open();
 		this._log.appendLine(`Kallichore ${status.body.version} server reconnected with ${status.body.sessions} sessions`);
 
+		// Update the idle timeout from settings if we aren't in web mode
+		// (in web mode, no idle timeout is used)
+		if (vscode.env.uiKind !== vscode.UIKind.Web) {
+			this.updateIdleTimeout();
+		}
+
 		// Mark this a restored server
 		this._newSupervisor = false;
 
 		return true;
+	}
+
+	/**
+	 * Update the idle timeout on the server. This is used to set the idle
+	 * timeout on a server that has already started.
+	 */
+	async updateIdleTimeout() {
+		const timeout = this.getShutdownHours();
+		try {
+			await this._api.setServerConfiguration({
+				idleShutdownHours: timeout
+			});
+		} catch (err) {
+			this._log.appendLine(`Failed to update idle timeout: ${summarizeError(err)}`);
+		}
 	}
 
 	/**

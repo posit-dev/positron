@@ -8,6 +8,7 @@ export * from './modelError';
 export * from './newSession';
 export * from './newSession200Response';
 export * from './restartSession';
+export * from './serverConfiguration';
 export * from './serverStatus';
 export * from './sessionList';
 export * from './startupError';
@@ -36,6 +37,7 @@ import { ModelError } from './modelError';
 import { NewSession } from './newSession';
 import { NewSession200Response } from './newSession200Response';
 import { RestartSession } from './restartSession';
+import { ServerConfiguration } from './serverConfiguration';
 import { ServerStatus } from './serverStatus';
 import { SessionList } from './sessionList';
 import { StartupError } from './startupError';
@@ -57,6 +59,7 @@ let primitives = [
 
 let enumsMap: {[index: string]: any} = {
         "InterruptMode": InterruptMode,
+        "ServerConfiguration.LogLevelEnum": ServerConfiguration.LogLevelEnum,
         "Status": Status,
         "VarActionType": VarActionType,
 }
@@ -69,6 +72,7 @@ let typeMap: {[index: string]: any} = {
     "NewSession": NewSession,
     "NewSession200Response": NewSession200Response,
     "RestartSession": RestartSession,
+    "ServerConfiguration": ServerConfiguration,
     "ServerStatus": ServerStatus,
     "SessionList": SessionList,
     "StartupError": StartupError,
