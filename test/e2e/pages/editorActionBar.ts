@@ -25,7 +25,7 @@ export class EditorActionBar {
 	async clickButton(
 		button: 'Split Editor Right' | 'Split Editor Down' | 'Preview' | 'Open Changes' | 'Open in Viewer' | 'Move into new window' | 'Open as Plain Text File'
 	): Promise<void> {
-		const buttonLocator = this.page.getByLabel(button, { exact: true }).nth(0);
+		const buttonLocator = this.page.getByLabel(button, { exact: true });
 
 		if (button === 'Split Editor Down') {
 			// Special case: "Split Editor Down" requires holding Alt key
@@ -134,7 +134,7 @@ export class EditorActionBar {
 	 */
 	async verifyPreviewRendersHtml(heading: string) {
 		await test.step('Verify "preview" renders html', async () => {
-			await this.page.getByLabel('Preview', { exact: true }).click();
+			await this.page.getByLabel('Preview', { exact: true }).nth(0).click();
 			const viewerFrame = this.viewer.getViewerFrame().frameLocator('iframe');
 			await expect(viewerFrame.getByRole('heading', { name: heading })).toBeVisible({ timeout: 60000 });
 		});

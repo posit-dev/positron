@@ -70,7 +70,7 @@ test.describe('Editor Action Bar: Document Files', {
 // Helper functions
 
 async function verifyPreviewRendersHtml(heading: string) {
-	await editorActionBar.clickButton('Preview');
+	// await editorActionBar.clickButton('Preview');
 	await editorActionBar.verifyPreviewRendersHtml(heading);
 }
 
