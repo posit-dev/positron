@@ -137,6 +137,11 @@ export class PositronPlotCommProxy extends Disposable {
 			return this._currentIntrinsicSize;
 		}
 
+		// If we have already received the intrinsic size, return it immediately.
+		if (this._receivedIntrinsicSize) {
+			return Promise.resolve(this._intrinsicSize);
+		}
+
 		// Use the session render queue to ensure operations don't overlap
 		this._currentIntrinsicSize = this._sessionRenderQueue.queueIntrinsicSizeRequest(this._comm)
 			.then((intrinsicSize) => {
