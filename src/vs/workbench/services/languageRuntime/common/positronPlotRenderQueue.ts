@@ -187,11 +187,21 @@ export class QueuedRender {
 	}
 }
 
+/**
+ * This class manages a queue of plot operations (rendering and intrinsic size
+ * requests) for a given runtime session.
+ *
+ * We queue the plot operations to ensure that only one operation is performed
+ * at a time; otherwise, operations such as generating a batch of plots in a
+ * loop can result in multiple plots all trying to render at once, which can
+ * result in some of them timing out.
+ */
 export class PositronPlotRenderQueue extends Disposable {
 	private readonly _queue: QueuedOperation[] = [];
 	private _isProcessing = false;
 
-	constructor(private readonly _session: ILanguageRuntimeSession,
+	constructor(
+		private readonly _session: ILanguageRuntimeSession,
 		private readonly _logService: ILogService
 	) {
 		super();
@@ -224,6 +234,7 @@ export class PositronPlotRenderQueue extends Disposable {
 		this._queue.push(new QueuedOperation(deferredOperation, comm));
 
 		this._logService.debug(`[PPRQ - ${this._session.sessionId}] Received request for ${request.type} operation: ${JSON.stringify(request)} (${comm.clientId}); queue length: ${this._queue.length})`);
+
 		// If the session is idle, start processing the queue.
 		if (this._session.getRuntimeState() === RuntimeState.Idle) {
 			this.processQueue();
@@ -237,6 +248,10 @@ export class PositronPlotRenderQueue extends Disposable {
 	 * @param request The render request to queue
 	 */
 	public queue(deferredRender: DeferredRender, comm: PositronPlotComm): DeferredRender {
+
+		// Cancel and remove any existing render operations for the same plot
+		this.cancelExistingOperations(comm, OperationType.Render);
+
 		// Convert render request to operation request for unified handling
 		const operationRequest: PlotOperationRequest = {
 			type: OperationType.Render,
@@ -267,6 +282,9 @@ export class PositronPlotRenderQueue extends Disposable {
 	 * @param comm The comm to use for the operation
 	 */
 	public queueIntrinsicSizeRequest(comm: PositronPlotComm): Promise<IntrinsicSize | undefined> {
+		// Cancel any existing intrinsic size requests for the same plot
+		this.cancelExistingOperations(comm, OperationType.GetIntrinsicSize);
+
 		const operationRequest: PlotOperationRequest = {
 			type: OperationType.GetIntrinsicSize
 		};
@@ -279,6 +297,34 @@ export class PositronPlotRenderQueue extends Disposable {
 				throw new Error('Invalid intrinsic size result');
 			}
 		});
+	}
+
+	/**
+	 * Cancel existing operations in the queue for the same plot and operation
+	 * type.  Used to avoid unnecessary work, e.g. when a new render request is
+	 * made before the previous one has started processing.
+	 *
+	 * @param comm The comm to match against
+	 * @param operationType The type of operation to cancel
+	 */
+	private cancelExistingOperations(comm: PositronPlotComm, operationType: OperationType): void {
+		// Iterate through the queue in reverse order to safely remove items
+		for (let i = this._queue.length - 1; i >= 0; i--) {
+			const queuedOperation = this._queue[i];
+
+			// Check if this is the same plot and operation type
+			if (queuedOperation.comm.clientId === comm.clientId &&
+				queuedOperation.operation.operationRequest.type === operationType) {
+
+				// Cancel the operation
+				queuedOperation.operation.cancel();
+
+				// Remove it from the queue
+				this._queue.splice(i, 1);
+
+				this._logService.debug(`[PPRQ - ${this._session.sessionId}] Cancelled existing ${operationType} operation for plot ${comm.clientId}`);
+			}
+		}
 	}
 
 	/**
