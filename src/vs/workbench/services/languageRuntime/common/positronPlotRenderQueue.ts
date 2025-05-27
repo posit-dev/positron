@@ -208,9 +208,9 @@ export class PositronPlotRenderQueue extends Disposable {
 		this._logService.debug('PositronPlotRenderQueue: created for session ' + this._session.sessionId);
 		this._register(this._session.onDidChangeRuntimeState(() => {
 
-			if (this._session.getRuntimeState() === RuntimeState.Idle) {
+			if (this._session.getRuntimeState() === RuntimeState.Idle || this._session.getRuntimeState() === RuntimeState.Ready) {
 				if (this._queue.length > 0) {
-					this._logService.debug(`[PPRQ - ${this._session.sessionId}] Runtime idle, processing queue.`);
+					this._logService.debug(`[PPRQ - ${this._session.sessionId}] Runtime idle or ready, processing queue.`);
 					this.processQueue();
 				}
 			} else if (this._session.getRuntimeState() === RuntimeState.Exited) {
@@ -235,8 +235,8 @@ export class PositronPlotRenderQueue extends Disposable {
 
 		this._logService.debug(`[PPRQ - ${this._session.sessionId}] Received request for ${request.type} operation: ${JSON.stringify(request)} (${comm.clientId}); queue length: ${this._queue.length})`);
 
-		// If the session is idle, start processing the queue.
-		if (this._session.getRuntimeState() === RuntimeState.Idle) {
+		// If the session is idle or ready, start processing the queue.
+		if (this._session.getRuntimeState() === RuntimeState.Idle || this._session.getRuntimeState() === RuntimeState.Ready) {
 			this.processQueue();
 		}
 		return deferredOperation;
