@@ -164,9 +164,11 @@ export class CopilotService implements vscode.Disposable {
 
 		if (shouldLogin) {
 			try {
+				const timeoutStr = process.env.POSITRON_COPILOT_TIMEOUT;
+				const timeout = timeoutStr ? parseInt(timeoutStr) : 60_000;
 				await Promise.race([
 					client.sendRequest(ExecuteCommandRequest.type, response.command),
-					setTimeout(60_000).then(() => Promise.reject(new Error('Timeout')))
+					setTimeout(timeout).then(() => Promise.reject(new Error('Timeout')))
 				]);
 				return true;
 			} catch (error) {
