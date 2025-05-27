@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,43 +10,18 @@ import { DebugAdapterTrackerFactory } from './debugAdapterTrackerFactory';
 import { Config, log } from './extension';
 import { DebugAppOptions, PositronRunApp, RunAppOptions } from './positron-run-app';
 import { raceTimeout, removeAnsiEscapeCodes, SequencerByKey } from './utils';
+import { APP_URL_PLACEHOLDER, DID_PREVIEW_URL_TIMEOUT, HTTP_URL_REGEX, IS_POSITRON_WEB, IS_RUNNING_ON_PWB, SHELL_INTEGRATION_TIMEOUT, TERMINAL_OUTPUT_TIMEOUT, URL_LIKE_REGEX } from './constants.js';
+import { AppPreviewOptions, PositronProxyInfo } from './types.js';
 
-// Regex to match a string that starts with http:// or https://.
-const httpUrlRegex = /((https?:\/\/)([a-zA-Z0-9.-]+)(:\d{1,5})?(\/[^\s]*)?)/;
-// A more permissive URL regex to be used when a string containing an {{APP_URL}} placeholder is expected.
-const urlLikeRegex = /((https?:\/\/)?([a-zA-Z0-9.-]*[.:][a-zA-Z0-9.-]*)(:\d{1,5})?(\/[^\s]*)?)/;
-
-// App URL Placeholder string.
-const APP_URL_PLACEHOLDER = '{{APP_URL}}';
-
-// Flags to determine where Positron is running.
-const isPositronWeb = vscode.env.uiKind === vscode.UIKind.Web;
-const isRunningOnPwb = !!process.env.RS_SERVER_URL && isPositronWeb;
-
-// Timeouts.
-const terminalOutputTimeout = 25_000;
-const didPreviewUrlTimeout = terminalOutputTimeout + 5_000;
-/** Time between creating a terminal and receiving its onDidChangeTerminalShellIntegration event. */
-const shellIntegrationTimeout = 5_000;
-
-type PositronProxyInfo = {
-	proxyPath: string;
-	externalUri: vscode.Uri;
-	finishProxySetup: (targetOrigin: string) => Promise<void>;
-};
-
-type AppPreviewOptions = {
-	proxyInfo?: PositronProxyInfo;
-	urlPath?: string;
-	appReadyMessage?: string;
-	appUrlStrings?: string[];
-};
 
 export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable {
 	private readonly _debugApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _debugApplicationDisposableByName = new Map<string, vscode.Disposable>();
 	private readonly _runApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _runApplicationDisposableByName = new Map<string, vscode.Disposable>();
+
+	/** A map of launched app urls to their app name and proxy server Uris */
+	private readonly _appServers = new Map<string, { terminalPid: number; proxyUri: vscode.Uri }>();
 
 	constructor(
 		private readonly _globalState: vscode.Memento,
@@ -79,6 +54,23 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		}
 
 		return this.queueRunApplication(document, options);
+	}
+
+	public getProxyServerUri(appUrl: string): vscode.Uri | undefined {
+		const url = appUrl.endsWith('/')
+			? appUrl.slice(0, -1) // Remove trailing slash if present
+			: appUrl; // Otherwise, use the URL as is
+		log.trace(`Getting proxy URI for app URL: ${url}`);
+		log.trace(`Known app servers: ${JSON.stringify(Array.from(this._appServers.entries()))}`);
+		const appServer = this._appServers.get(url);
+
+		if (appServer) {
+			log.trace(`Returning known proxy URI for app URL ${url}: ${appServer.proxyUri.toString(true)}`);
+			return appServer.proxyUri;
+		}
+
+		log.debug(`No known proxy server URI for app URL ${url}.`);
+		return undefined;
 	}
 
 	private queueRunApplication(document: vscode.TextDocument, options: RunAppOptions): Promise<void> {
@@ -145,15 +137,36 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		// Create a promise that resolves when shell integration is ready for the terminal,
 		// or after a timeout.
-		const shellIntegrationPromise = isShellIntegrationEnabledAndSupported ?
+		const shellIntegrationPromise: Promise<vscode.TerminalShellIntegration | undefined> = isShellIntegrationEnabledAndSupported ?
 			new Promise<vscode.TerminalShellIntegration>((resolve) => {
-				const disposable = vscode.window.onDidChangeTerminalShellIntegration(async (e) => {
+				// onDidChangeTerminalShellIntegration
+				const shellIntegrationDisposable = vscode.window.onDidChangeTerminalShellIntegration(async (e) => {
 					if (e.terminal === terminal) {
-						disposable.dispose();
+						shellIntegrationDisposable.dispose();
 						resolve(e.shellIntegration);
 					}
 				});
-				this._runApplicationDisposableByName.set(options.name, disposable);
+				this._runApplicationDisposableByName.set(options.name, shellIntegrationDisposable);
+
+				// onDidEndTerminalShellExecution
+				const shellExecutionDisposable = vscode.window.onDidEndTerminalShellExecution(async (e) => {
+					if (e.terminal === terminal) {
+						this.removeAppServer(await terminal.processId);
+						shellExecutionDisposable.dispose();
+					}
+				});
+				this._runApplicationDisposableByName.set(options.name, shellExecutionDisposable);
+
+				// onDidCloseTerminal
+				const closedTerminalDisposable = vscode.window.onDidCloseTerminal(async (closedTerminal) => {
+					if (closedTerminal === terminal) {
+						this.removeAppServer(await closedTerminal.processId);
+						shellIntegrationDisposable.dispose();
+						shellExecutionDisposable.dispose();
+						closedTerminalDisposable.dispose();
+					}
+				});
+				this._runApplicationDisposableByName.set(options.name, closedTerminalDisposable);
 			}) :
 			// If shell integration is disabled or unsupported, resolve immediately.
 			// This is to avoid waiting a few seconds before _every_ application run
@@ -169,8 +182,9 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				// Create a promise that resolves when the terminal is closed.
 				// Note that the application process may still be running once this promise resolves.
 				const terminalDidClose = new Promise<void>((resolve) => {
-					const disposable = vscode.window.onDidCloseTerminal((closedTerminal) => {
+					const disposable = vscode.window.onDidCloseTerminal(async (closedTerminal) => {
 						if (closedTerminal === terminal) {
+							this.removeAppServer(await closedTerminal.processId);
 							disposable.dispose();
 							resolve();
 						}
@@ -188,7 +202,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		const shellIntegration = await raceTimeout(
 			shellIntegrationPromise,
-			shellIntegrationTimeout,
+			SHELL_INTEGRATION_TIMEOUT,
 			() => log.warn('Timed out waiting for shell integration to be ready'),
 		);
 
@@ -205,12 +219,13 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 			// Wait for the server URL in the execution output.
 			const previewOptions: AppPreviewOptions = {
+				terminalPid: await terminal.processId,
 				proxyInfo,
 				urlPath: options.urlPath,
 				appReadyMessage: options.appReadyMessage,
 				appUrlStrings: options.appUrlStrings,
 			};
-			await previewUrlInExecutionOutput(execution, previewOptions);
+			await this.previewUrlInExecutionOutput(execution, previewOptions);
 		} else {
 			log.info('Shell integration not supported. Executing command without shell integration.');
 
@@ -321,12 +336,13 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 							if (await e.terminal.processId === processId) {
 								const previewOptions: AppPreviewOptions = {
+									terminalPid: processId,
 									proxyInfo,
 									urlPath: options.urlPath,
 									appReadyMessage: options.appReadyMessage,
 									appUrlStrings: options.appUrlStrings,
 								};
-								const didPreviewUrl = await previewUrlInExecutionOutput(e.execution, previewOptions);
+								const didPreviewUrl = await this.previewUrlInExecutionOutput(e.execution, previewOptions);
 								if (didPreviewUrl) {
 									resolve(didPreviewUrl);
 								}
@@ -336,7 +352,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				});
 				this._debugApplicationDisposableByName.set(options.name, disposable);
 			}),
-			didPreviewUrlTimeout,
+			DID_PREVIEW_URL_TIMEOUT,
 			async () => {
 				await this.setShellIntegrationSupported(false);
 			});
@@ -389,102 +405,130 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 
 		return isShellIntegrationEnabled && isShellIntegrationSupported;
 	}
-}
 
-async function previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, options: AppPreviewOptions) {
-	// Wait for the server URL to appear in the terminal output, or a timeout.
-	const stream = execution.read();
-	const appReadyMessage = options.appReadyMessage?.trim();
-	const url = await raceTimeout(
-		(async () => {
-			// If an appReadyMessage is not provided, we'll consider the app ready as soon as the URL is found.
-			let appReady = !appReadyMessage;
-			let appUrl = undefined;
-			for await (const data of stream) {
-				log.trace('Execution:', execution.commandLine.value, data);
+	private async previewUrlInExecutionOutput(execution: vscode.TerminalShellExecution, options: AppPreviewOptions) {
+		// Wait for the server URL to appear in the terminal output, or a timeout.
+		const stream = execution.read();
+		const appReadyMessage = options.appReadyMessage?.trim();
+		const url = await raceTimeout(
+			(async () => {
+				// If an appReadyMessage is not provided, we'll consider the app ready as soon as the URL is found.
+				let appReady = !appReadyMessage;
+				let appUrl = undefined;
+				for await (const data of stream) {
+					log.trace('Execution:', execution.commandLine.value, data);
 
-				// Ansi escape codes seem to mess up the regex match on Windows, so remove them first.
-				const dataCleaned = removeAnsiEscapeCodes(data);
+					// Ansi escape codes seem to mess up the regex match on Windows, so remove them first.
+					const dataCleaned = removeAnsiEscapeCodes(data);
 
-				// Check if the app is ready, if it's not already ready and an appReadyMessage is provided.
-				if (!appReady && appReadyMessage) {
-					appReady = dataCleaned.includes(appReadyMessage);
-					if (appReady) {
-						log.debug(`App is ready - found appReadyMessage: '${appReadyMessage}'`);
-						// If the app URL was already found, we're done!
-						if (appUrl) {
-							return appUrl;
-						}
-					}
-				}
-				// Check if the app url is found in the terminal output.
-				if (!appUrl) {
-					const match = extractAppUrlFromString(dataCleaned, options.appUrlStrings);
-					if (match) {
-						appUrl = new URL(match);
-						log.debug(`Found app URL in terminal output: ${appUrl.toString()}`);
-						// If the app is ready, we're done!
+					// Check if the app is ready, if it's not already ready and an appReadyMessage is provided.
+					if (!appReady && appReadyMessage) {
+						appReady = dataCleaned.includes(appReadyMessage);
 						if (appReady) {
-							return appUrl;
+							log.debug(`App is ready - found appReadyMessage: '${appReadyMessage}'`);
+							// If the app URL was already found, we're done!
+							if (appUrl) {
+								return appUrl;
+							}
+						}
+					}
+					// Check if the app url is found in the terminal output.
+					if (!appUrl) {
+						const match = extractAppUrlFromString(dataCleaned, options.appUrlStrings);
+						if (match) {
+							appUrl = new URL(match);
+							log.debug(`Found app URL in terminal output: ${appUrl.toString()}`);
+							// If the app is ready, we're done!
+							if (appReady) {
+								return appUrl;
+							}
 						}
 					}
 				}
-			}
 
-			// If we're here, we've reached the end of the stream without finding the app URL and/or
-			// the appReadyMessage.
-			if (!appReady) {
-				// It's possible that the app is ready, but the appReadyMessage was not found, for
-				// example, if the message has changed or was missed somehow. Log a warning.
-				log.warn(`Expected app ready message '${appReadyMessage}' not found in terminal`);
-			}
-			if (!appUrl) {
-				log.error('App URL not found in terminal output');
-			}
-			return appUrl;
-		})(),
-		terminalOutputTimeout,
-		() => log.error('Timed out waiting for server output in terminal'),
-	);
+				// If we're here, we've reached the end of the stream without finding the app URL and/or
+				// the appReadyMessage.
+				if (!appReady) {
+					// It's possible that the app is ready, but the appReadyMessage was not found, for
+					// example, if the message has changed or was missed somehow. Log a warning.
+					log.warn(`Expected app ready message '${appReadyMessage}' not found in terminal`);
+				}
+				if (!appUrl) {
+					log.error('App URL not found in terminal output');
+				}
+				return appUrl;
+			})(),
+			TERMINAL_OUTPUT_TIMEOUT,
+			() => log.error('Timed out waiting for server output in terminal'),
+		);
 
-	if (!url) {
-		log.error('Cannot preview URL. App is not ready or URL not found in terminal output.');
-		return false;
+		if (!url) {
+			log.error('Cannot preview URL. App is not ready or URL not found in terminal output.');
+			return false;
+		}
+
+		// Example: http://localhost:8500
+		const localBaseUri = vscode.Uri.parse(url.toString());
+
+		// Example: http://localhost:8500/url/path or http://localhost:8500
+		const localUri = options.urlPath ?
+			vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
+
+		// Example: http://localhost:8080/proxy/5678/url/path or http://localhost:8080/proxy/5678
+		let previewUri = undefined;
+		if (options.proxyInfo) {
+			// On Web (specifically Positron Server Web and not PWB), we need to set up the proxy with
+			// the urlPath appended to avoid issues where the app does not set the base url of the app
+			// or the base url of referenced assets correctly.
+			const applyWebPatch = IS_POSITRON_WEB && !IS_RUNNING_ON_PWB;
+			const targetOrigin = applyWebPatch ? localUri.toString(true) : localBaseUri.toString();
+
+			log.debug(`Finishing proxy setup for app at ${targetOrigin}`);
+
+			// Finish the Positron proxy setup so that proxy middleware is hooked up.
+			await options.proxyInfo.finishProxySetup(targetOrigin);
+			previewUri = !applyWebPatch && options.urlPath
+				? vscode.Uri.joinPath(options.proxyInfo.externalUri, options.urlPath)
+				: options.proxyInfo.externalUri;
+		} else {
+			previewUri = await vscode.env.asExternalUri(localUri);
+		}
+
+		log.debug(`Viewing app at local uri: ${localUri.toString(true)} with external uri ${previewUri.toString(true)}`);
+
+		// Record the known app server URL to proxy server mapping.
+		this.addAppServer(
+			localBaseUri.toString(),
+			options.terminalPid,
+			previewUri,
+		);
+		// Preview the app in the Viewer.
+		positron.window.previewUrl(previewUri);
+
+		return true;
 	}
 
-	// Example: http://localhost:8500
-	const localBaseUri = vscode.Uri.parse(url.toString());
-
-	// Example: http://localhost:8500/url/path or http://localhost:8500
-	const localUri = options.urlPath ?
-		vscode.Uri.joinPath(localBaseUri, options.urlPath) : localBaseUri;
-
-	// Example: http://localhost:8080/proxy/5678/url/path or http://localhost:8080/proxy/5678
-	let previewUri = undefined;
-	if (options.proxyInfo) {
-		// On Web (specifically Positron Server Web and not PWB), we need to set up the proxy with
-		// the urlPath appended to avoid issues where the app does not set the base url of the app
-		// or the base url of referenced assets correctly.
-		const applyWebPatch = isPositronWeb && !isRunningOnPwb;
-		const targetOrigin = applyWebPatch ? localUri.toString(true) : localBaseUri.toString();
-
-		log.debug(`Finishing proxy setup for app at ${targetOrigin}`);
-
-		// Finish the Positron proxy setup so that proxy middleware is hooked up.
-		await options.proxyInfo.finishProxySetup(targetOrigin);
-		previewUri = !applyWebPatch && options.urlPath
-			? vscode.Uri.joinPath(options.proxyInfo.externalUri, options.urlPath)
-			: options.proxyInfo.externalUri;
-	} else {
-		previewUri = await vscode.env.asExternalUri(localUri);
+	private addAppServer(appUrl: string, terminalPid: number, proxyUri: vscode.Uri): void {
+		const url = appUrl.endsWith('/')
+			? appUrl.slice(0, -1) // Remove trailing slash if present
+			: appUrl; // Otherwise, use the URL as is
+		log.trace(`Adding known app server: ${url} with terminal PID ${terminalPid} and proxy URI ${proxyUri.toString()}`);
+		this._appServers.set(url, { terminalPid, proxyUri });
+		log.trace(`Known app servers: ${JSON.stringify(Array.from(this._appServers.entries()))}`);
 	}
 
-	log.debug(`Viewing app at local uri: ${localUri.toString(true)} with external uri ${previewUri.toString(true)}`);
-
-	// Preview the app in the Viewer.
-	positron.window.previewUrl(previewUri);
-
-	return true;
+	private removeAppServer(terminalPid: number): void {
+		log.trace(`Removing app server for terminal process ID: ${terminalPid}`);
+		const serversToRemove: string[] = [];
+		this._appServers.forEach((value, key) => {
+			if (value.terminalPid === terminalPid) {
+				serversToRemove.push(key);
+			}
+		});
+		log.trace(`Found app servers to remove: ${JSON.stringify(serversToRemove)}`);
+		serversToRemove.forEach(key => this._appServers.delete(key));
+		log.trace(`Known app servers: ${JSON.stringify(Array.from(this._appServers.entries()))}`);
+	}
 }
 
 async function showEnableShellIntegrationMessage(rerunApplicationCallback: () => any): Promise<void> {
@@ -570,12 +614,18 @@ async function showShellIntegrationNotSupportedMessage(): Promise<void> {
  * @returns Whether to use the Positron proxy for the app.
  */
 function shouldUsePositronProxy(appName: string) {
+	// If we're running on Positron Desktop, don't use the proxy.
+	if (!IS_POSITRON_WEB) {
+		return false;
+	}
+
+	// Otherwise, check if the app is one of the known apps that don't work with the proxy.
 	switch (appName.trim().toLowerCase()) {
 		// Streamlit apps don't work in Positron on Workbench with SSL enabled when run through the proxy.
 		case 'streamlit':
 		// FastAPI apps don't work in Positron on Workbench when run through the proxy.
 		case 'fastapi':
-			if (isRunningOnPwb) {
+			if (IS_RUNNING_ON_PWB) {
 				return false;
 			}
 			return true;
@@ -601,7 +651,7 @@ function extractAppUrlFromString(str: string, appUrlStrings?: string[]) {
 				continue;
 			}
 
-			const pattern = appUrlString.replace(APP_URL_PLACEHOLDER, urlLikeRegex.source);
+			const pattern = appUrlString.replace(APP_URL_PLACEHOLDER, URL_LIKE_REGEX.source);
 			const appUrlRegex = new RegExp(pattern);
 
 			const match = str.match(appUrlRegex);
@@ -633,5 +683,5 @@ function extractAppUrlFromString(str: string, appUrlStrings?: string[]) {
 
 	// Fall back to the default URL regex if no appUrlStrings were provided or matched.
 	log.debug('No appUrlStrings matched. Falling back to default URL regex to match URL.');
-	return str.match(httpUrlRegex)?.[0];
+	return str.match(HTTP_URL_REGEX)?.[0];
 }
