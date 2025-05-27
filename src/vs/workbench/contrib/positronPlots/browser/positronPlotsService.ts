@@ -222,8 +222,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				if (renderQueue) {
 					renderQueue.dispose();
 				}
+				this._renderQueues.delete(sessionId);
 			}
-			this._renderQueues.delete(sessionId);
 		}));
 
 		// Register for UI comm events

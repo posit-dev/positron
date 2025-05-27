@@ -512,6 +512,12 @@ export class PositronPlotRenderQueue extends Disposable {
 	 * Override dispose to clean up all close listeners when the render queue is disposed.
 	 */
 	override dispose(): void {
+		// Cancel any remaining operations in the queue
+		for (const queuedOperation of this._queue) {
+			queuedOperation.operation.cancel();
+		}
+		this._queue.length = 0;
+
 		// Dispose all close listeners
 		for (const [clientId, listener] of this._commCloseListeners) {
 			listener.dispose();
