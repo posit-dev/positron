@@ -1008,7 +1008,7 @@ export class SessionQuickPick {
 
 			// Filter out the one with "New Session..."
 			const filteredSessions = activeSessions
-				.filter(session => !session.name.includes('New Session...'));
+				.filter(session => !session.name.includes('New Interpreter Session...'));
 
 			await this.closeSessionQuickPickMenu();
 			return filteredSessions;
