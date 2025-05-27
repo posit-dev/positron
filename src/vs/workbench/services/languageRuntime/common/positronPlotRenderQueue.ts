@@ -205,18 +205,21 @@ export class PositronPlotRenderQueue extends Disposable {
 		private readonly _logService: ILogService
 	) {
 		super();
-		this._logService.debug('PositronPlotRenderQueue: created for session ' + this._session.sessionId);
+		this.trace(`Initializing`);
 		this._register(this._session.onDidChangeRuntimeState(() => {
 
-			if (this._session.getRuntimeState() === RuntimeState.Idle || this._session.getRuntimeState() === RuntimeState.Ready) {
+			if (this._session.getRuntimeState() === RuntimeState.Idle ||
+				this._session.getRuntimeState() === RuntimeState.Ready) {
 				if (this._queue.length > 0) {
-					this._logService.debug(`[PPRQ - ${this._session.sessionId}] Runtime idle or ready, processing queue.`);
+					this.trace(`Runtime ready, processing queue.`);
 					this.processQueue();
 				}
 			} else if (this._session.getRuntimeState() === RuntimeState.Exited) {
 				this._queue.forEach((queuedOperation) => {
 					queuedOperation.operation.cancel();
-					this._logService.debug(`[PPRQ - ${this._session.sessionId}] Runtime exited, cancelling operation: ${JSON.stringify(queuedOperation.operation.operationRequest)} (${queuedOperation.comm.clientId})`);
+					this.trace(
+						`Runtime exited, cancelling operation: ` +
+						`${JSON.stringify(queuedOperation.operation.operationRequest)} (${queuedOperation.comm.clientId})`);
 				});
 				this._queue.length = 0;
 			}
@@ -233,7 +236,10 @@ export class PositronPlotRenderQueue extends Disposable {
 		const deferredOperation = new DeferredPlotOperation(request);
 		this._queue.push(new QueuedOperation(deferredOperation, comm));
 
-		this._logService.debug(`[PPRQ - ${this._session.sessionId}] Received request for ${request.type} operation: ${JSON.stringify(request)} (${comm.clientId}); queue length: ${this._queue.length})`);
+		this.trace(
+			`Received request for ${request.type} operation: ` +
+			JSON.stringify(request) +
+			` (${comm.clientId}); queue length: ${this._queue.length})`);
 
 		// If the session is idle or ready, start processing the queue.
 		if (this._session.getRuntimeState() === RuntimeState.Idle || this._session.getRuntimeState() === RuntimeState.Ready) {
@@ -291,7 +297,10 @@ export class PositronPlotRenderQueue extends Disposable {
 
 		const deferredOperation = this.queueOperation(operationRequest, comm);
 		return deferredOperation.promise.then((result) => {
-			if (result === undefined || (typeof result === 'object' && 'width' in result && 'height' in result)) {
+			if (result === null) {
+				return undefined; // No intrinsic size available
+			} else if (result === undefined ||
+				(typeof result === 'object' && 'width' in result && 'height' in result)) {
 				return result as IntrinsicSize | undefined;
 			} else {
 				throw new Error('Invalid intrinsic size result');
@@ -322,7 +331,7 @@ export class PositronPlotRenderQueue extends Disposable {
 				// Remove it from the queue
 				this._queue.splice(i, 1);
 
-				this._logService.debug(`[PPRQ - ${this._session.sessionId}] Cancelled existing ${operationType} operation for plot ${comm.clientId}`);
+				this.trace(`Cancelled existing ${operationType} operation for plot ${comm.clientId}`);
 			}
 		}
 	}
@@ -350,7 +359,9 @@ export class PositronPlotRenderQueue extends Disposable {
 			return;
 		}
 
-		this._logService.debug(`[PPRQ - ${this._session.sessionId}] Processing ${queuedOperation.operation.operationRequest.type} request: ${JSON.stringify(queuedOperation.operation.operationRequest)} (${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
+		this.trace(`Processing ${queuedOperation.operation.operationRequest.type} request: ` +
+			`${JSON.stringify(queuedOperation.operation.operationRequest)} ` +
+			`(${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
 
 		// Record the time that the operation started
 		const startedTime = Date.now();
@@ -375,7 +386,8 @@ export class PositronPlotRenderQueue extends Disposable {
 					};
 					queuedOperation.operation.complete(renderResult);
 
-					this._logService.debug(`[PPRQ - ${this._session.sessionId}] Completed render request: ${JSON.stringify(operationRequest)} (${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
+					this.trace(`Completed render request: ${JSON.stringify(operationRequest)} ` +
+						`(${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
 				}).catch((err) => {
 					queuedOperation.operation.error(err);
 				}).finally(() => {
@@ -387,8 +399,8 @@ export class PositronPlotRenderQueue extends Disposable {
 			// Handle intrinsic size operation
 			queuedOperation.comm.getIntrinsicSize().then((intrinsicSize) => {
 				queuedOperation.operation.complete(intrinsicSize);
-
-				this._logService.debug(`[PPRQ - ${this._session.sessionId}] Completed intrinsic size request: ${JSON.stringify(operationRequest)} (${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
+				this.trace(`Completed intrinsic size request: ${JSON.stringify(operationRequest)} ` +
+					`(${queuedOperation.comm.clientId}); queue length: ${this._queue.length})`);
 			}).catch((err) => {
 				// Handle the error
 				queuedOperation.operation.error(err);
@@ -403,6 +415,10 @@ export class PositronPlotRenderQueue extends Disposable {
 			this._isProcessing = false;
 			this.processQueue();
 		}
+	}
+
+	private trace(message: string): void {
+		this._logService.trace(`[RenderQueue ${this._session.sessionId}] ${message}`);
 	}
 }
 
