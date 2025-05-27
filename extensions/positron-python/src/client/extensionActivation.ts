@@ -98,7 +98,10 @@ export async function activateComponents(
     return Promise.all([legacyActivationResult, ...promises]);
 }
 
-export function activateFeatures(ext: ExtensionState, _components: Components): void {
+// --- Start Positron ---
+// Changed this function to be async
+export async function activateFeatures(ext: ExtensionState, _components: Components): Promise<void> {
+    // --- End Positron ---
     const interpreterQuickPick: IInterpreterQuickPick = ext.legacyIOC.serviceContainer.get<IInterpreterQuickPick>(
         IInterpreterQuickPick,
     );
@@ -118,7 +121,9 @@ export function activateFeatures(ext: ExtensionState, _components: Components): 
     // --- End Positron ---
 
     registerPixiFeatures(ext.disposables);
-    registerAllCreateEnvironmentFeatures(
+    // --- Start Positron ---
+    await registerAllCreateEnvironmentFeatures(
+        // --- End Positron ---
         ext.disposables,
         interpreterQuickPick,
         interpreterPathService,

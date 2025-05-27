@@ -38,10 +38,9 @@ import { IPositronDataExplorerService } from '../../../services/positronDataExpl
 import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
-import { isWebviewReplayMessage } from '../../../contrib/positronWebviewPreloads/browser/utils.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
-import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/browser/interfaces/runtimeNotebookKernelService.js';
+import { IRuntimeNotebookKernelService } from '../../../contrib/runtimeNotebookKernel/common/interfaces/runtimeNotebookKernelService.js';
 import { LanguageRuntimeSessionChannel } from '../../common/positron/extHostTypes.positron.js';
 import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
@@ -49,6 +48,7 @@ import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
+import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -845,7 +845,10 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 			// Check to see if there are any tags that look like they belong in
 			// a standalone HTML document.
 			const htmlContent = message.data['text/html'];
-			if (/<(script|html|body|iframe|!DOCTYPE)/.test(htmlContent)) {
+
+			if (isWebviewPreloadMessage(htmlContent)) {
+				return RuntimeOutputKind.WebviewPreload;
+			} else if (/<(script|html|body|iframe|!DOCTYPE)/.test(htmlContent)) {
 				// This looks like standalone HTML.
 				if (htmlContent.includes('<table') ||
 					htmlContent.includes('<!DOCTYPE')) {

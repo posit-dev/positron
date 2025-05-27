@@ -21,7 +21,7 @@ const githubActions = process.env.GITHUB_ACTIONS === "true";
 
 test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
 	test.beforeAll(async function ({ app }) {
-		if (githubActions) {
+		if (githubActions && process.platform !== 'win32') {
 			const localFilePath = join(app.workspacePathOrFolder, "data-files", objectKey);
 			const downloadOptions: S3FileDownloadOptions = {
 				region: region,
@@ -38,7 +38,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		await app.workbench.variables.togglePane('show');
 	});
 
-	if (githubActions) {
+	if (githubActions && process.platform !== 'win32') {
 
 		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, logger, python }) {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));

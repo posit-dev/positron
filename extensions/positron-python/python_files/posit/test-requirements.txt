@@ -12,6 +12,7 @@ matplotlib
 numpy
 pandas
 plotly
+plotnine
 polars
 polars[timezone]; sys_platform == 'win32'
 pyarrow

@@ -293,7 +293,8 @@
 	"linkProtectionTrustedDomains": [
 		"https://open-vsx.org",
 		"https://github.com/posit-dev/positron",
-		"https://positron.posit.co"
+		"https://positron.posit.co",
+		"https://github.com/login/device"
 	],
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"

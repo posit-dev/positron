@@ -23,7 +23,7 @@ import { CellKind } from '../../../notebook/common/notebookCommon.js';
 import { INotebookKernel } from '../../../notebook/common/notebookKernelService.js';
 import { INotebookService } from '../../../notebook/common/notebookService.js';
 import { createTestNotebookEditor } from '../../../notebook/test/browser/testNotebookEditor.js';
-import { IRuntimeNotebookKernelService } from '../../browser/interfaces/runtimeNotebookKernelService.js';
+import { IRuntimeNotebookKernelService } from '../../common/interfaces/runtimeNotebookKernelService.js';
 import { RuntimeNotebookKernelService } from '../../browser/runtimeNotebookKernelService.js';
 import { POSITRON_RUNTIME_NOTEBOOK_KERNELS_EXTENSION_ID } from '../../common/runtimeNotebookKernelConfig.js';
 import { mock } from '../../../../../base/test/common/mock.js';

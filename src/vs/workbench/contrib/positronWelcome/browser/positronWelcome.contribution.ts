@@ -83,7 +83,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 				default: true,
 				description: localize('positron.importSettings.enable', "Should Positron allow users to import settings from Visual Studio Code. Requires a restart to take effect."),
 				doNotSuggest: true,
-				scope: ConfigurationScope.APPLICATION_MACHINE
+				scope: ConfigurationScope.MACHINE_OVERRIDABLE
 			}
 		}
 	});

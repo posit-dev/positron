@@ -43,7 +43,7 @@ export class NewProjectWizard {
 	 * @param projectType The project type to select.
 	 */
 	async setProjectType(projectType: ProjectType) {
-		this.code.driver.page.locator('label').filter({ hasText: projectType }).click({ force: true });
+		await this.code.driver.page.locator('label').filter({ hasText: projectType }).click({ force: true });
 		await this.clickWizardButton(WizardButton.NEXT);
 	}
 
@@ -174,7 +174,7 @@ export interface CreateProjectOptions {
 	title: string;
 	status?: 'new' | 'existing';
 	rEnvCheckbox?: boolean;
-	pythonEnv?: 'conda' | 'venv';
+	pythonEnv?: 'conda' | 'venv' | 'uv';
 	initAsGitRepo?: boolean;
 	ipykernelFeedback?: 'show' | 'hide';
 	interpreterPath?: string;

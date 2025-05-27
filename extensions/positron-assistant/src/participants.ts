@@ -188,6 +188,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const customSystem = (await this.getSystemPrompt(request)) ?? '';
 		const system = defaultSystem + customSystem;
 
+		// Get the IDE context for the request.
+		const positronContext = await positron.ai.getPositronChatContext(request);
+
 		// List of tools for use by the language model.
 		const tools: vscode.LanguageModelChatTool[] = vscode.lm.tools.filter(
 			tool => {
@@ -204,7 +207,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// to see if it requires confirmation, but that information isn't
 					// currently exposed in `vscode.LanguageModelChatTool`.
 					case PositronAssistantToolName.ExecuteCode:
-						return inChatPane;
+						return inChatPane &&
+							// The execute code tool does not yet support notebook sessions.
+							positronContext.activeSession?.mode !== positron.LanguageRuntimeSessionMode.Notebook;
 					// Only include the documentEdit tool in an editor and if there is
 					// no selection.
 					case PositronAssistantToolName.DocumentEdit:
@@ -231,7 +236,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const messages = toLanguageModelChatMessage(context.history);
 
 		// Add a user message containing context about the request, workspace, running sessions, etc.
-		const contextMessage = await this.getContextMessage(request, response);
+		const contextMessage = await this.getContextMessage(request, response, positronContext);
 		if (contextMessage) {
 			messages.push(contextMessage);
 		}
@@ -264,6 +269,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	private async getContextMessage(
 		request: vscode.ChatRequest,
 		response: vscode.ChatResponseStream,
+		positronContext: positron.ai.ChatContext,
 	): Promise<vscode.LanguageModelChatMessage2 | undefined> {
 		// This function returns a single user message containing all context
 		// relevant to a request, including:
@@ -370,28 +376,32 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		}
 
 		// Add Positron IDE context to the prompt.
-		const positronContext = await positron.ai.getPositronChatContext(request);
 		const positronContextPrompts: string[] = [];
-		if (positronContext.console) {
-			const executions = positronContext.console.executions
+		if (positronContext.activeSession) {
+			const executions = positronContext.activeSession.executions
 				.map((e) => xml.node('execution', JSON.stringify(e)))
 				.join('\n');
 			positronContextPrompts.push(
-				xml.node('console',
+				xml.node('session',
 					xml.node('executions', executions ?? ''), {
-					description: 'Current active console',
-					language: positronContext.console.language,
-					version: positronContext.console.version,
-					identifier: positronContext.console.identifier,
+					description: 'Current active session',
+					language: positronContext.activeSession.language,
+					version: positronContext.activeSession.version,
+					mode: positronContext.activeSession.mode,
+					identifier: positronContext.activeSession.identifier,
 				})
 			);
 		}
 		if (positronContext.variables) {
+			const content = positronContext.variables
+				.map((v) => xml.node('variable', JSON.stringify(v)))
+				.join('\n');
+			const description = content.length > 0 ?
+				'Variables defined in the current session' :
+				'No variables defined in the current session';
 			positronContextPrompts.push(
-				xml.node('variables', positronContext.variables
-					.map((v) => xml.node('variable', JSON.stringify(v)))
-					.join('\n'), {
-					description: 'Variables defined in the current session',
+				xml.node('variables', content, {
+					description,
 				})
 			);
 		}
@@ -416,6 +426,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		if (customPrompt.length > 0) {
 			prompts.push(customPrompt);
 		}
+
+		// Add default context items to the prompt just before the prompts are joined.
+		// This ordering helps with verifying the context items in tests, as we can expect
+		// them to be at the end of the prompt.
+		prompts.push(...getDefaultContextItems());
 
 		const parts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
 		if (prompts.length > 0) {
@@ -613,4 +628,18 @@ async function openLlmsTextDocument(): Promise<vscode.TextDocument | undefined> 
 
 	const llmsDocument = await vscode.workspace.openTextDocument(fileUri);
 	return llmsDocument;
+}
+
+/**
+ * Retrieve the default context items to include in the prompt.
+ * @returns A list of default context items to include in the prompt.
+ */
+export function getDefaultContextItems(): string[] {
+	const defaultPrompts = [];
+
+	// Note if any folders are open in the workspace.
+	const areFoldersOpen = !!vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0;
+	defaultPrompts.push(xml.node('workspace', `Workspace folders are open: ${areFoldersOpen}`));
+
+	return defaultPrompts;
 }

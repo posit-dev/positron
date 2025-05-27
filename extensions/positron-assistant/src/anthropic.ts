@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
-import { hasNonEmptyContent, isChatImagePart } from './utils.js';
+import { isChatImagePart, processMessages } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 
 export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -56,10 +56,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
-		// Filter out messages with empty text or empty tool response content
-		const filteredMessages = messages.filter(hasNonEmptyContent);
-
-		const anthropicMessages = filteredMessages.map(message => toAnthropicMessage(message));
+		const anthropicMessages = processMessages(messages).map(toAnthropicMessage);
 		const tools = options.tools?.map(tool => toAnthropicTool(tool));
 		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
 		const stream = this._client.messages.stream({
@@ -133,21 +130,14 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
-		// For empty string or message with only empty content, return 0 tokens
+		const messages: Anthropic.MessageParam[] = [];
 		if (typeof text === 'string') {
+			// For empty string, return 0 tokens
 			if (text.trim() === '') {
 				return 0;
 			}
-		} else {
-			// Check if message has any non-empty content
-			if (!hasNonEmptyContent(text)) {
-				return 0;
-			}
-		}
-
-		// Process non-empty content normally
-		const messages: Anthropic.MessageParam[] = typeof text === 'string' ?
-			[{
+			// Otherwise, treat it as a user message
+			messages.push({
 				role: 'user',
 				content: [
 					{
@@ -155,8 +145,15 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 						text,
 					},
 				],
-			}] :
-			[toAnthropicMessage(text)];
+			});
+		} else {
+			// For LanguageModelChatMessage, ensure it has non-empty message content
+			const processedMessages = processMessages([text]);
+			if (processedMessages.length === 0) {
+				return 0;
+			}
+			messages.push(...processedMessages.map(toAnthropicMessage));
+		}
 		const result = await this._client.messages.countTokens({
 			model: this._config.model,
 			messages,
