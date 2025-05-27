@@ -35,7 +35,7 @@ export class PositConnect {
 	}
 
 	async selectFilesForDeploy(files: string[]) {
-		const editorContainer = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]');
+		const editorContainer = this.code.driver.page.locator('[id="workbench.parts.editor"]');
 		const dynamicTomlLineRegex = /deployment-.*?\.toml/;
 		const targetLine = editorContainer.locator('.view-line').filter({ hasText: dynamicTomlLineRegex });
 

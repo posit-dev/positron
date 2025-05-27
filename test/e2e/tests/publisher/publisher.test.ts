@@ -11,7 +11,6 @@ test.use({
 });
 
 test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER] }, () => {
-	test.slow();
 	test.afterAll('Delete file from Posit Connect', async function ({ app }) {
 		await app.workbench.positConnect.deleteUserContent();
 	});
@@ -70,8 +69,10 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			// Not needed thanks to PR 7840, but this is an example of implementation
 			// await app.workbench.popups.closeSpecificToast('Import your settings from Visual Studio Code into Positron?');
 			await page.getByRole('button', { name: 'Maximize Panel' }).click();
-			await page.getByRole('button', { name: 'Maximize Panel' }).click();
-			await expect(page.locator('.monaco-list-row:has-text("Run Content") .codicon.codicon-check')).toBeVisible({ timeout: 90000 });
+			// The next twi await expects are a bit redundant on purpose. If "Deploy Bundle isn't visible, test should quickly fail (5secs).
+			await expect(page.locator('span.monaco-highlighted-label:has-text("Deploy Bundle")')).toBeVisible({ timeout: 5000 });
+			// Then, checkmark next to it might take a bit long to appear, which is expected.
+			await expect(page.locator('.monaco-list-row:has-text("Deploy Bundle") .custom-view-tree-node-item-icon.codicon.codicon-check')).toBeVisible({ timeout: 90000 });
 		});
 	});
 });
