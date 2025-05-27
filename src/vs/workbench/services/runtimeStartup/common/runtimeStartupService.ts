@@ -125,6 +125,11 @@ export interface IRuntimeStartupService {
 	completeDiscovery(id: number): void;
 
 	/**
+	 * Kick off a user-driven refresh of runtime discovery, after the initial discovery.
+	 */
+	rediscoverAllRuntimes(): Promise<void>;
+
+	/**
 	 * Get the sessions that were (or will be) restored into this window.
 	 */
 	getRestoredSessions(): Promise<SerializedSessionMetadata[]>;

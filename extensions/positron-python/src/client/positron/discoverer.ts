@@ -48,6 +48,7 @@ export async function* pythonRuntimeDiscoverer(
         traceInfo(`pythonRuntimeDiscoverer: recommended interpreter: ${recommendedInterpreter?.path}`);
 
         // Discover Python interpreters
+        await interpreterService.triggerRefresh().ignoreErrors();
         let interpreters = interpreterService.getInterpreters();
 
         traceInfo(`pythonRuntimeDiscoverer: discovered ${interpreters.length} Python interpreters`);

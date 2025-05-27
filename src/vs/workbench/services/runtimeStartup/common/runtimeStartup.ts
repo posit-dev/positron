@@ -638,6 +638,52 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
+	 * Kicks off a refresh of runtime discovery, after initial discovery.
+	 */
+	public async rediscoverAllRuntimes(): Promise<void> {
+
+		// If we haven't completed discovery once already, don't do anything.
+		if (this._startupPhase !== RuntimeStartupPhase.Complete) {
+			this._logService.warn('[Runtime startup] Runtime discovery refresh called before initial discovery is complete.');
+			return;
+		}
+
+		// Set up event to notify when runtimes are added.
+		const oldRuntimes = this._languageRuntimeService.registeredRuntimes;
+		this._register(
+			this._languageRuntimeService.onDidChangeRuntimeStartupPhase(
+				(phase) => {
+					if (phase === RuntimeStartupPhase.Complete) {
+						const newRuntimes = this._languageRuntimeService.registeredRuntimes;
+						const addedRuntimes = newRuntimes.filter(newRuntime => {
+							return !oldRuntimes.some(oldRuntime => {
+								return oldRuntime.runtimeId === newRuntime.runtimeId;
+							});
+						});
+
+						// If any runtimes were added, show a notification.
+						if (addedRuntimes.length > 0) {
+							this._notificationService.info(nls.localize('positron.runtimeStartupService.runtimesAddedMessage',
+								"Found {0} new interpreter{1}: {2}.",
+								addedRuntimes.length,
+								addedRuntimes.length > 1 ? 's' : '',
+								addedRuntimes.map(runtime => { return runtime.runtimeName; }).join(', ')));
+						}
+					}
+				}
+			)
+		);
+
+		this._logService.debug('[Runtime startup] Refreshing runtime discovery.');
+		this._discoveryCompleteByExtHostId.forEach((_, extHostId, m) => {
+			m.set(extHostId, false);
+		});
+
+		this.discoverAllRuntimes();
+
+	}
+
+	/**
 	 * Runs as an event handler when the active runtime changes.
 	 *
 	 * @param runtime The newly active runtime, or undefined if no runtime is active.
@@ -693,7 +739,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 	}
 
 	/**
-	 * Activates all of the extensions that provides language runtimes, then
+	 * Activates all of the extensions that provide language runtimes, then
 	 * enters the discovery phase, in which each extension is asked to supply
 	 * its language runtime metadata.
 	 */
@@ -739,7 +785,7 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// language runtime providers.
 		this.setStartupPhase(RuntimeStartupPhase.Discovering);
 
-		// Ask each extension to provide its language runtime metadata.
+		// Ask each extension host to provide its language runtime metadata.
 		for (const manager of this._runtimeManagers) {
 			manager.discoverAllRuntimes(disabledLanguages);
 		}
