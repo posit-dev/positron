@@ -27,8 +27,8 @@ export class ToggleActionBarAction extends Action2 {
 		super({
 			id: ToggleActionBarAction.ID,
 			title: {
-				...localize2('toggleActionBar', "Toggle Action Bar"),
-				mnemonicTitle: localize({ key: 'miActionBar', comment: ['&& denotes a mnemonic'] }, "&&Action Bar"),
+				...localize2('toggleEditorActionBar', "Toggle Editor Action Bar"),
+				mnemonicTitle: localize({ key: 'miActionBar', comment: ['&& denotes a mnemonic'] }, "Editor &&Action Bar"),
 			},
 			category: Categories.View,
 			f1: true,

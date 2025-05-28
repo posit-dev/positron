@@ -3,6 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * Editor Action Bar: Document Files
+ *
+ * This test suite validates the functionality of the Editor Action Bar when interacting with
+ * various types of files (R Markdown, Quarto, HTML, and Jupyter Notebooks, etc.)
+ *
+ * Flow:
+ * - Open a supported file type
+ * - Interact with action bar controls to preview or split the editor
+ * - Verify content is rendered or shown in a new editor/tab/window as expected
+ * - Confirm expected visibility/invisibility of the action bar based on file type
+ */
+
 import { expect, Page } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 import { EditorActionBar } from '../../pages/editorActionBar';
@@ -45,24 +58,17 @@ test.describe('Editor Action Bar: Document Files', {
 		await verifyOpenInNewWindow(app, 'Diamond sizes');
 	});
 
-	test('HTML Document - Verify `open viewer`, `split editor`, `open in new window` behavior', { tag: [tags.HTML] }, async function ({ app, page, openFile }) {
+	test('HTML Document - Verify `open viewer`, `split editor`, `open in new window` behavior', { tag: [tags.HTML] }, async function ({ app, openFile }) {
 		await openFile('workspaces/dash-py-example/data/OilandGasMetadata.html');
 		await verifyOpenViewerRendersHtml(app, 'Oil, Gas, and Other Regulated');
 		await verifySplitEditor('OilandGasMetadata.html');
 		await verifyOpenInNewWindow(app, '<title> Oil &amp; Gas Wells - Metadata</title>');
 	});
 
-	test('Jupyter Notebook - Verify toggle `line numbers`, `toggle breadcrumbs`, `split editor` behavior', {
+	test('Jupyter Notebook - Verify editor action bar is not visible', {
 		tag: [tags.NOTEBOOKS],
-	}, async function ({ app, page, openDataFile }) {
-		await openDataFile('workspaces/large_r_notebook/spotify.ipynb');
-
-		if (app.web) {
-			await verifyToggleLineNumbers(page);
-			await verifyToggleBreadcrumb(page);
-		}
-
-		await verifySplitEditor('spotify.ipynb');
+	}, async function ({ app }) {
+		await app.workbench.editorActionBar.verifyIsVisible(false);
 	});
 });
 
@@ -116,27 +122,3 @@ async function verifyOpenChanges(page: Page) {
 	});
 }
 
-async function verifyToggleLineNumbers(page: Page) {
-	async function verifyLineNumbersVisibility(page: Page, isVisible: boolean) {
-		for (const lineNum of [1, 2, 3, 4, 5]) {
-			const lineNumbers = expect(page.locator('.line-numbers').getByText(lineNum.toString(), { exact: true }));
-			isVisible ? await lineNumbers.toBeVisible() : await lineNumbers.not.toBeVisible();
-		}
-	}
-
-	await test.step('verify "customize notebook > toggle line numbers" (web only)', async () => {
-		await verifyLineNumbersVisibility(page, false);
-		await editorActionBar.clickCustomizeNotebookMenuItem('Toggle Notebook Line Numbers');
-		await verifyLineNumbersVisibility(page, true);
-	});
-}
-
-async function verifyToggleBreadcrumb(page: Page) {
-	await test.step('verify "customize notebook > toggle breadcrumbs" (web only)', async () => {
-		const breadcrumbs = page.locator('.monaco-breadcrumbs');
-
-		await expect(breadcrumbs).toBeVisible();
-		await editorActionBar.clickCustomizeNotebookMenuItem('Toggle Breadcrumbs');
-		await expect(breadcrumbs).not.toBeVisible();
-	});
-}

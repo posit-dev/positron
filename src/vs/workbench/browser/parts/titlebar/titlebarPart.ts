@@ -23,7 +23,10 @@ import { CustomMenubarControl } from './menubarControl.js';
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IStorageService, StorageScope } from '../../../../platform/storage/common/storage.js';
-import { Parts, IWorkbenchLayoutService, ActivityBarPosition, LayoutSettings, EditorActionsLocation, EditorTabsMode } from '../../../services/layout/browser/layoutService.js';
+// --- Start Positron ---
+// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
+import { Parts, IWorkbenchLayoutService, ActivityBarPosition, LayoutSettings, /*EditorActionsLocation, EditorTabsMode*/ } from '../../../services/layout/browser/layoutService.js';
+// --- End Positron ---
 import { createActionViewItem, fillInActionBarActions as fillInActionBarActions } from '../../../../platform/actions/browser/menuEntryActionViewItem.js';
 import { Action2, IMenu, IMenuService, MenuId, registerAction2 } from '../../../../platform/actions/common/actions.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
@@ -817,17 +820,26 @@ export class BrowserTitlebarPart extends Part implements ITitlebarPart {
 
 	protected get isCommandCenterVisible() {
 		// --- Start Positron ---
-		// return !this.isCompact && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+		// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
 		return false;
+		/*
+		return !this.isCompact && this.configurationService.getValue<boolean>(LayoutSettings.COMMAND_CENTER) !== false;
+		*/
 		// --- End Positron ---
 	}
 
 	private get editorActionsEnabled(): boolean {
+		// --- Start Positron ---
+		// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
+		return false;
+		/*
 		return !this.isCompact && this.editorGroupService.partOptions.editorActionsLocation === EditorActionsLocation.TITLEBAR ||
 			(
 				this.editorGroupService.partOptions.editorActionsLocation === EditorActionsLocation.DEFAULT &&
 				this.editorGroupService.partOptions.showTabs === EditorTabsMode.NONE
 			);
+		*/
+		// --- End Positron ---
 	}
 
 	private get activityActionsEnabled(): boolean {

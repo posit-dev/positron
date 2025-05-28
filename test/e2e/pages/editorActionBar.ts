@@ -3,15 +3,15 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test, { expect, Page } from '@playwright/test';
+import test, { expect, Locator, Page } from '@playwright/test';
 import { Viewer } from './viewer';
 import { QuickAccess } from './quickaccess';
 
 
 export class EditorActionBar {
+	actionBar: Locator = this.page.locator('.editor-action-bar > .positron-action-bar > .action-bar-region');
 
-	constructor(private page: Page, private viewer: Viewer, private quickaccess: QuickAccess) {
-	}
+	constructor(private page: Page, private viewer: Viewer, private quickaccess: QuickAccess) { }
 
 	// --- Actions ---
 
@@ -183,6 +183,19 @@ export class EditorActionBar {
 			position === 'Left'
 				? expect(summaryBox.x).toBeLessThan(tableBox.x)
 				: expect(summaryBox.x).toBeGreaterThan(tableBox.x);
+		});
+	}
+
+	/**
+	 * Verify: the visibility of the editor action bar
+	 *
+	 * @param isVisible whether the editor action bar is expected to be visible
+	 */
+	async verifyIsVisible(isVisible: boolean) {
+		await test.step(`Verify editor action bar is ${isVisible ? 'visible' : 'not visible'}`, async () => {
+			isVisible
+				? await expect(this.actionBar).toBeVisible()
+				: await expect(this.actionBar).not.toBeVisible();
 		});
 	}
 }
