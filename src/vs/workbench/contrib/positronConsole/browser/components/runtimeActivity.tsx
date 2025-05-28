@@ -28,7 +28,6 @@ import { ActivityItemErrorMessage } from '../../../../services/positronConsole/b
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemOutputMessage } from '../../../../services/positronConsole/browser/classes/activityItemOutputMessage.js';
 import { ActivityItemStream, ActivityItemStreamType } from '../../../../services/positronConsole/browser/classes/activityItemStream.js';
-import { ActivityItemOutputEmpty } from '../../../../services/positronConsole/browser/classes/activityItemOutputEmpty.js';
 
 // RuntimeActivityProps interface.
 export interface RuntimeActivityProps {
@@ -61,9 +60,6 @@ export const RuntimeActivity = (props: RuntimeActivityProps) => {
 					}
 				} else if (activityItem instanceof ActivityItemPrompt) {
 					return <ActivityPrompt key={activityItem.id} activityItemPrompt={activityItem} positronConsoleInstance={props.positronConsoleInstance} />;
-				} else if (activityItem instanceof ActivityItemOutputEmpty) {
-					// TODO: Extract class? Should we display anything here? Should it be null?
-					return <div key={activityItem.id} className='activity-output-empty'></div>;
 				} else if (activityItem instanceof ActivityItemOutputHtml) {
 					return <ActivityOutputHtml key={activityItem.id} activityItemOutputHtml={activityItem} />;
 				} else if (activityItem instanceof ActivityItemOutputMessage) {

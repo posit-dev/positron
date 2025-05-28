@@ -1091,6 +1091,29 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidReplacePlots.fire(this._plots);
 	}
 
+	// /** Gets a plot for a output identifier. */
+	// private getPlotForOutput(sessionId: string, outputId: string): IPositronPlotClient | undefined {
+	// 	return this._plots.find(plot => plot.metadata.session_id === sessionId && plot.metadata.output_id === outputId);
+	// }
+
+	// /**
+	//  * Replaces a plot with a new one and fires the appropriate UI events.
+	//  * @param id The ID of the plot to replace.
+	//  * @param newPlot The new plot.
+	//  */
+	// private replacePlot(id: string, newPlot: IPositronPlotClient) {
+	// 	const index = this._plots.findIndex(plot => plot.id === id);
+	// 	if (index < 0) {
+	// 		throw new Error(`Could not replace unknown plot: ${id}`);
+	// 	}
+	// 	this.removePlot(id);
+	// 	this._register(newPlot);
+	// 	this._plots[index] = newPlot;
+	// 	this._onDidEmitPlot.fire(newPlot);
+	// 	this._onDidSelectPlot.fire(newPlot.id);
+	// 	this._showPlotsPane();
+	// }
+
 	saveViewPlot(): void {
 		if (this._selectedPlotId) {
 			const plot = this._plots.find(plot => plot.id === this._selectedPlotId);
