@@ -450,12 +450,17 @@ function isTitleBarEmpty(configurationService: IConfigurationService): boolean {
 		return false;
 	}
 
+	// --- Start Positron ---
+	// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
+	/*
 	// with the editor actions on top, we should always show
 	const editorActionsLocation = configurationService.getValue<EditorActionsLocation>(LayoutSettings.EDITOR_ACTIONS_LOCATION);
 	const editorTabsMode = configurationService.getValue<EditorTabsMode>(LayoutSettings.EDITOR_TABS_MODE);
 	if (editorActionsLocation === EditorActionsLocation.TITLEBAR || editorActionsLocation === EditorActionsLocation.DEFAULT && editorTabsMode === EditorTabsMode.NONE) {
 		return false;
 	}
+	*/
+	// --- End Positron ---
 
 	// with the layout actions on top, we should always show
 	if (configurationService.getValue<boolean>(LayoutSettings.LAYOUT_ACTIONS)) {

@@ -10,7 +10,10 @@ import { isMacintosh, isWindows, isLinux, isWeb, isNative } from '../../base/com
 import { ConfigurationMigrationWorkbenchContribution, DynamicWorkbenchSecurityConfiguration, IConfigurationMigrationRegistry, workbenchConfigurationNodeBase, Extensions, ConfigurationKeyValuePairs, problemsConfigurationNodeBase, windowConfigurationNodeBase, DynamicWindowConfiguration } from '../common/configuration.js';
 import { isStandalone } from '../../base/browser/browser.js';
 import { WorkbenchPhase, registerWorkbenchContribution2 } from '../common/contributions.js';
-import { ActivityBarPosition, EditorActionsLocation, EditorTabsMode, LayoutSettings } from '../services/layout/browser/layoutService.js';
+// --- Start Positron ---
+// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
+import { ActivityBarPosition, /*EditorActionsLocation,*/ EditorTabsMode, LayoutSettings } from '../services/layout/browser/layoutService.js';
+// --- End Positron ---
 import { defaultWindowTitle, defaultWindowTitleSeparator } from './parts/titlebar/windowTitle.js';
 import { CustomEditorLabelService } from '../services/editor/common/customEditorLabelService.js';
 
@@ -56,6 +59,9 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 				'description': localize('showEditorTabs', "Controls whether opened editors should show as individual tabs, one single large tab or if the title area should not be shown."),
 				'default': 'multiple'
 			},
+			// --- Start Positron ---
+			// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
+			/*
 			[LayoutSettings.EDITOR_ACTIONS_LOCATION]: {
 				'type': 'string',
 				'enum': [EditorActionsLocation.DEFAULT, EditorActionsLocation.TITLEBAR, EditorActionsLocation.HIDDEN],
@@ -65,16 +71,15 @@ const registry = Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Con
 					localize('workbench.editor.editorActionsLocation.hidden', "Editor actions are not shown."),
 				],
 				'markdownDescription': localize('editorActionsLocation', "Controls where the editor actions are shown."),
-				// --- Start Positron ---
-				'default': 'hidden'
-				// 'default': 'default'
-				// --- End Positron ---
+				'default': 'default'
 			},
 			'workbench.editor.alwaysShowEditorActions': {
 				'type': 'boolean',
 				'markdownDescription': localize('alwaysShowEditorActions', "Controls whether to always show the editor actions, even when the editor group is not active."),
 				'default': false
 			},
+			*/
+			// --- End Positron ---
 			'workbench.editor.wrapTabs': {
 				'type': 'boolean',
 				'markdownDescription': localize({ comment: ['{0}, {1} will be a setting name rendered as a link'], key: 'wrapTabs' }, "Controls whether tabs should be wrapped over multiple lines when exceeding available space or whether a scrollbar should appear instead. This value is ignored when {0} is not set to '{1}'.", '`#workbench.editor.showTabs#`', '`multiple`'),

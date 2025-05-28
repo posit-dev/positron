@@ -7,7 +7,10 @@ import { ILocalizedString, localize, localize2 } from '../../../nls.js';
 import { MenuId, MenuRegistry, registerAction2, Action2 } from '../../../platform/actions/common/actions.js';
 import { Categories } from '../../../platform/action/common/actionCommonCategories.js';
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
-import { EditorActionsLocation, EditorTabsMode, IWorkbenchLayoutService, LayoutSettings, Parts, Position, ZenModeSettings, positionToString } from '../../services/layout/browser/layoutService.js';
+// --- Start Positron ---
+// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
+import { /*EditorActionsLocation,*/ EditorTabsMode, IWorkbenchLayoutService, LayoutSettings, Parts, Position, ZenModeSettings, positionToString } from '../../services/layout/browser/layoutService.js';
+// --- End Positron ---
 import { ServicesAccessor, IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { KeyMod, KeyCode, KeyChord } from '../../../base/common/keyCodes.js';
 import { isWindows, isLinux, isWeb, isMacintosh, isNative } from '../../../base/common/platform.js';
@@ -549,6 +552,10 @@ MenuRegistry.appendMenuItem(MenuId.MenubarAppearanceMenu, {
 	when: InEditorZenModeContext
 });
 
+// --- Start Positron ---
+// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
+/*
+
 // --- Show Editor Actions in Title Bar
 
 export class EditorActionsTitleBarAction extends Action2 {
@@ -656,6 +663,8 @@ MenuRegistry.appendMenuItem(MenuId.MenubarAppearanceMenu, {
 	group: '3_workbench_layout_move',
 	order: 11
 });
+*/
+// --- End Positron ---
 
 // --- Configure Tabs Layout
 

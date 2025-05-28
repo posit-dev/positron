@@ -173,7 +173,13 @@ export abstract class EditorTabsControl extends Themable implements IEditorTabsC
 	}
 
 	private get editorActionsEnabled(): boolean {
+		// --- Start Positron ---
+		// Editor actions are disabled in Positron. They have been moved to the Editor Action Bar.
+		return false;
+		/*
 		return this.groupsView.partOptions.editorActionsLocation === 'default' && this.groupsView.partOptions.showTabs !== 'none';
+		*/
+		// --- End Positron ---
 	}
 
 	protected createEditorActionsToolBar(parent: HTMLElement, classes: string[]): void {
