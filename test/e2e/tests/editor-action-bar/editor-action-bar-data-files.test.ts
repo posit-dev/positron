@@ -3,6 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * Editor Action Bar: Data Files
+ *
+ * Summary:
+ * This test suite validates the functionality of the Editor Action Bar when interacting with
+ * various types of data based files (e.g., data frames in R/Python, Parquet, CSV).
+ *
+ * Flow:
+ *  - Open a file containing data frames or a standalone data file directly (e.g., Parquet, CSV via DuckDB)
+ *  - Use the Variables pane to open a data frame in the Data Explorer (when applicable)
+ *  - Verify the Editor Action Bar functionality:
+ */
+
 import { Application } from '../../infra';
 import { EditorActionBar } from '../../pages/editorActionBar';
 import { test, expect, tags } from '../_test.setup';
