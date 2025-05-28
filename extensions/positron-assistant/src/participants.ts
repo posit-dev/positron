@@ -221,6 +221,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// Only include the edit file tool in edit mode i.e. for the edit participant.
 					case PositronAssistantToolName.EditFile:
 						return this.id === ParticipantID.Edit;
+					case PositronAssistantToolName.GetInstalledPackages:
+						return inChatPane || inEditor;
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
 					default:
 						return tool.tags.includes('positron-assistant');

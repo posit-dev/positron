@@ -15,6 +15,7 @@ export enum PositronAssistantToolName {
 	GetPlot = 'getPlot',
 	InspectVariables = 'inspectVariables',
 	SelectionEdit = 'selectionEdit',
+	GetInstalledPackages = 'getInstalledPackages',
 }
 
 /**
@@ -255,6 +256,109 @@ export function registerAssistantTools(
 	});
 
 	context.subscriptions.push(getPlotTool);
+
+	const getInstalledPackagesTool = vscode.lm.registerTool<{ language: string }>(PositronAssistantToolName.GetInstalledPackages, {
+		prepareInvocation: async (options, token) => {
+			return {
+				invocationMessage: vscode.l10n.t('Getting installed packages'),
+				pastTenseMessage: vscode.l10n.t('Got installed packages'),
+				presentation: 'hidden',
+			};
+		},
+		invoke: async (options, token) => {
+			const languageId = options.input.language.toLowerCase();
+			try {
+				const installedPackages = await getInstalledPackages(languageId);
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(JSON.stringify(installedPackages))
+				]);
+			} catch (e) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(`Error getting installed packages: ${e}`)
+				]);
+			}
+		},
+	});
+
+	context.subscriptions.push(getInstalledPackagesTool);
+}
+
+async function getInstalledPackages(languageId: string): Promise<{
+	r?: {
+		packages: string[];
+		installation: string;
+		loading: string;
+	};
+	python?: {
+		packages: string[];
+		installation: string;
+		loading: string;
+	};
+}> {
+	const result: any = {};
+	if (languageId === 'r') {
+		const rPackages = await getRPackages();
+		result.r = {
+			packages: rPackages,
+			installation: 'install.packages("package_name")',
+			loading: 'library(package_name)',
+		};
+	} else if (languageId === 'python') {
+		const pythonPackages = await getPythonPackages();
+		result.python = {
+			packages: pythonPackages,
+			installation: 'pip install package_name',
+			loading: 'import package_name',
+		};
+	}
+	return result;
+}
+
+async function getRPackages(): Promise<string[]> {
+	const code = 'cat(jsonlite::toJSON(rownames(installed.packages())))';
+	return executeAndParsePackages('r', code);
+}
+
+async function getPythonPackages(): Promise<string[]> {
+	const code = `
+import json
+import pkg_resources
+installed_packages = [pkg.key for pkg in pkg_resources.working_set]
+print(json.dumps(installed_packages))
+`;
+	return executeAndParsePackages('python', code);
+}
+
+async function executeAndParsePackages(languageId: string, code: string): Promise<string[]> {
+	let outputText: string = '';
+	let outputError: string = '';
+
+	const observer: positron.runtime.ExecutionObserver = {
+		token: new vscode.CancellationTokenSource().token,
+		onOutput: (output) => {
+			outputText += output;
+		},
+		onError: (error) => {
+			outputError += error;
+		}
+	};
+
+	try {
+		await positron.runtime.executeCode(
+			languageId,
+			code,
+			false,  // do not focus console
+			true,   // allow incomplete input
+			positron.RuntimeCodeExecutionMode.Silent,
+			positron.RuntimeErrorBehavior.Stop,
+			observer);
+		if (outputError) {
+			throw new Error(outputError);
+		}
+		return JSON.parse(outputText.trim());
+	} catch (e) {
+		throw new Error(`Error executing ${languageId} code: ${e}`);
+	}
 
 	const inspectVariablesTool = vscode.lm.registerTool<{ sessionIdentifier: string; accessKeys: Array<Array<string>> }>(PositronAssistantToolName.InspectVariables, {
 		/**
