@@ -412,7 +412,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		const currentRuntime = this.runtimeSessionService.foregroundSession?.runtimeMetadata;
 
 		// Grab the active runtimes.
-		const activeRuntimes = this.runtimeSessionService.activeSessions
+		let activeRuntimes = this.runtimeSessionService.activeSessions
 			// Sort by last used, descending.
 			.sort((a, b) => b.lastUsed - a.lastUsed)
 			// Map from session to runtime metadata.
@@ -421,14 +421,15 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 			.filter((runtime, index, runtimes) =>
 				runtime.runtimeId !== currentRuntime?.runtimeId && runtimes.findIndex(r => r.runtimeId === runtime.runtimeId) === index
 			)
-			// Restrict to the first 5.
-			.slice(0, 5);
 
 		// Add current runtime first, if present.
 		// Allows for "plus" + enter behavior to clone session.
 		if (currentRuntime && this.runtimeSessionService.foregroundSession?.getRuntimeState() !== RuntimeState.Exited) {
 			activeRuntimes.unshift(currentRuntime);
 		}
+
+		// Limit to 5 active runtimes to avoid cluttering the dropdown.
+		activeRuntimes = activeRuntimes.slice(0, 5);
 
 		const dropdownMenuActions = activeRuntimes.map(runtime => new Action(
 			`console.startSession.${runtime.runtimeId}`,
