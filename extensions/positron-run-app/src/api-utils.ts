@@ -162,3 +162,7 @@ export function extractAppUrlFromString(str: string, appUrlStrings?: string[]) {
 	log.debug('No appUrlStrings matched. Falling back to default URL regex to match URL.');
 	return str.match(HTTP_URL_REGEX)?.[0];
 }
+
+export function getTerminalAppUrlOpenLocationConfig() {
+	return vscode.workspace.getConfiguration('positron.appLauncher').get<string>('terminalAppUrlOpenLocation');
+}

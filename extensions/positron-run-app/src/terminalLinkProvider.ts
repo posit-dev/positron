@@ -8,6 +8,7 @@ import * as vscode from 'vscode';
 import { PositronRunAppApiImpl } from './api.js';
 import { AppLauncherTerminalLink } from './types.js';
 import { HTTP_URL_REGEX } from './constants.js';
+import { getTerminalAppUrlOpenLocationConfig } from './api-utils.js';
 
 /**
  * A provider for terminal links that handles app URLs.
@@ -48,7 +49,6 @@ export class AppLauncherTerminalLinkProvider implements vscode.TerminalLinkProvi
 			}
 		}
 		return links;
-
 	}
 
 	/**
@@ -57,26 +57,71 @@ export class AppLauncherTerminalLinkProvider implements vscode.TerminalLinkProvi
 	 */
 	async handleTerminalLink(link: AppLauncherTerminalLink): Promise<void> {
 		const uri = await vscode.env.asExternalUri(link.proxyUri);
+		const appLinkOpenLocation = getTerminalAppUrlOpenLocationConfig();
+		switch (appLinkOpenLocation) {
+			case 'viewer':
+				// Open the URL in the Viewer pane
+				positron.window.previewUrl(uri);
+				break;
+			case 'browser':
+				// Open the URL in a new browser window
+				await vscode.env.openExternal(uri);
+				break;
+			case 'ask':
+				// For ask or default, show a quick pick menu to let the user choose
+				await this.showQuickPick(uri);
+			default:
+				break;
+		}
+	}
 
-		// Ask the user if they want to open the URL in the Viewer or in the a new browser tab.
+	/**
+	 * Shows a quick pick menu to allow the user to choose how to open the provided URI.
+	 * @param uri The URI to open
+	 */
+	async showQuickPick(uri: vscode.Uri): Promise<void> {
 		const viewerPane = vscode.l10n.t('Open in Viewer pane');
 		const browserWindow = vscode.l10n.t('Open in new browser window');
-		const choice = await vscode.window.showQuickPick(
-			[
-				{ label: viewerPane },
-				{ label: browserWindow }
-			],
+		const configureDefault = vscode.l10n.t('Configure default app link opening location');
+
+		const quickPick = vscode.window.createQuickPick();
+		quickPick.title = vscode.l10n.t('Open App Link');
+		quickPick.placeholder = vscode.l10n.t('How would you like to open: {0}', uri.toString());
+		quickPick.items = [
+			{ label: viewerPane, },
+			{ label: browserWindow, },
+		];
+		quickPick.buttons = [
 			{
-				placeHolder: vscode.l10n.t('How would you like to open: {0}', uri.toString())
-			}
+				// Include a button for the user to configure the default app link opening location
+				iconPath: new vscode.ThemeIcon('settings-gear'),
+				tooltip: configureDefault,
+			},
+		];
+
+		const disposables: vscode.Disposable[] = [];
+		disposables.push(
+			quickPick.onDidTriggerButton(async (e) => {
+				if (e.tooltip === configureDefault) {
+					// Open the settings editor to the appLauncher.terminalAppUrlOpenLocation setting
+					await vscode.commands.executeCommand('workbench.action.openSettings', 'positron.appLauncher.terminalAppUrlOpenLocation');
+				}
+			}),
+			quickPick.onDidAccept(async () => {
+				const selected = quickPick.selectedItems[0];
+				if (selected.label === viewerPane) {
+					positron.window.previewUrl(uri);
+				} else if (selected.label === browserWindow) {
+					await vscode.env.openExternal(uri);
+				}
+				quickPick.hide();
+			}),
+			quickPick.onDidHide(() => {
+				quickPick.dispose();
+				disposables.forEach(d => d.dispose());
+			})
 		);
-		if (!choice) {
-			return;
-		}
-		if (choice.label === viewerPane) {
-			positron.window.previewUrl(uri);
-		} else {
-			await vscode.env.openExternal(uri);
-		}
+
+		quickPick.show();
 	}
 }
