@@ -2,5 +2,9 @@
 	"displayName": "Positron Run App",
 	"description": "Generic 'Run App' Framework for Positron",
 	"configuration.appLauncher.showEnableShellIntegrationMessage": "Show a prompt when shell integration is disabled.",
-	"configuration.appLauncher.showShellIntegrationNotSupportedMessage": "Show a warning when shell integration is not supported by the active terminal."
+	"configuration.appLauncher.showShellIntegrationNotSupportedMessage": "Show a warning when shell integration is not supported by the active terminal.",
+	"configuration.appLauncher.terminalAppUrlOpenLocation": "Where to open app URLs when clicked in the Terminal.",
+	"configuration.appLauncher.terminalAppUrlOpenLocation.ask": "Prompt to choose where to open app URLs when clicked.",
+	"configuration.appLauncher.terminalAppUrlOpenLocation.viewer": "Open app URLs in the Viewer.",
+	"configuration.appLauncher.terminalAppUrlOpenLocation.browser": "Open app URLs in the default browser."
 }
