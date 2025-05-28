@@ -118,6 +118,53 @@
         "enablement": "config.positron.assistant.enable"
       }
     ],
+    "configuration": [
+      {
+        "type": "object",
+        "title": "%configuration.title%",
+        "properties": {
+          "positron.assistant.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.enable.description%",
+            "tags": ["experimental"]
+          },
+          "positron.assistant.useAnthropicSdk": {
+            "type": "boolean",
+            "default": true,
+            "description": "%configuration.useAnthropicSdk.description%"
+          },
+          "positron.assistant.enabledProviders": {
+            "type": "array",
+            "default": [],
+            "description": "%configuration.enabledProviders.description%",
+            "items": {
+              "type": "string",
+              "enum": [
+                "anthropic",
+                "azure",
+                "bedrock",
+                "google",
+                "mistral",
+                "ollama",
+                "openai",
+                "openrouter"
+              ],
+              "enumDescriptions": [
+                "%configuration.enabledProviders.anthropic%",
+                "%configuration.enabledProviders.azure%",
+                "%configuration.enabledProviders.bedrock%",
+                "%configuration.enabledProviders.google%",
+                "%configuration.enabledProviders.mistral%",
+                "%configuration.enabledProviders.ollama%",
+                "%configuration.enabledProviders.openai%",
+                "%configuration.enabledProviders.openrouter%"
+              ]
+            }
+          }
+        }
+      }
+    ],
     "languageModels": [
       {
         "vendor": "positron"
