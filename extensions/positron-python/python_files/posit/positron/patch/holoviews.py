@@ -61,10 +61,10 @@ def set_holoviews_extension(ui_service: UiService) -> None:
             original_load_nb = Renderer.load_nb
 
             @classmethod
-            def patched_load_nb(cls, *args, **kwargs):
+            def patched_load_nb(cls, *args, **kwargs):  # noqa: ARG001
                 # Simply override reloading if present, pass everything else through
-                if 'reloading' in kwargs:
-                    kwargs['reloading'] = False
+                if "reloading" in kwargs:
+                    kwargs["reloading"] = False
                 return original_load_nb(*args, **kwargs)
 
             Renderer.load_nb = patched_load_nb
