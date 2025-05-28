@@ -58,6 +58,7 @@ def set_holoviews_extension(ui_service: UiService) -> None:
         # This is required because Positron's fresh webviews always need the full dependency set.
         try:
             from holoviews.plotting import Renderer
+
             original_load_nb = Renderer.load_nb
 
             @classmethod
@@ -71,8 +72,9 @@ def set_holoviews_extension(ui_service: UiService) -> None:
         except Exception as e:
             # If patching fails, hvplot still works, just without our fix
             import sys
+
             print(
                 f"Warning: Could not patch hvplot for block execution due to an error: {e}. "
                 "Run each line separately if plots don't appear.",
-                file=sys.stderr
+                file=sys.stderr,
             )
