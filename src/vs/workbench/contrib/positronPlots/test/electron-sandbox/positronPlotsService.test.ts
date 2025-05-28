@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -226,5 +226,52 @@ suite('Positron - Plots Service', () => {
 
 		assert.strictEqual(plotsService.selectedPlotId, 'plot1');
 		assert.strictEqual(plotsService.positronPlotInstances.length, 1);
+	});
+
+	test('render queue: operation queueing and processing', async () => {
+		const session = await createSession();
+
+		// Create a plot to test with
+		session.session.createClient(RuntimeClientType.Plot, {}, {}, 'plot1');
+		assert.strictEqual(plotsService.positronPlotInstances.length, 1);
+
+		const plotInstance = plotsService.positronPlotInstances[0] as PlotClientInstance;
+
+		// Mock the comm's render and getIntrinsicSize methods to track calls
+		let renderCallCount = 0;
+		let intrinsicSizeCallCount = 0;
+
+		// Create stubs that return promises
+		const renderStub = sinon.stub().callsFake(async () => {
+			renderCallCount++;
+			await new Promise(resolve => setTimeout(resolve, 10));
+			return { mime_type: 'image/png', data: 'base64data' };
+		});
+
+		const intrinsicSizeStub = sinon.stub().callsFake(async () => {
+			intrinsicSizeCallCount++;
+			await new Promise(resolve => setTimeout(resolve, 10));
+			return { width: 100, height: 100 };
+		});
+
+		// Replace the comm methods via the proxy
+		const commProxy = (plotInstance as any)._commProxy;
+		if (commProxy && commProxy._comm) {
+			commProxy._comm.render = renderStub;
+			commProxy._comm.getIntrinsicSize = intrinsicSizeStub;
+		}
+
+		// Start multiple render operations simultaneously
+		const render1Promise = plotInstance.render({ width: 100, height: 100 }, 1.0).catch(() => {
+			// Render may be cancelled - that's expected
+		});
+		const render2Promise = plotInstance.render({ width: 200, height: 200 }, 1.0);
+
+		// Wait for render operations to complete
+		await Promise.all([render1Promise, render2Promise]);
+
+		// Verify that operations were queued and processed
+		// The second render should cancel the first, so we expect only 1 render call
+		assert.strictEqual(renderCallCount, 1, 'Should have called render only once due to cancellation');
 	});
 });

@@ -1,94 +1,14 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { DeferredPromise } from '../../../../base/common/async.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { IntrinsicSize, PositronPlotComm, PlotRenderFormat } from './positronPlotComm.js';
-import { IPlotSize } from '../../positronPlots/common/sizingPolicy.js';
+import { IntrinsicSize, PositronPlotComm } from './positronPlotComm.js';
+import { DeferredRender, PositronPlotRenderQueue } from './positronPlotRenderQueue.js';
 
-/**
- * A rendered plot.
- */
-export interface IRenderedPlot {
-	/** The size of the plot, in logical pixels, if known */
-	size?: IPlotSize;
-
-	/** The pixel ratio of the device for which the plot was rendered */
-	pixel_ratio: number;
-
-	/** The plot's image URI. The URI includes the plot itself as a base64-encoded string. */
-	uri: string;
-
-	/** The time to render the plot. */
-	renderTimeMs: number;
-}
-
-/**
- * A request to render a plot.
- */
-export interface RenderRequest {
-	/**
-	 * The size of the plot, in logical pixels. If undefined, the plot will be rendered at its
-	 * intrinsic size, if known.
-	 */
-	size?: IPlotSize;
-
-	/** The pixel ratio of the device for which the plot was rendered */
-	pixel_ratio: number;
-
-	/** The format of the plot */
-	format: PlotRenderFormat;
-}
-
-/**
- * A deferred render request. Used to track the state of a render request that
- * hasn't been fulfilled; mostly a thin wrapper over a `DeferredPromise` that
- * includes the original render request.
- */
-export class DeferredRender {
-	private readonly deferred: DeferredPromise<IRenderedPlot>;
-
-	constructor(public readonly renderRequest: RenderRequest) {
-		this.deferred = new DeferredPromise<IRenderedPlot>();
-	}
-
-	/**
-	 * Whether the render request has been completed in some way (either by
-	 * completing successfully, or by being cancelled or errored).
-	 */
-	get isComplete(): boolean {
-		return this.deferred.isSettled;
-	}
-
-	/**
-	 * Cancel the render request.
-	 */
-	cancel(): void {
-		this.deferred.cancel();
-	}
-
-	/**
-	 * Report an error to the render request.
-	 */
-	error(err: Error): void {
-		this.deferred.error(err);
-	}
-
-	/**
-	 * Complete the render request.
-	 */
-	complete(plot: IRenderedPlot): void {
-		this.deferred.complete(plot);
-	}
-
-	get promise(): Promise<IRenderedPlot> {
-		return this.deferred.p;
-	}
-}
 
 export class PositronPlotCommProxy extends Disposable {
 	/**
@@ -100,11 +20,6 @@ export class PositronPlotCommProxy extends Disposable {
 	 * The underlying comm
 	 */
 	private _comm: PositronPlotComm;
-
-	/**
-	 * The render queue. If a render is in progress, new renders are queued
-	 */
-	private _renderQueue = new Array<DeferredRender>();
 
 	/**
 	 * The intrinsic size of the plot, if known.
@@ -149,10 +64,16 @@ export class PositronPlotCommProxy extends Disposable {
 	private readonly _didSetIntrinsicSizeEmitter = new Emitter<IntrinsicSize | undefined>();
 
 	constructor(
-		client: IRuntimeClientInstance<any, any>) {
+		client: IRuntimeClientInstance<any, any>,
+		private readonly _sessionRenderQueue: PositronPlotRenderQueue) {
 		super();
 
 		this._comm = new PositronPlotComm(client, { render: { timeout: 30000 }, get_intrinsic_size: { timeout: 30000 } });
+
+		this._register(this._closeEmitter);
+		this._register(this._renderUpdateEmitter);
+		this._register(this._didShowPlotEmitter);
+		this._register(this._didSetIntrinsicSizeEmitter);
 
 		const clientStateEvent = Event.fromObservable(client.clientState);
 
@@ -164,7 +85,6 @@ export class PositronPlotCommProxy extends Disposable {
 
 				// Silently cancel any pending render requests
 				this._currentRender?.cancel();
-				this._renderQueue.forEach((render) => render.cancel());
 			}
 		}));
 
@@ -216,7 +136,14 @@ export class PositronPlotCommProxy extends Disposable {
 		if (this._currentIntrinsicSize) {
 			return this._currentIntrinsicSize;
 		}
-		this._currentIntrinsicSize = this._comm.getIntrinsicSize()
+
+		// If we have already received the intrinsic size, return it immediately.
+		if (this._receivedIntrinsicSize) {
+			return Promise.resolve(this._intrinsicSize);
+		}
+
+		// Use the session render queue to ensure operations don't overlap
+		this._currentIntrinsicSize = this._sessionRenderQueue.queueIntrinsicSizeRequest(this._comm)
 			.then((intrinsicSize) => {
 				this._intrinsicSize = intrinsicSize;
 				this._receivedIntrinsicSize = true;
@@ -235,43 +162,9 @@ export class PositronPlotCommProxy extends Disposable {
 	 * @param request The render request to perform
 	 */
 	public render(request: DeferredRender): void {
-		// Record the time that the render started so clients can estimate the render time
-		const startedTime = Date.now();
+		this._currentRender = request;
 
-		// Perform the RPC request and resolve the promise when the response is received
-		const renderRequest = request.renderRequest;
-		this._comm.render(renderRequest.size,
-			renderRequest.pixel_ratio,
-			renderRequest.format).then((response) => {
-
-				// Ignore if the request was cancelled or already fulfilled
-				if (!request.isComplete) {
-					// The render was successful; record the render time so we can estimate it
-					// for future renders.
-					const finishedTime = Date.now();
-					const renderTimeMs = finishedTime - startedTime;
-
-					// The server returned a rendered plot image; save it and resolve the promise
-					const uri = `data:${response.mime_type};base64,${response.data}`;
-					const renderResult = {
-						...request.renderRequest,
-						uri,
-						renderTimeMs
-					};
-					request.complete(renderResult);
-				}
-
-				// If there is a queued render request, promote it to the current
-				// request and perform it now.
-				if (this._renderQueue.length > 0) {
-					const queuedRender = this._renderQueue.shift();
-					if (queuedRender) {
-						this._currentRender = queuedRender;
-						this.render(queuedRender);
-					}
-				}
-			}).catch((err) => {
-				request.error(err);
-			});
+		// The session render queue will handle scheduling and rendering
+		this._sessionRenderQueue.queue(request, this._comm);
 	}
 }

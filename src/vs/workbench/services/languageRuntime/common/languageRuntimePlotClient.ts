@@ -8,8 +8,9 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
 import { IntrinsicSize, PlotResult, PlotRenderFormat } from './positronPlotComm.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
-import { DeferredRender, IRenderedPlot, PositronPlotCommProxy, RenderRequest } from './positronPlotCommProxy.js';
+import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
+import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 
 export enum PlotClientLocation {
 	/** The plot is in the editor */
