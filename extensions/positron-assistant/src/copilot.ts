@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as path from 'path';
 
 import { ExtensionContext } from 'vscode';
-import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
+import { CancellationTokenSource, Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { platform } from 'os';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 import { setTimeout } from 'timers/promises';
@@ -165,12 +165,39 @@ export class CopilotService implements vscode.Disposable {
 		if (shouldLogin) {
 			try {
 				const timeoutStr = process.env.POSITRON_COPILOT_TIMEOUT;
-				const timeout = timeoutStr ? parseInt(timeoutStr) : 60_000;
-				await Promise.race([
-					client.sendRequest(ExecuteCommandRequest.type, response.command),
-					setTimeout(timeout).then(() => Promise.reject(new Error('Timeout')))
-				]);
-				return true;
+				const parsedTimeout = timeoutStr ? parseInt(timeoutStr) : NaN;
+				const timeout = isNaN(parsedTimeout) ? 60_000 : parsedTimeout;
+				let cancellationToken: vscode.CancellationTokenSource | null = new vscode.CancellationTokenSource();
+				let cancelled = false;
+
+				cancellationToken.token.onCancellationRequested(() => {
+					vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot sign-in cancelled.'));
+					if (cancellationToken) {
+						cancellationToken.dispose();
+						cancellationToken = null;
+						cancelled = true;
+					}
+				});
+
+				const requestPromise = client.sendRequest(ExecuteCommandRequest.type, response.command, cancellationToken.token);
+				const timeoutPromise = setTimeout(timeout).then(() => {
+					if (cancellationToken) {
+						vscode.window.showErrorMessage(vscode.l10n.t('GitHub Copilot sign-in timed out.'));
+						cancellationToken.cancel();
+						cancelled = true;
+					}
+				});
+
+				try {
+					await Promise.race([requestPromise, timeoutPromise]);
+				} finally {
+					if (cancellationToken) {
+						cancellationToken.dispose();
+						cancellationToken = null;
+					}
+				}
+
+				return !cancelled;
 			} catch (error) {
 				return false;
 			}
