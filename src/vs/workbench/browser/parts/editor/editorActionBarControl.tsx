@@ -264,11 +264,11 @@ export class EditorActionBarControlFactory {
 			return;
 		}
 
-		// Notebooks always disable the editor action bar.
-		if (editorInput.typeId === NotebookEditorInput.ID || editorInput.typeId === NotebookOutputEditorInput.ID) {
-			this.updateEnablement(false);
-			return;
-		}
+		// // Notebooks always disable the editor action bar.
+		// if (editorInput.typeId === NotebookEditorInput.ID || editorInput.typeId === NotebookOutputEditorInput.ID) {
+		// 	this.updateEnablement(false);
+		// 	return;
+		// }
 
 		// Settings always enables editor action bar.
 		if (editorInput.typeId === SettingsEditor2Input.ID) {
