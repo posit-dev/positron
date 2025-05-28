@@ -14,6 +14,7 @@ export enum PositronAssistantToolName {
 	ExecuteCode = 'executeCode',
 	GetPlot = 'getPlot',
 	InspectVariables = 'inspectVariables',
+	InspectVariables = 'inspectVariables',
 	SelectionEdit = 'selectionEdit',
 	GetInstalledPackages = 'getInstalledPackages',
 }
@@ -391,7 +392,6 @@ async function executeAndParsePackages(languageId: string, code: string): Promis
 	} catch (e) {
 		throw new Error(`Error executing ${languageId} code: ${e}`);
 	}
-
 
 }
 
