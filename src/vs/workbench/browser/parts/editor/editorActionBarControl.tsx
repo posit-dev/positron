@@ -26,12 +26,10 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-// import { NotebookEditorInput } from '../../../contrib/notebook/common/notebookEditorInput.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { SettingsEditor2Input } from '../../../services/preferences/common/preferencesEditorInput.js';
-// import { NotebookOutputEditorInput } from '../../../contrib/notebook/browser/outputEditor/notebookOutputEditorInput.js';
 
 /**
  * Constants.
