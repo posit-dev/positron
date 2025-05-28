@@ -35,7 +35,6 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 	});
 	*/
 	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, page, openFile }) {
-		test.slow();
 		await test.step('Open file', async () => {
 			await openFile('workspaces/shiny-py-example/app.py');
 		});
