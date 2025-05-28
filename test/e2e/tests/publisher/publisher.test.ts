@@ -40,8 +40,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		});
 
 		await test.step('Click on Publish button', async () => {
-			const deployPublisherButton = page.getByRole('button', { name: 'Deploy with Posit Publisher' });
-			await deployPublisherButton.click();
+			await app.workbench.editorActionBar.clickButton('Deploy with Posit Publisher');
 		});
 
 		await test.step('Enter title for application through quick-input', async () => {
