@@ -274,6 +274,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		}));
 
 		this._register(this.runtimeSessionService.onDidStartRuntime(() => this.updateActions()));
+		this._register(this.runtimeSessionService.onDidChangeForegroundSession(() => this.updateActions()));
 		this._register(this.runtimeSessionService.onDidDeleteRuntimeSession(() => this.updateActions()));
 
 		// Update the context key used to manage the session dropdown when the console instances change.
