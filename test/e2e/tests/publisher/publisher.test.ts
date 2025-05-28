@@ -3,6 +3,24 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/*
+Summary:
+- This test verifies the end-to-end functionality of the Posit Publisher feature within Positron by initiating the
+deployment of a Shiny app (Python), BEFORE clicking 'Deploy Your Project' button.
+- Clicking on 'Deploy Your Project' button and aftermath are OUT OF SCOPE for this test.
+- This test, excluding commented code, does the following actions:
+1. Opening the Shiny app.py file
+2. Initiating the deployment process
+3. Providing necessary credentials (Connect server and API key)
+4. Including additional necessary files for deployment ('shared.py', 'styles.css', 'tips.csv')
+5. Verifying the presence of the deploy button
+
+Disclaimer:
+- For this test to run successfully, ensure that there are NO stored Posit Connect credentials in your environment
+before executing this test locally.
+- If credentials are already stored, this test is expected to FAIL.
+*/
+
 import { test, tags, expect } from '../_test.setup';
 
 test.use({
@@ -16,7 +34,6 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		await app.workbench.positConnect.deleteUserContent();
 	});
 	*/
-
 	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, page, openFile }) {
 		test.slow();
 		await test.step('Open file', async () => {
@@ -28,7 +45,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await deployPublisherButton.click();
 		});
 
-		await test.step('Quick-input shiny-py-example unique name', async () => {
+		await test.step('Enter title for application through quick-input', async () => {
 			await app.workbench.quickInput.waitForQuickInputOpened();
 			await app.workbench.quickInput.type('shiny-py-example');
 			await page.keyboard.press('Enter');
@@ -41,7 +58,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await page.keyboard.press('Enter');
 		});
 
-		await test.step('Quick-input shiny-py-example', async () => {
+		await test.step('Unique name for credential (Connect Server and API key)', async () => {
 			await app.workbench.quickInput.type('shiny-py-example');
 			await page.keyboard.press('Enter');
 		});
@@ -55,7 +72,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		const innerFrame = outerFrame.frameLocator('iframe#active-frame');
 		const deployButton = innerFrame.locator('vscode-button[data-automation="deploy-button"] >>> button');
 
-		await test.step('Expect Deploy button to appear', async () => {
+		await test.step('Expect Deploy Your Project button to appear', async () => {
 			await expect(deployButton).toBeVisible();
 		});
 	});
