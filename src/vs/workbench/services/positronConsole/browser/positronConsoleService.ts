@@ -44,7 +44,6 @@ import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } 
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
-import { ActivityItemOutputEmpty } from './classes/activityItemOutputEmpty.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -2040,33 +2039,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 				// Create an activity item representing the message.
 				const activityItemOutput = this.createActivityItemOutput(languageRuntimeMessageOutput);
-
-				// If the runtime specified an output ID, update all activity items with the given output ID.
-				if (languageRuntimeMessageOutput.output_id) {
-					this.updateActivityItemOutputs(languageRuntimeMessageOutput.output_id, activityItemOutput);
+				if (!activityItemOutput) {
+					// No activity item for this message.
+					return;
 				}
 
-				// Also add the output activity item for this execution.
+				// Add/update the output activity item to this runtime item.
 				this.addOrUpdateRuntimeItemActivity(languageRuntimeMessageOutput.parent_id, activityItemOutput);
 			});
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
-
-		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageUpdateOutput((languageRuntimeMessageUpdateOutput) => {
-			// If trace is enabled, add a trace runtime item.
-			if (this._trace) {
-				this.addRuntimeItemTrace(
-					formatCallbackTrace('onDidReceiveRuntimeMessageUpdateOutput', languageRuntimeMessageUpdateOutput) +
-					formatOutputMessage(languageRuntimeMessageUpdateOutput)
-				);
-			}
-
-			// Create an activity item representing the message.
-			const activityItemOutput = this.createActivityItemOutput(languageRuntimeMessageUpdateOutput);
-
-			// Update all activity items with the given output ID.
-			this.updateActivityItemOutputs(languageRuntimeMessageUpdateOutput.output_id, activityItemOutput);
-		}));
 
 		// Add the onDidReceiveRuntimeMessageStream event handler.
 		this._runtimeDisposableStore.add(this._session.onDidReceiveRuntimeMessageStream(languageRuntimeMessageStream => {
@@ -2455,23 +2437,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 */
 	private createActivityItemOutput(
 		message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput,
-	): ActivityItemOutput {
+	): ActivityItemOutput | undefined {
 		// Don't handle outputs routed to the viewer or plots pane.
 		// They likely have long outputs that are not suitable for the console.
 		if (message.kind === RuntimeOutputKind.ViewerWidget ||
 			message.kind === RuntimeOutputKind.IPyWidget) {
-			// TODO: Comment
-			// Return an empty activity item output.
-			// This is to match Jupyter Lab.
-			// Even though the output is routed to another pane,
-			// the user should be able to subsequently output to the same output ID,
-			// and it should render in place of this empty activity item.
-			return new ActivityItemOutputEmpty(
-				message.id,
-				message.parent_id,
-				new Date(message.when),
-				message.output_id
-			);
+			return undefined;
 		}
 
 		// Check to see if the data contains an image by checking the record for the
@@ -2850,29 +2821,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			const runtimeItemActivity = new RuntimeItemActivity(parentId, activityItem);
 			this._runtimeItemActivities.set(parentId, runtimeItemActivity);
 			this.addRuntimeItem(runtimeItemActivity);
-		}
-	}
-
-	private updateActivityItemOutputs(outputId: string, activityItem: ActivityItemOutput) {
-		// Find the output activity items to update.
-		for (const runtimeItemActivity of this._runtimeItemActivities.values()) {
-			for (const [index, item] of runtimeItemActivity.activityItems.entries()) {
-				if ('outputId' in item && item.outputId === outputId) {
-					// Replace the original activity item with an updated one.
-					// NOTE: We may end up with an activity item whose parent ID does not match
-					//       its parent runtime item's ID. For example, the activity item's parent
-					//       ID could point to a message that generated an update_output message.
-					//       The activity item would be the child of a runtime item with ID pointing
-					//       to a message that generated the original output message.
-					runtimeItemActivity.activityItems[index] = activityItem;
-
-					// Optimize scrollback.
-					this.optimizeScrollback();
-
-					// Fire the onDidChangeRuntimeItems event.
-					this._onDidChangeRuntimeItemsEmitter.fire();
-				}
-			}
 		}
 	}
 
