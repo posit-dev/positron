@@ -141,6 +141,20 @@ export class Popups {
 		}
 	}
 
+	// To implement in a test, use await app.workbench.popups.closeSpecificToast('messageText');
+	async closeSpecificToast(messageText: string) {
+		this.code.logger.log(`Closing specific toast with message: ${messageText}`);
+		try {
+			const toast = this.toastLocator.filter({ hasText: messageText });
+			// await toast.waitFor({ state: 'visible'});
+			await toast.hover();
+			await this.code.driver.page.locator(`${NOTIFICATION_TOAST} .codicon-notifications-clear`).click();
+			this.code.logger.log(`Closed toast containing: ${messageText}`);
+		} catch (error) {
+			this.code.logger.log('Toast not found or already closed');
+		}
+	}
+
 	async waitForModalDialogBox() {
 		await expect(this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX)).toBeVisible({ timeout: 30000 });
 	}
@@ -176,7 +190,6 @@ export class Popups {
 			expect(textContent).toContain(title);
 		}).toPass({ timeout: 10000 });
 	}
-
 
 	/**
 	 * Right clicks and selects a menu item, waiting for menu dismissal.

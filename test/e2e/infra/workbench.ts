@@ -39,6 +39,7 @@ import { Sessions } from '../pages/sessions';
 import { Search } from '../pages/search.js';
 import { Assistant } from '../pages/positronAssistant.js';
 import { HotKeys } from '../pages/hotKeys.js';
+import { PositConnect } from '../pages/connect.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -81,6 +82,7 @@ export class Workbench {
 	readonly search: Search;
 	readonly assistant: Assistant;
 	readonly hotKeys: HotKeys;
+	readonly positConnect: PositConnect;
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
@@ -118,5 +120,6 @@ export class Workbench {
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
 		this.assistant = new Assistant(code);
+		this.positConnect = new PositConnect(code);
 	}
 }

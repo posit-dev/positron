@@ -109,6 +109,8 @@ jobs:
       E2E_POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
       E2E_POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
       E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+      E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
+      E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
     steps:
       - uses: actions/checkout@v4
 
