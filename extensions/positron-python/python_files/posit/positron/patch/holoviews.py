@@ -3,7 +3,11 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+import logging
+
 from ..ui import UiService
+
+logger = logging.getLogger(__name__)
 
 
 def set_holoviews_extension(ui_service: UiService) -> None:
@@ -71,10 +75,8 @@ def set_holoviews_extension(ui_service: UiService) -> None:
             Renderer.load_nb = patched_load_nb
         except Exception as e:
             # If patching fails, hvplot still works, just without our fix
-            import sys
-
-            print(
-                f"Warning: Could not patch hvplot for block execution due to an error: {e}. "
+            logger.warning(
+                "Could not patch hvplot for block execution due to an error: %s. "
                 "Run each line separately if plots don't appear.",
-                file=sys.stderr,
+                e,
             )
