@@ -332,6 +332,7 @@ export interface IRuntimeSessionService {
 	// An event that fires when the active runtime changes.
 	readonly onDidChangeForegroundSession: Event<ILanguageRuntimeSession | undefined>;
 
+	// An event that fires when a runtime session is deleted.
 	readonly onDidDeleteRuntimeSession: Event<string>;
 
 	// An event that fires when a notebook session's URI is updated.
