@@ -195,6 +195,14 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await runScriptAndValidatePlot(app, plotly, '.plotly', false, true);
 		});
 
+		test('Python - Verify hvplot with plotly extension works in block execution', {
+			tag: [tags.WEB, tags.WIN],
+			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5991' }],
+		}, async function ({ app }) {
+			// Test that our fix allows hvplot to work when executed as a block
+			await runScriptAndValidatePlot(app, plotly, '.plotly', false, false);
+		});
+
 		test('Python - Verify ipytree Python widget', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
 			await runScriptAndValidatePlot(app, ipytree, '.jstree-container-ul');
 

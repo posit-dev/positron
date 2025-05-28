@@ -25,6 +25,21 @@
           "type": "boolean",
           "default": true,
           "description": "%configuration.appLauncher.showShellIntegrationNotSupportedMessage%"
+        },
+        "positron.appLauncher.terminalAppUrlOpenLocation": {
+          "type": "string",
+          "default": "ask",
+          "enum": [
+            "ask",
+            "viewer",
+            "browser"
+          ],
+          "enumDescriptions": [
+            "%configuration.appLauncher.terminalAppUrlOpenLocation.ask%",
+            "%configuration.appLauncher.terminalAppUrlOpenLocation.viewer%",
+            "%configuration.appLauncher.terminalAppUrlOpenLocation.browser%"
+          ],
+          "description": "%configuration.appLauncher.terminalAppUrlOpenLocation%"
         }
       }
     }
