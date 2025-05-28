@@ -632,8 +632,7 @@
                             "pythonPromptNewToolsExt",
                             "pythonTerminalEnvVarActivation",
                             "pythonDiscoveryUsingWorkers",
-                            "pythonTestAdapter",
-                            "pythonREPLSmartSend"
+                            "pythonTestAdapter"
                         ],
                         "enumDescriptions": [
                             "%python.experiments.All.description%",
@@ -641,8 +640,7 @@
                             "%python.experiments.pythonPromptNewToolsExt.description%",
                             "%python.experiments.pythonTerminalEnvVarActivation.description%",
                             "%python.experiments.pythonDiscoveryUsingWorkers.description%",
-                            "%python.experiments.pythonTestAdapter.description%",
-                            "%python.experiments.pythonREPLSmartSend.description%"
+                            "%python.experiments.pythonTestAdapter.description%"
                         ]
                     },
                     "scope": "window",
@@ -659,8 +657,7 @@
                             "pythonPromptNewToolsExt",
                             "pythonTerminalEnvVarActivation",
                             "pythonDiscoveryUsingWorkers",
-                            "pythonTestAdapter",
-                            "pythonREPLSmartSend"
+                            "pythonTestAdapter"
                         ],
                         "enumDescriptions": [
                             "%python.experiments.All.description%",
@@ -668,8 +665,7 @@
                             "%python.experiments.pythonPromptNewToolsExt.description%",
                             "%python.experiments.pythonTerminalEnvVarActivation.description%",
                             "%python.experiments.pythonDiscoveryUsingWorkers.description%",
-                            "%python.experiments.pythonTestAdapter.description%",
-                            "%python.experiments.pythonREPLSmartSend.description%"
+                            "%python.experiments.pythonTestAdapter.description%"
                         ]
                     },
                     "scope": "window",

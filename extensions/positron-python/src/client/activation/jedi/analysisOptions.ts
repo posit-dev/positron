@@ -94,6 +94,13 @@ export class JediLanguageServerAnalysisOptions extends LanguageServerAnalysisOpt
                     maxSymbols: 0,
                 },
             },
+            // --- Start Positron ---
+            // Disable semantic tokens for Jedi, as it breaks pickling. Can add this back in once
+            // https://github.com/pappasam/jedi-language-server/issues/340 is fixed.
+            // semantic_tokens: {
+            //     enable: true,
+            // },
+            // --- End Positron ---
         };
     }
 }

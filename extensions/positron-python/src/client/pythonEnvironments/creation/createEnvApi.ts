@@ -118,7 +118,10 @@ export async function registerCreateEnvironmentFeatures(
             ): Promise<CreateEnvironmentResult | undefined> => {
                 if (useEnvExtension()) {
                     try {
-                        const result = await executeCommand<PythonEnvironment | undefined>('python-envs.createAny');
+                        const result = await executeCommand<PythonEnvironment | undefined>(
+                            'python-envs.createAny',
+                            options,
+                        );
                         if (result) {
                             return { path: result.environmentPath.path };
                         }
