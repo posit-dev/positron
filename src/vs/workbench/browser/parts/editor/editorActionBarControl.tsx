@@ -13,6 +13,7 @@ import React from 'react';
 import { IEditorGroupView } from './editor.js';
 import { EditorActionBar } from './editorActionBar.js';
 import { Emitter } from '../../../../base/common/event.js';
+import { EditorInput } from '../../../common/editor/editorInput.js';
 import { EditorActionBarFactory } from './editorActionBarFactory.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IMenuService } from '../../../../platform/actions/common/actions.js';
@@ -25,15 +26,18 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
+import { NotebookEditorInput } from '../../../contrib/notebook/common/notebookEditorInput.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
+import { SettingsEditor2Input } from '../../../services/preferences/common/preferencesEditorInput.js';
+import { NotebookOutputEditorInput } from '../../../contrib/notebook/browser/outputEditor/notebookOutputEditorInput.js';
 
 /**
  * Constants.
  */
 const EDITOR_ACTION_BAR_HEIGHT = 28;
-export const EDITOR_ACTION_BAR_CONFIGURATION_SETTING = 'editor.actionBar.enabled';
+const EDITOR_ACTION_BAR_CONFIGURATION_SETTING = 'editor.actionBar.enabled';
 
 /**
  * EditorActionBarControl class.
@@ -219,39 +223,20 @@ export class EditorActionBarControlFactory {
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService
 	) {
-		// Check if the configuration setting is enabled. If so, create the control.
-		if (this._configurationService.getValue<boolean>(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
-			this.createControl();
-		}
+		// Update the enablement for the active editor.
+		this.updateEnablementForEditorInput(this._editorGroup.activeEditor);
 
-		/**
-		 * Add the onDidCloseEditor event listener to listen for when an editor is closed.
-		 */
-		this._disposables.add(this._editorGroup.onDidCloseEditor(() => {
-			// TODO
+		// Add the onDidActiveEditorChange event listener to listen for when the active editor changes.
+		this._disposables.add(this._editorGroup.onDidActiveEditorChange(e => {
+			// Set up the editor.
+			this.updateEnablementForEditorInput(e.editor);
 		}));
 
-		// Add the onDidChangeConfiguration event listener to listen for changes to the
-		// configuration setting.
+		// Add the onDidChangeConfiguration event listener to listen for changes to the configuration setting.
 		this._disposables.add(this._configurationService.onDidChangeConfiguration(e => {
-			// Check if the configuration setting has changed.
+			// Check if the editor action bar configuration setting has changed.
 			if (e.affectsConfiguration(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
-				// Process the change.
-				if (this._configurationService.getValue(EDITOR_ACTION_BAR_CONFIGURATION_SETTING)) {
-					// Create the control, if it doesn't exist.
-					if (!this._control) {
-						this.createControl();
-					}
-				} else {
-					// Destroy the control, if it exists.
-					if (this._control) {
-						this._controlDisposables.clear();
-						this._control = undefined;
-					}
-				}
-
-				// Fire the onDidEnablementChange event.
-				this._onDidEnablementChangeEmitter.fire();
+				this.updateEnablementForEditorInput(this._editorGroup.activeEditor);
 			}
 		}));
 	}
@@ -269,16 +254,58 @@ export class EditorActionBarControlFactory {
 	//#region Private Methods
 
 	/**
-	 * Creates the control.
-	 * @returns The control.
+	 * Updates enablement for the specified editor input.
+	 * @param editorInput The editor input.
 	 */
-	private createControl() {
-		// Create the control.
-		this._control = this._controlDisposables.add(this._instantiationService.createInstance(
-			EditorActionBarControl,
-			this._container,
-			this._editorGroup
-		));
+	private updateEnablementForEditorInput(editorInput: EditorInput | undefined | null) {
+		// If there isn't an active editor, disable the editor action bar and return.
+		if (!editorInput) {
+			this.updateEnablement(false);
+			return;
+		}
+
+		// Notebooks always disable the editor action bar.
+		if (editorInput.typeId === NotebookEditorInput.ID || editorInput.typeId === NotebookOutputEditorInput.ID) {
+			this.updateEnablement(false);
+			return;
+		}
+
+		// Settings always enables editor action bar.
+		if (editorInput.typeId === SettingsEditor2Input.ID) {
+			this.updateEnablement(true);
+			return;
+		}
+
+		// Update enablement based on the configuration setting.
+		this.updateEnablement(this._configurationService.getValue<boolean>(EDITOR_ACTION_BAR_CONFIGURATION_SETTING));
+	}
+
+	/**
+	 * Updates enablement.
+	 * @param enabled true to enable, false to disable.
+	 */
+	private updateEnablement(enabled: boolean) {
+		// Update enablement.
+		if (enabled) {
+			// Create the control, if it doesn't exist.
+			if (!this._control) {
+				// Create the control.
+				this._control = this._controlDisposables.add(this._instantiationService.createInstance(
+					EditorActionBarControl,
+					this._container,
+					this._editorGroup
+				));
+			}
+		} else {
+			// Destroy the control, if it exists.
+			if (this._control) {
+				this._controlDisposables.clear();
+				this._control = undefined;
+			}
+		}
+
+		// Fire the onDidEnablementChange event.
+		this._onDidEnablementChangeEmitter.fire();
 	}
 
 	//#endregion Private Methods
