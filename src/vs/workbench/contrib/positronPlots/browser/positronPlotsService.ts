@@ -248,13 +248,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 		// Listen for plot clients being created by the IPyWidget service and register them with the plots service
 		// so they can be displayed in the plots pane.
-		this._register(this._positronIPyWidgetsService.onDidCreatePlot(async (plotClient) => {
-			await this.registerWebviewPlotClient(plotClient);
+		this._register(this._positronIPyWidgetsService.onDidCreatePlot((plotClient) => {
+			this.registerWebviewPlotClient(plotClient);
 		}));
 		// Listen for plot clients from the holoviews service and register them with the plots
 		// service so they can be displayed in the plots pane.
-		this._register(this._positronWebviewPreloadService.onDidCreatePlot(async (plotClient) => {
-			await this.registerWebviewPlotClient(plotClient);
+		this._register(this._positronWebviewPreloadService.onDidCreatePlot((plotClient) => {
+			this.registerWebviewPlotClient(plotClient);
 		}));
 
 		// When the storage service is about to save state, store policies and cached plot thumbnail descriptors.
@@ -781,31 +781,53 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
 			// Listen for static plots being emitted, and register each one with
 			// the plots service.
-			const handleDidReceiveRuntimeMessageOutput = async (message: ILanguageRuntimeMessageOutput) => {
+			const handleDidReceiveRuntimeMessageOutput = (message: ILanguageRuntimeMessageOutput) => {
 				// Check to see if we we already have a plot client for this
 				// message ID. If so, we don't need to do anything.
 				if (this.hasPlot(session.sessionId, message.id)) {
 					return;
 				}
 
-				const code = this._recentExecutions.has(message.parent_id) ?
-					this._recentExecutions.get(message.parent_id) : '';
-				if (message.kind === RuntimeOutputKind.StaticImage) {
-					// Create a new static plot client instance and register it with the service.
-					this.registerStaticPlot(session.sessionId, message, code);
+				// Create a plot from the output message.
+				const plot = this.createPlot(message, session);
+				if (!plot) {
+					// If the message does not represent a plot, we don't need to do anything.
+					return;
+				}
 
-					// Raise the Plots pane so the plot is visible.
-					this._showPlotsPane();
-				} else if (message.kind === RuntimeOutputKind.PlotWidget) {
-					// Create a new webview plot client instance and register it with the service.
-					await this.registerNotebookOutputPlot(session, message, code);
+				// If the runtime specified an output ID, update the plot with the given output ID, if one exists.
+				if (message.output_id) {
+					const existingPlot = this.getPlotForOutput(session.sessionId, message.output_id);
+					if (existingPlot) {
+						this.replacePlot(existingPlot.id, plot);
+						return;
+					}
+				}
 
-					// Raise the Plots pane so the plot is visible.
-					this._showPlotsPane();
+				// This is a new plot, register it with the plots service.
+				if (plot instanceof StaticPlotClient) {
+					this.registerNewPlotClient(plot);
+				} else if (plot instanceof NotebookOutputPlotClient) {
+					this.registerWebviewPlotClient(plot);
 				}
 			};
 			this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 			this._register(session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
+
+			this._register(session.onDidReceiveRuntimeMessageUpdateOutput((message) => {
+				// Create a plot from the output message.
+				const plot = this.createPlot(message, session);
+				if (!plot) {
+					// If the message does not represent a plot, we don't need to do anything.
+					return;
+				}
+
+				// Update the plot with the given output ID, if one exists.
+				const existingPlot = this.getPlotForOutput(session.sessionId, message.output_id);
+				if (existingPlot) {
+					this.replacePlot(existingPlot.id, plot);
+				}
+			}));
 		}
 
 		// If this runtime wants plot render settings updates, register handler to
@@ -824,6 +846,25 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				uiClient.didChangePlotsRenderSettings(this.getPlotsRenderSettings());
 			}));
 		}
+	}
+
+	/**
+	 * Creates a plot from a runtime message output.
+	 * @param message The runtime message output to create the plot from.
+	 * @param session The language runtime session that the message belongs to.
+	 * @returns The plot client instance, or undefined if the message does not represent a plot.
+	 */
+	private createPlot(message: ILanguageRuntimeMessageOutput, session: ILanguageRuntimeSession): IPositronPlotClient | undefined {
+		// Get the code that generated this update.
+		const code = this._recentExecutions.get(message.parent_id) ?? '';
+
+		if (message.kind === RuntimeOutputKind.StaticImage) {
+			return new StaticPlotClient(this._storageService, session.sessionId, message, code);
+		} else if (message.kind === RuntimeOutputKind.PlotWidget) {
+			return new NotebookOutputPlotClient(this._notebookOutputWebviewService, session, message, code);
+		}
+
+		return undefined;
 	}
 
 	/**
@@ -935,37 +976,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		plotClient.register(plotClient.onDidChangeSizingPolicy((policy) => {
 			this.selectSizingPolicy(policy.id);
 		}));
-	}
-
-	/**
-	 * Creates a new static plot client instance and registers it with the
-	 * service.
-	 *
-	 * @param message The message containing the static plot data.
-	 * @param code The code that generated the plot, if available.
-	 */
-	private registerStaticPlot(
-		sessionId: string,
-		message: ILanguageRuntimeMessageOutput,
-		code?: string) {
-		this.registerNewPlotClient(new StaticPlotClient(this._storageService, sessionId, message, code));
-	}
-
-	/**
-	 * Creates a new webview plot client instance and registers it with the
-	 * service.
-	 *
-	 * @param message The message containing the source for the webview.
-	 * @param code The code that generated the plot, if available.
-	 */
-	private async registerNotebookOutputPlot(
-		runtime: ILanguageRuntimeSession,
-		message: ILanguageRuntimeMessageOutput,
-		code?: string) {
-		const plotClient = new NotebookOutputPlotClient(
-			this._notebookOutputWebviewService, runtime, message, code
-		);
-		await this.registerWebviewPlotClient(plotClient);
 	}
 
 	onDidEmitPlot: Event<IPositronPlotClient> = this._onDidEmitPlot.event;
@@ -1091,28 +1101,27 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidReplacePlots.fire(this._plots);
 	}
 
-	// /** Gets a plot for a output identifier. */
-	// private getPlotForOutput(sessionId: string, outputId: string): IPositronPlotClient | undefined {
-	// 	return this._plots.find(plot => plot.metadata.session_id === sessionId && plot.metadata.output_id === outputId);
-	// }
+	private getPlotForOutput(sessionId: string, outputId: string): IPositronPlotClient | undefined {
+		return this._plots.find(plot => plot.metadata.session_id === sessionId && plot.metadata.output_id === outputId);
+	}
 
-	// /**
-	//  * Replaces a plot with a new one and fires the appropriate UI events.
-	//  * @param id The ID of the plot to replace.
-	//  * @param newPlot The new plot.
-	//  */
-	// private replacePlot(id: string, newPlot: IPositronPlotClient) {
-	// 	const index = this._plots.findIndex(plot => plot.id === id);
-	// 	if (index < 0) {
-	// 		throw new Error(`Could not replace unknown plot: ${id}`);
-	// 	}
-	// 	this.removePlot(id);
-	// 	this._register(newPlot);
-	// 	this._plots[index] = newPlot;
-	// 	this._onDidEmitPlot.fire(newPlot);
-	// 	this._onDidSelectPlot.fire(newPlot.id);
-	// 	this._showPlotsPane();
-	// }
+	/**
+	 * Replaces a plot with a new one and fires the appropriate UI events.
+	 * @param id The ID of the plot to replace.
+	 * @param newPlot The new plot.
+	 */
+	private replacePlot(id: string, newPlot: IPositronPlotClient) {
+		const index = this._plots.findIndex(plot => plot.id === id);
+		if (index < 0) {
+			throw new Error(`Could not replace unknown plot: ${id}`);
+		}
+		this.removePlot(id);
+		this._register(newPlot);
+		this._plots[index] = newPlot;
+		this._onDidEmitPlot.fire(newPlot);
+		this._onDidSelectPlot.fire(newPlot.id);
+		this._showPlotsPane();
+	}
 
 	saveViewPlot(): void {
 		if (this._selectedPlotId) {
@@ -1294,7 +1303,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			plot.metadata.id === plotId);
 	}
 
-	private async createWebviewPlot(sessionId: string, event: IShowHtmlUriEvent) {
+	private createWebviewPlot(sessionId: string, event: IShowHtmlUriEvent) {
 		// Look up the session
 		const session = this._runtimeSessionService.getSession(sessionId);
 
@@ -1302,13 +1311,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const plotClient = new HtmlPlotClient(this._positronPreviewService, this._openerService, session!, event);
 
 		// Register the new plot client
-		await this.registerWebviewPlotClient(plotClient);
+		this.registerWebviewPlotClient(plotClient);
 
 		// Raise the Plots pane so the plot is visible.
 		this._showPlotsPane();
 	}
 
-	private async registerWebviewPlotClient(plotClient: IPositronPlotClient) {
+	private registerWebviewPlotClient(plotClient: IPositronPlotClient) {
 		if (plotClient instanceof WebviewPlotClient) {
 			// Ensure that the number of active webview plots does not exceed the maximum.
 			this._register(plotClient.onDidActivate(() => {

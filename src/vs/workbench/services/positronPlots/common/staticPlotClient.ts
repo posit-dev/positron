@@ -29,6 +29,7 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 			session_id: sessionId,
 			code: code ? code : '',
 			suggested_file_name: createSuggestedFileNameForPlot(storageService),
+			output_id: message.output_id,
 		};
 
 		// Find the image MIME type. This is guaranteed to exist since we only create this object if
