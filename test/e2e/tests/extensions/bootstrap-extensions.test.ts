@@ -23,9 +23,6 @@ test.describe('Bootstrap Extensions', {
 	}, async function ({ app }) {
 
 		const extensions = readProductJson();
-
-		console.log(extensions);
-
 		await waitForExtensions(extensions);
 
 	});
