@@ -17,6 +17,7 @@ interface LanguageModelConfigComponentProps {
 	signingIn?: boolean,
 	onChange: (config: IPositronLanguageModelConfig) => void,
 	onSignIn: () => void,
+	onCancel: () => void,
 }
 
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
@@ -56,7 +57,13 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 					props.onChange({ ...props.provider, apiKey: newApiKey });
 				}} onSignIn={props.onSignIn} />
 			)}
-			<SignInButton signedIn={props.source.signedIn} onSignIn={props.onSignIn} signingIn={props.signingIn} />
+			<SignInButton signedIn={props.source.signedIn} signingIn={props.signingIn} onSignIn={props.onSignIn} />
+			{
+				props.signingIn && props.provider.oauth && !props.source.signedIn &&
+				<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
+					{localize('positron.newConnectionModalDialog.cancel', "Cancel")}
+				</Button>
+			}
 		</div>
 		<div className='language-model-dialog-tos' id='model-tos'>
 			<EmbeddedLink>{getTos(props.provider.provider)}</EmbeddedLink>
@@ -79,7 +86,7 @@ const ApiKey = (props: { apiKey?: string, signedIn?: boolean, onChange: (newApiK
 }
 
 const SignInButton = (props: { signedIn?: boolean, signingIn?: boolean, onSignIn: () => void }) => {
-	return <Button className='language-model button sign-in' onPressed={props.onSignIn} disabled={props.signingIn}>
+	return <Button className='language-model button sign-in' disabled={props.signingIn} onPressed={props.onSignIn}>
 		{(() => {
 			if (props.signedIn) {
 				return localize('positron.newConnectionModalDialog.signOut', "Sign out");

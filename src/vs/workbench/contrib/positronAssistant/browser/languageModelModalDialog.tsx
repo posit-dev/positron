@@ -192,6 +192,19 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	const onAccept = () => {
 		if (useNewConfig) {
+			props.onAction({
+				type: type,
+				provider: source.provider.id,
+				model: model,
+				name: name,
+				apiKey: apiKey,
+				baseUrl: baseUrl,
+				resourceName: resourceName,
+				project: project,
+				location: location,
+				toolCalls: toolCalls,
+				numCtx: numCtx,
+			}, 'cancel')
 			props.onClose();
 			props.renderer.dispose();
 		} else {
@@ -254,6 +267,32 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const onCancel = async () => {
 		props.onCancel();
 		props.renderer.dispose();
+	}
+
+	const onCancelPending = async () => {
+		if (useNewConfig) {
+			props.onAction({
+				type: type,
+				provider: source.provider.id,
+				model: model,
+				name: name,
+				apiKey: apiKey,
+				baseUrl: baseUrl,
+				resourceName: resourceName,
+				project: project,
+				location: location,
+				toolCalls: toolCalls,
+				numCtx: numCtx,
+			}, 'cancel')
+				.catch((e) => {
+					setError(e.message);
+				}).finally(() => {
+					setShowProgress(false);
+				});
+		} else {
+			props.onCancel();
+			props.renderer.dispose();
+		}
 	}
 
 	function oldDialog() {
@@ -422,12 +461,13 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				</div>
 				<LanguageModelConfigComponent
 					provider={providerConfig}
+					signingIn={showProgress}
 					source={source}
+					onCancel={onCancelPending}
 					onChange={(config) => {
 						setProviderConfig(config);
 					}}
 					onSignIn={onSignIn}
-					signingIn={showProgress}
 				/>
 				{showProgress &&
 					<ProgressBar />

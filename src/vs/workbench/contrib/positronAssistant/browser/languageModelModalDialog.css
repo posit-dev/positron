@@ -86,7 +86,8 @@
 	margin-right: 1rem;
 }
 
-.language-model.button.sign-in {
+.language-model.button.sign-in,
+.language-model.button.cancel {
 	align-self: end;
 	font-weight: 600;
 	text-wrap: nowrap;

@@ -333,3 +333,10 @@ type ToolResultContent = Array<
 		mimeType?: string;
 	}
 >;
+
+export class CancelledError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'TimeoutError';
+	}
+}
