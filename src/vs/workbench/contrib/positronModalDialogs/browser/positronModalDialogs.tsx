@@ -235,7 +235,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		// Show the dialog and return a promise that resolves to the user's choice.
 		const dialog = this.showModalDialogPrompt(title, message, okButtonTitle, cancelButtonTitle);
 		return new Promise<boolean>((resolve) => {
-			dialog.onChoice((choice) => {
+			const disposable = dialog.onChoice((choice) => {
+				disposable.dispose();
 				resolve(choice);
 			});
 		});
@@ -257,7 +258,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		// Show the dialog and return a promise that resolves when the user makes a choice.
 		const dialog = this.showModalDialogPrompt2(title, message, okButtonTitle);
 		return new Promise<null>((resolve) => {
-			dialog.onChoice(() => {
+			const disposable = dialog.onChoice(() => {
+				disposable.dispose();
 				resolve(null);
 			});
 		});
