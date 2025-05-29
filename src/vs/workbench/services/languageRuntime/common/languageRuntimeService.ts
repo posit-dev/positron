@@ -170,7 +170,7 @@ export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 
 	/**
 	 * The optional identifier of the output. If specified, this output can be referenced
-	 * in future messages e.g. when * {@link ILanguageRuntimeMessageUpdateOutput updating an output}.
+	 * in future messages e.g. when {@link LanguageRuntimeUpdateOutput updating an output}.
 	 */
 	readonly output_id?: string;
 }

@@ -216,32 +216,25 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			return;
 		}
 
+		// Convert the message data entries into output items.
 		const outputItems = toOutputItems(message.data);
+
+		// Update existing outputs with the specified output ID.
 		this.updateOutputsById(message.output_id, outputItems);
 	}
 
+	/** Update all outputs with the specified ID. */
 	private updateOutputsById(outputId: string, outputItems: IOutputItemDto[]): void {
-		if (outputItems.length === 0) {
-			return;
-		}
-
-		// Find the outputs to update.
-		const outputs = this._notebook.cells
-			.flatMap(c => c.outputs)
-			.filter(o => o.metadata?.[outputIdKey] === outputId);
-		if (outputs.length === 0) {
-			// TODO: If there's no match, should we default to display data behavior?
-			this._logService.warn(`[NotebookRuntimeKernel] Ignoring runtime update output message with unknown output_id: ${outputId}`);
-			return;
-		}
-
-		// Update the outputs.
-		for (const output of outputs) {
-			this._cellExecution.update([{
-				editType: CellExecutionUpdateType.OutputItems,
-				outputId: output.outputId,
-				items: outputItems,
-			}]);
+		for (const cell of this._notebook.cells) {
+			for (const output of cell.outputs) {
+				if (output.metadata?.[outputIdKey] === outputId) {
+					this._cellExecution.update([{
+						editType: CellExecutionUpdateType.OutputItems,
+						outputId: output.outputId,
+						items: outputItems,
+					}]);
+				}
+			}
 		}
 	}
 

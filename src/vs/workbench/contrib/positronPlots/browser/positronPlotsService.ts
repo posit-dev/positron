@@ -1101,6 +1101,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		this._onDidReplacePlots.fire(this._plots);
 	}
 
+	/** Gets a plot for a given output identifier. */
 	private getPlotForOutput(sessionId: string, outputId: string): IPositronPlotClient | undefined {
 		return this._plots.find(plot => plot.metadata.session_id === sessionId && plot.metadata.output_id === outputId);
 	}
