@@ -47,7 +47,7 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, and Shutdown', { tag
 	test('Verify Interrupt Interpreter command works (→ empty error line) - R', async function ({ app, page, r }) {
 		await app.workbench.console.executeCode('R', 'Sys.sleep(5)', { waitForReady: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.interrupt');
-		expect(page.locator('div.activity-error-stream')).toBeVisible;
+		await expect(page.locator('div.activity-error-stream')).toBeVisible();
 		await app.workbench.console.clearButton.click();
 	});
 
