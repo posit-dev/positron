@@ -55,7 +55,7 @@ if [ -z "$DEFAULT_SHELL" ] || [ ! -x "$DEFAULT_SHELL" ]; then
 fi
 
 # Print the command line to the log file
-echo "$DEFAULT_SHELL" --login -c "$@" >> "$output_file"
+echo "$DEFAULT_SHELL" -l -c "$@" >> "$output_file"
 
 # Quote the arguments to handle single quotes and spaces correctly
 QUOTED_ARGS=""
@@ -69,11 +69,11 @@ done
 # Run the program with its arguments, redirecting stdout and stderr to the output file
 if [ "$use_nohup" = true ]; then
 	# Use nohup and explicitly redirect its output to prevent nohup.out from being created
-	nohup $DEFAULT_SHELL --login -c "${QUOTED_ARGS}" >> "$output_file" 2>&1 &
+	nohup $DEFAULT_SHELL -l -c "${QUOTED_ARGS}" >> "$output_file" 2>&1 &
 	# Wait for the background process to complete
 	wait $!
 else
-	$DEFAULT_SHELL --login -c "${QUOTED_ARGS}" >> "$output_file" 2>&1
+	$DEFAULT_SHELL -l -c "${QUOTED_ARGS}" >> "$output_file" 2>&1
 fi
 
 # Save the exit code of the program
