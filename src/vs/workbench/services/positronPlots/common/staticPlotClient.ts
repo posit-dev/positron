@@ -35,7 +35,7 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 		// Find the image MIME type. This is guaranteed to exist since we only create this object if
 		// there is an image, but check anyway to be safe.
 		const imageKey = Object.keys(message.data).find(key => key.startsWith('image/'));
-		if (!imageKey || !message.data[imageKey]) {
+		if (!imageKey) {
 			throw new Error(`No image/ MIME type found in message data. ` +
 				`Found MIME types: ${Object.keys(message.data).join(', ')}`);
 		}

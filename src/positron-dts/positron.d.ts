@@ -262,14 +262,14 @@ declare module 'positron' {
 
 		/**
 		 * The optional identifier of the output. If specified, this output can be referenced
-		 * in future messages e.g. when * {@link LanguageRuntimeUpdateOutput updating an output}.
+		 * in future messages e.g. when {@link LanguageRuntimeUpdateOutput updating an output}.
 		 */
 		output_id?: string;
 	}
 
 	/**
 	 * LanguageRuntimeUpdateOutput is a LanguageRuntimeMessage instructing the frontend
-	 * to update the output of a previous runtime execution.
+	 * to update an existing output.
 	 */
 	export interface LanguageRuntimeUpdateOutput extends LanguageRuntimeMessage {
 		/** The updated output data */
@@ -1332,6 +1332,7 @@ declare module 'positron' {
 		/**
 		 * The type of the input.
 		 */
+		// eslint-disable-next-line local/vscode-dts-literal-or-types, local/vscode-dts-string-type-literals
 		type: 'string' | 'number' | 'option';
 		/**
 		 * Options, if the input type is an option.
@@ -1387,20 +1388,20 @@ declare module 'positron' {
 		/**
 		 * Connect session.
 		 */
-		connect?: (code: string) => Promise<void>;
+		connect?: (code: string) => Thenable<void>;
 
 		/**
 		 * Checks if the dependencies for the driver are installed
 		 * and functioning.
 		 */
-		checkDependencies?: () => Promise<boolean>;
+		checkDependencies?: () => Thenable<boolean>;
 
 		/**
 		 * Installs the dependencies for the driver.
 		 * For instance, R packages would install the required
 		 * R packages, and or other dependencies.
 		 */
-		installDependencies?: () => Promise<boolean>;
+		installDependencies?: () => Thenable<boolean>;
 	}
 
 	/**
@@ -1803,8 +1804,7 @@ declare module 'positron' {
 	// * Reduce the manual proliferation of these generated types.
 	// * Ideally a file is meant to edited by humans or by robots, but not both.
 	// Related to https://github.com/posit-dev/positron/issues/12
-	type EC = import('./ui-comm.js').EditorContext;
-	export type EditorContext = EC;
+	export type EditorContext = import('./ui-comm.js').EditorContext;
 
 	/**
 	 * This namespace contains all frontend RPC methods available to a runtime.
