@@ -240,7 +240,8 @@ jobs:
           echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
           # Don't run this test in parallel & don't allow skipping it
-          eval DISPLAY=:10 npx playwright test --project ${{ inputs.project }} tests/e2e/extensions/bootstrap-extensions.test.ts
+          echo "Running: DISPLAY=:10 npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }}"
+          eval DISPLAY=:10 npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }}
 
           # Run the Playwright test command directly using eval
           echo "Running: DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
