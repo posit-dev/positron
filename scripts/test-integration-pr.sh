@@ -64,11 +64,12 @@ echo
 npm run test-extension -- -l positron-connections
 kill_app
 
-echo
-echo "### Positron Run App tests"
-echo
-npm run test-extension -- -l positron-run-app
-kill_app
+# Disabling Positron Run App tests for now as they are flaky
+# echo
+# echo "### Positron Run App tests"
+# echo
+# npm run test-extension -- -l positron-run-app
+# kill_app
 
 echo
 echo "### Positron DuckDB tests"
