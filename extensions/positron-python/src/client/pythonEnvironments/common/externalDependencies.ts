@@ -139,27 +139,6 @@ export async function resolveSymbolicLink(absPath: string, stats?: fsapi.Stats, 
     return absPath;
 }
 
-// --- Start Positron ---
-export function resolveSymbolicLinkSync(absPath: string, stats?: fsapi.Stats, count?: number): string {
-    stats = stats ?? fsapi.statSync(absPath);
-    if (stats.isSymbolicLink()) {
-        if (count && count > 5) {
-            traceError(`Detected a potential symbolic link loop at ${absPath}, terminating resolution.`);
-            return absPath;
-        }
-        const link = fs.readlinkSync(absPath);
-        // Result from readlink is not guaranteed to be an absolute path. For eg. on Mac it resolves
-        // /usr/local/bin/python3.9 -> ../../../Library/Frameworks/Python.framework/Versions/3.9/bin/python3.9
-        //
-        // The resultant path is reported relative to the symlink directory we resolve. Convert that to absolute path.
-        const absLinkPath = path.isAbsolute(link) ? link : path.resolve(path.dirname(absPath), link);
-        count = count ? count + 1 : 1;
-        return resolveSymbolicLinkSync(absLinkPath, undefined, count);
-    }
-    return absPath;
-}
-// --- End Positron ---
-
 export async function getFileInfo(filePath: string): Promise<{ ctime: number; mtime: number }> {
     try {
         const data = await fsapi.lstat(filePath);

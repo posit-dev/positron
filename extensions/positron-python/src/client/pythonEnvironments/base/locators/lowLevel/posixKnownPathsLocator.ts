@@ -19,6 +19,7 @@ import path from 'path';
 // eslint-disable-next-line import/no-duplicates
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 import { findInterpretersInDir } from '../../../common/commonUtils';
+import { getUvDirs } from '../../../common/environmentManagers/uv';
 // --- End Positron ---
 
 export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
@@ -97,7 +98,11 @@ export class PosixKnownPathsLocator extends Locator<BasicEnvInfo> {
  */
 async function getAdditionalPosixBinDirs(searchDepth = 2): Promise<string[]> {
     const additionalDirs = [];
-    for (const location of ADDITIONAL_POSIX_BIN_PATHS) {
+    const searchPaths = new Set(ADDITIONAL_POSIX_BIN_PATHS);
+    const uvDirs = await getUvDirs();
+    uvDirs.forEach((dir) => searchPaths.add(dir));
+
+    for (const location of searchPaths) {
         const executables = findInterpretersInDir(location, searchDepth);
         for await (const entry of executables) {
             const { filename } = entry;
