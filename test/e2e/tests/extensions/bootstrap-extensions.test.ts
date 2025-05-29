@@ -18,7 +18,7 @@ test.describe('Bootstrap Extensions', {
 	tag: [tags.EXTENSIONS, tags.WEB],
 }, () => {
 
-	test('VerifyAll Bootstrap extensions are installed', {
+	test('Verify All Bootstrap extensions are installed', {
 		tag: [tags.EXTENSIONS, tags.WEB, tags.WIN]
 	}, async function ({ app }) {
 
