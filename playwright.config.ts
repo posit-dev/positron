@@ -22,7 +22,7 @@ export default defineConfig<ExtendedTestOptions>({
 	testDir: './test/e2e',
 	testIgnore: [
 		'example.test.ts',
-		'extensions/bootstrap.extensions.test.ts'
+		'extensions/bootstrap-extensions.test.ts'
 	],
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
