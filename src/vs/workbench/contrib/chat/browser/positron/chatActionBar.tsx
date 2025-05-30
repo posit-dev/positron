@@ -38,6 +38,11 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 			});
 		}
 		providers?.forEach((provider) => {
+			// Skip the current provider -- it's already selected.
+			if (positronChatContext.currentProvider && positronChatContext.currentProvider.id === provider.id) {
+				return;
+			}
+
 			actions.push({
 				id: provider.id,
 				label: provider.displayName,
@@ -51,7 +56,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 		});
 
 		return actions;
-	}, [props, providers]);
+	}, [providers, props, positronChatContext.currentProvider]);
 
 	React.useEffect(() => {
 		if (positronChatContext.currentProvider) {
