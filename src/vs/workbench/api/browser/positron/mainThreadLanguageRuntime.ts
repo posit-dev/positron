@@ -1131,7 +1131,7 @@ class ExtHostRuntimeClientInstance<Input, Output>
 				// so we need to wait a bit before rejecting the promise.
 				// This currently only happens with Ark/Amalthea. IPykernel always sends the RPC result before
 				// sending the 'Idle' status.
-				const timeout = 2000;
+				const timeout = 5000;
 				setTimeout(() => {
 					if (pending.promise.isSettled) {
 						return;
