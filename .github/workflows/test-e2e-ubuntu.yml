@@ -242,10 +242,17 @@ jobs:
           # Don't run this test in parallel & don't allow skipping it
           echo "Running: DISPLAY=:10 npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }}"
           eval DISPLAY=:10 npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }}
+          BOOTSTRAP_EXIT_CODE=$?
 
           # Run the Playwright test command directly using eval
           echo "Running: DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
           eval DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+
+          # Fail the step if the bootstrap test failed
+          if [ "$BOOTSTRAP_EXIT_CODE" -ne 0 ]; then
+            echo "Bootstrap extensions test failed."
+            exit $BOOTSTRAP_EXIT_CODE
+          fi
 
 
       - name: Upload Playwright Report to S3
