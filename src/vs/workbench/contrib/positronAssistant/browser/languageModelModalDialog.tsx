@@ -251,35 +251,33 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			setError(localize('positron.newConnectionModalDialog.incompleteConfig', 'The configuration is incomplete.'));
 		}
 	}
+
+	// Returns a cancel for the dialog and closes it
 	const onCancel = async () => {
 		props.onCancel();
 		props.renderer.dispose();
 	}
 
+	// Cancel pending actions with providers
 	const onCancelPending = async () => {
-		if (useNewConfig) {
-			props.onAction({
-				type: type,
-				provider: source.provider.id,
-				model: model,
-				name: name,
-				apiKey: apiKey,
-				baseUrl: baseUrl,
-				resourceName: resourceName,
-				project: project,
-				location: location,
-				toolCalls: toolCalls,
-				numCtx: numCtx,
-			}, 'cancel')
-				.catch((e) => {
-					setError(e.message);
-				}).finally(() => {
-					setShowProgress(false);
-				});
-		} else {
-			props.onCancel();
-			props.renderer.dispose();
-		}
+		props.onAction({
+			type: type,
+			provider: source.provider.id,
+			model: model,
+			name: name,
+			apiKey: apiKey,
+			baseUrl: baseUrl,
+			resourceName: resourceName,
+			project: project,
+			location: location,
+			toolCalls: toolCalls,
+			numCtx: numCtx,
+		}, 'cancel')
+			.catch((e) => {
+				setError(e.message);
+			}).finally(() => {
+				setShowProgress(false);
+			});
 	}
 
 	function oldDialog() {
