@@ -12,7 +12,7 @@ export class NewProjectWizard {
 	private cancelButton = this.code.driver.page.getByRole('button', { name: 'Cancel' });
 	private nextButton = this.code.driver.page.getByRole('button', { name: 'Next', exact: true });
 	private createButton = this.code.driver.page.getByRole('button', { name: 'Create', exact: true });
-	private projectNameInput = this.code.driver.page.getByLabel(/Enter a name for your new/);
+	private projectNameInput = this.code.driver.page.getByLabel(/Enter the name of your new/);
 	private existingEnvRadioButton = this.code.driver.page.getByText(/Use an existing/);
 	private envProviderDropdown = this.code.driver.page.locator('#wizard-sub-step-python-environment').locator('button');
 	private envProviderDropdownTitle = this.envProviderDropdown.locator('.dropdown-entry-title');
@@ -28,14 +28,14 @@ export class NewProjectWizard {
 	 * @param options The options to configure the new project.
 	 */
 	async createNewProject(options: CreateProjectOptions) {
-		await this.quickaccess.runCommand('positron.workbench.action.newProject', { keepOpen: false });
+		await this.quickaccess.runCommand('positron.workbench.action.newFolder', { keepOpen: false });
 
 		await this.setProjectType(options.type);
 		await this.setProjectNameLocation(options);
 		await this.setProjectConfiguration(options);
 
 		await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
-		await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'Create New Project' })).not.toBeVisible();
+		await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'New Folder' })).not.toBeVisible();
 	}
 
 	/**
@@ -57,7 +57,7 @@ export class NewProjectWizard {
 
 		await this.projectNameInput.fill(projectTitle);
 		if (initAsGitRepo) {
-			await this.code.driver.page.getByText('Initialize project as Git').check();
+			await this.code.driver.page.getByText('Initialize Git repository').check();
 		}
 
 		await this.clickWizardButton(WizardButton.NEXT);
