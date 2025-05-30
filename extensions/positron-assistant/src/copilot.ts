@@ -179,8 +179,6 @@ export class CopilotService implements vscode.Disposable {
 		this._cancellationToken.token.onCancellationRequested(() => {
 			if (this._cancellationToken) {
 				cancelled = true;
-				this._cancellationToken.dispose();
-				this._cancellationToken = null;
 				vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot sign-in cancelled.'));
 			}
 		});
