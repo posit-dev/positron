@@ -8,6 +8,8 @@ import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
+import { availableRuntimes, SessionRuntimes } from './sessions.js';
+import { ContextMenu } from '../infra/contextMenu.js';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';
@@ -27,9 +29,10 @@ export class Console {
 	restartButton: Locator;
 	clearButton: Locator;
 	trashButton: Locator;
-	newSessionButton: Locator;
 	activeConsole: Locator;
 	suggestionList: Locator;
+	addSessionDuplicateButton: Locator;
+	addSessionExpandMenuButton: Locator;
 	private consoleTab: Locator;
 	private error: Locator;
 
@@ -38,17 +41,65 @@ export class Console {
 	}
 
 	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) {
+		// Standard Console Button Locators
 		this.restartButton = this.code.driver.page.getByLabel('Restart console');
 		this.clearButton = this.code.driver.page.getByLabel('Clear console');
 		this.trashButton = this.code.driver.page.getByTestId('trash-session');
-		// TODO @dhruvisompura: This needs to be updated since this now creates or duplicates a session
-		this.newSessionButton = this.code.driver.page.getByRole('toolbar', { name: 'Console actions' }).getByRole('button', { name: 'Start a New Session' });
+
+		// `+` Add Session Split Button Locators
+		this.addSessionDuplicateButton = this.code.driver.page.getByLabel('Duplicate Active Interpreter');
+		this.addSessionExpandMenuButton = this.code.driver.page.getByLabel('Quick Launch Session...');
+
+		// Misc
 		this.activeConsole = this.code.driver.page.locator(ACTIVE_CONSOLE_INSTANCE);
 		this.suggestionList = this.code.driver.page.locator(SUGGESTION_LIST);
 		this.consoleTab = this.code.driver.page.getByRole('tab', { name: 'Console', exact: true });
 		this.error = this.code.driver.page.locator(ERROR);
 	}
 
+	/**
+	 * Action: Start a new session via the `+ v` button in the console.
+	 *
+	 * @param contextMenu
+	 * @param runtime provided when option is 'Start New' to specify the runtime for the new session.
+	 * @throws Error if option is 'Start New' and runtime is not provided.
+	 */
+	async clickStartAnotherSessionButton(contextMenu: ContextMenu, runtime: SessionRuntimes) {
+		await test.step(`Expand \`+\` session button to start new session: ${runtime}`, async () => {
+
+			await contextMenu.triggerAndClick({
+				menuTrigger: this.addSessionExpandMenuButton,
+				menuItemLabel: 'Start Another...'
+			});
+
+			await this.quickinput.waitForQuickInputOpened();
+			await this.quickinput.type(availableRuntimes[runtime].name);
+			await this.code.driver.page.keyboard.press('Enter');
+			await this.quickinput.waitForQuickInputClosed();
+		});
+	}
+
+	/**
+	 * Action: Duplicate the active session via the `+` button in the console.
+	 */
+	async clickDuplicateSessionButton() {
+		await test.step(`Click \`+\` to duplicate session`, async () => {
+			this.addSessionDuplicateButton.click();
+		});
+	}
+
+	async expectSessionContextMenuToContain(contextMenu: ContextMenu, runtimes: string[]) {
+		await test.step('Verify `+` menu contains runtime(s)', async () => {
+			const menuItems = await contextMenu.getMenuItems(this.addSessionExpandMenuButton);
+			const filteredMenuItems = menuItems.filter(item => item !== 'Start Another...');
+
+			// Check if expected runtimes are present
+			expect(filteredMenuItems).toHaveLength(runtimes.length);
+			runtimes.forEach(runtime => {
+				expect(filteredMenuItems).toContain(runtime);
+			});
+		});
+	}
 
 	async executeCode(languageName: 'Python' | 'R', code: string, options?: { timeout?: number; waitForReady?: boolean; maximizeConsole?: boolean }): Promise<void> {
 		return test.step(`Execute ${languageName} code in console: ${code}`, async () => {
@@ -116,9 +167,11 @@ export class Console {
 	}
 
 	async sendEnterKey() {
-		await this.focus();
-		await this.code.driver.page.waitForTimeout(500);
-		await this.code.driver.page.keyboard.press('Enter');
+		await test.step('Send Enter key to console', async () => {
+			await this.focus();
+			await this.code.driver.page.waitForTimeout(500);
+			await this.code.driver.page.keyboard.press('Enter');
+		});
 	}
 
 	async waitForReady(prompt: string, timeout = 30000): Promise<void> {
@@ -208,13 +261,15 @@ export class Console {
 	}
 
 	async pasteCodeToConsole(code: string, sendEnterKey = false) {
-		const consoleInput = this.activeConsole.locator(CONSOLE_INPUT);
-		await this.pasteInMonaco(consoleInput!, code);
+		await test.step(`Paste code to console: ${code}`, async () => {
+			const consoleInput = this.activeConsole.locator(CONSOLE_INPUT);
+			await this.pasteInMonaco(consoleInput!, code);
 
-		if (sendEnterKey) {
-			await expect(this.code.driver.page.getByLabel('Interrupt execution')).not.toBeVisible();
-			await this.sendEnterKey();
-		}
+			if (sendEnterKey) {
+				await expect(this.code.driver.page.getByLabel('Interrupt execution')).not.toBeVisible();
+				await this.sendEnterKey();
+			}
+		});
 	}
 
 	async pasteInMonaco(

@@ -39,6 +39,8 @@ import {
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
 import { UserSettingsFileManager } from '../pages/utils/userSettingsFileManager.js';
+import { ContextMenu } from '../infra/contextMenu.js';
+
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -161,6 +163,13 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
 		await use();
 	}, { scope: 'test' }],
+
+	// This fixture provides a way interact with context menu items for both Electron and web apps. :tada:
+	contextMenu: [async ({ app }, use, testInfo) => {
+		const contextMenu = new ContextMenu(app.code, testInfo.project.name);
+		await use(contextMenu);
+	},
+	{ scope: 'test' }],
 
 	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
@@ -474,6 +483,8 @@ interface TestFixtures {
 	packages: PackageManager;
 	autoTestFixture: any;
 	devTools: void;
+	contextMenu: ContextMenu;
+	// contextMenu: { triggerAndClick: (options: { menuTrigger: playwright.Locator; menuItemLabel: string }) => Promise<void> };
 	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
@@ -511,3 +522,4 @@ export type CustomTestOptions = playwright.PlaywrightTestOptions & {
 	artifactDir: string;
 	headless?: boolean;
 };
+
