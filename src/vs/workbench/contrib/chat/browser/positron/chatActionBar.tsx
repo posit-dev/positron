@@ -6,11 +6,12 @@
 import * as React from 'react';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { usePositronChatContext } from './chatContext.js';
-import { IAction } from '../../../../../base/common/actions.js';
+import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { LanguageModelIcon } from '../../../positronAssistant/browser/components/languageModelButton.js';
 import { localize } from '../../../../../nls.js';
 import { IPositronChatProvider } from '../../common/languageModels.js';
+import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 interface ChatActionBarProps {
 	width: number;
@@ -18,6 +19,7 @@ interface ChatActionBarProps {
 }
 
 export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
+	const positronActionBarContext = usePositronActionBarContext();
 	const positronChatContext = usePositronChatContext();
 
 	const [providers, setProviders] = React.useState<IPositronChatProvider[] | undefined>(positronChatContext.providers)
@@ -55,8 +57,22 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 			});
 		});
 
+		if (actions.length > 0) {
+			actions.push(new Separator());
+		}
+		actions.push({
+			id: 'add-provider',
+			label: (() => localize('positronChatSelector.addProvider', 'Add Provider...'))(),
+			enabled: true,
+			class: undefined,
+			tooltip: (() => localize('positronChatSelector.addProviderTooltip', 'Add a Language Model Provider'))(),
+			run: async () => {
+				await positronActionBarContext.commandService.executeCommand('positron-assistant.addModelConfiguration');
+			}
+		});
+
 		return actions;
-	}, [providers, props, positronChatContext.currentProvider]);
+	}, [providers, props, positronChatContext.currentProvider, positronActionBarContext.commandService]);
 
 	React.useEffect(() => {
 		if (positronChatContext.currentProvider) {
