@@ -10,9 +10,12 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR } from './constants';
-import { isChatImageMimeType, toLanguageModelChatMessage } from './utils';
+import { isChatImageMimeType, isTextEditRequest, toLanguageModelChatMessage } from './utils';
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './tools.js';
+import { StreamingTagLexer } from './streamingTagLexer.js';
+import { StringReplaceProcessor } from './stringReplaceProcessor.js';
+import { EditSelectionProcessor } from './editSelectionProcessor.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -183,10 +186,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		token: vscode.CancellationToken,
 	) {
 		// System prompt.
-		const defaultSystem = await this.getDefaultSystemPrompt();
-		// Subclasses can override `getSystemPrompt` to append to the default system prompt.
-		const customSystem = (await this.getSystemPrompt(request)) ?? '';
-		const system = defaultSystem + customSystem;
+		const system = await this.getSystemPrompt(request);
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -203,6 +203,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				const inChatPane = request.location2 === undefined;
 				const inEditor = request.location2 instanceof vscode.ChatRequestEditorData;
 				const hasSelection = inEditor && request.location2.selection?.isEmpty === false;
+
+				// If streaming edits are enabled, don't allow any tools in inline editor chats.
+				if (isStreamingEditsEnabled() && this.id === ParticipantID.Editor) {
+					return false;
+				}
 
 				switch (tool.name) {
 					// Only include the execute code tool in the Chat pane; the other
@@ -260,16 +265,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		};
 	}
 
-	protected async getDefaultSystemPrompt(): Promise<string> {
-		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-	}
-
-	/**
-	 * A custom system prompt for this participant that is appended to the default system prompt.
-	 */
-	protected async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
-		return undefined;
-	}
+	protected abstract getSystemPrompt(request: vscode.ChatRequest): Promise<string>;
 
 	private async getContextMessage(
 		request: vscode.ChatRequest,
@@ -465,6 +461,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		tools: vscode.LanguageModelChatTool[],
 		system: string,
 	): Promise<void> {
+		if (token.isCancellationRequested) {
+			return;
+		}
+
 		const modelResponse = await request.model.sendRequest(messages, {
 			tools,
 			modelOptions: {
@@ -477,6 +477,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const toolRequests: vscode.LanguageModelToolCallPart[] = [];
 		const toolResponses: Record<string, vscode.LanguageModelToolResult> = {};
 
+		// Create a streaming text processor to allow the model to stream to the chat
+		// response e.g. using a loose XML format.
+		// This will be undefined if the current context does not require a text processor.
+		const textProcessor = this.createTextProcessor(request, response);
+
 		for await (const chunk of modelResponse.stream) {
 			if (token.isCancellationRequested) {
 				break;
@@ -484,21 +489,38 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 			if (chunk instanceof vscode.LanguageModelTextPart) {
 				textResponses.push(chunk);
-				response.markdown(chunk.value);
+
+				if (textProcessor) {
+					// If there is a text processor, let it process the chunk
+					// and write to the chat response stream.
+					await textProcessor.process(chunk.value);
+				} else {
+					// If there is no text processor, treat the chunk as markdown.
+					response.markdown(chunk.value);
+				}
 			} else if (chunk instanceof vscode.LanguageModelToolCallPart) {
 				toolRequests.push(chunk);
 			}
 		}
 
+		// Flush the text processor, if needed.
+		if (textProcessor) {
+			await textProcessor.flush();
+		}
+
 		// If we do have tool requests to follow up on, use vscode.lm.invokeTool recursively
 		if (toolRequests.length > 0) {
 			for (const req of toolRequests) {
+				if (token.isCancellationRequested) {
+					break;
+				}
+
 				const result = await vscode.lm.invokeTool(req.name, {
 					input: req.input,
 					toolInvocationToken: request.toolInvocationToken,
 					model: request.model,
 					chatRequestId: request.id,
-				});
+				}, token);
 				toolResponses[req.callId] = result;
 			}
 
@@ -516,6 +538,44 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		}
 	}
 
+	/**
+	 * Create a streaming text processor for a given request.
+	 *
+	 * The text processor will be given chunks of text from the language model
+	 * and is expected to write to the chat response stream.
+	 *
+	 * @param request The current chat request.
+	 * @param response The chat response stream to write to.
+	 * @returns A text processor that handles the request, or undefined if no
+	 *  streaming is needed for the request.
+	 */
+	private createTextProcessor(request: vscode.ChatRequest, response: vscode.ChatResponseStream): TextProcessor | undefined {
+		// Currently, we only use streaming text processing in the experimental streaming edit mode.
+		if (!isStreamingEditsEnabled() || !isTextEditRequest(request)) {
+			return undefined;
+		}
+
+		// If the selection is empty, watch for string replacement tags.
+		if (request.location2.selection.isEmpty) {
+			const stringReplaceProcessor = new StringReplaceProcessor(request.location2.document, response);
+			return new StreamingTagLexer({
+				tagNames: [
+					...StringReplaceProcessor.TagNames,
+				],
+				contentHandler(chunk) {
+					stringReplaceProcessor.process(chunk);
+				},
+			});
+		}
+
+		// If the selection is not empty, stream edits to the selection.
+		return new EditSelectionProcessor(
+			request.location2.document.uri,
+			request.location2.selection,
+			response,
+		);
+	}
+
 	dispose(): void { }
 }
 
@@ -523,8 +583,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 export class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Chat;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
-		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
+		return defaultSystem + '\n\n' + filepaths;
 	}
 }
 
@@ -532,7 +594,7 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 class PositronAssistantTerminalParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Terminal;
 
-	protected override async getDefaultSystemPrompt(): Promise<string> {
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'terminal.md'), 'utf8');
 	}
 }
@@ -541,22 +603,36 @@ class PositronAssistantTerminalParticipant extends PositronAssistantParticipant 
 export class PositronAssistantEditorParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Editor;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
-		if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+		if (!isTextEditRequest(request)) {
 			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
 		}
 
+		if (isStreamingEditsEnabled()) {
+			// If the user has not selected text, use the prompt for the whole document.
+			if (request.location2.selection.isEmpty) {
+				return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editorStreaming.md'), 'utf8');
+			}
+
+			// If the user has selected text, generate a new version of the selection.
+			return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selectionStreaming.md'), 'utf8');
+		}
+
+		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+
 		// If the user has not selected text, use the prompt for the whole document.
 		if (request.location2.selection.isEmpty) {
-			return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
+			const editor = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
+			return defaultSystem + '\n\n' + editor;
 		}
 
 		// If the user has selected text, generate a new version of the selection.
-		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selection.md'), 'utf8');
+		const selection = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selection.md'), 'utf8');
+		return defaultSystem + '\n\n' + selection;
 	}
 
 	async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
-		if (!(request.location2 instanceof vscode.ChatRequestEditorData)) {
+		if (!isTextEditRequest(request)) {
 			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
 		}
 
@@ -588,19 +664,26 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 			},
 		);
 	}
+
 }
 
 /** The participant used in notebook inline chats. */
 class PositronAssistantNotebookParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Notebook;
+
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+	}
 }
 
 /** The participant used in the chat pane in Edit mode. */
 class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Edit;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
-		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
+		return defaultSystem + '\n\n' + filepaths;
 	}
 }
 
@@ -647,4 +730,20 @@ export function getDefaultContextItems(): string[] {
 	defaultPrompts.push(xml.node('workspace', `Workspace folders are open: ${areFoldersOpen}`));
 
 	return defaultPrompts;
+}
+
+/**
+ * Whether the experimental streaming edit mode is enabled.
+ */
+function isStreamingEditsEnabled(): boolean {
+	return vscode.workspace.getConfiguration('positron.assistant.streamingEdits').get('enable', false);
+}
+
+/** Processes streaming text. */
+export interface TextProcessor {
+	/** Process a chunk of text. */
+	process(chunk: string): void | Promise<void>;
+
+	/** Process any unhandled text at the end of the stream. */
+	flush(): void | Promise<void>;
 }
