@@ -1,11 +1,12 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { JupyterChannel } from './JupyterChannel';
 import { JupyterHelpLink } from './JupyterHelpLink';
 import { JupyterLanguageInfo } from './JupyterLanguageInfo';
+import { JupyterMessageType } from './JupyterMessageType.js';
 import { JupyterRequest } from './JupyterRequest';
 
 /**
@@ -15,7 +16,7 @@ import { JupyterRequest } from './JupyterRequest';
  */
 export class KernelInfoRequest extends JupyterRequest<Object, KernelInfoReply> {
 	constructor() {
-		super('kernel_info_request', {}, 'kernel_info_reply', JupyterChannel.Shell);
+		super(JupyterMessageType.KernelInfoRequest, {}, JupyterMessageType.KernelInfoReply, JupyterChannel.Shell);
 	}
 }
 
@@ -24,13 +25,13 @@ export interface KernelInfoReply {
 	status: 'ok' | 'error';
 
 	/** Version of messaging protocol */
-	protocol_version: string;  // eslint-disable-line
+	protocol_version: string;
 
 	/** Implementation version number */
-	implementation_version: string;  // eslint-disable-line
+	implementation_version: string;
 
 	/** Information about the language the kernel supports */
-	language_info: JupyterLanguageInfo;  // eslint-disable-line
+	language_info: JupyterLanguageInfo;
 
 	/** A startup banner */
 	banner: string;
@@ -39,5 +40,5 @@ export interface KernelInfoReply {
 	debugger: boolean;
 
 	/** A list of help links */
-	help_links: Array<JupyterHelpLink>;  // eslint-disable-line
+	help_links: Array<JupyterHelpLink>;
 }

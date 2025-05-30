@@ -58,12 +58,18 @@ declare module 'positron' {
 
 		/** A message that should be handled by an IPyWidget */
 		IPyWidget = 'ipywidget',
+
+		/** A message representing a request to update an output */
+		UpdateOutput = 'update_output',
 	}
 
 	/**
 	 * The set of possible statuses for a language runtime while online
 	 */
 	export enum RuntimeOnlineState {
+		/** The runtime is starting up */
+		Starting = 'starting',
+
 		/** The runtime is ready to execute code. */
 		Idle = 'idle',
 
@@ -180,6 +186,9 @@ declare module 'positron' {
 		 */
 		Transferred = 'transferred',
 
+		/** The runtime exited because the extension hosting it was stopped. */
+		ExtensionHost = 'extensionHost',
+
 		/**
 		 * The runtime exited for an unknown reason. This typically means that
 		 * it exited unexpectedly but with a normal exit code (0).
@@ -232,7 +241,7 @@ declare module 'positron' {
 		type: LanguageRuntimeMessageType;
 
 		/** Additional metadata, if any */
-		metadata?: Map<any, any>;
+		metadata?: Record<string, unknown>;
 
 		/** Additional binary data, if any */
 		buffers?: Array<Uint8Array>;
@@ -249,7 +258,25 @@ declare module 'positron' {
 	/** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 	export interface LanguageRuntimeOutput extends LanguageRuntimeMessage {
 		/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
-		data: Record<string, any>;
+		data: Record<string, unknown>;
+
+		/**
+		 * The optional identifier of the output. If specified, this output can be referenced
+		 * in future messages e.g. when {@link LanguageRuntimeUpdateOutput updating an output}.
+		 */
+		output_id?: string;
+	}
+
+	/**
+	 * LanguageRuntimeUpdateOutput is a LanguageRuntimeMessage instructing the frontend
+	 * to update an existing output.
+	 */
+	export interface LanguageRuntimeUpdateOutput extends LanguageRuntimeMessage {
+		/** The updated output data */
+		data: Record<string, unknown>;
+
+		/** The identifier of the output to update */
+		output_id: string;
 	}
 
 	/**
@@ -981,7 +1008,7 @@ declare module 'positron' {
 		 * @param params A set of parameters to pass to the client; specific to the client type
 		 * @param metadata A set of metadata to pass to the client; specific to the client type
 		 */
-		createClient(id: string, type: RuntimeClientType, params: any, metadata?: any): Thenable<void>;
+		createClient(id: string, type: RuntimeClientType, params: Record<string, unknown>, metadata?: Record<string, unknown>): Thenable<void>;
 
 		/**
 		 * List all clients, optionally filtered by type.
@@ -999,7 +1026,7 @@ declare module 'positron' {
 		 * will be sent back to the client via the `onDidReceiveRuntimeMessage` event, with
 		 * the `parent_id` field set to the `message_id` given here.
 		 */
-		sendClientMessage(client_id: string, message_id: string, message: any): void;
+		sendClientMessage(client_id: string, message_id: string, message: Record<string, unknown>): void;
 
 		/** Reply to a prompt issued by the runtime */
 		replyToPrompt(id: string, reply: string): void;
@@ -1305,6 +1332,7 @@ declare module 'positron' {
 		/**
 		 * The type of the input.
 		 */
+		// eslint-disable-next-line local/vscode-dts-literal-or-types, local/vscode-dts-string-type-literals
 		type: 'string' | 'number' | 'option';
 		/**
 		 * Options, if the input type is an option.
@@ -1360,20 +1388,20 @@ declare module 'positron' {
 		/**
 		 * Connect session.
 		 */
-		connect?: (code: string) => Promise<void>;
+		connect?: (code: string) => Thenable<void>;
 
 		/**
 		 * Checks if the dependencies for the driver are installed
 		 * and functioning.
 		 */
-		checkDependencies?: () => Promise<boolean>;
+		checkDependencies?: () => Thenable<boolean>;
 
 		/**
 		 * Installs the dependencies for the driver.
 		 * For instance, R packages would install the required
 		 * R packages, and or other dependencies.
 		 */
-		installDependencies?: () => Promise<boolean>;
+		installDependencies?: () => Thenable<boolean>;
 	}
 
 	/**
@@ -1776,8 +1804,7 @@ declare module 'positron' {
 	// * Reduce the manual proliferation of these generated types.
 	// * Ideally a file is meant to edited by humans or by robots, but not both.
 	// Related to https://github.com/posit-dev/positron/issues/12
-	type EC = import('./ui-comm.js').EditorContext;
-	export type EditorContext = EC;
+	export type EditorContext = import('./ui-comm.js').EditorContext;
 
 	/**
 	 * This namespace contains all frontend RPC methods available to a runtime.

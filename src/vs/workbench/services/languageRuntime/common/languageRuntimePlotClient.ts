@@ -70,6 +70,9 @@ export interface IPositronPlotMetadata {
 
 	/** The suggested file name of the plot. */
 	suggested_file_name?: string;
+
+	/** The optional output identifier of the plot. */
+	output_id?: string;
 }
 
 /**

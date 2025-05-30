@@ -94,6 +94,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message that should be handled by an IPyWidget */
 	IPyWidget = 'ipywidget',
+
+	/** A message representing a request to update an output */
+	UpdateOutput = 'update_output',
 }
 
 /**

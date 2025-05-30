@@ -1,7 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
+
+import { JupyterMessageType } from './JupyterMessageType.js';
 
 /**
  * Represents the message header for messages inbound to a Jupyter kernel.
@@ -10,7 +12,7 @@
  */
 export interface JupyterMessageHeader {
 	/** The message ID, must be unique per message. */
-	msg_id: string;   // eslint-disable-line
+	msg_id: string;
 
 	/** Session ID, must be unique per session */
 	session: string;
@@ -21,8 +23,8 @@ export interface JupyterMessageHeader {
 	/** Date/Time when message was created in ISO 8601 format */
 	date: string;
 
-	/** The message type (TODO: should keysof an enum) */
-	msg_type: string;   // eslint-disable-line
+	/** The message type */
+	msg_type: JupyterMessageType;
 
 	/** The message protocol version */
 	version: string;

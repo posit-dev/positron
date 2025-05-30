@@ -34,13 +34,13 @@ export class DapClient {
 			// with a synthetic configuration.
 			case 'start_debug': {
 				this.session.emitJupyterLog(`Starting debug session for DAP server ${this.clientId}`);
-				const config = {
+				const config: vscode.DebugConfiguration = {
 					type: this.debugType,
 					name: this.debugName,
 					request: 'attach',
 					debugServer: this.serverPort,
 					internalConsoleOptions: 'neverOpen',
-				} as vscode.DebugConfiguration;
+				};
 				vscode.debug.startDebugging(undefined, config);
 				break;
 			}

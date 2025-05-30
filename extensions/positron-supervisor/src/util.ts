@@ -241,3 +241,13 @@ export function unpackSerializedObjectWithBuffers(payload: unknown): {
 	// If the structure data.value is not found, return the original payload as content and empty buffers
 	return { content: payload, buffers: [] };
 }
+
+/**
+ * @description Type guard to check if a value is a member of an enum.
+ * @param value The value to check.
+ * @param enumObj The enum object to check against.
+ * @returns Whether the value is a member of the enum.
+ */
+export function isEnumMember<T extends Record<string, unknown>>(value: unknown, enumObj: T): value is T[keyof T] {
+	return Object.values(enumObj).includes(value as T[keyof T]);
+}
