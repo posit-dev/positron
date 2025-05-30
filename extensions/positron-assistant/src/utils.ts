@@ -338,5 +338,6 @@ export class CancelledError extends Error {
 	constructor(message: string) {
 		super(message);
 		this.name = 'CancelledError';
+		Object.setPrototypeOf(this, CancelledError.prototype);
 	}
 }
