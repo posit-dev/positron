@@ -93,29 +93,33 @@ export class ContextMenu {
 	 * @returns
 	 */
 	private async showContextMenu(trigger: () => void): Promise<{ menuId: number; items: string[] } | undefined> {
-		const shownPromise: Promise<[number, string[]]> | undefined = this.code.electronApp?.evaluate(({ app }) => {
-			return new Promise((resolve) => {
-				const listener: any = (...args: [number, string[]]) => {
-					app.removeListener('e2e:contextMenuShown' as any, listener);
-					resolve(args);
-				};
-				app.addListener('e2e:contextMenuShown' as any, listener);
+		try {
+			if (!this.code.electronApp) {
+				throw new Error('Electron app is not available before attempting to trigger context menu.');
+			}
+
+			const shownPromise: Promise<[number, string[]]> | undefined = this.code.electronApp.evaluate(({ app }) => {
+				return new Promise((resolve) => {
+					const listener: any = (...args: [number, string[]]) => {
+						app.removeListener('e2e:contextMenuShown' as any, listener);
+						resolve(args);
+					};
+					app.addListener('e2e:contextMenuShown' as any, listener);
+				});
 			});
-		});
 
-		if (!shownPromise) {
+			if (!shownPromise) { return undefined; }
+
+			const [shownEvent] = await Promise.all([shownPromise, trigger()]);
+			if (shownEvent) {
+				const [menuId, items] = shownEvent;
+				return { menuId, items };
+			}
 			return undefined;
+		} catch (err) {
+			console.error('[showContextMenu] failed:', err);
+			throw err;
 		}
-
-		const [shownEvent] = await Promise.all([shownPromise, trigger()]);
-		if (shownEvent) {
-			const [menuId, items] = shownEvent;
-			return {
-				menuId,
-				items
-			};
-		}
-
 	}
 
 	/**

@@ -484,7 +484,6 @@ interface TestFixtures {
 	autoTestFixture: any;
 	devTools: void;
 	contextMenu: ContextMenu;
-	// contextMenu: { triggerAndClick: (options: { menuTrigger: playwright.Locator; menuItemLabel: string }) => Promise<void> };
 	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;
