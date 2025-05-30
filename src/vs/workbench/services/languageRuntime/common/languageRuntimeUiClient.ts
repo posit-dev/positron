@@ -248,7 +248,9 @@ export class UiClientInstance extends Disposable {
 
 		let uri = URI.parse(url);
 		try {
-			const resolvedUri = await this._openerService.resolveExternalUri(uri);
+			const resolvedUri = await this._openerService.resolveExternalUri(uri, {
+				allowTunneling: true,
+			});
 			uri = resolvedUri.resolved;
 		} catch {
 			// Noop; use the original URI
@@ -283,6 +285,6 @@ export class UiClientInstance extends Disposable {
 	 *
 	 */
 	public async didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
-			await this._comm.didChangePlotsRenderSettings(settings);
+		await this._comm.didChangePlotsRenderSettings(settings);
 	}
 }
