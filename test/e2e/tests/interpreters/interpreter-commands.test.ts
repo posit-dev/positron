@@ -27,18 +27,19 @@ test.use({
 });
 
 test.describe('Interpreter Commands (Force Quit, Interrupt, and Shutdown', { tag: [tags.WEB, tags.WIN, tags.INTERPRETER] }, () => {
+	test.afterEach(async ({ app }) => {
+		await app.workbench.console.clearButton.click();
+		await app.workbench.sessions.deleteAll();
+	});
+
 	test('Verify Force Quit Interpreter command works (→ was forced to quit) - Python', async function ({ app, python }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.forceQuit');
 		await app.workbench.console.waitForConsoleContents('was forced to quit');
-		await app.workbench.console.clearButton.click();
-		await app.workbench.sessions.deleteAll();
 	});
 
 	test('Verify Force Quit Interpreter command works (→ was forced to quit) - R', async function ({ app, r }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.forceQuit');
 		await app.workbench.console.waitForConsoleContents('was forced to quit');
-		await app.workbench.console.clearButton.click();
-		await app.workbench.sessions.deleteAll();
 	});
 
 	test('Verify Interrupt Interpreter command works (→ KeyboardInterrupt) - Python', async function ({ app, python }, testInfo: TestInfo) {
@@ -50,32 +51,23 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, and Shutdown', { tag
 		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5)', { waitForReady: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.interrupt');
 		await app.workbench.console.waitForConsoleContents('KeyboardInterrupt');
-		await app.workbench.console.clearButton.click();
-		await app.workbench.sessions.deleteAll();
 	});
 
 	test('Verify Interrupt Interpreter command works (→ empty error line) - R', async function ({ app, page, r }) {
 		await app.workbench.console.executeCode('R', 'Sys.sleep(5)', { waitForReady: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.interrupt');
 		await expect(page.locator('div.activity-error-stream')).toBeVisible();
-		await app.workbench.console.clearButton.click();
-		await app.workbench.sessions.deleteAll();
 	});
 
-	test('Verify Shutdown Interpreter command works (→ sexited) - Python', async function ({ app, python, page }) {
+	test('Verify Shutdown Interpreter command works (→ exited) - Python', async function ({ app, python, page }) {
 		await app.workbench.console.pasteCodeToConsole('exit()');
 		await page.keyboard.press('Enter');
 		await app.workbench.console.waitForConsoleContents('exited');
-		await app.workbench.console.clearButton.click();
-		await app.workbench.sessions.deleteAll();
-
 	});
 
 	test('Verify Shutdown Interpreter command works (→ exited) - R', async function ({ app, r, page }) {
 		await app.workbench.console.pasteCodeToConsole('q()');
 		await page.keyboard.press('Enter');
 		await app.workbench.console.waitForConsoleContents('exited');
-		await app.workbench.console.clearButton.click();
-		await app.workbench.sessions.deleteAll();
 	});
 });
