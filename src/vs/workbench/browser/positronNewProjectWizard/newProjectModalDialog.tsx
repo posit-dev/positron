@@ -151,7 +151,7 @@ export const showNewProjectModalDialog = async (
 						commandService,
 						keybindingService,
 						layoutService,
-						result.projectName,
+						folder.path,
 						folder,
 						result.openInNewWindow
 					);
@@ -193,7 +193,7 @@ const NewProjectModalDialog = (props: NewProjectModalDialogProps) => {
 	return (
 		<PositronModalDialog
 			height={520}
-			renderer={props.renderer} title={(() => localize('positronNewProjectWizard.title', "Create New Project"))()}
+			renderer={props.renderer} title={(() => localize('positron.newFolder', "New Folder"))()}
 			width={700}
 			onCancel={cancelHandler}
 		>

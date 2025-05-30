@@ -20,14 +20,14 @@ import { checkProjectName } from '../../utilities/projectNameUtils.js';
 import { NewProjectType } from '../../../../services/positronNewProject/common/positronNewProject.js';
 
 /**
- * Generates a default project name in kebab case based on the provided project type.
+ * Generates a default folder name in kebab case based on the provided project type.
  *
  * @param projectType - The type of the project for which to generate a default name.
- * @returns The default project name as a string.
+ * @returns The default folder name as a string.
  */
-const getDefaultProjectName = (projectType: NewProjectType) => {
+const getDefaultFolderName = (projectType: NewProjectType) => {
 	return localize(
-		'positron.newProjectWizard.projectTypeStep.defaultProjectNamePrefix',
+		'positron.newFolderWizard.projectTypeStep.defaultFolderNamePrefix',
 		"my"
 	) + '-' + projectType.toLowerCase().replace(/\s/g, '-');
 };
@@ -58,7 +58,7 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 			context.projectType !== selectedProjectType ||
 			context.projectName === ''
 		) {
-			const defaultProjectName = getDefaultProjectName(selectedProjectType);
+			const defaultProjectName = getDefaultFolderName(selectedProjectType);
 			context.projectType = selectedProjectType;
 			context.projectName = defaultProjectName;
 			context.projectNameFeedback = await checkProjectName(
@@ -79,18 +79,8 @@ export const ProjectTypeStep = (props: PropsWithChildren<NewProjectWizardStepPro
 			>
 				{(() =>
 					localize(
-						'positronNewProjectWizard.projectTypeStepTitle',
-						"Project Type"
-					))()}
-			</div>
-			<div
-				className='project-type-selection-step-description'
-				id='project-type-selection-step-description'
-			>
-				{(() =>
-					localize(
-						'positronNewProjectWizard.projectTypeStepDescription',
-						"Select the type of project to create."
+						'positronNewFolderWizard.folderTypeStepTitle',
+						"Folder Type"
 					))()}
 			</div>
 			<ProjectTypeGroup

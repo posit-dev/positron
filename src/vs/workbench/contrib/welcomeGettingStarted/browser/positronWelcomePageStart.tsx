@@ -14,7 +14,7 @@ import { localize } from '../../../../nls.js';
 import { WelcomeButton } from './positronWelcomeButton.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { PositronNewProjectAction } from '../../../browser/actions/positronActions.js';
+import { PositronNewFolderAction } from '../../../browser/actions/positronActions.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { WelcomeMenuButton } from './positronWelcomeMenuButton.js';
 import { PythonLogo } from '../../../browser/positronNewProjectWizard/components/logos/logoPython.js';
@@ -67,10 +67,10 @@ export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcom
 				/>
 				<WelcomeConsoleButton commandService={props.commandService} />
 				<WelcomeButton
-					ariaLabel={(() => localize('positron.welcome.newProjectDescription', "Create a new project"))()}
+					ariaLabel={(() => localize('positron.welcome.newFolderDescription', "Create a new folder"))()}
 					codicon='positron-new-project'
-					label={(() => localize('positron.welcome.newProject', "New Project"))()}
-					onPressed={() => props.commandService.executeCommand(PositronNewProjectAction.ID)}
+					label={(() => localize('positron.welcome.newFolderFromTemplate', "New Folder"))()}
+					onPressed={() => props.commandService.executeCommand(PositronNewFolderAction.ID)}
 				/>
 			</div>
 		</div>

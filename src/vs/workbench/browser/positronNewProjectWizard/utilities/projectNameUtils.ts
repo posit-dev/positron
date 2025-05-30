@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -48,14 +48,14 @@ export const checkProjectName = async (
 
 	// TODO: Additional project name validation (i.e. unsupported characters, length, etc.)
 
-	// The project directory can't already exist.
+	// The project folder can't already exist.
 	const folderPath = URI.joinPath(parentFolder, projectName);
 	if (await fileService.exists(folderPath)) {
 		return {
 			type: WizardFormattedTextType.Error,
 			text: localize(
-				'projectNameLocationSubStep.projectName.feedback.existingDirectory',
-				"The directory `{0}` already exists. Please enter a different project name.",
+				'projectNameLocationSubStep.projectName.feedback.existingFolder',
+				"A folder named '{0}' already exists",
 				projectName
 			),
 		};

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -30,24 +30,23 @@ import { IWorkspaceTrustManagementService } from '../../../platform/workspace/co
 import { ILabelService } from '../../../platform/label/common/label.js';
 
 /**
- * The PositronNewProjectAction.
+ * The PositronNewFolderAction.
  */
-export class PositronNewProjectAction extends Action2 {
+export class PositronNewFolderAction extends Action2 {
 	/**
 	 * The action ID.
 	 */
-	static readonly ID = 'positron.workbench.action.newProject';
+	static readonly ID = 'positron.workbench.action.newFolder';
 
 	/**
 	 * Constructor.
 	 */
 	constructor() {
 		super({
-			id: PositronNewProjectAction.ID,
+			id: PositronNewFolderAction.ID,
 			title: {
-				value: localize('positronNewProject', "New Project..."),
-				// mnemonicTitle: localize({ key: 'miPositronNewProject', comment: ['&& denotes a mnemonic'] }, "New P&&roject..."),
-				original: 'New Project...'
+				value: localize('positronNewFolder', "New Folder..."),
+				original: 'New Folder...'
 			},
 			category: workspacesCategory,
 			f1: true,
@@ -90,24 +89,23 @@ export class PositronNewProjectAction extends Action2 {
 }
 
 /**
- * The PositronNewFolderAction.
+ * The PositronNewEmptyFolderAction.
  */
-export class PositronNewFolderAction extends Action2 {
+export class PositronNewEmptyFolderAction extends Action2 {
 	/**
 	 * The action ID.
 	 */
-	static readonly ID = 'positron.workbench.action.newFolder';
+	static readonly ID = 'positron.workbench.action.newEmptyFolder';
 
 	/**
 	 * Constructor.
 	 */
 	constructor() {
 		super({
-			id: PositronNewFolderAction.ID,
+			id: PositronNewEmptyFolderAction.ID,
 			title: {
-				value: localize('positronNewFolder', "New Folder..."),
-				// mnemonicTitle: localize({ key: 'miPositronNewFolder', comment: ['&& denotes a mnemonic'] }, "New F&&older..."),
-				original: 'New Folder...'
+				value: localize('positronNewEmptyFolder', "New Empty Folder..."),
+				original: 'New Empty Folder...'
 			},
 			category: workspacesCategory,
 			f1: true,
@@ -230,7 +228,7 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 }
 
 // Register the actions defined above.
-registerAction2(PositronNewProjectAction);
 registerAction2(PositronNewFolderAction);
+registerAction2(PositronNewEmptyFolderAction);
 registerAction2(PositronNewFolderFromGitAction);
 registerAction2(PositronOpenFolderInNewWindowAction);

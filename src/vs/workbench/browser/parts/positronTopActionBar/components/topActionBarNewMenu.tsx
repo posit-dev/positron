@@ -15,7 +15,7 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { PositronNewFolderAction, PositronNewFolderFromGitAction, PositronNewProjectAction } from '../../../actions/positronActions.js';
+import { PositronNewEmptyFolderAction, PositronNewFolderAction, PositronNewFolderFromGitAction } from '../../../actions/positronActions.js';
 
 /**
  * Localized strings.
@@ -41,10 +41,10 @@ export const TopActionBarNewMenu = () => {
 		});
 		actions.push(new Separator());
 		positronActionBarContext.appendCommandAction(actions, {
-			id: PositronNewProjectAction.ID,
+			id: PositronNewFolderAction.ID,
 		});
 		positronActionBarContext.appendCommandAction(actions, {
-			id: PositronNewFolderAction.ID
+			id: PositronNewEmptyFolderAction.ID
 		});
 		positronActionBarContext.appendCommandAction(actions, {
 			id: PositronNewFolderFromGitAction.ID

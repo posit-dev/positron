@@ -102,23 +102,24 @@ const ChooseNewProjectWindowModalDialog = (props: ChooseNewProjectWindowModalDia
 	// Render.
 	return (
 		<PositronModalDialog
-			height={180}
+			height={220}
 			renderer={props.renderer}
 			title={(() =>
 				localize(
-					'positron.chooseNewProjectWindowModalDialog.title',
-					'Create New Project'
+					'positron.newFolderCreated',
+					'New Folder Created'
 				))()}
-			width={320}
+			width={500}
 		>
 			<div className='choose-new-project-window-modal-dialog'>
 				<VerticalStack>
+					<code>{props.projectName}</code>
 					<div>
 						{(() =>
 							localize(
-								'positron.newProject.whereToOpen.question',
-								"Where would you like to open your new project "
-							))()}<code>{props.projectName}</code>{'?'}
+								'positron.newFolderCreated.whereToOpen',
+								"Has been created. Where would you like to open it?"
+							))()}
 					</div>
 					{/* TODO: add checkbox to save the user's selection to preferences */}
 				</VerticalStack>

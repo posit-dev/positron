@@ -158,7 +158,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						{(() =>
 							localize(
 								'pythonEnvironmentSubStep.feedback',
-								"The environment will be created at: "
+								"The environment will be created at "
 							))()}
 						<PathDisplay
 							maxLength={65}
@@ -419,14 +419,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 			}}
 			title={(() => localize(
 				'pythonEnvironmentStep.title',
-				"Set up Python environment"
+				"Python Environment"
 			))()}
 		>
 			{/* New or existing Python environment selection */}
 			<PositronWizardSubStep
 				title={(() => localize(
 					'pythonEnvironmentSubStep.howToSetUpEnv',
-					"How would you like to set up your Python project environment?"
+					"How would you like to set up your Python environment?"
 				))()}
 				titleId='pythonEnvironment-howToSetUpEnv'
 			>
@@ -447,7 +447,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 						<WizardFormattedText type={WizardFormattedTextType.Info}>
 							{(() => localize(
 								'pythonEnvironmentSubStep.description',
-								"Select an environment type for your project."
+								"Select a Python environment"
 							))()}
 						</WizardFormattedText>
 					}
@@ -481,7 +481,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewProjectWizardS
 				description={(() =>
 					localize(
 						'pythonInterpreterSubStep.description',
-						"Select a Python installation for your project."
+						"Select a Python interpreter"
 					))()}
 				feedback={interpreterStepFeedback()}
 				title={(() =>

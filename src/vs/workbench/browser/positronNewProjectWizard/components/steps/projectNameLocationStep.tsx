@@ -179,8 +179,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 			}}
 			title={(() =>
 				localize(
-					'projectNameLocationStep.title',
-					"Set project name and location"
+					'folderNameLocationStep.title',
+					"Folder Name and Location"
 				))()}
 		>
 			<PositronWizardSubStep
@@ -197,8 +197,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				}
 				title={(() =>
 					localize(
-						'projectNameLocationSubStep.projectName.label',
-						"Project Name"
+						'folderNameLocationSubStep.folderName.label',
+						"Folder Name"
 					))()}
 			>
 				<LabeledTextInput
@@ -210,8 +210,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					}
 					label={(() =>
 						localize(
-							'projectNameLocationSubStep.projectName.description',
-							"Enter a name for your new {0}",
+							'folderNameLocationSubStep.folderName.description',
+							"Enter the name of your new {0} folder",
 							context.projectType
 						))()}
 					// Don't let the user create a project with a location that is too long.
@@ -230,8 +230,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 						<WizardFormattedText type={WizardFormattedTextType.Info}>
 							{(() =>
 								localize(
-									'projectNameLocationSubStep.parentDirectory.feedback',
-									"Your project will be created at: "
+									'folderNameLocationSubStep.parentFolder.feedback',
+									"New folder will be created at "
 								))()}
 							<PathDisplay
 								pathComponents={[
@@ -244,8 +244,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 				}
 				title={(() =>
 					localize(
-						'projectNameLocationSubStep.parentDirectory.label',
-						"Parent Directory"
+						'folderNameLocationSubStep.parentFolder.label',
+						"Location"
 					))()}
 			>
 				<LabeledFolderInput
@@ -253,8 +253,9 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					error={Boolean(parentPathErrorMsg)}
 					label={(() =>
 						localize(
-							'projectNameLocationSubStep.parentDirectory.description',
-							"Select a directory to create your project in"
+							'folderNameLocationSubStep.parentFolder.description',
+							"Select the location of your new {0} folder",
+							context.projectType
 						))()}
 					value={parentFolder}
 					onBrowse={browseHandler}
@@ -269,8 +270,8 @@ export const ProjectNameLocationStep = (props: PropsWithChildren<NewProjectWizar
 					initialChecked={context.initGitRepo}
 					label={(() =>
 						localize(
-							'projectNameLocationSubStep.initGitRepo.label',
-							"Initialize project as Git repository"
+							'folderNameLocationSubStep.initGitRepo.label',
+							"Initialize Git repository"
 						))()}
 					onChanged={(checked) => context.initGitRepo = checked}
 				/>
