@@ -28,6 +28,7 @@ import { INotebookRendererInfo, INotebookStaticPreloadInfo } from '../../../note
 import { NotebookOutputRendererInfo } from '../../../notebook/common/notebookOutputRenderer.js';
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
+import { IPositronPlotMetadata } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 
 class TestNotebookService implements Partial<INotebookService> {
 	getRenderers(): INotebookRendererInfo[] {
@@ -103,7 +104,8 @@ suite('Positron - PositronIPyWidgetsService', () => {
 			created: Date.parse(message.when),
 			session_id: session.sessionId,
 			code: '',
-		});
+			output_id: message.output_id,
+		} satisfies IPositronPlotMetadata);
 
 		return { session, plotClient };
 	}
