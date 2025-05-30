@@ -62,7 +62,6 @@ export class Console {
 	 *
 	 * @param contextMenu
 	 * @param runtime provided when option is 'Start New' to specify the runtime for the new session.
-	 * @throws Error if option is 'Start New' and runtime is not provided.
 	 */
 	async clickStartAnotherSessionButton(contextMenu: ContextMenu, runtime: SessionRuntimes) {
 		await test.step(`Expand \`+\` session button to start new session: ${runtime}`, async () => {
@@ -88,6 +87,12 @@ export class Console {
 		});
 	}
 
+	/**
+	 * Verify: The session context menu contains the expected runtimes.
+	 *
+	 * @param contextMenu the context menu instance to use for interaction
+	 * @param runtimes the runtime names to expect in the context menu
+	 */
 	async expectSessionContextMenuToContain(contextMenu: ContextMenu, runtimes: string[]) {
 		await test.step('Verify `+` menu contains runtime(s)', async () => {
 			const menuItems = await contextMenu.getMenuItems(this.addSessionExpandMenuButton);

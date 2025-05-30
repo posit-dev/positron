@@ -15,7 +15,27 @@ export class ContextMenu {
 	) { }
 
 	/**
+	 * Action: Triggers a context menu and clicks a specified menu item.
+	 * Note: This method is designed to work in both browser and electron!
+	 *
+	 * @param menuTrigger The locator that will trigger the context menu when clicked
+	 * @param menuItemLabel The label of the menu item to click
+	 */
+	async triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
+		if (!this.projectName.includes('browser')) {
+			await this._triggerAndClick({ menuTrigger, menuItemLabel });
+		}
+		else {
+			await menuTrigger.click();
+			await this.page.getByRole('menuitem', { name: menuItemLabel }).hover();
+			await this.page.waitForTimeout(500);
+			await this.page.getByRole('menuitem', { name: menuItemLabel }).click();
+		}
+	}
+
+	/**
 	 * Helper: Gets all menu item labels from a context menu
+	 * Note: This method is designed to work in both browser and electron!
 	 *
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @returns Array of menu item labels
@@ -47,24 +67,6 @@ export class ContextMenu {
 	}
 
 	/**
-	 * Action: Triggers a context menu and clicks a specified menu item.
-	 *
-	 * @param menuTrigger The locator that will trigger the context menu when clicked
-	 * @param menuItemLabel The label of the menu item to click
-	 */
-	async triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
-		if (!this.projectName.includes('browser')) {
-			await this._triggerAndClick({ menuTrigger, menuItemLabel });
-		}
-		else {
-			await menuTrigger.click();
-			await this.page.getByRole('menuitem', { name: menuItemLabel }).hover();
-			await this.page.waitForTimeout(500);
-			await this.page.getByRole('menuitem', { name: menuItemLabel }).click();
-		}
-	}
-
-	/**
 	 * Action: Closes an open context menu
 	 *
 	 * @returns Promise that resolves when the context menu is closed
@@ -79,6 +81,13 @@ export class ContextMenu {
 		}
 	}
 
+	// --- Private methods ---
+
+	/**
+	 * Shows a context menu and returns the menu ID and items.
+	 * @param trigger A function that triggers the context menu (e.g., a click on a button)
+	 * @returns
+	 */
 	private async showContextMenu(trigger: () => void): Promise<{ menuId: number; items: string[] } | undefined> {
 		const shownPromise: Promise<[number, string[]]> | undefined = this.code.electronApp?.evaluate(({ app }) => {
 			return new Promise((resolve) => {
@@ -105,12 +114,25 @@ export class ContextMenu {
 
 	}
 
+	/**
+	 * Selects a context menu item by its label.
+	 *
+	 * @param contextMenuId the ID of the context menu to select an item from
+	 * @param label the label of the menu item to select
+	 */
 	private async selectContextMenuItem(contextMenuId: number, label: string): Promise<void> {
 		await this.code.electronApp?.evaluate(async ({ app }, [contextMenuId, label]) => {
 			app.emit('e2e:contextMenuSelect', contextMenuId, label);
 		}, [contextMenuId, label]);
 	}
 
+	/**
+	 * Triggers a context menu and clicks a specified menu item.
+	 * This method is used internally to handle both browser and electron contexts.
+	 *
+	 * @param menuTrigger The locator that will trigger the context menu when clicked
+	 * @param menuItemLabel The label of the menu item to click
+	 */
 	private async _triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
 		const menuItems = await this.showContextMenu(() => menuTrigger.click());
 
