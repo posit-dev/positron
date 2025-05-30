@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Sessions: Console Add +', {
-	tag: [tags.WEB, tags.WIN, tags.SESSIONS, tags.CONSOLE]
+	tag: [tags.WEB_ONLY, tags.SESSIONS, tags.CONSOLE]
 }, () => {
 
 	test('Validate can duplicate runtime via Console + button', async function ({ app, page }) {
