@@ -106,10 +106,18 @@ export const ActionBar = (props: ActionBarProps) => {
 	// State hooks.
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] =
 		useState(positronConsoleContext.positronConsoleService.activePositronConsoleInstance);
+
+	// Hooks to track when the console can be interrupted and when the interrupt is in progress.
 	const [interruptible, setInterruptible] = useState(false);
 	const [interrupting, setInterrupting] = useState(false);
+	// Hook to track when the console can be shutdown and restarted
+	// since a restart requires the session kernel to be shutdown.
 	const [canShutdown, setCanShutdown] = useState(false);
+	// Hook to track when the console can be started.
 	const [canStart, setCanStart] = useState(false);
+	// Hook to track when the restart is in progress.
+	const [restarting, setRestarting] = useState(false);
+
 	const [stateLabel, setStateLabel] = useState('');
 	const [directoryLabel, setDirectoryLabel] = useState('');
 
@@ -289,10 +297,13 @@ export const ActionBar = (props: ActionBarProps) => {
 		if (!positronConsoleContext.activePositronConsoleInstance) {
 			return;
 		}
-		positronConsoleContext.runtimeSessionService.restartSession(
+
+		setRestarting(true);
+		await positronConsoleContext.runtimeSessionService.restartSession(
 			activePositronConsoleInstance!.sessionId,
 			'User-requested restart from console action bar'
 		);
+		setRestarting(false);
 	};
 
 	const deleteSessionHandler = async () => {
@@ -373,7 +384,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			<ActionBarButton
 				align='right'
 				ariaLabel={positronRestartConsole}
-				disabled={!canShutdown}
+				disabled={!canShutdown || restarting}
 				icon={ThemeIcon.fromId('positron-restart-runtime-thin')}
 				tooltip={positronRestartConsole}
 				onPressed={restartConsoleHandler}
