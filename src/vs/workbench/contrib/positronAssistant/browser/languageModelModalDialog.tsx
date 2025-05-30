@@ -192,19 +192,6 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	const onAccept = () => {
 		if (useNewConfig) {
-			props.onAction({
-				type: type,
-				provider: source.provider.id,
-				model: model,
-				name: name,
-				apiKey: apiKey,
-				baseUrl: baseUrl,
-				resourceName: resourceName,
-				project: project,
-				location: location,
-				toolCalls: toolCalls,
-				numCtx: numCtx,
-			}, 'cancel')
 			props.onClose();
 			props.renderer.dispose();
 		} else {

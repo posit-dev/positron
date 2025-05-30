@@ -337,6 +337,6 @@ type ToolResultContent = Array<
 export class CancelledError extends Error {
 	constructor(message: string) {
 		super(message);
-		this.name = 'TimeoutError';
+		this.name = 'CancelledError';
 	}
 }
