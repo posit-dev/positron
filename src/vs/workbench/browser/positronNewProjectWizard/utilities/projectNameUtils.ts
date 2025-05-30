@@ -55,7 +55,7 @@ export const checkProjectName = async (
 			type: WizardFormattedTextType.Error,
 			text: localize(
 				'projectNameLocationSubStep.projectName.feedback.existingFolder',
-				"A folder named '{0}' already exists",
+				"A folder named '{0}' already exists.",
 				projectName
 			),
 		};
