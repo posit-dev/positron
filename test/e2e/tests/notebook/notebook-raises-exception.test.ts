@@ -66,7 +66,7 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 			await app.workbench.quickInput.waitForQuickInputOpened();
 			await app.workbench.quickInput.type('raises-exception');
 			// Press Enter key to submit (there's no okay button to press)
-			page.keyboard.press('Enter');
+			await page.keyboard.press('Enter');
 
 			// Cell 3: Should execute despite Cell 2 error
 			await app.workbench.notebooks.insertNotebookCell('code');
