@@ -161,6 +161,12 @@
                 "%configuration.enabledProviders.openrouter%"
               ]
             }
+          },
+          "positron.assistant.streamingEdits.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.streamingEdits.enable%",
+            "tags": ["experimental"]
           }
         }
       }
