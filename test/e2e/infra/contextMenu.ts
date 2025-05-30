@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from './code.js';
-import { Locator } from '@playwright/test';
+import test, { Locator } from '@playwright/test';
 
 export class ContextMenu {
 	private page = this.code.driver.page;
@@ -22,15 +22,17 @@ export class ContextMenu {
 	 * @param menuItemLabel The label of the menu item to click
 	 */
 	async triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
-		if (!this.projectName.includes('browser')) {
-			await this._triggerAndClick({ menuTrigger, menuItemLabel });
-		}
-		else {
-			await menuTrigger.click();
-			await this.page.getByRole('menuitem', { name: menuItemLabel }).hover();
-			await this.page.waitForTimeout(500);
-			await this.page.getByRole('menuitem', { name: menuItemLabel }).click();
-		}
+		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
+			if (!this.projectName.includes('browser')) {
+				await this._triggerAndClick({ menuTrigger, menuItemLabel });
+			}
+			else {
+				await menuTrigger.click();
+				await this.page.getByRole('menuitem', { name: menuItemLabel }).hover();
+				await this.page.waitForTimeout(500);
+				await this.page.getByRole('menuitem', { name: menuItemLabel }).click();
+			}
+		});
 	}
 
 	/**
@@ -41,29 +43,31 @@ export class ContextMenu {
 	 * @returns Array of menu item labels
 	 */
 	async getMenuItems(menuTrigger: Locator): Promise<string[]> {
-		if (this.projectName.includes('browser')) {
-			await menuTrigger.click();
-			const menuItems = this.page.getByRole('menuitem');
-			const count = await menuItems.count();
-			const labels: string[] = [];
+		return await test.step(`Get context menu items`, async () => {
+			if (this.projectName.includes('browser')) {
+				await menuTrigger.click();
+				const menuItems = this.page.getByRole('menuitem');
+				const count = await menuItems.count();
+				const labels: string[] = [];
 
-			for (let i = 0; i < count; i++) {
-				const menuItem = menuItems.nth(i);
-				const label = await menuItem.textContent();
-				if (label) {
-					labels.push(label.trim());
+				for (let i = 0; i < count; i++) {
+					const menuItem = menuItems.nth(i);
+					const label = await menuItem.textContent();
+					if (label) {
+						labels.push(label.trim());
+					}
 				}
+				await this.closeContextMenu();
+				return labels;
+			} else {
+				const menuItems = await this.showContextMenu(() => menuTrigger.click());
+				if (!menuItems) {
+					throw new Error('Context menu did not appear or no menu items found.');
+				}
+				await this.closeContextMenu();
+				return menuItems.items;
 			}
-			await this.closeContextMenu();
-			return labels;
-		} else {
-			const menuItems = await this.showContextMenu(() => menuTrigger.click());
-			if (!menuItems) {
-				throw new Error('Context menu did not appear or no menu items found.');
-			}
-			await this.closeContextMenu();
-			return menuItems.items;
-		}
+		});
 	}
 
 	/**
