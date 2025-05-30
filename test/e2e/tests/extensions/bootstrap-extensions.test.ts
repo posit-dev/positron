@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename
 });
 
-const EXT_DIR = path.join(os.homedir(), '.positron-dev', 'extensions');
+const EXT_DIR = path.join(os.tmpdir(), 'vscsmoke', 'extensions-dir');
 
 test.describe('Bootstrap Extensions', {
 	tag: [tags.EXTENSIONS, tags.WEB],
