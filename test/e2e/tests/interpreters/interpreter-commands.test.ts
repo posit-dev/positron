@@ -20,52 +20,50 @@ Summary:
  */
 
 import { test, tags, expect } from '../_test.setup';
-import type { TestInfo } from '@playwright/test'; // remove test.skip and TestInfo import after bug #4604 is fixed
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('Interpreter Commands (Force Quit, Interrupt, and Shutdown', { tag: [tags.WEB, tags.WIN, tags.INTERPRETER] }, () => {
+test.describe('Interpreter Commands (Force Quit, Interrupt, and Shutdown', {
+	tag: [tags.WEB, tags.INTERPRETER]
+}, () => {
+
 	test.afterEach(async ({ app }) => {
 		await app.workbench.console.clearButton.click();
 		await app.workbench.sessions.deleteAll();
 	});
 
-	test('Verify Force Quit Interpreter command works (→ was forced to quit) - Python', async function ({ app, python }) {
+	test('Verify Force Quit Interpreter command works (→ was forced to quit) - Python', { tag: [tags.WIN] }, async function ({ app, python }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.forceQuit');
 		await app.workbench.console.waitForConsoleContents('was forced to quit');
 	});
 
-	test('Verify Force Quit Interpreter command works (→ was forced to quit) - R', async function ({ app, r }) {
+	test('Verify Force Quit Interpreter command works (→ was forced to quit) - R', { tag: [tags.WIN] }, async function ({ app, r }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.forceQuit');
 		await app.workbench.console.waitForConsoleContents('was forced to quit');
 	});
 
-	test('Verify Interrupt Interpreter command works (→ KeyboardInterrupt) - Python', async function ({ app, python }, testInfo: TestInfo) {
-		// This if statement is to skip e2e-windows due to bug #4604. Once it's fixed, remove if statement (and testInfo parameter)
-		if (testInfo.project.name === 'e2e-windows') {
-			test.skip();
-			return;
-		}
+	// Skip this test for tags.WIN (e2e-windows) due to Bug #4604
+	test('Verify Interrupt Interpreter command works (→ KeyboardInterrupt) - Python', async function ({ app, python }) {
 		await app.workbench.console.executeCode('Python', 'import time; time.sleep(5)', { waitForReady: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.interrupt');
 		await app.workbench.console.waitForConsoleContents('KeyboardInterrupt');
 	});
 
-	test('Verify Interrupt Interpreter command works (→ empty error line) - R', async function ({ app, page, r }) {
+	test('Verify Interrupt Interpreter command works (→ empty error line) - R', { tag: [tags.WIN] }, async function ({ app, page, r }) {
 		await app.workbench.console.executeCode('R', 'Sys.sleep(5)', { waitForReady: false });
 		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.interrupt');
 		await expect(page.locator('div.activity-error-stream')).toBeVisible();
 	});
 
-	test('Verify Shutdown Interpreter command works (→ exited) - Python', async function ({ app, python, page }) {
+	test('Verify Shutdown Interpreter command works (→ exited) - Python', { tag: [tags.WIN] }, async function ({ app, python, page }) {
 		await app.workbench.console.pasteCodeToConsole('exit()');
 		await page.keyboard.press('Enter');
 		await app.workbench.console.waitForConsoleContents('exited');
 	});
 
-	test('Verify Shutdown Interpreter command works (→ exited) - R', async function ({ app, r, page }) {
+	test('Verify Shutdown Interpreter command works (→ exited) - R', { tag: [tags.WIN] }, async function ({ app, r, page }) {
 		await app.workbench.console.pasteCodeToConsole('q()');
 		await page.keyboard.press('Enter');
 		await app.workbench.console.waitForConsoleContents('exited');
