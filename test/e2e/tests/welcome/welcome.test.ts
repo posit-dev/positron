@@ -45,7 +45,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			}
 
 			await expect(welcome.startTitle).toHaveText('Start');
-			await expect(welcome.startButtons).toHaveText(['New Notebook', 'New File', 'New Console', 'New Project']);
+			await expect(welcome.startButtons).toHaveText(['New Notebook', 'New File', 'New Console', 'New Folder']);
 			await expect(welcome.helpTitle).toHaveText('Help');
 			await expect(welcome.helpLinks).toHaveText(['Positron Documentation', 'Positron Community', 'Report a bug']);
 			await expect(welcome.openTitle).toHaveText('Open');
@@ -58,15 +58,15 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await expect(welcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
 		});
 
-		test('Verify clicking on `new project` from the Welcome page opens wizard', { tag: [tags.MODAL] }, async function ({ app }) {
+		test('Verify clicking on `new folder` from the Welcome page opens wizard', { tag: [tags.MODAL] }, async function ({ app }) {
 			const { welcome, popups, newProjectWizard } = app.workbench;
 
-			await welcome.newProjectButton.click();
+			await welcome.newFolderButton.click();
 			await popups.popupCurrentlyOpen();
 			await popups.waitForModalDialogBox();
 
 			// confirm New Project dialog box is open
-			await popups.waitForModalDialogTitle('Create New Project');
+			await popups.waitForModalDialogTitle('New Folder');
 			await newProjectWizard.clickWizardButton(WizardButton.CANCEL);
 		});
 	});

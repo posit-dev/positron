@@ -121,14 +121,14 @@ export const RConfigurationStep = (props: PropsWithChildren<NewProjectWizardStep
 			}}
 			title={(() => localize(
 				'rConfigurationStep.title',
-				"Set up project configuration"
+				"Project Configuration"
 			))()}
 		>
 			<PositronWizardSubStep
 				description={(() =>
 					localize(
 						'rConfigurationStep.versionSubStep.description',
-						'Select a version of R to launch your project with.'
+						'Select a version of R to launch your project with'
 					))()}
 				feedback={
 					!interpretersLoading() && !interpretersAvailable() ? (
