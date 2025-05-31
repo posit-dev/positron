@@ -47,6 +47,17 @@ class UvUtils {
             return undefined;
         }
     }
+
+    @cache(-1)
+    public async getUvBinDir(): Promise<string | undefined> {
+        try {
+            const result = await exec(this.command, ['python', 'dir', '--bin'], { throwOnStdErr: true });
+            return result?.stdout.trim();
+        } catch (ex) {
+            traceVerbose(ex);
+            return undefined;
+        }
+    }
 }
 
 /**
@@ -119,4 +130,25 @@ export async function isUvEnvironment(interpreterPath: string): Promise<boolean>
 export async function isUvInstalled(): Promise<boolean> {
     const uvUtils = await UvUtils.getUvUtils();
     return uvUtils !== undefined;
+}
+
+/**
+ * Find all places uv puts global interpreters. These can differ by OS and env vars.
+ * @returns {Set<string>} Set of directories where uv interpreters are located.
+ */
+export async function getUvDirs(): Promise<Set<string>> {
+    const dirs = new Set<string>();
+    const uvUtils = await UvUtils.getUvUtils();
+    if (!uvUtils) {
+        return dirs;
+    }
+
+    const [uvBinDir, uvDir] = await Promise.all([uvUtils.getUvBinDir(), uvUtils.getUvDir()]);
+    if (uvBinDir) {
+        dirs.add(uvBinDir);
+    }
+    if (uvDir) {
+        dirs.add(uvDir);
+    }
+    return dirs;
 }

@@ -32,6 +32,7 @@ import { getCustomEnvDirs } from '../../../../positron/interpreterSettings';
 import { traceVerbose } from '../../../../logging';
 import { ADDITIONAL_POSIX_BIN_PATHS } from '../../../common/posixUtils';
 import { PythonEnvSource } from '../../info/index';
+import { getUvDirs } from '../../../common/environmentManagers/uv';
 // --- End Positron ---
 
 const PYTHON_ENV_TOOLS_PATH = isWindows()
@@ -396,7 +397,8 @@ class NativePythonFinderImpl extends DisposableBase implements NativePythonFinde
             workspaceDirectories: getWorkspaceFolderPaths(),
             // We do not want to mix this with `search_paths`
             // --- Start Positron ---
-            environmentDirectories: getEnvironmentDirs(),
+            // environmentDirectories: getCustomVirtualEnvDirs(),
+            environmentDirectories: await getEnvironmentDirs(),
             // --- End Positron ---
             condaExecutable: getPythonSettingAndUntildify<string>(CONDAPATH_SETTING_KEY),
             poetryExecutable: getPythonSettingAndUntildify<string>('poetryPath'),
@@ -457,9 +459,9 @@ function getCustomVirtualEnvDirs(): string[] {
  * Gets the list of directories to search for Python environments.
  * @returns List of directories to search for Python environments.
  */
-function getEnvironmentDirs(): string[] {
+async function getEnvironmentDirs(): Promise<string[]> {
     const venvDirs = getCustomVirtualEnvDirs();
-    const additionalDirs = getAdditionalEnvDirs();
+    const additionalDirs = await getAdditionalEnvDirs();
     const uniqueEnvDirs = new Set([...venvDirs, ...additionalDirs]);
     return Array.from(uniqueEnvDirs);
 }
@@ -468,7 +470,7 @@ function getEnvironmentDirs(): string[] {
  * Gets the list of additional directories to add to environment directories.
  * @returns List of directories to add to environment directories.
  */
-export function getAdditionalEnvDirs(): string[] {
+export async function getAdditionalEnvDirs(): Promise<string[]> {
     const additionalDirs: string[] = [];
 
     // Add additional dirs to search for Python environments on non-Windows platforms.
@@ -476,6 +478,10 @@ export function getAdditionalEnvDirs(): string[] {
     if (!isWindows()) {
         additionalDirs.push(...ADDITIONAL_POSIX_BIN_PATHS);
     }
+
+    // Add uv dirs, if any.
+    const uvDirs = await getUvDirs();
+    additionalDirs.push(...uvDirs);
 
     // Add user-specified Python search directories.
     // See JS locator equivalent in extensions/positron-python/src/client/pythonEnvironments/base/locators/lowLevel/userSpecifiedEnvLocator.ts
