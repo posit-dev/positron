@@ -11,6 +11,7 @@ import { ExtensionContext } from 'vscode';
 import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { platform } from 'os';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
+import { CancelledError } from './utils.js';
 
 interface EditorPluginInfo {
 	name: string;
@@ -100,6 +101,9 @@ export class CopilotService implements vscode.Disposable {
 
 	private _client?: CopilotLanguageClient;
 
+	/** The cancellation token for the current operation. */
+	private _cancellationToken: vscode.CancellationTokenSource | null = null;
+
 	/** Create the CopilotLanguageService singleton instance. */
 	public static create(context: ExtensionContext) {
 		if (CopilotService._instance) {
@@ -143,29 +147,57 @@ export class CopilotService implements vscode.Disposable {
 	}
 
 	/**
+	 * Cancel the current operation if it is in progress.
+	 */
+	cancelCurrentOperation(): void {
+		this._cancellationToken?.cancel();
+		this._cancellationToken?.dispose();
+		this._cancellationToken = null;
+	}
+
+	/**
 	 * Prompt the user to sign in to Copilot if they aren't already signed in.
 	 */
-	async signIn(): Promise<boolean> {
+	async signIn(): Promise<void> {
 		const client = this.client();
 		const response = await client.sendRequest(SignInRequest.type, {});
 
 		if ('status' in response && 'user' in response) {
 			vscode.window.showInformationMessage(vscode.l10n.t('Already signed in to GitHub Copilot as {0}.', response.user));
-			return true;
+			return;
 		}
 
 		await vscode.env.clipboard.writeText(response.userCode);
-		const shouldLogin = await positron.methods.showQuestion(
+		await positron.methods.showDialog(
 			'GitHub Copilot Sign In',
 			`You will need this code to sign in: <code>${response.userCode}</code>. It has been copied to your clipboard.`,
-			'OK',
-			'Cancel');
+		);
 
-		if (shouldLogin) {
-			await client.sendRequest(ExecuteCommandRequest.type, response.command);
-			return true;
-		} else {
-			return false;
+		this._cancellationToken = new vscode.CancellationTokenSource();
+		let cancelled = false;
+
+		this._cancellationToken.token.onCancellationRequested(() => {
+			if (this._cancellationToken) {
+				cancelled = true;
+				vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot sign-in cancelled.'));
+			}
+		});
+
+		try {
+			await client.sendRequest(ExecuteCommandRequest.type, response.command, this._cancellationToken.token);
+		} catch (error) {
+			if (cancelled) {
+				throw new CancelledError(vscode.l10n.t('GitHub Copilot sign-in was cancelled.'));
+			}
+
+			throw error;
+		} finally {
+			this._cancellationToken?.dispose();
+			this._cancellationToken = null;
+		}
+
+		if (cancelled) {
+			throw new CancelledError(vscode.l10n.t('GitHub Copilot sign-in was cancelled.'));
 		}
 	}
 
