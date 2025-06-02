@@ -93,7 +93,7 @@ export class ContextMenu {
 	 * @param trigger A function that triggers the context menu (e.g., a click on a button)
 	 * @returns
 	 */
-	private async showContextMenu(trigger: () => void): Promise<{ menuId: number; items: string[] } | undefined> {
+	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: string[] } | undefined> {
 		try {
 			if (!this.code.electronApp) {
 				throw new Error('Electron app is not available before attempting to trigger context menu.');
