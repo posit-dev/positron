@@ -35,7 +35,7 @@ import { PositronConsole } from './positronConsole.js';
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { ILanguageRuntimeService, LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeService, LanguageRuntimeSessionMode } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
@@ -424,7 +424,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 
 		// Add current runtime first, if present.
 		// Allows for "plus" + enter behavior to clone session.
-		if (currentRuntime && this.runtimeSessionService.foregroundSession?.getRuntimeState() !== RuntimeState.Exited) {
+		if (currentRuntime) {
 			activeRuntimes.unshift(currentRuntime);
 		}
 

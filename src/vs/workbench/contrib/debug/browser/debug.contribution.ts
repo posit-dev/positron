@@ -651,7 +651,13 @@ configurationRegistry.registerConfiguration({
 				nls.localize('debug.saveBeforeStart.nonUntitledEditorsInActiveGroup', "Save all editors in the active group except untitled ones before starting a debug session."),
 				nls.localize('debug.saveBeforeStart.none', "Don't save any editors before starting a debug session."),
 			],
-			default: 'allEditorsInActiveGroup',
+			// --- Start Positron ---
+			// https://github.com/posit-dev/positron/issues/1728
+			// Saving untitled editors is disruptive and unnecessary since it's
+			// unlikely the user wants to debug a scratch file. Furthermore, merely
+			// saving the file does not necessarily guarantees the file is debuggable.
+			default: 'nonUntitledEditorsInActiveGroup',
+			// --- End Positron ---
 			scope: ConfigurationScope.LANGUAGE_OVERRIDABLE
 		},
 		'debug.confirmOnExit': {

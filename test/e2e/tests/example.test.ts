@@ -8,7 +8,7 @@
 
 // we must import test from _test.setup to ensure we have the correct test
 // context which enables our custom fixtures
-import { test, expect } from './_test.setup';
+import { test, expect, tags } from './_test.setup';
 
 // we need this to ensure each spec gets a fresh app instance read more here:
 // https://positpbc.atlassian.net/wiki/spaces/POSITRON/pages/1224999131/Proof+of+Concept+Playwright#SuiteId
@@ -76,16 +76,27 @@ test.describe('Examples of Concepts', () => {
 });
 
 
-test.describe('Example Context Menu Tests', { tag: [] }, () => {
-	test("Context Menu Open Bash", async function ({ app, page }) {
+test.describe('Example Context Menu Tests', { tag: [tags.WEB] }, () => {
+	test("Context Menu Open Bash", async function ({ app, page, contextMenu }) {
 		await app.workbench.terminal.clickTerminalTab();
-		await app.nativeMenu?.triggerAndClick(page.getByLabel('Launch Profile...'), 'bash');
+
+		await contextMenu.triggerAndClick({
+			menuTrigger: page.getByLabel('Launch Profile...'),
+			menuItemLabel: 'bash'
+		});
+
 		await expect(page.getByLabel('$(terminal-bash) bash')).toBeVisible();
 	});
 
-	test("Context Menu Fail Open Bash", async function ({ app, page }) {
+
+	test("Context Menu Fail Open Bash", async function ({ app, page, contextMenu }) {
 		await app.workbench.terminal.clickTerminalTab();
-		await app.nativeMenu?.triggerAndClick(page.getByLabel('Launch Profile...'), 'zsh');
+
+		await contextMenu.triggerAndClick({
+			menuTrigger: page.getByLabel('Launch Profile...'),
+			menuItemLabel: 'zsh'
+		});
+
 		await expect(page.getByLabel('$(terminal) zsh')).toBeVisible();
 	});
 });

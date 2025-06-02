@@ -9,7 +9,7 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
 import { IOutputItemDto } from '../../notebook/common/notebookCommon.js';
@@ -54,6 +54,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		private readonly _session: ILanguageRuntimeSession,
 		private readonly _cellExecution: INotebookCellExecution,
 		private readonly _cell: NotebookCellTextModel,
+		private readonly _errorBehavior: RuntimeErrorBehavior,
 		@ILogService private readonly _logService: ILogService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 	) {
@@ -299,12 +300,19 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			}],
 		}]);
 
-		// Error the execution.
-		this.error({
-			name: message.name,
-			message: message.message,
-			stack: message.traceback.join('\n'),
-		});
+		// Handle error based on the error behavior.
+		if (this._errorBehavior === RuntimeErrorBehavior.Continue) {
+			// For cells with 'raises-exception' tag, complete the execution successfully
+			// so that subsequent cells can continue running.
+			this.complete();
+		} else {
+			// Default behavior: error the execution to stop subsequent cells.
+			this.error({
+				name: message.name,
+				message: message.message,
+				stack: message.traceback.join('\n'),
+			});
+		}
 	}
 
 	private async handleRuntimeMessageState(message: ILanguageRuntimeMessageState): Promise<void> {

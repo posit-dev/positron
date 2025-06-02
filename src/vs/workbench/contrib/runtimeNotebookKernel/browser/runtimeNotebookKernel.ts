@@ -252,9 +252,12 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			throw new Error(`No execution for cell '${cell.uri.toString()}'`);
 		}
 
+		// Determine error behavior based on cell metadata tags
+		const errorBehavior = this.getCellErrorBehavior(cell);
+
 		// Create the runtime notebook cell execution.
 		const execution = this._register(this._instantiationService.createInstance(
-			RuntimeNotebookCellExecution, session, cellExecution, cell
+			RuntimeNotebookCellExecution, session, cellExecution, cell, errorBehavior
 		));
 
 		// Set the pending execution for the notebook.
@@ -275,7 +278,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			code,
 			languageId: cell.language,
 			runtimeName: this.runtime.runtimeName,
-			errorBehavior: RuntimeErrorBehavior.Stop,
+			errorBehavior,
 			mode: RuntimeCodeExecutionMode.Interactive,
 		};
 		this._didExecuteCodeEmitter.fire(event);
@@ -286,7 +289,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 				code,
 				execution.id,
 				RuntimeCodeExecutionMode.Interactive,
-				RuntimeErrorBehavior.Stop,
+				errorBehavior,
 			);
 		} catch (err) {
 			execution.error(err);
@@ -423,6 +426,50 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			name: 'No Active Session',
 			message: 'There is no active session for this notebook',
 		});
+	}
+
+	/**
+	 * Determines the error behavior for a cell based on its metadata tags.
+	 *
+	 * Currently supports:
+	 * - 'raises-exception': Allows execution to continue after errors
+	 *
+	 * To add new tags in the future:
+	 * 1. Add the tag name to the switch statement below
+	 * 2. Return the appropriate RuntimeErrorBehavior
+	 * 3. Update the JSDoc comment above
+	 *
+	 * @param cell The notebook cell to check
+	 * @returns The error behavior to use for this cell
+	 */
+	private getCellErrorBehavior(cell: NotebookCellTextModel): RuntimeErrorBehavior {
+		// VS Code wraps Jupyter metadata in its own structure, hence the nested metadata.metadata
+		// The inner metadata contains the actual Jupyter cell metadata including tags
+		const innerMetadata = cell.metadata?.metadata;
+
+		// Since metadata is { [key: string]: unknown }, we need to safely access and validate
+		const tags = innerMetadata && typeof innerMetadata === 'object' && 'tags' in innerMetadata
+			? innerMetadata.tags
+			: undefined;
+
+		// Ensure we have a valid tags array
+		if (!Array.isArray(tags)) {
+			return RuntimeErrorBehavior.Stop;
+		}
+
+		// Check for error-handling tags
+		for (const tag of tags) {
+			switch (tag) {
+				case 'raises-exception':
+					return RuntimeErrorBehavior.Continue;
+				// Future tags can be added here. E.g.:
+				// case 'some-other-tag':
+				//     return RuntimeErrorBehavior.SomeOtherBehavior;
+			}
+		}
+
+		// Default behavior
+		return RuntimeErrorBehavior.Stop;
 	}
 
 	provideVariables(notebookUri: URI, parentId: number | undefined, kind: 'named' | 'indexed', start: number, token: CancellationToken): AsyncIterableObject<VariablesResult> {

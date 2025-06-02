@@ -123,26 +123,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	readonly welcomeMessageProvider = {
 		async provideSampleQuestions(location: vscode.ChatLocation, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
-			/*
-			let welcomeText;
-			const addLanguageModelMessage = vscode.l10n.t('Add a Language Model.');
-
-			// Show an extra configuration link if there are no configured models yet
-			if (getStoredModels(this._context).length === 0) {
-				welcomeText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'welcome.md'), 'utf8');
-				const commandUri = vscode.Uri.parse('command:positron-assistant.addModelConfiguration');
-				welcomeText += `\n\n[${addLanguageModelMessage}](${commandUri})`;
-			} else {
-				welcomeText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'welcomeready.md'), 'utf8');
-				// TODO: Replace with guide link once it has been created
-				const guideLink = vscode.Uri.parse('https://positron.posit.co');
-				welcomeText = welcomeText.replace('{guide-link}', `[${vscode.l10n.t('Positron Assistant User Guide')}](${guideLink})`);
-			}
-
-			const message = new vscode.MarkdownString(welcomeText, true);
-			message.isTrusted = true;
-			*/
-
 			return [{
 				label: vscode.l10n.t('Positron Assistant'),
 				participant: ParticipantID.Chat,

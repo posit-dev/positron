@@ -20,7 +20,9 @@ export default defineConfig<ExtendedTestOptions>({
 	captureGitInfo: { commit: true, diff: true },
 	globalSetup: './test/e2e/tests/_global.setup.ts',
 	testDir: './test/e2e',
-	testIgnore: '**/example.test.ts',
+	testIgnore: [
+		'example.test.ts'
+	],
 	testMatch: '*.test.ts',
 	fullyParallel: false, // Run individual tests w/in a spec in parallel
 	forbidOnly: !!process.env.CI,
@@ -97,7 +99,7 @@ export default defineConfig<ExtendedTestOptions>({
 			grep: /@:win/,
 			grepInvert: /@:web-only/
 		},
-				{
+		{
 			name: 'e2e-macOS-ci',
 			use: {
 				web: false,
