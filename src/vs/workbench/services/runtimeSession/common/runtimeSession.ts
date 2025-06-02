@@ -26,6 +26,7 @@ import { IUpdateService } from '../../../../platform/update/common/update.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
+import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -165,6 +166,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IUpdateService private readonly _updateService: IUpdateService,
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService
 	) {
 
 		super();
@@ -1662,6 +1664,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			this._logService,
 			this._openerService,
 			this._configurationService,
+			this._environmentService,
 		);
 		this._activeSessionsBySessionId.set(session.sessionId, activeSession);
 		this._register(activeSession);
