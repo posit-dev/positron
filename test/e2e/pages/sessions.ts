@@ -372,13 +372,13 @@ export class Sessions {
 	 * @param options - Configuration options for selecting the runtime session.
 	 * @param options.language - the runtime language to select (e.g., "Python" or "R").
 	 * @param options.version - the specific version of runtime to select (e.g., "3.10.15").
-	 * @param options.triggerMode - the method used to trigger the selection: session-picker, quickaccess, hotkey, or console.
+	 * @param options.triggerMode - the method used to trigger the selection: session-picker, quickaccess, hotkey.
 	 * @param options.waitForReady - whether to wait for the console to be ready after selecting the runtime.
 	 */
 	async startAndSkipMetadata(options: {
 		language: 'Python' | 'R';
 		version?: string;
-		triggerMode?: 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
+		triggerMode?: 'session-picker' | 'quickaccess' | 'hotkey';
 		waitForReady?: boolean;
 	}): Promise<string> {
 
@@ -408,9 +408,6 @@ export class Sessions {
 				await this.quickaccess.runCommand(command, { keepOpen: true });
 			} else if (triggerMode === 'session-picker') {
 				await this.quickPick.openSessionQuickPickMenu();
-			} else if (triggerMode === 'console') {
-				await this.console.focus();
-				await this.console.newSessionButton.click();
 			} else {
 				await this.page.keyboard.press('Control+Shift+/');
 			}
@@ -1047,7 +1044,7 @@ export type QuickPickSessionInfo = {
 	path: string;
 };
 
-export type SessionTrigger = 'session-picker' | 'quickaccess' | 'console' | 'hotkey';
+export type SessionTrigger = 'session-picker' | 'quickaccess' | 'hotkey';
 
 export type SessionInfo = {
 	name: string;
@@ -1143,7 +1140,7 @@ const rSessionHidden: SessionInfo = {
 	waitForReady: true
 };
 
-type SessionRuntimes = 'python' | 'pythonAlt' | 'pythonHidden' | 'pythonReticulate' | 'r' | 'rAlt' | 'rHidden';
+export type SessionRuntimes = 'python' | 'pythonAlt' | 'pythonHidden' | 'pythonReticulate' | 'r' | 'rAlt' | 'rHidden';
 
 export const availableRuntimes: { [key: string]: SessionInfo } = {
 	r: { ...rSession },

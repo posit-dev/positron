@@ -74,14 +74,18 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 			if (!missing.has(ext.fullName)) { continue; }
 
 			const installedVersion = installed.get(ext.shortName);
-			if (installedVersion === ext.version) {
+			if (!installedVersion) {
+				console.log(`❌ ${ext.fullName} not yet installed`);
+			} else if (installedVersion !== ext.version) {
+				console.log(`⚠️ ${ext.fullName} installed with version ${installedVersion}, expected ${ext.version}`);
+			} else {
 				console.log(`✅ ${ext.fullName} (${ext.version}) found and matches`);
 				missing.delete(ext.fullName);
 			}
 		}
 
 		if (missing.size > 0) {
-			console.log(`⏳ Waiting on: ${Array.from(missing).join(', ')}`);
+			console.log(`⏳ Still waiting on: ${Array.from(missing).join(', ')}`);
 			await sleep(1000);
 		}
 	}
