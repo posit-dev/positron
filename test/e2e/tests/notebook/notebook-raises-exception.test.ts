@@ -23,8 +23,9 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
 		});
 
-		test('Python - Execution stops at exception without raises-exception tag', async function ({ app, page }) {
+		test('Python - Execution stops at exception without raises-exception tag', async function ({ app, page, hotKeys }) {
 			// Cell 1: Normal execution
+			await hotKeys.scrollToTop();
 			await app.workbench.notebooks.addCodeToCellAtIndex('print("Cell 1 executed")');
 
 			// Cell 2: Exception without tag (should stop execution)
@@ -47,8 +48,9 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 			await expect(cell3Output).not.toBeVisible();
 		});
 
-		test('Python - Execution continues after exception with raises-exception tag', async function ({ app, page }) {
+		test('Python - Execution continues after exception with raises-exception tag', async function ({ app, page, hotKeys }) {
 			// Cell 1: Normal execution
+			await hotKeys.scrollToTop();
 			await app.workbench.notebooks.addCodeToCellAtIndex('print("Cell 1 executed")');
 
 			// Cell 2: Exception with raises-exception tag

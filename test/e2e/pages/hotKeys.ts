@@ -71,6 +71,16 @@ export class HotKeys {
 		await this.pressHotKeys(`Cmd+K Cmd+W`);
 	}
 
+	public async scrollToTop() {
+		const platform = process.platform;
+
+		if (platform === 'win32' || platform === 'linux') {
+			await this.code.driver.page.keyboard.press('Home');
+		} else {
+			await this.pressHotKeys(`Cmd+ArrowUp`);
+		}
+	}
+
 	// --- Console & Visuals ---
 	public async visualMode() {
 		await this.pressHotKeys(`Cmd+Shift+F4`);
