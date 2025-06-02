@@ -77,7 +77,7 @@ div.chat-welcome-view {
 		/* Begin Positron */
 		/* Center aligned text is pretty hard to read and positrons welcome
 		message is fairly long. */
-		text-align:initial;
+		text-align: start;
 		/* End Positron */
 		max-width: 350px;
 		padding: 0 20px;
