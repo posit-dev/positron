@@ -1246,8 +1246,9 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 				// When connected to a remote environment, use the path directly.
 				session.setWorkingDirectory(resource.path);
 			} else {
-				// When not connected to a remote environment, use the local file system.
-				session.setWorkingDirectory(resource.fsPath);
+				// When not connected to a remote environment, use the local
+				// filesystem path if it exists.
+				session.setWorkingDirectory(resource.fsPath ?? resource.path);
 			}
 		} catch (e) {
 			notificationService.error(e);
