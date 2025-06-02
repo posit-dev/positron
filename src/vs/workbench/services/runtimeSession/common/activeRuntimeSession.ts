@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -10,6 +10,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
 import { RuntimeClientState } from '../../languageRuntime/common/languageRuntimeClientInstance.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { IUiClientMessageInput, IUiClientMessageOutput, UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
@@ -53,6 +54,7 @@ export class ActiveRuntimeSession extends Disposable {
 		private readonly _logService: ILogService,
 		private readonly _openerService: IOpenerService,
 		private readonly _configurationService: IConfigurationService,
+		private readonly _environmentService: IWorkbenchEnvironmentService
 	) {
 		super();
 
@@ -133,7 +135,9 @@ export class ActiveRuntimeSession extends Disposable {
 			(RuntimeClientType.Ui, {});
 
 		// Create the UI client instance wrapping the client instance.
-		const uiClient = new UiClientInstance(client, this._commandService, this._logService, this._openerService, this._configurationService);
+		const uiClient = new UiClientInstance(client, this._commandService, this._logService, this._openerService, this._configurationService,
+			this._environmentService
+		);
 		this._uiClient = uiClient;
 		this._register(this._uiClient);
 

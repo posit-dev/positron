@@ -15,6 +15,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { PlotRenderSettings } from '../../positronPlots/common/positronPlots.js';
+import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
 
 export const POSITRON_PREVIEW_PLOTS_IN_VIEWER = 'positron.viewer.interactivePlotsInViewer';
 
@@ -107,6 +108,7 @@ export class UiClientInstance extends Disposable {
 		private readonly _logService: ILogService,
 		private readonly _openerService: IOpenerService,
 		private readonly _configurationService: IConfigurationService,
+		private readonly _environmentService: IWorkbenchEnvironmentService,
 	) {
 		super();
 		this._register(this._client);
@@ -147,7 +149,10 @@ export class UiClientInstance extends Disposable {
 
 				// Resolve the URI if it is an external URI
 				try {
-					const resolvedUri = await this._openerService.resolveExternalUri(uri);
+					const allowTunneling = !!this._environmentService.remoteAuthority;
+					const resolvedUri = await this._openerService.resolveExternalUri(uri, {
+						allowTunneling,
+					});
 					uri = resolvedUri.resolved;
 				} catch {
 					// Noop; use the original URI
@@ -248,7 +253,10 @@ export class UiClientInstance extends Disposable {
 
 		let uri = URI.parse(url);
 		try {
-			const resolvedUri = await this._openerService.resolveExternalUri(uri);
+			const allowTunneling = !!this._environmentService.remoteAuthority;
+			const resolvedUri = await this._openerService.resolveExternalUri(uri, {
+				allowTunneling,
+			});
 			uri = resolvedUri.resolved;
 		} catch {
 			// Noop; use the original URI
@@ -283,6 +291,6 @@ export class UiClientInstance extends Disposable {
 	 *
 	 */
 	public async didChangePlotsRenderSettings(settings: PlotRenderSettings): Promise<void> {
-			await this._comm.didChangePlotsRenderSettings(settings);
+		await this._comm.didChangePlotsRenderSettings(settings);
 	}
 }
