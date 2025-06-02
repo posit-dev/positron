@@ -14,8 +14,8 @@ import { isChatImageMimeType, isTextEditRequest, toLanguageModelChatMessage } fr
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './tools.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
-import { StringReplaceProcessor } from './stringReplaceProcessor.js';
-import { EditSelectionProcessor } from './editSelectionProcessor.js';
+import { ReplaceStringProcessor } from './replaceStringProcessor.js';
+import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -470,6 +470,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			if (chunk instanceof vscode.LanguageModelTextPart) {
 				textResponses.push(chunk);
 
+				console.log(chunk.value);
 				if (textProcessor) {
 					// If there is a text processor, let it process the chunk
 					// and write to the chat response stream.
@@ -535,25 +536,29 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			return undefined;
 		}
 
-		// If the selection is empty, watch for string replacement tags.
+		// If the selection is empty, stream string replacements to the document.
 		if (request.location2.selection.isEmpty) {
-			const stringReplaceProcessor = new StringReplaceProcessor(request.location2.document, response);
+			const replaceStringProcessor = new ReplaceStringProcessor(request.location2.document, response);
 			return new StreamingTagLexer({
-				tagNames: [
-					...StringReplaceProcessor.TagNames,
-				],
+				tagNames: ReplaceStringProcessor.TagNames,
 				contentHandler(chunk) {
-					stringReplaceProcessor.process(chunk);
+					replaceStringProcessor.process(chunk);
 				},
 			});
 		}
 
 		// If the selection is not empty, stream edits to the selection.
-		return new EditSelectionProcessor(
+		const replaceSelectionProcessor = new ReplaceSelectionProcessor(
 			request.location2.document.uri,
 			request.location2.selection,
 			response,
 		);
+		return new StreamingTagLexer({
+			tagNames: ReplaceSelectionProcessor.TagNames,
+			contentHandler(chunk) {
+				replaceSelectionProcessor.process(chunk);
+			}
+		});
 	}
 
 	dispose(): void { }
