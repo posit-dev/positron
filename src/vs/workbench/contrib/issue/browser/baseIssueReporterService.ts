@@ -90,7 +90,14 @@ export class BaseIssueReporterService extends Disposable {
 			...data,
 			issueType: data.issueType || IssueType.Bug,
 			versionInfo: {
-				vscodeVersion: `${product.nameShort} ${!!product.darwinUniversalAssetId ? `${product.version} (Universal)` : product.version} (${product.commit || 'Commit unknown'}, ${product.date || 'Date unknown'})`,
+				// --- Start Positron ---
+				positronVersion: `${product.nameShort} ${product.positronVersion}+${product.positronBuildNumber}`
+					+ `${!!product.darwinUniversalAssetId ? ' (Universal)' : ''}`
+					+ ` (${product.commit || 'Commit unknown'}, ${product.date || 'Date unknown'})`,
+				// Simplified the VS Code version string to just the version number, since the other version info is for Positron
+				// vscodeVersion: `${product.nameShort} ${!!product.darwinUniversalAssetId ? `${product.version} (Universal)` : product.version} (${product.commit || 'Commit unknown'}, ${product.date || 'Date unknown'})`,
+				vscodeVersion: `VS Code ${product.version}`,
+				// --- End Positron ---
 				os: `${this.os.type} ${this.os.arch} ${this.os.release}${isLinuxSnap ? ' snap' : ''}`
 			},
 			extensionsDisabled: !!this.disableExtensions,
@@ -445,7 +452,11 @@ export class BaseIssueReporterService extends Disposable {
 
 			const descriptionTextArea = <HTMLInputElement>this.getElementById('issue-title');
 			if (value === IssueSource.VSCode) {
-				descriptionTextArea.placeholder = localize('vscodePlaceholder', "E.g Workbench is missing problems panel");
+				// --- Start Positron ---
+				// Used a different placeholder for Positron to avoid confusion with the word "Workbench"
+				// descriptionTextArea.placeholder = localize('vscodePlaceholder', "E.g Workbench is missing problems panel");
+				descriptionTextArea.placeholder = localize('positronPlaceholder', "E.g Error occurred when <action>...");
+				// --- End Positron ---
 			} else if (value === IssueSource.Extension) {
 				descriptionTextArea.placeholder = localize('extensionPlaceholder', "E.g. Missing alt text on extension readme image");
 			} else if (value === IssueSource.Marketplace) {
