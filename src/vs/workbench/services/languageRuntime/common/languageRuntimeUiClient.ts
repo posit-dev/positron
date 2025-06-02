@@ -149,7 +149,10 @@ export class UiClientInstance extends Disposable {
 
 				// Resolve the URI if it is an external URI
 				try {
-					const resolvedUri = await this._openerService.resolveExternalUri(uri);
+					const allowTunneling = !!this._environmentService.remoteAuthority;
+					const resolvedUri = await this._openerService.resolveExternalUri(uri, {
+						allowTunneling,
+					});
 					uri = resolvedUri.resolved;
 				} catch {
 					// Noop; use the original URI
