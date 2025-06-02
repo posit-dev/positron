@@ -1825,14 +1825,14 @@
         ],
         "languageModelTools": [
             {
-                "name": "getAttachedPackages",
+                "name": "getAttachedPythonPackages",
                 "displayName": "Get attached Python packages",
                 "modelDescription": "Gets a list of Python packages that are loaded in the current Python sessions.",
                 "canBeReferencedInPrompt": false,
                 "tags": ["positron-assistant"]
             },
             {
-                "name": "getInstalledPackageVersion",
+                "name": "getInstalledPythonPackageVersion",
                 "displayName": "Get installed Python package version",
                 "modelDescription": "Given the name of a Python packages, returns the version of the package that's installed in the current Python session, or NULL if the package is not installed.",
                 "canBeReferencedInPrompt": false,

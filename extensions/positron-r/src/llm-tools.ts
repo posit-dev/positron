@@ -12,7 +12,7 @@ import { RSessionManager } from './session-manager.js';
  * @param context The extension context for registering disposables
  */
 export function registerRLanguageModelTools(context: vscode.ExtensionContext): void {
-	const rLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedPackages', {
+	const rLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedRPackages', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
 			const session = manager.getConsoleSession();
@@ -34,7 +34,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	});
 	context.subscriptions.push(rLoadedPackagesTool);
 
-	const rPackageVersionTool = vscode.lm.registerTool<{ packageName: string }>('getInstalledPackageVersion', {
+	const rPackageVersionTool = vscode.lm.registerTool<{ packageName: string }>('getInstalledRPackageVersion', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
 			const session = manager.getConsoleSession();

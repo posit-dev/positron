@@ -10,7 +10,7 @@ import { traceInfo } from '../client/logging';
 import { IPythonExecutionFactory } from '../client/common/process/types';
 
 export function registerPythonLanguageModelTools(context: vscode.ExtensionContext, serviceContainer: IServiceContainer): void {
-    const pythonLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedPackages', {
+    const pythonLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedPythonPackages', {
         invoke: async (_options, _token) => {
             const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
             const activeInterpreter = await interpreterService.getActiveInterpreter();
@@ -62,7 +62,7 @@ print(json.dumps(installed_packages))
     });
     context.subscriptions.push(pythonLoadedPackagesTool);
 
-    const pythonPackageVersionTool = vscode.lm.registerTool<{ packageName: string }>('getInstalledPackageVersion', {
+    const pythonPackageVersionTool = vscode.lm.registerTool<{ packageName: string }>('getInstalledPythonPackageVersion', {
         invoke: async (options, _token) => {
             const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
             const activeInterpreter = await interpreterService.getActiveInterpreter();
