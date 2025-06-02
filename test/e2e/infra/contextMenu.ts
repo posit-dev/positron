@@ -8,12 +8,15 @@ import test, { Locator } from '@playwright/test';
 
 export class ContextMenu {
 	private page = this.code.driver.page;
+	private isNativeMenu: boolean;
 
 	constructor(
 		private code: Code,
 		private projectName: string,
 		private platform: string,
-	) { }
+	) {
+		this.isNativeMenu = this.platform === 'darwin' && !this.projectName.includes('browser');
+	}
 
 	/**
 	 * Action: Triggers a context menu and clicks a specified menu item.
@@ -24,7 +27,7 @@ export class ContextMenu {
 	 */
 	async triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
-			if (this.platform === 'darwin') {
+			if (this.isNativeMenu) {
 				await this._triggerAndClick({ menuTrigger, menuItemLabel });
 			}
 			else {
@@ -45,7 +48,14 @@ export class ContextMenu {
 	 */
 	async getMenuItems(menuTrigger: Locator): Promise<string[]> {
 		return await test.step(`Get context menu items`, async () => {
-			if (this.projectName.includes('browser')) {
+			if (this.isNativeMenu) {
+				const menuItems = await this.showContextMenu(() => menuTrigger.click());
+				if (!menuItems) {
+					throw new Error('Context menu did not appear or no menu items found.');
+				}
+				await this.closeContextMenu();
+				return menuItems.items;
+			} else {
 				await menuTrigger.click();
 				const menuItems = this.page.getByRole('menuitem');
 				const count = await menuItems.count();
@@ -60,13 +70,6 @@ export class ContextMenu {
 				}
 				await this.closeContextMenu();
 				return labels;
-			} else {
-				const menuItems = await this.showContextMenu(() => menuTrigger.click());
-				if (!menuItems) {
-					throw new Error('Context menu did not appear or no menu items found.');
-				}
-				await this.closeContextMenu();
-				return menuItems.items;
 			}
 		});
 	}
@@ -77,12 +80,12 @@ export class ContextMenu {
 	 * @returns Promise that resolves when the context menu is closed
 	 */
 	async closeContextMenu(): Promise<void> {
-		if (this.projectName.includes('browser')) {
-			await this.page.keyboard.press('Escape');
-		} else {
+		if (this.isNativeMenu) {
 			await this.code.electronApp?.evaluate(({ app }) => {
 				app.emit('e2e:contextMenuClose');
 			});
+		} else {
+			await this.page.keyboard.press('Escape');
 		}
 	}
 
@@ -96,7 +99,7 @@ export class ContextMenu {
 	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: string[] } | undefined> {
 		try {
 			if (!this.code.electronApp) {
-				throw new Error('Electron app is not available before attempting to trigger context menu.');
+				throw new Error(`Electron app is not available. Platform: ${this.platform}, Project: ${this.projectName}`);
 			}
 
 			const shownPromise: Promise<[number, string[]]> | undefined = this.code.electronApp.evaluate(({ app }) => {
