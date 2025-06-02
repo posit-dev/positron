@@ -22,6 +22,7 @@ before executing this test locally.
 */
 
 import { test, tags, expect } from '../_test.setup';
+import { TestInfo } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -34,7 +35,18 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		await app.workbench.positConnect.deleteUserContent();
 	});
 	*/
+	test.beforeAll('Check Dogfoods API status', async function ({ app }, testInfo: TestInfo) {
+		try {
+			await app.workbench.positConnect.getUser();
+		} catch {
+			testInfo.annotations.push({ type: 'skip', description: 'Skipping due to env var' });
+			test.skip();
+		}
+	});
+
 	test('Verify Publisher functionality in Positron with Shiny app deployment as example', async function ({ app, page, openFile }) {
+
+
 		await test.step('Open file', async () => {
 			await openFile('workspaces/shiny-py-example/app.py');
 		});
@@ -49,9 +61,12 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await page.keyboard.press('Enter');
 		});
 
+		// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
 		await test.step('Enter Connect server and API key', async () => {
 			await app.workbench.quickInput.type(process.env.E2E_CONNECT_SERVER!);
 			await page.keyboard.press('Enter');
+			const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
+			await expect(apiKeyInputLocator).toBeVisible();
 			await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
 			await page.keyboard.press('Enter');
 		});

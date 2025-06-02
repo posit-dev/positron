@@ -16,7 +16,7 @@ export class PositConnect {
 		}
 		const connectApiUrl = `${process.env.E2E_CONNECT_SERVER}__api__/v1/`;
 		const headers = { 'Authorization': `Key ${process.env.E2E_CONNECT_APIKEY}` };
-		const userGuid = (await (await fetch(connectApiUrl + 'user', { headers: headers })).json()).guid;
+		const userGuid = await this.getUser();
 
 		const appInfo = await (await fetch(connectApiUrl + `content?owner_guid=${userGuid}`, { headers: headers })).json();
 
@@ -32,6 +32,16 @@ export class PositConnect {
 				throw new Error(`Failed to delete content with GUID: ${guid}`);
 			}
 		}
+	}
+
+	async getUser(): Promise<string> {
+		if (!process.env.E2E_CONNECT_SERVER || !process.env.E2E_CONNECT_APIKEY) {
+			throw new Error('Missing E2E_CONNECT_SERVER or E2E_CONNECT_APIKEY env vars.');
+		}
+		const connectApiUrl = `${process.env.E2E_CONNECT_SERVER}__api__/v1/`;
+		const headers = { 'Authorization': `Key ${process.env.E2E_CONNECT_APIKEY}` };
+		const userGuid = (await (await fetch(connectApiUrl + 'user', { headers: headers })).json()).guid;
+		return userGuid;
 	}
 
 	// To prevent flakiness, this function always add the file name after app.py, which is guaranteed to be present
