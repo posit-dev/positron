@@ -1,9 +1,9 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { availableRuntimes, WizardButton } from '../../infra';
+import { availableRuntimes, FlowButton } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
 
 const pythonRuntime = availableRuntimes['python'];
@@ -59,15 +59,15 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		});
 
 		test('Verify clicking on `new folder` from the Welcome page opens wizard', { tag: [tags.MODAL] }, async function ({ app }) {
-			const { welcome, popups, newProjectWizard } = app.workbench;
+			const { welcome, popups, newFolderFlow } = app.workbench;
 
 			await welcome.newFolderButton.click();
 			await popups.popupCurrentlyOpen();
 			await popups.waitForModalDialogBox();
 
-			// confirm New Project dialog box is open
+			// confirm New Folder Flow dialog box is open
 			await popups.waitForModalDialogTitle('New Folder');
-			await newProjectWizard.clickWizardButton(WizardButton.CANCEL);
+			await newFolderFlow.clickFlowButton(FlowButton.CANCEL);
 		});
 	});
 

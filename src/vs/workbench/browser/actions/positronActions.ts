@@ -17,36 +17,35 @@ import { Action2, MenuId, registerAction2 } from '../../../platform/actions/comm
 import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { EnterMultiRootWorkspaceSupportContext } from '../../common/contextkeys.js';
 import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
-import { showNewFolderModalDialog } from '../positronModalDialogs/newFolderModalDialog.js';
 import { showNewFolderFromGitModalDialog } from '../positronModalDialogs/newFolderFromGitModalDialog.js';
-import { showNewProjectModalDialog } from '../positronNewProjectWizard/newProjectModalDialog.js';
+import { showNewFolderFlowModalDialog } from '../positronNewFolderFlow/newFolderFlowModalDialog.js';
 import { ILanguageRuntimeService } from '../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
 import { ILogService } from '../../../platform/log/common/log.js';
 import { IOpenerService } from '../../../platform/opener/common/opener.js';
-import { IPositronNewProjectService } from '../../services/positronNewProject/common/positronNewProject.js';
+import { IPositronNewFolderService } from '../../services/positronNewFolder/common/positronNewFolder.js';
 import { IWorkspaceTrustManagementService } from '../../../platform/workspace/common/workspaceTrust.js';
 import { ILabelService } from '../../../platform/label/common/label.js';
 
 /**
- * The PositronNewFolderAction.
+ * The PositronNewFolderFromTemplateAction.
  */
-export class PositronNewFolderAction extends Action2 {
+export class PositronNewFolderFromTemplateAction extends Action2 {
 	/**
 	 * The action ID.
 	 */
-	static readonly ID = 'positron.workbench.action.newFolder';
+	static readonly ID = 'positron.workbench.action.newFolderFromTemplate';
 
 	/**
 	 * Constructor.
 	 */
 	constructor() {
 		super({
-			id: PositronNewFolderAction.ID,
+			id: PositronNewFolderFromTemplateAction.ID,
 			title: {
-				value: localize('positronNewFolder', "New Folder..."),
-				original: 'New Folder...'
+				value: localize('positronNewFolderFromTemplate', "New Folder from Template..."),
+				original: 'New Folder from Template...'
 			},
 			category: workspacesCategory,
 			f1: true,
@@ -67,8 +66,8 @@ export class PositronNewFolderAction extends Action2 {
 		// TODO: see if we can pass in the result of ContextKeyExpr.deserialize('!config.git.enabled || git.missing')
 		// to the dialog so we can show a warning next to the git init checkbox if git is not configured.
 
-		// Show the new project modal dialog.
-		await showNewProjectModalDialog(
+		// Show the new folder flow modal dialog.
+		await showNewFolderFlowModalDialog(
 			accessor.get(ICommandService),
 			accessor.get(IConfigurationService),
 			accessor.get(IFileDialogService),
@@ -80,7 +79,7 @@ export class PositronNewFolderAction extends Action2 {
 			accessor.get(ILogService),
 			accessor.get(IOpenerService),
 			accessor.get(IPathService),
-			accessor.get(IPositronNewProjectService),
+			accessor.get(IPositronNewFolderService),
 			accessor.get(IRuntimeSessionService),
 			accessor.get(IRuntimeStartupService),
 			accessor.get(IWorkspaceTrustManagementService),
@@ -88,53 +87,6 @@ export class PositronNewFolderAction extends Action2 {
 	}
 }
 
-/**
- * The PositronNewEmptyFolderAction.
- */
-export class PositronNewEmptyFolderAction extends Action2 {
-	/**
-	 * The action ID.
-	 */
-	static readonly ID = 'positron.workbench.action.newEmptyFolder';
-
-	/**
-	 * Constructor.
-	 */
-	constructor() {
-		super({
-			id: PositronNewEmptyFolderAction.ID,
-			title: {
-				value: localize('positronNewEmptyFolder', "New Empty Folder..."),
-				original: 'New Empty Folder...'
-			},
-			category: workspacesCategory,
-			f1: true,
-			precondition: EnterMultiRootWorkspaceSupportContext,
-			menu: {
-				id: MenuId.MenubarFileMenu,
-				group: '1_newfolder',
-				order: 4,
-			}
-		});
-	}
-
-	/**
-	 * Runs action.
-	 * @param accessor The services accessor.
-	 */
-	override async run(accessor: ServicesAccessor): Promise<void> {
-		// Show the new folder modal dialog.
-		await showNewFolderModalDialog(
-			accessor.get(ICommandService),
-			accessor.get(IFileDialogService),
-			accessor.get(IFileService),
-			accessor.get(IKeybindingService),
-			accessor.get(ILabelService),
-			accessor.get(IWorkbenchLayoutService),
-			accessor.get(IPathService),
-		);
-	}
-}
 
 /**
  * The PositronNewFolderFromGitAction.
@@ -228,7 +180,6 @@ export class PositronOpenFolderInNewWindowAction extends Action2 {
 }
 
 // Register the actions defined above.
-registerAction2(PositronNewFolderAction);
-registerAction2(PositronNewEmptyFolderAction);
+registerAction2(PositronNewFolderFromTemplateAction);
 registerAction2(PositronNewFolderFromGitAction);
 registerAction2(PositronOpenFolderInNewWindowAction);

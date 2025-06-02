@@ -23,9 +23,9 @@ import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreati
 import { traceInfo, traceVerbose } from '../logging';
 
 /**
- * A simplified version of an environment provider that can be used in the Positron Project Wizard
+ * A simplified version of an environment provider that can be used in the Positron New Folder Flow
  */
-interface WizardEnvironmentProviders {
+interface FlowEnvironmentProviders {
     id: string;
     name: string;
     description: string;
@@ -37,19 +37,18 @@ interface WizardEnvironmentProviders {
 type CreateEnvironmentAndRegisterResult = CreateEnvironmentResult & { metadata?: positron.LanguageRuntimeMetadata };
 
 /**
- * Get the list of providers that can be used in the Positron Project Wizard
+ * Get the list of providers that can be used in the Positron New Folder Flow
  * @param providers The available environment creation providers
- * @returns A list of providers that can be used in the Positron Project Wizard
+ * @returns A list of providers that can be used in the Positron New Folder Flow
  */
 export async function getCreateEnvironmentProviders(
     providers: readonly CreateEnvironmentProvider[],
-): Promise<WizardEnvironmentProviders[]> {
-    const providersForWizard = providers.map((provider) => ({
+): Promise<FlowEnvironmentProviders[]> {
+    return providers.map((provider) => ({
         id: provider.id,
         name: provider.name,
         description: provider.description,
     }));
-    return providersForWizard;
 }
 
 /**

@@ -18,7 +18,7 @@ export * from '../pages/dataExplorer';
 export * from '../pages/sideBar';
 export * from '../pages/plots';
 export * from '../pages/notebooks';
-export * from '../pages/newProjectWizard';
+export * from '../pages/newFolderFlow';
 export * from '../pages/connections';
 export * from '../pages/help';
 export * from '../pages/output';

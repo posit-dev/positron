@@ -27,7 +27,7 @@ import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from '../../../../
 import { CustomFolderMenuItem } from './customFolderMenuItem.js';
 import { CustomFolderMenuSeparator } from './customFolderMenuSeparator.js';
 import { CustomFolderRecentlyUsedMenuItem } from './customFolderRecentlyUsedMenuItem.js';
-import { PositronNewEmptyFolderAction, PositronNewFolderAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from '../../../actions/positronActions.js';
+import { PositronNewFolderFromTemplateAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from '../../../actions/positronActions.js';
 
 /**
  * Constants.
@@ -152,8 +152,7 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 	// Render.
 	return (
 		<div className='custom-folder-menu-items'>
-			<CommandActionCustomFolderMenuItem id={PositronNewFolderAction.ID} />
-			<CommandActionCustomFolderMenuItem id={PositronNewEmptyFolderAction.ID} />
+			<CommandActionCustomFolderMenuItem id={PositronNewFolderFromTemplateAction.ID} />
 			<CommandActionCustomFolderMenuItem id={PositronNewFolderFromGitAction.ID} />
 			<CustomFolderMenuSeparator />
 			<CommandActionCustomFolderMenuItem

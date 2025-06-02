@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -81,7 +81,7 @@ export class Popups {
 
 	/**
 	 * Interacts with the Renv install modal dialog box. This dialog box appears when a user opts to
-	 * use Renv in the Project Wizard and creates a new project, but Renv is not installed.
+	 * use Renv in the New Folder Flow and creates a new folder, but Renv is not installed.
 	 * @param action The action to take on the modal dialog box. Either 'install' or 'cancel'.
 	 */
 	async installRenvModal(action: 'install' | 'cancel') {

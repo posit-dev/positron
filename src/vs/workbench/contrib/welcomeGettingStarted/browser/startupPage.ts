@@ -31,7 +31,7 @@ import { TerminalCommandId } from '../../terminal/common/terminal.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
 // --- Start Positron ---
-import { IPositronNewProjectService } from '../../../services/positronNewProject/common/positronNewProject.js';
+import { IPositronNewFolderService } from '../../../services/positronNewFolder/common/positronNewFolder.js';
 // --- End Positron ---
 
 export const restoreWalkthroughsConfigurationKey = 'workbench.welcomePage.restorableWalkthroughs';
@@ -98,7 +98,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		@ILogService private readonly logService: ILogService,
 		@INotificationService private readonly notificationService: INotificationService,
 		// --- Start Positron ---
-		@IPositronNewProjectService private readonly positronNewProjectService: IPositronNewProjectService,
+		@IPositronNewFolderService private readonly positronNewFolderService: IPositronNewFolderService,
 		// --- End Positron ---
 	) {
 		super();
@@ -132,7 +132,7 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 		}
 
 		// --- Start Positron ---
-		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService, this.logService, this.positronNewProjectService);
+		const enabled = isStartupPageEnabled(this.configurationService, this.contextService, this.environmentService, this.logService, this.positronNewFolderService);
 		// --- End Positron ---
 		if (enabled && this.lifecycleService.startupKind !== StartupKind.ReloadedWindow) {
 			const hasBackups = await this.workingCopyBackupService.hasBackups();
@@ -222,14 +222,14 @@ export class StartupPageRunnerContribution extends Disposable implements IWorkbe
 }
 
 // --- Start Positron ---
-function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService, logService: ILogService, positronNewProjectService: IPositronNewProjectService) {
+function isStartupPageEnabled(configurationService: IConfigurationService, contextService: IWorkspaceContextService, environmentService: IWorkbenchEnvironmentService, logService: ILogService, positronNewFolderService: IPositronNewFolderService) {
 	// --- End Positron ---
 	if (environmentService.skipWelcome) {
 		return false;
 	}
 
 	// --- Start Positron ---
-	if (positronNewProjectService.isCurrentWindowNewProject()) {
+	if (positronNewFolderService.isCurrentWindowNewFolder()) {
 		return false;
 	}
 	// --- End Positron ---
