@@ -166,7 +166,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	// This fixture provides a way interact with context menu items for both Electron and web apps. :tada:
 	contextMenu: [async ({ app }, use, testInfo) => {
-		const contextMenu = new ContextMenu(app.code, testInfo.project.name);
+		const contextMenu = new ContextMenu(app.code, testInfo.project.name, process.platform);
 		await use(contextMenu);
 	},
 	{ scope: 'test' }],

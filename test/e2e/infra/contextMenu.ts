@@ -12,6 +12,7 @@ export class ContextMenu {
 	constructor(
 		private code: Code,
 		private projectName: string,
+		private platform: string,
 	) { }
 
 	/**
@@ -23,7 +24,7 @@ export class ContextMenu {
 	 */
 	async triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
-			if (!this.projectName.includes('browser')) {
+			if (this.platform === 'darwin') {
 				await this._triggerAndClick({ menuTrigger, menuItemLabel });
 			}
 			else {
