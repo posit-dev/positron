@@ -75,7 +75,7 @@ div.chat-welcome-view {
 	& > .chat-welcome-view-message {
 		text-align: center;
 		/* Begin Positron */
-		/* Center aligned text is pretty hard to read and positrons welcome
+		/* Center aligned text is pretty hard to read and Positron’s welcome
 		message is fairly long. */
 		text-align: start;
 		/* End Positron */
