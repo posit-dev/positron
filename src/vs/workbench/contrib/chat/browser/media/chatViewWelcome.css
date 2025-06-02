@@ -19,6 +19,11 @@
 	align-items: center;
 	justify-content: center;
 	overflow: hidden;
+	/* Begin Positron */
+	/* Immediately override the overflow: hidden so we can get scrollable
+	content on small screens */
+	overflow: auto;
+	/* End Positron */
 }
 
 /* Container for ChatViewPane welcome view */
@@ -31,6 +36,14 @@
 }
 
 div.chat-welcome-view {
+	/* Begin Positron */
+	/* Because the content is flex-centered, we need the content to have auto
+	margins to avoid not being able to see the top of the content. See
+	https://www.w3.org/TR/css-flexbox-1/#auto-margins  and
+	https://css-tricks.com/the-peculiar-magic-of-flexbox-and-auto-margins/ for
+	more info. */
+	margin: auto;
+	/* End Positron */
 	display: flex;
 	flex-direction: column;
 	align-items: center;
@@ -61,6 +74,11 @@ div.chat-welcome-view {
 
 	& > .chat-welcome-view-message {
 		text-align: center;
+		/* Begin Positron */
+		/* Center aligned text is pretty hard to read and positrons welcome
+		message is fairly long. */
+		text-align:initial;
+		/* End Positron */
 		max-width: 350px;
 		padding: 0 20px;
 		margin-top: 10px;
