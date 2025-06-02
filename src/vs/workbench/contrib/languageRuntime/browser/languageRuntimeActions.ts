@@ -28,6 +28,7 @@ import { Codicon } from '../../../../base/common/codicons.js';
 import { localize } from '../../../../nls.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { PositronConsoleInstancesExistContext, PositronConsoleTabFocused } from '../../../common/contextkeys.js';
+import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 
 // The category for language runtime actions.
 const category: ILocalizedString = { value: LANGUAGE_RUNTIME_ACTION_CATEGORY, original: 'Interpreter' };
@@ -1206,6 +1207,7 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 	async run(accessor: ServicesAccessor, resource?: URI) {
 		const sessionService = accessor.get(IRuntimeSessionService);
 		const notificationService = accessor.get(INotificationService);
+		const environmentService = accessor.get(IWorkbenchEnvironmentService);
 		const session = sessionService.foregroundSession;
 		// If there's no active session, do nothing.
 		if (!session) {
@@ -1240,7 +1242,13 @@ registerAction2(class SetWorkingDirectoryCommand extends Action2 {
 
 		// Attempt to set the working directory to the selected folder.
 		try {
-			session.setWorkingDirectory(resource.fsPath);
+			if (environmentService.remoteAuthority) {
+				// When connected to a remote environment, use the path directly.
+				session.setWorkingDirectory(resource.path);
+			} else {
+				// When not connected to a remote environment, use the local file system.
+				session.setWorkingDirectory(resource.fsPath);
+			}
 		} catch (e) {
 			notificationService.error(e);
 		}
