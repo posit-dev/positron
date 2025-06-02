@@ -35,15 +35,29 @@ export function registerContextMenuListener(): void {
 			}));
 		}
 		// TODO: Make this only execute during an e2e run.
-		const listener: any = (contextMenuId: number, label: string) => {
+		const selectListener: any = (contextMenuId: number, label: string) => {
 			const item = contextMenus.get(contextMenuId)?.items.find(item => item.label === label);
 			if (item) {
 				item.click();
 				menu.closePopup();
 			}
-			app.removeListener('e2e:contextMenuSelect' as any, listener);
+			app.removeListener('e2e:contextMenuSelect' as any, selectListener);
 		};
-		app.on('e2e:contextMenuSelect' as any, listener);
+		app.on('e2e:contextMenuSelect' as any, selectListener);
+
+		// Close all context menus when e2e:contextMenuClose is emitted
+		const closeListener = () => {
+			for (const menu of contextMenus.values()) {
+				try {
+					menu.closePopup();
+				} catch (e) {
+					console.warn('Failed to close menu:', e);
+				}
+			}
+			contextMenus.clear();
+			app.removeListener('e2e:contextMenuClose' as any, closeListener);
+		};
+		app.on('e2e:contextMenuClose' as any, closeListener);
 
 		menu.on('menu-will-show', () => {
 			contextMenus.set(contextMenuId, menu);
