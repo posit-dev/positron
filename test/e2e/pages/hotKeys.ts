@@ -71,6 +71,14 @@ export class HotKeys {
 		await this.pressHotKeys(`Cmd+K Cmd+W`);
 	}
 
+	public async scrollToTop() {
+		await this.pressHotKeys(`Cmd+ArrowUp`);
+	}
+
+	public async scrollToBottom() {
+		await this.pressHotKeys(`Cmd+ArrowDown`);
+	}
+
 	// --- Console & Visuals ---
 	public async visualMode() {
 		await this.pressHotKeys(`Cmd+Shift+F4`);
