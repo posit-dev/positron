@@ -72,11 +72,13 @@ export class HotKeys {
 	}
 
 	public async scrollToTop() {
-		await this.pressHotKeys(`Cmd+ArrowUp`);
-	}
+		const platform = process.platform;
 
-	public async scrollToBottom() {
-		await this.pressHotKeys(`Cmd+ArrowDown`);
+		if (platform === 'win32' || platform === 'linux') {
+			await this.code.driver.page.keyboard.press('Home');
+		} else {
+			await this.pressHotKeys(`Cmd+ArrowUp`);
+		}
 	}
 
 	// --- Console & Visuals ---
