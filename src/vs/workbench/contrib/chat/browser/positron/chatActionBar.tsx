@@ -12,18 +12,22 @@ import { LanguageModelIcon } from '../../../positronAssistant/browser/components
 import { localize } from '../../../../../nls.js';
 import { IPositronChatProvider } from '../../common/languageModels.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 
 interface ChatActionBarProps {
 	width: number;
 	onModelSelect: (newLanguageModel: IPositronChatProvider | undefined) => void;
 }
 
+const addModelProviderLabel = () => localize('positronChatSelector.addModelProvider', 'Add Model Provider...');
+const addModelProviderTooltip = () => localize('positronChatSelector.addModelProviderTooltip', 'Add a Language Model Provider');
+
 export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	const positronActionBarContext = usePositronActionBarContext();
 	const positronChatContext = usePositronChatContext();
 
 	const [providers, setProviders] = React.useState<IPositronChatProvider[] | undefined>(positronChatContext.providers)
-	const [selectorLabel, setSelectorLabel] = React.useState<string>((() => localize('positronChatSelector.unavailable', 'No providers available'))());
+	const [selectorLabel, setSelectorLabel] = React.useState<string>();
 
 	const actions = React.useCallback(() => {
 		const providerActions: IAction[] = [];
@@ -47,10 +51,10 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 
 		const otherActions = [{
 			id: 'add-model-provider',
-			label: (() => localize('positronChatSelector.addModelProvider', 'Add Model Provider...'))(),
+			label: addModelProviderLabel(),
 			enabled: true,
 			class: undefined,
-			tooltip: (() => localize('positronChatSelector.addModelProviderTooltip', 'Add a Language Model Provider'))(),
+			tooltip: addModelProviderTooltip(),
 			run: async () => {
 				await positronActionBarContext.commandService.executeCommand('positron-assistant.addModelConfiguration');
 			}
@@ -67,7 +71,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 		} else if (providers?.length === 1) {
 			setSelectorLabel(providers[0].displayName);
 		} else {
-			setSelectorLabel((() => localize('positronChatSelector.unavailable', 'No providers available'))());
+			setSelectorLabel(undefined);
 		}
 	}, [positronChatContext.currentProvider, providers]);
 
@@ -75,14 +79,29 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 		setProviders(positronChatContext.providers);
 	}, [positronChatContext.providers]);
 
+	const renderSelector = () => {
+		if (!selectorLabel) {
+			return <ActionBarButton
+				label={addModelProviderLabel()}
+				tooltip={addModelProviderTooltip()}
+				onPressed={async () => {
+					await positronActionBarContext.commandService.executeCommand('positron-assistant.addModelConfiguration');
+				}}
+			/>;
+		}
+		return <>
+			<LanguageModelIcon provider={positronChatContext.currentProvider?.id ?? ''} />
+			<ActionBarMenuButton
+				actions={actions}
+				label={selectorLabel}
+			/>
+		</>
+	};
+
 	return (
 		<div className='chat-action-bar'>
 			<PositronActionBar>
-				{<LanguageModelIcon provider={positronChatContext.currentProvider?.id ?? ''} />}
-				<ActionBarMenuButton
-					actions={actions}
-					label={selectorLabel}
-				/>
+				{renderSelector()}
 			</PositronActionBar>
 		</div>
 	);
