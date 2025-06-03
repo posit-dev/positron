@@ -45,8 +45,8 @@ export * from '../pages/hotKeys';
 
 // utils
 export * from '../pages/utils/aws';
-export * from '../pages/utils/userSettings/positronSettingsManager.js';
-export * from '../pages/utils/userSettings/vscodeSettingsManager.js';
+export * from '../pages/utils/settingsFileManager';
+export * from '../pages/utils/contextMenu';
 
 // fixtures
 export * from './fixtures/settings';
