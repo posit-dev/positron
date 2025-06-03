@@ -18,9 +18,7 @@ test.describe('Bootstrap Extensions', {
 	tag: [tags.EXTENSIONS, tags.WEB],
 }, () => {
 
-	test('Verify All Bootstrap extensions are installed', {
-		tag: [tags.EXTENSIONS, tags.WEB]
-	}, async function () {
+	test('Verify All Bootstrap extensions are installed', async function () {
 
 		const extensions = readProductJson();
 		await waitForExtensions(extensions);
