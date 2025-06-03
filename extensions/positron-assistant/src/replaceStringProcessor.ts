@@ -44,7 +44,7 @@ export class ReplaceStringProcessor {
 		switch (this._state) {
 			case 'pending_replaceString_open': {
 				if (chunk.type === 'text') {
-					this.onPlainTextDelta(chunk.text);
+					this.onPlainText(chunk.text);
 				} else if (chunk.type === 'tag' && chunk.kind === 'open' && chunk.name === 'replaceString') {
 					this._state = 'pending_old_open';
 				}
@@ -58,11 +58,10 @@ export class ReplaceStringProcessor {
 			}
 			case 'pending_old_close': {
 				if (chunk.type === 'text') {
-					this._oldTextBuffer += chunk.text;
+					this.onOldText(chunk.text);
 				} else if (chunk.type === 'tag' && chunk.kind === 'close' && chunk.name === 'old') {
+					this.onOldClose();
 					this._state = 'pending_new_open';
-					this.onOldTextBlock(this._oldTextBuffer);
-					this._oldTextBuffer = ''; // Reset the text buffer.
 				}
 				break;
 			}
@@ -74,7 +73,7 @@ export class ReplaceStringProcessor {
 			}
 			case 'pending_new_close': {
 				if (chunk.type === 'text') {
-					this.onNewTextDelta(chunk.text);
+					this.onNewText(chunk.text);
 				} else if (chunk.type === 'tag' && chunk.kind === 'close' && chunk.name === 'new') {
 					this._state = 'pending_replaceString_close';
 				}
@@ -89,22 +88,27 @@ export class ReplaceStringProcessor {
 		}
 	}
 
-	private onPlainTextDelta(textDelta: string) {
+	private onPlainText(text: string) {
 		// Outside of a replaceString tag, just treat it as markdown.
-		this._response.markdown(textDelta);
+		this._response.markdown(text);
 	}
 
-	private onOldTextBlock(oldText: string) {
+	private onOldText(text: string) {
+		// Accumulate the old text in the buffer.
+		this._oldTextBuffer += text;
+	}
+
+	private onOldClose() {
 		// Find the text to replace in the document.
 		// TODO: Should this error if there are multiple matches?
-		const startPos = this._document.getText().indexOf(oldText);
+		const startPos = this._document.getText().indexOf(this._oldTextBuffer);
 		if (startPos === -1) {
-			throw new Error(`Could not replace text, old text not found: ${oldText}.`);
+			throw new Error(`Could not replace text, old text not found: ${this._oldTextBuffer}.`);
 		}
 
 		// Create a text edit to delete the old text.
 		const startPosition = this._document.positionAt(startPos);
-		const endPosition = this._document.positionAt(startPos + oldText.length);
+		const endPosition = this._document.positionAt(startPos + this._oldTextBuffer.length);
 		const range = new vscode.Range(startPosition, endPosition);
 		const textEdit = vscode.TextEdit.delete(range);
 
@@ -113,21 +117,24 @@ export class ReplaceStringProcessor {
 
 		// Update the insert position to the end of the deleted text.
 		this._insertPosition = startPosition;
+
+		// Reset the old text buffer.
+		this._oldTextBuffer = '';
 	}
 
-	private onNewTextDelta(newTextDelta: string) {
+	private onNewText(text: string) {
 		if (!this._insertPosition) {
 			throw new Error('Encountered a <new> tag without an insert position');
 		}
 
 		// Create a text edit to insert the new text at the current insert position.
-		const textEdit = vscode.TextEdit.insert(this._insertPosition, newTextDelta);
+		const textEdit = vscode.TextEdit.insert(this._insertPosition, text);
 
 		// Send the text edit to the response stream.
 		this._response.textEdit(this._document.uri, textEdit);
 
 		// Move the insert position to the end of the inserted text.
-		const lines = newTextDelta.split(/\r?\n/);
+		const lines = text.split(/\r?\n/);
 		const lineDelta = lines.length - 1;
 		const characterDelta = lines.at(-1)!.length;
 		this._insertPosition = this._insertPosition.translate(lineDelta, characterDelta);

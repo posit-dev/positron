@@ -28,9 +28,9 @@ export class ReplaceSelectionProcessor {
 	private _insertPosition?: vscode.Position;
 
 	constructor(
-		private readonly uri: vscode.Uri,
-		private readonly selection: vscode.Selection,
-		private readonly response: vscode.ChatResponseStream,
+		private readonly _uri: vscode.Uri,
+		private readonly _selection: vscode.Selection,
+		private readonly _response: vscode.ChatResponseStream,
 	) { }
 
 	process(chunk: Chunk<ReplaceSelectionTag>): void {
@@ -39,7 +39,7 @@ export class ReplaceSelectionProcessor {
 		switch (this._state) {
 			case 'pending_replaceSelection_open': {
 				if (chunk.type === 'text') {
-					this.onPlainTextDelta(chunk.text);
+					this.onPlainText(chunk.text);
 				} else if (chunk.type === 'tag' && chunk.kind === 'open' && chunk.name === 'replaceSelection') {
 					this._state = 'pending_replaceSelection_close';
 				}
@@ -47,38 +47,43 @@ export class ReplaceSelectionProcessor {
 			}
 			case 'pending_replaceSelection_close': {
 				if (chunk.type === 'text') {
-					this.onReplaceSelectionTextDelta(chunk.text);
+					this.onReplaceSelectionText(chunk.text);
 				} else if (chunk.type === 'tag' && chunk.kind === 'close' && chunk.name === 'replaceSelection') {
+					this.onReplaceSelectionClose();
 					this._state = 'pending_replaceSelection_open';
-					this._didDeleteSelection = false; // Reset the deletion state for the next use.
 				}
 				break;
 			}
 		}
 	}
 
-	private onPlainTextDelta(textDelta: string): void {
+	private onPlainText(text: string): void {
 		// Outside of a replaceSelection tag, just treat it as markdown.
-		this.response.markdown(textDelta);
+		this._response.markdown(text);
 	}
 
-	private onReplaceSelectionTextDelta(textDelta: string): void {
+	private onReplaceSelectionText(text: string): void {
 		// When we receive the first chunk, delete the selection.
 		if (!this._didDeleteSelection) {
-			this.response.textEdit(this.uri, vscode.TextEdit.delete(this.selection));
+			this._response.textEdit(this._uri, vscode.TextEdit.delete(this._selection));
 			this._didDeleteSelection = true;
 
 			// Update the insert position to the end of the deleted text.
-			this._insertPosition = this.selection.anchor;
+			this._insertPosition = this._selection.anchor;
 		}
 
 		// Insert the new chunk at the start of the selection.
-		this.response.textEdit(this.uri, vscode.TextEdit.insert(this._insertPosition!, textDelta));
+		this._response.textEdit(this._uri, vscode.TextEdit.insert(this._insertPosition!, text));
 
 		// Move the insert position to the end of the inserted text.
-		const lines = textDelta.split(/\r?\n/);
+		const lines = text.split(/\r?\n/);
 		const lineDelta = lines.length - 1;
 		const characterDelta = lines.at(-1)!.length;
 		this._insertPosition = this._insertPosition!.translate(lineDelta, characterDelta);
+	}
+
+	private onReplaceSelectionClose(): void {
+		// Reset the deletion state for the next use.
+		this._didDeleteSelection = false;
 	}
 }
