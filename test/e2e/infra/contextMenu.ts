@@ -8,11 +8,18 @@ import test, { Locator } from '@playwright/test';
 
 export class ContextMenu {
 	private page = this.code.driver.page;
+	private isNativeMenu: boolean;
+	private contextMenu: Locator = this.page.locator('.monaco-menu');
+	private contextMenuItems: Locator = this.contextMenu.getByRole('menuitem');
+	private getContextMenuItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitem', { name: label });
 
 	constructor(
 		private code: Code,
 		private projectName: string,
-	) { }
+		private platform: string,
+	) {
+		this.isNativeMenu = this.platform === 'darwin' && !this.projectName.includes('browser');
+	}
 
 	/**
 	 * Action: Triggers a context menu and clicks a specified menu item.
@@ -23,14 +30,14 @@ export class ContextMenu {
 	 */
 	async triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
-			if (!this.projectName.includes('browser')) {
+			if (this.isNativeMenu) {
 				await this._triggerAndClick({ menuTrigger, menuItemLabel });
 			}
 			else {
 				await menuTrigger.click();
-				await this.page.getByRole('menuitem', { name: menuItemLabel }).hover();
+				await this.getContextMenuItem(menuItemLabel).hover();
 				await this.page.waitForTimeout(500);
-				await this.page.getByRole('menuitem', { name: menuItemLabel }).click();
+				await this.getContextMenuItem(menuItemLabel).click();
 			}
 		});
 	}
@@ -44,9 +51,16 @@ export class ContextMenu {
 	 */
 	async getMenuItems(menuTrigger: Locator): Promise<string[]> {
 		return await test.step(`Get context menu items`, async () => {
-			if (this.projectName.includes('browser')) {
+			if (this.isNativeMenu) {
+				const menuItems = await this.showContextMenu(() => menuTrigger.click());
+				if (!menuItems) {
+					throw new Error('Context menu did not appear or no menu items found.');
+				}
+				await this.closeContextMenu();
+				return menuItems.items;
+			} else {
 				await menuTrigger.click();
-				const menuItems = this.page.getByRole('menuitem');
+				const menuItems = this.contextMenuItems;
 				const count = await menuItems.count();
 				const labels: string[] = [];
 
@@ -59,13 +73,6 @@ export class ContextMenu {
 				}
 				await this.closeContextMenu();
 				return labels;
-			} else {
-				const menuItems = await this.showContextMenu(() => menuTrigger.click());
-				if (!menuItems) {
-					throw new Error('Context menu did not appear or no menu items found.');
-				}
-				await this.closeContextMenu();
-				return menuItems.items;
 			}
 		});
 	}
@@ -76,12 +83,12 @@ export class ContextMenu {
 	 * @returns Promise that resolves when the context menu is closed
 	 */
 	async closeContextMenu(): Promise<void> {
-		if (this.projectName.includes('browser')) {
-			await this.page.keyboard.press('Escape');
-		} else {
+		if (this.isNativeMenu) {
 			await this.code.electronApp?.evaluate(({ app }) => {
 				app.emit('e2e:contextMenuClose');
 			});
+		} else {
+			await this.page.keyboard.press('Escape');
 		}
 	}
 
@@ -92,10 +99,10 @@ export class ContextMenu {
 	 * @param trigger A function that triggers the context menu (e.g., a click on a button)
 	 * @returns
 	 */
-	private async showContextMenu(trigger: () => void): Promise<{ menuId: number; items: string[] } | undefined> {
+	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: string[] } | undefined> {
 		try {
 			if (!this.code.electronApp) {
-				throw new Error('Electron app is not available before attempting to trigger context menu.');
+				throw new Error(`Electron app is not available. Platform: ${this.platform}, Project: ${this.projectName}`);
 			}
 
 			const shownPromise: Promise<[number, string[]]> | undefined = this.code.electronApp.evaluate(({ app }) => {
