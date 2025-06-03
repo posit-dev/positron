@@ -35,6 +35,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 		workspaceSettings = await app.workbench.settings.backupWorkspaceSettings();
 		await app.workbench.settings.removeWorkspaceSettings(['positron.importSettings.enable']);
 		await vscodeUserSettings.ensureExists();
+		await positronUserSettings.delete();
 		await positronUserSettings.ensureExists();
 		await runCommand('workbench.action.reloadWindow');
 	});
