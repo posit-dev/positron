@@ -183,7 +183,7 @@ export class Editor {
 		// Resolve all textContent values before filtering
 		const elementsWithText = await Promise.all(allElements.map(async (el, index) => ({
 			el,
-			text: await el.textContent(),
+			text: (await el.textContent())?.trim(),
 			index
 		})));
 
