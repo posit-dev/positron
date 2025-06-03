@@ -13,7 +13,7 @@ test.use({
 
 
 test.describe('Bootstrap Extensions', {
-	tag: [tags.EXTENSIONS, tags.WEB],
+	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
 }, () => {
 
 	test.beforeAll('Skip during main run', async function () {
