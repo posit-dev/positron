@@ -4,12 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IServiceContainer } from '../../client/ioc/types'
+import { IServiceContainer } from '../../client/ioc/types';
 import { IInterpreterService } from '../../client/interpreter/contracts';
-import { traceInfo } from '../../client/logging';
 import { IPythonExecutionFactory } from '../../client/common/process/types';
 
-export function registerPythonLanguageModelTools(context: vscode.ExtensionContext, serviceContainer: IServiceContainer): void {
+export function registerPythonLanguageModelTools(
+    context: vscode.ExtensionContext,
+    serviceContainer: IServiceContainer,
+): void {
     const pythonLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedPythonPackages', {
         invoke: async (_options, _token) => {
             const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
@@ -20,12 +22,9 @@ export function registerPythonLanguageModelTools(context: vscode.ExtensionContex
                 ]);
             }
 
-            traceInfo(`pythonLoadedPackagesTool: active interpreter: ${activeInterpreter?.path}`);
-            traceInfo(`pythonLoadedPackagesTool: discovering Python packages`);
-
             const pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
             const pythonExecution = await pythonExecutionFactory.createActivatedEnvironment({
-                interpreter: activeInterpreter
+                interpreter: activeInterpreter,
             });
 
             const script = `
@@ -35,7 +34,7 @@ installed_packages = [f"{dist.metadata['Name']} ({dist.version})" for dist in im
 print(json.dumps(installed_packages))
 `;
             const result = await pythonExecution.exec(['-c', script], {
-                throwOnStdErr: false
+                throwOnStdErr: false,
             });
             if (result.stdout) {
                 try {
@@ -58,7 +57,7 @@ print(json.dumps(installed_packages))
                     new vscode.LanguageModelTextPart('No packages found in the active Python environment'),
                 ]);
             }
-        }
+        },
     });
     context.subscriptions.push(pythonLoadedPackagesTool);
 
@@ -72,12 +71,9 @@ print(json.dumps(installed_packages))
                 ]);
             }
 
-            traceInfo(`pythonPackageVersionTool: active interpreter: ${activeInterpreter?.path}`);
-            traceInfo(`pythonPackageVersionTool: discovering Python packages`);
-
             const pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
             const pythonExecution = await pythonExecutionFactory.createActivatedEnvironment({
-                interpreter: activeInterpreter
+                interpreter: activeInterpreter,
             });
 
             if (!options.input.paramName) {
@@ -96,7 +92,7 @@ except importlib.metadata.PackageNotFoundError:
     print(json.dumps(None))
 `;
             const result = await pythonExecution.exec(['-c', script], {
-                throwOnStdErr: false
+                throwOnStdErr: false,
             });
             if (result.stdout) {
                 try {
@@ -106,9 +102,7 @@ except importlib.metadata.PackageNotFoundError:
                             new vscode.LanguageModelTextPart('Package not found'),
                         ]);
                     } else {
-                        return new vscode.LanguageModelToolResult([
-                            new vscode.LanguageModelTextPart(version),
-                        ]);
+                        return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(version)]);
                     }
                 } catch (parseError) {
                     return new vscode.LanguageModelToolResult([
@@ -119,7 +113,7 @@ except importlib.metadata.PackageNotFoundError:
             return new vscode.LanguageModelToolResult([
                 new vscode.LanguageModelTextPart('No version found for the specified package'),
             ]);
-        }
+        },
     });
     context.subscriptions.push(pythonPackageVersionTool);
 }
