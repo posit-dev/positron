@@ -73,6 +73,8 @@ import { ChatViewWelcomePart } from './viewsWelcome/chatViewWelcomeController.js
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { ILanguageModelsService } from '../common/languageModels.js';
 import { ChatActionBarControl } from './positron/chatActionBarControl.js';
+// eslint-disable-next-line no-duplicate-imports
+import { IMarkdownString } from '../../../../base/common/htmlContent.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -731,6 +733,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		const numItems = this.viewModel?.getItems().length ?? 0;
 		let welcomeText;
 		let welcomeTitle;
+		let firstLinkToButton = false;
+		let tips: IMarkdownString | undefined;
 
 		// Show an extra configuration link if there are no configured models yet
 		if (!this.configurationService.getValue('positron.assistant.enable')) {
@@ -738,7 +742,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and will be available in a future version of Positron.\n");
 		} else if (this.languageModelsService.getLanguageModelIds().length === 0) {
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
-			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model");
+			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
+			firstLinkToButton = true;
 			// create a multi-line message
 			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n");
 			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.addModelConfiguration)`;
@@ -747,13 +752,14 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			// eslint-disable-next-line local/code-no-unexternalized-strings
 			welcomeText = localize('positronAssistant.welcomeMessageReady', `Positron Assistant is an AI coding companion designed to accelerate and enhance your data science projects.
 
-Click on or type $(mention) to work with Chat Participants in Positron Assistant.
-
-Click on $(attach) or type \`#\` to add context, such as files to your Positron Assistant chat.
-
-Type \`/\` to use predefined quick commands such as \`/help\` or \`/quarto\`.
-
 Always verify results. AI assistants can sometimes produce incorrect code.`);
+			// eslint-disable-next-line local/code-no-unexternalized-strings
+			tips = new MarkdownString(localize('positronAssistant.welcomeMessageReadyTips', `Type $(mention) to select a Chat Participant.
+
+Click on $(attach) or type \`#\` to add context, such as files to your chat.
+
+Type \`/\` to use predefined commands such as \`/help\` or \`/quarto\`.`,
+			), { supportThemeIcons: true, isTrusted: true });
 		}
 
 		dom.clearNode(this.welcomeMessageContainer);
@@ -763,10 +769,12 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 				icon: ThemeIcon.fromId('positron-assistant'),
 				title: welcomeTitle,
 				message: new MarkdownString(welcomeText, { supportThemeIcons: true, isTrusted: true }),
+				tips,
 			},
 			{
 				location: this.location,
-				isWidgetAgentWelcomeViewContent: this.input?.currentMode === ChatMode.Agent
+				isWidgetAgentWelcomeViewContent: this.input?.currentMode === ChatMode.Agent,
+				firstLinkToButton,
 			}
 		);
 		dom.append(this.welcomeMessageContainer, this.welcomePart.value.element);
