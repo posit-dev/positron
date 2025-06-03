@@ -20,7 +20,7 @@ results, generate the code and return it directly without trying to execute it.
 2. Use the appropriate language-specific tool to check for loaded packages:
    - For R, use the getAttachedRPackages tool
    - For Python, use the getAttachedPythonPackages tool
-   - For other languages, use the pattern getInstalled{Lanaguage}Packages where {Lanaguage} is the target language
+   - For other languages, use the pattern getInstalled{Language}Packages where {Language} is the target language
    - If the tool is unavailable, assume no packages are loaded and proceed with installation and loading instructions
 3. For any required packages not currently loaded:
    - Use the appropriate language-specific tool to verify installation status
