@@ -7,25 +7,30 @@ import { expect } from '@playwright/test';
 import { Code } from '../infra/code.js';
 export class PositConnect {
 
+	private connectApiUrl: string;
+	private headers: Record<string, string>;
+
 	constructor(private code: Code) {
 		this.code = code;
+		this.connectApiUrl = `${process.env.E2E_CONNECT_SERVER}__api__/v1/`;
+		this.headers = { 'Authorization': `Key ${process.env.E2E_CONNECT_APIKEY}` };
+
 	}
 	async deleteUserContent() {
 		if (!process.env.E2E_CONNECT_SERVER || !process.env.E2E_CONNECT_APIKEY) {
 			throw new Error('Missing E2E_CONNECT_SERVER or E2E_CONNECT_APIKEY env vars.');
 		}
-		const connectApiUrl = `${process.env.E2E_CONNECT_SERVER}__api__/v1/`;
-		const headers = { 'Authorization': `Key ${process.env.E2E_CONNECT_APIKEY}` };
+
 		const userGuid = await this.getUser();
 
-		const appInfo = await (await fetch(connectApiUrl + `content?owner_guid=${userGuid}`, { headers: headers })).json();
+		const appInfo = await (await fetch(this.connectApiUrl + `content?owner_guid=${userGuid}`, { headers: this.headers })).json();
 
 		for (const app of appInfo) {
 			const guid = app.guid as string;
 
-			const response = await fetch(`${connectApiUrl}content/${guid}`, {
+			const response = await fetch(`${this.connectApiUrl}content/${guid}`, {
 				method: 'DELETE',
-				headers,
+				headers: this.headers,
 			});
 
 			if (response.status !== 204) {
@@ -38,9 +43,8 @@ export class PositConnect {
 		if (!process.env.E2E_CONNECT_SERVER || !process.env.E2E_CONNECT_APIKEY) {
 			throw new Error('Missing E2E_CONNECT_SERVER or E2E_CONNECT_APIKEY env vars.');
 		}
-		const connectApiUrl = `${process.env.E2E_CONNECT_SERVER}__api__/v1/`;
-		const headers = { 'Authorization': `Key ${process.env.E2E_CONNECT_APIKEY}` };
-		const userGuid = (await (await fetch(connectApiUrl + 'user', { headers: headers })).json()).guid;
+
+		const userGuid = (await (await fetch(this.connectApiUrl + 'user', { headers: this.headers })).json()).guid;
 		return userGuid;
 	}
 
