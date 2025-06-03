@@ -13,8 +13,14 @@ test.use({
 
 
 test.describe('Bootstrap Extensions', {
-	tag: [tags.EXTENSIONS, tags.WEB],
+	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
 }, () => {
+
+	test.beforeAll('Skip during main run', async function () {
+		if (process.env.SKIP_BOOTSTRAP === 'true') {
+			test.skip();
+		}
+	});
 
 	test('Verify All Bootstrap extensions are installed', async function ({ options }) {
 		const extensions = readProductJson();
