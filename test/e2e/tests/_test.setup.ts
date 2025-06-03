@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, ApplicationOptions, Quality, MultiLogger } from '../infra';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, ApplicationOptions, Quality, MultiLogger } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -38,7 +38,7 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
-import { UserSettingsFileManager } from '../pages/utils/userSettingsFileManager.js';
+import { SettingsFileManager } from '../pages/utils/settingsFileManager.js';
 import { ContextMenu } from '../infra/contextMenu.js';
 
 
@@ -272,20 +272,16 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'worker' }],
 
 	vscodeUserSettings: [async ({ }, use) => {
-		const manager = vsCodeSettings;
+		const manager = new SettingsFileManager(SettingsFileManager.getVSCodeSettingsPath());
 		await manager.backupIfExists();
-
 		await use(manager);
-
 		await manager.restoreFromBackup();
 	}, { scope: 'worker' }],
 
 	positronUserSettings: [async ({ userDataDir }, use) => {
-		const manager = createPositronSettingsManager(userDataDir);
+		const manager = new SettingsFileManager(SettingsFileManager.getPositronSettingsPath(userDataDir));
 		await manager.backupIfExists();
-
 		await use(manager);
-
 		await manager.restoreFromBackup();
 	}, { scope: 'worker' }],
 
@@ -512,8 +508,8 @@ interface WorkerFixtures {
 	workspaceSettings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 	};
-	vscodeUserSettings: UserSettingsFileManager;
-	positronUserSettings: UserSettingsFileManager;
+	vscodeUserSettings: SettingsFileManager;
+	positronUserSettings: SettingsFileManager;
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {
