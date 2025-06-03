@@ -739,7 +739,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
-            if (state === positron.RuntimeState.Ready) {
+            if (state === positron.RuntimeState.Ready && this.kernelSpec) {
                 this.enableAutoReloadIfEnabled();
             }
         });
@@ -829,10 +829,19 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const settings = configurationService.getSettings();
         if (settings.enableAutoReload) {
             // Enable module hot-reloading for the kernel.
+            this._messageEmitter.fire({
+                id: createUniqueId(),
+                parent_id: '',
+                when: new Date().toISOString(),
+                type: positron.LanguageRuntimeMessageType.Stream,
+                name: positron.LanguageRuntimeStreamName.Stdout,
+                text: vscode.l10n.t('Enabling autoreload for the Python runtime. '),
+            } as positron.LanguageRuntimeStream);
+            // Execute the autoreload magic command.
             this._kernel?.execute(
                 '%load_ext autoreload\n%autoreload 2',
                 createUniqueId(),
-                positron.RuntimeCodeExecutionMode.Transient,
+                positron.RuntimeCodeExecutionMode.Silent,
                 positron.RuntimeErrorBehavior.Continue,
             );
         }
