@@ -116,7 +116,7 @@ export class Notebooks {
 	async executeCodeInCell() {
 		await test.step('Execute code in cell', async () => {
 			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-			await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER), 'execute cell spinner to not be visible').not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER), 'execute cell spinner to not be visible').toHaveCount(0, { timeout: 30000 });
 		});
 	}
 
