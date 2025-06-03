@@ -9,6 +9,9 @@ import test, { Locator } from '@playwright/test';
 export class ContextMenu {
 	private page = this.code.driver.page;
 	private isNativeMenu: boolean;
+	private contextMenu: Locator = this.page.locator('.monaco-menu');
+	private contextMenuItems: Locator = this.contextMenu.getByRole('menuitem');
+	private getContextMenuItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitem', { name: label });
 
 	constructor(
 		private code: Code,
@@ -32,9 +35,9 @@ export class ContextMenu {
 			}
 			else {
 				await menuTrigger.click();
-				await this.page.getByRole('menuitem', { name: menuItemLabel }).hover();
+				await this.getContextMenuItem(menuItemLabel).hover();
 				await this.page.waitForTimeout(500);
-				await this.page.getByRole('menuitem', { name: menuItemLabel }).click();
+				await this.getContextMenuItem(menuItemLabel).click();
 			}
 		});
 	}
@@ -57,7 +60,7 @@ export class ContextMenu {
 				return menuItems.items;
 			} else {
 				await menuTrigger.click();
-				const menuItems = this.page.getByRole('menuitem');
+				const menuItems = this.contextMenuItems;
 				const count = await menuItems.count();
 				const labels: string[] = [];
 
