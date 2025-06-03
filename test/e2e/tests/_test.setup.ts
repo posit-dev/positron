@@ -501,7 +501,7 @@ interface WorkerFixtures {
 	suiteId: string;
 	snapshots: boolean;
 	artifactDir: string;
-	options: any;
+	options: ApplicationOptions;
 	userDataDir: string;
 	app: Application;
 	logsPath: string;
