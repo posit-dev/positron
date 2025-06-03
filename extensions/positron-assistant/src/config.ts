@@ -244,6 +244,10 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 			case 'oauth-signout':
 				await oauthSignout(userConfig, sources, storage, context);
 				break;
+			case 'cancel':
+				// User cancelled the dialog, clean up any pending operations
+				CopilotService.instance().cancelCurrentOperation();
+				break;
 			default:
 				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
 		}
@@ -339,23 +343,21 @@ async function deleteConfigurationByProvider(context: vscode.ExtensionContext, s
 }
 
 async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], storage: SecretStorage, context: vscode.ExtensionContext) {
-	let oauthCompleted = false;
 	try {
 		switch (userConfig.provider) {
 			case 'copilot':
-				oauthCompleted = await CopilotService.instance().signIn();
+				await CopilotService.instance().signIn();
 				break;
 			default:
 				throw new Error(vscode.l10n.t('OAuth sign-in is not supported for provider {0}', userConfig.provider));
 		}
 
-		if (oauthCompleted) {
-			await saveModel(userConfig, sources, storage, context);
-		} else {
-			throw new Error(vscode.l10n.t('OAuth sign-in was not completed successfully.'));
+		await saveModel(userConfig, sources, storage, context);
+	} catch (error) {
+		if (error instanceof vscode.CancellationError) {
+			return;
 		}
 
-	} catch (error) {
 		const err = error instanceof Error ? error : new Error(JSON.stringify(error));
 		throw new Error(vscode.l10n.t(`Failed to sign in to provider {0}: {1}`, userConfig.provider, err.message));
 	}
