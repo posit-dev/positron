@@ -26,26 +26,14 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	const [selectorLabel, setSelectorLabel] = React.useState<string>((() => localize('positronChatSelector.unavailable', 'No providers available'))());
 
 	const actions = React.useCallback(() => {
-		const actions: IAction[] = [];
-		if (providers && providers.length > 1) {
-			actions.push({
-				id: 'all-models',
-				label: (() => localize('positronChatSelector.allModels', 'All Models'))(),
-				enabled: true,
-				class: undefined,
-				tooltip: (() => localize('positronChatSelector.allModelsTooltip', 'Select a model'))(),
-				run: () => {
-					props.onModelSelect(undefined);
-				}
-			});
-		}
+		const providerActions: IAction[] = [];
 		providers?.forEach((provider) => {
 			// Skip the current provider -- it's already selected.
 			if (positronChatContext.currentProvider && positronChatContext.currentProvider.id === provider.id) {
 				return;
 			}
 
-			actions.push({
+			providerActions.push({
 				id: provider.id,
 				label: provider.displayName,
 				enabled: true,
@@ -57,21 +45,18 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 			});
 		});
 
-		if (actions.length > 0) {
-			actions.push(new Separator());
-		}
-		actions.push({
-			id: 'add-provider',
-			label: (() => localize('positronChatSelector.addProvider', 'Add Provider...'))(),
+		const otherActions = [{
+			id: 'add-model-provider',
+			label: (() => localize('positronChatSelector.addModelProvider', 'Add Model Provider...'))(),
 			enabled: true,
 			class: undefined,
-			tooltip: (() => localize('positronChatSelector.addProviderTooltip', 'Add a Language Model Provider'))(),
+			tooltip: (() => localize('positronChatSelector.addModelProviderTooltip', 'Add a Language Model Provider'))(),
 			run: async () => {
 				await positronActionBarContext.commandService.executeCommand('positron-assistant.addModelConfiguration');
 			}
-		});
+		}];
 
-		return actions;
+		return Separator.join(providerActions, otherActions);
 	}, [providers, props, positronChatContext.currentProvider, positronActionBarContext.commandService]);
 
 	React.useEffect(() => {
