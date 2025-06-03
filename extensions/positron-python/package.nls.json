@@ -108,6 +108,7 @@
     "python.venvPath.description": "Path to folder with a list of Virtual Environments (e.g. ~/.pyenv, ~/Envs, ~/.virtualenvs).",
     "python.installModulesInTerminal.description": "Whether to install Python modules (such as `ipykernel`) in the Terminal, instead of in a background process. Installing modules in the Terminal allows you to see the output of the installation command.",
     "python.useBundledIpykernel.description": "Whether to prepend the bundled `ipykernel` (and its dependencies) to the Python search path for supported interpreters. When enabled, a bundled ipykernel installation will be used instead of any existing version in the active environment.\n\nRestart Positron for this setting to take effect.",
+    "python.enableAutoReload.description": "Whether to enable module hot-reloading in Python console sessions. When enabled, modules that are imported in the console will be automatically reloaded when they are modified on disk. Only applies to new console sessions.",
     "walkthrough.pythonWelcome.title": "Get Started with Python Development",
     "walkthrough.pythonWelcome.description": "Your first steps to set up a Python project with all the powerful tools and features that the Python extension has to offer!",
      "walkthrough.step.python.createPythonFile.title": "Create a Python file",

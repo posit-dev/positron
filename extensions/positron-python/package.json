@@ -915,6 +915,12 @@
                     "markdownDescription": "%python.useBundledIpykernel.description%",
                     "scope": "resource",
                     "type": "boolean"
+                },
+                "python.enableAutoReload": {
+                    "default": true,
+                    "description": "%python.enableAutoReload.description%",
+                    "scope": "resource",
+                    "type": "boolean"
                 }
             },
             "title": "Python",

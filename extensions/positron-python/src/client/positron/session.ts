@@ -739,6 +739,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
+            if (state === positron.RuntimeState.Ready) {
+                this.enableAutoReloadIfEnabled();
+            }
         });
         kernel.onDidReceiveRuntimeMessage((message) => {
             // Check if an IPyWidgets Output widget is starting to listen to a parent message ID.
@@ -816,6 +819,21 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             this._kernel?.emitJupyterLog(
                 `Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
                 vscode.LogLevel.Error,
+            );
+        }
+    }
+
+    private enableAutoReloadIfEnabled(): void {
+        // Enable auto-reload if the setting is enabled.
+        const configurationService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
+        const settings = configurationService.getSettings();
+        if (settings.enableAutoReload) {
+            // Enable module hot-reloading for the kernel.
+            this._kernel?.execute(
+                '%load_ext autoreload\n%autoreload 2',
+                createUniqueId(),
+                positron.RuntimeCodeExecutionMode.Transient,
+                positron.RuntimeErrorBehavior.Continue,
             );
         }
     }
