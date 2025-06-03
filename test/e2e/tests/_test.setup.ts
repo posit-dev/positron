@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, ApplicationOptions, Quality, MultiLogger } from '../infra';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -38,9 +38,6 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
-import { SettingsFileManager } from '../pages/utils/settingsFileManager.js';
-import { ContextMenu } from '../infra/contextMenu.js';
-
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({

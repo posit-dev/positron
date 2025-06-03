@@ -45,7 +45,9 @@ export * from '../pages/hotKeys';
 
 // utils
 export * from '../pages/utils/aws';
-export * from '../pages/utils/settingsFileManager.js';
+export * from '../pages/utils/settingsFileManager';
+export * from '../pages/utils/contextMenu';
+
 // fixtures
 export * from './fixtures/settings';
 
