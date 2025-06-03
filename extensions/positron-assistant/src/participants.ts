@@ -174,6 +174,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// List of tools for use by the language model.
 		const tools: vscode.LanguageModelChatTool[] = vscode.lm.tools.filter(
 			tool => {
+				// Don't allow any tools in the terminal.
+				if (this.id === ParticipantID.Terminal) {
+					return false;
+				}
+
 				// Define more readable variables for filtering.
 				const inChatPane = request.location2 === undefined;
 				const inEditor = request.location2 instanceof vscode.ChatRequestEditorData;
@@ -235,7 +240,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		};
 	}
 
-	private async getDefaultSystemPrompt(): Promise<string> {
+	protected async getDefaultSystemPrompt(): Promise<string> {
 		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 	}
 
@@ -507,7 +512,7 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 class PositronAssistantTerminalParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Terminal;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string | undefined> {
+	protected override async getDefaultSystemPrompt(): Promise<string> {
 		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'terminal.md'), 'utf8');
 	}
 }
