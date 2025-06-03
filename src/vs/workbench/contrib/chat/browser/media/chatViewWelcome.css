@@ -74,11 +74,6 @@ div.chat-welcome-view {
 
 	& > .chat-welcome-view-message {
 		text-align: center;
-		/* Begin Positron */
-		/* Center aligned text is pretty hard to read and Positron’s welcome
-		message is fairly long. */
-		text-align: start;
-		/* End Positron */
 		max-width: 350px;
 		padding: 0 20px;
 		margin-top: 10px;
@@ -106,12 +101,22 @@ div.chat-welcome-view {
 		}
 
 		.rendered-markdown p {
+			/* --- Start Positron ---
+			Disable flexbox since it breaks normal text flow when tips are longer than one line.
+			The intention was probably to format codicons which we handle in a different way below.
 			display: flex;
 			gap: 6px;
+			--- End Positron --- */
 			margin: 6px 0 0 0;
 
 			.codicon {
+				/* --- Start Positron ---
+				Instead of making the parent a flex container, vertically align the codicon
+				with a slight offset to match the text baseline.
 				padding-top: 1px;
+				--- End Positron ---*/
+				vertical-align: middle;
+				margin-bottom: 2px;
 			}
 		}
 	}
@@ -120,5 +125,6 @@ div.chat-welcome-view {
 /* --- Start Positron --- */
 div.chat-welcome-view-container div.chat-welcome-view-message .rendered-markdown .codicon {
 	vertical-align: middle;
+	margin-bottom: 2px;
 }
 /* --- End Positron --- */
