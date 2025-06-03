@@ -189,6 +189,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.disconnected = new vscode.EventEmitter<DisconnectedEvent>();
 
 		// Ensure the emitters are disposed when the session is disposed
+		this._disposables.push(this._messages);
 		this._disposables.push(this._state);
 		this._disposables.push(this._exit);
 		this._disposables.push(this.disconnected);
