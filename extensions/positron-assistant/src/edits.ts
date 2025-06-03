@@ -105,5 +105,23 @@ async function mapEdit(
 		}
 		replacement += delta;
 	}
+
+	// The model is instructed in `mapedit.md` to return the result as plain
+	// JSON. Despite these instructions, it has been known to return the JSON
+	// inside a Markdown code fence. If it does, we need to extract the JSON
+	// content from it so it can be parsed correctly.
+	const jsonStart = replacement.indexOf('```json');
+	if (jsonStart !== -1) {
+		const jsonEnd = replacement.indexOf('```', jsonStart + 6);
+		if (jsonEnd !== -1) {
+			replacement = replacement.substring(jsonStart + 6, jsonEnd).trim();
+		} else {
+			// If the closing code fence is missing, we return the whole content after the opening code fence.
+			replacement = replacement.substring(jsonStart + 6).trim();
+		}
+	} else {
+		// If no code fence is found, we assume the model returned plain JSON.
+		replacement = replacement.trim();
+	}
 	return replacement;
 }
