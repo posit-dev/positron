@@ -185,11 +185,8 @@ export class CopilotService implements vscode.Disposable {
 		try {
 			await client.sendRequest(ExecuteCommandRequest.type, response.command, this._cancellationToken.token);
 		} catch (error) {
-			if (cancelled) {
-				throw new vscode.CancellationError();
-			}
-			if (error instanceof vscode.CancellationError) {
-				vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot sign-in cancelled in catch.'));
+			if (cancelled || error instanceof vscode.CancellationError) {
+				vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot sign-in cancelled.'));
 				throw new vscode.CancellationError();
 			}
 
