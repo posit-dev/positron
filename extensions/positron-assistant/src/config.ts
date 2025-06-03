@@ -9,7 +9,6 @@ import { getLanguageModels } from './models';
 import { completionModels } from './completion';
 import { registerModel, registerModels } from './extension';
 import { CopilotService } from './copilot.js';
-import { CancelledError } from './utils.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
@@ -355,7 +354,7 @@ async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources:
 
 		await saveModel(userConfig, sources, storage, context);
 	} catch (error) {
-		if (error instanceof CancelledError) {
+		if (error instanceof vscode.CancellationError) {
 			return;
 		}
 

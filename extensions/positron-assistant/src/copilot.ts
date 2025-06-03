@@ -11,7 +11,6 @@ import { ExtensionContext } from 'vscode';
 import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
 import { platform } from 'os';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
-import { CancelledError } from './utils.js';
 
 interface EditorPluginInfo {
 	name: string;
@@ -187,7 +186,11 @@ export class CopilotService implements vscode.Disposable {
 			await client.sendRequest(ExecuteCommandRequest.type, response.command, this._cancellationToken.token);
 		} catch (error) {
 			if (cancelled) {
-				throw new CancelledError(vscode.l10n.t('GitHub Copilot sign-in was cancelled.'));
+				throw new vscode.CancellationError();
+			}
+			if (error instanceof vscode.CancellationError) {
+				vscode.window.showInformationMessage(vscode.l10n.t('GitHub Copilot sign-in cancelled in catch.'));
+				throw new vscode.CancellationError();
 			}
 
 			throw error;
@@ -197,7 +200,7 @@ export class CopilotService implements vscode.Disposable {
 		}
 
 		if (cancelled) {
-			throw new CancelledError(vscode.l10n.t('GitHub Copilot sign-in was cancelled.'));
+			throw new vscode.CancellationError();
 		}
 	}
 
