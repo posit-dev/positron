@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { IServiceContainer } from '../client/ioc/types'
-import { IInterpreterService } from '../client/interpreter/contracts';
-import { traceInfo } from '../client/logging';
-import { IPythonExecutionFactory } from '../client/common/process/types';
+import { IServiceContainer } from '../../client/ioc/types'
+import { IInterpreterService } from '../../client/interpreter/contracts';
+import { traceInfo } from '../../client/logging';
+import { IPythonExecutionFactory } from '../../client/common/process/types';
 
 export function registerPythonLanguageModelTools(context: vscode.ExtensionContext, serviceContainer: IServiceContainer): void {
     const pythonLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedPythonPackages', {
@@ -62,7 +62,7 @@ print(json.dumps(installed_packages))
     });
     context.subscriptions.push(pythonLoadedPackagesTool);
 
-    const pythonPackageVersionTool = vscode.lm.registerTool<{ packageName: string }>('getInstalledPythonPackageVersion', {
+    const pythonPackageVersionTool = vscode.lm.registerTool<{ paramName: string }>('getInstalledPythonPackageVersion', {
         invoke: async (options, _token) => {
             const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
             const activeInterpreter = await interpreterService.getActiveInterpreter();
@@ -80,7 +80,7 @@ print(json.dumps(installed_packages))
                 interpreter: activeInterpreter
             });
 
-            if (!options.input.packageName) {
+            if (!options.input.paramName) {
                 return new vscode.LanguageModelToolResult([
                     new vscode.LanguageModelTextPart('Package name is required'),
                 ]);
@@ -90,7 +90,7 @@ print(json.dumps(installed_packages))
 import json
 import importlib.metadata
 try:
-    version = importlib.metadata.version("${options.input.packageName}")
+    version = importlib.metadata.version("${options.input.paramName}")
     print(json.dumps(version))
 except importlib.metadata.PackageNotFoundError:
     print(json.dumps(None))

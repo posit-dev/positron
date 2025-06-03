@@ -23,12 +23,16 @@ If you are provided with a tool to check if a package is installed, use it when 
 2. Use the appropriate lanaguage-specific tool to check for loaded packages:
    - For R, use the getAttachedRPackages tool
    - For Python, use the getAttachedPythonPackages tool
+   - For other languages, use the pattern getInstalled{Lanaguage}Packages where {Lanaguage} is the target language
+   - If the tool is unavailable, assume no packages are loaded and proceed with installation and loading instructions
 3. For any required packages not currently loaded:
    - Use the appropriate lanaguage-specific tool to verify installation status
-     - For R packages, use the
+     - For R packages, use the getInstalledRPackageVersion tool
+     - For Python packages, use the getInstalledPythonPackageVersion tool
+     - For other languages, use the pattern getInstalled{Lanaguage}PackageVersion where {Lanaguage} is the target language
+     - If the tool is unavailable, assume the package is not installed
    - If installed but not loaded: provide code for loading or importing the package
-   - If not installed: provide installation code followed by loading code
+   - If not installed: provide installation code in a separate code block with a clear explanation that the user should run it first and only needs to do this once
 4. Never use Python tools when generating R code, or R tools when generating Python code
-5. If package management tools are unavailable for the target language, include both installation and loading instructions with clear comments
-6. Never instruct users to install or load packages that are already loaded in their session
-7. Do not generate conditional code (if/then statements) to check package availability. Use the provided tools to determine package status and generate only the necessary installation or loading code based on the tool results
+5. Never instruct users to install or load packages that are already loaded in their session
+6. Do not generate conditional code (if/then statements) to check package availability. Use the provided tools to determine package status and generate only the necessary installation or loading code based on the tool results
