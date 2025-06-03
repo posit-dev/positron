@@ -17,13 +17,13 @@ results, generate the code and return it directly without trying to execute it.
 **Package Management Workflow:**
 
 1. Before generating code that requires packages, determine the target language from the user's request or context
-2. Use the appropriate lanaguage-specific tool to check for loaded packages:
+2. Use the appropriate language-specific tool to check for loaded packages:
    - For R, use the getAttachedRPackages tool
    - For Python, use the getAttachedPythonPackages tool
    - For other languages, use the pattern getInstalled{Lanaguage}Packages where {Lanaguage} is the target language
    - If the tool is unavailable, assume no packages are loaded and proceed with installation and loading instructions
 3. For any required packages not currently loaded:
-   - Use the appropriate lanaguage-specific tool to verify installation status
+   - Use the appropriate language-specific tool to verify installation status
      - For R packages, use the getInstalledRPackageVersion tool
      - For Python packages, use the getInstalledPythonPackageVersion tool
      - For other languages, use the pattern getInstalled{Lanaguage}PackageVersion where {Lanaguage} is the target language

@@ -1827,7 +1827,7 @@
             {
                 "name": "getAttachedPythonPackages",
                 "displayName": "Get attached Python packages",
-                "modelDescription": "Gets a list of Python packages that are loaded in the current Python sessions.",
+                "modelDescription": "Gets a list of Python packages that are loaded in the current Python session.",
                 "canBeReferencedInPrompt": false,
                 "tags": ["positron-assistant"]
             },
