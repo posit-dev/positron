@@ -82,6 +82,7 @@ test.describe('Notebooks', {
 			// Save the notebook using the command
 			await app.workbench.quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
 			await app.workbench.quickInput.waitForQuickInputOpened();
+
 			// Generate a random filename
 			newFileName = `saved-session-test-${Math.random().toString(36).substring(7)}.ipynb`;
 
@@ -90,6 +91,9 @@ test.describe('Notebooks', {
 
 			// Verify the variables pane shows the correct notebook name
 			await app.workbench.variables.expectRuntimeToBe('visible', newFileName);
+
+			// Test Flake - seems like kernel might not be ready immediately after saving. Let's explicitly set it to see if this helps.
+			await app.workbench.notebooks.selectInterpreter('Python');
 
 			// Verify the variable still exists
 			await app.workbench.variables.expectVariableToBe('foo', "'bar'");
