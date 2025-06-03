@@ -13,6 +13,7 @@ import { setupTestExplorer, refreshTestExplorer } from './testing/testing';
 import { RRuntimeManager } from './runtime-manager';
 import { registerUriHandler } from './uri-handler';
 import { registerRLanguageModelTools } from './llm-tools.js';
+import { registerFileAssociations } from './file-associations.js';
 
 export const LOGGER = vscode.window.createOutputChannel('R Language Pack', { log: true });
 
@@ -37,6 +38,9 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// Provide tasks.
 	providePackageTasks(context);
+
+	// Register file associations.
+	registerFileAssociations();
 
 	// Prepare to handle cli-produced hyperlinks that target the positron-r extension.
 	registerUriHandler();
