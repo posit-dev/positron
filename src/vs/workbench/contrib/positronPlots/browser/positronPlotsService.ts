@@ -1116,9 +1116,16 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		if (index < 0) {
 			throw new Error(`Could not replace unknown plot: ${id}`);
 		}
-		this.removePlot(id);
+
+		// Unregister the old plot.
+		this.unregisterPlotClient(this._plots[index]);
+
+		// Add the new plot.
 		this._register(newPlot);
 		this._plots[index] = newPlot;
+
+		// Notify subscribers of the change.
+		this._onDidRemovePlot.fire(id);
 		this._onDidEmitPlot.fire(newPlot);
 		this._onDidSelectPlot.fire(newPlot.id);
 		this._showPlotsPane();
