@@ -16,13 +16,9 @@ test.describe('Bootstrap Extensions', {
 	tag: [tags.EXTENSIONS, tags.WEB],
 }, () => {
 
-	test('Verify All Bootstrap extensions are installed', {
-		tag: [tags.EXTENSIONS, tags.WEB]
-	}, async function ({ options }) {
-
+	test('Verify All Bootstrap extensions are installed', async function ({ options }) {
 		const extensions = readProductJson();
 		await waitForExtensions(extensions, options.extensionsPath);
-
 	});
 });
 
