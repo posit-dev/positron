@@ -92,7 +92,7 @@ test.describe('Notebooks', {
 			// Verify the variables pane shows the correct notebook name
 			await app.workbench.variables.expectRuntimeToBe('visible', newFileName);
 
-			// Test Flake - seems like kernel might not be ready immediately after saving. Let's explicit set it to see if this helps.
+			// Test Flake - seems like kernel might not be ready immediately after saving. Let's explicitly set it to see if this helps.
 			await app.workbench.notebooks.selectInterpreter('Python');
 
 			// Verify the variable still exists
