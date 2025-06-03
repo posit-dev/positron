@@ -231,7 +231,12 @@ export class DiagnosticsService implements IDiagnosticsService {
 
 	private formatEnvironment(info: IMainProcessDiagnostics): string {
 		const output: string[] = [];
-		output.push(`Version:          ${this.productService.nameShort} ${this.productService.version} (${this.productService.commit || 'Commit unknown'}, ${this.productService.date || 'Date unknown'})`);
+		// --- Start Positron ---
+		output.push(`Version:          ${this.productService.nameShort} ${this.productService.positronVersion}+${this.productService.positronBuildNumber} (${this.productService.commit || 'Commit unknown'}, ${this.productService.date || 'Date unknown'})`);
+		// Differentiated Positron version from Code - OSS version
+		// output.push(`Version:          ${this.productService.nameShort} ${this.productService.version} (${this.productService.commit || 'Commit unknown'}, ${this.productService.date || 'Date unknown'})`);
+		output.push(`Code OSS Version: VS Code ${this.productService.version}`);
+		// --- End Positron ---
 		output.push(`OS Version:       ${osLib.type()} ${osLib.arch()} ${osLib.release()}`);
 		const cpus = osLib.cpus();
 		if (cpus && cpus.length > 0) {
