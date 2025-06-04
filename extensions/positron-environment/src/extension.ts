@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { getPandocPath } from './pandoc.js';
 
 /**
  * Interface for the environment variable action. Mirrors the definition in the
@@ -33,6 +34,10 @@ function applyConfiguration(context: vscode.ExtensionContext) {
 	// Clear the initial collection to remove any old values
 	const collection = context.environmentVariableCollection;
 	collection.clear();
+
+	// Add the built-in variables to the collection. We always add these even if
+	// the configuration-based variables are not enabled.
+	addBuiltinVars(context);
 
 	// Set the vars using the environment variable collection
 	if (!vars.get('enabled')) {
@@ -78,4 +83,20 @@ export function activate(context: vscode.ExtensionContext) {
 	});
 
 	context.subscriptions.push(disposable);
+}
+
+/**
+ * Adds built-in environment variables to the global environment variable
+ * collection.
+ *
+ * @param context
+ */
+export function addBuiltinVars(context: vscode.ExtensionContext) {
+	const collection = context.environmentVariableCollection;
+	const pandocPath = getPandocPath();
+
+	// Advertise the location of the Pandoc executable.
+	if (pandocPath) {
+		collection.replace('RSTUDIO_PANDOC', pandocPath);
+	}
 }

@@ -10,7 +10,6 @@ import * as fs from 'fs';
 
 import { JupyterKernelSpec } from './positron-supervisor';
 import { getArkKernelPath } from './kernel';
-import { getPandocPath } from './pandoc';
 import { EXTENSION_ROOT_DIR } from './constants';
 
 /**
@@ -63,16 +62,6 @@ export function createJupyterKernelSpec(
 		// Workaround for
 		// https://github.com/posit-dev/positron/issues/3732
 		env['DYLD_LIBRARY_PATH'] = rHomePath + '/lib';
-	}
-
-	// Inject the path to the Pandoc executable into the environment; R packages
-	// that use Pandoc for rendering will need this.
-	//
-	// On MacOS, the binary path lives alongside the app bundle; on other
-	// platforms, it's a couple of directories up from the app root.
-	const pandocPath = getPandocPath();
-	if (pandocPath) {
-		env['RSTUDIO_PANDOC'] = pandocPath;
 	}
 
 	// R script to run on session startup
