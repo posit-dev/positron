@@ -5,6 +5,7 @@
 
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { revive } from '../../../../base/common/marshalling.js';
+import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
 import { ChatModel } from '../../../contrib/chat/common/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
@@ -106,5 +107,18 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
 		source.signedIn = false;
 		this._positronAssistantService.removeLanguageModelConfig(source);
+	}
+
+	/**
+	 * Check if a file is excluded from AI processing based on configuration settings.
+	 */
+	async $isFileExcluded(file: UriComponents): Promise<boolean> {
+		const uri = URI.revive(file);
+		if (!uri) {
+			return true; // If URI is invalid, consider it excluded
+		}
+
+		// Use the language model ignored files service to check if the file should be excluded
+		return this._positronAssistantService.isFileExcluded(uri);
 	}
 }

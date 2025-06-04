@@ -20,6 +20,8 @@ import { ExecutionEntryType, IExecutionHistoryService } from '../../../services/
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
+import { URI } from '../../../../base/common/uri.js';
+import * as glob from '../../../../base/common/glob.js';
 
 /**
  * PositronAssistantService class.
@@ -205,6 +207,12 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		this._languageModelRegistry.delete(source.provider.id);
 
 		this._onLanguageModelConfigEmitter.fire(source);
+	}
+
+	isFileExcluded(uri: URI): boolean {
+		const globPattern = '{**/.*}';
+
+		return glob.match(globPattern, uri.path);
 	}
 
 	//#endregion

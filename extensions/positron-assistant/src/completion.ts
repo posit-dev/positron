@@ -189,6 +189,11 @@ class OpenAILegacyCompletion extends CompletionModel {
 		context: vscode.InlineCompletionContext,
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
+		// Check if the file should be excluded from AI features
+		if (await positron.ai.isFileExcluded(document.uri)) {
+			return [];
+		}
+
 		// Delay a little before hitting the network, we might be cancelled by further keystrokes
 		await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -380,6 +385,11 @@ abstract class FimPromptCompletion extends CompletionModel {
 		context: vscode.InlineCompletionContext,
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList> {
+		// Check if the file should be excluded from AI features
+		if (await positron.ai.isFileExcluded(document.uri)) {
+			return [];
+		}
+
 		// Delay a little before hitting the network, we might be cancelled by further keystrokes
 		await new Promise(resolve => setTimeout(resolve, 200));
 
@@ -638,6 +648,10 @@ export class CopilotCompletion implements vscode.InlineCompletionItemProvider {
 		context: vscode.InlineCompletionContext,
 		token: vscode.CancellationToken
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined> {
+		// Check if the file should be excluded from AI features
+		if (await positron.ai.isFileExcluded(document.uri)) {
+			return undefined;
+		}
 		return await this._copilotService.inlineCompletion(document, position, context, token);
 	}
 
