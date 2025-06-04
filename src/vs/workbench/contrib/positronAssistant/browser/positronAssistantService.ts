@@ -18,6 +18,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { Emitter } from '../../../../base/common/event.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { URI } from '../../../../base/common/uri.js';
+import * as glob from '../../../../base/common/glob.js';
 
 /**
  * PositronAssistantService class.
@@ -182,6 +184,12 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		this._languageModelRegistry.delete(source.provider.id);
 
 		this._onLanguageModelConfigEmitter.fire(source);
+	}
+
+	isFileExcluded(uri: URI): boolean {
+		const globPattern = '{**/.*}';
+
+		return glob.match(globPattern, uri.path);
 	}
 
 	//#endregion
