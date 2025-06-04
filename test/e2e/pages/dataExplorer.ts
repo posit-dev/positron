@@ -18,6 +18,7 @@ const SCROLLBAR_LOWER_RIGHT_CORNER = '.data-grid-scrollbar-corner';
 const DATA_GRID_TOP_LEFT = '.data-grid-corner-top-left';
 const STATUS_BAR = '.positron-data-explorer .status-bar';
 const CLEAR_SORTING_BUTTON = '.codicon-positron-clear-sorting';
+const CLEAR_FILTER_BUTTON = '.codicon-positron-clear-filter';
 const MISSING_PERCENT = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-null-percent .text-percent`;
 const EXPAND_COLLAPSE_PROFILE = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .expand-collapse-button`;
 const EXPAND_COLLASPE_ICON = '.expand-collapse-icon';
@@ -41,16 +42,27 @@ export class DataExplorer {
 
 	clearSortingButton: Locator;
 	addFilterButton: Locator;
+	clearFilterButton: Locator;
 	selectColumnButton: Locator;
 	selectConditionButton: Locator;
 	applyFilterButton: Locator;
 
 	constructor(private code: Code, private workbench: Workbench) {
 		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
+		this.clearFilterButton = this.code.driver.page.locator(CLEAR_FILTER_BUTTON);
 		this.addFilterButton = this.code.driver.page.getByRole('button', { name: 'Add Filter' });
 		this.selectColumnButton = this.code.driver.page.getByRole('button', { name: 'Select Column' });
 		this.selectConditionButton = this.code.driver.page.getByRole('button', { name: 'Select Condition' });
 		this.applyFilterButton = this.code.driver.page.getByRole('button', { name: 'Apply Filter' });
+	}
+
+	async clearAllFilters() {
+		if (await this.clearSortingButton.isVisible() && await this.clearSortingButton.isEnabled()) {
+			await this.clearSortingButton.click();
+		}
+		if (await this.clearFilterButton.isVisible()) {
+			await this.clearFilterButton.click();
+		}
 	}
 
 	/*
@@ -124,11 +136,10 @@ export class DataExplorer {
 	}
 
 	async selectColumnMenuItem(columnIndex: number, menuItem: string) {
-
-		await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
-
-		await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
-
+		await test.step(`Sort column ${columnIndex} by menu item: ${menuItem}`, async () => {
+			await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
+			await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
+		});
 	}
 
 	async home(): Promise<void> {
@@ -236,7 +247,9 @@ export class DataExplorer {
 	}
 
 	async expandSummary(): Promise<void> {
-		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.expandSummary');
+		await test.step('Expand data explorer summary', async () => {
+			await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.expandSummary');
+		});
 	}
 
 	async verifyTab(
@@ -253,6 +266,74 @@ export class DataExplorer {
 			await (isSelected
 				? expect(tabLocator).toHaveClass(/selected/)
 				: expect(tabLocator).not.toHaveClass(/selected/));
+		});
+	}
+
+	/**
+ * Universal helper method to verify column data
+ * @param dataExplorer The data explorer object
+ * @param expectations Array of objects containing column index, property name to verify, and expected value
+ */
+	async verifyColumnData(expectations: Array<{ column?: number; property: string; expected: any }>) {
+		for (const { column, property, expected } of expectations) {
+			if (property === 'missingPercent') {
+				if (column === undefined) {
+					throw new Error('Column index must be provided for missingPercent verification');
+				}
+				const missingPercent = await this.getColumnMissingPercent(column);
+				expect(missingPercent).toBe(expected);
+			} else if (property === 'profileData') {
+				if (column === undefined) {
+					throw new Error('Column index must be provided for profileData verification');
+				}
+				const profileInfo = await this.getColumnProfileInfo(column);
+				expect(profileInfo.profileData).toStrictEqual(expected);
+			} else if (property === 'tableData') {
+				await this.verifyTableData(expected);
+			} else {
+				throw new Error(`Unsupported property: ${property}`);
+			}
+		}
+	}
+
+
+	/**
+	 * Helper function to verify table data matches expected values
+	 * @param dataExplorer The dataExplorer object from the workbench
+	 * @param expectedData Array of objects representing expected row data
+	 * @param timeout Optional timeout value in ms
+	 */
+	async verifyTableData(expectedData, timeout = 60000) {
+		await expect(async () => {
+			const tableData = await this.getDataExplorerTableData();
+
+			expect(tableData.length).toBe(expectedData.length);
+
+			for (let i = 0; i < expectedData.length; i++) {
+				const row = expectedData[i];
+				for (const [key, value] of Object.entries(row)) {
+					expect(tableData[i][key]).toBe(value);
+				}
+			}
+		}).toPass({ timeout });
+	}
+
+
+	async verifyMissingPercent(expectedValues: Array<{ column: number; expected: string }>) {
+		await test.step('Verify missing percent values', async () => {
+			for (const { column, expected } of expectedValues) {
+				const missingPercent = await this.getColumnMissingPercent(column);
+				expect(missingPercent).toBe(expected);
+			}
+		});
+	}
+
+	async verifyProfileData(expectedValues: Array<{ column: number; expected: { [key: string]: string } }>) {
+		await test.step('Verify profile data', async () => {
+			for (const { column, expected } of expectedValues) {
+				const profileInfo = await this.getColumnProfileInfo(column);
+				expect(profileInfo.profileData).toStrictEqual(expected);
+			}
 		});
 	}
 
