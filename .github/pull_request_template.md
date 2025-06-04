@@ -49,7 +49,7 @@ main branch by either pulling or rebasing.
 	for instructions on including the tags, and https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts
 	for the list of available tags.
 
-	Example tags: @:web @:windows
+	Example tags: @:web @:win
 -->
 
 
