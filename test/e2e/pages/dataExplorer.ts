@@ -115,19 +115,21 @@ export class DataExplorer {
 	 * Add a filter to the data explorer.  Only works for a single filter at the moment.
 	 */
 	async addFilter(columnName: string, functionText: string, filterValue: string) {
-		await this.addFilterButton.click();
+		await test.step(`Add filter: ${columnName} ${functionText} ${filterValue}`, async () => {
+			await this.addFilterButton.click();
 
-		// select column
-		await this.selectColumnButton.click();
-		await this.code.driver.page.getByRole('button', { name: columnName }).click();
+			// select column
+			await this.selectColumnButton.click();
+			await this.code.driver.page.getByRole('button', { name: columnName }).click();
 
-		// select condition
-		await this.selectConditionButton.click();
-		await this.code.driver.page.getByRole('button', { name: functionText, exact: true }).click();
+			// select condition
+			await this.selectConditionButton.click();
+			await this.code.driver.page.getByRole('button', { name: functionText, exact: true }).click();
 
-		// enter value
-		await this.code.driver.page.getByRole('textbox', { name: 'value' }).fill(filterValue);
-		await this.applyFilterButton.click();
+			// enter value
+			await this.code.driver.page.getByRole('textbox', { name: 'value' }).fill(filterValue);
+			await this.applyFilterButton.click();
+		});
 	}
 
 	async getDataExplorerStatusBarText(): Promise<String> {
@@ -136,7 +138,7 @@ export class DataExplorer {
 	}
 
 	async selectColumnMenuItem(columnIndex: number, menuItem: string) {
-		await test.step(`Sort column ${columnIndex} by menu item: ${menuItem}`, async () => {
+		await test.step(`Sort column ${columnIndex} by: ${menuItem}`, async () => {
 			await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
 			await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
 		});
@@ -269,55 +271,22 @@ export class DataExplorer {
 		});
 	}
 
-	/**
- * Universal helper method to verify column data
- * @param dataExplorer The data explorer object
- * @param expectations Array of objects containing column index, property name to verify, and expected value
- */
-	async verifyColumnData(expectations: Array<{ column?: number; property: string; expected: any }>) {
-		for (const { column, property, expected } of expectations) {
-			if (property === 'missingPercent') {
-				if (column === undefined) {
-					throw new Error('Column index must be provided for missingPercent verification');
-				}
-				const missingPercent = await this.getColumnMissingPercent(column);
-				expect(missingPercent).toBe(expected);
-			} else if (property === 'profileData') {
-				if (column === undefined) {
-					throw new Error('Column index must be provided for profileData verification');
-				}
-				const profileInfo = await this.getColumnProfileInfo(column);
-				expect(profileInfo.profileData).toStrictEqual(expected);
-			} else if (property === 'tableData') {
-				await this.verifyTableData(expected);
-			} else {
-				throw new Error(`Unsupported property: ${property}`);
-			}
-		}
-	}
-
-
-	/**
-	 * Helper function to verify table data matches expected values
-	 * @param dataExplorer The dataExplorer object from the workbench
-	 * @param expectedData Array of objects representing expected row data
-	 * @param timeout Optional timeout value in ms
-	 */
 	async verifyTableData(expectedData, timeout = 60000) {
-		await expect(async () => {
-			const tableData = await this.getDataExplorerTableData();
+		await test.step('Verify data explorer data', async () => {
+			await expect(async () => {
+				const tableData = await this.getDataExplorerTableData();
 
-			expect(tableData.length).toBe(expectedData.length);
+				expect(tableData.length).toBe(expectedData.length);
 
-			for (let i = 0; i < expectedData.length; i++) {
-				const row = expectedData[i];
-				for (const [key, value] of Object.entries(row)) {
-					expect(tableData[i][key]).toBe(value);
+				for (let i = 0; i < expectedData.length; i++) {
+					const row = expectedData[i];
+					for (const [key, value] of Object.entries(row)) {
+						expect(tableData[i][key]).toBe(value);
+					}
 				}
-			}
-		}).toPass({ timeout });
+			}).toPass({ timeout });
+		});
 	}
-
 
 	async verifyMissingPercent(expectedValues: Array<{ column: number; expected: string }>) {
 		await test.step('Verify missing percent values', async () => {
@@ -338,7 +307,7 @@ export class DataExplorer {
 	}
 
 	async verifySparklineHoverDialog(verificationText: string[]): Promise<void> {
-		await test.step('Verify bin count hover dialog', async () => {
+		await test.step(`Verify sparkline tooltip: ${verificationText}`, async () => {
 			const firstSparkline = this.code.driver.page.locator('.column-sparkline .tooltip-container').nth(0);
 			await firstSparkline.hover();
 			const hoverTooltip = this.code.driver.page.locator('.hover-contents');

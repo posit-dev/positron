@@ -31,7 +31,7 @@ test.describe('Data Explorer - Python Polars', {
 		app.workbench.dataExplorer.clearAllFilters();
 	});
 
-	test('Python Polars - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app, hotKeys }) {
+	test('Python Polars - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app }) {
 		const { dataExplorer } = app.workbench;
 
 		// verify table data
@@ -76,15 +76,12 @@ test.describe('Data Explorer - Python Polars', {
 			{ column: 5, expected: { 'Missing': '1', 'Min': '0.5000', 'Median': '1.50', 'Mean': '1.50', 'Max': '2.50', 'SD': '1.41' } },
 			{ column: 6, expected: { 'Missing': '1', 'True': '1', 'False': '1' } }
 		]);
-
-		// await dataExplorer.collapseSummary();
-
 	});
 
 	test('Python Polars - Verify can filter column', async function ({ app }) {
 		const { dataExplorer } = app.workbench;
 
-		// filter table by column 1 (foo) not equal to 1
+		// filter table by: foo is not equal to 1
 		const FILTER_PARAMS = ['foo', 'is not equal to', '1'];
 		await dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
 		await dataExplorer.verifyTableData([
@@ -96,7 +93,7 @@ test.describe('Data Explorer - Python Polars', {
 	test('Python Polars - Verify can sort column', async function ({ app }) {
 		const { dataExplorer } = app.workbench;
 
-		// sort table descending by column 1 (foo)
+		// sort table by column 1 (foo): descending
 		await dataExplorer.expandSummary();
 		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 		await dataExplorer.verifyTableData([
@@ -105,7 +102,7 @@ test.describe('Data Explorer - Python Polars', {
 			{ 'foo': '1', 'bar': '6.00', 'ham': '2020-01-02' }
 		]);
 
-		// sort table ascending by column 1 (foo)
+		// clear sorting
 		await dataExplorer.selectColumnMenuItem(1, 'Clear Sorting');
 		await dataExplorer.verifyTableData([
 			{ 'foo': '1', 'bar': '6.00', 'ham': '2020-01-02' },
