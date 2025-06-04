@@ -17,18 +17,36 @@ import { registerCodeActionProvider } from './codeActions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
-let modelDisposables: vscode.Disposable[] = [];
-let participantDisposables: vscode.Disposable[] = [];
+let modelDisposables: RegisteredLanguageModelProvider[] = [];
 let assistantEnabled = false;
 
-function disposeModels() {
-	modelDisposables.forEach(d => d.dispose());
-	modelDisposables = [];
+class RegisteredLanguageModelProvider implements vscode.Disposable {
+	constructor(
+		private readonly _chatModelProviderDisposable: vscode.Disposable,
+		public readonly modelConfig: ModelConfig,
+	) { }
+
+	dispose() {
+		this._chatModelProviderDisposable.dispose();
+	}
 }
 
-function disposeParticipants() {
-	participantDisposables.forEach(d => d.dispose());
-	participantDisposables = [];
+export function disposeModels(id?: string) {
+	if (id) {
+		// Dispose models for the specified ID.
+		const remainingModels: RegisteredLanguageModelProvider[] = [];
+		for (const registeredModel of modelDisposables) {
+			if (registeredModel.modelConfig.id === id) {
+				registeredModel.dispose();
+			} else {
+				remainingModels.push(registeredModel);
+			}
+		}
+		modelDisposables = remainingModels;
+	} else {
+		modelDisposables.forEach(d => d.dispose());
+		modelDisposables = [];
+	}
 }
 
 export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage, isDefault: boolean) {
@@ -158,7 +176,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				isDefault: isDefault,
 			});
 			isDefault = false; // only the first model is default
-			modelDisposables.push(modelDisp);
+			modelDisposables.push(new RegisteredLanguageModelProvider(modelDisp, newConfig));
 			vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
 		}
 	}
@@ -167,7 +185,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 		const completionProvider = newCompletionProvider(modelConfig);
 		// this uses the proposed inlineCompletionAdditions API
 		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: modelConfig.name });
-		modelDisposables.push(complDisp);
+		modelDisposables.push(new RegisteredLanguageModelProvider(complDisp, modelConfig));
 	}
 }
 
@@ -227,7 +245,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	context.subscriptions.push({
 		dispose: () => {
 			disposeModels();
-			disposeParticipants();
 		}
 	});
 
