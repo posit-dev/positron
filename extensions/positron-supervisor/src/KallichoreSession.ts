@@ -39,6 +39,7 @@ import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
+import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 
 /**
  * The reason for a disconnection event.
@@ -188,6 +189,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this.disconnected = new vscode.EventEmitter<DisconnectedEvent>();
 
 		// Ensure the emitters are disposed when the session is disposed
+		this._disposables.push(this._messages);
 		this._disposables.push(this._state);
 		this._disposables.push(this._exit);
 		this._disposables.push(this.disconnected);
@@ -617,11 +619,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			// If the response is an error, throw it
 			if (Object.keys(response).includes('error')) {
-				const error = response.error;
+				// TODO: Could be more type-safe
+				const error = response.error as any;
 
 				// Populate the error object with the name of the error code
 				// for conformity with code that expects an Error object.
-				error.name = `RPC Error ${response.error.code}`;
+				error.name = `RPC Error ${error.code}`;
 
 				req.promise.reject(error);
 			}
@@ -689,7 +692,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			code,
 			silent: mode === positron.RuntimeCodeExecutionMode.Silent,
 			store_history: mode === positron.RuntimeCodeExecutionMode.Interactive,
-			user_expressions: new Map(),
+			user_expressions: {},
 			allow_stdin: true,
 			stop_on_error: errorBehavior === positron.RuntimeErrorBehavior.Stop,
 		};
@@ -741,8 +744,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async createClient(
 		id: string,
 		type: positron.RuntimeClientType,
-		params: any,
-		metadata?: any): Promise<void> {
+		params: Record<string, unknown>,
+		metadata?: Record<string, unknown>): Promise<void> {
 
 		// Ensure the type of client we're being asked to create is a known type that supports
 		// client-initiated creation
@@ -1678,10 +1681,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			switch (msg.header.msg_type) {
 				// If this is an input request, save the header so we can can
 				// line it up with the client's response.
-				case 'input_request':
+				case JupyterMessageType.InputRequest:
 					this._activeBackendRequestHeader = msg.header;
 					break;
-				case 'rpc_request': {
+				case JupyterMessageType.RpcRequest: {
 					this.onCommRequest(msg).then(() => {
 						this.log(`Handled comm request: ${JSON.stringify(msg.content)}`, vscode.LogLevel.Debug);
 					})
@@ -1708,9 +1711,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			// If this is a `server_started` message, resolve the promise that
 			// was created when the comm was started.
 			if (commMsg.data.msg_type === 'server_started') {
+				// TODO: Could be more type-safe
+				const serverStarted = commMsg.data.content as any;
 				const startingPromise = this._startingComms.get(commMsg.comm_id);
 				if (startingPromise) {
-					startingPromise.resolve(commMsg.data.content.port);
+					startingPromise.resolve(serverStarted.port);
 					this._startingComms.delete(commMsg.comm_id);
 				}
 			}

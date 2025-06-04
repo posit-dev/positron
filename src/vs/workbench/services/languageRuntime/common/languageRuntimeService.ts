@@ -59,7 +59,7 @@ export interface ILanguageRuntimeMessage {
 	when: string;
 
 	/** Additional metadata, if any */
-	metadata?: Map<any, any>;
+	metadata?: Record<string, unknown>;
 
 	/** Additional binary data, if any */
 	buffers?: VSBuffer[];
@@ -133,6 +133,29 @@ export interface ILanguageRuntimeMessageClearOutput extends ILanguageRuntimeMess
 	readonly wait: boolean;
 }
 
+/** Known image MIME types. */
+enum ImageMimeType {
+	Gif = 'image/gif',
+	Jpeg = 'image/jpeg',
+	Jpg = 'image/jpg',
+	Png = 'image/png',
+	Svg = 'image/svg+xml',
+}
+
+/** Known text MIME types. */
+enum TextMimeType {
+	Markdown = 'text/markdown',
+	Plain = 'text/plain',
+	Html = 'text/html',
+}
+
+/** A language runtime output data bundle keyed by MIME type. */
+export type ILanguageRuntimeMessageOutputData = {
+	[K in (ImageMimeType | TextMimeType)]?: string;
+} & {
+	[key: string]: unknown;
+};
+
 /** LanguageRuntimeOutput is a LanguageRuntimeMessage representing output (text, plots, etc.) */
 export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 	/**
@@ -143,7 +166,32 @@ export interface ILanguageRuntimeMessageOutput extends ILanguageRuntimeMessage {
 	readonly kind: RuntimeOutputKind;
 
 	/** A record of data MIME types to the associated data, e.g. `text/plain` => `'hello world'` */
-	readonly data: Record<string, any>;
+	readonly data: ILanguageRuntimeMessageOutputData;
+
+	/**
+	 * The optional identifier of the output. If specified, this output can be referenced
+	 * in future messages e.g. when {@link LanguageRuntimeUpdateOutput updating an output}.
+	 */
+	readonly output_id?: string;
+}
+
+/**
+ * LanguageRuntimeUpdateOutput is a LanguageRuntimeMessage instructing the frontend
+ * to update the output of a previous runtime execution.
+ */
+export interface ILanguageRuntimeMessageUpdateOutput extends ILanguageRuntimeMessage {
+	/**
+	 * The kind of output this message contains. Output messages often have
+	 * multiple representations (as text, as HTML, etc.); this enum is used to
+	 * determine how the output is presented in Positron.
+	 */
+	readonly kind: RuntimeOutputKind;
+
+	/** The updated output data */
+	readonly data: ILanguageRuntimeMessageOutputData;
+
+	/** The identifier of the output to update */
+	readonly output_id: string;
 }
 
 /**
@@ -231,7 +279,7 @@ export interface ILanguageRuntimeMessageCommOpen extends ILanguageRuntimeMessage
 	target_name: string;
 
 	/** Data associated with the request (e.g. parameters to client-side comm constructor) */
-	data: object;
+	data: Record<string, unknown>;
 }
 
 /** ILanguageRuntimeMessageCommData is a LanguageRuntimeMessage representing data received from a comm */
@@ -240,7 +288,7 @@ export interface ILanguageRuntimeMessageCommData extends ILanguageRuntimeMessage
 	comm_id: string;
 
 	/** The data received from the comm */
-	data: object;
+	data: Record<string, unknown>;
 }
 
 /**
@@ -252,7 +300,7 @@ export interface ILanguageRuntimeMessageCommClosed extends ILanguageRuntimeMessa
 	comm_id: string;
 
 	/** The shutdown data received from the comm, if any */
-	data: object;
+	data: Record<string, unknown>;
 }
 
 /**
@@ -497,6 +545,9 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message that should be handled by an IPyWidget */
 	IPyWidget = 'ipywidget',
+
+	/** A message representing a request to update an output */
+	UpdateOutput = 'update_output',
 }
 
 /**

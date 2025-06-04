@@ -41,6 +41,7 @@ export class NotebookOutputPlotClient extends WebviewPlotClient {
 			created: Date.parse(_message.when),
 			session_id: _session.sessionId,
 			code: code ? code : '',
+			output_id: _message.output_id,
 		});
 	}
 

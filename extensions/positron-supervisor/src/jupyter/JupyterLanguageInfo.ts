@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -19,16 +19,16 @@ export interface JupyterLanguageInfo {
 	mimetype: string;
 
 	/** The file extension for script files in the language */
-	file_extension: string; // eslint-disable-line
+	file_extension: string;
 
 	/** Pygments lexer (for highlighting), only needed if differs from name */
-	pygments_lexer: string; // eslint-disable-line
+	pygments_lexer: string;
 
 	/** Codemirror mode (for editing), only needed if differs from name  */
-	codemirror_mode: string; // eslint-disable-line
+	codemirror_mode: string;
 
 	/** Nbconvert exporter, if not default */
-	nbconvert_exporter: string; // eslint-disable-line
+	nbconvert_exporter: string;
 
 	/** Posit extension */
 	positron?: JupyterLanguageInfoPositron;

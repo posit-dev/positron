@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -17,13 +17,13 @@ export interface JupyterMessage {
 	header: JupyterMessageHeader;
 
 	/** The parent message (the one that caused this one), if any */
-	parent_header: JupyterMessageHeader;    // eslint-disable-line
+	parent_header: JupyterMessageHeader;
 
 	/** Additional metadata, if any */
-	metadata: Map<any, any>;
+	metadata: Record<string, unknown>;
 
 	/** The body of the message */
-	content: any;
+	content: unknown;
 
 	/**
 	 * The channel (ZeroMQ socket) for the message. This isn't part of the

@@ -6,6 +6,7 @@
 import { ActivityItem } from './activityItem.js';
 import { formatOutputLinesForClipboard } from '../utils/clipboardUtils.js';
 import { ANSIOutput, ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
+import { ILanguageRuntimeMessageOutputData } from '../../../languageRuntime/common/languageRuntimeService.js';
 
 /**
  * ActivityItemOutputPlot class.
@@ -48,13 +49,15 @@ export class ActivityItemOutputPlot extends ActivityItem {
 	 * @param when The date.
 	 * @param data The data.
 	 * @param onSelected A callback that is invoked when the item is selected.
+	 * @param outputId The optional identifier of the output associated with this activity item.
 	 */
 	constructor(
 		id: string,
 		parentId: string,
 		when: Date,
-		readonly data: Record<string, string>,
-		readonly onSelected: () => void
+		readonly data: ILanguageRuntimeMessageOutputData,
+		readonly onSelected: () => void,
+		readonly outputId?: string,
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);
@@ -69,10 +72,10 @@ export class ActivityItemOutputPlot extends ActivityItem {
 		// Get the MIME type and data.
 		this.mimeType = imageKey!;
 		if (this.mimeType === 'image/svg+xml') {
-			const svgData = encodeURIComponent(data[imageKey!]);
+			const svgData = encodeURIComponent(data[this.mimeType]!);
 			this.plotUri = `data:${this.mimeType};utf8,${svgData}`;
 		} else {
-			this.plotUri = `data:${this.mimeType};base64,${data[imageKey!]}`;
+			this.plotUri = `data:${this.mimeType};base64,${data[this.mimeType]!}`;
 		}
 
 		// If the output is empty, don't render any output lines; otherwise, process the output into

@@ -157,7 +157,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			}
 
 			const instance = await PositronConnectionsInstance.init(
-				new ConnectionMetadata(message.data as IConnectionMetadata),
+				new ConnectionMetadata(message.data as unknown as IConnectionMetadata),
 				new ConnectionsClientInstance(client),
 				this
 			);

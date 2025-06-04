@@ -29,6 +29,7 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 			session_id: sessionId,
 			code: code ? code : '',
 			suggested_file_name: createSuggestedFileNameForPlot(storageService),
+			output_id: message.output_id,
 		};
 
 		// Find the image MIME type. This is guaranteed to exist since we only create this object if
@@ -38,10 +39,14 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 			throw new Error(`No image/ MIME type found in message data. ` +
 				`Found MIME types: ${Object.keys(message.data).join(', ')}`);
 		}
+		const data = message.data[imageKey];
+		if (typeof data !== 'string') {
+			throw new Error(`Expected string data for MIME ${imageKey}, got: ${typeof data}`);
+		}
 
 		// Save the MIME type and data for the image.
 		this.mimeType = imageKey;
-		this.data = message.data[imageKey];
+		this.data = data;
 	}
 
 	get uri() {

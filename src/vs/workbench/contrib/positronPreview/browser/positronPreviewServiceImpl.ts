@@ -4,14 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as DOM from '../../../../base/browser/dom.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { IPositronPreviewService } from './positronPreview.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOverlayWebview, IWebviewService, WebviewExtensionDescription, WebviewInitInfo } from '../../webview/browser/webview.js';
 import { PreviewWebview } from './previewWebview.js';
 import { IViewsService } from '../../../services/views/common/viewsService.js';
 import { POSITRON_PREVIEW_HTML_VIEW_TYPE, POSITRON_PREVIEW_URL_VIEW_TYPE, POSITRON_PREVIEW_VIEW_ID } from './positronPreviewSevice.js';
-import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageUpdateOutput, LanguageRuntimeSessionMode, RuntimeOutputKind } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -37,7 +37,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 	declare readonly _serviceBrand: undefined;
 
-	private _items: Map<string, PreviewWebview> = new Map();
+	private _items = new DisposableMap<string, PreviewWebview>();
 
 	private static _previewIdCounter = 0;
 
@@ -101,8 +101,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		this._register(this._extensionService.onWillStop((e) => {
 			for (const preview of this._items.values()) {
 				if (preview instanceof PreviewHtml) {
-					preview.webview.dispose();
-					this._items.delete(preview.previewId);
+					this._items.deleteAndDispose(preview.previewId);
 				}
 			}
 		}));
@@ -135,13 +134,8 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		// clearing the preview pane.
 		this.activePreviewWebviewId = '';
 
-		// Dispose all active webviews
-		for (const item of this._items.values()) {
-			item.webview.dispose();
-		}
-
-		// Clear the map
-		this._items.clear();
+		// Dispose all active webviews and clear (but don't dispose) the map.
+		this._items.clearAndDisposeAll();
 	}
 
 	/**
@@ -185,14 +179,10 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		viewType: string,
 		title: string,
 		preserveFocus?: boolean | undefined): PreviewWebview {
-
 		const webview = this._webviewService.createWebviewOverlay(webviewInitInfo);
-		const overlay = this.createOverlayWebview(webview);
-		const preview = new PreviewWebview(viewType, previewId, title, overlay);
-		this._items.set(previewId, preview);
-
+		const preview = this.createPreviewWebview(previewId, webview, viewType, title);
+		this._items.set(preview.previewId, preview);
 		this.openPreviewWebview(preview, preserveFocus);
-
 		return preview;
 	}
 
@@ -256,6 +246,13 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		return new PreviewHtml(sessionId, previewId, overlay, uri, event);
 	}
 
+	/** Create a preview for a webview. */
+	private createPreviewWebview(previewId: string, webview: IOverlayWebview, viewType: string, title: string): PreviewWebview {
+		const overlay = this.createOverlayWebview(webview);
+		const preview = new PreviewWebview(viewType, previewId, title, overlay);
+		return preview;
+	}
+
 	/**
 	 * Open a URI in the preview pane.
 	 */
@@ -277,10 +274,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 	private makeActivePreview(preview: PreviewWebview) {
 		// Remove any other previews from the item list; they can be expensive
 		// to keep around.
-		this._items.forEach((value) => {
-			value.dispose();
-		});
-		this._items.clear();
+		this._items.clearAndDisposeAll();
 		this._items.set(preview.previewId, preview);
 
 		// Open the preview
@@ -365,7 +359,7 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 
 			const wasActive = this.activePreviewWebviewId === preview.previewId;
 
-			this._items.delete(preview.previewId);
+			this._items.deleteAndDispose(preview.previewId);
 
 			// Select a new preview webview if the closed one was active
 			if (wasActive) {
@@ -400,25 +394,45 @@ export class PositronPreviewService extends Disposable implements IPositronPrevi
 		}
 		const handleDidReceiveRuntimeMessageOutput = async (e: ILanguageRuntimeMessageOutput) => {
 			if (e.kind === RuntimeOutputKind.ViewerWidget) {
-				const webview = await
-					this._notebookOutputWebviewService.createNotebookOutputWebview({
-						id: e.id,
-						runtime: session,
-						output: e
-					});
-				if (webview) {
-					const overlay = this.createOverlayWebview(webview.webview);
-					const preview = new PreviewWebview(
-						'notebookRenderer',
-						e.id, session.dynState.sessionName,
-						overlay);
-					this._items.set(e.id, preview);
-					this.openPreviewWebview(preview, false);
-				}
+				const previewId = this.previewWebviewId(session, e);
+				await this.handleRuntimeOutputMessage(previewId, e, session);
 			}
 		};
 		this._register(session.onDidReceiveRuntimeMessageOutput(handleDidReceiveRuntimeMessageOutput));
 		this._register(session.onDidReceiveRuntimeMessageResult(handleDidReceiveRuntimeMessageOutput));
+
+		this._register(session.onDidReceiveRuntimeMessageUpdateOutput(async e => {
+			if (e.kind === RuntimeOutputKind.ViewerWidget) {
+				const previewId = this.previewWebviewId(session, e);
+				if (this._items.has(previewId)) {
+					await this.handleRuntimeOutputMessage(previewId, e, session);
+				}
+			}
+		}));
+	}
+
+	/** Create a unique ID for a webview preview. */
+	private previewWebviewId(session: ILanguageRuntimeSession, message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput): string {
+		return `previewWebview.${session.sessionId}.${message.output_id ?? message.id}`;
+	}
+
+	/** Handles a language runtime output message. */
+	private async handleRuntimeOutputMessage(previewId: string, message: ILanguageRuntimeMessageOutput | ILanguageRuntimeMessageUpdateOutput, session: ILanguageRuntimeSession) {
+		const webview = await this._notebookOutputWebviewService.createNotebookOutputWebview({
+			id: message.id,
+			runtime: session,
+			output: message
+		});
+		if (webview) {
+			const preview = this.createPreviewWebview(
+				previewId,
+				webview.webview,
+				'notebookRenderer',
+				session.dynState.sessionName
+			);
+			this._items.set(preview.previewId, preview);
+			this.openPreviewWebview(preview, false);
+		}
 	}
 
 	/**

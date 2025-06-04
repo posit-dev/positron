@@ -16,22 +16,29 @@ import { JupyterClearOutput } from './jupyter/JupyterClearOutput';
 import { JupyterErrorReply } from './jupyter/JupyterErrorReply';
 import { JupyterStreamOutput } from './jupyter/JupyterStreamOutput';
 import { JupyterInputRequest } from './jupyter/JupyterInputRequest';
+import { isEnumMember } from './util.js';
+import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
+import { JupyterUpdateDisplayData } from './jupyter/JupyterUpdateDisplayData.js';
 
 /**
  * An emitter for runtime messages; translates Jupyter messages into language
  * runtime messages and emits them to Positron.
  */
-export class RuntimeMessageEmitter {
+export class RuntimeMessageEmitter implements vscode.Disposable {
 
-	private readonly _emitter: vscode.EventEmitter<positron.LanguageRuntimeMessage>;
+	private readonly _emitter = new vscode.EventEmitter<positron.LanguageRuntimeCommMessage
+		| positron.LanguageRuntimeCommOpen
+		| positron.LanguageRuntimeResult
+		| positron.LanguageRuntimeOutput
+		| positron.LanguageRuntimeInput
+		| positron.LanguageRuntimeState
+		| positron.LanguageRuntimeClearOutput
+		| positron.LanguageRuntimeError
+		| positron.LanguageRuntimeStream
+		| positron.LanguageRuntimeUpdateOutput
+		| positron.LanguageRuntimePrompt>();
 
-	constructor() {
-		this._emitter = new vscode.EventEmitter<positron.LanguageRuntimeMessage>();
-	}
-
-	public get event(): vscode.Event<positron.LanguageRuntimeMessage> {
-		return this._emitter.event;
-	}
+	public readonly event = this._emitter.event;
 
 	/**
 	 * Main entry point for message router; consumes a Jupyter message and emits
@@ -41,35 +48,38 @@ export class RuntimeMessageEmitter {
 	 */
 	public emitJupyter(msg: JupyterMessage): void {
 		switch (msg.header.msg_type) {
-			case 'clear_output':
+			case JupyterMessageType.ClearOutput:
 				this.onClearOutput(msg, msg.content as JupyterClearOutput);
 				break;
-			case 'comm_msg':
+			case JupyterMessageType.CommMsg:
 				this.onCommMessage(msg, msg.content as JupyterCommMsg);
 				break;
-			case 'comm_open':
+			case JupyterMessageType.CommOpen:
 				this.onCommOpen(msg, msg.content as JupyterCommOpen);
 				break;
-			case 'display_data':
+			case JupyterMessageType.DisplayData:
 				this.onDisplayData(msg, msg.content as JupyterDisplayData);
 				break;
-			case 'error':
+			case JupyterMessageType.Error:
 				this.onErrorResult(msg, msg.content as JupyterErrorReply);
 				break;
-			case 'execute_input':
+			case JupyterMessageType.ExecuteInput:
 				this.onExecuteInput(msg, msg.content as JupyterExecuteInput);
 				break;
-			case 'execute_result':
+			case JupyterMessageType.ExecuteResult:
 				this.onExecuteResult(msg, msg.content as JupyterExecuteResult);
 				break;
-			case 'input_request':
+			case JupyterMessageType.InputRequest:
 				this.onInputRequest(msg, msg.content as JupyterInputRequest);
 				break;
-			case 'status':
+			case JupyterMessageType.Status:
 				this.onKernelStatus(msg, msg.content as JupyterKernelStatus);
 				break;
-			case 'stream':
+			case JupyterMessageType.Stream:
 				this.onStreamOutput(msg, msg.content as JupyterStreamOutput);
+				break;
+			case JupyterMessageType.UpdateDisplayData:
+				this.onUpdateDisplayData(msg, msg.content as JupyterUpdateDisplayData);
 				break;
 		}
 	}
@@ -90,7 +100,7 @@ export class RuntimeMessageEmitter {
 			data: data.data,
 			metadata: message.metadata,
 			buffers: message.buffers,
-		} as positron.LanguageRuntimeCommMessage);
+		} satisfies positron.LanguageRuntimeCommMessage);
 	}
 
 	/**
@@ -106,9 +116,10 @@ export class RuntimeMessageEmitter {
 			parent_id: message.parent_header?.msg_id,
 			when: message.header.date,
 			type: positron.LanguageRuntimeMessageType.Result,
-			data: data.data as any,
+			output_id: data.transient?.display_id,
+			data: data.data,
 			metadata: message.metadata,
-		} as positron.LanguageRuntimeResult);
+		} satisfies positron.LanguageRuntimeResult);
 	}
 
 	/**
@@ -119,14 +130,17 @@ export class RuntimeMessageEmitter {
 	 * @param data The display_data message
 	 */
 	onDisplayData(message: JupyterMessage, data: JupyterDisplayData) {
+		// NOTE: We don't yet include data.metadata i.e. display metadata,
+		//       which is not the same as message.metadata.
 		this._emitter.fire({
 			id: message.header.msg_id,
 			parent_id: message.parent_header?.msg_id,
 			when: message.header.date,
 			type: positron.LanguageRuntimeMessageType.Output,
-			data: data.data as any,
+			output_id: data.transient?.display_id,
+			data: data.data,
 			metadata: message.metadata,
-		} as positron.LanguageRuntimeOutput);
+		} satisfies positron.LanguageRuntimeOutput);
 	}
 
 	/**
@@ -145,7 +159,7 @@ export class RuntimeMessageEmitter {
 			code: data.code,
 			execution_count: data.execution_count,
 			metadata: message.metadata,
-		} as positron.LanguageRuntimeInput);
+		} satisfies positron.LanguageRuntimeInput);
 	}
 
 	/**
@@ -156,6 +170,9 @@ export class RuntimeMessageEmitter {
 	 * @param data The kernel status message
 	 */
 	onKernelStatus(message: JupyterMessage, data: JupyterKernelStatus) {
+		if (!isEnumMember(data.execution_state, positron.RuntimeOnlineState)) {
+			throw new Error(`Unexpected JupyterKernelStatus.execution_state: ${data}`);
+		}
 		this._emitter.fire({
 			id: message.header.msg_id,
 			parent_id: message.parent_header?.msg_id,
@@ -163,7 +180,7 @@ export class RuntimeMessageEmitter {
 			type: positron.LanguageRuntimeMessageType.State,
 			state: data.execution_state,
 			metadata: message.metadata,
-		} as positron.LanguageRuntimeState);
+		} satisfies positron.LanguageRuntimeState);
 	}
 
 	/**
@@ -185,7 +202,7 @@ export class RuntimeMessageEmitter {
 			data: data.data,
 			metadata: message.metadata,
 			buffers: message.buffers,
-		} as positron.LanguageRuntimeCommOpen);
+		} satisfies positron.LanguageRuntimeCommOpen);
 	}
 
 	/**
@@ -203,7 +220,7 @@ export class RuntimeMessageEmitter {
 			type: positron.LanguageRuntimeMessageType.ClearOutput,
 			wait: data.wait,
 			metadata: message.metadata,
-		} as positron.LanguageRuntimeClearOutput);
+		} satisfies positron.LanguageRuntimeClearOutput);
 	}
 
 	/**
@@ -223,7 +240,7 @@ export class RuntimeMessageEmitter {
 			message: data.evalue,
 			traceback: data.traceback,
 			metadata: message.metadata,
-		} as positron.LanguageRuntimeError);
+		} satisfies positron.LanguageRuntimeError);
 	}
 
 	/**
@@ -234,6 +251,9 @@ export class RuntimeMessageEmitter {
 	 * @param data The stream message
 	 */
 	private onStreamOutput(message: JupyterMessage, data: JupyterStreamOutput) {
+		if (!isEnumMember(data.name, positron.LanguageRuntimeStreamName)) {
+			throw new Error(`Unexpected JupyterStreamOutput.name: ${data}`);
+		}
 		this._emitter.fire({
 			id: message.header.msg_id,
 			parent_id: message.parent_header?.msg_id,
@@ -242,7 +262,28 @@ export class RuntimeMessageEmitter {
 			name: data.name,
 			text: data.text,
 			metadata: message.metadata,
-		} as positron.LanguageRuntimeStream);
+		} satisfies positron.LanguageRuntimeStream);
+	}
+
+	/**
+	 * Converts a Jupyter update_display_data message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The update_display_data message
+	 */
+	private onUpdateDisplayData(message: JupyterMessage, data: JupyterUpdateDisplayData) {
+		// NOTE: We don't yet include data.metadata i.e. display metadata,
+		//       which is not the same as message.metadata.
+		this._emitter.fire({
+			id: message.header.msg_id,
+			parent_id: message.parent_header?.msg_id,
+			when: message.header.date,
+			type: positron.LanguageRuntimeMessageType.UpdateOutput,
+			output_id: data.transient.display_id,
+			data: data.data,
+			metadata: message.metadata,
+		} satisfies positron.LanguageRuntimeUpdateOutput);
 	}
 
 	/**
@@ -252,7 +293,6 @@ export class RuntimeMessageEmitter {
 	 * @param req The input request
 	 */
 	private onInputRequest(message: JupyterMessage, req: JupyterInputRequest): void {
-		// Send the input request to the client.
 		this._emitter.fire({
 			id: message.header.msg_id,
 			parent_id: message.parent_header?.msg_id,
@@ -260,7 +300,11 @@ export class RuntimeMessageEmitter {
 			type: positron.LanguageRuntimeMessageType.Prompt,
 			prompt: req.prompt,
 			password: req.password,
-		} as positron.LanguageRuntimePrompt);
+		} satisfies positron.LanguageRuntimePrompt);
+	}
+
+	dispose() {
+		this._emitter.dispose();
 	}
 
 }
