@@ -29,7 +29,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'anthropic',
-			displayName: 'Anthropic Claude'
+			displayName: 'Anthropic'
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {
