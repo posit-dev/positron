@@ -173,16 +173,22 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 
 function registerAddModelConfigurationCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.addModelConfiguration', () => {
-			showConfigurationDialog(context, storage);
+		vscode.commands.registerCommand('positron-assistant.addModelConfiguration', async () => {
+			await showConfigurationDialog(context, storage);
 		})
 	);
 }
 
 function registerConfigureModelsCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.configureModels', () => {
-			showModelList(context, storage);
+		vscode.commands.registerCommand('positron-assistant.configureModels', async () => {
+			if (vscode.workspace.getConfiguration('positron.assistant').get('newModelConfiguration', true)) {
+				// The new model configuration UI lets users sign out of providers as well,
+				// so there's no need to show the model list.
+				await showConfigurationDialog(context, storage);
+			} else {
+				await showModelList(context, storage);
+			}
 		})
 	);
 }

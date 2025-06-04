@@ -287,7 +287,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			height={540}
 			okButtonTitle={(() => localize('positron.languageModelModalDialog.save', "Save"))()}
 			renderer={props.renderer}
-			title={(() => localize('positron.languageModelModalDialog.title', "Add a Language Model Provider"))()}
+			title={(() => localize('positron.languageModelModalDialog.title.old', "Add a Language Model Provider"))()}
 			width={540}
 			onAccept={onAccept}
 			onCancel={onCancel}
@@ -405,7 +405,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			height={400}
 			okButtonTitle={(() => localize('positron.languageModelModalDialog.done', "Done"))()}
 			renderer={props.renderer}
-			title={(() => localize('positron.languageModelModalDialog.title', "Add a Language Model Provider"))()}
+			title={(() => localize('positron.languageModelModalDialog.title', "Configure Language Model Providers"))()}
 			width={600}
 			onAccept={onAccept}
 		>

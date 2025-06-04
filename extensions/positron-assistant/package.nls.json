@@ -1,8 +1,8 @@
 {
 	"displayName": "Positron Assistant",
 	"description": "Provides default assistant and language models for Positron.",
-	"commands.addModelConfiguration.title": "Add Language Model",
-	"commands.configureModels.title": "Configure Language Models",
+	"commands.addModelConfiguration.title": "Add Language Model Provider",
+	"commands.configureModels.title": "Configure Language Model Providers",
 	"commands.copilot.signin.title": "Copilot Sign In",
 	"commands.copilot.signout.title": "Copilot Sign Out",
 	"commands.category": "Positron Assistant",
