@@ -518,15 +518,21 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 
 			if (e.removed) {
 				// if the current model is removed, try to set a new model
-				if (this._currentLanguageModel && e.removed.some(model => model === this._currentLanguageModel?.identifier)) {
-					const models = this.getModels();
-					if (models.length > 0) {
+				const models = this.getModels();
+				if (models.length > 0) {
+					if (this._currentLanguageModel && e.removed.some(model => model === this._currentLanguageModel?.identifier)) {
 						this.setCurrentLanguageModel(models[0]);
-						// switch to showing models from all providers
-						this.currentProvider = undefined;
 					}
+				} else {
+					// If there are no models left, unset the current provider as well.
+					this.currentProvider = undefined;
 				}
 			}
+		}));
+
+		this._register(this._onDidChangeCurrentLanguageModel.event(e => {
+			// When a new language model is set, update the current provider.
+			this.currentProvider = { id: e.metadata.family, displayName: e.metadata.providerName ?? e.metadata.name };
 		}));
 
 		const storedCurrentProvider = this.storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);

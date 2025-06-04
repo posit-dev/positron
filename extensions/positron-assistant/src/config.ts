@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { getLanguageModels } from './models';
 import { completionModels } from './completion';
-import { registerModel, registerModels } from './extension';
+import { disposeModels, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
@@ -323,23 +323,11 @@ async function saveModel(userConfig: positron.ai.LanguageModelConfig, sources: p
 
 async function deleteConfigurationByProvider(context: vscode.ExtensionContext, storage: SecretStorage, providerId: string) {
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
-	const updatedConfigs = existingConfigs.filter(config => config.provider !== providerId);
-
 	const targetConfig = existingConfigs.find(config => config.provider === providerId);
 	if (targetConfig === undefined) {
 		throw new Error(vscode.l10n.t('No configuration found for provider {0}', providerId));
 	}
-
-	await context.globalState.update(
-		'positron.assistant.models',
-		updatedConfigs
-	);
-
-	await storage.delete(`apiKey-${providerId}`);
-
-	await registerModels(context, storage);
-
-	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
+	await deleteConfiguration(context, storage, targetConfig.id);
 }
 
 async function oauthSignin(userConfig: positron.ai.LanguageModelConfig, sources: positron.ai.LanguageModelSource[], storage: SecretStorage, context: vscode.ExtensionContext) {
@@ -407,6 +395,11 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 	const existingConfigs: Array<StoredModelConfig> = context.globalState.get('positron.assistant.models') || [];
 	const updatedConfigs = existingConfigs.filter(config => config.id !== id);
 
+	const targetConfig = existingConfigs.find(config => config.id === id);
+	if (targetConfig === undefined) {
+		throw new Error(vscode.l10n.t('No configuration found with ID {0}', id));
+	}
+
 	await context.globalState.update(
 		'positron.assistant.models',
 		updatedConfigs
@@ -414,5 +407,7 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 
 	await storage.delete(`apiKey-${id}`);
 
-	await registerModels(context, storage);
+	disposeModels(id);
+
+	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
 }

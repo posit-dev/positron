@@ -25,15 +25,13 @@ const addModelProviderTooltip = () => localize('positronChatSelector.addModelPro
 export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	const positronActionBarContext = usePositronActionBarContext();
 	const positronChatContext = usePositronChatContext();
-
-	const [providers, setProviders] = React.useState<IPositronChatProvider[] | undefined>(positronChatContext.providers)
-	const [selectorLabel, setSelectorLabel] = React.useState<string>();
+	const { providers, currentProvider } = positronChatContext;
 
 	const actions = React.useCallback(() => {
 		const providerActions: IAction[] = [];
 		providers?.forEach((provider) => {
 			// Skip the current provider -- it's already selected.
-			if (positronChatContext.currentProvider && positronChatContext.currentProvider.id === provider.id) {
+			if (currentProvider && currentProvider.id === provider.id) {
 				return;
 			}
 
@@ -61,26 +59,10 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 		}];
 
 		return Separator.join(providerActions, otherActions);
-	}, [providers, props, positronChatContext.currentProvider, positronActionBarContext.commandService]);
+	}, [props, providers, currentProvider, positronActionBarContext.commandService]);
 
-	React.useEffect(() => {
-		if (positronChatContext.currentProvider) {
-			setSelectorLabel(positronChatContext.currentProvider.displayName);
-		} else if (providers?.length && providers.length > 1 && positronChatContext.currentProvider === undefined) {
-			setSelectorLabel((() => localize('positronChatSelector.allModels', 'All Models'))());
-		} else if (providers?.length === 1) {
-			setSelectorLabel(providers[0].displayName);
-		} else {
-			setSelectorLabel(undefined);
-		}
-	}, [positronChatContext.currentProvider, providers]);
-
-	React.useEffect(() => {
-		setProviders(positronChatContext.providers);
-	}, [positronChatContext.providers]);
-
-	const renderSelector = () => {
-		if (!selectorLabel) {
+	const renderCurrentProvider = () => {
+		if (!currentProvider) {
 			return <ActionBarButton
 				label={addModelProviderLabel()}
 				tooltip={addModelProviderTooltip()}
@@ -93,7 +75,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 			<LanguageModelIcon provider={positronChatContext.currentProvider?.id ?? ''} />
 			<ActionBarMenuButton
 				actions={actions}
-				label={selectorLabel}
+				label={currentProvider.displayName}
 			/>
 		</>
 	};
@@ -101,7 +83,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	return (
 		<div className='chat-action-bar'>
 			<PositronActionBar>
-				{renderSelector()}
+				{renderCurrentProvider()}
 			</PositronActionBar>
 		</div>
 	);
