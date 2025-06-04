@@ -13,14 +13,5 @@
 	"configuration.title": "Positron Assistant",
 	"configuration.enable.description": "Enable Positron Assistant, an experimental AI assistant for Positron.",
 	"configuration.useAnthropicSdk.description": "Use the Anthropic SDK for Anthropic models rather than the generic AI SDK.",
-	"configuration.enabledProviders.description": "List of enabled language model providers; leave empty for defaults.",
-	"configuration.enabledProviders.anthropic": "Anthropic",
-	"configuration.enabledProviders.azure": "Microsoft Azure",
-	"configuration.enabledProviders.bedrock": "Amazon Bedrock",
-	"configuration.enabledProviders.google": "Gemini Code Assist",
-	"configuration.enabledProviders.mistral": "Mistral AI",
-	"configuration.enabledProviders.ollama": "Ollama (local)",
-	"configuration.enabledProviders.openai": "OpenAI",
-	"configuration.enabledProviders.openrouter": "OpenRouter",
 	"configuration.streamingEdits.enable": "Enable streaming edits in inline editor chats."
 }
