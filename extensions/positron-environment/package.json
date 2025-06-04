@@ -23,40 +23,35 @@
             "default": true,
             "description": "%environment.configuration.enabled.description%"
           },
-          "positron.environment.variables": {
+          "positron.environment.variables.replace": {
             "scope": "window",
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "action": {
-                  "type": "string",
-                  "enum": ["replace", "append", "prepend"],
-                  "description": "%environment.configuration.variables.action%"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "%environment.configuration.variables.name%"
-                },
-                "value": {
-                  "type": "string",
-                  "description": "%environment.configuration.variables.value%"
-                }
-              }
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
             },
-            "default": [
-              {
-                "action": "replace",
-                "name": "SF_PARTNER",
-                "value": "posit_positron"
-              },
-              {
-                "action": "replace",
-                "name": "SPARK_CONNECT_USER_AGENT",
-                "value": "posit-positron"
-              }
-            ],
-            "description": "%environment.configuration.variables.description%"
+            "default": {
+              "SF_PARTNER": "posit_positron",
+              "SPARK_CONNECT_USER_AGENT": "posit-positron"
+            },
+            "description": "%environment.configuration.variables.replace.description%"
+          },
+          "positron.environment.variables.append": {
+            "scope": "window",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "description": "%environment.configuration.variables.append.description%"
+          },
+          "positron.environment.variables.prepend": {
+            "scope": "window",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "description": "%environment.configuration.variables.prepend.description%"
           }
         }
       }

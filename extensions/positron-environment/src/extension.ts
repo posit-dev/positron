@@ -8,21 +8,6 @@ import * as positron from 'positron';
 import { getPandocPath } from './pandoc.js';
 
 /**
- * Interface for the environment variable action. Mirrors the definition in the
- * configuration schema.
- */
-interface EnvironmentVariableAction {
-	/** The action to take */
-	action: 'replace' | 'append' | 'prepend';
-
-	/** The name of the variable */
-	name: string;
-
-	/** The value to replace, append, or remove */
-	value: string;
-};
-
-/**
  * Apply the configuration for the environment variables.
  *
  * @param context The extension context.
@@ -47,20 +32,22 @@ function applyConfiguration(context: vscode.ExtensionContext) {
 	// Set the collection description
 	collection.description = vscode.l10n.t('Global Positron environment variables');
 
-	// Get the configured environment variables
-	const actions = vars.get<Array<EnvironmentVariableAction>>('variables') ?? [];
-	for (const action of actions) {
-		switch (action.action) {
-			case 'replace':
-				collection.replace(action.name, action.value);
-				break;
-			case 'append':
-				collection.append(action.name, action.value);
-				break;
-			case 'prepend':
-				collection.prepend(action.name, action.value);
-				break;
-		}
+	// Get the configured environment variables for replace action
+	const replaceVars = vars.get<Record<string, string>>('variables.replace') ?? {};
+	for (const [name, value] of Object.entries(replaceVars)) {
+		collection.replace(name, value);
+	}
+
+	// Get the configured environment variables for append action
+	const appendVars = vars.get<Record<string, string>>('variables.append') ?? {};
+	for (const [name, value] of Object.entries(appendVars)) {
+		collection.append(name, value);
+	}
+
+	// Get the configured environment variables for prepend action
+	const prependVars = vars.get<Record<string, string>>('variables.prepend') ?? {};
+	for (const [name, value] of Object.entries(prependVars)) {
+		collection.prepend(name, value);
 	}
 }
 
