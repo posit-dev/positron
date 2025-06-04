@@ -46,9 +46,13 @@ export class ExtensionsWatcher extends Disposable {
 
 	private async initialize(): Promise<void> {
 		await this.extensionsScannerService.initializeDefaultProfileExtensions();
+		this.logService.info('Extensions Watcher initialized with default profile extensions');
 		await this.onDidChangeProfiles(this.userDataProfilesService.profiles);
+		this.logService.info('Extensions Watcher populated with existing profiles:', this.userDataProfilesService.profiles.map(profile => profile.id).join(', '));
 		this.registerListeners();
+		this.logService.info('Extensions Watcher registered listeners for profile changes');
 		await this.deleteExtensionsNotInProfiles();
+		this.logService.info('Extensions Watcher deleted extensions not in any profile');
 	}
 
 	private registerListeners(): void {
