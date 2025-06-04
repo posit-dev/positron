@@ -333,3 +333,9 @@ type ToolResultContent = Array<
 		mimeType?: string;
 	}
 >;
+
+/** Whether a chat request is from an inline editor context. */
+export function isTextEditRequest(request: vscode.ChatRequest):
+	request is vscode.ChatRequest & { location2: vscode.ChatRequestEditorData } {
+	return request.location2 instanceof vscode.ChatRequestEditorData;
+}
