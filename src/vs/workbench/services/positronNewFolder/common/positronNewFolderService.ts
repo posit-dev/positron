@@ -22,8 +22,6 @@ import { URI } from '../../../../base/common/uri.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { localize } from '../../../../nls.js';
 import { IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
-
-// These imports are poorly layered. This has been true for a long time, and we should fix this.
 import { INotebookEditorService } from '../../../contrib/notebook/browser/services/notebookEditorService.js';
 import { INotebookKernel, INotebookKernelService } from '../../../contrib/notebook/common/notebookKernelService.js';
 import { INotebookTextModel } from '../../../contrib/notebook/common/notebookCommon.js';
@@ -94,6 +92,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 						this._runPostInitTasks();
 						break;
 					case NewFolderStartupPhase.Complete:
+						// Open both the init and post-init task barriers because some new folders
+						// do not have a runtime startup phase (e.g. Empty Project).
+						this.initTasksComplete.open();
 						this.postInitTasksComplete.open();
 						break;
 					default:
@@ -194,6 +195,14 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		);
 		if (this._newFolderConfig) {
 			await this._runExtensionTasks();
+
+			// For folders that do not require a runtime startup phase, we set the startup phase to Complete.
+			if (this._newFolderConfig.folderTemplate === FolderTemplate.EmptyProject ||
+				this._newFolderConfig.folderTemplate === FolderTemplate.JupyterNotebook
+			) {
+				this._startupPhase.set(NewFolderStartupPhase.Complete, undefined);
+			}
+
 		} else {
 			this._logService.error(
 				'[New folder startup] No new folder configuration found'
@@ -211,32 +220,28 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	 * Runs tasks that require the extension service to be ready.
 	 */
 	private async _runExtensionTasks() {
-		// Run these tasks in parallel.
-		const promises: Promise<void>[] = [];
+		// TODO: it would be nice to run these tasks in parallel!
 
 		// First, create the new empty file since this is a quick task.
 		if (this.pendingInitTasks.has(NewFolderTask.CreateNewFile)) {
-			promises.push(this._runCreateNewFile());
+			await this._runCreateNewFile();
 		}
 
 		// Next, run git init if needed.
 		if (this.pendingInitTasks.has(NewFolderTask.Git)) {
-			promises.push(this._runGitInit());
+			await this._runGitInit();
 		}
 
 		// Next, run language-specific tasks which may take a bit more time.
 		if (this.pendingInitTasks.has(NewFolderTask.Python)) {
-			promises.push(this._runPythonTasks());
+			await this._runPythonTasks();
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.Jupyter)) {
-			promises.push(this._runJupyterTasks());
+			await this._runJupyterTasks();
 		}
 		if (this.pendingInitTasks.has(NewFolderTask.R)) {
-			promises.push(this._runRTasks());
+			await this._runRTasks();
 		}
-
-		// Await all promises to ensure all tasks are completed before proceeding.
-		await Promise.all(promises);
 	}
 
 	/**

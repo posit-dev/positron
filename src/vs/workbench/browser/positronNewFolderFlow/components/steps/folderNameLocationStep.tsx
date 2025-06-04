@@ -24,6 +24,20 @@ import { checkIfPathValid, checkIfURIExists } from '../../../positronComponents/
 import { PathDisplay } from '../pathDisplay.js';
 import { useDebouncedValidator } from '../../../positronComponents/positronModalDialog/components/useDebouncedValidator.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../utils/path.js';
+import { ActionBarButtonConfig } from '../../../positronComponents/positronModalDialog/components/okCancelBackNextActionBar.js';
+
+// OK button configuration interface.
+interface OKButtonConfig {
+	okButtonConfig: ActionBarButtonConfig;
+}
+
+// Next button configuration interface.
+interface NextButtonConfig {
+	nextButtonConfig: ActionBarButtonConfig;
+}
+
+// OK / Next button union type.
+type OKNextButtonConfig = OKButtonConfig | NextButtonConfig;
 
 /**
  * The FolderNameLocationStep component is the second step in the New Folder Flow.
@@ -162,21 +176,48 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 		}
 	};
 
+	// Determine if the OK / Next button should be disabled.
+	const okNextButtonDisabled = !projectName ||
+		isInvalidName ||
+		isInvalidParentPath ||
+		!parentFolder ||
+		(projectNameFeedback && projectNameFeedback.type === FlowFormattedTextType.Error);
+
+	// Determine if configuration is needed for the next step.
+	const configurationNeeded = context.folderTemplate !== FolderTemplate.EmptyProject;
+
+	// Configure the OK / Next button based on whether configuration is needed.
+	let okNextButtonConfig: OKNextButtonConfig;
+	if (configurationNeeded) {
+		okNextButtonConfig = {
+			nextButtonConfig: {
+				onClick: nextStep,
+				disable: okNextButtonDisabled,
+				title: (() => localize(
+					'positronNewFolderFlow.nextButtonTitle',
+					"Next"
+				))()
+			}
+		};
+	} else {
+		okNextButtonConfig = {
+			okButtonConfig: {
+				onClick: props.accept,
+				disable: okNextButtonDisabled,
+				title: (() => localize(
+					'positronNewFolderFlow.createButtonTitle',
+					"Create"
+				))()
+			}
+		};
+	}
+
 	// Render.
 	return (
 		<PositronFlowStep
 			backButtonConfig={{ onClick: props.back }}
 			cancelButtonConfig={{ onClick: props.cancel }}
-			nextButtonConfig={{
-				onClick: nextStep,
-				disable:
-					!projectName ||
-					isInvalidName ||
-					isInvalidParentPath ||
-					!parentFolder ||
-					(projectNameFeedback &&
-						projectNameFeedback.type === FlowFormattedTextType.Error),
-			}}
+			{...okNextButtonConfig}
 			title={(() =>
 				localize(
 					'folderNameLocationStep.title',

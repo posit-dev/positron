@@ -118,7 +118,7 @@ const ChooseNewFolderWindowModalDialog = (props: ChooseNewFolderWindowModalDialo
 						{(() =>
 							localize(
 								'positron.newFolderCreated.whereToOpen',
-								"Has been created. Where would you like to open it?"
+								"The folder has been created. Where would you like to open it?"
 							))()}
 					</div>
 					{/* TODO: add checkbox to save the user's selection to preferences */}

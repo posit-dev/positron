@@ -108,6 +108,7 @@ export class NewFolderFlowStateManager
 	private _parentFolder: URI;
 	private _initGitRepo: boolean;
 	private _openInNewWindow: boolean;
+
 	// Python-specific state.
 	private _pythonEnvSetupType: EnvironmentSetupType | undefined;
 	private _pythonEnvProviderId: string | undefined;
@@ -119,6 +120,7 @@ export class NewFolderFlowStateManager
 	private _uvPythonVersion: string | undefined;
 	private _uvPythonVersionInfo: UvPythonVersionInfo | undefined;
 	private _isUvInstalled: boolean | undefined;
+
 	// R-specific state.
 	private _useRenv: boolean | undefined;
 	private _minimumRVersion: string | undefined;
@@ -580,7 +582,7 @@ export class NewFolderFlowStateManager
 	 * @returns The NewFolderFlowState object.
 	 */
 	getState(): NewFolderFlowState {
-		this._cleanupState();
+		this._cleanupConfigureState();
 		return {
 			selectedRuntime: this._selectedRuntime,
 			folderTemplate: this._folderTemplate,
@@ -981,21 +983,40 @@ export class NewFolderFlowStateManager
 	}
 
 	/**
-	 * Cleans up the state by removing any irrelevant state based on the folder language.
+	 * Cleans up and configures the state based on the folder language.
 	 */
-	private _cleanupState() {
+	private _cleanupConfigureState() {
+		// Get the language ID.
 		const langId = this._getLangId();
-		if (!langId) {
-			this._services.logService.error(
-				'[New Folder Flow] Unsupported folder template'
-			);
-			return;
-		}
-		if (langId === LanguageIds.Python) {
+
+		// Clear Python-specific state.
+		const cleanPython = () => {
+			this._pythonEnvSetupType = undefined;
+			this._pythonEnvProviderId = undefined;
+			this._installIpykernel = undefined;
+			this._minimumPythonVersion = undefined;
+			this._condaPythonVersion = undefined;
+			this._condaPythonVersionInfo = undefined;
+			this._isCondaInstalled = undefined;
+			this._uvPythonVersion = undefined;
+			this._uvPythonVersionInfo = undefined;
+			this._isUvInstalled = undefined;
+		};
+
+		// Clear R-specific state.
+		const cleanR = () => {
 			this._useRenv = undefined;
-			const existingEnv =
-				this._pythonEnvSetupType ===
-				EnvironmentSetupType.ExistingEnvironment;
+			this._minimumRVersion = undefined;
+		};
+
+		// Clean up the state based on the language ID.
+		if (!langId) {
+			cleanPython();
+			cleanR();
+		} else if (langId === LanguageIds.Python) {
+			cleanR();
+			this._useRenv = undefined;
+			const existingEnv = this._pythonEnvSetupType === EnvironmentSetupType.ExistingEnvironment;
 			if (existingEnv) {
 				this._pythonEnvProviderId = undefined;
 			}
@@ -1006,11 +1027,10 @@ export class NewFolderFlowStateManager
 				this._uvPythonVersion = undefined;
 			}
 		} else if (langId === LanguageIds.R) {
-			this._pythonEnvSetupType = undefined;
-			this._pythonEnvProviderId = undefined;
-			this._installIpykernel = undefined;
-			this._condaPythonVersion = undefined;
-			this._uvPythonVersion = undefined;
+			cleanPython();
+		} else {
+			// If the language ID is unregognized, log the error.
+			this._services.logService.error(`[New Folder Flow] Unregognized language ID: ${langId}`);
 		}
 	}
 
