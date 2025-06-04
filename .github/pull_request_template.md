@@ -42,6 +42,18 @@ main branch by either pulling or rebasing.
 ### QA Notes
 
 <!--
+	Positron team members: please add relevant e2e test tags, so the tests can be
+	run when you open this pull request.
+
+	See https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags
+	for instructions on including the tags, and https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts
+	for the list of available tags.
+
+	Example tags: @:web @:windows
+-->
+
+
+<!--
   Add additional information for QA on how to validate the change,
   paying special attention to the level of risk, adjacent areas that
   could be affected by the change, and any important contextual
