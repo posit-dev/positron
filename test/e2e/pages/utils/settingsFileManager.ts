@@ -59,25 +59,52 @@ export class SettingsFileManager {
 		}
 	}
 
+	/**
+	 * Appends settings object to the settings file by merging with existing settings
+	 */
 	public async append(settings: object): Promise<void> {
+		const existingContent = await this.readFileContent({});
+		const mergedContent = { ...existingContent, ...settings };
+		await this.writeFileContent(mergedContent);
+	}
+
+	/**
+	 * Appends keybindings to the keybindings file which is stored as an array of objects
+	 */
+	public async appendKeybindings(keybindings: object[]): Promise<void> {
+		const existingBindings = await this.readFileContent([] as object[]);
+		const mergedBindings = [...existingBindings, ...keybindings];
+		await this.writeFileContent(mergedBindings);
+	}
+
+	/**
+	 * Reads and parses the file content, returning a default value if the file doesn't exist or is empty
+	 */
+	private async readFileContent<T>(defaultValue: T): Promise<T> {
 		await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
 
-		let existingContent = {};
-		let fileExists = await this.exists();
+		let content = defaultValue;
+		const fileExists = await this.exists();
 
 		if (fileExists) {
 			try {
 				const fileContent = await fs.readFile(this.settingsPath, 'utf-8');
 				if (fileContent.trim()) {
-					existingContent = JSON.parse(fileContent);
+					content = JSON.parse(fileContent);
 				}
 			} catch (error) {
-				fileExists = false;
+				// If reading or parsing fails, use the default value
 			}
 		}
 
-		const mergedContent = { ...existingContent, ...settings };
-		await fs.writeFile(this.settingsPath, JSON.stringify(mergedContent, null, 2), 'utf-8');
+		return content;
+	}
+
+	/**
+	 * Writes content to the file as formatted JSON
+	 */
+	private async writeFileContent(content: any): Promise<void> {
+		await fs.writeFile(this.settingsPath, JSON.stringify(content, null, 2), 'utf-8');
 	}
 
 	/**
@@ -107,5 +134,14 @@ export class SettingsFileManager {
 	 */
 	static getPositronSettingsPath(userDataDir: string): string {
 		return path.join(userDataDir, 'User', 'settings.json');
+	}
+
+	/**
+	 * Returns the path to the VS Code keybindings file for the current platform/user.
+	 */
+	static getKeyBindingsPath(userDataDir: string, projectName: string): string {
+		return projectName.includes('browser')
+			? path.join(userDataDir, 'data', 'User', 'keybindings.json')
+			: path.join(userDataDir, 'User', 'keybindings.json');
 	}
 }

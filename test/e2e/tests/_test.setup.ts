@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu } from '../infra';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu, Settings } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -282,6 +282,13 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await manager.restoreFromBackup();
 	}, { scope: 'worker' }],
 
+	keyBindings: [async ({ userDataDir }, use, testInfo) => {
+		const manager = new SettingsFileManager(SettingsFileManager.getKeyBindingsPath(userDataDir, testInfo.project.name));
+		await manager.backupIfExists();
+		await use(manager);
+		await manager.restoreFromBackup();
+	}, { scope: 'worker' }],
+
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
 		const page = app.code.driver.page;
@@ -507,6 +514,7 @@ interface WorkerFixtures {
 	};
 	vscodeUserSettings: SettingsFileManager;
 	positronUserSettings: SettingsFileManager;
+	keyBindings: SettingsFileManager;
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {

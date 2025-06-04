@@ -9,9 +9,23 @@ test.use({
 	suiteId: __filename
 });
 
+const cellTagShortcut = 'cmd+k u';
+
 test.describe('Notebook Cell Execution with raises-exception tag', {
 	tag: [tags.NOTEBOOKS, tags.WIN, tags.WEB]
 }, () => {
+	test.beforeAll(async function ({ keyBindings }) {
+		// I'm creating a custom keybinding for the "Add Tag" command because there is
+		// a flake in which sometimes the command does not appear in the quick input.
+
+		await keyBindings.appendKeybindings([
+			{
+				"key": cellTagShortcut,
+				"command": "jupyter-cell-tags.addTag"
+			}
+		]);
+	});
+
 	test.describe('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, python }) {
 			await app.workbench.layouts.enterLayout('notebook');
@@ -62,7 +76,7 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 			await page.locator('.cell-inner-container > .cell').nth(1).click();
 
 			// Run the add tag command
-			await app.workbench.quickaccess.runCommand('jupyter-cell-tags.addTag', { keepOpen: true });
+			await hotKeys.pressHotKeys(cellTagShortcut);
 
 			// Type the tag name in the quick input
 			await app.workbench.quickInput.waitForQuickInputOpened();
