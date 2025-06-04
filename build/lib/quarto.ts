@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -66,6 +66,7 @@ function getQuartoMacOS(version: string): Stream {
 function getQuartoLinux(version: string): Stream {
 	const gunzip = require('gulp-gunzip');
 	const untar = require('gulp-untar');
+	const rename = require('gulp-rename');
 
 	const basename = process.env['npm_config_arch'] === 'x64' ?
 		`quarto-${version}-linux-amd64` :
@@ -78,7 +79,13 @@ function getQuartoLinux(version: string): Stream {
 	})
 		// Unzip, then untar
 		.pipe(gunzip())
-		.pipe(untar());
+		.pipe(untar())
+		// Remove the leading directory from the path
+		.pipe(rename((path: any) => {
+			if (path.dirname.startsWith(`quarto-${version}`)) {
+				path.dirname = path.dirname.replace(/^quarto-[^/]+\/?/, '');
+			}
+		}));
 }
 
 /**
