@@ -84,12 +84,17 @@ type InsertColumn = {
 	values: Array<string>;
 };
 
+function quoteIdentifier(fieldName: string) {
+	// Double any existing double quotes and wrap in double quotes
+	return '"' + fieldName.replace(/"/g, '""') + '"';
+}
+
 async function createTempTable(
 	tableName: string,
 	columns: Array<InsertColumn>
 ) {
-	// Create the table with indicated schema
-	const schema = columns.map(column => `${column.name} ${column.type}`).join(', ');
+	// Create the table with indicated schema, properly quoting column names
+	const schema = columns.map(column => `${quoteIdentifier(column.name)} ${column.type}`).join(', ');
 	await runQuery(`CREATE TABLE ${tableName} (${schema});`);
 
 	// Assuming at least one column and all values arrays same length
@@ -99,7 +104,10 @@ async function createTempTable(
 	for (let i = 0; i < length; i++) {
 		tuples.push(`(${columns.map(c => c.values[i]).join(', ')})`);
 	}
-	await runQuery(`INSERT INTO ${tableName} VALUES\n${tuples.join(',\n')};`);
+	
+	// Use explicit column names in INSERT to ensure proper ordering
+	const columnNames = columns.map(c => quoteIdentifier(c.name)).join(', ');
+	await runQuery(`INSERT INTO ${tableName} (${columnNames}) VALUES\n${tuples.join(',\n')};`);
 
 	// Now set up the new table so it will respond to RPCs with a duckdb://${tableName} prefix
 	await dxExec({
@@ -287,13 +295,14 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	type TestCaseType = [InsertColumn[] | undefined, ColumnValue[][], FormatOptions];
 
 	test('get_data_values formatting', async () => {
+		// Quote field names to test escaping
 
 		const testCases: Array<TestCaseType> = [
 			// Boolean
 			[
 				[
 					{
-						name: 'a',
+						name: '"a"',
 						type: 'BOOLEAN',
 						display_type: ColumnDisplayType.Boolean,
 						values: [
@@ -310,25 +319,25 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			[
 				[
 					{
-						name: 'a',
+						name: '"a"',
 						type: 'TINYINT',
 						display_type: ColumnDisplayType.Number,
 						values: ['127', '-128', '0', 'NULL']
 					},
 					{
-						name: 'b',
+						name: '"b"',
 						type: 'SMALLINT',
 						display_type: ColumnDisplayType.Number,
 						values: ['32767', '-32768', '0', 'NULL']
 					},
 					{
-						name: 'c',
+						name: '"c"',
 						type: 'INTEGER',
 						display_type: ColumnDisplayType.Number,
 						values: ['2147483647', '-2147483648', '0', 'NULL']
 					},
 					{
-						name: 'd',
+						name: '"d"',
 						type: 'BIGINT',
 						display_type: ColumnDisplayType.Number,
 						values: ['9223372036854775807', '-9223372036854775808', '0', 'NULL']
@@ -356,7 +365,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			[
 				[
 					{
-						name: 'a',
+						name: '"a"',
 						type: 'DOUBLE',
 						display_type: ColumnDisplayType.Number,
 						values: [
@@ -365,7 +374,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 						]
 					},
 					{
-						name: 'b',
+						name: '"b"',
 						type: 'FLOAT',
 						display_type: ColumnDisplayType.Number,
 						values: [
@@ -384,7 +393,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			[
 				[
 					{
-						name: 'a',
+						name: '"a"',
 						type: 'DOUBLE',
 						display_type: ColumnDisplayType.Number,
 						values: [
@@ -408,7 +417,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			[
 				[
 					{
-						name: 'a',
+						name: '"a"',
 						type: 'DOUBLE',
 						display_type: ColumnDisplayType.Number,
 						values: [
@@ -425,7 +434,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			[
 				[
 					{
-						name: 'a',
+						name: '"a"',
 						type: 'VARCHAR',
 						display_type: ColumnDisplayType.String,
 						values: [
@@ -444,25 +453,25 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			[
 				[
 					{
-						name: 'date0',
+						name: '"date0"',
 						type: 'DATE',
 						display_type: ColumnDisplayType.Date,
 						values: ['\'2023-10-20\'', '\'2024-01-01\'', 'NULL']
 					},
 					{
-						name: 'timestamp0',
+						name: '"timestamp0"',
 						type: 'TIMESTAMP',
 						display_type: ColumnDisplayType.Datetime,
 						values: ['\'2023-10-20 15:30:00\'', '\'2024-01-01 08:00:00\'', 'NULL']
 					},
 					{
-						name: 'timestamptz0',
+						name: '"timestamptz0"',
 						type: 'TIMESTAMP WITH TIME ZONE',
 						display_type: ColumnDisplayType.Datetime,
 						values: ['\'2023-10-20 15:30:00+00\'', '\'2024-01-01 08:00:00-05\'', 'NULL']
 					},
 					{
-						name: 'time0',
+						name: '"time0"',
 						type: 'TIME',
 						display_type: ColumnDisplayType.Time,
 						values: ['\'13:30:00\'', '\'07:12:34.567\'', 'NULL']
@@ -481,19 +490,19 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			[
 				[
 					{
-						name: 'decimal_default',
+						name: '"decimal_default"',
 						type: 'DECIMAL',
 						display_type: ColumnDisplayType.Number,
 						values: ['1.23', '45.67', '89.01', 'NULL']
 					},
 					{
-						name: 'decimal_precision',
+						name: '"decimal_precision"',
 						type: 'DECIMAL(10)', // same as DECIMAL(10,0)
 						display_type: ColumnDisplayType.Number,
 						values: ['123456', '987654', '555555', 'NULL']
 					},
 					{
-						name: 'decimal_precision_scale',
+						name: '"decimal_precision_scale"',
 						type: 'DECIMAL(10,2)',
 						display_type: ColumnDisplayType.Number,
 						values: ['123.456', '789.012', '345.678', 'NULL']
@@ -523,15 +532,16 @@ suite('Positron DuckDB Extension Test Suite', () => {
 			// Check that returned schema matches display types in testInput
 			for (let i = 0; i < testInput.length; i++) {
 				const schema = fullSchema.columns[i];
-				assert.strictEqual(schema.column_name, testInput[i].name);
-				assert.strictEqual(schema.type_display, testInput[i].display_type);
+				assert.strictEqual(schema.column_name, testInput[i].name, 'Column name should match');
+				assert.strictEqual(schema.type_display, testInput[i].display_type, 'Column display type should match');
 			}
 
 			const data = await getAllDataValues(tableName!, formatOptions);
 			assert.deepStrictEqual(data,
 				{
 					columns: testResults
-				}
+				},
+				'Column values should match'
 			);
 		}
 	});
