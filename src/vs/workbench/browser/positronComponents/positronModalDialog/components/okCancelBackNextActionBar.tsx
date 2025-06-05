@@ -27,7 +27,7 @@ export interface OKCancelBackNextActionBarProps {
 /**
  * ActionBarButtonConfig interface.
  */
-interface ActionBarButtonConfig {
+export interface ActionBarButtonConfig {
 	title?: string;
 	disable?: boolean;
 	onClick?: () => void;

@@ -11,7 +11,7 @@ import { DataExplorer } from '../pages/dataExplorer';
 import { SideBar } from '../pages/sideBar';
 import { Plots } from '../pages/plots';
 import { Notebooks } from '../pages/notebooks';
-import { NewProjectWizard } from '../pages/newProjectWizard';
+import { NewFolderFlow } from '../pages/newFolderFlow';
 import { Explorer } from '../pages/explorer';
 import { Connections } from '../pages/connections';
 import { Help } from '../pages/help';
@@ -54,7 +54,7 @@ export class Workbench {
 	readonly sideBar: SideBar;
 	readonly plots: Plots;
 	readonly notebooks: Notebooks;
-	readonly newProjectWizard: NewProjectWizard;
+	readonly newFolderFlow: NewFolderFlow;
 	readonly explorer: Explorer;
 	readonly connections: Connections;
 	readonly help: Help;
@@ -99,7 +99,7 @@ export class Workbench {
 		this.editors = new Editors(code);
 		this.quickaccess = new QuickAccess(code, this.editors, this.quickInput);
 		this.connections = new Connections(code, this.quickaccess);
-		this.newProjectWizard = new NewProjectWizard(code, this.quickaccess);
+		this.newFolderFlow = new NewFolderFlow(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
 		this.console = new Console(code, this.quickaccess, this.quickInput, this.hotKeys);
 		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console);

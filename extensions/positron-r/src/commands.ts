@@ -209,7 +209,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		// Command used to get the minimum version of R supported by the extension
 		vscode.commands.registerCommand('r.getMinimumRVersion', (): string => MINIMUM_R_VERSION),
 
-		// Command used to initialize a new project with renv
+		// Command used to initialize a new folder with renv
 		vscode.commands.registerCommand('r.renvInit', async () => {
 			// ensure renv is installed before calling renv::init()
 			// this prompts the user to install if it's not already

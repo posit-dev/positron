@@ -162,11 +162,11 @@ export const startEntries: GettingStartedStartEntryContent = [
 	{
 		id: 'topLevelNewFolder',
 		title: localize('gettingStarted.newFolder.title', "New Folder..."),
-		description: localize('gettingStarted.newFolder.description', "Open a new folder."),
+		description: localize('gettingStarted.newFolder.description', "Create a new folder from a template"),
 		icon: Codicon.newFolder,
 		content: {
 			type: 'startEntry',
-			command: 'command:positron.workbench.action.newFolder',
+			command: 'command:positron.workbench.action.newFolderFromTemplate',
 		}
 	},
 	//
@@ -175,7 +175,7 @@ export const startEntries: GettingStartedStartEntryContent = [
 	{
 		id: 'topLevelNewFolderFromGit',
 		title: localize('gettingStarted.newFolderFromGit.title', "New Folder from Git..."),
-		description: localize('gettingStarted.newFolderFromGit.description', "Open a new folder from Git."),
+		description: localize('gettingStarted.newFolderFromGit.description', "Open a new folder from Git"),
 		icon: Codicon.positronNewFolderFromGit,
 		content: {
 			type: 'startEntry',
