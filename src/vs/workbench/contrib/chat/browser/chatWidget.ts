@@ -560,7 +560,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (this.location === ChatAgentLocation.Panel) {
 			this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl, this.inputPart));
 			this.actionBarContainer.render(this.container);
-			this.actionBarContainer.onProviderSelected((provider) => this.inputPart.currentProvider = provider);
+			// When a provider is selected in the UI, update it in the language models service.
+			this.actionBarContainer.onProviderSelected((provider) => this.languageModelsService.currentProvider = provider);
 		}
 		// --- End Positron ---
 
