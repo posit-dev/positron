@@ -61,20 +61,37 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await page.keyboard.press('Enter');
 		});
 
-		// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
-		await test.step('Enter Connect server and API key', async () => {
-			await app.workbench.quickInput.type(process.env.E2E_CONNECT_SERVER!);
-			await page.keyboard.press('Enter');
-			const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
-			await expect(apiKeyInputLocator).toBeVisible();
-			await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
-			await page.keyboard.press('Enter');
-		});
+		const existing = app.workbench.quickInput.quickInputList.getByText('shiny-py-example');
 
-		await test.step('Unique name for credential (Connect Server and API key)', async () => {
-			await app.workbench.quickInput.type('shiny-py-example');
-			await page.keyboard.press('Enter');
-		});
+		let existingPresent = false;
+		try {
+			await existing.textContent({ timeout: 3000 });
+			existingPresent = true;
+		} catch {
+		}
+
+		if (existingPresent) {
+			await test.step('Use saved credntial', async () => {
+				await app.workbench.quickInput.selectQuickInputElement(0, false);
+			});
+		} else {
+			// Make sure to delete stored credentials by accessing Keychain Access --> Login --> Search for `posit` --> Remove `Posit Publisher Safe Storage`
+			await test.step('Enter Connect server and API key', async () => {
+				await app.workbench.quickInput.type(process.env.E2E_CONNECT_SERVER!);
+				await page.keyboard.press('Enter');
+				const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
+				await expect(apiKeyInputLocator).toBeVisible();
+				await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
+				await page.keyboard.press('Enter');
+			});
+
+			await test.step('Unique name for credential (Connect Server and API key)', async () => {
+				await app.workbench.quickInput.type('shiny-py-example');
+				await page.keyboard.press('Enter');
+			});
+		}
+
+
 
 		await test.step('Add files to deployment file (after app.py) and save', async () => {
 			const files = ['shared.py', 'styles.css', 'tips.csv'];
