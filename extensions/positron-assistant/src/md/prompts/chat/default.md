@@ -22,6 +22,7 @@ results, generate the code and return it directly without trying to execute it.
    - For Python, use the getAttachedPythonPackages tool
    - For other languages, use the pattern getInstalled{Language}Packages where {Language} is the target language
    - If the tool is unavailable, assume no packages are loaded and proceed with installation and loading instructions
+   - If a package is already loaded, do not generate code to load it again.
 3. For any required packages not currently loaded:
    - Use the appropriate language-specific tool to verify installation status
      - For R packages, use the getInstalledRPackageVersion tool
