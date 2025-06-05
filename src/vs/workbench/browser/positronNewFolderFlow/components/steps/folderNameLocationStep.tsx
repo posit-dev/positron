@@ -52,14 +52,14 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 	const { fileDialogService, fileService, labelService, logService, pathService } = context.services;
 
 	// Hooks.
-	const [projectName, setProjectName] = useState(context.folderName);
+	const [folderName, setFolderName] = useState(context.folderName);
 	const [parentFolder, setParentFolder] = useState(() => pathUriToLabel(context.parentFolder, labelService));
-	const [projectNameFeedback, setProjectNameFeedback] = useState(context.folderNameFeedback);
-	const [maxProjectPathLength, setMaxProjectPathLength] = useState(() => getMaxFolderPathLength(parentFolder.length));
+	const [folderNameFeedback, setFolderNameFeedback] = useState(context.folderNameFeedback);
+	const [maxFolderPathLength, setMaxFolderPathLength] = useState(() => getMaxFolderPathLength(parentFolder.length));
 	// TODO: Merge `nameValidationErrorMsg` and `parentPathErrorMsg` with the `checkProjectName()`
 	// function.
 	const nameValidationErrorMsg = useDebouncedValidator({
-		value: projectName,
+		value: folderName,
 		validator: name => checkIfPathValid(name, {
 			parentPath: parentFolder
 		})
@@ -80,9 +80,9 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 
 		// Add the onUpdateProjectConfig event handler and update the component state.
 		disposableStore.add(context.onUpdateFolderPath(() => {
-			setProjectName(context.folderName);
-			setProjectNameFeedback(context.folderNameFeedback);
-			setMaxProjectPathLength(() => getMaxFolderPathLength(context.parentFolder.path.length));
+			setFolderName(context.folderName);
+			setFolderNameFeedback(context.folderNameFeedback);
+			setMaxFolderPathLength(() => getMaxFolderPathLength(context.parentFolder.path.length));
 			// The parent folder state is local to this component, so we don't update it here.
 		}));
 
@@ -142,7 +142,7 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 			pathService
 		);
 		context.folderNameFeedback = await checkFolderName(
-			projectName,
+			folderName,
 			parentFolderUri,
 			fileService
 		);
@@ -177,11 +177,11 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 	};
 
 	// Determine if the OK / Next button should be disabled.
-	const okNextButtonDisabled = !projectName ||
+	const okNextButtonDisabled = !folderName ||
 		isInvalidName ||
 		isInvalidParentPath ||
 		!parentFolder ||
-		(projectNameFeedback && projectNameFeedback.type === FlowFormattedTextType.Error);
+		(folderNameFeedback && folderNameFeedback.type === FlowFormattedTextType.Error);
 
 	// Determine if configuration is needed for the next step.
 	const configurationNeeded = context.folderTemplate !== FolderTemplate.EmptyProject;
@@ -226,9 +226,9 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 		>
 			<PositronFlowSubStep
 				feedback={
-					projectNameFeedback ? (
-						<FlowFormattedText type={projectNameFeedback.type}>
-							{projectNameFeedback.text}
+					folderNameFeedback ? (
+						<FlowFormattedText type={folderNameFeedback.type}>
+							{folderNameFeedback.text}
 						</FlowFormattedText>
 					) : nameValidationErrorMsg ?
 						<FlowFormattedText type={FlowFormattedTextType.Error}>
@@ -245,8 +245,8 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 				<LabeledTextInput
 					autoFocus
 					error={
-						(projectNameFeedback &&
-							projectNameFeedback.type === FlowFormattedTextType.Error) ||
+						(folderNameFeedback &&
+							folderNameFeedback.type === FlowFormattedTextType.Error) ||
 						Boolean(nameValidationErrorMsg)
 					}
 					label={(() =>
@@ -255,10 +255,10 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 							"Enter the name of your new {0} folder",
 							context.folderTemplate
 						))()}
-					// Don't let the user create a project with a location that is too long.
-					maxLength={maxProjectPathLength}
+					// Don't let the user create a folder with a location that is too long.
+					maxLength={maxFolderPathLength}
 					type='text'
-					value={projectName}
+					value={folderName}
 					onChange={(e) => onChangeProjectName(e.target.value)}
 				/>
 			</PositronFlowSubStep>
@@ -277,7 +277,7 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 							<PathDisplay
 								pathComponents={[
 									parentFolder,
-									projectName
+									folderName
 								]}
 								pathService={pathService}
 							/>

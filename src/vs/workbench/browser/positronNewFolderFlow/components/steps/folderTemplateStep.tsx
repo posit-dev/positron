@@ -22,14 +22,14 @@ import { OKCancelBackNextActionBar } from '../../../positronComponents/positronM
 /**
  * Generates a default folder name in kebab case based on the provided project type.
  *
- * @param projectType - The type of the project for which to generate a default name.
+ * @param templateType - The type of folder template for which to generate a default name.
  * @returns The default folder name as a string.
  */
-const getDefaultFolderName = (projectType: FolderTemplate) => {
+const getDefaultFolderName = (templateType: FolderTemplate) => {
 	return localize(
 		'positron.newFolderWizard.projectTypeStep.defaultFolderNamePrefix',
 		"my"
-	) + '-' + projectType.toLowerCase().replace(/\s/g, '-');
+	) + '-' + templateType.toLowerCase().replace(/\s/g, '-');
 };
 
 /**
@@ -43,26 +43,26 @@ export const FolderTemplateStep = (props: PropsWithChildren<NewFolderFlowStepPro
 	const context = useNewFolderFlowContext();
 
 	// Hooks.
-	const [selectedProjectType, setSelectedProjectType] = useState(context.folderTemplate);
+	const [selectedTemplateType, setSelectedTemplateType] = useState(context.folderTemplate);
 
-	// Set the projectType and initialize the default project name if applicable,
-	// then navigate to the ProjectNameLocation step.
+	// Set the folder template type and initialize the default folder name if applicable,
+	// then navigate to the FolderNameLocation step.
 	const nextStep = async () => {
-		if (!selectedProjectType) {
+		if (!selectedTemplateType) {
 			// If no project type is selected, return. This shouldn't happen since the Next button should
 			// be disabled if no project type is selected.
 			return;
 		}
 		// If the project type has changed or the project name is empty, initialize the project name.
 		if (
-			context.folderTemplate !== selectedProjectType ||
+			context.folderTemplate !== selectedTemplateType ||
 			context.folderName === ''
 		) {
-			const defaultProjectName = getDefaultFolderName(selectedProjectType);
-			context.folderTemplate = selectedProjectType;
-			context.folderName = defaultProjectName;
+			const defaultFolderName = getDefaultFolderName(selectedTemplateType);
+			context.folderTemplate = selectedTemplateType;
+			context.folderName = defaultFolderName;
 			context.folderNameFeedback = await checkFolderName(
-				defaultProjectName,
+				defaultFolderName,
 				context.parentFolder,
 				context.services.fileService
 			);
@@ -86,10 +86,10 @@ export const FolderTemplateStep = (props: PropsWithChildren<NewFolderFlowStepPro
 			<FolderTemplateGroup
 				describedBy='folder-template-selection-step-description'
 				labelledBy='folder-template-selection-step-title'
-				name='projectType'
-				selectedFolderTemplate={selectedProjectType}
-				onSelectionChanged={(projectType) =>
-					setSelectedProjectType(projectType)
+				name='templateType'
+				selectedFolderTemplate={selectedTemplateType}
+				onSelectionChanged={(templateType) =>
+					setSelectedTemplateType(templateType)
 				}
 			/>
 			<OKCancelBackNextActionBar
@@ -98,7 +98,7 @@ export const FolderTemplateStep = (props: PropsWithChildren<NewFolderFlowStepPro
 				}}
 				nextButtonConfig={{
 					onClick: nextStep,
-					disable: !selectedProjectType,
+					disable: !selectedTemplateType,
 				}}
 			/>
 		</div>
