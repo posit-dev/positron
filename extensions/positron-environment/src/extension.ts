@@ -14,7 +14,7 @@ import { getPandocPath } from './pandoc.js';
  */
 function applyConfiguration(context: vscode.ExtensionContext) {
 
-	const vars = vscode.workspace.getConfiguration('positron.environment');
+	const vars = vscode.workspace.getConfiguration('environmentVariables');
 
 	// Clear the initial collection to remove any old values
 	const collection = context.environmentVariableCollection;
@@ -30,22 +30,22 @@ function applyConfiguration(context: vscode.ExtensionContext) {
 	}
 
 	// Set the collection description
-	collection.description = vscode.l10n.t('Global Positron environment variables');
+	collection.description = vscode.l10n.t('Custom Positron environment variables');
 
 	// Get the configured environment variables for replace action
-	const replaceVars = vars.get<Record<string, string>>('variables.replace') ?? {};
+	const replaceVars = vars.get<Record<string, string>>('set') ?? {};
 	for (const [name, value] of Object.entries(replaceVars)) {
 		collection.replace(name, value);
 	}
 
 	// Get the configured environment variables for append action
-	const appendVars = vars.get<Record<string, string>>('variables.append') ?? {};
+	const appendVars = vars.get<Record<string, string>>('append') ?? {};
 	for (const [name, value] of Object.entries(appendVars)) {
 		collection.append(name, value);
 	}
 
 	// Get the configured environment variables for prepend action
-	const prependVars = vars.get<Record<string, string>>('variables.prepend') ?? {};
+	const prependVars = vars.get<Record<string, string>>('prepend') ?? {};
 	for (const [name, value] of Object.entries(prependVars)) {
 		collection.prepend(name, value);
 	}
@@ -64,7 +64,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// Register a listener for when the configuration changes and reapply
 	// the configuration.
 	const disposable = vscode.workspace.onDidChangeConfiguration((e) => {
-		if (e.affectsConfiguration('positron.environment')) {
+		if (e.affectsConfiguration('environmentVariables')) {
 			applyConfiguration(context);
 		}
 	});

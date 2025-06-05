@@ -17,13 +17,14 @@
         "type": "object",
         "title": "%environment.configuration.title%",
         "properties": {
-          "positron.environment.enabled": {
+          "environmentVariables.enabled": {
             "scope": "window",
             "type": "boolean",
             "default": true,
-            "description": "%environment.configuration.enabled.description%"
+            "description": "%environment.configuration.enabled.description%",
+            "order": 1
           },
-          "positron.environment.variables.replace": {
+          "environmentVariables.set": {
             "scope": "window",
             "type": "object",
             "additionalProperties": {
@@ -33,25 +34,28 @@
               "SF_PARTNER": "posit_positron",
               "SPARK_CONNECT_USER_AGENT": "posit-positron"
             },
-            "description": "%environment.configuration.variables.replace.description%"
+            "description": "%environment.configuration.variables.set.description%",
+            "order": 2
           },
-          "positron.environment.variables.append": {
+          "environmentVariables.append": {
             "scope": "window",
             "type": "object",
             "additionalProperties": {
               "type": "string"
             },
             "default": {},
-            "description": "%environment.configuration.variables.append.description%"
+            "description": "%environment.configuration.variables.append.description%",
+            "order": 3
           },
-          "positron.environment.variables.prepend": {
+          "environmentVariables.prepend": {
             "scope": "window",
             "type": "object",
             "additionalProperties": {
               "type": "string"
             },
             "default": {},
-            "description": "%environment.configuration.variables.prepend.description%"
+            "description": "%environment.configuration.variables.prepend.description%",
+            "order": 4
           }
         }
       }
