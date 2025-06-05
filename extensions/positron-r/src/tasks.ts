@@ -1,12 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
 import * as os from 'os';
 import { RSessionManager } from './session-manager';
-import { getPandocPath } from './pandoc';
 import { getEnvVars } from './session';
 import { prepCliEnvVars } from './uri-handler';
 
@@ -68,16 +67,8 @@ export async function getRPackageTasks(editorFilePath?: string): Promise<vscode.
 		}
 	];
 
-	// if we have a local copy of Pandoc available, forward it to the R session
-	// so that it can be used to render R Markdown documents (etc)
-	const env: any = {};
-	const pandocPath = getPandocPath();
-	if (pandocPath) {
-		env['RSTUDIO_PANDOC'] = pandocPath;
-	}
-
 	return taskData.map(data => {
-		let taskEnv = { ...env };
+		let taskEnv = {};
 
 		if (data.envVars) {
 			Object.assign(taskEnv, data.envVars);
