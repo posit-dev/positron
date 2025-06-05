@@ -12,7 +12,7 @@ import * as xml from './xml.js';
 import { MARKDOWN_DIR } from './constants';
 import { isChatImageMimeType, isTextEditRequest, toLanguageModelChatMessage } from './utils';
 import { quartoHandler } from './commands/quarto';
-import { PositronAssistantToolName } from './tools.js';
+import { PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
