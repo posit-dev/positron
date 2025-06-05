@@ -42,14 +42,13 @@ main branch by either pulling or rebasing.
 ### QA Notes
 
 <!--
-	Positron team members: please add relevant e2e test tags, so the tests can be
-	run when you open this pull request.
+  Positron team members: please add relevant e2e test tags, so the tests can be
+  run when you open this pull request.
 
-	See https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags
-	for instructions on including the tags, and https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts
-	for the list of available tags.
+  - Instructions: https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags
+  - Available tags: https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts
 
-	Example tags: @:web @:win
+  Example tags: @:web @:win
 -->
 
 
