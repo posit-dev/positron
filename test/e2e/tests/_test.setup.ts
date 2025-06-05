@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu, Settings } from '../infra';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants

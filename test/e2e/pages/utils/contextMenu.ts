@@ -82,7 +82,7 @@ export class ContextMenu {
 	 *
 	 * @returns Promise that resolves when the context menu is closed
 	 */
-	async closeContextMenu(): Promise<void> {
+	private async closeContextMenu(): Promise<void> {
 		if (this.isNativeMenu) {
 			await this.code.electronApp?.evaluate(({ app }) => {
 				app.emit('e2e:contextMenuClose');
