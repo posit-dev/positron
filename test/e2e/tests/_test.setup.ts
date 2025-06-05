@@ -282,12 +282,30 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await manager.restoreFromBackup();
 	}, { scope: 'worker' }],
 
-	keyBindings: [async ({ userDataDir }, use, testInfo) => {
-		const manager = new SettingsFileManager(SettingsFileManager.getKeyBindingsPath(userDataDir, testInfo.project.name));
-		await manager.backupIfExists();
-		await use(manager);
-		await manager.restoreFromBackup();
-	}, { scope: 'worker' }],
+	keyBinding: [
+		async ({ app, userDataDir }, use, testInfo) => {
+			const manager = new SettingsFileManager(
+				SettingsFileManager.getKeyBindingsPath(userDataDir, testInfo.project.name)
+			);
+			await manager.backupIfExists();
+
+			await use({
+				async set(newBindings: { key: string; command: string }[]) {
+					await test.step(`Bind keys: ${JSON.stringify(newBindings)}`, async () => {
+						await manager.appendKeybindings(newBindings);
+
+						// browser requires a reload to apply keybindings, but electron app does not :shrug:
+						if (testInfo.project.name.includes('browser')) {
+							await app.workbench.quickaccess.runCommand('workbench.action.reloadWindow');
+						}
+					});
+				}
+			});
+
+			await manager.restoreFromBackup();
+		},
+		{ scope: 'worker' }
+	],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
@@ -514,7 +532,9 @@ interface WorkerFixtures {
 	};
 	vscodeUserSettings: SettingsFileManager;
 	positronUserSettings: SettingsFileManager;
-	keyBindings: SettingsFileManager;
+	keyBinding: {
+		set: (newBindings: any[]) => Promise<void>;
+	};
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {

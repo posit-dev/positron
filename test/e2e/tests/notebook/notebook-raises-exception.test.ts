@@ -14,16 +14,13 @@ const cellTagShortcut = 'cmd+k u';
 test.describe('Notebook Cell Execution with raises-exception tag', {
 	tag: [tags.NOTEBOOKS, tags.WIN, tags.WEB]
 }, () => {
-	test.beforeAll(async function ({ keyBindings }) {
-		// I'm creating a custom keybinding for the "Add Tag" command because there is
+	test.beforeAll(async function ({ keyBinding }) {
+		// Creating a temporary custom keybinding for the "Add Tag" command because there is
 		// a flake in which sometimes the command does not appear in the quick input.
-
-		await keyBindings.appendKeybindings([
-			{
-				"key": cellTagShortcut,
-				"command": "jupyter-cell-tags.addTag"
-			}
-		]);
+		await keyBinding.set([{
+			"key": cellTagShortcut,
+			"command": "jupyter-cell-tags.addTag"
+		}]);
 	});
 
 	test.describe('Python Notebooks', () => {
