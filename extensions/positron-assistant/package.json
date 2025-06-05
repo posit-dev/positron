@@ -253,7 +253,7 @@
       {
         "name": "getProjectTree",
         "displayName": "Get Project Tree",
-        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders.",
+        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders. Empty folders are not included in the tree.",
         "canBeReferencedInPrompt": false,
         "tags": [
           "positron-assistant"
@@ -278,8 +278,8 @@
                 "type": "string",
                 "description": "A Glob pattern to exclude from the project tree. Files and folders matching these patterns will be filtered out, even if they match an included Glob."
               },
-              "description": "Glob patterns to exclude from the project tree. These patterns will be applied in addition to the default excludes.",
-              "default": "DEFAULT_EXCLUDE_GLOBS"
+              "description": "Glob patterns to exclude from the project tree. These patterns will be applied in addition to the default excludes. By default, ",
+              "default": null
             },
             "replaceDefaultExcludes": {
               "type": "boolean",

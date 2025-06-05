@@ -56,14 +56,15 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 		const workspaceTrees: DirectoryItem[] = [];
 		let workspaceItems = 0;
 		for (const folder of workspaceFolders) {
+			// NOTE: this will not include empty directories
 			const matchedFiles = await vscode.workspace.findFiles2(
 				filePatterns,
 				findOptions,
 				token
 			);
 
-			const items = convertUrisToDirectoryItems(matchedFiles);
-			workspaceTrees.push([folder.name, items]);
+			const items = convertUrisToDirectoryItems(folder, matchedFiles);
+			workspaceTrees.push(items);
 			workspaceItems += matchedFiles.length;
 		}
 
@@ -82,7 +83,11 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 	}
 });
 
-function convertUrisToDirectoryItems(uris: vscode.Uri[]): DirectoryItem[] {
+function convertUrisToDirectoryItems(folder: vscode.WorkspaceFolder, uris: vscode.Uri[]): DirectoryItem {
+	if (uris.length === 0) {
+		return [folder.name, []];
+	}
+
 	// Sort the URIs to ensure consistent ordering
 	uris.sort((a, b) => a.fsPath.localeCompare(b.fsPath));
 
@@ -114,7 +119,7 @@ function convertUrisToDirectoryItems(uris: vscode.Uri[]): DirectoryItem[] {
 			value === null ? name : [name, toDirectoryItems(value)]
 		);
 
-	return toDirectoryItems(root);
+	return [folder.name, toDirectoryItems(root)];
 }
 
 function getExcludeSettingOptions(excludeSetting: string) {
