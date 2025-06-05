@@ -592,6 +592,7 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 			apiKey: undefined,
 			toolCalls: true,
+			completions: true,
 		},
 	};
 

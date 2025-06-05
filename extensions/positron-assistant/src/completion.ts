@@ -561,8 +561,8 @@ class GoogleCompletion extends FimPromptCompletion {
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
-			name: 'Gemini 2.0 Flash-Lite',
-			model: 'gemini-2.0-flash-lite',
+			name: 'Gemini 2.0 Flash',
+			model: 'gemini-2.0-flash-001',
 			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 			apiKey: undefined,
 		},
