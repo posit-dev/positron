@@ -251,15 +251,10 @@ function makeWhereExpr(rowFilter: RowFilter): string {
 /**
  * Properly quotes and escapes an identifier for use in DuckDB SQL.
  * Handles field names containing quotes by doubling them (DuckDB's escaping convention).
- * Returns a valid SQL identifier even for empty strings.
  * @param fieldName The field name to quote
  * @returns The properly quoted and escaped identifier
  */
 function quoteIdentifier(fieldName: string) {
-	// Handle empty string case by returning a valid SQL identifier
-	if (fieldName === '') {
-		return '""';
-	}
 	// Double any existing double quotes and wrap in double quotes
 	return '"' + fieldName.replace(/"/g, '""') + '"';
 }
@@ -397,33 +392,34 @@ class ColumnProfileEvaluator {
 
 		// Quote identifier
 		const quotedName = quoteIdentifier(fieldName);
+		const getStatName = (statType: string) => statColumnName(fieldName, statType);
 
 		if (isNumeric(columnSchema.column_type)) {
 			this.addMinMax(fieldName);
-			this.statsExprs.add(`AVG(${quotedName}) AS ${statColumnName(fieldName, 'mean')}`);
-			this.statsExprs.add(`STDDEV_SAMP(${quotedName}) AS ${statColumnName(fieldName, 'stdev')}`);
-			this.statsExprs.add(`MEDIAN(${quotedName}) AS ${statColumnName(fieldName, 'median')}`);
+			this.statsExprs.add(`AVG(${quotedName}) AS ${getStatName('mean')}`);
+			this.statsExprs.add(`STDDEV_SAMP(${quotedName}) AS ${getStatName('stdev')}`);
+			this.statsExprs.add(`MEDIAN(${quotedName}) AS ${getStatName('median')}`);
 		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
 			this.addMinMaxStringified(fieldName);
-			this.statsExprs.add(`AVG(${quotedName})::DOUBLE AS ${statColumnName(fieldName, 'f64_mean')}`);
-			this.statsExprs.add(`STDDEV_SAMP(${quotedName}::DOUBLE) AS ${statColumnName(fieldName, 'f64_stdev')}`);
-			this.statsExprs.add(`MEDIAN(${quotedName}::DOUBLE) AS ${statColumnName(fieldName, 'f64_median')}`);
+			this.statsExprs.add(`AVG(${quotedName})::DOUBLE AS ${getStatName('f64_mean')}`);
+			this.statsExprs.add(`STDDEV_SAMP(${quotedName}::DOUBLE) AS ${getStatName('f64_stdev')}`);
+			this.statsExprs.add(`MEDIAN(${quotedName}::DOUBLE) AS ${getStatName('f64_median')}`);
 		} else if (columnSchema.column_type === 'VARCHAR') {
 			this.addNumUnique(fieldName);
 
 			// count strings that are equal to empty string
-			this.statsExprs.add(`COUNT(CASE WHEN ${quotedName} = '' THEN 1 END) AS ${statColumnName(fieldName, 'nempty')}`);
+			this.statsExprs.add(`COUNT(CASE WHEN ${quotedName} = '' THEN 1 END) AS ${getStatName('nempty')}`);
 		} else if (columnSchema.column_type === 'BOOLEAN') {
 			this.addNullCount(fieldName);
-			this.statsExprs.add(`COUNT(CASE WHEN ${quotedName} THEN 1 END) AS ${statColumnName(fieldName, 'ntrue')}`);
-			this.statsExprs.add(`COUNT(CASE WHEN NOT ${quotedName} THEN 1 END) AS ${statColumnName(fieldName, 'nfalse')}`);
+			this.statsExprs.add(`COUNT(CASE WHEN ${quotedName} THEN 1 END) AS ${getStatName('ntrue')}`);
+			this.statsExprs.add(`COUNT(CASE WHEN NOT ${quotedName} THEN 1 END) AS ${getStatName('nfalse')}`);
 		} else if (columnSchema.column_type === 'TIMESTAMP') {
 			this.addMinMaxStringified(fieldName);
 			this.addNumUnique(fieldName);
 			this.statsExprs.add(`epoch_ms(FLOOR(AVG(epoch_ms(${quotedName})))::BIGINT)::VARCHAR
-				AS ${statColumnName(fieldName, 'string_mean')}`);
+				AS ${getStatName('string_mean')}`);
 			this.statsExprs.add(`epoch_ms(MEDIAN(epoch_ms(${quotedName}))::BIGINT)::VARCHAR
-					AS ${statColumnName(fieldName, 'string_median')}`);
+					AS ${getStatName('string_median')}`);
 		}
 	}
 

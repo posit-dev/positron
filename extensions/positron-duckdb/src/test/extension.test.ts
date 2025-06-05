@@ -30,16 +30,12 @@ import {
 	SupportStatus,
 	TableData,
 	TableSchema,
-	TableSelection,
 	TableSelectionKind,
 	TextSearchType,
 	ColumnHistogramParams,
 	ColumnHistogramParamsMethod,
 	GetColumnProfilesParams,
-	ColumnProfileRequest,
-	ColumnProfileSpec,
-	ColumnHistogram,
-	ReturnColumnProfilesEvent
+	ColumnHistogram
 } from '../interfaces';
 import { randomBytes, randomUUID } from 'crypto';
 
