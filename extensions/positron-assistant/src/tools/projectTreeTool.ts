@@ -24,6 +24,7 @@ interface ProjectTreeInput {
 	replaceDefaultExcludes?: boolean;
 	excludeSettings?: string;
 	ignoreFiles?: boolean;
+	filterResults?: boolean;
 	maxFiles?: number;
 }
 
@@ -49,21 +50,41 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 		}
 
 		// Parse the input options
-		const { include, exclude, replaceDefaultExcludes, excludeSettings, ignoreFiles, maxFiles } = options.input;
+		const { include, exclude, replaceDefaultExcludes, excludeSettings, ignoreFiles, filterResults, maxFiles } = options.input;
+
+		log.trace(`ProjectTreeTool invoked with options: ${JSON.stringify(options.input, null, 2)}`);
+
 		const filePatterns = include ?? DEFAULT_INCLUDE_PATTERNS;
 		const excludePatterns = exclude ?? [];
-		const findOptions: vscode.FindFiles2Options = {
-			exclude: replaceDefaultExcludes ? excludePatterns : [...DEFAULT_EXCLUDE_PATTERNS, ...excludePatterns],
-			useIgnoreFiles: ignoreFiles === false ? undefined : DEFAULT_USE_IGNORE_FILES,
-			useExcludeSettings: excludeSettings ? getExcludeSettingOptions(excludeSettings) : DEFAULT_EXCLUDE_SETTING_OPTIONS,
-		};
+		const filterResultsEnabled = filterResults ?? DEFAULT_FILTER_RESULTS;
 		const filesLimit = maxFiles ?? DEFAULT_MAX_FILES;
+
+		let findOptions: vscode.FindFiles2Options;
+		if (filterResultsEnabled) {
+			findOptions = {
+				exclude: replaceDefaultExcludes ? excludePatterns : [...DEFAULT_EXCLUDE_PATTERNS, ...excludePatterns],
+				useIgnoreFiles: ignoreFiles === false ? undefined : DEFAULT_USE_IGNORE_FILES,
+				useExcludeSettings: excludeSettings ? getExcludeSettingOptions(excludeSettings) : DEFAULT_EXCLUDE_SETTING_OPTIONS,
+			};
+		} else {
+			findOptions = {
+				exclude: undefined,
+				useIgnoreFiles: {
+					local: false,
+					parent: false,
+					global: false,
+				},
+				useExcludeSettings: vscode.ExcludeSettingOptions.None,
+			};
+		}
+
 
 		log.debug(`Constructing project tree with options: ${JSON.stringify({
 			include: filePatterns,
 			exclude: findOptions.exclude,
 			useIgnoreFiles: findOptions.useIgnoreFiles,
 			useExcludeSettings: findOptions.useExcludeSettings,
+			filterResults: filterResultsEnabled,
 			maxFiles: filesLimit,
 		}, null, 2)}`);
 
@@ -222,6 +243,7 @@ function getExcludeSettingOptions(excludeSetting: string) {
 
 // Default values for the project tree tool options
 const DEFAULT_MAX_FILES = 500;
+const DEFAULT_FILTER_RESULTS = true;
 const DEFAULT_USE_IGNORE_FILES = { local: true, parent: true, global: true };
 const DEFAULT_EXCLUDE_SETTING_OPTIONS = vscode.ExcludeSettingOptions.SearchAndFilesExclude;
 const DEFAULT_INCLUDE_PATTERNS = ['**/*'];
