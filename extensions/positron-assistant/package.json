@@ -296,10 +296,10 @@
               "description": "Whether to ignore files that are listed in the `.gitignore` file or other ignore files.",
               "default": true
             },
-            "maxResults": {
+            "maxFiles": {
               "type": "number",
-              "description": "The maximum number of results to search for.",
-              "default": 1000
+              "description": "The maximum number of files to include in the project tree. If this limit is reached, a compressed description of the project will be provided instead.",
+              "default": 500
             }
           }
         }
