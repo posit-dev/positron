@@ -1029,8 +1029,8 @@ export class NewFolderFlowStateManager
 		} else if (langId === LanguageIds.R) {
 			cleanPython();
 		} else {
-			// If the language ID is unregognized, log the error.
-			this._services.logService.error(`[New Folder Flow] Unregognized language ID: ${langId}`);
+			// If the language ID is unrecognized, log the error.
+			this._services.logService.error(`[New Folder Flow] Unrecognized language ID: ${langId}`);
 		}
 	}
 
