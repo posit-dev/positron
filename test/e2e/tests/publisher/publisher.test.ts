@@ -71,7 +71,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		}
 
 		if (existingPresent) {
-			await test.step('Use saved credntial', async () => {
+			await test.step('Use saved credential', async () => {
 				await app.workbench.quickInput.selectQuickInputElement(0, false);
 			});
 		} else {
