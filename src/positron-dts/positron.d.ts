@@ -2011,6 +2011,7 @@ declare module 'positron' {
 			location?: string;
 			numCtx?: number;
 			maxOutputTokens?: number;
+			completions?: boolean;
 		}
 
 		/**
