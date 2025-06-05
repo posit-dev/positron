@@ -14,11 +14,11 @@ import { localize } from '../../../../nls.js';
 import { WelcomeButton } from './positronWelcomeButton.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { PositronNewProjectAction } from '../../../browser/actions/positronActions.js';
+import { PositronNewFolderFromTemplateAction } from '../../../browser/actions/positronActions.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { WelcomeMenuButton } from './positronWelcomeMenuButton.js';
-import { PythonLogo } from '../../../browser/positronNewProjectWizard/components/logos/logoPython.js';
-import { RLogo } from '../../../browser/positronNewProjectWizard/components/logos/logoR.js';
+import { LogoPythonProject } from '../../../browser/positronNewFolderFlow/components/logos/logoPythonProject.js';
+import { LogoRProject } from '../../../browser/positronNewFolderFlow/components/logos/logoRProject.js';
 import { WelcomeConsoleButton } from './positronWelcomeConsoleButton.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
@@ -39,14 +39,14 @@ export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcom
 				<WelcomeMenuButton
 					actions={[
 						{
-							renderIcon: () => <PythonLogo />,
+							renderIcon: () => <LogoPythonProject />,
 							label: (() => localize('positron.welcome.newPythonNotebook', "Python Notebook"))(),
 							run: () => props.commandService.executeCommand('ipynb.newUntitledIpynb', 'python'),
 							id: 'welcome.newPythonNotebook',
 							tooltip: localize('positron.welcome.newPythonNotebookDescription', "Create a new Python notebook"),
 						},
 						{
-							renderIcon: () => <RLogo />,
+							renderIcon: () => <LogoRProject />,
 							label: (() => localize('positron.welcome.newRNotebook', "R Notebook"))(),
 							run: () => props.commandService.executeCommand('ipynb.newUntitledIpynb', 'r'),
 							id: 'welcome.newRNotebook',
@@ -67,10 +67,10 @@ export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcom
 				/>
 				<WelcomeConsoleButton commandService={props.commandService} />
 				<WelcomeButton
-					ariaLabel={(() => localize('positron.welcome.newProjectDescription', "Create a new project"))()}
+					ariaLabel={(() => localize('positron.welcome.newFolderDescription', "Create a new folder from a template"))()}
 					codicon='positron-new-project'
-					label={(() => localize('positron.welcome.newProject', "New Project"))()}
-					onPressed={() => props.commandService.executeCommand(PositronNewProjectAction.ID)}
+					label={(() => localize('positron.welcome.newFolderFromTemplate', "New Folder"))()}
+					onPressed={() => props.commandService.executeCommand(PositronNewFolderFromTemplateAction.ID)}
 				/>
 			</div>
 		</div>

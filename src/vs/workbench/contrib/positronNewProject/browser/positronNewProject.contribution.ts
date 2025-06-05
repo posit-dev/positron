@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,31 +8,31 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IWorkbenchContribution, WorkbenchPhase, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { ILifecycleService, LifecyclePhase, StartupKind } from '../../../services/lifecycle/common/lifecycle.js';
-import { IPositronNewProjectService } from '../../../services/positronNewProject/common/positronNewProject.js';
-import { PositronNewProjectService } from '../../../services/positronNewProject/common/positronNewProjectService.js';
+import { IPositronNewFolderService } from '../../../services/positronNewFolder/common/positronNewFolder.js';
+import { PositronNewFolderService } from '../../../services/positronNewFolder/common/positronNewFolderService.js';
 
-// Register the Positron New Project service
-registerSingleton(IPositronNewProjectService, PositronNewProjectService, InstantiationType.Delayed);
+// Register the Positron New Folder service
+registerSingleton(IPositronNewFolderService, PositronNewFolderService, InstantiationType.Delayed);
 
 /**
- * PositronNewProjectContribution class.
+ * PositronNewFolderContribution class.
  */
-class PositronNewProjectContribution extends Disposable implements IWorkbenchContribution {
-	static readonly ID = 'workbench.contrib.positronNewProject';
+class PositronNewFolderContribution extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.positronNewFolder';
 
 	/**
-	 * Create a new instance of the PositronNewProjectContribution.
+	 * Create a new instance of the PositronNewFolderContribution.
 	 * @param _lifecycleService The lifecycle service.
-	 * @param _positronNewProjectService The Positron New Project service.
+	 * @param _positronNewFolderService The Positron New Folder service.
 	 */
 	constructor(
 		@ILifecycleService private readonly _lifecycleService: ILifecycleService,
-		@IPositronNewProjectService private readonly _positronNewProjectService: IPositronNewProjectService,
+		@IPositronNewFolderService private readonly _positronNewFolderService: IPositronNewFolderService,
 	) {
 		super();
 
-		// Whether the new project directory was opened in a new window or the existing window, the
-		// startup kind will be `StartupKind.NewWindow`. However, if the project wizard allowed the
+		// Whether the new folder was opened in a new window or the existing window, the startup kind
+		// will be `StartupKind.NewWindow`. However, if the new folder flow allowed the
 		// user to select the directory that is currently open in Positron, the startup kind may be
 		// `StartupKind.ReopenedWindow`.
 		if (
@@ -44,14 +44,14 @@ class PositronNewProjectContribution extends Disposable implements IWorkbenchCon
 	}
 
 	/**
-	 * Run the Positron New Project contribution, which initializes the new project if applicable.
+	 * Run the Positron New Folder contribution, which initializes the new folder if applicable.
 	 */
 	private async run() {
 		// Wait until after the workbench has been restored
 		await this._lifecycleService.when(LifecyclePhase.Restored);
-		await this._positronNewProjectService.initNewProject();
+		await this._positronNewFolderService.initNewFolder();
 	}
 }
 
-// Register the PositronNewProjectContribution
-registerWorkbenchContribution2(PositronNewProjectContribution.ID, PositronNewProjectContribution, WorkbenchPhase.AfterRestored);
+// Register the PositronNewFolderContribution
+registerWorkbenchContribution2(PositronNewFolderContribution.ID, PositronNewFolderContribution, WorkbenchPhase.AfterRestored);

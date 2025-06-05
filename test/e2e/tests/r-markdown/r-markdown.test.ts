@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -16,7 +16,7 @@ test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN] }, () => {
 	test('Verify can render R Markdown', async function ({ app, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'basic-rmd-file', 'basicRmd.rmd'));
 		await app.workbench.quickaccess.runCommand('r.rmarkdownRender');
-		await app.workbench.explorer.verifyProjectFilesExist(['basicRmd.html']);
+		await app.workbench.explorer.verifyExplorerFilesExist(['basicRmd.html']);
 	});
 
 	test('Verify can preview R Markdown', async function ({ app, r }) {
