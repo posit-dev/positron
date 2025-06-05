@@ -49,10 +49,12 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 			throw new Error(`Can't construct project tree because no workspace folders are open. Open a workspace folder before using this tool.`);
 		}
 
+		log.debug(`[${PositronAssistantToolName.ProjectTree}] Constructing project tree for ${workspaceFolders.length} workspace folders...`);
+
 		// Parse the input options
 		const { include, exclude, replaceDefaultExcludes, excludeSettings, ignoreFiles, filterResults, maxFiles } = options.input;
 
-		log.trace(`ProjectTreeTool invoked with options: ${JSON.stringify(options.input, null, 2)}`);
+		log.trace(`[${PositronAssistantToolName.ProjectTree}] Invoked with options: ${JSON.stringify(options.input, null, 2)}`);
 
 		const filePatterns = include ?? DEFAULT_INCLUDE_PATTERNS;
 		const excludePatterns = exclude ?? [];
@@ -79,7 +81,7 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 		}
 
 
-		log.debug(`Constructing project tree with options: ${JSON.stringify({
+		log.trace(`[${PositronAssistantToolName.ProjectTree}] Constructing project tree with options: ${JSON.stringify({
 			include: filePatterns,
 			exclude: findOptions.exclude,
 			useIgnoreFiles: findOptions.useIgnoreFiles,
@@ -103,15 +105,15 @@ export const ProjectTreeTool = vscode.lm.registerTool<ProjectTreeInput>(Positron
 
 		const totalFiles = workspaceTrees.reduce((sum, obj) => sum + obj.totalFiles, 0);
 
-		log.debug(`Project tree constructed with ${totalFiles} items across ${workspaceFolders.length} workspace folders.`);
+		log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree constructed with ${totalFiles} items across ${workspaceFolders.length} workspace folders.`);
 
 		// Return a compressed description of the project tree if there are too many items
 		if (totalFiles > filesLimit) {
 			const itemLimit = Math.floor(filesLimit / workspaceTrees.length);
-			log.debug(`Project tree exceeds the limit of ${filesLimit} items. A summary will be returned for each workspace folder.`);
+			log.debug(`[${PositronAssistantToolName.ProjectTree}] Project tree exceeds the limit of ${filesLimit} items. A summary will be returned for each workspace folder.`);
 			const summarizedTree = await getSummarizedProjectTree(workspaceTrees, itemLimit);
 			return new vscode.LanguageModelToolResult([
-				new vscode.LanguageModelTextPart(`Project tree contains ${totalFiles} files, which exceeds the limit of ${filesLimit}. Here is a summary of each workspace, including the first ${itemLimit} files and directories:`),
+				new vscode.LanguageModelTextPart(`[${PositronAssistantToolName.ProjectTree}] Project tree contains ${totalFiles} files, which exceeds the limit of ${filesLimit}. Here is a summary of each workspace, including the first ${itemLimit} files and directories:`),
 				new vscode.LanguageModelTextPart(JSON.stringify(summarizedTree)),
 			]);
 		}
