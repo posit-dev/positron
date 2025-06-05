@@ -245,7 +245,7 @@ class MistralCompletion extends OpenAILegacyCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'mistral',
-			displayName: 'Mistral'
+			displayName: 'Mistral AI'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {

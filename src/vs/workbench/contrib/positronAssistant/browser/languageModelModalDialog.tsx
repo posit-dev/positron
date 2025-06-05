@@ -250,6 +250,26 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			setShowProgress(false);
 			setError(localize('positron.newConnectionModalDialog.incompleteConfig', 'The configuration is incomplete.'));
 		}
+
+		if (providerConfig.completions) {
+			// Assume a completion source exists with the same provider ID and compatible auth details
+			const completionSource = props.sources.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
+			const completionConfig = {
+				provider: providerConfig.provider,
+				type: PositronLanguageModelType.Completion,
+				...completionSource.defaults,
+				apiKey: providerConfig.apiKey,
+				oauth: providerConfig.oauth,
+			}
+			props.onAction(
+				completionConfig,
+				source.signedIn ? 'delete' : 'save')
+				.catch((e) => {
+					setError(e.message);
+				}).finally(() => {
+					setShowProgress(false);
+				});
+		}
 	}
 
 	// Returns a cancel for the dialog and closes it
