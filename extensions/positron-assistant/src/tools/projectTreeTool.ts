@@ -247,6 +247,8 @@ const DEFAULT_EXCLUDE_PATTERNS = [
 	'.RData',
 	'.Rhistory',
 	'desktop.ini',
+	'package-lock.json',
+	'yarn.lock',
 	'Thumbs.db',
 	// Wildcards
 	'**/*.a',
