@@ -20,16 +20,8 @@ import { ICommandService } from '../../../../../platform/commands/common/command
 import { ChatEntitlement, IChatEntitlementService } from '../../common/chatEntitlementService.js';
 import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 
-// --- Start Positron ---
-import { IPositronChatProvider } from '../../common/languageModels.js';
-// --- End Positron ---
-
 export interface IModelPickerDelegate {
 	readonly onDidChangeModel: Event<ILanguageModelChatMetadataAndIdentifier>;
-	// --- Start Positron ---
-	onDidChangeProvider: Event<IPositronChatProvider | undefined>;
-	setProvider(providerId: IPositronChatProvider): void;
-	// --- End Positron ---
 	getCurrentModel(): ILanguageModelChatMetadataAndIdentifier | undefined;
 	setModel(model: ILanguageModelChatMetadataAndIdentifier): void;
 	getModels(): ILanguageModelChatMetadataAndIdentifier[];
