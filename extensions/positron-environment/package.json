@@ -17,46 +17,45 @@
         "type": "object",
         "title": "%environment.configuration.title%",
         "properties": {
-          "positron.environment.enabled": {
+          "environmentVariables.enabled": {
             "scope": "window",
             "type": "boolean",
             "default": true,
-            "description": "%environment.configuration.enabled.description%"
+            "description": "%environment.configuration.enabled.description%",
+            "order": 1
           },
-          "positron.environment.variables": {
+          "environmentVariables.set": {
             "scope": "window",
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "action": {
-                  "type": "string",
-                  "enum": ["replace", "append", "prepend"],
-                  "description": "%environment.configuration.variables.action%"
-                },
-                "name": {
-                  "type": "string",
-                  "description": "%environment.configuration.variables.name%"
-                },
-                "value": {
-                  "type": "string",
-                  "description": "%environment.configuration.variables.value%"
-                }
-              }
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
             },
-            "default": [
-              {
-                "action": "replace",
-                "name": "SF_PARTNER",
-                "value": "posit_positron"
-              },
-              {
-                "action": "replace",
-                "name": "SPARK_CONNECT_USER_AGENT",
-                "value": "posit-positron"
-              }
-            ],
-            "description": "%environment.configuration.variables.description%"
+            "default": {
+              "SF_PARTNER": "posit_positron",
+              "SPARK_CONNECT_USER_AGENT": "posit-positron"
+            },
+            "description": "%environment.configuration.variables.set.description%",
+            "order": 2
+          },
+          "environmentVariables.append": {
+            "scope": "window",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "description": "%environment.configuration.variables.append.description%",
+            "order": 3
+          },
+          "environmentVariables.prepend": {
+            "scope": "window",
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            },
+            "default": {},
+            "description": "%environment.configuration.variables.prepend.description%",
+            "order": 4
           }
         }
       }
@@ -69,6 +68,9 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src --ext ts",
     "test": "node ./out/test/runTest.js"
+  },
+  "devDependencies": {
+    "@types/node": "14.x"
   },
   "repository": {
     "type": "git",

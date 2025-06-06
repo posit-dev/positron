@@ -589,7 +589,7 @@ suite('venv Creation provider tests', () => {
             ) => task(progressMock.object),
         );
 
-        // Options for createEnvironment (based on what we send via positronNewProjectService)
+        // Options for createEnvironment (based on what we send via positronNewFolderService)
         const options = {
             workspaceFolder: workspace1,
             interpreterPath: '/usr/bin/python',

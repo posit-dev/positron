@@ -22,7 +22,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
 import { URI } from '../../../../base/common/uri.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
-import { IPositronNewProjectService } from '../../positronNewProject/common/positronNewProject.js';
+import { IPositronNewFolderService } from '../../positronNewFolder/common/positronNewFolder.js';
 import { isWeb } from '../../../../base/common/platform.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Barrier } from '../../../../base/common/async.js';
@@ -120,18 +120,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 
 	constructor(
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILifecycleService private readonly _lifecycleService: ILifecycleService,
 		@ILogService private readonly _logService: ILogService,
-		@IPositronNewProjectService private readonly _newProjectService: IPositronNewProjectService,
 		@INotificationService private readonly _notificationService: INotificationService,
+		@IPositronNewFolderService private readonly _newFolderService: IPositronNewFolderService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
 		@IWorkspaceTrustManagementService private readonly _workspaceTrustManagementService: IWorkspaceTrustManagementService,
-		@IEphemeralStateService private readonly _ephemeralStateService: IEphemeralStateService) {
+	) {
 
 		super();
 
@@ -515,11 +516,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 		// Attempt to reconnect to any active sessions first.
 		await this.restoreSessions();
 
-		// If this is a new project, wait for it to initialize the project
-		// before proceeding, and then store the new project runtime metadata.
+		// If this is a new folder, wait for it to initialize the folder
+		// before proceeding, and then store the new folder runtime metadata.
 		// as the affiliated runtime for this workspace.
-		await this._newProjectService.initTasksComplete.wait();
-		const newRuntime = this._newProjectService.newProjectRuntimeMetadata;
+		await this._newFolderService.initTasksComplete.wait();
+		const newRuntime = this._newFolderService.newFolderRuntimeMetadata;
 		if (newRuntime) {
 			const newAffiliation: IAffiliatedRuntimeMetadata = {
 				metadata: newRuntime,

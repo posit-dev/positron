@@ -47,7 +47,7 @@ export async function promptImport(
 			// Open the import settings command and set the import was prompted flag to true.
 			// This will prevent the prompt from showing up again.
 			{
-				label: localize('positron.settingsImport.import', 'Import'),
+				label: localize('positron.settingsImport.compareSettings', 'Compare settings'),
 				run: () => {
 					commandService.executeCommand(PositronImportSettings.ID);
 					setImportWasPrompted(storageService);

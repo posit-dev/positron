@@ -248,16 +248,45 @@ function makeWhereExpr(rowFilter: RowFilter): string {
 	}
 }
 
+/**
+ * Properly quotes and escapes an identifier for use in DuckDB SQL.
+ * Handles field names containing quotes by doubling them (DuckDB's escaping convention).
+ * @param fieldName The field name to quote
+ * @returns The properly quoted and escaped identifier
+ */
 function quoteIdentifier(fieldName: string) {
-	return `"${fieldName}"`;
+	// Double any existing double quotes and wrap in double quotes
+	return '"' + fieldName.replace(/"/g, '""') + '"';
 }
 
 function anyValue(unquotedName: string) {
-	return `ANY_VALUE(\"${unquotedName}\")`;
+	return `ANY_VALUE(${quoteIdentifier(unquotedName)})`;
 }
 
 function alias(expr: string, aliasName: string) {
-	return `${expr} AS ${aliasName}`;
+	return `${expr} AS ${quoteIdentifier(aliasName)}`;
+}
+
+/**
+ * Generates a safe column name for statistics based on a base field name and statistic type.
+ * The returned name is safe to use in SQL and can be used to look up the value in the results.
+ * Uses a hash of the field name to ensure the generated identifier is always valid SQL.
+ *
+ * @param fieldName The base field name
+ * @param statType The type of statistic (e.g., 'mean', 'stdev')
+ * @returns A safe column name that can be used in SQL
+ */
+function statColumnName(fieldName: string, statType: string): string {
+	// Generate a simple hash of the field name to create a safe identifier
+	let hash = 0;
+	for (let i = 0; i < fieldName.length; i++) {
+		const char = fieldName.charCodeAt(i);
+		hash = ((hash << 5) - hash) + char;
+		hash = hash & hash; // Convert to 32bit integer
+	}
+	// Use absolute value and convert to base36 for shorter representation
+	const safeFieldHash = Math.abs(hash).toString(36);
+	return `stat_${safeFieldHash}_${statType}`;
 }
 
 // This class organizes the business logic for computing the summary statistics to populate
@@ -309,28 +338,40 @@ class ColumnProfileEvaluator {
 	}
 
 	private addNullCount(fieldName: string) {
-		this.statsExprs.add(`COUNT(*) - COUNT("${fieldName}") AS "null_count_${fieldName}"`);
+		const quotedName = quoteIdentifier(fieldName);
+		const statName = statColumnName(fieldName, 'null_count');
+		this.statsExprs.add(`COUNT(*) - COUNT(${quotedName}) AS ${quoteIdentifier(statName)}`);
 	}
 
 	private addMinMax(fieldName: string) {
-		this.statsExprs.add(`MIN("${fieldName}") AS "min_${fieldName}"`);
-		this.statsExprs.add(`MAX("${fieldName}") AS "max_${fieldName}"`);
+		const quotedName = quoteIdentifier(fieldName);
+		const minName = statColumnName(fieldName, 'min');
+		const maxName = statColumnName(fieldName, 'max');
+		this.statsExprs.add(`MIN(${quotedName}) AS ${quoteIdentifier(minName)}`);
+		this.statsExprs.add(`MAX(${quotedName}) AS ${quoteIdentifier(maxName)}`);
 	}
 
 	private addMinMaxStringified(fieldName: string) {
-		this.statsExprs.add(`MIN("${fieldName}")::VARCHAR AS "string_min_${fieldName}"`);
-		this.statsExprs.add(`MAX("${fieldName}")::VARCHAR AS "string_max_${fieldName}"`);
+		const quotedName = quoteIdentifier(fieldName);
+		const minName = statColumnName(fieldName, 'string_min');
+		const maxName = statColumnName(fieldName, 'string_max');
+		this.statsExprs.add(`MIN(${quotedName})::VARCHAR AS ${quoteIdentifier(minName)}`);
+		this.statsExprs.add(`MAX(${quotedName})::VARCHAR AS ${quoteIdentifier(maxName)}`);
 	}
 
 	private addNumUnique(fieldName: string) {
-		this.statsExprs.add(`COUNT(DISTINCT "${fieldName}") AS "nunique_${fieldName}"`);
+		const quotedName = quoteIdentifier(fieldName);
+		const statName = statColumnName(fieldName, 'nunique');
+		this.statsExprs.add(`COUNT(DISTINCT ${quotedName}) AS ${quoteIdentifier(statName)}`);
 	}
 
 	private addIqr(fieldName: string) {
 		// TODO: This will be imprecise / lossy for out-of-range int64 or decimal values
+		const quotedName = quoteIdentifier(fieldName);
+		const statName = statColumnName(fieldName, 'iqr');
 		this.statsExprs.add(
-			`APPROX_QUANTILE("${fieldName}", 0.75)::DOUBLE - APPROX_QUANTILE("${fieldName}", 0.25)::DOUBLE
-			AS "iqr_${fieldName}"`
+			`APPROX_QUANTILE(${quotedName}, 0.75)::DOUBLE - APPROX_QUANTILE(${quotedName}, 0.25)::DOUBLE
+			AS ${quoteIdentifier(statName)}`
 		);
 	}
 
@@ -349,32 +390,36 @@ class ColumnProfileEvaluator {
 	private addSummaryStats(columnSchema: SchemaEntry) {
 		const fieldName = columnSchema.column_name;
 
+		// Quote identifier
+		const quotedName = quoteIdentifier(fieldName);
+		const getStatName = (statType: string) => statColumnName(fieldName, statType);
+
 		if (isNumeric(columnSchema.column_type)) {
 			this.addMinMax(fieldName);
-			this.statsExprs.add(`AVG("${fieldName}") AS "mean_${fieldName}"`);
-			this.statsExprs.add(`STDDEV_SAMP("${fieldName}") AS "stdev_${fieldName}"`);
-			this.statsExprs.add(`MEDIAN("${fieldName}") AS "median_${fieldName}"`);
+			this.statsExprs.add(`AVG(${quotedName}) AS ${getStatName('mean')}`);
+			this.statsExprs.add(`STDDEV_SAMP(${quotedName}) AS ${getStatName('stdev')}`);
+			this.statsExprs.add(`MEDIAN(${quotedName}) AS ${getStatName('median')}`);
 		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
 			this.addMinMaxStringified(fieldName);
-			this.statsExprs.add(`AVG("${fieldName}")::DOUBLE AS "f64_mean_${fieldName}"`);
-			this.statsExprs.add(`STDDEV_SAMP("${fieldName}"::DOUBLE) AS "f64_stdev_${fieldName}"`);
-			this.statsExprs.add(`MEDIAN("${fieldName}"::DOUBLE) AS "f64_median_${fieldName}"`);
+			this.statsExprs.add(`AVG(${quotedName})::DOUBLE AS ${getStatName('f64_mean')}`);
+			this.statsExprs.add(`STDDEV_SAMP(${quotedName}::DOUBLE) AS ${getStatName('f64_stdev')}`);
+			this.statsExprs.add(`MEDIAN(${quotedName}::DOUBLE) AS ${getStatName('f64_median')}`);
 		} else if (columnSchema.column_type === 'VARCHAR') {
 			this.addNumUnique(fieldName);
 
 			// count strings that are equal to empty string
-			this.statsExprs.add(`COUNT(CASE WHEN "${fieldName}" = '' THEN 1 END) AS "nempty_${fieldName}"`);
+			this.statsExprs.add(`COUNT(CASE WHEN ${quotedName} = '' THEN 1 END) AS ${getStatName('nempty')}`);
 		} else if (columnSchema.column_type === 'BOOLEAN') {
 			this.addNullCount(fieldName);
-			this.statsExprs.add(`COUNT(CASE WHEN "${fieldName}" THEN 1 END) AS "ntrue_${fieldName}"`);
-			this.statsExprs.add(`COUNT(CASE WHEN NOT "${fieldName}" THEN 1 END) AS "nfalse_${fieldName}"`);
+			this.statsExprs.add(`COUNT(CASE WHEN ${quotedName} THEN 1 END) AS ${getStatName('ntrue')}`);
+			this.statsExprs.add(`COUNT(CASE WHEN NOT ${quotedName} THEN 1 END) AS ${getStatName('nfalse')}`);
 		} else if (columnSchema.column_type === 'TIMESTAMP') {
 			this.addMinMaxStringified(fieldName);
 			this.addNumUnique(fieldName);
-			this.statsExprs.add(`epoch_ms(FLOOR(AVG(epoch_ms("${fieldName}")))::BIGINT)::VARCHAR
-				AS "string_mean_${fieldName}"`);
-			this.statsExprs.add(`epoch_ms(MEDIAN(epoch_ms("${fieldName}"))::BIGINT)::VARCHAR
-					AS "string_median_${fieldName}"`);
+			this.statsExprs.add(`epoch_ms(FLOOR(AVG(epoch_ms(${quotedName})))::BIGINT)::VARCHAR
+				AS ${getStatName('string_mean')}`);
+			this.statsExprs.add(`epoch_ms(MEDIAN(epoch_ms(${quotedName}))::BIGINT)::VARCHAR
+					AS ${getStatName('string_median')}`);
 		}
 	}
 
@@ -383,20 +428,23 @@ class ColumnProfileEvaluator {
 		stats: Map<string, any>): Promise<ColumnFrequencyTable> {
 		const field = columnSchema.column_name;
 
-		const predicate = `"${field}" IS NOT NULL`;
+		// Quote identifier
+		const quotedName = quoteIdentifier(field);
+
+		const predicate = `${quotedName} IS NOT NULL`;
 		const composedPred = this.whereClause !== '' ?
 			`${this.whereClause} AND ${predicate}` :
 			`WHERE ${predicate}`;
 		const result = await this.db.runQuery(`
 		WITH freq_table AS (
-			SELECT "${field}" AS value, COUNT(*) AS freq
+			SELECT ${quotedName} AS value, COUNT(*) AS freq
 			FROM ${this.tableName} ${composedPred}
 			GROUP BY 1
 			LIMIT ${params.limit}
 		)
 		SELECT value::VARCHAR AS value, freq
 		FROM freq_table
-		ORDER BY freq DESC;`) as Table<any>;
+		ORDER BY freq DESC, value ASC;`) as Table<any>;
 
 		const values: string[] = [];
 		const counts: number[] = [];
@@ -411,8 +459,7 @@ class ColumnProfileEvaluator {
 		}
 
 		const numRows = Number(stats.get('num_rows'));
-		const nullCount = Number(stats.get(`null_count_${field}`));
-
+		const nullCount = Number(stats.get(statColumnName(field, 'null_count')));
 
 		return {
 			values,
@@ -434,8 +481,8 @@ class ColumnProfileEvaluator {
 		// TODO: This may be lossy for very large INT64 values
 		// We used strings here to temporarily support decimal type data that fits in float64.
 		// We will need to return later to support broader-spectrum decimals
-		const minValue = Number(stats.get(`string_min_${field}`));
-		const maxValue = Number(stats.get(`string_max_${field}`));
+		const minValue = Number(stats.get(statColumnName(field, 'string_min')));
+		const maxValue = Number(stats.get(statColumnName(field, 'string_max')));
 
 		// Exceptional cases to worry about
 		// - Inf/-Inf values in min/max/iqr
@@ -449,7 +496,7 @@ class ColumnProfileEvaluator {
 				break;
 			}
 			case ColumnHistogramParamsMethod.FreedmanDiaconis: {
-				const iqr = Number(stats.get(`iqr_${field}`));
+				const iqr = Number(stats.get(statColumnName(field, 'iqr')));
 				if (iqr > 0) {
 					binWidth = 2 * iqr * Math.pow(numRows, -1 / 3);
 				}
@@ -467,7 +514,7 @@ class ColumnProfileEvaluator {
 				break;
 		}
 
-		const nullCount = Number(stats.get(`null_count_${field}`));
+		const nullCount = Number(stats.get(statColumnName(field, 'null_count')));
 		if (nullCount === numRows) {
 			return {
 				bin_edges: ['NULL', 'NULL'],
@@ -475,11 +522,11 @@ class ColumnProfileEvaluator {
 				quantiles: []
 			};
 		} else if (binWidth === 0) {
-			const predicate = `"${field}" IS NOT NULL`;
+			const predicate = `${quoteIdentifier(field)} IS NOT NULL`;
 			const composedPred = this.whereClause !== '' ?
 				`${this.whereClause} AND ${predicate}` :
 				`WHERE ${predicate}`;
-			const result = await this.db.runQuery(`SELECT "${field}"::VARCHAR AS value
+			const result = await this.db.runQuery(`SELECT ${quoteIdentifier(field)}::VARCHAR AS value
 			FROM ${this.tableName} ${composedPred} LIMIT 1;`) as Table<any>;
 
 			const fixedValue = result.toArray()[0].value;
@@ -508,7 +555,7 @@ class ColumnProfileEvaluator {
 
 		// TODO: Casting to DOUBLE is not safe for BIGINT
 		const result = await this.db.runQuery(`
-		SELECT FLOOR(("${field}"::DOUBLE - ${minValue}) / ${binWidth})::INTEGER AS bin_id,
+		SELECT FLOOR((${quoteIdentifier(field)}::DOUBLE - ${minValue}) / ${binWidth})::INTEGER AS bin_id,
 			COUNT(*) AS bin_count
 		FROM ${this.tableName} ${this.whereClause}
 		GROUP BY 1;`);
@@ -538,6 +585,9 @@ class ColumnProfileEvaluator {
 		columnSchema: SchemaEntry,
 		stats: Map<string, any>
 	): ColumnSummaryStats {
+		const fieldName = columnSchema.column_name;
+		const getStat = (statType: string) => stats.get(statColumnName(fieldName, statType));
+
 		const formatNumber = (value: number) => {
 			value = Number(value);
 
@@ -551,53 +601,54 @@ class ColumnProfileEvaluator {
 				return value.toFixed(this.params.format_options.large_num_digits);
 			}
 		};
+
 		if (isNumeric(columnSchema.column_type)) {
 			return {
 				type_display: ColumnDisplayType.Number,
 				number_stats: {
-					min_value: formatNumber(stats.get(`min_${columnSchema.column_name}`)),
-					max_value: formatNumber(stats.get(`max_${columnSchema.column_name}`)),
-					mean: formatNumber(stats.get(`mean_${columnSchema.column_name}`)),
-					stdev: formatNumber(stats.get(`stdev_${columnSchema.column_name}`)),
-					median: formatNumber(stats.get(`median_${columnSchema.column_name}`))
+					min_value: formatNumber(getStat('min')),
+					max_value: formatNumber(getStat('max')),
+					mean: formatNumber(getStat('mean')),
+					median: formatNumber(getStat('median')),
+					stdev: formatNumber(getStat('stdev')),
 				}
 			};
 		} else if (columnSchema.column_type.startsWith('DECIMAL')) {
 			return {
 				type_display: ColumnDisplayType.Number,
 				number_stats: {
-					min_value: formatNumber(Number(stats.get(`string_min_${columnSchema.column_name}`))),
-					max_value: formatNumber(Number(stats.get(`string_max_${columnSchema.column_name}`))),
-					mean: formatNumber(stats.get(`f64_mean_${columnSchema.column_name}`)),
-					stdev: formatNumber(stats.get(`f64_stdev_${columnSchema.column_name}`)),
-					median: formatNumber(stats.get(`f64_median_${columnSchema.column_name}`))
+					min_value: getStat('string_min'),
+					max_value: getStat('string_max'),
+					mean: getStat('f64_mean')?.toString(),
+					median: getStat('f64_median')?.toString(),
+					stdev: getStat('f64_stdev')?.toString(),
 				}
 			};
 		} else if (columnSchema.column_type === 'VARCHAR') {
 			return {
 				type_display: ColumnDisplayType.String,
 				string_stats: {
-					num_unique: Number(stats.get(`nunique_${columnSchema.column_name}`)),
-					num_empty: Number(stats.get(`nempty_${columnSchema.column_name}`))
+					num_unique: Number(getStat('nunique')),
+					num_empty: Number(getStat('nempty')),
 				}
 			};
 		} else if (columnSchema.column_type === 'BOOLEAN') {
 			return {
 				type_display: ColumnDisplayType.Boolean,
 				boolean_stats: {
-					true_count: Number(stats.get(`ntrue_${columnSchema.column_name}`)),
-					false_count: Number(stats.get(`nfalse_${columnSchema.column_name}`))
+					true_count: Number(getStat('ntrue')),
+					false_count: Number(getStat('nfalse')),
 				}
 			};
 		} else if (columnSchema.column_type === 'TIMESTAMP') {
 			return {
 				type_display: ColumnDisplayType.Datetime,
 				datetime_stats: {
-					min_date: stats.get(`string_min_${columnSchema.column_name}`),
-					max_date: stats.get(`string_max_${columnSchema.column_name}`),
-					mean_date: stats.get(`string_mean_${columnSchema.column_name}`),
-					median_date: stats.get(`string_median_${columnSchema.column_name}`),
-					num_unique: Number(stats.get(`nunique_${columnSchema.column_name}`))
+					min_date: getStat('string_min'),
+					max_date: getStat('string_max'),
+					mean_date: getStat('string_mean'),
+					median_date: getStat('string_median'),
+					num_unique: Number(getStat('nunique'))
 				}
 			};
 		} else {
@@ -637,7 +688,7 @@ class ColumnProfileEvaluator {
 			for (const spec of request.profiles) {
 				switch (spec.profile_type) {
 					case ColumnProfileType.NullCount:
-						result.null_count = Number(stats.get(`null_count_${field}`));
+						result.null_count = Number(stats.get(statColumnName(field, 'null_count')));
 						break;
 					case ColumnProfileType.LargeHistogram:
 					case ColumnProfileType.SmallHistogram:

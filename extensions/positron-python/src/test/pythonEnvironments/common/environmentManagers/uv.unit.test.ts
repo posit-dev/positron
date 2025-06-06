@@ -6,7 +6,11 @@
 import * as assert from 'assert';
 import * as sinon from 'sinon';
 import * as fileUtils from '../../../../client/pythonEnvironments/common/externalDependencies';
-import { isUvEnvironment } from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
+import {
+    isUvEnvironment,
+    isUvInstalled,
+    getUvDirs,
+} from '../../../../client/pythonEnvironments/common/environmentManagers/uv';
 import * as platformUtils from '../../../../client/common/utils/platform';
 import * as logging from '../../../../client/logging';
 import * as simplevenv from '../../../../client/pythonEnvironments/common/environmentManagers/simplevirtualenvs';
@@ -191,6 +195,62 @@ suite('UV Environment Tests', () => {
 
             assert.strictEqual(result, false);
             assert.ok(traceVerboseStub.calledWith(sinon.match.string));
+        });
+    });
+
+    suite('isUvInstalled Tests', () => {
+        test('Returns true when uv is installed and working', async () => {
+            execStub.resolves({ stdout: customDir });
+
+            const result = await isUvInstalled();
+
+            assert.strictEqual(result, true);
+        });
+
+        test('Returns false when uv command fails', async () => {
+            execStub.rejects(new Error('Command not found'));
+
+            const result = await isUvInstalled();
+
+            assert.strictEqual(result, false);
+        });
+    });
+
+    suite('getUvDirs Tests', () => {
+        test('Returns both uv dir and bin dir when both are available', async () => {
+            const uvDir = '/path/to/uv/python';
+            const uvBinDir = '/path/to/uv/bin';
+            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: uvDir });
+            execStub.withArgs('uv', ['python', 'dir', '--bin'], { throwOnStdErr: true }).resolves({ stdout: uvBinDir });
+
+            const result = await getUvDirs();
+
+            assert.strictEqual(result.size, 2);
+            assert.ok(result.has(uvDir));
+            assert.ok(result.has(uvBinDir));
+        });
+
+        test('Returns empty set when uv is not installed', async () => {
+            execStub.rejects(new Error('Command not found'));
+
+            const result = await getUvDirs();
+
+            assert.strictEqual(result.size, 0);
+        });
+
+        test('Trims whitespace from command output', async () => {
+            const uvDir = '/path/to/uv/python';
+            const uvBinDir = '/path/to/uv/bin';
+            execStub.withArgs('uv', ['python', 'dir'], { throwOnStdErr: true }).resolves({ stdout: `  ${uvDir}  \n` });
+            execStub
+                .withArgs('uv', ['python', 'dir', '--bin'], { throwOnStdErr: true })
+                .resolves({ stdout: `\t${uvBinDir}\r\n` });
+
+            const result = await getUvDirs();
+
+            assert.strictEqual(result.size, 2);
+            assert.ok(result.has(uvDir));
+            assert.ok(result.has(uvBinDir));
         });
     });
 });

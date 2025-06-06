@@ -347,6 +347,47 @@ suite('Native Python API', () => {
     });
 
     // --- Start Positron ---
+    test('Uv environment detected and converted during addEnv via triggerRefresh', async () => {
+        // Create a test environment that looks like a regular VirtualEnv initially
+        const uvEnv: NativeEnvInfo = {
+            displayName: 'UV Environment',
+            name: 'my_uv_env',
+            executable: '/home/user/.local/share/uv/python/cpython-3.11.5/bin/python',
+            kind: NativePythonEnvironmentKind.VirtualEnv, // Initially detected as VirtualEnv
+            version: '3.11.5',
+            prefix: '/home/user/.local/share/uv/python/cpython-3.11.5',
+        };
+
+        // Mock isUvEnvironment to return true for this environment
+        isUvEnvironmentStub.withArgs(uvEnv.executable).resolves(true);
+
+        // Setup the finder to return our test env during refresh
+        mockFinder
+            .setup((f) => f.refresh())
+            .returns(() => {
+                async function* generator() {
+                    yield* [uvEnv];
+                }
+                return generator();
+            })
+            .verifiable(typemoq.Times.once());
+
+        // Trigger refresh which will call addEnv internally
+        await api.triggerRefresh();
+
+        // Get the environments and verify the uv environment was converted
+        const envs = api.getEnvs();
+        assert.equal(envs.length, 1);
+
+        const addedEnv = envs[0];
+        assert.isDefined(addedEnv);
+        assert.equal(addedEnv.kind, PythonEnvKind.Uv);
+        assert.equal(addedEnv.executable.filename, '/home/user/.local/share/uv/python/cpython-3.11.5/bin/python');
+
+        // Verify isUvEnvironment was called during addEnv
+        assert.isTrue(isUvEnvironmentStub.calledWith('/home/user/.local/share/uv/python/cpython-3.11.5/bin/python'));
+    });
+
     test('Uv environment detected and converted during resolveEnv', async () => {
         // Create a test environment
         const uvEnv: NativeEnvInfo = {
@@ -374,8 +415,9 @@ suite('Native Python API', () => {
         assert.isDefined(resolved);
         assert.equal(resolved?.kind, PythonEnvKind.Uv);
 
-        // Verify isUvEnvironment was called with the right argument
-        assert.isTrue(isUvEnvironmentStub.calledOnceWith('/home/user/.local/share/uv/python/cpython-3.10'));
+        // Verify isUvEnvironment was called twice (once when adding; once when resolving)
+        assert.isTrue(isUvEnvironmentStub.calledTwice);
+        assert.isTrue(isUvEnvironmentStub.calledWith('/home/user/.local/share/uv/python/cpython-3.10'));
     });
     // --- End Positron ---
 });
