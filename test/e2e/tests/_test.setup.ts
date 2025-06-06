@@ -512,9 +512,6 @@ interface WorkerFixtures {
 	};
 	vscodeUserSettings: SettingsFileManager;
 	positronUserSettings: SettingsFileManager;
-	keyBinding: {
-		set: (newBindings: any[]) => Promise<void>;
-	};
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {
