@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as path from 'path';
+import * as fs from 'fs';
 import { cache } from '../../../common/utils/decorators';
 import { traceVerbose } from '../../../logging';
 import { exec, pathExists, readFile, resolveSymbolicLink } from '../externalDependencies';
@@ -149,6 +150,18 @@ export async function getUvDirs(): Promise<Set<string>> {
     }
     if (uvDir) {
         dirs.add(uvDir);
+        // Recurse one level deeper to include any subdirectories that might contain interpreters
+        try {
+            const entries = await fs.promises.readdir(uvDir, { withFileTypes: true });
+            const subdirs = entries
+                .filter(entry => entry.isDirectory())
+                .map(entry => path.join(uvDir, entry.name));
+            for (const subdir of subdirs) {
+                dirs.add(subdir);
+            }
+        } catch (ex) {
+            traceVerbose(`Error listing uv subdirectories: ${ex}`);
+        }
     }
     return dirs;
 }
