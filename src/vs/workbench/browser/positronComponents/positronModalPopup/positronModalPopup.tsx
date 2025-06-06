@@ -129,12 +129,19 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 			anchorY = props.anchorPoint.clientY;
 			anchorWidth = 0;
 			anchorHeight = 0;
-		} else {
+		} else if (props.anchorElement) {
 			const topLeftAnchorOffset = DOM.getTopLeftOffset(props.anchorElement);
 			anchorX = topLeftAnchorOffset.left;
 			anchorY = topLeftAnchorOffset.top;
 			anchorWidth = props.anchorElement.offsetWidth;
 			anchorHeight = props.anchorElement.offsetHeight;
+		} else {
+			// If no anchor point or element is provided, default to the center
+			// of the document.
+			anchorX = documentWidth / 2;
+			anchorY = documentHeight / 2;
+			anchorWidth = 0;
+			anchorHeight = 0;
 		}
 
 		// Calculate the left and right area widths. This is the space that is available for laying
