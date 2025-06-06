@@ -758,7 +758,7 @@ The {guide-link} explains the possibilities and capabilities of Positron Assista
 
 Always verify results. AI assistants can sometimes produce incorrect code.`);
 			// eslint-disable-next-line local/code-no-unexternalized-strings
-			tips = new MarkdownString(localize('positronAssistant.welcomeMessageReadyTips', `Type $(mention) to select a Chat Participant.
+			tips = new MarkdownString(localize('positronAssistant.welcomeMessageReadyTips', `Click on or type $(mention) to select a Chat Participant.
 
 Click on $(attach) or type \`#\` to add context, such as files to your chat.
 
