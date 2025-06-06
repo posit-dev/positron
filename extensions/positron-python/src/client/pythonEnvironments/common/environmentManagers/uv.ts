@@ -153,9 +153,7 @@ export async function getUvDirs(): Promise<Set<string>> {
         // Recurse one level deeper to include any subdirectories that might contain interpreters
         try {
             const entries = await fs.promises.readdir(uvDir, { withFileTypes: true });
-            const subdirs = entries
-                .filter(entry => entry.isDirectory())
-                .map(entry => path.join(uvDir, entry.name));
+            const subdirs = entries.filter((entry) => entry.isDirectory()).map((entry) => path.join(uvDir, entry.name));
             for (const subdir of subdirs) {
                 dirs.add(subdir);
             }
