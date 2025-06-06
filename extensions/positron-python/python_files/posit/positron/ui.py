@@ -63,6 +63,16 @@ def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bo
     return params[0] in kernel.shell.user_ns
 
 
+def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) -> List[str]:
+    # Get all keys in the user namespace that start with a module prefix
+    # (e.g., 'numpy', 'pandas', etc.)
+    return [
+        name
+        for name in kernel.shell.user_ns
+        if not name.startswith("_") and isinstance(kernel.shell.user_ns[name], type(sys))
+    ]
+
+
 def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
         raise _InvalidParamsError(f"Expected an integer width, got: {params}")
@@ -103,6 +113,7 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
 _RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
+    "getLoadedModules": _get_loaded_modules,
 }
 
 

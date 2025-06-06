@@ -4,9 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { IServiceContainer } from '../../client/ioc/types';
 import { IInterpreterService } from '../../client/interpreter/contracts';
 import { IPythonExecutionFactory } from '../../client/common/process/types';
+import { PythonRuntimeSession } from '../../client/positron/session';
 
 export function registerPythonLanguageModelTools(
     context: vscode.ExtensionContext,
@@ -14,50 +16,28 @@ export function registerPythonLanguageModelTools(
 ): void {
     const pythonLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedPythonPackages', {
         invoke: async (_options, _token) => {
-            const interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
-            const activeInterpreter = await interpreterService.getActiveInterpreter();
-            if (!activeInterpreter) {
+            const foregroundSession = await positron.runtime.getForegroundSession();
+            if (!foregroundSession) {
                 return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart('No active Python interpreter'),
+                    new vscode.LanguageModelTextPart('No active session found'),
+                ]);
+            }
+            if (foregroundSession.runtimeMetadata.languageId !== 'python') {
+                return new vscode.LanguageModelToolResult([
+                    new vscode.LanguageModelTextPart('Active session is not a Python session'),
                 ]);
             }
 
-            const pythonExecutionFactory = serviceContainer.get<IPythonExecutionFactory>(IPythonExecutionFactory);
-            const pythonExecution = await pythonExecutionFactory.createActivatedEnvironment({
-                interpreter: activeInterpreter,
-            });
-
-            const script = `
-import json
-import importlib.metadata
-installed_packages = [f"{dist.metadata['Name']} ({dist.version})" for dist in importlib.metadata.distributions()]
-print(json.dumps(installed_packages))
-`;
-            const result = await pythonExecution.exec(['-c', script], {
-                throwOnStdErr: false,
-            });
-            if (result.stdout) {
-                try {
-                    const packages = JSON.parse(result.stdout.trim());
-                    if (Array.isArray(packages)) {
-                        const results = packages.map((pkg: string) => new vscode.LanguageModelTextPart(pkg));
-                        return new vscode.LanguageModelToolResult(results);
-                    } else {
-                        return new vscode.LanguageModelToolResult([
-                            new vscode.LanguageModelTextPart('Failed to retrieve installed packages'),
-                        ]);
-                    }
-                } catch (parseError) {
-                    return new vscode.LanguageModelToolResult([
-                        new vscode.LanguageModelTextPart('Failed to parse package list'),
-                    ]);
-                }
+            const result = await (foregroundSession as PythonRuntimeSession).callMethod('getLoadedModules');
+            if (Array.isArray(result) && result.length > 0) {
+                const moduleResults = result.map((module: string) => new vscode.LanguageModelTextPart(module));
+                return new vscode.LanguageModelToolResult(moduleResults);
             } else {
                 return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart('No packages found in the active Python environment'),
+                    new vscode.LanguageModelTextPart('No Python packages loaded in the current session'),
                 ]);
             }
-        },
+        }
     });
     context.subscriptions.push(pythonLoadedPackagesTool);
 
