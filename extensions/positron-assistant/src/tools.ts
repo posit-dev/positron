@@ -7,15 +7,9 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import { LanguageModelImage } from './languageModelParts.js';
 import { ParticipantService } from './participants.js';
+import { PositronAssistantToolName } from './types.js';
+import { ProjectTreeTool } from './tools/projectTreeTool.js';
 
-export enum PositronAssistantToolName {
-	DocumentEdit = 'documentEdit',
-	EditFile = 'positron_editFile_internal',
-	ExecuteCode = 'executeCode',
-	GetPlot = 'getPlot',
-	InspectVariables = 'inspectVariables',
-	SelectionEdit = 'selectionEdit',
-}
 
 /**
  * Registers tools for the Positron Assistant.
@@ -287,6 +281,8 @@ export function registerAssistantTools(
 	});
 
 	context.subscriptions.push(inspectVariablesTool);
+
+	context.subscriptions.push(ProjectTreeTool);
 }
 
 /**

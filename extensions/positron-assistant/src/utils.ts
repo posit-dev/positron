@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
-import { PositronAssistantToolName } from './tools.js';
+import { PositronAssistantToolName } from './types.js';
 import { isLanguageModelImagePart } from './languageModelParts.js';
 
 /**
