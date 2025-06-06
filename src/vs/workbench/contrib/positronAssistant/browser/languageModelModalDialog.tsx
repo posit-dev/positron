@@ -408,6 +408,9 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			title={(() => localize('positron.languageModelModalDialog.title', "Configure Language Model Providers"))()}
 			width={600}
 			onAccept={onAccept}
+			// onCancel is called when the Escape key is pressed, which in this dialog has the same effect as clicking the OK button
+			// so we just call onAccept to close the dialog
+			onCancel={onAccept}
 		>
 			<VerticalStack>
 				<label className='language-model-section'>
