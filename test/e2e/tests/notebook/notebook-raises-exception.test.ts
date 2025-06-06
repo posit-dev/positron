@@ -63,7 +63,6 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 			await page.locator('.cell-inner-container > .cell').nth(1).click();
 
 			// Run the add tag command
-			// await page.waitForTimeout(100000);
 			await hotKeys.pressHotKeys('Cmd+J J');
 
 			// Type the tag name in the quick input

@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 /**
- * Returns a deterministic user data dir path based on a provided id and test data path.
- * Use the same id in both global and test setup to ensure the path matches.
+ * Returns a deterministic user data dir path based on the current date and environment.
+ * This is useful for ensuring consistent test environments across runs.
  */
 export function getDeterministicUserDataDir(testDataPath: string): string {
 	const today = new Date();
@@ -15,6 +15,6 @@ export function getDeterministicUserDataDir(testDataPath: string): string {
 		? process.env.GITHUB_RUN_ID || `-${dateString}`
 		: dateString;
 
-	// console.log(`✓ User data dir: ${testDataPath}/d-${id}`);
+	console.log(`✓ User data dir: ${testDataPath}/d-${id}`);
 	return `${testDataPath}/d-${id}`;
 }
