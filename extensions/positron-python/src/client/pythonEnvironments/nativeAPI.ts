@@ -45,7 +45,7 @@ import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalIn
 // eslint-disable-next-line import/no-duplicates
 import { PythonEnvSource } from './base/info';
 import { getShortestString } from '../common/stringUtils';
-import { arePathsSame, isParentPath, resolveSymbolicLinkSync } from './common/externalDependencies';
+import { arePathsSame, isParentPath, resolveSymbolicLink } from './common/externalDependencies';
 // --- End Positron ---
 
 function makeExecutablePath(prefix?: string): string {
@@ -372,7 +372,10 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                 const before = this._envs.map((env) => env.executable.filename);
                 const after: string[] = [];
                 for await (const native of this.finder.refresh()) {
-                    const exe = this.processNative(native);
+                    // --- Start Positron ---
+                    // added await
+                    const exe = await this.processNative(native);
+                    // --- End Positron ---
                     if (exe) {
                         after.push(exe);
                     }
@@ -393,16 +396,22 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         return this._refreshPromise?.promise;
     }
 
-    private processNative(native: NativeEnvInfo | NativeEnvManagerInfo): string | undefined {
+    // --- Start Positron ---
+    // added async/await
+    private async processNative(native: NativeEnvInfo | NativeEnvManagerInfo): Promise<string | undefined> {
         if (isNativeEnvInfo(native)) {
-            return this.processEnv(native);
+            return await this.processEnv(native);
+            // --- End Positron ---
         }
         this.processEnvManager(native);
 
         return undefined;
     }
 
-    private processEnv(native: NativeEnvInfo): string | undefined {
+    // --- Start Positron ---
+    // added async
+    private async processEnv(native: NativeEnvInfo): Promise<string | undefined> {
+        // --- End Positron ---
         if (!validEnv(native)) {
             return undefined;
         }
@@ -413,22 +422,31 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             if (categoryToKind(native.kind) === PythonEnvKind.Conda && !native.executable) {
                 // This is a conda env without python, no point trying to resolve this.
                 // There is nothing to resolve
-                return this.addEnv(native)?.executable.filename;
+                // --- Start Positron ---
+                // added await
+                return (await this.addEnv(native))?.executable.filename;
+                // --- End Positron ---
             }
             if (native.executable && (!version || version.major < 0 || version.minor < 0 || version.micro < 0)) {
                 // We have a path, but no version info, try to resolve the environment.
-                this.finder
+                // --- Start Positron ---
+                // added async/await
+                await this.finder
                     .resolve(native.executable)
-                    .then((env) => {
+                    .then(async (env) => {
                         if (env) {
-                            this.addEnv(env);
+                            await this.addEnv(env);
+                            // --- End Positron ---
                         }
                     })
                     .ignoreErrors();
                 return native.executable;
             }
             if (native.executable && version && version.major >= 0 && version.minor >= 0 && version.micro >= 0) {
-                return this.addEnv(native)?.executable.filename;
+                // --- Start Positron ---
+                // added await
+                return (await this.addEnv(native))?.executable.filename;
+                // --- End Positron ---
             }
             traceError(`Failed to process environment: ${JSON.stringify(native)}`);
         } catch (err) {
@@ -485,15 +503,22 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         return this._envs;
     }
 
-    private addEnv(native: NativeEnvInfo, searchLocation?: Uri): PythonEnvInfo | undefined {
+    // --- Start Positron ---
+    // added async
+    private async addEnv(native: NativeEnvInfo, searchLocation?: Uri): Promise<PythonEnvInfo | undefined> {
+        // --- End Positron ---
         const info = toPythonEnvInfo(native, this._condaEnvDirs);
         if (info) {
             // --- Start Positron ---
+            if (info.executable.filename && (await isUvEnvironment(info.executable.filename))) {
+                traceInfo(`Found uv environment: ${info.executable.filename}`);
+                info.kind = PythonEnvKind.Uv;
+            }
             let old = this._envs.find((item) => item.executable.filename === info.executable.filename);
             if (!old) {
                 // If the 'info' env is not already in the list, check if it is one of the additional env directories,
                 // and if so, check if we have an equivalent env already and determine if we should add the 'info' env.
-                const { reason, existingEnv } = checkForExistingEnv(this._envs, info);
+                const { reason, existingEnv } = await checkForExistingEnv(this._envs, info);
                 switch (reason) {
                     case ExistingEnvAction.KeepExistingEnv:
                         // We found an 'old' equivalent env, but it has a shorter path than the equivalent new 'info' env.
@@ -571,7 +596,10 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
             if (native.kind === NativePythonEnvironmentKind.Conda && this._condaEnvDirs.length === 0) {
                 this._condaEnvDirs = (await getCondaEnvDirs()) ?? [];
             }
-            return this.addEnv(native);
+            // --- Start Positron ---
+            // added await
+            return await this.addEnv(native);
+            // --- End Positron ---
         }
         return undefined;
     }
@@ -604,7 +632,10 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
                     .filter((env) => env.kind === PythonEnvKind.Conda)
                     .map((env) => env.executable.filename);
                 for await (const native of this.finder.refresh(NativePythonEnvironmentKind.Conda)) {
-                    this.processNative(native);
+                    // --- Start Positron ---
+                    // added await
+                    await this.processNative(native);
+                    // --- End Positron ---
                 }
                 const after = this._envs
                     .filter((env) => env.kind === PythonEnvKind.Conda)
@@ -619,7 +650,10 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
         if (e.type === FileChangeType.Created || e.type === FileChangeType.Changed) {
             const native = await this.finder.resolve(e.executable);
             if (native) {
-                this.addEnv(native, e.workspaceFolder.uri);
+                // --- Start Positron ---
+                // added await
+                await this.addEnv(native, e.workspaceFolder.uri);
+                // --- End Positron ---
             }
         } else {
             this.removeEnv(e.executable);
@@ -660,8 +694,8 @@ export function createNativeEnvironmentsApi(finder: NativePythonFinder): IDiscov
  * @return The result of the check -- how to proceed with the new environment and if found,
  *         the equivalent existing environment.
  */
-function checkForExistingEnv(envs: PythonEnvInfo[], newEnv: PythonEnvInfo): ExistingEnvResult {
-    const additionalEnvDirs = getAdditionalEnvDirs();
+async function checkForExistingEnv(envs: PythonEnvInfo[], newEnv: PythonEnvInfo): Promise<ExistingEnvResult> {
+    const additionalEnvDirs = await getAdditionalEnvDirs();
     const isAdditionalEnv = additionalEnvDirs.find((dir) => isParentPath(newEnv.executable.filename, dir));
 
     // If the new env is not in an additional environment directory, then we don't
@@ -672,10 +706,15 @@ function checkForExistingEnv(envs: PythonEnvInfo[], newEnv: PythonEnvInfo): Exis
 
     // Look for an existing environment in the same additional environment directory
     // as the new env.
-    const resolvedEnv = resolveSymbolicLinkSync(newEnv.executable.filename);
-    const existingEnv = envs.find((item) =>
-        arePathsSame(resolvedEnv, resolveSymbolicLinkSync(item.executable.filename)),
-    );
+    const resolvedEnv = await resolveSymbolicLink(newEnv.executable.filename);
+    let existingEnv: PythonEnvInfo | undefined;
+    const resolvedItems = await Promise.all(envs.map((item) => resolveSymbolicLink(item.executable.filename)));
+    for (let i = 0; i < envs.length; i++) {
+        if (arePathsSame(resolvedEnv, resolvedItems[i])) {
+            existingEnv = envs[i];
+            break;
+        }
+    }
     if (!existingEnv) {
         return { reason: ExistingEnvAction.AddNewEnv, existingEnv: undefined };
     }
