@@ -75,3 +75,25 @@ function copyRepo(source: string, destination: string): void {
 	}
 	console.log(`✓ Workspace: ${destination}`);
 }
+
+/**
+ * Copies the keybindings.json file to both Chrome and Electron user data directories.
+ * @param source The path to the keybindings.json file.
+ * @param userDataDir The base user data directory.
+ */
+export async function copyKeybindings(source: string, userDataDir: string): Promise<void> {
+	const chromeKeyBindingsPath = path.join(userDataDir, 'data', 'User', 'keybindings.json');
+	const electronKeyBindingsPath = path.join(userDataDir, 'User', 'keybindings.json');
+	const data = fs.readFileSync(source, 'utf8');
+	const chromeDir = path.dirname(chromeKeyBindingsPath);
+	const electronDir = path.dirname(electronKeyBindingsPath);
+	fs.mkdirSync(chromeDir, { recursive: true });
+	fs.mkdirSync(electronDir, { recursive: true });
+	fs.writeFileSync(chromeKeyBindingsPath, data, 'utf8');
+	fs.writeFileSync(electronKeyBindingsPath, data, 'utf8');
+
+	// Find the index of 'positron' in the path and include it in the output
+	const positronIndex = source.indexOf('positron');
+	const relativePath = positronIndex !== -1 ? source.substring(positronIndex) : source;
+	console.log(`✓ Keybindings copied from: ${relativePath}`);
+}

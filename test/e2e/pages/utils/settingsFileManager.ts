@@ -75,6 +75,7 @@ export class SettingsFileManager {
 		const existingBindings = await this.readFileContent([] as object[]);
 		const mergedBindings = [...existingBindings, ...keybindings];
 		await this.writeFileContent(mergedBindings);
+		console.log('Keybindings appended successfully');
 	}
 
 	/**
