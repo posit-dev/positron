@@ -59,43 +59,25 @@ export class SettingsFileManager {
 		}
 	}
 
-	/**
-	 * Appends settings object to the settings file by merging with existing settings
-	 */
 	public async append(settings: object): Promise<void> {
-		const existingContent = await this.readFileContent({});
-		const mergedContent = { ...existingContent, ...settings };
-		await this.writeFileContent(mergedContent);
-	}
-
-	/**
-	 * Reads and parses the file content, returning a default value if the file doesn't exist or is empty
-	 */
-	private async readFileContent<T>(defaultValue: T): Promise<T> {
 		await fs.mkdir(path.dirname(this.settingsPath), { recursive: true });
 
-		let content = defaultValue;
-		const fileExists = await this.exists();
+		let existingContent = {};
+		let fileExists = await this.exists();
 
 		if (fileExists) {
 			try {
 				const fileContent = await fs.readFile(this.settingsPath, 'utf-8');
 				if (fileContent.trim()) {
-					content = JSON.parse(fileContent);
+					existingContent = JSON.parse(fileContent);
 				}
 			} catch (error) {
-				// If reading or parsing fails, use the default value
+				fileExists = false;
 			}
 		}
 
-		return content;
-	}
-
-	/**
-	 * Writes content to the file as formatted JSON
-	 */
-	private async writeFileContent(content: any): Promise<void> {
-		await fs.writeFile(this.settingsPath, JSON.stringify(content, null, 2), 'utf-8');
+		const mergedContent = { ...existingContent, ...settings };
+		await fs.writeFile(this.settingsPath, JSON.stringify(mergedContent, null, 2), 'utf-8');
 	}
 
 	/**

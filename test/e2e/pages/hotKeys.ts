@@ -91,7 +91,7 @@ export class HotKeys {
 	}
 
 	// --- User Custom Keybindings ---
-	// To add custom keybindings, add in: `positron/test/e2e/infra/fixtures/keybindings.json`
+	// Add custom keybindings in: `positron/test/e2e/infra/fixtures/keybindings.json`
 
 	public async jupyterCellAddTag() {
 		await this.pressHotKeys(`Cmd+J J`);
