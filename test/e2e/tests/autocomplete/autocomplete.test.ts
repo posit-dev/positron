@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Session: Autocomplete', {
+test.describe('Autocomplete', {
 	tag: [tags.WEB, tags.WIN, tags.CONSOLE, tags.SESSIONS, tags.EDITOR, tags.CRITICAL]
 }, () => {
 

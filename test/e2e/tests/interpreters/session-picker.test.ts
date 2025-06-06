@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Sessions: Session Picker', {
+test.describe('Session Picker', {
 	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.TOP_ACTION_BAR, tags.SESSIONS, tags.CRITICAL]
 }, () => {
 

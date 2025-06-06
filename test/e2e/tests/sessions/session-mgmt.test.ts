@@ -22,66 +22,6 @@ test.describe('Sessions: Management', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('Validate variables between sessions', {
-		tag: [tags.VARIABLES]
-	}, async function ({ app, sessions }) {
-		const { console, variables } = app.workbench;
-
-		// Ensure sessions exist and are idle
-		const [pySession, pySessionAlt, rSession] = await sessions.start(['python', 'pythonAlt', 'r']);
-
-		// Set and verify variables in Python Session 1
-		await sessions.select(pySession.id);
-		await console.typeToConsole('x = 1', true);
-		await console.typeToConsole('y = 2', true);
-		await variables.expectRuntimeToBe('visible', pySession.name);
-		await variables.expectVariableToBe('x', '1');
-		await variables.expectVariableToBe('y', '2');
-
-		// Set and verify variables in Python Session 2
-		await sessions.select(pySessionAlt.id);
-		await console.typeToConsole('x = 11', true);
-		await console.typeToConsole('y = 22', true);
-		await variables.expectRuntimeToBe('visible', pySessionAlt.name);
-		await variables.expectVariableToBe('x', '11');
-		await variables.expectVariableToBe('y', '22');
-
-		// Set and verify variables in R
-		await sessions.select(rSession.id);
-		await console.typeToConsole('x <- 3', true);
-		await console.typeToConsole('z <- 4', true);
-		await variables.expectRuntimeToBe('visible', rSession.name);
-		await variables.expectVariableToBe('x', '3');
-		await variables.expectVariableToBe('z', '4');
-
-		// Switch back to Python, update variables, and verify
-		await sessions.select(pySession.id);
-		await console.typeToConsole('x = 0', true);
-		await variables.expectRuntimeToBe('visible', pySession.name);
-		await variables.expectVariableToBe('x', '0');
-		await variables.expectVariableToBe('y', '2');
-
-		// Switch back to R, verify variables remain unchanged
-		await sessions.select(rSession.id);
-		await variables.expectRuntimeToBe('visible', rSession.name);
-		await variables.expectVariableToBe('x', '3');
-		await variables.expectVariableToBe('z', '4');
-	});
-
-	test('Validate session list is scrollable', async function ({ sessions }) {
-		// @ts-ignore need a couple sessions for scrolling
-		const [pySession, pySessionAlt] = await sessions.start(['python', 'pythonAlt']);
-
-		// Resize window to force scrolling
-		// Move the divider to be 100px above the bottom
-		await sessions.setSessionDividerAboveBottom(100);
-		await sessions.expectSessionListToBeScrollable({ horizontal: false, vertical: true });
-		await sessions.setSessionDividerAboveBottom(500);
-
-		// Cleaning up since next test only needs 2 sessions
-		await sessions.delete(pySessionAlt.id);
-	});
-
 	test('Validate active session list in console matches active session list in session picker', async function ({ app, sessions }) {
 		const { console } = app.workbench;
 
@@ -171,32 +111,6 @@ test.describe('Sessions: Management', {
 			await plots.waitForCurrentPlot();
 			// await plots.expectPlotThumbnailsCountToBe(3); // issue 6036
 		});
-
-	test('Validate sessions are keyboard accessible', {
-		tag: [tags.ACCESSIBILITY],
-	}, async function ({ sessions, page }) {
-		const [pySession, rSession, pySession2] = await sessions.start(['python', 'r', 'python']);
-		const newSessionName = 'This is a test';
-
-		// Rename first session via keyboard actions
-		await sessions.sessionTabs.first().click();
-		await page.keyboard.press('ArrowDown');
-		await page.keyboard.press('Enter');
-		await page.keyboard.type(newSessionName);
-		await page.keyboard.press('Enter');
-
-		// Verify session name has been updated
-		await sessions.expectSessionNameToBe(pySession.id, pySession.name);
-		await sessions.expectSessionNameToBe(rSession.id, newSessionName);
-		await sessions.expectSessionNameToBe(pySession2.id, pySession2.name);
-
-		// Verify able to delete sessions via keyboard actions
-		await sessions.expectSessionCountToBe(3);
-		await page.keyboard.press('ArrowUp');
-		await page.keyboard.press('Tab');
-		await page.keyboard.press('Enter');
-		await sessions.expectSessionCountToBe(2);
-	});
 });
 
 

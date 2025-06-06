@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Sessions: Diagnostics', {
+test.describe('Diagnostics', {
 	tag: [tags.SESSIONS, tags.PROBLEMS, tags.WEB, tags.WIN, tags.CRITICAL],
 }, () => {
 
