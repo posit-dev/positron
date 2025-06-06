@@ -86,18 +86,25 @@ export async function copyKeybindings(source: string, userDataDir: string): Prom
 	const electronKeyBindingsPath = path.join(userDataDir, 'User', 'keybindings.json');
 
 	// Read and adjust keybindings for platform
-	let data = fs.readFileSync(source, 'utf8');
+	let data: string;
+	try {
+		data = await fs.promises.readFile(source, 'utf8');
+	} catch (err) {
+		console.error('✗ Failed to read keybindings:', err);
+		throw err;
+	}
 	if (process.platform === 'win32' || process.platform === 'linux') {
 		data = data.replace(/cmd/gi, 'ctrl');
 	}
 
-	// Create directories and write files
-	fs.mkdirSync(path.dirname(chromeKeyBindingsPath), { recursive: true });
-	fs.mkdirSync(path.dirname(electronKeyBindingsPath), { recursive: true });
-	fs.writeFileSync(chromeKeyBindingsPath, data, 'utf8');
-	fs.writeFileSync(electronKeyBindingsPath, data, 'utf8');
-
-	// Log relative path
-	const relativePath = source.includes('positron') ? source.substring(source.indexOf('positron')) : source;
-	console.log(`✓ Keybindings set: ${relativePath}`);
+	// Create directories and write files asynchronously
+	try {
+		await fs.promises.mkdir(path.dirname(chromeKeyBindingsPath), { recursive: true });
+		await fs.promises.mkdir(path.dirname(electronKeyBindingsPath), { recursive: true });
+		await fs.promises.writeFile(chromeKeyBindingsPath, data, 'utf8');
+		await fs.promises.writeFile(electronKeyBindingsPath, data, 'utf8');
+	} catch (err) {
+		console.error('✗ Failed to write keybindings:', err);
+		throw err;
+	}
 }
