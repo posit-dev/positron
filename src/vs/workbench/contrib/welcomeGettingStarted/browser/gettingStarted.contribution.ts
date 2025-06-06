@@ -375,7 +375,10 @@ configurationRegistry.registerConfiguration({
 		'workbench.welcomePage.walkthroughs.openOnInstall': {
 			scope: ConfigurationScope.MACHINE,
 			type: 'boolean',
-			default: true,
+			// --- Start Positron ---
+			// default: true,
+			default: false,
+			// --- End Positron ---
 			description: localize('workbench.welcomePage.walkthroughs.openOnInstall', "When enabled, an extension's walkthrough will open upon install of the extension.")
 		},
 		'workbench.startupEditor': {
