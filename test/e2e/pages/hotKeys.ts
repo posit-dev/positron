@@ -90,12 +90,19 @@ export class HotKeys {
 		await this.pressHotKeys(`Cmd+K F`);
 	}
 
+	// --- User Custom Keybindings ---
+	// To add custom keybindings, add in: `positron/test/e2e/infra/fixtures/keybindings.json`
+
+	public async jupyterCellAddTag() {
+		await this.pressHotKeys(`Cmd+J J`);
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.
 	 * @param keyCombo the hotkeys to press (e.g. "Cmd+Shift+P").
 	 */
-	async pressHotKeys(keyCombo: string) {
+	private async pressHotKeys(keyCombo: string) {
 		const modifierKey = this.getModifierKey();
 
 		await test.step(`Press hotkeys: ${keyCombo}`, async () => {

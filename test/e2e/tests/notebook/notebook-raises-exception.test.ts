@@ -63,7 +63,7 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 			await page.locator('.cell-inner-container > .cell').nth(1).click();
 
 			// Run the add tag command
-			await hotKeys.pressHotKeys('Cmd+J J');
+			await hotKeys.jupyterCellAddTag();
 
 			// Type the tag name in the quick input
 			await app.workbench.quickInput.waitForQuickInputOpened();

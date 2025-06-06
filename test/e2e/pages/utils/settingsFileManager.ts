@@ -69,16 +69,6 @@ export class SettingsFileManager {
 	}
 
 	/**
-	 * Appends keybindings to the keybindings file which is stored as an array of objects
-	 */
-	public async appendKeybindings(keybindings: object[]): Promise<void> {
-		const existingBindings = await this.readFileContent([] as object[]);
-		const mergedBindings = [...existingBindings, ...keybindings];
-		await this.writeFileContent(mergedBindings);
-		console.log('Keybindings appended successfully');
-	}
-
-	/**
 	 * Reads and parses the file content, returning a default value if the file doesn't exist or is empty
 	 */
 	private async readFileContent<T>(defaultValue: T): Promise<T> {
@@ -135,14 +125,5 @@ export class SettingsFileManager {
 	 */
 	static getPositronSettingsPath(userDataDir: string): string {
 		return path.join(userDataDir, 'User', 'settings.json');
-	}
-
-	/**
-	 * Returns the path to the VS Code keybindings file for the current platform/user.
-	 */
-	static getKeyBindingsPath(userDataDir: string, projectName: string): string {
-		return projectName.includes('browser')
-			? path.join(userDataDir, 'data', 'User', 'keybindings.json')
-			: path.join(userDataDir, 'User', 'keybindings.json');
 	}
 }
