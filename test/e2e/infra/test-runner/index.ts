@@ -5,7 +5,6 @@
 
 export { prepareTestEnv } from './test-setup';
 export { cloneTestRepo } from './utils';
-export { createApp } from './create-app';
+export { createApp, getRandomStableUserDataDir } from './create-app';
 export { createLogger } from './logger';
 export { TestTags } from './test-tags';
-export { getDeterministicUserDataDir } from './user-data-dir';

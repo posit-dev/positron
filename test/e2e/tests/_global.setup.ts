@@ -6,14 +6,14 @@
 import { join } from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { cloneTestRepo, prepareTestEnv, getDeterministicUserDataDir } from '../infra/test-runner';
+import { cloneTestRepo, prepareTestEnv, getRandomStableUserDataDir } from '../infra/test-runner';
 import { copyKeybindings } from '../infra/test-runner/utils.js';
 
 const ROOT_PATH = process.cwd();
 const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
 const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
-const USER_DATA_DIR = getDeterministicUserDataDir(TEST_DATA_PATH);
+const USER_DATA_DIR = getRandomStableUserDataDir(TEST_DATA_PATH);
 
 const userKeyBindingsPath = join(ROOT_PATH, 'test/e2e/infra/fixtures/keybindings.json');
 

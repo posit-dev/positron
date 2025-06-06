@@ -99,5 +99,5 @@ export async function copyKeybindings(source: string, userDataDir: string): Prom
 
 	// Log relative path
 	const relativePath = source.includes('positron') ? source.substring(source.indexOf('positron')) : source;
-	console.log(`✓ Keybindings copied from: ${relativePath}`);
+	console.log(`✓ Keybindings set: ${relativePath}`);
 }

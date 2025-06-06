@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu, getDeterministicUserDataDir } from '../infra';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu, getRandomStableUserDataDir } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -81,7 +81,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			snapshots,
 			quality: Quality.Dev,
 		};
-		options.userDataDir = getDeterministicUserDataDir(TEST_DATA_PATH);
+		options.userDataDir = getRandomStableUserDataDir(TEST_DATA_PATH);
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],

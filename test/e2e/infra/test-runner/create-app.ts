@@ -17,12 +17,17 @@ export function createApp(options: ApplicationOptions, optionsTransform?: (opts:
 	return app;
 }
 
-// export function getRandomUserDataDir(options: ApplicationOptions): string {
-
-// 	// Pick a random user data dir suffix that is not
-// 	// too long to not run into max path length issues
-// 	// https://github.com/microsoft/vscode/issues/34988
-// 	const userDataPathSuffix = [...Array(8)].map(() => Math.random().toString(36)[3]).join('');
-
-// 	return options.userDataDir.concat(`-${userDataPathSuffix}`);
-// }
+/**
+ * Returns a stable random user data dir path for the current test run.
+ * Uses process.env to ensure it's consistent across modules and processes.
+ */
+export function getRandomStableUserDataDir(basePath: string): string {
+	if (!process.env.RANDOM_USER_DATA_DIR) {
+		const suffix = [...Array(8)].map(() => Math.random().toString(36)[3]).join('');
+		process.env.RANDOM_USER_DATA_DIR = `${basePath}/d-${suffix}`;
+		// console.log(`✓ Generated random user data dir: ${process.env.RANDOM_USER_DATA_DIR}`);
+	} else {
+		// console.log(`→ Reusing random user data dir: ${process.env.RANDOM_USER_DATA_DIR}`);
+	}
+	return process.env.RANDOM_USER_DATA_DIR;
+}
