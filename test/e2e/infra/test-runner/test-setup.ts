@@ -110,7 +110,8 @@ function initializeTestEnvironment(rootPath = process.env.ROOT_PATH || 'ROOT_PAT
  * Cleans and prepares the test data directory.
  */
 function prepareTestDataDirectory() {
-	if (fs.existsSync(TEST_DATA_PATH)) {
+	// skipping deletion if running in CI because extensions setup case needs to be able to leave behind its extensions
+	if (!process.env.CI && fs.existsSync(TEST_DATA_PATH)) {
 		rimraf.sync(TEST_DATA_PATH);
 	}
 	mkdirp.sync(TEST_DATA_PATH);
