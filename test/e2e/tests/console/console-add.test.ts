@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Sessions: Console Add +', {
+test.describe('Console: Add +', {
 	tag: [tags.SESSIONS, tags.CONSOLE, tags.WEB, tags.WIN]
 }, () => {
 
@@ -55,5 +55,4 @@ test.describe('Sessions: Console Add +', {
 		// Verify the disconnected sessions are still in the console `+` menu
 		await console.expectSessionContextMenuToContain(contextMenu, [rSession.name, pythonSession.name]);
 	});
-
 });
