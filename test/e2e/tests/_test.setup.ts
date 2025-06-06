@@ -68,7 +68,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		const options: ApplicationOptions = {
 			codePath: process.env.BUILD,
 			workspacePath: WORKSPACE_PATH,
-			userDataDir: '', // will be set below
+			userDataDir: join(TEST_DATA_PATH, 'd'),
 			extensionsPath: EXTENSIONS_PATH,
 			logger,
 			logsPath,
@@ -281,31 +281,6 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(manager);
 		await manager.restoreFromBackup();
 	}, { scope: 'worker' }],
-
-	keyBinding: [
-		async ({ app, userDataDir }, use, testInfo) => {
-			const manager = new SettingsFileManager(
-				SettingsFileManager.getKeyBindingsPath(userDataDir, testInfo.project.name)
-			);
-			await manager.backupIfExists();
-
-			await use({
-				async set(newBindings: { key: string; command: string }[]) {
-					await test.step(`Bind keys: ${JSON.stringify(newBindings)}`, async () => {
-						await manager.appendKeybindings(newBindings);
-
-						// browser requires a reload to apply keybindings, but electron app does not :shrug:
-						if (testInfo.project.name.includes('browser')) {
-							await app.workbench.quickaccess.runCommand('workbench.action.reloadWindow');
-						}
-					});
-				}
-			});
-
-			await manager.restoreFromBackup();
-		},
-		{ scope: 'worker' }
-	],
 
 	attachScreenshotsToReport: [async ({ app }, use, testInfo) => {
 		let screenShotCounter = 1;
