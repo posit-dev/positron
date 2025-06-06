@@ -246,7 +246,7 @@ jobs:
 
           # Run the Playwright test command directly using eval
           echo "Running: DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval DISPLAY=:10 SKIP_BOOTSTRAP=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          eval DISPLAY=:10 SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
           # Fail the step if the bootstrap test failed
           if [ "$BOOTSTRAP_EXIT_CODE" -ne 0 ]; then
