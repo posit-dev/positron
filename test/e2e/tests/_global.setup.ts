@@ -13,17 +13,6 @@ const LOGS_ROOT_PATH = join(ROOT_PATH, 'test-logs');
 const TEST_DATA_PATH = join(os.tmpdir(), 'vscsmoke');
 const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 
-if (process.platform === 'win32' && process.env.CI) {
-	process.stdout.on('error', err => {
-		if (err.code === 'EPIPE') { return; }
-		throw err;
-	});
-	process.stderr.on('error', err => {
-		if (err.code === 'EPIPE') { return; }
-		throw err;
-	});
-}
-
 async function globalSetup() {
 	fs.rmSync(LOGS_ROOT_PATH, { recursive: true, force: true });
 	prepareTestEnv(ROOT_PATH, LOGS_ROOT_PATH);

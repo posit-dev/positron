@@ -85,8 +85,10 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		options.userDataDir = getRandomUserDataDir(options);
 
 		// Copy user keybindings from the fixture to the user data directory
-		const userKeyBindingsPath = join(ROOT_PATH, 'test/e2e/infra/fixtures/keybindings.json');
-		await copyKeybindings(userKeyBindingsPath, options.userDataDir);
+		if (process.env.SKIP_KEYBINDINGS !== 'true') {
+			const userKeyBindingsPath = join(ROOT_PATH, 'test/e2e/infra/fixtures/keybindings.json');
+			await copyKeybindings(userKeyBindingsPath, options.userDataDir);
+		}
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
