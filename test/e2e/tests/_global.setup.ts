@@ -19,6 +19,9 @@ async function globalSetup() {
 	if (process.env.SKIP_CLONE !== 'true') {
 		cloneTestRepo(WORKSPACE_PATH);
 	}
+	if (process.env.SKIP_KEYBINDINGS !== 'true') {
+		console.log('✓ Custom keybindings');
+	}
 }
 
 export default globalSetup;

@@ -75,3 +75,36 @@ function copyRepo(source: string, destination: string): void {
 	}
 	console.log(`✓ Workspace: ${destination}`);
 }
+
+/**
+ * Copies the keybindings.json file to both Chrome and Electron user data directories.
+ * @param source The path to the keybindings.json file.
+ * @param userDataDir The base user data directory.
+ */
+export async function copyKeybindings(source: string, userDataDir: string): Promise<void> {
+	const chromeKeyBindingsPath = path.join(userDataDir, 'data', 'User', 'keybindings.json');
+	const electronKeyBindingsPath = path.join(userDataDir, 'User', 'keybindings.json');
+
+	// Read and adjust keybindings for platform
+	let data: string;
+	try {
+		data = await fs.promises.readFile(source, 'utf8');
+	} catch (err) {
+		console.error('✗ Failed to read keybindings:', err);
+		throw err;
+	}
+	if (process.platform === 'win32' || process.platform === 'linux') {
+		data = data.replace(/cmd/gi, 'ctrl');
+	}
+
+	// Create directories and write files asynchronously
+	try {
+		await fs.promises.mkdir(path.dirname(chromeKeyBindingsPath), { recursive: true });
+		await fs.promises.mkdir(path.dirname(electronKeyBindingsPath), { recursive: true });
+		await fs.promises.writeFile(chromeKeyBindingsPath, data, 'utf8');
+		await fs.promises.writeFile(electronKeyBindingsPath, data, 'utf8');
+	} catch (err) {
+		console.error('✗ Failed to write keybindings:', err);
+		throw err;
+	}
+}

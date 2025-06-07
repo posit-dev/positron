@@ -12,6 +12,7 @@ test.use({
 test.describe('Notebook Cell Execution with raises-exception tag', {
 	tag: [tags.NOTEBOOKS, tags.WIN, tags.WEB]
 }, () => {
+
 	test.describe('Python Notebooks', () => {
 		test.beforeEach(async function ({ app, python }) {
 			await app.workbench.layouts.enterLayout('notebook');
@@ -62,7 +63,7 @@ test.describe('Notebook Cell Execution with raises-exception tag', {
 			await page.locator('.cell-inner-container > .cell').nth(1).click();
 
 			// Run the add tag command
-			await app.workbench.quickaccess.runCommand('jupyter-cell-tags.addTag', { keepOpen: true });
+			await hotKeys.jupyterCellAddTag();
 
 			// Type the tag name in the quick input
 			await app.workbench.quickInput.waitForQuickInputOpened();

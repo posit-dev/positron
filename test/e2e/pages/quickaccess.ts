@@ -181,7 +181,7 @@ export class QuickAccess {
 				if (!hasCommandFound) {
 					this.code.logger.log(`QuickAccess: No matching commands, retrying...`);
 					await this.quickInput.closeQuickInput();
-					throw new Error('Command not found');
+					throw new Error(`Command not found: ${commandId}`);
 				}
 			}, `Run Command: ${commandId}`).toPass({
 				timeout: 15000,
