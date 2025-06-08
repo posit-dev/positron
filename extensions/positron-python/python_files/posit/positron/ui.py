@@ -63,7 +63,7 @@ def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bo
     return params[0] in kernel.shell.user_ns
 
 
-def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) -> List[str]:
+def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) -> Optional[JsonData]:
     # Get all keys in the user namespace that start with a module prefix
     # (e.g., 'numpy', 'pandas', etc.)
     return [

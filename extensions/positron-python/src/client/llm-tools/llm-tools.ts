@@ -37,7 +37,7 @@ export function registerPythonLanguageModelTools(
                     new vscode.LanguageModelTextPart('No Python packages loaded in the current session'),
                 ]);
             }
-        }
+        },
     });
     context.subscriptions.push(pythonLoadedPackagesTool);
 
