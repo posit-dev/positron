@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
+import { ClientHeartbeat, DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
 import { findAvailablePort } from './PortFinder';
 import { PositronSupervisorApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './positron-supervisor';
 import { DisconnectedEvent, DisconnectReason, KallichoreSession } from './KallichoreSession';
@@ -675,15 +675,27 @@ export class KCApi implements PositronSupervisorApi {
 		// Wait for the server to start before starting the heartbeat loop
 		await this._started.wait();
 
+		// Get the PID of the current process to use for the heartbeat
+		const pid = process.pid;
+		const heartbeatPayload: ClientHeartbeat = {
+			processId: pid
+		};
+
 		// Begin the heartbeat loop
 		const interval = setInterval(() => {
 			if (this._started.isOpen()) {
 				// The server is still started; send a heartbeat
-				this._api.clientHeartbeat().catch((err) => {
-					// This is a fire and forget call, so failure is not fatal.
-					// Log the error but don't throw it.
-					this._log.appendLine(`Failed to send client heartbeat: ` +
-						summarizeError(err));
+				this._api.clientHeartbeat(heartbeatPayload).catch(async (err) => {
+					if (err.code === 'ECONNREFUSED') {
+						// Wait, we thought the server was online, but
+						this._log.appendLine(
+							`Connection refused while attempting to send heartbeat;` +
+							`checking server status`);
+						await this.testServerExited();
+					} else {
+						this._log.appendLine(`Failed to send client heartbeat: ` +
+							summarizeError(err));
+					}
 				});
 			} else {
 				// If the server is no longer started, stop this interval task
