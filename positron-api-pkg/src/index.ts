@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Re-export the runtime function and types from the runtime module
-export { tryAcquirePositronApi, type PositronApi } from './runtime';
+export { tryAcquirePositronApi, inPositron, type PositronApi } from './runtime';
 
 // Re-export preview functions
 export { previewUrl } from './preview';

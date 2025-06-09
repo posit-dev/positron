@@ -66,11 +66,7 @@ if (positronApi) {
 
 #### Runtime Detection
 ```typescript
-import { tryAcquirePositronApi } from '@posit-dev/positron';
-
-function isPositronAvailable(): boolean {
-  return tryAcquirePositronApi() !== undefined;
-}
+import { tryAcquirePositronApi, inPositron } from '@posit-dev/positron';
 
 function executeInPositron(code: string) {
   const api = tryAcquirePositronApi();
@@ -78,6 +74,13 @@ function executeInPositron(code: string) {
     return api.runtime.executeCode('python', code, false);
   }
   throw new Error('Positron not available');
+}
+
+// Clean conditional logic with inPositron()
+if (inPositron()) {
+  // Positron-specific code
+  const api = acquirePositronApi!(); // Safe to assert since inPositron() is true
+  api.runtime.executeCode('python', 'print("Hello!")', true);
 }
 ```
 
