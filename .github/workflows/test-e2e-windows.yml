@@ -197,17 +197,17 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
         run: |
-          # npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
-          # $BOOTSTRAP_EXIT_CODE = $LASTEXITCODE
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=list
+          $BOOTSTRAP_EXIT_CODE = $LASTEXITCODE
 
-          # $env:SKIP_BOOTSTRAP = "true"
-          # $env:SKIP_CLONE = "true"
+          $env:SKIP_BOOTSTRAP = "true"
+          $env:SKIP_CLONE = "true"
           npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
-          # if ($BOOTSTRAP_EXIT_CODE -ne 0) {
-          #   Write-Host "Bootstrap extensions test failed. Exiting with code $BOOTSTRAP_EXIT_CODE."
-          #   exit $BOOTSTRAP_EXIT_CODE
-          # }
+          if ($BOOTSTRAP_EXIT_CODE -ne 0) {
+            Write-Host "Bootstrap extensions test failed. Exiting with code $BOOTSTRAP_EXIT_CODE."
+            exit $BOOTSTRAP_EXIT_CODE
+          }
 
 
 
