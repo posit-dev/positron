@@ -459,8 +459,8 @@ class OpenAICompletion extends FimPromptCompletion {
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
-			name: 'GPT-4o',
-			model: 'gpt-4o',
+			name: 'GPT-4.1 Mini',
+			model: 'gpt-4.1-mini',
 			baseUrl: 'https://api.openai.com/v1',
 		},
 	};
