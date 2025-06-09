@@ -829,13 +829,17 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const settings = configurationService.getSettings();
         if (settings.enableAutoReload) {
             // Enable module hot-reloading for the kernel.
+            const settingUri = `positron://settings/python.enableAutoReload`;
             this._messageEmitter.fire({
                 id: createUniqueId(),
                 parent_id: '',
                 when: new Date().toISOString(),
                 type: positron.LanguageRuntimeMessageType.Stream,
                 name: positron.LanguageRuntimeStreamName.Stdout,
-                text: vscode.l10n.t('Enabling autoreload for the Python runtime. '),
+                text: vscode.l10n.t(
+                    'Enabling autoreload for the Python runtime. This can be disabled using \x1b]8;;{0}\x1b\\this setting\x1b]8;;\x1b\\.',
+                    settingUri,
+                ),
             } as positron.LanguageRuntimeStream);
             // Execute the autoreload magic command.
             this._kernel?.execute(
