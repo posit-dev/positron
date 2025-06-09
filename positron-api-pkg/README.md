@@ -56,6 +56,18 @@ function executeInPositron(code: string) {
 }
 ```
 
+#### Cross-Platform URL Preview
+```typescript
+import { previewUrl } from '@posit-dev/positron';
+
+// Works in both Positron and VS Code
+async function showLocalServer() {
+  // In Positron: Opens in preview pane
+  // In VS Code: Opens in external browser
+  await previewUrl('http://localhost:3000');
+}
+```
+
 #### Type-only Imports
 ```typescript
 import type {
@@ -70,19 +82,19 @@ function processRuntime(runtime: LanguageRuntimeMetadata) {
 ```
 
 #### Feature Flagging
+There are many ways you could "feature flag" Positron-specific functionality. Here is one example:
+
 ```typescript
-import { getPositronApi } from '@posit-dev/positron';
+import { getPositronApi, previewUrl } from '@posit-dev/positron';
 
 export class MyExtension {
   private positronApi = getPositronApi();
 
-  async showData(data: any[]) {
+  async doFoo() {
     if (this.positronApi) {
-      // Use Positron's data viewer
-      await this.positronApi.window.previewUrl(/* data url */);
+      ... // Positron-specific functionality
     } else {
-      // Fallback to VS Code's generic viewer
-      await vscode.commands.executeCommand('vscode.open', /* data file */);
+      ... // VS Code-only functionality
     }
   }
 }
