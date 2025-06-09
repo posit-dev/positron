@@ -54,6 +54,7 @@
     "monaco-compile-check": "tsc -p src/tsconfig.monaco.json --noEmit",
     "tsec-compile-check": "node node_modules/tsec/bin/tsec -p src/tsconfig.tsec.json",
     "vscode-dts-compile-check": "tsc -p src/tsconfig.vscode-dts.json && tsc -p src/tsconfig.vscode-proposed-dts.json",
+    "build-types-package": "cd positron-api-pkg && npm run build",
     "valid-layers-check": "node build/lib/layersChecker.js",
     "property-init-order-check": "node build/lib/propertyInitOrderChecker.js",
     "update-distro": "node build/npm/update-distro.mjs",
