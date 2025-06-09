@@ -29,12 +29,14 @@ import { RadioButtonItem } from '../../../browser/positronComponents/positronMod
 import { RadioGroup } from '../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { AuthMethod } from './types.js';
+import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
 	configurationService: IConfigurationService,
 	positronAssistantService: IPositronAssistantService,
+	positronModalDialogsService: IPositronModalDialogsService,
 	sources: IPositronLanguageModelSource[],
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onCancel: () => void,
@@ -53,6 +55,7 @@ export const showLanguageModelModalDialog = (
 				keybindingService={keybindingService}
 				layoutService={layoutService}
 				positronAssistantService={positronAssistantService}
+				positronModalDialogsService={positronModalDialogsService}
 				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
@@ -67,6 +70,7 @@ interface LanguageModelConfigurationProps {
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	positronAssistantService: IPositronAssistantService;
+	positronModalDialogsService: IPositronModalDialogsService;
 	sources: IPositronLanguageModelSource[];
 	configurationService: IConfigurationService;
 	renderer: PositronModalReactRenderer;
@@ -191,10 +195,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			value: source,
 		}))
 
-	const onAccept = () => {
+	const onAccept = async () => {
 		if (useNewConfig) {
-			props.onClose();
-			props.renderer.dispose();
+			if (await shouldCloseModal()) {
+				props.onClose();
+				props.renderer.dispose();
+			}
 		} else {
 			setShowProgress(true);
 			setError(undefined);
@@ -279,6 +285,26 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			}).finally(() => {
 				setShowProgress(false);
 			});
+	}
+
+	const shouldCloseModal = async () => {
+		if (authMethod === AuthMethod.OAUTH && !source.signedIn && showProgress) {
+			return await props.positronModalDialogsService.showSimpleModalDialogPrompt(
+				localize('positron.newConnectionModalDialog.oauthInProgressTitle', "{0} Authentication in Progress", source.provider.displayName),
+				localize('positron.newConnectionModalDialog.oauthInProgressMessage', "The sign in flow is in progress. If you close this dialog, your sign in may not complete. Are you sure you want to close and abandon signing in?"),
+				localize('positron.newConnectionModalDialog.ok', "Yes"),
+				localize('positron.newConnectionModalDialog.cancel', "No"),
+			)
+		}
+		if (authMethod === AuthMethod.API_KEY && !!providerConfig.apiKey && providerConfig.apiKey.length > 0) {
+			return await props.positronModalDialogsService.showSimpleModalDialogPrompt(
+				localize('positron.newConnectionModalDialog.apiKeySignInIncompleteTitle', "{0} Authentication Incomplete", source.provider.displayName),
+				localize('positron.newConnectionModalDialog.apiKeySignInIncompleteMessage', "You have entered an API key, but have not signed in. If you close this dialog, your API key will not be saved. Are you sure you want to close and abandon signing in?"),
+				localize('positron.newConnectionModalDialog.ok', "Yes"),
+				localize('positron.newConnectionModalDialog.cancel', "No"),
+			)
+		}
+		return true;
 	}
 
 	function oldDialog() {
