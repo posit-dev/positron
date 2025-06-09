@@ -6,21 +6,21 @@
 
 ---
 
-TypeScript definitions and runtime utilities for the [Positron](https://github.com/posit-dev/positron) API.
+TypeScript definitions and runtime utilities for the [Positron](https://github.com/posit-dev/positron) API. This package is for extensions that want to utilize the Positron API to add custom functionality for Positron.
 
-Positron is a next-generation data science IDE powered by VS Code, designed specifically for data science workflows in Python and R.
 
 ## Installation
 
 ```bash
-npm install --save-dev @posit-dev/positron @types/vscode
+npm install --save-dev @posit-dev/positron
 ```
 
 ## Usage
 
 ### Basic Usage
 
-The `tryAcquirePositronApi` function is the main entry point for the Positron API. It returns the Positron API object if it is available, or `undefined` if it is not. This function is safe to call in both Positron and VS Code.
+The `tryAcquirePositronApi` function is the main entry point for the Positron API. It returns the Positron API object if it is available (aka code is running in Positron), or `undefined` if it is not. This function is safe to call in both Positron and VS Code.
+
 ```typescript
 import { tryAcquirePositronApi } from '@posit-dev/positron';
 import * as vscode from 'vscode';
