@@ -39,10 +39,30 @@ export function activate(context: vscode.ExtensionContext) {
 }
 ```
 
-You can also directly use the `aquirePositronApi` function that is available in Positron, but you will need to wrap it in a try/catch block to handle the case where it is not available. This is useful if you want to use the Positron API in a way that is not supported by the `tryAcquirePositronApi` function.
-
-
 ### Advanced Usage
+
+#### Global acquirePositronApi Function
+
+When running in Positron, a global `acquirePositronApi` function is injected that you can call directly. This package provides TypeScript definitions for this function. **Important**: This function is `undefined` when running in VS Code.
+
+```typescript
+// The global function is typed as optional - always check before calling
+if (typeof acquirePositronApi !== 'undefined') {
+  const positronApi = acquirePositronApi();
+  if (positronApi) {
+    // Use the API directly
+    positronApi.runtime.executeCode('python', 'print("Direct access!")', true);
+  }
+}
+
+// Alternative using optional chaining
+const positronApi = globalThis.acquirePositronApi?.();
+if (positronApi) {
+  // Safe to use here
+}
+```
+
+> **Recommendation**: For most use cases, prefer `tryAcquirePositronApi()` which handles the detection logic for you and provides cleaner code.
 
 #### Runtime Detection
 ```typescript
