@@ -11,6 +11,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { tryAcquirePositronApi } from './runtime';
+import * as vscode from 'vscode';
 
 /**
  * Opens a URL for preview in either Positron's preview pane or VS Code's external browser.
@@ -34,7 +35,6 @@ import { tryAcquirePositronApi } from './runtime';
  */
 export async function previewUrl(url: string): Promise<void> {
 	const positronApi = tryAcquirePositronApi();
-	const vscode = await import('vscode');
 	const uri = vscode.Uri.parse(url);
 
 	if (positronApi) {
