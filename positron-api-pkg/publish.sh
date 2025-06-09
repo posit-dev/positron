@@ -102,35 +102,20 @@ if [[ $? -ne 0 ]]; then
 fi
 echo -e "${GREEN}✅ Package built successfully${NC}"
 
-# Step 2: Run package validation
-echo -e "${BLUE}2. Running package validation...${NC}"
-if [[ -f "package.json" ]]; then
-    # Use the package's built-in validation
-    npm run validate
-    if [[ $? -ne 0 ]]; then
-        echo -e "${RED}❌ Package validation failed${NC}"
-        exit 1
-    fi
-    echo -e "${GREEN}✅ Package validation completed${NC}"
-else
-    echo -e "${RED}❌ package.json not found${NC}"
-    exit 1
-fi
-
-# Step 3: Show current version and ask for confirmation
+# Step 2: Show current version and ask for confirmation
 CURRENT_VERSION=$(node -p "require('./package.json').version")
-echo -e "${BLUE}3. Current version: ${YELLOW}v$CURRENT_VERSION${NC}"
+echo -e "${BLUE}2. Current version: ${YELLOW}v$CURRENT_VERSION${NC}"
 
 # Calculate what the new version will be
 echo -e "${BLUE}   Bumping $VERSION_TYPE version...${NC}"
 
-# Step 4: Version bump
-echo -e "${BLUE}4. Updating version...${NC}"
+# Step 3: Version bump
+echo -e "${BLUE}3. Updating version...${NC}"
 npm version "$VERSION_TYPE" --no-git-tag-version
 NEW_VERSION=$(node -p "require('./package.json').version")
 echo -e "${GREEN}✅ Version updated to v$NEW_VERSION${NC}"
 
-# Step 5: Final confirmation
+# Step 4: Final confirmation
 echo -e "${YELLOW}📦 Ready to publish v$NEW_VERSION${NC}"
 if [[ "$NON_INTERACTIVE" == "false" ]]; then
     read -p "Do you want to publish to npm? (y/N): " -n 1 -r
@@ -144,7 +129,7 @@ else
     echo -e "${BLUE}🤖 Non-interactive mode: proceeding with publish${NC}"
 fi
 
-# Step 6: Publish to npm
+# Step 5: Publish to npm
 echo -e "${BLUE}5. Publishing to npm...${NC}"
 npm publish
 

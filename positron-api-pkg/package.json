@@ -23,7 +23,6 @@
   "scripts": {
     "build": "node build.js",
     "clean": "rm -rf dist temp && rm -f src/positron.d.ts src/ui-comm.d.ts",
-    "validate": "npm run build",
     "prepublishOnly": "npm run build"
   },
   "repository": {
