@@ -650,7 +650,7 @@ export class CopilotCompletion implements vscode.InlineCompletionItemProvider {
 	): Promise<vscode.InlineCompletionItem[] | vscode.InlineCompletionList | undefined> {
 		// Check if the file should be excluded from AI features
 		if (await positron.ai.isFileExcluded(document.uri)) {
-			return undefined;
+			return [];
 		}
 		return await this._copilotService.inlineCompletion(document, position, context, token);
 	}
