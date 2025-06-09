@@ -1,0 +1,12 @@
+# Generated types file
+index.d.ts
+
+# NPM
+node_modules/
+npm-debug.log*
+*.tgz
+.npm
+
+# Temporary files
+*.tmp
+*.temp

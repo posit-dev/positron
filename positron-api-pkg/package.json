@@ -1,0 +1,56 @@
+{
+  "name": "@posit-dev/positron",
+  "version": "0.1.1",
+  "description": "TypeScript definitions and runtime utilities for the Positron API",
+  "keywords": [
+    "positron",
+    "typescript",
+    "types",
+    "api",
+    "runtime",
+    "sdk",
+    "vscode",
+    "data-science",
+    "ide"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "node build.js",
+    "clean": "rm -rf dist temp && rm -f src/positron.d.ts src/ui-comm.d.ts",
+    "validate": "npm run build",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/posit-dev/positron.git",
+    "directory": "positron-api-pkg"
+  },
+  "bugs": {
+    "url": "https://github.com/posit-dev/positron/issues"
+  },
+  "homepage": "https://github.com/posit-dev/positron#readme",
+  "license": "Elastic-2.0",
+  "author": {
+    "name": "Posit Software, PBC",
+    "url": "https://posit.co"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "peerDependencies": {
+    "@types/vscode": "^1.74.0"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.100.0",
+    "typescript": "^5.6.0"
+  },
+  "engines": {
+    "node": ">=16.0.0"
+  }
+}
