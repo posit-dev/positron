@@ -4,7 +4,33 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.inPositron = inPositron;
 exports.tryAcquirePositronApi = tryAcquirePositronApi;
+/**
+ * Check if the current environment is Positron.
+ *
+ * This is a simple helper function that returns true if running in Positron,
+ * false if running in VS Code.
+ *
+ * @returns true if running in Positron, false otherwise
+ *
+ * @example
+ * ```typescript
+ * import { inPositron } from '@posit-dev/positron';
+ *
+ * if (inPositron()) {
+ *   // We're in Positron - use enhanced features
+ *   console.log('Running in Positron!');
+ * } else {
+ *   // We're in VS Code - use standard functionality
+ *   console.log('Running in VS Code mode');
+ * }
+ * ```
+ */
+function inPositron() {
+    return typeof globalThis !== 'undefined' &&
+        typeof globalThis.acquirePositronApi === 'function';
+}
 /**
  * Safely acquire the Positron API if running in Positron, or return undefined if running in VS Code.
  *
@@ -30,8 +56,7 @@ exports.tryAcquirePositronApi = tryAcquirePositronApi;
 function tryAcquirePositronApi() {
     try {
         // Check if we're running in Positron by looking for the global acquirePositronApi function
-        if (typeof globalThis !== 'undefined' &&
-            typeof globalThis.acquirePositronApi === 'function') {
+        if (inPositron()) {
             return globalThis.acquirePositronApi();
         }
         return undefined;

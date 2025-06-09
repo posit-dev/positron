@@ -71,7 +71,7 @@ async function previewUrl(url) {
     const uri = vscode.Uri.parse(url);
     if (positronApi) {
         // We're in Positron - use the preview pane
-        await positronApi.window.previewUrl(uri);
+        positronApi.window.previewUrl(uri);
     }
     else {
         // We're in VS Code - open in external browser
