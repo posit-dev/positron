@@ -39,7 +39,7 @@ export async function previewUrl(url: string): Promise<void> {
 
 	if (positronApi) {
 		// We're in Positron - use the preview pane
-		await positronApi.window.previewUrl(uri);
+		positronApi.window.previewUrl(uri);
 	} else {
 		// We're in VS Code - open in external browser
 		await vscode.env.openExternal(uri);
