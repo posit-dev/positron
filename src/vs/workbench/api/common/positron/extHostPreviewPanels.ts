@@ -221,7 +221,7 @@ export class ExtHostPreviewPanels implements extHostProtocol.ExtHostPreviewPanel
 			enableScripts: true,
 			localResourceRoots: [],
 		};
-		const title = uri.toString();
+		const title = uri.toString(true);
 		this._proxy.$previewUrl(toExtensionData(extension), handle, uri);
 		const webview = this.webviews.$createNewWebview(handle, options, extension);
 		const panel = this.createNewPreviewPanel(handle, viewType, title, webview as ExtHostWebview, true);
