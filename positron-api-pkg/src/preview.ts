@@ -10,7 +10,7 @@
  *  Positron and VS Code environments.
  *--------------------------------------------------------------------------------------------*/
 
-import { getPositronApi } from './runtime';
+import { tryAcquirePositronApi } from './runtime';
 
 /**
  * Opens a URL for preview in either Positron's preview pane or VS Code's external browser.
@@ -33,14 +33,15 @@ import { getPositronApi } from './runtime';
  * ```
  */
 export async function previewUrl(url: string): Promise<void> {
-	const positronApi = getPositronApi();
-	
+	const positronApi = tryAcquirePositronApi();
+	const vscode = await import('vscode');
+	const uri = vscode.Uri.parse(url);
+
 	if (positronApi) {
 		// We're in Positron - use the preview pane
-		await positronApi.window.previewUrl(url);
+		await positronApi.window.previewUrl(uri);
 	} else {
 		// We're in VS Code - open in external browser
-		const vscode = await import('vscode');
-		await vscode.env.openExternal(vscode.Uri.parse(url));
+		await vscode.env.openExternal(uri);
 	}
 }

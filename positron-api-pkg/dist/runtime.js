@@ -1,22 +1,10 @@
+"use strict";
 /*---------------------------------------------------------------------------------------------
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-
-/*---------------------------------------------------------------------------------------------
- *  Positron API Runtime Function
- *  Generated from source TypeScript definitions
- *
- *  This file provides a safe runtime function to access the Positron API.
- *--------------------------------------------------------------------------------------------*/
-
-// Import types from the ambient module declaration
-import type * as positron from 'positron';
-
-// The key insight - this captures the complete API shape
-export type PositronApi = typeof positron;
-
-
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.tryAcquirePositronApi = tryAcquirePositronApi;
 /**
  * Safely acquire the Positron API if running in Positron, or return undefined if running in VS Code.
  *
@@ -39,17 +27,18 @@ export type PositronApi = typeof positron;
  * }
  * ```
  */
-export function tryAcquirePositronApi(): PositronApi | undefined {
-	try {
-		// Check if we're running in Positron by looking for the global acquirePositronApi function
-		if (typeof globalThis !== 'undefined' &&
-			typeof (globalThis as any).acquirePositronApi === 'function') {
-			return (globalThis as any).acquirePositronApi();
-		}
-		return undefined;
-	} catch (error) {
-		// If any error occurs (e.g., acquirePositronApi throws), return undefined
-		// This ensures extensions gracefully degrade to VS Code mode
-		return undefined;
-	}
+function tryAcquirePositronApi() {
+    try {
+        // Check if we're running in Positron by looking for the global acquirePositronApi function
+        if (typeof globalThis !== 'undefined' &&
+            typeof globalThis.acquirePositronApi === 'function') {
+            return globalThis.acquirePositronApi();
+        }
+        return undefined;
+    }
+    catch (error) {
+        // If any error occurs (e.g., acquirePositronApi throws), return undefined
+        // This ensures extensions gracefully degrade to VS Code mode
+        return undefined;
+    }
 }

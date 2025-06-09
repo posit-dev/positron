@@ -175,20 +175,20 @@ console.log('\n🔍 Step 5: Validating built package...');
 try {
 	// Test that the built package can be required (CommonJS output)
 	const builtPackage = require(path.join(PATHS.DIST_DIR, 'index.js'));
-	
+
 	// Verify the main export exists
-	if (typeof builtPackage.getPositronApi !== 'function') {
-		throw new Error('getPositronApi function not exported');
+	if (typeof builtPackage.tryAcquirePositronApi !== 'function') {
+		throw new Error('tryAcquirePositronApi function not exported');
 	}
-	
+
 	// Test that the function returns undefined in this environment (expected behavior)
-	const api = builtPackage.getPositronApi();
+	const api = builtPackage.tryAcquirePositronApi();
 	if (api !== undefined) {
-		throw new Error('getPositronApi should return undefined in build environment');
+		throw new Error('tryAcquirePositronApi should return undefined in build environment');
 	}
-	
+
 	console.log('   ✅ Package validation passed');
-	console.log('   ✅ getPositronApi function is properly exported');
+	console.log('   ✅ tryAcquirePositronApi function is properly exported');
 	console.log('   ✅ Function correctly returns undefined in non-Positron environment');
 } catch (error) {
 	console.error(`   ❌ Package validation failed: ${error.message}`);

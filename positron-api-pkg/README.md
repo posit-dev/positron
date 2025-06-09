@@ -19,12 +19,14 @@ npm install --save-dev @posit-dev/positron @types/vscode
 ## Usage
 
 ### Basic Usage
+
+The `tryAcquirePositronApi` function is the main entry point for the Positron API. It returns the Positron API object if it is available, or `undefined` if it is not. This function is safe to call in both Positron and VS Code.
 ```typescript
-import { getPositronApi } from '@posit-dev/positron';
+import { tryAcquirePositronApi } from '@posit-dev/positron';
 import * as vscode from 'vscode';
 
 export function activate(context: vscode.ExtensionContext) {
-  const positronApi = getPositronApi();
+  const positronApi = tryAcquirePositronApi();
 
   if (positronApi) {
     // Running in Positron - enhanced features available
@@ -37,18 +39,21 @@ export function activate(context: vscode.ExtensionContext) {
 }
 ```
 
+You can also directly use the `aquirePositronApi` function that is available in Positron, but you will need to wrap it in a try/catch block to handle the case where it is not available. This is useful if you want to use the Positron API in a way that is not supported by the `tryAcquirePositronApi` function.
+
+
 ### Advanced Usage
 
 #### Runtime Detection
 ```typescript
-import { getPositronApi } from '@posit-dev/positron';
+import { tryAcquirePositronApi } from '@posit-dev/positron';
 
 function isPositronAvailable(): boolean {
-  return getPositronApi() !== undefined;
+  return tryAcquirePositronApi() !== undefined;
 }
 
 function executeInPositron(code: string) {
-  const api = getPositronApi();
+  const api = tryAcquirePositronApi();
   if (api) {
     return api.runtime.executeCode('python', code, false);
   }
@@ -77,7 +82,7 @@ import type {
 } from '@posit-dev/positron';
 
 function processRuntime(runtime: LanguageRuntimeMetadata) {
-  // Use types for development, getPositronApi() for runtime access
+  // Use types for development, tryAcquirePositronApi() for runtime access
 }
 ```
 
@@ -85,10 +90,10 @@ function processRuntime(runtime: LanguageRuntimeMetadata) {
 There are many ways you could "feature flag" Positron-specific functionality. Here is one example:
 
 ```typescript
-import { getPositronApi, previewUrl } from '@posit-dev/positron';
+import { tryAcquirePositronApi, previewUrl } from '@posit-dev/positron';
 
 export class MyExtension {
-  private positronApi = getPositronApi();
+  private positronApi = tryAcquirePositronApi();
 
   async doFoo() {
     if (this.positronApi) {
@@ -172,11 +177,11 @@ npm run build-js-sdk
 ### Working with Language Runtimes
 
 ```typescript
-import { getPositronApi } from '@posit-dev/positron';
+import { tryAcquirePositronApi } from '@posit-dev/positron';
 import type { RuntimeCodeExecutionMode } from '@posit-dev/positron';
 
 // Execute code in a runtime (Positron only)
-const positronApi = getPositronApi();
+const positronApi = tryAcquirePositronApi();
 if (positronApi) {
   await positronApi.runtime.executeCode(
     'python',
@@ -197,11 +202,11 @@ if (positronApi) {
 ### Creating Preview Panels
 
 ```typescript
-import { getPositronApi } from '@posit-dev/positron';
+import { tryAcquirePositronApi } from '@posit-dev/positron';
 import * as vscode from 'vscode';
 
 // Create a preview panel for web content (Positron only)
-const positronApi = getPositronApi();
+const positronApi = tryAcquirePositronApi();
 if (positronApi) {
   const panel = positronApi.window.createPreviewPanel(
     'myExtension.preview',
