@@ -47,8 +47,6 @@ main branch by either pulling or rebasing.
 
   - Instructions: https://github.com/posit-dev/positron/blob/main/test/e2e/README.md#pull-requests-and-test-tags
   - Available tags: https://github.com/posit-dev/positron/blob/main/test/e2e/infra/test-runner/test-tags.ts
-
-  Example tags: @:web @:win
 -->
 
 
