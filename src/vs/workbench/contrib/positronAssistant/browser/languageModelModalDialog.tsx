@@ -28,6 +28,7 @@ import { LanguageModelConfigComponent } from './components/languageModelConfigCo
 import { RadioButtonItem } from '../../../browser/positronComponents/positronModalDialog/components/radioButton.js';
 import { RadioGroup } from '../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
+import { AuthMethod } from './types.js';
 
 export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
@@ -114,13 +115,13 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [numCtx, setNumCtx] = React.useState<number | undefined>(defaultSource.defaults.numCtx);
 	const [model, setModel] = React.useState<string>(defaultSource.defaults.model);
 	const [name, setName] = React.useState<string>(defaultSource.defaults.name);
-	const [authMethod, setAuthMethod] = React.useState<string>('apiKey');
+	const [authMethod, setAuthMethod] = React.useState<AuthMethod>(AuthMethod.API_KEY);
 	const [showProgress, setShowProgress] = React.useState(false);
 	const [errorMessage, setError] = React.useState<string>();
 
 	useEffect(() => {
 		setSource(defaultSource);
-		setAuthMethod(defaultSource.defaults.oauth ? 'oauth' : 'apiKey')
+		setAuthMethod(defaultSource.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY)
 	}, [defaultSource]);
 
 	useEffect(() => {
@@ -156,20 +157,20 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	}, [source]);
 
 	useEffect(() => {
-		const authMethod = source.defaults.oauth ? 'oauth' : 'apiKey';
-		setAuthMethod(authMethod);
+		const newAuthMethod = source.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY;
+		setAuthMethod(newAuthMethod);
 	}, [source.defaults.oauth]);
 
 	const authMethodRadioButtons: RadioButtonItem[] = [
 		new RadioButtonItem({
-			identifier: 'oauth',
+			identifier: AuthMethod.OAUTH,
 			title: localize('positron.newConnectionModalDialog.oauth', "OAuth"),
-			disabled: !source.supportedOptions.includes('oauth'),
+			disabled: !source.supportedOptions.includes(AuthMethod.OAUTH),
 		}),
 		new RadioButtonItem({
-			identifier: 'apiKey',
+			identifier: AuthMethod.API_KEY,
 			title: localize('positron.newConnectionModalDialog.apiKey', "API Key"),
-			disabled: !source.supportedOptions.includes('apiKey'),
+			disabled: !source.supportedOptions.includes(AuthMethod.API_KEY),
 		}),
 	];
 
@@ -227,7 +228,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		setShowProgress(true);
 		setError(undefined);
 		if (providerConfig) {
-			if (authMethod === 'apiKey') {
+			if (authMethod === AuthMethod.API_KEY) {
 				props.onAction(
 					providerConfig,
 					source.signedIn ? 'delete' : 'save')
@@ -443,11 +444,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 						initialSelectionId={authMethod}
 						name='authMethod'
 						onSelectionChanged={(authMethod) => {
-							setAuthMethod(authMethod);
+							setAuthMethod(authMethod as AuthMethod);
 						}}
 					/>
 				</div>
 				<LanguageModelConfigComponent
+					authMethod={authMethod}
 					provider={providerConfig}
 					signingIn={showProgress}
 					source={source}
