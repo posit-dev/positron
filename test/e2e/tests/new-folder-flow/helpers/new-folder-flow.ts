@@ -31,11 +31,15 @@ export async function verifyConsoleReady(app: Application, folderTemplate: Folde
 
 export async function verifyGitFilesArePresent(app: Application) {
 	await test.step('Verify that the .git files are present', async () => {
-		const files = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
-		await expect(files.getByText('.git')).toBeVisible({ timeout: 50000 });
-		await expect(files.getByText('.gitignore')).toBeVisible();
-		// Ideally, we'd check for the .git folder, but it's not visible in the Explorer
-		// by default due to the default `files.exclude` setting in the workspace.
+		// To ensure that the .git files are present, temporarily clear out the files.exclude setting
+		const settingsBackup = await app.workbench.settings.backupWorkspaceSettings();
+		await app.workbench.settings.setWorkspaceSettings([['files.exclude', '{ "**/.git": false, "**/.gitignore": false }']]);
+
+		// Check that the git-related files are present in the explorer
+		await app.workbench.explorer.verifyExplorerFilesExist(['.git', '.gitignore']);
+
+		// Restore the original settings
+		await app.workbench.settings.restoreWorkspaceSettings(settingsBackup);
 	});
 }
 
