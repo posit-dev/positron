@@ -453,7 +453,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             });
         }
 
-        return this._kernel!.start();
+        return this._kernel!.start().then((info) => {
+            if (this.kernelSpec) {
+                this.enableAutoReloadIfEnabled(info);
+            }
+            return info;
+        });
     }
 
     private async onConsoleWidthChange(newWidth: number): Promise<void> {
@@ -739,9 +744,8 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
-            if (state === positron.RuntimeState.Ready && this.kernelSpec) {
-                this.enableAutoReloadIfEnabled();
-            }
+            // if (state === positron.RuntimeState.Ready && this.kernelSpec) {
+            // }
         });
         kernel.onDidReceiveRuntimeMessage((message) => {
             // Check if an IPyWidgets Output widget is starting to listen to a parent message ID.
@@ -823,24 +827,26 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         }
     }
 
-    private enableAutoReloadIfEnabled(): void {
+    private enableAutoReloadIfEnabled(info: positron.LanguageRuntimeInfo): void {
         // Enable auto-reload if the setting is enabled.
         const configurationService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         const settings = configurationService.getSettings();
         if (settings.enableAutoReload) {
             // Enable module hot-reloading for the kernel.
             const settingUri = `positron://settings/python.enableAutoReload`;
-            this._messageEmitter.fire({
-                id: createUniqueId(),
-                parent_id: '',
-                when: new Date().toISOString(),
-                type: positron.LanguageRuntimeMessageType.Stream,
-                name: positron.LanguageRuntimeStreamName.Stdout,
-                text: vscode.l10n.t(
-                    'Enabling autoreload for the Python runtime. This can be disabled using \x1b]8;;{0}\x1b\\this setting\x1b]8;;\x1b\\.',
-                    settingUri,
-                ),
-            } as positron.LanguageRuntimeStream);
+            const banner = vscode.l10n.t(
+                'Enabled automatic import reloading for Python. This can be disabled using \x1b]8;;{0}\x1b\\this setting\x1b]8;;\x1b\\.',
+                settingUri,
+            );
+            info.banner += '\n' + banner;
+            // this._messageEmitter.fire({
+            //     id: createUniqueId(),
+            //     parent_id: '',
+            //     when: new Date().toISOString(),
+            //     type: positron.LanguageRuntimeMessageType.Stream,
+            //     name: positron.LanguageRuntimeStreamName.Stdout,
+            //     text: banner,
+            // } as positron.LanguageRuntimeStream);
             // Execute the autoreload magic command.
             this._kernel?.execute(
                 '%load_ext autoreload\n%autoreload 2',
