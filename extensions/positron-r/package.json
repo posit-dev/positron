@@ -682,6 +682,17 @@
         "description": "%r.walkthrough.migrateFromRStudio.description%",
         "steps": [
           {
+            "id": "positron.r.migrateFromRStudio.panesAndUI",
+            "title": "%r.walkthrough.migrateFromRStudio.panesAndUI.title%",
+            "description": "%r.walkthrough.migrateFromRStudio.panesAndUI.description%",
+            "media": {
+              "markdown": "resources/walkthroughs/panes-and-ui.md"
+            },
+            "completionEvents": [
+              "onCommand:workbench.action.customizeLayout"
+            ]
+          },
+          {
             "id": "positron.r.migrateFromRStudio.keybindings",
             "title": "%r.walkthrough.migrateFromRStudio.keybindings.title%",
             "description": "%r.walkthrough.migrateFromRStudio.keybindings.description%",
