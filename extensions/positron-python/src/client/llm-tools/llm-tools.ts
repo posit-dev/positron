@@ -14,31 +14,49 @@ export function registerPythonLanguageModelTools(
     context: vscode.ExtensionContext,
     serviceContainer: IServiceContainer,
 ): void {
-    const pythonLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedPythonPackages', {
-        invoke: async (_options, _token) => {
-            const foregroundSession = await positron.runtime.getForegroundSession();
-            if (!foregroundSession) {
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart('No active session found'),
-                ]);
-            }
-            if (foregroundSession.runtimeMetadata.languageId !== 'python') {
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart('Active session is not a Python session'),
-                ]);
-            }
+    const pythonLoadedPackagesTool = vscode.lm.registerTool<{ sessionIdentifier: string }>(
+        'getAttachedPythonPackages',
+        {
+            invoke: async (options, _token) => {
+                let session: positron.LanguageRuntimeSession | undefined;
+                if (options.input.sessionIdentifier) {
+                    const sessions = await positron.runtime.getActiveSessions();
+                    if (sessions && sessions.length > 0) {
+                        session = sessions.find(
+                            (session) => session.metadata.sessionId === options.input.sessionIdentifier,
+                        );
+                    }
 
-            const result = await (foregroundSession as PythonRuntimeSession).callMethod('getLoadedModules');
-            if (Array.isArray(result) && result.length > 0) {
-                const moduleResults = result.map((module: string) => new vscode.LanguageModelTextPart(module));
-                return new vscode.LanguageModelToolResult(moduleResults);
-            } else {
-                return new vscode.LanguageModelToolResult([
-                    new vscode.LanguageModelTextPart('No Python packages loaded in the current session'),
-                ]);
-            }
+                    if (!session) {
+                        session = await positron.runtime.getForegroundSession();
+                    }
+                } else {
+                    session = await positron.runtime.getForegroundSession();
+                }
+
+                if (!session) {
+                    return new vscode.LanguageModelToolResult([
+                        new vscode.LanguageModelTextPart('No active session found'),
+                    ]);
+                }
+                if (session.runtimeMetadata.languageId !== 'python') {
+                    return new vscode.LanguageModelToolResult([
+                        new vscode.LanguageModelTextPart('Session is not a Python session'),
+                    ]);
+                }
+
+                const result = await (session as PythonRuntimeSession).callMethod('getLoadedModules');
+                if (Array.isArray(result) && result.length > 0) {
+                    const moduleResults = result.map((module: string) => new vscode.LanguageModelTextPart(module));
+                    return new vscode.LanguageModelToolResult(moduleResults);
+                } else {
+                    return new vscode.LanguageModelToolResult([
+                        new vscode.LanguageModelTextPart('No Python packages loaded in the current session'),
+                    ]);
+                }
+            },
         },
-    });
+    );
     context.subscriptions.push(pythonLoadedPackagesTool);
 
     const pythonPackageVersionTool = vscode.lm.registerTool<{ paramName: string }>('getInstalledPythonPackageVersion', {

@@ -1829,6 +1829,15 @@
                 "displayName": "Get attached Python packages",
                 "modelDescription": "Gets a list of Python packages that are loaded in the current Python session.",
                 "canBeReferencedInPrompt": false,
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "sessionIdentifier": {
+                            "type": "string",
+                            "description": "The identifier of the session to get the attached Python packages from. If one is not provided, the foreground console session is used."
+                        }
+                    }
+                },
                 "tags": ["positron-assistant"]
             },
             {
