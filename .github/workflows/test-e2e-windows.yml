@@ -197,7 +197,7 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
         run: |
-          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows"
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=list
           $BOOTSTRAP_EXIT_CODE = $LASTEXITCODE
 
           $env:SKIP_BOOTSTRAP = "true"
