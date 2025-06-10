@@ -281,14 +281,14 @@ export class ExtHostMethods implements extHostProtocol.ExtHostMethodsShape {
 	}
 
 	async createDocument(contents: string, languageId: string): Promise<null> {
-
 		const uri = await this.documents.createDocumentData({
-			content: contents, language: languageId
+			content: contents,
+			language: languageId,
 		});
+		const documentData = await this.documents.ensureDocumentData(uri);
+
 		const opts: TextEditorOpenOptions = { preview: true };
-		this.documents.ensureDocumentData(uri).then(documentData => {
-			this.editors.showTextDocument(documentData.document, opts);
-		});
+		await this.editors.showTextDocument(documentData.document, opts);
 
 		// TODO: Return a document ID
 		return null;
