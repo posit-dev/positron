@@ -197,7 +197,7 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
         run: |
-          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows"
           $BOOTSTRAP_EXIT_CODE = $LASTEXITCODE
 
           $env:SKIP_BOOTSTRAP = "true"
@@ -231,7 +231,7 @@ jobs:
           TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
 
       - name: Upload Test Logs
-        if: ${{ inputs.upload_logs }}
+        if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v4
         with:
           name: e2e-win-logs

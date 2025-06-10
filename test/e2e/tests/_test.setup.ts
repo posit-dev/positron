@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu } from '../infra';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu, getRandomUserDataDir, copyKeybindings } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -81,7 +81,12 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			snapshots,
 			quality: Quality.Dev,
 		};
+
 		options.userDataDir = getRandomUserDataDir(options);
+
+		// Copy user keybindings from the fixture to the user data directory
+		const userKeyBindingsPath = join(ROOT_PATH, 'test/e2e/infra/fixtures/keybindings.json');
+		await copyKeybindings(userKeyBindingsPath, options.userDataDir);
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
