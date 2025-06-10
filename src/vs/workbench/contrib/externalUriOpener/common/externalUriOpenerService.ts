@@ -216,7 +216,10 @@ export class ExternalUriOpenerService extends Disposable implements IExternalUri
 			});
 
 		const picked = await this.quickInputService.pick(items, {
-			placeHolder: nls.localize('selectOpenerPlaceHolder', "How would you like to open: {0}", targetUri.toString())
+			// --- Start Positron ---
+			// Skip encodindg the URI here so that it is displayed without escape sequences in the picker.
+			placeHolder: nls.localize('selectOpenerPlaceHolder', "How would you like to open: {0}", targetUri.toString(true))
+			// --- End Positron ---
 		});
 
 		if (!picked) {
