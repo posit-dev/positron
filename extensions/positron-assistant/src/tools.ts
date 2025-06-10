@@ -218,6 +218,60 @@ export function registerAssistantTools(
 
 	context.subscriptions.push(executeCodeTool);
 
+	const dateTimeTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.GetCurrentDateTime, {
+		/**
+		 * Called to get the current date and time.
+		 *
+		 * @param options The options for the tool invocation.
+		 * @param token The cancellation token.
+		 *
+		 * @returns A vscode.LanguageModelToolResult.
+		 */
+		invoke: async (_options, _token) => {
+
+			// Get the current date as an ISO string
+			const now = new Date();
+			const isoString = now.toISOString();
+
+			// Get the current timezone
+			const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+			const result = {
+				utcTime: isoString,
+				localTime: now.toLocaleString(),
+				timezone: timezone,
+				utcOffset: now.getTimezoneOffset() / -60, // Convert to hours
+			};
+
+			// Return the result as a JSON string to the model
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(JSON.stringify(result))
+			]);
+		}
+	});
+
+	context.subscriptions.push(dateTimeTool);
+
+	const positronVersionTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.GetPositronVersion, {
+		/**
+		 * Called to get the current Positron version
+		 *
+		 * @param options The options for the tool invocation.
+		 * @param token The cancellation token.
+		 *
+		 * @returns A vscode.LanguageModelToolResult.
+		 */
+		invoke: async (_options, _token) => {
+
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(`${positron.version}-${positron.buildNumber}`)
+			]);
+		}
+	});
+
+	context.subscriptions.push(positronVersionTool);
+
+
 	const getPlotTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.GetPlot, {
 		prepareInvocation: async (options, token) => {
 			return {

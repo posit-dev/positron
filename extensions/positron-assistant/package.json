@@ -186,6 +186,24 @@
         }
       },
       {
+        "name": "getCurrentDateTime",
+        "displayName": "Get current date and time",
+        "modelDescription": "Get the current date and time in the user's local timezone, and the timezone itself.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "getPositronVersion",
+        "displayName": "Get Positron version",
+        "modelDescription": "You are running in an IDE called Positron. Get the version of Positron you are running.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
         "name": "executeCode",
         "displayName": "Execute Code",
         "modelDescription": "Execute a piece of code in the specified programming language. Only use this tool if you absolutely need to execute code, otherwise reply directly to the user with markdown code snippets.",

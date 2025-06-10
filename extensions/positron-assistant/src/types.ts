@@ -9,6 +9,8 @@ export enum PositronAssistantToolName {
 	ExecuteCode = 'executeCode',
 	GetPlot = 'getPlot',
 	InspectVariables = 'inspectVariables',
+	GetCurrentDateTime = 'getCurrentDateTime',
+	GetPositronVersion = 'getPositronVersion',
 	SelectionEdit = 'selectionEdit',
 	ProjectTree = 'getProjectTree',
 }
