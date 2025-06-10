@@ -918,7 +918,7 @@ export class GettingStartedPage extends EditorPane {
 		const rightColumn = $('.categories-column.categories-column-right', {},);
 
 		const helpList = this.buildHelpList();
-		const startList = this.buildStartList();
+		//const startList = this.buildStartList();
 		const recentList = this.buildRecentlyOpenedList();
 		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
@@ -936,9 +936,10 @@ export class GettingStartedPage extends EditorPane {
 				this.configurationService,
 				this.keybindingService,
 				this.layoutService,
+				this.workspaceContextService
 			);
 			reset(leftColumn, leftContent, recentList.getDomElement());
-			reset(rightColumn, startList.getDomElement(), helpList.getDomElement());
+			reset(rightColumn, helpList.getDomElement());
 		};
 		layoutRecentList();
 

@@ -16,13 +16,15 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 
 export const createWelcomePageLeft = (
 	container: HTMLElement,
 	commandService: ICommandService,
 	configurationService: IConfigurationService,
 	keybindingService: IKeybindingService,
-	layoutService: ILayoutService
+	layoutService: ILayoutService,
+	workspaceContextService: IWorkspaceContextService
 ): PositronReactRenderer => {
 	const renderer = new PositronReactRenderer(container);
 	renderer.render(
@@ -31,6 +33,7 @@ export const createWelcomePageLeft = (
 			configurationService={configurationService}
 			keybindingService={keybindingService}
 			layoutService={layoutService}
+			workspaceContextService={workspaceContextService}
 		/>
 	);
 	return renderer;
