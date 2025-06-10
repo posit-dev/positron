@@ -835,7 +835,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // Enable module hot-reloading for the kernel.
             const settingUri = `positron://settings/python.enableAutoReload`;
             const banner = vscode.l10n.t(
-                'Enabled automatic import reloading for Python. This can be disabled using \x1b]8;;{0}\x1b\\this setting\x1b]8;;\x1b\\.',
+                'Automatic import reloading for Python is enabled. It can be disabled with \x1b]8;;{0}\x1b\\this setting\x1b]8;;\x1b\\.',
                 settingUri,
             );
             info.banner += '\n' + banner;
