@@ -45,6 +45,7 @@ interface ICommandNameWithoutArgumentTypeMapping {
     [Commands.Show_Interpreter_Debug_Info]: [];
     // New command that opens the multisession interpreter picker
     ['workbench.action.language.runtime.selectSession']: [];
+    [Commands.Create_Pyproject_Toml]: [];
     // --- End Positron ---
 }
 

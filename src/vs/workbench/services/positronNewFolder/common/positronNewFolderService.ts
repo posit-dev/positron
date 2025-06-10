@@ -10,7 +10,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
-import { CreateEnvironmentResult, IPositronNewFolderService, NewFolderConfiguration, NewFolderStartupPhase, NewFolderTask, FolderTemplate, POSITRON_NEW_FOLDER_CONFIG_STORAGE_KEY } from './positronNewFolder.js';
+import { CreateEnvironmentResult, CreatePyprojectTomlResult, IPositronNewFolderService, NewFolderConfiguration, NewFolderStartupPhase, NewFolderTask, FolderTemplate, POSITRON_NEW_FOLDER_CONFIG_STORAGE_KEY } from './positronNewFolder.js';
 import { Event } from '../../../../base/common/event.js';
 import { Barrier } from '../../../../base/common/async.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../languageRuntime/common/languageRuntimeService.js';
@@ -281,6 +281,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			await this._createPythonEnvironment();
 		}
 
+		// Add pyproject.toml file if requested
+		await this._createPyprojectToml();
+
 		// Complete the Python task
 		this._removePendingInitTask(NewFolderTask.Python);
 	}
@@ -400,6 +403,31 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		}
 
 		this._removePendingInitTask(NewFolderTask.Git);
+	}
+
+	/**
+	 * Adds the pyproject.toml file if requested.
+	 */
+	private async _createPyprojectToml() {
+		if (!this._newFolderConfig) {
+			this._logService.error(`[New folder startup] create pyproject.toml - no new folder configuration found`);
+			return;
+		}
+
+		if (!this._newFolderConfig.createPyprojectToml) {
+			return;
+		}
+
+		const result = await this._commandService.executeCommand<CreatePyprojectTomlResult>(
+			'python.createPyprojectToml'
+		);
+		if (!result || !result.success) {
+			const errorDesc = result?.error ? result.error : 'unknown error';
+			const message = this._failedPythonEnvMessage(`Failed to create pyproject.toml: ${errorDesc}`);
+			this._logService.error(message);
+			this._notificationService.warn(message);
+			return;
+		}
 	}
 
 	/**

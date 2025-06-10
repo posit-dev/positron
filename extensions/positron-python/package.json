@@ -278,6 +278,11 @@
                 "command": "python.createNewFile"
             },
             {
+                "title": "%python.command.python.createPyprojectToml.title%",
+                "category": "Python",
+                "command": "python.createPyprojectToml"
+            },
+            {
                 "category": "Python",
                 "command": "python.analysis.restartLanguageServer",
                 "title": "%python.command.python.analysis.restartLanguageServer.title%"

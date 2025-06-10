@@ -68,6 +68,7 @@ export interface NewFolderFlowState {
 	folderName: string;
 	parentFolder: URI;
 	initGitRepo: boolean;
+	createPyprojectToml: boolean;
 	openInNewWindow: boolean;
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
 	pythonEnvProviderId: string | undefined;
@@ -108,6 +109,7 @@ export class NewFolderFlowStateManager
 	private _folderNameFeedback: FlowFormattedTextItem | undefined;
 	private _parentFolder: URI;
 	private _initGitRepo: boolean;
+	private _createPyprojectToml: boolean;
 	private _openInNewWindow: boolean;
 
 	// Python-specific state.
@@ -156,6 +158,7 @@ export class NewFolderFlowStateManager
 		this._folderNameFeedback = undefined;
 		this._parentFolder = config.parentFolder ?? '';
 		this._initGitRepo = false;
+		this._createPyprojectToml = true;
 		// Default to a new window as the least "destructive" option.
 		this._openInNewWindow = true;
 		this._pythonEnvSetupType = EnvironmentSetupType.NewEnvironment;
@@ -322,6 +325,22 @@ export class NewFolderFlowStateManager
 	 */
 	set initGitRepo(value: boolean) {
 		this._initGitRepo = value;
+	}
+
+	/**
+	 * Gets the createPyprojectToml flag.
+	 * @returns The createPyprojectToml flag.
+	 */
+	get createPyprojectToml(): boolean {
+		return this._createPyprojectToml;
+	}
+
+	/**
+	 * Sets the createPyprojectToml flag.
+	 * @param value Whether to create a pyproject.toml file.
+	 */
+	set createPyprojectToml(value: boolean) {
+		this._createPyprojectToml = value;
 	}
 
 	/**
@@ -598,6 +617,7 @@ export class NewFolderFlowStateManager
 			folderName: this._folderName,
 			parentFolder: this._parentFolder,
 			initGitRepo: this._initGitRepo,
+			createPyprojectToml: this._createPyprojectToml,
 			openInNewWindow: this._openInNewWindow,
 			pythonEnvSetupType: this._pythonEnvSetupType,
 			pythonEnvProviderId: this._pythonEnvProviderId,
@@ -1023,6 +1043,7 @@ export class NewFolderFlowStateManager
 	 */
 	private _resetFolderConfig() {
 		this._initGitRepo = false;
+		this._createPyprojectToml = true;
 		this._useRenv = undefined;
 		this.folderNameFeedback = undefined;
 	}
