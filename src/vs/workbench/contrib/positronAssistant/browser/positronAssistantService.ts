@@ -18,6 +18,8 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { Emitter } from '../../../../base/common/event.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { URI } from '../../../../base/common/uri.js';
+import * as glob from '../../../../base/common/glob.js';
 
 /**
  * PositronAssistantService class.
@@ -182,6 +184,23 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		this._languageModelRegistry.delete(source.provider.id);
 
 		this._onLanguageModelConfigEmitter.fire(source);
+	}
+
+	isFileExcluded(uri: URI): boolean {
+		const globPattern = this._configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
+
+		if (!globPattern || globPattern.length === 0) {
+			return false; // No glob patterns configured, so no files are excluded
+		}
+
+		// Check all of the glob patterns and return true if any match
+		for (const pattern of globPattern) {
+			if (glob.match(pattern, uri.path)) {
+				return true; // File matches an exclusion pattern
+			}
+		}
+
+		return false; // No patterns matched, so the file is not excluded
 	}
 
 	//#endregion
