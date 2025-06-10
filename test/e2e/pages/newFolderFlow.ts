@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
@@ -98,6 +98,22 @@ export class NewFolderFlow {
 		}
 
 		await this.clickFlowButton(FlowButton.CREATE);
+	}
+
+	/**
+	 * Helper: Retrieves a map of FolderTemplate to their locators in the New Folder Flow.
+	 * This expects that the current page is the folder template step in the New Folder Flow modal dialog.
+	 * @returns A map where each FolderTemplate is mapped to its locator.
+	 */
+	getFolderTemplateLocatorMap() {
+		const folderTemplateLabelLocator = this.code.driver.page.locator('label');
+		const folderTemplateLocators: Map<FolderTemplate, Locator> = new Map(
+			Object.values(FolderTemplate).map((template: FolderTemplate) => [
+				template,
+				folderTemplateLabelLocator.filter({ hasText: template }),
+			])
+		);
+		return folderTemplateLocators;
 	}
 
 	/**
