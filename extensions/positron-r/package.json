@@ -675,6 +675,48 @@
         "entrypoint": "resources/js/htmlwidget.js"
       }
     ],
+    "walkthroughs": [
+      {
+        "id": "positron.r.migrateFromRStudio",
+        "title": "%r.walkthrough.migrateFromRStudio.title%",
+        "description": "%r.walkthrough.migrateFromRStudio.description%",
+        "steps": [
+          {
+            "id": "positron.r.migrateFromRStudio.keybindings",
+            "title": "%r.walkthrough.migrateFromRStudio.keybindings.title%",
+            "description": "%r.walkthrough.migrateFromRStudio.keybindings.description%",
+            "media": {
+              "markdown": "resources/walkthroughs/keybindings.md"
+            },
+            "completionEvents": [
+              "onSettingChanged:workbench.keybindings.rstudioKeybindings"
+            ]
+          },
+          {
+            "id": "positron.r.migrateFromRStudio.workspaces",
+            "title": "%r.walkthrough.migrateFromRStudio.workspaces.title%",
+            "description": "%r.walkthrough.migrateFromRStudio.workspaces.description%",
+            "media": {
+              "markdown": "resources/walkthroughs/workspaces.md"
+            },
+            "completionEvents": [
+              "onLink:https://positron.posit.co/rstudio-rproj-file.html"
+            ]
+          },
+          {
+            "id": "positron.r.migrateFromRStudio.formatting",
+            "title": "%r.walkthrough.migrateFromRStudio.formatting.title%",
+            "description": "%r.walkthrough.migrateFromRStudio.formatting.description%",
+            "media": {
+              "markdown": "resources/walkthroughs/formatting.md"
+            },
+            "completionEvents": [
+              "onLink:https://posit-dev.github.io/air/"
+            ]
+          }
+        ]
+      }
+    ],
     "languageRuntimes": [
       {
         "languageId": "r"
@@ -686,7 +728,9 @@
         "displayName": "Get attached R Packages",
         "modelDescription": "Gets a list of the R packages that are loaded and attached in the current R session.",
         "canBeReferencedInPrompt": false,
-        "tags": ["positron-assistant"]
+        "tags": [
+          "positron-assistant"
+        ]
       },
       {
         "name": "getInstalledPackageVersion",
@@ -702,7 +746,9 @@
             }
           }
         },
-        "tags": ["positron-assistant"]
+        "tags": [
+          "positron-assistant"
+        ]
       }
     ]
   },

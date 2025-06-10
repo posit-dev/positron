@@ -68,5 +68,15 @@
 	"r.configuration.defaultRepositories.auto.description": "Automatically choose a default repository, or use a repos.conf file if it exists.",
 	"r.configuration.defaultRepositories.rstudio.description": "Use the RStudio CRAN mirror (cran.rstudio.com)",
 	"r.configuration.defaultRepositories.posit-ppm.description": "Use the Posit public package manager (packagemanager.posit.co)",
-	"r.configuration.defaultRepositories.none.description": "Do not set a default repository or change the value of the 'repos' option"
+	"r.configuration.defaultRepositories.none.description": "Do not set a default repository or change the value of the 'repos' option",
+	"r.walkthrough.migrateFromRStudio.title": "Migrating from RStudio to Positron",
+	"r.walkthrough.migrateFromRStudio.description": "Learn how to get started with R in Positron as an RStudio user!",
+	"r.walkthrough.migrateFromRStudio.keybindings.title": "Keyboard shortcuts",
+	"r.walkthrough.migrateFromRStudio.keybindings.description": "Learn about the keyboard shortcuts available in Positron for R\n[Opt in to RStudio keybindings](command:r.walkthrough.updateRStudioKeybindings)",
+	"r.walkthrough.migrateFromRStudio.workspaces.title": "Projects, folders, and workspaces",
+	"r.walkthrough.migrateFromRStudio.workspaces.description": "  \n[Open an existing folder](command:workbench.action.files.openFolder)",
+	"r.walkthrough.migrateFromRStudio.formatting.title": "Formatting your R code",
+	"r.walkthrough.migrateFromRStudio.formatting.description": "  \n[Configure Air to format on save](command:r.walkthrough.airFormatOnSave)"
+
 }
+

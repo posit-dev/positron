@@ -233,6 +233,14 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			LOGGER.show();
 			printInterpreterSettingsInfo();
 		}),
+
+		// Commands used in RStudio migration walkthrough
+		vscode.commands.registerCommand('r.walkthrough.updateRStudioKeybindings', async () => {
+			vscode.commands.executeCommand('workbench.action.openSettings', 'workbench.keybindings.rstudioKeybindings');
+		}),
+		vscode.commands.registerCommand('r.walkthrough.airFormatOnSave', async () => {
+			vscode.commands.executeCommand('workbench.action.openSettings', '@lang:r editor.formatOnSave');
+		}),
 	);
 }
 
