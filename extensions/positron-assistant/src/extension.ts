@@ -54,6 +54,8 @@ export function disposeModels(id?: string) {
 	}
 }
 
+export const log = vscode.window.createOutputChannel('Assistant', { log: true });
+
 export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage, isDefault: boolean) {
 	try {
 		const modelConfig = await getModelConfiguration(config.id, context, storage);
@@ -260,6 +262,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+	// Create the log output channel.
+	context.subscriptions.push(log);
+
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
 	if (enabled) {
