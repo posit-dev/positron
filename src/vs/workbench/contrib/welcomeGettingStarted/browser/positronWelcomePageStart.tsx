@@ -19,7 +19,6 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { WelcomeMenuButton } from './positronWelcomeMenuButton.js';
 import { LogoPythonProject } from '../../../browser/positronNewFolderFlow/components/logos/logoPythonProject.js';
 import { LogoRProject } from '../../../browser/positronNewFolderFlow/components/logos/logoRProject.js';
-import { WelcomeConsoleButton } from './positronWelcomeConsoleButton.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 export interface PositronWelcomePageStartProps {
@@ -65,7 +64,6 @@ export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcom
 					label={(() => localize('positron.welcome.newFile', "New File"))()}
 					onPressed={() => props.commandService.executeCommand('welcome.showNewFileEntries')}
 				/>
-				<WelcomeConsoleButton commandService={props.commandService} />
 				<WelcomeButton
 					ariaLabel={(() => localize('positron.welcome.newFolderDescription', "Create a new folder from a template"))()}
 					codicon='positron-new-project'
