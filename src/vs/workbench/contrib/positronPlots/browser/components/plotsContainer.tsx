@@ -60,9 +60,9 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const plotHistoryRef = React.createRef<HTMLDivElement>();
 	const containerRef = useRef<HTMLDivElement>(undefined!);
 
-	// We generally prefer showing the history on the bottom (making the plot
-	// wider), but if the plot container is too wide, we show it on the right
-	// instead.
+	// We generally prefer showing the plot history on the bottom (making the
+	// plot wider), but if the plot container is too wide, we show it on the
+	// right instead.
 	const historyBottom = props.height / props.width > 0.75;
 
 	const historyPx = props.showHistory ? HistoryPx : 0;
@@ -70,25 +70,55 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const plotHeight = historyBottom && props.height > 0 ? props.height - historyPx : props.height;
 	const plotWidth = historyBottom || props.width <= 0 ? props.width : props.width - historyPx;
 
+	// Plot history useEffect to handle scrolling and mouse wheel events.
 	useEffect(() => {
-		// Ensure the selected plot is visible. We do this so that the history
-		// filmstrip automatically scrolls to new plots as they are emitted, or
-		// when the user selects a plot.
+		// Get the current plot history. If the plot history is not rendered,
+		// return.
 		const plotHistory = plotHistoryRef.current;
-		if (plotHistory) {
-			// Find the selected plot in the history
-			const selectedPlot = plotHistory.querySelector('.selected');
-			if (selectedPlot) {
-				// If a plot is selected, scroll it into view.
-				selectedPlot.scrollIntoView({ behavior: 'smooth' });
-			} else {
-				// If no plot is selected, scroll the history to the end, which
-				// will show the most recently generated plot.
-				plotHistory.scrollLeft = plotHistory.scrollWidth;
-				plotHistory.scrollTop = plotHistory.scrollHeight;
-			}
+		if (!plotHistory) {
+			return;
 		}
-	}, [plotHistoryRef]);
+
+		// Ensure that the selected plot or the most recently generated plot is
+		// is visible in the plot history.
+		const selectedPlot = plotHistory.querySelector('.selected');
+		if (selectedPlot) {
+			// If there is a selected plot, scroll it into view.
+			selectedPlot.scrollIntoView({ behavior: 'smooth' });
+		} else {
+			// If there isn't a selected plot, scroll the history to the end to
+			// show the most recently generated plot.
+			plotHistory.scrollLeft = plotHistory.scrollWidth;
+			plotHistory.scrollTop = plotHistory.scrollHeight;
+		}
+
+		// If the plot history is not at the bottom, there is no need to handle
+		// horizontal scrolling with the mouse wheel.
+		if (!historyBottom) {
+			return;
+		}
+
+		// The wheel event listener for the plot history. This allows the user to
+		// scroll the plot history horizontally using the mouse wheel. We prevent
+		// the default behavior to avoid scrolling the entire page when the user
+		// scrolls deltaY over the plot history.
+		const onWheel = (e: WheelEvent) => {
+			// Convert deltaY into deltaX for horizontal scrolling.
+			if (e.deltaY !== 0) {
+				e.preventDefault();
+				plotHistory.scrollLeft += e.deltaY;
+			}
+		};
+
+		// Add the wheel event listener to the plot history. (The passive: false
+		// option indicates that we might call preventDefault() inside our event
+		// handler.)
+		plotHistory.addEventListener('wheel', onWheel, { passive: false });
+
+		// Cleanup function to remove the wheel event listener when the component
+		// unmounts.
+		return () => plotHistory.removeEventListener('wheel', onWheel);
+	}, [historyBottom, plotHistoryRef]);
 
 	useEffect(() => {
 		// Be defensive against null sizes when pane is invisible
