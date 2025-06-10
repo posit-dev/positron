@@ -79,9 +79,6 @@ import './media/positronGettingStarted.css';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { createWelcomePageLeft } from './positronWelcomePageLeft.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 // --- End Positron ---
 
@@ -212,9 +209,6 @@ export class GettingStartedPage extends EditorPane {
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@ILayoutService private readonly layoutService: ILayoutService,
-		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
-		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
-		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 	) {
 
@@ -936,8 +930,13 @@ export class GettingStartedPage extends EditorPane {
 
 		const layoutRecentList = () => {
 			const leftContent = $('div.positron-welcome-left-column');
-			this.positronReactRenderer = createWelcomePageLeft(leftContent, this.keybindingService,
-				this.layoutService, this.commandService, this.configurationService, this.runtimeSessionService, this.runtimeStartupService, this.languageRuntimeService);
+			this.positronReactRenderer = createWelcomePageLeft(
+				leftContent,
+				this.commandService,
+				this.configurationService,
+				this.keybindingService,
+				this.layoutService,
+			);
 			reset(leftColumn, leftContent, recentList.getDomElement());
 			reset(rightColumn, startList.getDomElement(), helpList.getDomElement());
 		};

@@ -7,7 +7,7 @@
 import './media/positronGettingStarted.css';
 
 // React.
-import React, { PropsWithChildren } from 'react';
+import React from 'react';
 
 // Other dependencies.
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
@@ -15,53 +15,22 @@ import { PositronWelcomePageStart } from './positronWelcomePageStart.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-
-export interface PositronWelcomePageLeftProps {
-	keybindingService: IKeybindingService;
-	layoutService: ILayoutService;
-	commandService: ICommandService;
-	configurationService: IConfigurationService;
-	runtimesSessionService: IRuntimeSessionService;
-	languageRuntimeService: ILanguageRuntimeService;
-	runtimeStartupService: IRuntimeStartupService;
-}
-
-export const PositronWelcomePageLeft = (props: PropsWithChildren<PositronWelcomePageLeftProps>) => {
-	// Render.
-	return (
-		<PositronWelcomePageStart
-			commandService={props.commandService}
-			configurationService={props.configurationService}
-			keybindingService={props.keybindingService}
-			layoutService={props.layoutService}
-		/>
-	);
-};
 
 export const createWelcomePageLeft = (
 	container: HTMLElement,
-	keybindingService: IKeybindingService,
-	layoutService: ILayoutService,
 	commandService: ICommandService,
 	configurationService: IConfigurationService,
-	runtimeSessionService: IRuntimeSessionService,
-	runtimeStartupService: IRuntimeStartupService,
-	languageRuntimeService: ILanguageRuntimeService
+	keybindingService: IKeybindingService,
+	layoutService: ILayoutService
 ): PositronReactRenderer => {
 	const renderer = new PositronReactRenderer(container);
 	renderer.render(
-		<PositronWelcomePageLeft
+		<PositronWelcomePageStart
 			commandService={commandService}
 			configurationService={configurationService}
 			keybindingService={keybindingService}
-			languageRuntimeService={languageRuntimeService}
 			layoutService={layoutService}
-			runtimeStartupService={runtimeStartupService}
-			runtimesSessionService={runtimeSessionService}
 		/>
 	);
 	return renderer;

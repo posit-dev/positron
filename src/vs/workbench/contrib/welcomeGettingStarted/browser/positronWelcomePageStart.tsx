@@ -22,10 +22,10 @@ import { LogoRProject } from '../../../browser/positronNewFolderFlow/components/
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 export interface PositronWelcomePageStartProps {
-	keybindingService: IKeybindingService;
-	layoutService: ILayoutService;
 	commandService: ICommandService;
 	configurationService: IConfigurationService;
+	keybindingService: IKeybindingService;
+	layoutService: ILayoutService;
 }
 
 export const PositronWelcomePageStart = (props: PropsWithChildren<PositronWelcomePageStartProps>) => {
