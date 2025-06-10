@@ -91,6 +91,14 @@ const configurationKey = 'workbench.startupEditor';
 export const allWalkthroughsHiddenContext = new RawContextKey<boolean>('allWalkthroughsHidden', false);
 export const inWelcomeContext = new RawContextKey<boolean>('inWelcome', false);
 
+// --- Start Positron ---
+export interface IWelcomePageHelpEntry {
+	id: string;
+	title: string;
+	href: string;
+}
+// --- End Positron ---
+
 export interface IWelcomePageStartEntry {
 	id: string;
 	title: string;
@@ -159,6 +167,7 @@ export class GettingStartedPage extends EditorPane {
 
 	private contextService: IContextKeyService;
 	// --- Start Positron ---
+	private helpList?: GettingStartedIndexList<IWelcomePageHelpEntry>;
 	private recentlyOpenedList?: GettingStartedIndexList<RecentEntry>;
 	private startList?: GettingStartedIndexList<IWelcomePageStartEntry>;
 	private gettingStartedList?: GettingStartedIndexList<IResolvedWalkthrough>;
@@ -914,6 +923,7 @@ export class GettingStartedPage extends EditorPane {
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);
 
+		const helpList = this.buildHelpList();
 		const startList = this.buildStartList();
 		const recentList = this.buildRecentlyOpenedList();
 		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
@@ -928,8 +938,8 @@ export class GettingStartedPage extends EditorPane {
 			const leftContent = $('div.positron-welcome-left-column');
 			this.positronReactRenderer = createWelcomePageLeft(leftContent, this.openerService, this.keybindingService,
 				this.layoutService, this.commandService, this.configurationService, this.runtimeSessionService, this.runtimeStartupService, this.languageRuntimeService);
-			reset(leftColumn, leftContent);
-			reset(rightColumn, startList.getDomElement(), recentList.getDomElement());
+			reset(leftColumn, leftContent, recentList.getDomElement());
+			reset(rightColumn, startList.getDomElement(), helpList.getDomElement());
 		};
 		layoutRecentList();
 
@@ -982,6 +992,64 @@ export class GettingStartedPage extends EditorPane {
 
 		this.setSlide('categories');
 	}
+
+	// --- Start Positron ---
+	private buildHelpList(): GettingStartedIndexList<IWelcomePageHelpEntry> {
+		const renderHelpEntry = (entry: IWelcomePageHelpEntry): HTMLElement => {
+			const li = $('li');
+			const link = $('button.button-link');
+
+			link.innerText = entry.title;
+			link.title = entry.title;
+			link.setAttribute('aria-label', entry.title);
+			link.addEventListener('click', e => {
+				this.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>('gettingStarted.ActionExecuted', { command: 'openLink', argument: entry.href, walkthroughId: this.currentWalkthrough?.id });
+				this.openerService.open(entry.href);
+				e.preventDefault();
+				e.stopPropagation();
+			});
+
+			li.appendChild(link);
+			return li;
+		};
+
+		if (this.helpList) {
+			this.helpList.dispose();
+		}
+
+		const helpList = this.helpList = new GettingStartedIndexList(
+			{
+				title: localize('help', "Help"),
+				klass: 'welcome-help-links',
+				limit: 10,
+				renderElement: renderHelpEntry,
+				contextService: this.contextService
+			});
+
+		const helpEntries: IWelcomePageHelpEntry[] = [
+			{
+				id: 'positron-documentation',
+				title: localize('positron.welcome.positronDocumentation', "Positron Documentation"),
+				href: 'https://positron.posit.co/'
+			},
+			{
+				id: 'positron-community',
+				title: 'Positron Community',
+				href: 'https://github.com/posit-dev/positron/discussions'
+			},
+			{
+				id: 'report-bug',
+				title: 'Report a bug',
+				href: 'https://github.com/posit-dev/positron/issues'
+			}
+		];
+
+		helpList.setEntries(helpEntries);
+		helpList.onDidChange(() => this.registerDispatchListeners());
+
+		return helpList;
+	}
+	// --- End Positron ---
 
 	private buildRecentlyOpenedList(): GettingStartedIndexList<RecentEntry> {
 		const renderRecent = (recent: RecentEntry) => {
@@ -1193,6 +1261,7 @@ export class GettingStartedPage extends EditorPane {
 		this.categoriesPageScrollbar?.scanDomNode();
 		this.detailsPageScrollbar?.scanDomNode();
 
+		this.helpList?.layout(size);
 		this.startList?.layout(size);
 		this.gettingStartedList?.layout(size);
 		this.recentlyOpenedList?.layout(size);
