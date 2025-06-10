@@ -282,12 +282,12 @@ suite('Conda Creation provider tests', () => {
     // --- Start Positron ---
     test('Create conda environment with options and pre-selected python version', async () => {
         getCondaBaseEnvStub.resolves('/usr/bin/conda');
-        const newProjectWorkspace = {
+        const workspaceFolder = {
             uri: Uri.file(path.join(EXTENSION_ROOT_DIR_FOR_TESTS, 'src', 'testMultiRootWkspc', 'newProjectWorkspace')),
             name: 'newProjectWorkspace',
             index: 0,
         };
-        pickWorkspaceFolderStub.resolves(newProjectWorkspace);
+        pickWorkspaceFolderStub.resolves(workspaceFolder);
         pickPythonVersionStub.resolves('3.12');
 
         const deferred = createDeferred();
@@ -325,9 +325,9 @@ suite('Conda Creation provider tests', () => {
             ) => task(progressMock.object),
         );
 
-        // Options for createEnvironment (based on what we send via positronNewProjectService)
+        // Options for createEnvironment (based on what we send via positronNewFolderService)
         const options = {
-            workspaceFolder: newProjectWorkspace,
+            workspaceFolder,
             condaPythonVersion: '3.12',
         };
 
@@ -340,7 +340,7 @@ suite('Conda Creation provider tests', () => {
         _complete!();
         assert.deepStrictEqual(await promise, {
             path: 'new_environment',
-            workspaceFolder: newProjectWorkspace,
+            workspaceFolder,
         });
         assert.isTrue(showErrorMessageWithLogsStub.notCalled);
         assert.isTrue(pickExistingCondaActionStub.calledOnce);

@@ -9,7 +9,7 @@ import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
 import { availableRuntimes, SessionRuntimes } from './sessions.js';
-import { ContextMenu } from '../infra/contextMenu.js';
+import { ContextMenu } from './utils/contextMenu.js';
 
 const CONSOLE_INPUT = '.console-input';
 const ACTIVE_CONSOLE_INSTANCE = '.console-instance[style*="z-index: auto"]';

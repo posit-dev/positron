@@ -25,13 +25,15 @@ export class ActivityItemOutputHtml extends ActivityItem {
 	 * @param when The date.
 	 * @param html The HTML content returned from the runtime.
 	 * @param text The text content returned from the runtime.
+	 * @param outputId The optional identifier of the output associated with this activity item.
 	 */
 	constructor(
 		id: string,
 		parentId: string,
 		when: Date,
 		readonly html: string,
-		readonly text: string,
+		readonly text: string | undefined,
+		readonly outputId?: string
 	) {
 		// Call the base class's constructor.
 		super(id, parentId, when);

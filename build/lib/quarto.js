@@ -1,6 +1,6 @@
 "use strict";
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
@@ -99,6 +99,7 @@ function getQuartoMacOS(version) {
 function getQuartoLinux(version) {
     const gunzip = require('gulp-gunzip');
     const untar = require('gulp-untar');
+    const rename = require('gulp-rename');
     const basename = process.env['npm_config_arch'] === 'x64' ?
         `quarto-${version}-linux-amd64` :
         `quarto-${version}-linux-arm64`;
@@ -109,7 +110,13 @@ function getQuartoLinux(version) {
     })
         // Unzip, then untar
         .pipe(gunzip())
-        .pipe(untar());
+        .pipe(untar())
+        // Remove the leading directory from the path
+        .pipe(rename((path) => {
+        if (path.dirname.startsWith(`quarto-${version}`)) {
+            path.dirname = path.dirname.replace(/^quarto-[^/]+\/?/, '');
+        }
+    }));
 }
 /**
  * Gets a stream that downloads and unpacks the quarto executable. Reads

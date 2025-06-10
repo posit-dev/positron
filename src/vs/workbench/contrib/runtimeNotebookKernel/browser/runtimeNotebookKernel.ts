@@ -257,7 +257,7 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 
 		// Create the runtime notebook cell execution.
 		const execution = this._register(this._instantiationService.createInstance(
-			RuntimeNotebookCellExecution, session, cellExecution, cell, errorBehavior
+			RuntimeNotebookCellExecution, session, cellExecution, cell, notebook, errorBehavior
 		));
 
 		// Set the pending execution for the notebook.

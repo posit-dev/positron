@@ -298,7 +298,7 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'anthropic',
-			displayName: 'Anthropic Claude'
+			displayName: 'Anthropic'
 		},
 		supportedOptions: ['apiKey'],
 		defaults: {

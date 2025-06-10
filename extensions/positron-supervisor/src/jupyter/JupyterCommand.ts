@@ -1,14 +1,13 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Buffer } from 'buffer';
 import { SocketSession } from '../ws/SocketSession';
 import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageHeader } from './JupyterMessageHeader';
-import { WebSocket } from 'ws';
 import { unpackSerializedObjectWithBuffers } from '../util';
+import { JupyterMessageType } from './JupyterMessageType.js';
 
 /**
  * Base class for Jupyter commands; commands are messages to the kernel that do
@@ -26,7 +25,7 @@ export abstract class JupyterCommand<T> {
 	 * @param channel The channel (ZeroMQ socket) to send the command on.
 	 */
 	constructor(
-		public readonly commandType: string,
+		public readonly commandType: JupyterMessageType,
 		public readonly commandPayload: T,
 		public readonly channel: JupyterChannel) {
 	}

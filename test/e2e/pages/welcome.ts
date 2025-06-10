@@ -37,7 +37,7 @@ export class Welcome {
 	newNotebookButton = this.startButtons.getByText('New Notebook');
 	newFileButton = this.startButtons.getByText('New File');
 	newConsoleButton = this.startButtons.getByText('New Console');
-	newProjectButton = this.startButtons.getByText('New Project');
+	newFolderButton = this.startButtons.getByText('New Folder');
 
 	constructor(private code: Code) { }
 }

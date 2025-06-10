@@ -34,9 +34,16 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 	test.beforeAll(async ({ vscodeUserSettings, positronUserSettings, runCommand, app }) => {
 		workspaceSettings = await app.workbench.settings.backupWorkspaceSettings();
 		await app.workbench.settings.removeWorkspaceSettings(['positron.importSettings.enable']);
-		await vscodeUserSettings.ensureExists();
-		await positronUserSettings.delete();
-		await positronUserSettings.ensureExists();
+		await vscodeUserSettings.append({
+			'test': 'vs-code-settings',
+			'editor.fontSize': 8,
+			'workbench.colorTheme': 'Default Dark',
+		});
+		await positronUserSettings.append({
+			'test': 'positron-settings',
+			'editor.fontSize': 16,
+			'workbench.colorTheme': 'Default Light+',
+		});
 		await runCommand('workbench.action.reloadWindow');
 	});
 

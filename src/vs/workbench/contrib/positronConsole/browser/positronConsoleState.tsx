@@ -74,10 +74,10 @@ export interface PositronConsoleState extends PositronConsoleServices {
 export const usePositronConsoleState = (services: PositronConsoleServices): PositronConsoleState => {
 	// Hooks.
 	const [positronConsoleInstances, setPositronConsoleInstances] = useState<IPositronConsoleInstance[]>(
-		services.positronConsoleService.positronConsoleInstances
+		[]
 	);
 	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(
-		services.positronConsoleService.activePositronConsoleInstance
+		undefined
 	);
 	const [consoleSessionListCollapsed, setConsoleSessionListCollapsed] = useState<boolean>(positronConsoleInstances.length <= 1);
 
@@ -85,6 +85,13 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 	useEffect(() => {
 		// Create a disposable store for the event handlers we'll add.
 		const disposableStore = new DisposableStore();
+
+		// Set the initial state of the Positron console instances. This is done
+		// in the useEffect hook rather than the constructor; otherwise we miss
+		// instances created after the component is constructed but before the
+		// component is mounted.
+		setPositronConsoleInstances(services.positronConsoleService.positronConsoleInstances);
+		setActivePositronConsoleInstance(services.positronConsoleService.activePositronConsoleInstance);
 
 		// Add the onDidStartPositronConsoleInstance event handler.
 		disposableStore.add(services.positronConsoleService.onDidStartPositronConsoleInstance(positronConsoleInstance => {

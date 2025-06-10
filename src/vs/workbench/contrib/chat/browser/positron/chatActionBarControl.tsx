@@ -22,7 +22,6 @@ import { IKeybindingService } from '../../../../../platform/keybinding/common/ke
 import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
 import { ILanguageModelsService, IPositronChatProvider } from '../../common/languageModels.js';
 import { PositronChatContextProvider } from './chatContext.js';
-import { IModelService } from '../../../../../editor/common/services/model.js';
 import { ChatInputPart } from '../chatInputPart.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 
@@ -43,7 +42,6 @@ export class ChatActionBarControl extends Disposable {
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
-		@IModelService private readonly _modelService: IModelService,
 		@IThemeService private readonly _themeService: IThemeService,
 	) {
 		super();
@@ -67,7 +65,6 @@ export class ChatActionBarControl extends Disposable {
 				<PositronChatContextProvider
 					chatInput={this._chatInput}
 					languageModelsService={this._languageModelsService}
-					modelService={this._modelService}
 				>
 					<ChatActionBar
 						width={this._container.parentElement?.clientWidth ?? 150}

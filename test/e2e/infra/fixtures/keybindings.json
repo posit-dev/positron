@@ -1,0 +1,8 @@
+// Place your key bindings in this file to override the defaults
+// Note use cmd as modifier here, `copyKeybindings()` will correctly change to ctrl for Windows/Linux
+[
+    {
+        "key": "cmd+j j",
+        "command": "jupyter-cell-tags.addTag"
+    }
+]

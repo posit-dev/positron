@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, getRandomUserDataDir, createPositronSettingsManager, vsCodeSettings, ApplicationOptions, Quality, MultiLogger } from '../infra';
+import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu, getRandomUserDataDir, copyKeybindings } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -38,9 +38,6 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
-import { UserSettingsFileManager } from '../pages/utils/userSettingsFileManager.js';
-import { ContextMenu } from '../infra/contextMenu.js';
-
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -84,7 +81,12 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			snapshots,
 			quality: Quality.Dev,
 		};
+
 		options.userDataDir = getRandomUserDataDir(options);
+
+		// Copy user keybindings from the fixture to the user data directory
+		const userKeyBindingsPath = join(ROOT_PATH, 'test/e2e/infra/fixtures/keybindings.json');
+		await copyKeybindings(userKeyBindingsPath, options.userDataDir);
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
@@ -272,20 +274,16 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'worker' }],
 
 	vscodeUserSettings: [async ({ }, use) => {
-		const manager = vsCodeSettings;
+		const manager = new SettingsFileManager(SettingsFileManager.getVSCodeSettingsPath());
 		await manager.backupIfExists();
-
 		await use(manager);
-
 		await manager.restoreFromBackup();
 	}, { scope: 'worker' }],
 
 	positronUserSettings: [async ({ userDataDir }, use) => {
-		const manager = createPositronSettingsManager(userDataDir);
+		const manager = new SettingsFileManager(SettingsFileManager.getPositronSettingsPath(userDataDir));
 		await manager.backupIfExists();
-
 		await use(manager);
-
 		await manager.restoreFromBackup();
 	}, { scope: 'worker' }],
 
@@ -501,7 +499,7 @@ interface WorkerFixtures {
 	suiteId: string;
 	snapshots: boolean;
 	artifactDir: string;
-	options: any;
+	options: ApplicationOptions;
 	userDataDir: string;
 	app: Application;
 	logsPath: string;
@@ -512,8 +510,8 @@ interface WorkerFixtures {
 	workspaceSettings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 	};
-	vscodeUserSettings: UserSettingsFileManager;
-	positronUserSettings: UserSettingsFileManager;
+	vscodeUserSettings: SettingsFileManager;
+	positronUserSettings: SettingsFileManager;
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {

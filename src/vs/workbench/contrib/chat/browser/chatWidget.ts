@@ -560,7 +560,8 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (this.location === ChatAgentLocation.Panel) {
 			this.actionBarContainer = this._register(this.instantiationService.createInstance(ChatActionBarControl, this.inputPart));
 			this.actionBarContainer.render(this.container);
-			this.actionBarContainer.onProviderSelected((provider) => this.inputPart.currentProvider = provider);
+			// When a provider is selected in the UI, update it in the language models service.
+			this.actionBarContainer.onProviderSelected((provider) => this.languageModelsService.currentProvider = provider);
 		}
 		// --- End Positron ---
 
@@ -748,18 +749,22 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n");
 			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.addModelConfiguration)`;
 		} else {
+			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
 			welcomeTitle = localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant");
 			// eslint-disable-next-line local/code-no-unexternalized-strings
 			welcomeText = localize('positronAssistant.welcomeMessageReady', `Positron Assistant is an AI coding companion designed to accelerate and enhance your data science projects.
 
+The {guide-link} explains the possibilities and capabilities of Positron Assistant.
+
 Always verify results. AI assistants can sometimes produce incorrect code.`);
 			// eslint-disable-next-line local/code-no-unexternalized-strings
-			tips = new MarkdownString(localize('positronAssistant.welcomeMessageReadyTips', `Type $(mention) to select a Chat Participant.
+			tips = new MarkdownString(localize('positronAssistant.welcomeMessageReadyTips', `Click on or type $(mention) to select a Chat Participant.
 
 Click on $(attach) or type \`#\` to add context, such as files to your chat.
 
 Type \`/\` to use predefined commands such as \`/help\` or \`/quarto\`.`,
 			), { supportThemeIcons: true, isTrusted: true });
+			welcomeText = welcomeText.replace('{guide-link}', `[${guideLinkMessage}](https://positron.posit.co/assistant)`);
 		}
 
 		dom.clearNode(this.welcomeMessageContainer);

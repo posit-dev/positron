@@ -17,19 +17,44 @@ import { registerCodeActionProvider } from './codeActions.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
-let modelDisposables: vscode.Disposable[] = [];
-let participantDisposables: vscode.Disposable[] = [];
+let modelDisposables: ModelDisposable[] = [];
 let assistantEnabled = false;
 
-function disposeModels() {
-	modelDisposables.forEach(d => d.dispose());
-	modelDisposables = [];
+/** A chat or completion model provider disposable with associated configuration. */
+class ModelDisposable implements vscode.Disposable {
+	constructor(
+		private readonly _disposable: vscode.Disposable,
+		public readonly modelConfig: ModelConfig,
+	) { }
+
+	dispose() {
+		this._disposable.dispose();
+	}
 }
 
-function disposeParticipants() {
-	participantDisposables.forEach(d => d.dispose());
-	participantDisposables = [];
+/**
+ * Dispose chat and/or completion models registered with Positron.
+ * @param id If specified, only dispose models with the given ID. Otherwise, dispose all models.
+ */
+export function disposeModels(id?: string) {
+	if (id) {
+		// Dispose models with the specified ID i.e. models for the same provider.
+		const remainingModelDisposables: ModelDisposable[] = [];
+		for (const modelDisposable of modelDisposables) {
+			if (modelDisposable.modelConfig.id === id) {
+				modelDisposable.dispose();
+			} else {
+				remainingModelDisposables.push(modelDisposable);
+			}
+		}
+		modelDisposables = remainingModelDisposables;
+	} else {
+		modelDisposables.forEach(d => d.dispose());
+		modelDisposables = [];
+	}
 }
+
+export const log = vscode.window.createOutputChannel('Assistant', { log: true });
 
 export async function registerModel(config: StoredModelConfig, context: vscode.ExtensionContext, storage: SecretStorage, isDefault: boolean) {
 	try {
@@ -158,7 +183,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				isDefault: isDefault,
 			});
 			isDefault = false; // only the first model is default
-			modelDisposables.push(modelDisp);
+			modelDisposables.push(new ModelDisposable(modelDisp, newConfig));
 			vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);
 		}
 	}
@@ -167,22 +192,28 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 		const completionProvider = newCompletionProvider(modelConfig);
 		// this uses the proposed inlineCompletionAdditions API
 		const complDisp = vscode.languages.registerInlineCompletionItemProvider(ALL_DOCUMENTS_SELECTOR, completionProvider, { displayName: modelConfig.name });
-		modelDisposables.push(complDisp);
+		modelDisposables.push(new ModelDisposable(complDisp, modelConfig));
 	}
 }
 
 function registerAddModelConfigurationCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.addModelConfiguration', () => {
-			showConfigurationDialog(context, storage);
+		vscode.commands.registerCommand('positron-assistant.addModelConfiguration', async () => {
+			await showConfigurationDialog(context, storage);
 		})
 	);
 }
 
 function registerConfigureModelsCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.configureModels', () => {
-			showModelList(context, storage);
+		vscode.commands.registerCommand('positron-assistant.configureModels', async () => {
+			if (vscode.workspace.getConfiguration('positron.assistant').get('newModelConfiguration', true)) {
+				// The new model configuration UI lets users sign out of providers as well,
+				// so there's no need to show the model list.
+				await showConfigurationDialog(context, storage);
+			} else {
+				await showModelList(context, storage);
+			}
 		})
 	);
 }
@@ -221,7 +252,6 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	context.subscriptions.push({
 		dispose: () => {
 			disposeModels();
-			disposeParticipants();
 		}
 	});
 
@@ -232,6 +262,9 @@ function registerAssistant(context: vscode.ExtensionContext) {
 }
 
 export function activate(context: vscode.ExtensionContext) {
+	// Create the log output channel.
+	context.subscriptions.push(log);
+
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
 	if (enabled) {

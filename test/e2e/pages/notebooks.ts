@@ -15,7 +15,7 @@ const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
 const EXECUTE_CELL_COMMAND = 'notebook.cell.execute';
-const EXECUTE_CELL_SPINNER = '.cell-status-item .codicon-modifier-spin';
+const EXECUTE_CELL_SPINNER = '.codicon-notebook-state-executing';
 const OUTER_FRAME = '.webview';
 const INNER_FRAME = '#active-frame';
 const REVERT_AND_CLOSE = 'workbench.action.revertAndCloseActiveEditor';
@@ -116,7 +116,7 @@ export class Notebooks {
 	async executeCodeInCell() {
 		await test.step('Execute code in cell', async () => {
 			await this.quickaccess.runCommand(EXECUTE_CELL_COMMAND);
-			await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER), 'execute cell spinner to not be visible').not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.page.locator(EXECUTE_CELL_SPINNER), 'execute cell spinner to not be visible').toHaveCount(0, { timeout: 30000 });
 		});
 	}
 

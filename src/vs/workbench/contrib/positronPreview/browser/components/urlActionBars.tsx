@@ -110,7 +110,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 
 			// Restore the old input value.
 			if (urlInputRef.current) {
-				urlInputRef.current.value = currentUri.toString();
+				urlInputRef.current.value = currentUri.toString(true);
 			}
 
 			return;
@@ -154,7 +154,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 						}
 					}
 				}
-				urlInputRef.current.value = e.toString();
+				urlInputRef.current.value = e.toString(true);
 			}
 		}));
 		return () => disposables.dispose();
@@ -182,7 +182,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 								ref={urlInputRef}
 								aria-label={currentUrl}
 								className='text-input url-bar'
-								defaultValue={props.preview.currentUri.toString()}
+								defaultValue={props.preview.currentUri.toString(true)}
 								name={kUrlBarInputName}
 								type='text'>
 							</input>

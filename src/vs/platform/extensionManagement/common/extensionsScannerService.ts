@@ -297,7 +297,9 @@ export abstract class AbstractExtensionsScannerService extends Disposable implem
 		try {
 			await this.extensionsProfileScannerService.scanProfileExtensions(this.userDataProfilesService.defaultProfile.extensionsResource, { bailOutWhenFileNotFound: true });
 		} catch (error) {
+			this.logService.warn('Failed to scan default profile extensions in extensions installation folder.', this.userExtensionsLocation.toString(), getErrorMessage(error));
 			if (error instanceof ExtensionsProfileScanningError && error.code === ExtensionsProfileScanningErrorCode.ERROR_PROFILE_NOT_FOUND) {
+				this.logService.info('Default profile extensions not found, initializing default profile extensions in extensions installation folder.', this.userExtensionsLocation.toString());
 				await this.doInitializeDefaultProfileExtensions();
 			} else {
 				throw error;

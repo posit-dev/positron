@@ -17,6 +17,7 @@
   "enabledApiProposals": [
     "codeActionAI",
     "defaultChatParticipant",
+    "findFiles2",
     "inlineCompletionsAdditions",
     "languageModelDataPart"
   ],
@@ -90,26 +91,12 @@
         ]
       }
     ],
-    "menus": {
-      "chat/input": [
-        {
-          "command": "positron-assistant.addModelConfiguration",
-          "group": "navigation@10",
-          "when": "!positron-assistant.hasChatModels"
-        },
-        {
-          "command": "positron-assistant.addModelConfiguration",
-          "group": "inline",
-          "when": "positron-assistant.hasChatModels"
-        }
-      ]
-    },
     "commands": [
       {
         "command": "positron-assistant.addModelConfiguration",
         "title": "%commands.addModelConfiguration.title%",
         "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable"
+        "enablement": "config.positron.assistant.enable && !config.positron.assistant.newModelConfiguration"
       },
       {
         "command": "positron-assistant.configureModels",
@@ -134,33 +121,11 @@
             "default": true,
             "description": "%configuration.useAnthropicSdk.description%"
           },
-          "positron.assistant.enabledProviders": {
-            "type": "array",
-            "default": [],
-            "description": "%configuration.enabledProviders.description%",
-            "items": {
-              "type": "string",
-              "enum": [
-                "anthropic",
-                "azure",
-                "bedrock",
-                "google",
-                "mistral",
-                "ollama",
-                "openai",
-                "openrouter"
-              ],
-              "enumDescriptions": [
-                "%configuration.enabledProviders.anthropic%",
-                "%configuration.enabledProviders.azure%",
-                "%configuration.enabledProviders.bedrock%",
-                "%configuration.enabledProviders.google%",
-                "%configuration.enabledProviders.mistral%",
-                "%configuration.enabledProviders.ollama%",
-                "%configuration.enabledProviders.openai%",
-                "%configuration.enabledProviders.openrouter%"
-              ]
-            }
+          "positron.assistant.streamingEdits.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.streamingEdits.enable%",
+            "tags": ["experimental"]
           }
         }
       }
@@ -284,6 +249,64 @@
         "tags": [
           "positron-assistant"
         ]
+      },
+      {
+        "name": "getProjectTree",
+        "displayName": "Get Project Tree",
+        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders. Empty folders are not included in the tree.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "include": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "A Glob pattern to include in the project tree. Only the files and folders matching these patterns will be considered. If files are also matched by the `excludes` patterns, they will be filtered out."
+              },
+              "description": "Glob patterns to include in the project tree. By default, all files and folders in the workspace will be considered.",
+              "default": [
+                "**/*"
+              ]
+            },
+            "exclude": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "description": "A Glob pattern to exclude from the project tree. Files and folders matching these patterns will be filtered out, even if they match an included Glob."
+              },
+              "description": "Glob patterns to exclude from the project tree. These patterns will be applied in addition to the default excludes. By default, directories for dependencies, build artifacts, and other commonly ignored files are excluded, such as `.venv`, `venv`, `renv`, `node_modules`."
+            },
+            "replaceDefaultExcludes": {
+              "type": "boolean",
+              "description": "Whether to replace the default excludes with the provided `exclude` patterns. If false, the provided `exclude` patterns will be added to the default excludes.",
+              "default": false
+            },
+            "excludeSettings": {
+              "type": "string",
+              "description": "Which exclude settings to consult when filtering the project tree. Options are: filesExclude or searchAndFilesExclude, or an empty string for no exclude settings.",
+              "default": "searchAndFilesExclude"
+            },
+            "ignoreFiles": {
+              "type": "boolean",
+              "description": "Whether to ignore files that are listed in the `.gitignore` file or other ignore files.",
+              "default": true
+            },
+            "filterResults": {
+              "type": "boolean",
+              "description": "Whether to filter results using excludes and ignore files. If false, none of the excludes or ignores will be applied, and only the `include` patterns will be considered. Use this setting when providing specific includes to locate particular files and folders.",
+              "default": true
+            },
+            "maxFiles": {
+              "type": "number",
+              "description": "The maximum number of files to include in the project tree. If this limit is reached, a compressed description of the project will be provided instead.",
+              "default": 500
+            }
+          }
+        }
       }
     ]
   },

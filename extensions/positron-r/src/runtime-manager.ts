@@ -13,12 +13,13 @@ import { createJupyterKernelSpec } from './kernel-spec';
 import { LOGGER } from './extension';
 import { POSITRON_R_INTERPRETERS_DEFAULT_SETTING_KEY } from './constants';
 import { getDefaultInterpreterPath } from './interpreter-settings.js';
+import { dirname } from 'path';
 
 export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 	private readonly onDidDiscoverRuntimeEmitter = new vscode.EventEmitter<positron.LanguageRuntimeMetadata>();
 
-	constructor() {
+	constructor(private readonly _context: vscode.ExtensionContext) {
 		this.onDidDiscoverRuntime = this.onDidDiscoverRuntimeEmitter.event;
 	}
 
@@ -70,7 +71,36 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 			kernelSpec,
 			kernelExtra);
 
+		// Update environment variables for the session
+		this.updateEnvironment(runtimeMetadata);
+
 		return Promise.resolve(session);
+	}
+
+	/**
+	 * Update the contributed terminal environment variables for a given R
+	 * runtime metadata.
+	 *
+	 * @param metadata The R runtime metadata
+	 */
+	updateEnvironment(metadata: positron.LanguageRuntimeMetadata) {
+		const collection = this._context.environmentVariableCollection;
+
+		const metadataExtra = metadata.extraRuntimeData as RMetadataExtra;
+		if (!metadataExtra || !metadataExtra.scriptpath) {
+			return;
+		}
+
+		// Update the QUARTO_R environment variable to point to the script path
+		// of the R runtime, if needed. Note that our 'scriptpath' is the full
+		// path to the Rscript binary (foo/bar/Rscript), but Quarto expects the
+		// directory (foo/bar)
+		const currentQuartoR = collection.get('QUARTO_R');
+		const scriptPath = dirname(metadataExtra.scriptpath);
+		if (currentQuartoR?.value !== scriptPath) {
+			collection.replace('QUARTO_R', scriptPath);
+			LOGGER.debug(`Updated QUARTO_R environment variable to ${scriptPath}`);
+		}
 	}
 
 	async validateMetadata(metadata: positron.LanguageRuntimeMetadata): Promise<positron.LanguageRuntimeMetadata> {
@@ -147,6 +177,8 @@ export class RRuntimeManager implements positron.LanguageRuntimeManager {
 
 		// When restoring an existing session, the kernelspec is stored.
 		const session = new RSession(runtimeMetadata, sessionMetadata, undefined, undefined, sessionName);
+
+		this.updateEnvironment(runtimeMetadata);
 
 		return Promise.resolve(session);
 	}

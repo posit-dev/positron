@@ -18,7 +18,7 @@ export * from '../pages/dataExplorer';
 export * from '../pages/sideBar';
 export * from '../pages/plots';
 export * from '../pages/notebooks';
-export * from '../pages/newProjectWizard';
+export * from '../pages/newFolderFlow';
 export * from '../pages/connections';
 export * from '../pages/help';
 export * from '../pages/output';
@@ -45,8 +45,8 @@ export * from '../pages/hotKeys';
 
 // utils
 export * from '../pages/utils/aws';
-export * from '../pages/utils/userSettings/positronSettingsManager.js';
-export * from '../pages/utils/userSettings/vscodeSettingsManager.js';
+export * from '../pages/utils/settingsFileManager';
+export * from '../pages/utils/contextMenu';
 
 // fixtures
 export * from './fixtures/settings';

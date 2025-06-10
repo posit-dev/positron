@@ -6,25 +6,25 @@
 import { test, tags } from '../_test.setup';
 import * as fs from 'fs';
 import * as path from 'path';
-import os from 'os';
 
 test.use({
 	suiteId: __filename
 });
 
-const EXT_DIR = path.join(os.tmpdir(), 'vscsmoke', 'extensions-dir');
 
 test.describe('Bootstrap Extensions', {
-	tag: [tags.EXTENSIONS, tags.WEB],
+	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
 }, () => {
 
-	test('Verify All Bootstrap extensions are installed', {
-		tag: [tags.EXTENSIONS, tags.WEB]
-	}, async function () {
+	test.beforeAll('Skip during main run', async function () {
+		if (process.env.SKIP_BOOTSTRAP === 'true') {
+			test.skip();
+		}
+	});
 
+	test('Verify All Bootstrap extensions are installed', async function ({ options }) {
 		const extensions = readProductJson();
-		await waitForExtensions(extensions);
-
+		await waitForExtensions(extensions, options.extensionsPath);
 	});
 });
 
@@ -47,12 +47,12 @@ function readProductJson(): { fullName: string; shortName: string; version: stri
 	});
 }
 
-function getInstalledExtensions(): Map<string, string> {
+function getInstalledExtensions(extensionsDir: string): Map<string, string> {
 	const installed = new Map<string, string>();
-	if (!fs.existsSync(EXT_DIR)) { return installed; }
+	if (!fs.existsSync(extensionsDir)) { return installed; }
 
-	for (const extDir of fs.readdirSync(EXT_DIR)) {
-		const packageJsonPath = path.join(EXT_DIR, extDir, 'package.json');
+	for (const extDir of fs.readdirSync(extensionsDir)) {
+		const packageJsonPath = path.join(extensionsDir, extDir, 'package.json');
 		if (fs.existsSync(packageJsonPath)) {
 			const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 			if (pkg.name && pkg.version) {
@@ -64,11 +64,11 @@ function getInstalledExtensions(): Map<string, string> {
 	return installed;
 }
 
-async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[]) {
+async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath: string) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
 
 	while (missing.size > 0) {
-		const installed = getInstalledExtensions();
+		const installed = getInstalledExtensions(extensionsPath);
 
 		for (const ext of extensions) {
 			if (!missing.has(ext.fullName)) { continue; }

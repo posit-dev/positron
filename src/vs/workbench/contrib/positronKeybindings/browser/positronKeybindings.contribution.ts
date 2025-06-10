@@ -189,13 +189,18 @@ class PositronKeybindingsContribution extends Disposable {
 			primary: KeyMod.CtrlCmd | KeyMod.Shift | KeyCode.Enter
 		}));
 
-		// Reindent selected lines
-		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
-			id: 'editor.action.reindentselectedlines',
-			weight: KeybindingWeight.BuiltinExtension,
-			when: EditorContextKeys.editorTextFocus,
-			primary: KeyMod.CtrlCmd | KeyCode.KeyI
-		}));
+		// Reindent selected lines. We only bind this if Assistant is not enabled,
+		// since this binding is used to invoke inline chat with Assistant.
+		const positronAssistantEnabled =
+			this._configurationService.getValue('positron.assistant.enable');
+		if (!positronAssistantEnabled) {
+			this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
+				id: 'editor.action.reindentselectedlines',
+				weight: KeybindingWeight.BuiltinExtension,
+				when: EditorContextKeys.editorTextFocus,
+				primary: KeyMod.CtrlCmd | KeyCode.KeyI
+			}));
+		}
 
 		// Format selection
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({

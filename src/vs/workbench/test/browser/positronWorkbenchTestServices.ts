@@ -47,8 +47,8 @@ import { NotebookKernelService } from '../../contrib/notebook/browser/services/n
 import { NotebookService } from '../../contrib/notebook/browser/services/notebookServiceImpl.js';
 import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
 import { RuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartup.js';
-import { IPositronNewProjectService } from '../../services/positronNewProject/common/positronNewProject.js';
-import { PositronNewProjectService } from '../../services/positronNewProject/common/positronNewProjectService.js';
+import { IPositronNewFolderService } from '../../services/positronNewFolder/common/positronNewFolder.js';
+import { PositronNewFolderService } from '../../services/positronNewFolder/common/positronNewFolderService.js';
 import { IEphemeralStateService } from '../../../platform/ephemeralState/common/ephemeralState.js';
 import { EphemeralStateService } from '../../../platform/ephemeralState/common/ephemeralStateService.js';
 import { ILanguageService } from '../../../editor/common/languages/language.js';
@@ -82,7 +82,7 @@ export function positronWorkbenchInstantiationService(
 
 	// Positron services.
 	instantiationService.stub(IEphemeralStateService, instantiationService.createInstance(EphemeralStateService));
-	instantiationService.stub(IPositronNewProjectService, disposables.add(instantiationService.createInstance(PositronNewProjectService)));
+	instantiationService.stub(IPositronNewFolderService, disposables.add(instantiationService.createInstance(PositronNewFolderService)));
 	instantiationService.stub(IRuntimeNotebookKernelService, disposables.add(instantiationService.createInstance(RuntimeNotebookKernelService)));
 	instantiationService.stub(IRuntimeStartupService, disposables.add(instantiationService.createInstance(RuntimeStartupService)));
 	instantiationService.stub(IPositronNotebookOutputWebviewService, instantiationService.createInstance(PositronNotebookOutputWebviewService));

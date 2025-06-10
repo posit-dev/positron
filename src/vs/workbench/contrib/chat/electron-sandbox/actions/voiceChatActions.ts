@@ -1307,7 +1307,12 @@ export class InstallSpeechProviderForVoiceChatAction extends BaseInstallSpeechPr
 			title: localize2('workbench.action.chat.installProviderForVoiceChat.label', "Start Voice Chat"),
 			icon: Codicon.mic,
 			precondition: InstallingSpeechProvider.negate(),
-			menu: primaryVoiceActionMenu(HasSpeechProvider.negate())
+			// --- Start Positron ---
+			// Never show this action, since it prompts to install the vscode-speech extension
+			// which is not published to Open VSX.
+			// menu: primaryVoiceActionMenu(HasSpeechProvider.negate())
+			menu: primaryVoiceActionMenu(ContextKeyExpr.false())
+			// --- End Positron ---
 		});
 	}
 

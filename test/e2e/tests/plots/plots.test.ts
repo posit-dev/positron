@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -159,7 +159,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await test.step('Save plot', async () => {
 				await app.workbench.plots.savePlotFromPlotsPane({ name: 'Python-scatter', format: 'JPEG' });
 				await app.workbench.layouts.enterLayout('stacked');
-				await app.workbench.explorer.verifyProjectFilesExist(['Python-scatter.jpeg']);
+				await app.workbench.explorer.verifyExplorerFilesExist(['Python-scatter.jpeg']);
 			});
 
 			await test.step('Open plot in editor', async () => {
@@ -169,7 +169,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Save plot from editor', async () => {
 				await app.workbench.plots.savePlotFromEditor({ name: 'Python-scatter-editor', format: 'JPEG' });
-				await app.workbench.explorer.verifyProjectFilesExist(['Python-scatter-editor.jpeg']);
+				await app.workbench.explorer.verifyExplorerFilesExist(['Python-scatter-editor.jpeg']);
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 
@@ -349,12 +349,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Save plot as PNG', async () => {
 				await app.workbench.plots.savePlotFromPlotsPane({ name: 'plot', format: 'PNG' });
-				await app.workbench.explorer.verifyProjectFilesExist(['plot.png']);
+				await app.workbench.explorer.verifyExplorerFilesExist(['plot.png']);
 			});
 
 			await test.step('Save plot as SVG', async () => {
 				await app.workbench.plots.savePlotFromPlotsPane({ name: 'R-cars', format: 'SVG' });
-				await app.workbench.explorer.verifyProjectFilesExist(['R-cars.svg']);
+				await app.workbench.explorer.verifyExplorerFilesExist(['R-cars.svg']);
 			});
 
 			await test.step('Open plot in editor', async () => {
@@ -364,7 +364,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Save plot from editor as JPEG', async () => {
 				await app.workbench.plots.savePlotFromEditor({ name: 'R-cars', format: 'JPEG' });
-				await app.workbench.explorer.verifyProjectFilesExist(['R-cars.jpeg']);
+				await app.workbench.explorer.verifyExplorerFilesExist(['R-cars.jpeg']);
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
 		});
@@ -388,7 +388,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('R - Two simultaneous plots', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
-			await app.workbench.console.typeToConsole(rTwoPlots, true, 100);
+			await app.workbench.console.pasteCodeToConsole(rTwoPlots, true);
 			await app.workbench.plots.waitForCurrentPlot();
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
 		});
@@ -397,25 +397,25 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.plots.enlargePlotArea();
 
-			await app.workbench.console.typeToConsole('par(mfrow = c(2, 2))', true, 100);
-			await app.workbench.console.typeToConsole('plot(1:5)', true, 100);
+			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(2, 2))', true);
+			await app.workbench.console.pasteCodeToConsole('plot(1:5)', true);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.console.typeToConsole('plot(2:6)', true, 100);
+			await app.workbench.console.pasteCodeToConsole('plot(2:6)', true);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.console.typeToConsole('plot(3:7)', true, 100);
+			await app.workbench.console.pasteCodeToConsole('plot(3:7)', true);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.console.typeToConsole('plot(4:8)', true, 100);
+			await app.workbench.console.pasteCodeToConsole('plot(4:8)', true);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.console.typeToConsole('plot(5:9)', true, 100);
+			await app.workbench.console.pasteCodeToConsole('plot(5:9)', true);
 			await app.workbench.plots.waitForCurrentPlot();
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(2);
 
-			await app.workbench.console.typeToConsole('par(mfrow = c(1, 1))', true, 100);
-			await app.workbench.console.typeToConsole('plot(1:10)', true, 100);
+			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(1, 1))', true);
+			await app.workbench.console.pasteCodeToConsole('plot(1:10)', true);
 			await app.workbench.plots.waitForCurrentPlot();
 			await app.workbench.plots.expectPlotThumbnailsCountToBe(3);
 
@@ -426,10 +426,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.plots.enlargePlotArea();
 
-			await app.workbench.console.typeToConsole('par(mfrow = c(2, 1))', true, 100);
-			await app.workbench.console.typeToConsole('plot(1:10)', true, 100);
-			await app.workbench.console.typeToConsole('plot(2:20)', true, 100);
-			await app.workbench.console.typeToConsole('par(mfrow = c(1, 1))', true, 100);
+			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(2, 1))', true);
+			await app.workbench.console.pasteCodeToConsole('plot(1:10)', true);
+			await app.workbench.console.pasteCodeToConsole('plot(2:20)', true);
+			await app.workbench.console.pasteCodeToConsole('par(mfrow = c(1, 1))', true);
 			await app.workbench.plots.waitForCurrentPlot();
 
 			await app.workbench.plots.restorePlotArea();
@@ -442,7 +442,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.console.waitForConsoleContents('restarted', { expectedCount: 1 });
 
-			await app.workbench.console.typeToConsole(rPlotAndSave, true, 100);
+			await app.workbench.console.pasteCodeToConsole(rPlotAndSave, true);
 			await app.workbench.plots.waitForCurrentPlot();
 
 			await runCommand('workbench.action.fullSizedAuxiliaryBar');

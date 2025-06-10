@@ -9,7 +9,7 @@ import { Code } from '../infra/code';
 
 const CHATBUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const ADD_MODEL_LINK = 'a[data-href="command:positron-assistant.addModelConfiguration"]';
-const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] a.action-label[aria-label="Add Language Model"]';
+const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] button[aria-label="Add Model Provider..."]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const DONE_BUTTON = 'button.positron-button.action-bar-button.default';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
@@ -68,7 +68,7 @@ export class Assistant {
 
 	async verifyAddModelButtonVisible() {
 		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toBeVisible();
-		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Add Language Model');
+		await expect(this.code.driver.page.locator(ADD_MODEL_BUTTON)).toHaveText('Add Model Provider...');
 	}
 
 	async verifyInlineChatInputsVisible() {

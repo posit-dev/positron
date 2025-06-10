@@ -9,12 +9,15 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
-import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMessageError, ILanguageRuntimeMessageInput, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessagePrompt, ILanguageRuntimeMessageState, ILanguageRuntimeMessageStream, RuntimeErrorBehavior, ILanguageRuntimeMessageUpdateOutput, RuntimeOnlineState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { NotebookCellTextModel } from '../../notebook/common/model/notebookCellTextModel.js';
+import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { IOutputItemDto } from '../../notebook/common/notebookCommon.js';
 import { CellExecutionUpdateType } from '../../notebook/common/notebookExecutionService.js';
 import { INotebookCellExecution } from '../../notebook/common/notebookExecutionStateService.js';
+
+const outputIdKey = 'runtimeOutputId';
 
 /**
  * The type of a Jupyter notebook cell output.
@@ -54,6 +57,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		private readonly _session: ILanguageRuntimeSession,
 		private readonly _cellExecution: INotebookCellExecution,
 		private readonly _cell: NotebookCellTextModel,
+		private readonly _notebook: NotebookTextModel,
 		private readonly _errorBehavior: RuntimeErrorBehavior,
 		@ILogService private readonly _logService: ILogService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
@@ -62,32 +66,36 @@ export class RuntimeNotebookCellExecution extends Disposable {
 
 		// Handle replies of different types.
 
-		this._register(this._session.onDidReceiveRuntimeMessageInput(async message => {
+		this._register(this._session.onDidReceiveRuntimeMessageInput(message => {
 			this.handleRuntimeMessageInput(message);
 		}));
 
 		this._register(this._session.onDidReceiveRuntimeMessagePrompt(async message => {
-			this.handleRuntimeMessagePrompt(message);
+			await this.handleRuntimeMessagePrompt(message);
 		}));
 
-		this._register(this._session.onDidReceiveRuntimeMessageOutput(async message => {
+		this._register(this._session.onDidReceiveRuntimeMessageOutput(message => {
 			this.handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.DisplayData);
 		}));
 
-		this._register(this._session.onDidReceiveRuntimeMessageResult(async message => {
+		this._register(this._session.onDidReceiveRuntimeMessageResult(message => {
 			this.handleRuntimeMessageOutput(message, JupyterNotebookCellOutputType.ExecuteResult);
 		}));
 
-		this._register(this._session.onDidReceiveRuntimeMessageStream(async message => {
+		this._register(this._session.onDidReceiveRuntimeMessageStream(message => {
 			this.handleRuntimeMessageStream(message);
 		}));
 
-		this._register(this._session.onDidReceiveRuntimeMessageError(async message => {
+		this._register(this._session.onDidReceiveRuntimeMessageError(message => {
 			this.handleRuntimeMessageError(message);
 		}));
 
-		this._register(this._session.onDidReceiveRuntimeMessageState(async message => {
+		this._register(this._session.onDidReceiveRuntimeMessageState(message => {
 			this.handleRuntimeMessageState(message);
+		}));
+
+		this._register(this._session.onDidReceiveRuntimeMessageUpdateOutput(message => {
+			this.handleRuntimeMessageUpdateOutput(message);
 		}));
 
 		this._cellExecution.update([{
@@ -143,7 +151,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		this.dispose();
 	}
 
-	private async handleRuntimeMessageInput(message: ILanguageRuntimeMessageInput): Promise<void> {
+	private handleRuntimeMessageInput(message: ILanguageRuntimeMessageInput): void {
 		// Only handle replies to this execution.
 		if (message.parent_id !== this.id) {
 			return;
@@ -172,48 +180,24 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		this._session.replyToPrompt(message.id, reply ?? '');
 	}
 
-	private async handleRuntimeMessageOutput(
+	private handleRuntimeMessageOutput(
 		message: ILanguageRuntimeMessageOutput,
 		outputType: JupyterNotebookCellOutputType,
-	): Promise<void> {
+	): void {
 		// Only handle replies to this execution.
 		if (message.parent_id !== this.id) {
 			return;
 		}
 
-		// Convert the message data entries to output items.
-		const outputItems: IOutputItemDto[] = [];
-		for (const [mime, data] of Object.entries(message.data)) {
-			switch (mime) {
-				case 'image/png':
-				case 'image/jpeg':
-					outputItems.push({ data: decodeBase64(String(data)), mime });
-					break;
-				// This list is a subset of src/vs/workbench/contrib/notebook/browser/view/cellParts/cellOutput.JUPYTER_RENDERER_MIMETYPES
-				case 'application/geo+json':
-				case 'application/vdom.v1+json':
-				case 'application/vnd.dataresource+json':
-				case 'application/vnd.jupyter.widget-view+json':
-				case 'application/vnd.plotly.v1+json':
-				case 'application/vnd.r.htmlwidget':
-				case 'application/vnd.vega.v2+json':
-				case 'application/vnd.vega.v3+json':
-				case 'application/vnd.vega.v4+json':
-				case 'application/vnd.vega.v5+json':
-				case 'application/vnd.vegalite.v1+json':
-				case 'application/vnd.vegalite.v2+json':
-				case 'application/vnd.vegalite.v3+json':
-				case 'application/vnd.vegalite.v4+json':
-				case 'application/x-nteract-model-debug+json':
-					// The JSON cell output item will be rendered using the appropriate notebook renderer.
-					outputItems.push({ data: VSBuffer.fromString(JSON.stringify(data, undefined, '\t')), mime });
-					break;
-				default:
-					outputItems.push({ data: VSBuffer.fromString(String(data)), mime });
-			}
+		// Convert the message data entries into output items.
+		const outputItems = toOutputItems(message.data);
+
+		// If the runtime specified an output ID, update existing outputs with that ID.
+		if (message.output_id) {
+			this.updateOutputsById(message.output_id, outputItems);
 		}
 
-		// Append the output items to the cell.
+		// Append the output items to the current cell.
 		this._cellExecution.update([{
 			editType: CellExecutionUpdateType.Output,
 			cellHandle: this._cellExecution.cellHandle,
@@ -221,12 +205,40 @@ export class RuntimeNotebookCellExecution extends Disposable {
 			outputs: [{
 				outputId: generateNotebookCellOutputId(),
 				outputs: outputItems,
-				metadata: { outputType },
+				metadata: { outputType, [outputIdKey]: message.output_id },
 			}]
 		}]);
 	}
 
-	private async handleRuntimeMessageStream(message: ILanguageRuntimeMessageStream): Promise<void> {
+	private handleRuntimeMessageUpdateOutput(message: ILanguageRuntimeMessageUpdateOutput): void {
+		// Only handle replies to this execution.
+		if (message.parent_id !== this.id) {
+			return;
+		}
+
+		// Convert the message data entries into output items.
+		const outputItems = toOutputItems(message.data);
+
+		// Update existing outputs with the specified output ID.
+		this.updateOutputsById(message.output_id, outputItems);
+	}
+
+	/** Update all outputs with the specified ID. */
+	private updateOutputsById(outputId: string, outputItems: IOutputItemDto[]): void {
+		for (const cell of this._notebook.cells) {
+			for (const output of cell.outputs) {
+				if (output.metadata?.[outputIdKey] === outputId) {
+					this._cellExecution.update([{
+						editType: CellExecutionUpdateType.OutputItems,
+						outputId: output.outputId,
+						items: outputItems,
+					}]);
+				}
+			}
+		}
+	}
+
+	private handleRuntimeMessageStream(message: ILanguageRuntimeMessageStream): void {
 		// Only handle replies to this execution.
 		if (message.parent_id !== this.id) {
 			return;
@@ -272,7 +284,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		}
 	}
 
-	private async handleRuntimeMessageError(message: ILanguageRuntimeMessageError): Promise<void> {
+	private handleRuntimeMessageError(message: ILanguageRuntimeMessageError): void {
 		// Only handle replies to this execution.
 		if (message.parent_id !== this.id) {
 			return;
@@ -315,7 +327,7 @@ export class RuntimeNotebookCellExecution extends Disposable {
 		}
 	}
 
-	private async handleRuntimeMessageState(message: ILanguageRuntimeMessageState): Promise<void> {
+	private handleRuntimeMessageState(message: ILanguageRuntimeMessageState): void {
 		// Only handle replies to this execution.
 		if (message.parent_id !== this.id) {
 			return;
@@ -333,6 +345,43 @@ export class RuntimeNotebookCellExecution extends Disposable {
 	public get promise(): Promise<void> {
 		return this._deferred.p;
 	}
+}
+
+/**
+ * Convert the data from a language runtime output message into Notebook output items.
+ */
+function toOutputItems(data: ILanguageRuntimeMessageOutputData): IOutputItemDto[] {
+	const outputItems: IOutputItemDto[] = [];
+	for (const [mime, value] of Object.entries(data)) {
+		switch (mime) {
+			case 'image/png':
+			case 'image/jpeg':
+				outputItems.push({ data: decodeBase64(String(value)), mime });
+				break;
+			// This list is a subset of src/vs/workbench/contrib/notebook/browser/view/cellParts/cellOutput.JUPYTER_RENDERER_MIMETYPES
+			case 'application/geo+json':
+			case 'application/vdom.v1+json':
+			case 'application/vnd.dataresource+json':
+			case 'application/vnd.jupyter.widget-view+json':
+			case 'application/vnd.plotly.v1+json':
+			case 'application/vnd.r.htmlwidget':
+			case 'application/vnd.vega.v2+json':
+			case 'application/vnd.vega.v3+json':
+			case 'application/vnd.vega.v4+json':
+			case 'application/vnd.vega.v5+json':
+			case 'application/vnd.vegalite.v1+json':
+			case 'application/vnd.vegalite.v2+json':
+			case 'application/vnd.vegalite.v3+json':
+			case 'application/vnd.vegalite.v4+json':
+			case 'application/x-nteract-model-debug+json':
+				// The JSON cell output item will be rendered using the appropriate notebook renderer.
+				outputItems.push({ data: VSBuffer.fromString(JSON.stringify(value, undefined, '\t')), mime });
+				break;
+			default:
+				outputItems.push({ data: VSBuffer.fromString(String(value)), mime });
+		}
+	}
+	return outputItems;
 }
 
 /**
