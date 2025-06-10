@@ -198,6 +198,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const onAccept = async () => {
 		if (useNewConfig) {
 			if (await shouldCloseModal()) {
+				await onCancelPending();
 				props.onClose();
 				props.renderer.dispose();
 			}
