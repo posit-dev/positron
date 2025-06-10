@@ -12,8 +12,6 @@ import React, { PropsWithChildren } from 'react';
 // Other dependencies.
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronWelcomePageStart } from './positronWelcomePageStart.js';
-import { PositronWelcomePageHelp } from './positronWelcomePageHelp.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
@@ -23,7 +21,6 @@ import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 export interface PositronWelcomePageLeftProps {
-	openerService: IOpenerService;
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
 	commandService: ICommandService;
@@ -36,21 +33,17 @@ export interface PositronWelcomePageLeftProps {
 export const PositronWelcomePageLeft = (props: PropsWithChildren<PositronWelcomePageLeftProps>) => {
 	// Render.
 	return (
-		<>
-			<PositronWelcomePageStart
-				commandService={props.commandService}
-				configurationService={props.configurationService}
-				keybindingService={props.keybindingService}
-				layoutService={props.layoutService}
-			/>
-			<PositronWelcomePageHelp openerService={props.openerService} />
-		</>
+		<PositronWelcomePageStart
+			commandService={props.commandService}
+			configurationService={props.configurationService}
+			keybindingService={props.keybindingService}
+			layoutService={props.layoutService}
+		/>
 	);
 };
 
 export const createWelcomePageLeft = (
 	container: HTMLElement,
-	openerService: IOpenerService,
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
 	commandService: ICommandService,
@@ -67,7 +60,6 @@ export const createWelcomePageLeft = (
 			keybindingService={keybindingService}
 			languageRuntimeService={languageRuntimeService}
 			layoutService={layoutService}
-			openerService={openerService}
 			runtimeStartupService={runtimeStartupService}
 			runtimesSessionService={runtimeSessionService}
 		/>
