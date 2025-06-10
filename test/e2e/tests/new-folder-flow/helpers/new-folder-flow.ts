@@ -16,10 +16,14 @@ export async function createNewFolder(app: Application, options: CreateFolderOpt
 	});
 }
 
-export async function verifyFolderCreation(app: Application, folderName: string, folderTemplate: FolderTemplate) {
+export async function verifyFolderCreation(app: Application, folderName: string) {
 	await test.step(`Verify folder created`, async () => {
 		await expect(app.code.driver.page.locator('#top-action-bar-current-working-folder')).toHaveText(folderName, { timeout: 60000 }); // this is really slow on windows CI for some reason
+	});
+}
 
+export async function verifyConsoleReady(app: Application, folderTemplate: FolderTemplate) {
+	await test.step(`Verify console is ready`, async () => {
 		const consoleSymbol = folderTemplate === FolderTemplate.R_PROJECT ? '>' : '>>>';
 		await app.workbench.console.waitForReadyAndStarted(consoleSymbol, 90000);
 	});

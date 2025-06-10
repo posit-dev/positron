@@ -23,7 +23,7 @@ test.describe('Empty Folder - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOL
 			folderName
 		});
 
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
 	});
 
 	test('Only Empty Project template shows when interpreter startup behavior is disabled', async function ({ app, workspaceSettings }) {

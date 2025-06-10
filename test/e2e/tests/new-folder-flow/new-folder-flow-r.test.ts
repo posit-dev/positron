@@ -5,7 +5,7 @@
 
 import { FolderTemplate, } from '../../infra';
 import { test, tags } from '../_test.setup';
-import { addRandomNumSuffix, createNewFolder, handleRenvInstallModal, verifyFolderCreation, verifyRenvFilesArePresent } from './helpers/new-folder-flow.js';
+import { addRandomNumSuffix, createNewFolder, handleRenvInstallModal, verifyConsoleReady, verifyFolderCreation, verifyRenvFilesArePresent } from './helpers/new-folder-flow.js';
 
 test.use({
 	suiteId: __filename
@@ -28,7 +28,8 @@ test.describe('R - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, t
 			folderName
 		});
 
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
 	});
 
 	test('R - Accept Renv install', { tag: [tags.WIN] }, async function ({ app }) {
@@ -41,7 +42,8 @@ test.describe('R - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, t
 		});
 
 		await handleRenvInstallModal(app, 'install');
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
 		await verifyRenvFilesArePresent(app);
 		await app.workbench.console.waitForConsoleContents('renv activated');
 	});
@@ -55,7 +57,8 @@ test.describe('R - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, t
 			rEnvCheckbox: true,
 		});
 
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
 		await verifyRenvFilesArePresent(app);
 		await app.workbench.console.waitForConsoleContents('renv activated');
 	});
@@ -71,6 +74,7 @@ test.describe('R - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, t
 		});
 
 		await handleRenvInstallModal(app, 'cancel');
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
 	});
 });

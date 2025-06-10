@@ -5,7 +5,7 @@
 
 import { FolderTemplate } from '../../infra';
 import { test, tags } from '../_test.setup';
-import { addRandomNumSuffix, createNewFolder, verifyCondaEnvStarts, verifyCondaFilesArePresent, verifyFolderCreation, verifyGitFilesArePresent, verifyGitStatus, verifyUvEnvStarts, verifyVenvEnvStarts } from './helpers/new-folder-flow.js';
+import { addRandomNumSuffix, createNewFolder, verifyCondaEnvStarts, verifyCondaFilesArePresent, verifyConsoleReady, verifyFolderCreation, verifyGitFilesArePresent, verifyGitStatus, verifyUvEnvStarts, verifyVenvEnvStarts } from './helpers/new-folder-flow.js';
 
 test.use({
 	suiteId: __filename
@@ -27,7 +27,8 @@ test.describe('Python - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FL
 			interpreterPath: (await sessions.getSelectedSessionInfo()).path
 		});
 
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
 	});
 
 	// untagged windows because we cannot find any way to copy text from the terminal now that its a canvas
@@ -42,7 +43,8 @@ test.describe('Python - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FL
 			pythonEnv: 'venv',
 		});
 
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
 		await verifyGitFilesArePresent(app);
 		await verifyVenvEnvStarts(app);
 		await verifyGitStatus(app);
@@ -57,7 +59,8 @@ test.describe('Python - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FL
 			pythonEnv: 'conda', // test relies on conda already installed on machine
 		});
 
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
 		await verifyCondaFilesArePresent(app);
 		await verifyCondaEnvStarts(app);
 	});
@@ -72,7 +75,8 @@ test.describe('Python - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FL
 			pythonEnv: 'venv',
 		});
 
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
 		await verifyVenvEnvStarts(app);
 	});
 
@@ -86,7 +90,8 @@ test.describe('Python - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FL
 			pythonEnv: 'uv',  // test relies on uv already installed on machine
 		});
 
-		await verifyFolderCreation(app, folderName, folderTemplate);
+		await verifyFolderCreation(app, folderName);
+		await verifyConsoleReady(app, folderTemplate);
 		await verifyUvEnvStarts(app);
 	});
 });
