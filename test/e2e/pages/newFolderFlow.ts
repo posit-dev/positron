@@ -32,7 +32,10 @@ export class NewFolderFlow {
 
 		await this.setFolderTemplate(options.folderTemplate);
 		await this.setFolderNameLocation(options);
-		await this.setConfiguration(options);
+
+		if (options.folderTemplate !== FolderTemplate.EMPTY_PROJECT) {
+			await this.setConfiguration(options);
+		}
 
 		await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
 		await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'New Folder From Template' })).not.toBeVisible();
@@ -60,7 +63,8 @@ export class NewFolderFlow {
 			await this.code.driver.page.getByText('Initialize Git repository').check();
 		}
 
-		await this.clickFlowButton(FlowButton.NEXT);
+		const button = options.folderTemplate === FolderTemplate.EMPTY_PROJECT ? FlowButton.CREATE : FlowButton.NEXT;
+		await this.clickFlowButton(button);
 	}
 
 	/**

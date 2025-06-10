@@ -5,19 +5,32 @@
 
 import { FolderTemplate } from '../../infra';
 import { test, expect, tags } from '../_test.setup';
+import { addRandomNumSuffix, createNewFolder, verifyFolderCreation } from './helpers/new-folder-flow.js';
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe('New Folder Flow - Template Types', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW] }, () => {
-	test.beforeAll(async function ({ app, workspaceSettings }) {
-		await app.workbench.settings.removeWorkspaceSettings(['interpreters.startupBehavior']);
-		// Disable startup behavior for all interpreters.
-		await workspaceSettings.set([['interpreters.startupBehavior', '"disabled"']]);
+test.describe('Empty Folder - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
+	const folderTemplate = FolderTemplate.EMPTY_PROJECT;
+
+	test('Empty Folder - Folder Defaults', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+		const folderName = addRandomNumSuffix('empty-project');
+
+		// Create a new empty project folder
+		await createNewFolder(app, {
+			folderTemplate,
+			folderName
+		});
+
+		await verifyFolderCreation(app, folderName, folderTemplate);
 	});
 
-	test('Only Empty Project template shows when interpreter startup behavior is disabled', async function ({ app }) {
+	test('Only Empty Project template shows when interpreter startup behavior is disabled', async function ({ app, workspaceSettings }) {
+		// Disable startup behavior for all interpreters
+		await app.workbench.settings.removeWorkspaceSettings(['interpreters.startupBehavior']);
+		await workspaceSettings.set([['interpreters.startupBehavior', '"disabled"']]);
+
 		// Open up the new folder flow
 		await app.workbench.quickaccess.runCommand('positron.workbench.action.newFolderFromTemplate', { keepOpen: false });
 
