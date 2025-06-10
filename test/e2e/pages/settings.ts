@@ -19,7 +19,7 @@ export class Settings {
 		const file = 'settings.json';
 		await this.editors.saveOpenedFile();
 		await this.code.driver.page.keyboard.press('ArrowRight');
-		await this.editor.type(settings.map(v => `"${v[0]}": ${v[1]},`).join(''));
+		await this.editor.type(settings.map(v => `"${v[0]}": ${v[1]},`).join(''), true);
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
 		// Wait for the settings to be applied. I ran into this specifically with Chromium locally but it seems fine in CI :shrug:
@@ -31,7 +31,7 @@ export class Settings {
 		const file = 'settings.json';
 		await this.quickaccess.runCommand('editor.action.selectAll');
 		await this.code.driver.page.keyboard.press('Delete');
-		await this.editor.type('{'); // will auto close }
+		await this.editor.type('{', true); // will auto close }
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
 		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
@@ -46,6 +46,19 @@ export class Settings {
 	async openWorkspaceSettingsFile(): Promise<void> {
 		await this.quickaccess.runCommand('Preferences: Open Workspace Settings (JSON)');
 		await this.editor.waitForEditorFocus('settings.json', 1);
+	}
+
+	async setWorkspaceSettings(settings: [key: string, value: string][]): Promise<void> {
+		await this.openWorkspaceSettingsFile();
+		const file = 'settings.json';
+		await this.editors.saveOpenedFile();
+		await this.code.driver.page.keyboard.press('ArrowRight');
+		await this.editor.type(settings.map(v => `"${v[0]}": ${v[1]},`).join(''), true);
+		await this.editors.saveOpenedFile();
+		await this.editors.waitForActiveTabNotDirty(file);
+		// Wait for the settings to be applied. I ran into this specifically with Chromium locally but it seems fine in CI :shrug:
+		await this.code.driver.page.waitForTimeout(1000);
+		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
 	}
 
 	// Read all settings in settings.json into an array of key-value pairs
@@ -97,6 +110,17 @@ export class Settings {
 		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
 	}
 
+	async clearWorkspaceSettings(): Promise<void> {
+		await this.openWorkspaceSettingsFile();
+		const file = 'settings.json';
+		await this.quickaccess.runCommand('editor.action.selectAll');
+		await this.code.driver.page.keyboard.press('Delete');
+		await this.editor.type('{', true); // will auto close }
+		await this.editors.saveOpenedFile();
+		await this.editors.waitForActiveTabNotDirty(file);
+		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
+	}
+
 	// Backup current workspace settings
 	async backupWorkspaceSettings(): Promise<string> {
 		await this.openWorkspaceSettingsFile();
@@ -104,6 +128,8 @@ export class Settings {
 		// Select all content and copy to clipboard
 		await this.quickaccess.runCommand('editor.action.selectAll');
 		await this.quickaccess.runCommand('editor.action.clipboardCopyAction');
+
+		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
 
 		const clipboardText = await this.clipboard.getClipboardText();
 		return clipboardText ?? '';
