@@ -76,7 +76,7 @@
 	"r.walkthrough.migrateFromRStudio.workspaces.title": "Projects, folders, and workspaces",
 	"r.walkthrough.migrateFromRStudio.workspaces.description": "  \n[Open an existing folder](command:workbench.action.files.openFolder)",
 	"r.walkthrough.migrateFromRStudio.formatting.title": "Formatting your R code",
-	"r.walkthrough.migrateFromRStudio.formatting.description": "  \n[Configure Air to format on save](command:r.walkthrough.airFormatOnSave)"
+	"r.walkthrough.migrateFromRStudio.formatting.description": "  \n[Configure Air to format on save](command:r.walkthrough.formatOnSave)"
 
 }
 

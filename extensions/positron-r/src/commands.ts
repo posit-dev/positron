@@ -238,8 +238,8 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 		vscode.commands.registerCommand('r.walkthrough.updateRStudioKeybindings', async () => {
 			vscode.commands.executeCommand('workbench.action.openSettings', 'workbench.keybindings.rstudioKeybindings');
 		}),
-		vscode.commands.registerCommand('r.walkthrough.airFormatOnSave', async () => {
-			vscode.commands.executeCommand('workbench.action.openSettings', '@lang:r editor.formatOnSave');
+		vscode.commands.registerCommand('r.walkthrough.formatOnSave', async () => {
+			vscode.commands.executeCommand('workbench.action.openSettings', 'editor.formatOnSave');
 		}),
 	);
 }
