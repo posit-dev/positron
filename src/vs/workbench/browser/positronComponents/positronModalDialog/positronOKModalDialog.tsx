@@ -20,6 +20,12 @@ import { PositronModalDialog, PositronModalDialogProps } from './positronModalDi
 export interface OKModalDialogProps extends PositronModalDialogProps {
 	okButtonTitle?: string;
 	onAccept: () => void;
+	/**
+	 * Not all OK modals should be closeable via the Escape key, as they may require the user to click
+	 * the OK button to acknowledge something.
+	 * However, this can be optionally specified to allow the modal to be closed via the Escape key.
+	 */
+	onCancel?: () => void;
 }
 
 /**
