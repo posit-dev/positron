@@ -138,6 +138,9 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	/** The emitter for the _sizingPolicyEmitter event */
 	private readonly _onDidChangeSizingPolicyEmitter = new Emitter<IPositronPlotSizingPolicy>;
 
+	/** The emitter for the onDidChangePlotZoom event */
+	private readonly _onDidChangePlotZoomEmitter = new Emitter<{ plotId: string; zoomLevel: number }>();
+
 	/** The ID Of the currently selected plot, if any */
 	private _selectedPlotId: string | undefined;
 
@@ -569,6 +572,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const plot = this._editorPlots.get(plotId);
 		if (plot instanceof PlotClientInstance) {
 			plot.metadata.zoom_level = zoomLevel;
+			this.storePlotMetadata(plot.metadata);
+			this._onDidChangePlotZoomEmitter.fire({ plotId, zoomLevel });
 		} else {
 			this._notificationService.error(localize('positronPlots.zoom.setInvalidPlotType', 'Cannot set zoom for this plot type'));
 		}
@@ -1023,6 +1028,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidChangeDarkFilterMode: Event<DarkFilter> = this._onDidChangeDarkFilterMode.event;
 	onDidChangePlotsRenderSettings: Event<PlotRenderSettings> = this._onDidChangePlotsRenderSettings.event;
 	onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy> = this._onDidChangeSizingPolicyEmitter.event;
+	onDidChangePlotZoom: Event<{ plotId: string; zoomLevel: number }> = this._onDidChangePlotZoomEmitter.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): IPositronPlotClient[] {

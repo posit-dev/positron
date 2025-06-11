@@ -82,16 +82,9 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 	}
 
 	private registerEditorZoomSubMenu(): void {
-		// Register all the zoom actions
-		registerAction2(ZoomToFitAction);
-		registerAction2(ZoomFiftyAction);
-		registerAction2(ZoomSeventyFiveAction);
-		registerAction2(ZoomOneHundredAction);
-		registerAction2(ZoomTwoHundredAction);
-
-		// Register the main submenu trigger in the EditorTitle
+		// Register the main submenu for the editor action bar
 		const zoomSubmenu: ISubmenuItem = {
-			title: localize2('positronPlots.zoomSubMenuTitle', 'Zoom'),
+			title: localize2('positronPlots.zoomSubMenuTitle', 'Set the plot zoom'),
 			submenu: PlotsActiveEditorZoomAction.SUBMENU_ID,
 			when: PLOT_IS_ACTIVE_EDITOR,
 			group: 'navigation',
@@ -100,32 +93,12 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		};
 		MenuRegistry.appendMenuItem(MenuId.EditorTitle, zoomSubmenu);
 
-		// Register individual zoom actions into the submenu
-		// const zoomActionIds: string[] = [
-		// 	ZoomToFitAction.ID,
-		// 	ZoomFiftyAction.ID,
-		// 	ZoomSeventyFiveAction.ID,
-		// 	ZoomOneHundredAction.ID,
-		// 	ZoomTwoHundredAction.ID,
-		// ];
-
-		// let actionOrder = 1;
-
-		// for (const actionId of zoomActionIds) {
-		// 	MenuRegistry.appendMenuItem(PlotsActiveEditorZoomAction.SUBMENU_ID, {
-		// 		command: {
-		// 			id: actionId,
-		// 			title: actionId,
-		// 			source: {
-		// 				id: actionId,
-		// 				title: actionId,
-		// 			}
-		// 		},
-		// 		// `title` for IMenuItem is usually the same as command.title if not a submenu
-		// 		group: 'navigation',
-		// 		order: actionOrder++,
-		// 	});
-		// }
+		// Register all the zoom actions
+		registerAction2(ZoomToFitAction);
+		registerAction2(ZoomFiftyAction);
+		registerAction2(ZoomSeventyFiveAction);
+		registerAction2(ZoomOneHundredAction);
+		registerAction2(ZoomTwoHundredAction);
 	}
 }
 

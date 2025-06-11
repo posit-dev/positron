@@ -26,7 +26,7 @@ interface EditorPlotsContainerProps {
 
 export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 
-
+	const [zoomLevel, setZoomLevel] = useState(props.plotClient.metadata.zoom_level);
 	const [darkFilterMode, setDarkFilterMode] = useState(props.positronPlotsService.darkFilterMode);
 
 	const render = () => {
@@ -36,13 +36,13 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 				height={props.height}
 				plotClient={props.plotClient}
 				width={props.width}
-				zoom={props.plotClient.metadata.zoom_level} />;
+				zoom={zoomLevel} />;
 		}
 		if (props.plotClient instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={props.plotClient.id}
 				plotClient={props.plotClient}
-				zoom={props.plotClient.metadata.zoom_level} />;
+				zoom={zoomLevel} />;
 		}
 		return null;
 	};
@@ -60,8 +60,26 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 		return () => disposableStore.dispose();
 	}, [props.positronPlotsService]);
 
+	// Monitor zoom level changes
+	useEffect(() => {
+		// listen to the plots service for zoom level changes
+		const disposable = props.positronPlotsService.onDidChangePlotZoom(({ plotId, zoomLevel }) => {
+			if (plotId !== props.plotClient.id) {
+				return;
+			}
+
+			// Update the zoom level state
+			setZoomLevel(zoomLevel);
+		});
+
+		return () => {
+			// Clean up the event listener when the component unmounts
+			disposable.dispose();
+		}
+	}, [props.plotClient.id, props.positronPlotsService]);
+
 	return (
-		<div className={'dark-filter-' + darkFilterMode} style={
+		<div className={`dark-filter-${darkFilterMode} ${props.plotClient.metadata.zoom_level}`} style={
 			{
 				width: props.width,
 				height: props.height

@@ -165,6 +165,12 @@ export interface IPositronPlotsService {
 	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
 
 	/**
+	 * Notifies subscribers when the selected plot zoom level has changed.
+	 * This typically happens when the plot viewpane has been resized.
+	 */
+	readonly onDidChangePlotZoom: Event<{ plotId: string; zoomLevel: number }>;
+
+	/**
 	 * Gets the cached plot thumbnail URI for a given plot ID.
 	 * @param plotId The plot ID to get the thumbnail URI for.
 	 * @returns The thumbnail URI for the plot, or undefined if not found.

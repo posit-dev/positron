@@ -8,7 +8,6 @@ import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.
 import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotRenderSettings } from '../../common/positronPlots.js';
 import { IPositronPlotSizingPolicy } from '../../common/sizingPolicy.js';
 import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
-import { ZoomLevel } from '../../../../contrib/positronPlots/browser/components/zoomPlotMenuButton.js';
 
 /**
  * TestPositronPlotsService class.
@@ -30,7 +29,7 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	private readonly _editorPlots = new Map<string, IPositronPlotClient>();
 
 	/** Map of zoom levels for editor plots, keyed by plot ID. */
-	private readonly _editorPlotZoomLevels = new Map<string, ZoomLevel>();
+	private readonly _editorPlotZoomLevels = new Map<string, number>();
 
 	/**
 	 * Gets or sets the ID of the currently selected plot.
@@ -102,6 +101,10 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	/** The emitter for the _sizingPolicyEmitter event */
 	private readonly _onDidChangeSizingPolicyEmitter =
 		this._register(new Emitter<IPositronPlotSizingPolicy>());
+
+	/** The emitter for the _plotZoomEmitter event */
+	private readonly _onDidChangePlotZoomEmitter =
+		this._register(new Emitter<{ plotId: string; zoomLevel: number }>());
 
 	//#endregion Private Properties
 
@@ -211,6 +214,11 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 * The onDidChangeSizingPolicy event.
 	 */
 	readonly onDidChangeSizingPolicy = this._onDidChangeSizingPolicyEmitter.event;
+
+	/**
+	 * The onDidChangePlotZoom event.
+	 */
+	readonly onDidChangePlotZoom = this._onDidChangePlotZoomEmitter.event;
 
 	/**
 	 * Gets the cached plot thumbnail URI for a given plot ID.
@@ -471,7 +479,7 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 * @param plotId The ID of the plot to set the zoom level for.
 	 * @param zoomLevel The zoom level to set for the plot.
 	 */
-	setEditorPlotZoom(plotId: string, zoomLevel: ZoomLevel): void {
+	setEditorPlotZoom(plotId: string, zoomLevel: number): void {
 		if (this._editorPlots.has(plotId)) {
 			this._editorPlotZoomLevels.set(plotId, zoomLevel);
 		} else {
@@ -487,10 +495,10 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	getEditorPlotZoomLevel(plotId: string): number | undefined {
 		const plotClient = this._editorPlots.get(plotId);
 		if (plotClient) {
-			return this._editorPlotZoomLevels.get(plotId) ?? ZoomLevel.Fit;
+			return this._editorPlotZoomLevels.get(plotId) ?? 0;
 		}
 
-		return ZoomLevel.Fit; // Default to Fit for test implementation
+		return 0; // Default to Fit for test implementation
 	}
 
 	/**
