@@ -25,7 +25,7 @@ interface ZoomPlotMenuButtonProps {
 	readonly zoomLevel: number;
 }
 
-const zoomLevelMap = new Map<ZoomLevel, string>([
+export const zoomLevelMap = new Map<ZoomLevel, string>([
 	[ZoomLevel.Fit, nls.localize('positronZoomFit', 'Fit')],
 	[ZoomLevel.Fifty, nls.localize('positronZoomFifty', '50%')],
 	[ZoomLevel.SeventyFive, nls.localize('positronZoomSeventyFive', '75%')],

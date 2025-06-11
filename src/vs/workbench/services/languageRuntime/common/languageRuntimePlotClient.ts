@@ -12,6 +12,7 @@ import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { ZoomLevel } from '../../../contrib/positronPlots/browser/components/zoomPlotMenuButton.js';
 
 const FreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
 
@@ -76,6 +77,9 @@ export interface IPositronPlotMetadata {
 
 	/** The optional output identifier of the plot. */
 	output_id?: string;
+
+	/** The zoom level for displaying the plot */
+	zoom_level: ZoomLevel;
 }
 
 /**
