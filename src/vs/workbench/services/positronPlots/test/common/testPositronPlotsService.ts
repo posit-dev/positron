@@ -8,6 +8,7 @@ import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.
 import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotRenderSettings } from '../../common/positronPlots.js';
 import { IPositronPlotSizingPolicy } from '../../common/sizingPolicy.js';
 import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
+import { ZoomLevel } from '../../../../contrib/positronPlots/browser/components/zoomPlotMenuButton.js';
 
 /**
  * TestPositronPlotsService class.
@@ -27,6 +28,9 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	 * Gets a map of the Positron editor plot instances by ID.
 	 */
 	private readonly _editorPlots = new Map<string, IPositronPlotClient>();
+
+	/** Map of zoom levels for editor plots, keyed by plot ID. */
+	private readonly _editorPlotZoomLevels = new Map<string, ZoomLevel>();
 
 	/**
 	 * Gets or sets the ID of the currently selected plot.
@@ -460,6 +464,33 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	unregisterPlotClient(plotClient: IPositronPlotClient): void {
 		// Dispose the client
 		plotClient.dispose();
+	}
+
+	/**
+	 * Sets the zoom level for the editor plot with the given ID.
+	 * @param plotId The ID of the plot to set the zoom level for.
+	 * @param zoomLevel The zoom level to set for the plot.
+	 */
+	setEditorPlotZoom(plotId: string, zoomLevel: ZoomLevel): void {
+		if (this._editorPlots.has(plotId)) {
+			this._editorPlotZoomLevels.set(plotId, zoomLevel);
+		} else {
+			throw new Error(`Plot with ID ${plotId} does not exist.`);
+		}
+	}
+
+	/**
+	 * Gets the zoom level for the editor plot with the given ID.
+	 * @param plotId The ID of the plot to get the zoom level for.
+	 * @returns The zoom level for the plot, or undefined if not found.
+	 */
+	getEditorPlotZoomLevel(plotId: string): number | undefined {
+		const plotClient = this._editorPlots.get(plotId);
+		if (plotClient) {
+			return this._editorPlotZoomLevels.get(plotId) ?? ZoomLevel.Fit;
+		}
+
+		return ZoomLevel.Fit; // Default to Fit for test implementation
 	}
 
 	/**

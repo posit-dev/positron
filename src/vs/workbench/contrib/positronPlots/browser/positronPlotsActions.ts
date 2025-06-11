@@ -21,6 +21,8 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { ZoomLevel } from './components/zoomPlotMenuButton.js';
+import { Uri } from 'vscode';
 
 export enum PlotActionTarget {
 	VIEW = 'view',
@@ -629,5 +631,161 @@ export class PlotsSizingPolicyAction extends AbstractPlotsAction {
 
 	protected override plotActionFilter(plotClient: IPositronPlotClient): boolean {
 		return plotClient instanceof PlotClientInstance;
+	}
+}
+
+export class PlotsActiveEditorZoomAction extends Action2 {
+	static readonly ID = 'workbench.action.positronPlots.zoomActiveEditor';
+	static readonly SUBMENU_ID = MenuId.for('positronPlots.zoomSubmenu');
+
+	constructor() {
+		super({
+			id: PlotsActiveEditorZoomAction.ID,
+			title: localize2('positronPlots.zoomSubMenuTitle', 'Zoom'), // Title for the action if shown in lists like Keyboard Shortcuts
+			category, // POSITRON_PLOTS_ACTION_CATEGORY
+			f1: false, // Not in command palette by default
+			// The 'menu' and 'icon' properties are removed.
+			// This action itself is not directly placed in a menu to act as a submenu trigger.
+			// An ISubmenuItem will be registered in positronPlots.contribution.ts for that.
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// This is a no-op. The action primarily serves to define SUBMENU_ID.
+		// The actual zoom functionality is handled by individual zoom actions.
+	}
+}
+
+abstract class ZoomAction extends Action2 {
+	abstract zoomLevel: ZoomLevel;
+
+	constructor(descriptor: IAction2Options) {
+		super(descriptor);
+	}
+
+	/**
+	 * Runs the action and zooms the plot to fit the editor.
+	 *
+	 * @param accessor The service accessor.
+	 * @param plotId Optional plot ID or source identifier
+	 */
+	async run(accessor: ServicesAccessor, plotId: Uri): Promise<void> {
+		const plotsService = accessor.get(IPositronPlotsService);
+		plotsService.setEditorPlotZoom(plotId.path, this.zoomLevel);
+	}
+}
+
+export class ZoomToFitAction extends ZoomAction {
+	override zoomLevel = ZoomLevel.Fit;
+	static ID = 'workbench.action.positronPlots.zoomToFit';
+
+	constructor() {
+		super({
+			id: ZoomToFitAction.ID,
+			title: localize2('positronPlots.zoomToFit', 'Fit'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			menu: [
+				{
+					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 1,
+				}
+			],
+		});
+	}
+}
+
+export class ZoomFiftyAction extends ZoomAction {
+	override zoomLevel = ZoomLevel.Fifty;
+	static ID = 'workbench.action.positronPlots.zoomFifty';
+
+	constructor() {
+		super({
+			id: ZoomFiftyAction.ID,
+			title: localize2('positronPlots.zoomFifty', '50%'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			menu: [
+				{
+					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 2,
+				}
+			],
+		});
+	}
+}
+
+export class ZoomSeventyFiveAction extends ZoomAction {
+	override zoomLevel = ZoomLevel.SeventyFive;
+	static ID = 'workbench.action.positronPlots.zoomSeventyFive';
+
+	constructor() {
+		super({
+			id: ZoomSeventyFiveAction.ID,
+			title: localize2('positronPlots.zoomSeventyFive', '75%'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			menu: [
+				{
+					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 3,
+				}
+			],
+		});
+	}
+}
+
+export class ZoomOneHundredAction extends ZoomAction {
+	override zoomLevel = ZoomLevel.OneHundred;
+	static ID = 'workbench.action.positronPlots.zoomOneHundred';
+
+	constructor() {
+		super({
+			id: ZoomOneHundredAction.ID,
+			title: localize2('positronPlots.zoomOneHundred', '100%'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			menu: [
+				{
+					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 4,
+				}
+			],
+		});
+	}
+}
+
+export class ZoomTwoHundredAction extends ZoomAction {
+	override zoomLevel = ZoomLevel.TwoHundred;
+	static ID = 'workbench.action.positronPlots.zoomTwoHundred';
+
+	constructor() {
+		super({
+			id: ZoomTwoHundredAction.ID,
+			title: localize2('positronPlots.zoomTwoHundred', '200%'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			menu: [
+				{
+					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 5,
+				}
+			],
+		});
 	}
 }
