@@ -37,7 +37,7 @@ suite('Positron Extension Validator', () => {
 		for (let year = 2000; year <= 2050; year++) {
 			// Test months, including weird months we'll never use like 13-20, just to ensure robustness.
 			for (let month = 1; month <= 20; month++) {
-				// Test random builds.
+				// Test builds.
 				for (const build of buildsToTest) {
 					// Create the version under test and validate the manifest for it.
 					const versionUnderTest = `${year}.${month}.${build}`;
