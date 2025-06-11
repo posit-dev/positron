@@ -404,6 +404,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				xml.node('plots', 'A plot is visible.')
 			);
 		}
+		if (positronContext.currentDate) {
+			positronContextPrompts.push(
+				xml.node('date', `Today's date is: ${positronContext.currentDate}`),
+			);
+		}
 		if (positronContextPrompts.length > 0) {
 			prompts.push(xml.node('context', positronContextPrompts.join('\n\n')));
 		}
