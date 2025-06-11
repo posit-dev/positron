@@ -10,8 +10,10 @@ import { LabeledTextInput } from '../../../../browser/positronComponents/positro
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js'
 import { LanguageModelUIConfiguration } from '../languageModelModalDialog.js'
 import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js'
+import { AuthMethod } from '../types.js'
 
 interface LanguageModelConfigComponentProps {
+	authMethod: AuthMethod,
 	provider: LanguageModelUIConfiguration,
 	source: IPositronLanguageModelSource,
 	signingIn?: boolean,
@@ -50,6 +52,8 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 		);
 	}
 
+	const apiKeySpecified = props.source.supportedOptions.includes(AuthMethod.API_KEY) && !!props.provider.apiKey && props.provider.apiKey.length > 0;
+
 	return (<>
 		<div className='language-model-container input'>
 			{props.source.supportedOptions.includes('apiKey') && !props.source.signedIn && (
@@ -57,7 +61,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 					props.onChange({ ...props.provider, apiKey: newApiKey });
 				}} onSignIn={props.onSignIn} />
 			)}
-			<SignInButton signedIn={props.source.signedIn} signingIn={props.signingIn} onSignIn={props.onSignIn} />
+			<SignInButton apiKeySpecified={apiKeySpecified} authMethod={props.authMethod} signedIn={props.source.signedIn} signingIn={props.signingIn} onSignIn={props.onSignIn} />
 			{
 				props.signingIn && props.provider.oauth && !props.source.signedIn &&
 				<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
@@ -85,8 +89,15 @@ const ApiKey = (props: { apiKey?: string, signedIn?: boolean, onChange: (newApiK
 	</>)
 }
 
-const SignInButton = (props: { signedIn?: boolean, signingIn?: boolean, onSignIn: () => void }) => {
-	return <Button className='language-model button sign-in' disabled={props.signingIn} onPressed={props.onSignIn}>
+const SignInButton = (props: { apiKeySpecified: boolean, authMethod: AuthMethod, signedIn?: boolean, signingIn?: boolean, onSignIn: () => void }) => {
+	// When the auth method is 'apiKey' and the user is not signed in, we use the default button style, so that the
+	// Enter key can be used to sign in with the text input provided.
+	const useDefaultButtonStyle = props.authMethod === AuthMethod.API_KEY && props.apiKeySpecified && !props.signedIn;
+	return <Button
+		className={`language-model button sign-in ${useDefaultButtonStyle ? 'default' : ''}`}
+		disabled={props.signingIn}
+		onPressed={props.onSignIn}
+	>
 		{(() => {
 			if (props.signedIn) {
 				return localize('positron.newConnectionModalDialog.signOut', "Sign out");
