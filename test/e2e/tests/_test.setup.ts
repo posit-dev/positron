@@ -244,7 +244,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			settings: [string, string][],
 			restartApp = false
 		) => {
-			await userSettings.setMultiple(settings, restartApp);
+			await userSettings.setMultipleUserSettings(settings, restartApp);
 			await app.workbench.sessions.expectNoStartUpMessaging();
 		};
 
@@ -256,21 +256,37 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	}, { scope: 'worker' }],
 
 	workspaceSettings: [async ({ app }, use) => {
-		const workspaceSettings = new SettingsFixture(app);
+		const settings = app.workbench.settings;
+		const backup = await settings.backupWorkspaceSettings();
 
 		const setWorkspaceSetting = async (
-			settings: [string, string][],
+			newSettings: [string, string][],
 			restartApp = false
 		) => {
-			await workspaceSettings.setMultiple(settings, restartApp);
+			if (newSettings.length === 0) {
+				// No settings were provided
+				return;
+			}
+			// set each setting in the workspace settings
+			for (const [key, value] of newSettings) {
+				await settings.setWorkspaceSettings([[key, value]]);
+			}
+			if (restartApp) {
+				await app.restart();
+			}
 			await app.workbench.sessions.expectNoStartUpMessaging();
 		};
 
+		const clearWorkspaceSettings = async () => {
+			await app.workbench.settings.clearWorkspaceSettings();
+		};
+
 		await use({
-			set: setWorkspaceSetting
+			set: setWorkspaceSetting,
+			clear: clearWorkspaceSettings
 		});
 
-		await workspaceSettings.unset();
+		await settings.restoreWorkspaceSettings(backup);
 	}, { scope: 'worker' }],
 
 	vscodeUserSettings: [async ({ }, use) => {
@@ -509,6 +525,7 @@ interface WorkerFixtures {
 	};
 	workspaceSettings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
+		clear: () => Promise<void>;
 	};
 	vscodeUserSettings: SettingsFileManager;
 	positronUserSettings: SettingsFileManager;

@@ -4,5 +4,13 @@
     {
         "key": "cmd+j j",
         "command": "jupyter-cell-tags.addTag"
+    },
+    {
+        "key": "cmd+j k",
+        "command": "workbench.action.openWorkspaceSettingsFile"
+    },
+        {
+        "key": "cmd+j f",
+        "command": "positron.workbench.action.newFolderFromTemplate"
     }
 ]

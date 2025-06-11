@@ -9,12 +9,14 @@ import { Code } from '../infra/code';
 import { Editor } from './editor';
 import { Editors } from './editors';
 import { QuickAccess } from './quickaccess';
+import test from '@playwright/test';
+import { HotKeys } from './hotKeys.js';
 
 export class Settings {
 
-	constructor(private code: Code, private editors: Editors, private editor: Editor, private quickaccess: QuickAccess, private clipboard: Clipboard) { }
+	constructor(private code: Code, private editors: Editors, private editor: Editor, private quickaccess: QuickAccess, private clipboard: Clipboard, private hotKeys: HotKeys) { }
 
-	async addSettings(settings: [key: string, value: string][]): Promise<void> {
+	async addUserSettings(settings: [key: string, value: string][]): Promise<void> {
 		await this.openUserSettingsFile();
 		const file = 'settings.json';
 		await this.editors.saveOpenedFile();
@@ -26,15 +28,15 @@ export class Settings {
 		await this.code.driver.page.waitForTimeout(1000);
 	}
 
-	async clearSettings(): Promise<void> {
+	async clearUserSettings(): Promise<void> {
 		await this.openUserSettingsFile();
 		const file = 'settings.json';
-		await this.quickaccess.runCommand('editor.action.selectAll');
+		await this.hotKeys.selectAll();
 		await this.code.driver.page.keyboard.press('Delete');
 		await this.editor.type('{', true); // will auto close }
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
-		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
+		await this.hotKeys.closeTab();
 	}
 
 	async openUserSettingsFile(): Promise<void> {
@@ -44,21 +46,23 @@ export class Settings {
 
 	// Open the workspace settings JSON file
 	async openWorkspaceSettingsFile(): Promise<void> {
-		await this.quickaccess.runCommand('Preferences: Open Workspace Settings (JSON)');
+		await this.hotKeys.openWorkspaceSettingsJSON();
 		await this.editor.waitForEditorFocus('settings.json', 1);
 	}
 
 	async setWorkspaceSettings(settings: [key: string, value: string][]): Promise<void> {
-		await this.openWorkspaceSettingsFile();
-		const file = 'settings.json';
-		await this.editors.saveOpenedFile();
-		await this.code.driver.page.keyboard.press('ArrowRight');
-		await this.editor.type(settings.map(v => `"${v[0]}": ${v[1]},`).join(''), true);
-		await this.editors.saveOpenedFile();
-		await this.editors.waitForActiveTabNotDirty(file);
-		// Wait for the settings to be applied. I ran into this specifically with Chromium locally but it seems fine in CI :shrug:
-		await this.code.driver.page.waitForTimeout(1000);
-		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
+		await test.step(`Set workspace settings: ${settings}`, async () => {
+			await this.openWorkspaceSettingsFile();
+			const file = 'settings.json';
+			await this.editors.saveOpenedFile();
+			await this.code.driver.page.keyboard.press('ArrowRight');
+			await this.editor.type(settings.map(v => `"${v[0]}": ${v[1]},`).join(''), true);
+			await this.editors.saveOpenedFile();
+			await this.editors.waitForActiveTabNotDirty(file);
+			// Wait for the settings to be applied. I ran into this specifically with Chromium locally but it seems fine in CI :shrug:
+			await this.code.driver.page.waitForTimeout(1000);
+			await this.hotKeys.closeTab();
+		});
 	}
 
 	// Read all settings in settings.json into an array of key-value pairs
@@ -66,8 +70,8 @@ export class Settings {
 		await this.openWorkspaceSettingsFile();
 
 		// Select all content and copy to clipboard
-		await this.quickaccess.runCommand('editor.action.selectAll');
-		await this.quickaccess.runCommand('editor.action.clipboardCopyAction');
+		await this.hotKeys.selectAll();
+		await this.hotKeys.copy();
 
 		// Retrieve clipboard contents
 		const rawText = await this.clipboard.getClipboardText();
@@ -102,23 +106,23 @@ export class Settings {
 		// Clear the file and write new settings
 		await this.openWorkspaceSettingsFile();
 		const file = 'settings.json';
-		await this.quickaccess.runCommand('editor.action.selectAll');
+		await this.hotKeys.selectAll();
 		await this.code.driver.page.keyboard.press('Delete');
 		await this.editor.selectTabAndType(file, newSettingsJson);
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
-		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
+		await this.hotKeys.closeTab();
 	}
 
 	async clearWorkspaceSettings(): Promise<void> {
 		await this.openWorkspaceSettingsFile();
 		const file = 'settings.json';
-		await this.quickaccess.runCommand('editor.action.selectAll');
+		await this.hotKeys.selectAll();
 		await this.code.driver.page.keyboard.press('Delete');
 		await this.editor.type('{', true); // will auto close }
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
-		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
+		await this.hotKeys.closeTab();
 	}
 
 	// Backup current workspace settings
@@ -126,10 +130,9 @@ export class Settings {
 		await this.openWorkspaceSettingsFile();
 
 		// Select all content and copy to clipboard
-		await this.quickaccess.runCommand('editor.action.selectAll');
-		await this.quickaccess.runCommand('editor.action.clipboardCopyAction');
-
-		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
+		await this.hotKeys.selectAll();
+		await this.hotKeys.copy();
+		await this.hotKeys.closeTab();
 
 		const clipboardText = await this.clipboard.getClipboardText();
 		return clipboardText ?? '';
@@ -141,18 +144,18 @@ export class Settings {
 		const file = 'settings.json';
 
 		// Clear current file
-		await this.quickaccess.runCommand('editor.action.selectAll');
+		await this.hotKeys.selectAll();
 		await this.code.driver.page.keyboard.press('Delete');
 
 		// Copy original settings to clipboard
 		await this.clipboard.setClipboardText(settings.trim());
 
 		// Paste clipboard contents into the editor
-		await this.quickaccess.runCommand('editor.action.clipboardPasteAction');
+		await this.hotKeys.paste();
 
 		// Save and close
 		await this.editors.saveOpenedFile();
 		await this.editors.waitForActiveTabNotDirty(file);
-		await this.quickaccess.runCommand('workbench.action.closeActiveEditor');
+		await this.hotKeys.closeTab();
 	}
 }
