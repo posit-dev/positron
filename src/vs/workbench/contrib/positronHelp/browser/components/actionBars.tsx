@@ -169,7 +169,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 					<ActionBarButton
 						ariaLabel={tooltipShowPositronHelp}
-						disabled={true}
+						disabled={props.onHome === undefined}
 						icon={ThemeIcon.fromId('positron-home')}
 						tooltip={tooltipShowPositronHelp}
 						onPressed={() => props.onHome()}

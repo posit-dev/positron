@@ -31,6 +31,11 @@ import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } fr
 const HELP_HTML_FILE_PATH = 'vs/workbench/contrib/positronHelp/browser/resources/help.html';
 
 /**
+ * The welcome page HTML file path.
+ */
+const WELCOME_HTML_FILE_PATH = 'vs/workbench/contrib/positronHelp/browser/resources/welcome.html';
+
+/**
  * The Positron help view ID.
  */
 export const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
@@ -120,6 +125,11 @@ export interface IPositronHelpService {
 	 * Show the find widget.
 	 */
 	find(): void;
+
+	/**
+	 * Show the welcome page.
+	 */
+	showWelcomePage(): void;
 }
 
 /**
@@ -132,6 +142,11 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * Gets or sets the help HTML.
 	 */
 	private _helpHTML = '<!DOCTYPE html><html><body></body></html>';
+
+	/**
+	 * Gets or sets the welcome HTML.
+	 */
+	private _welcomeHTML = '<!DOCTYPE html><html><body></body></html>';
 
 	/**
 	 * Gets or sets the help entries.
@@ -209,6 +224,29 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				// Set the help HTML to an error message. This will be
 				// displayed in the Help pane.
 				this._helpHTML = `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${HELP_HTML_FILE_PATH}:</p><p>${error}</body></html>`;
+			});
+
+		// Load the welcome HTML file.
+		this._fileService.readFile(FileAccess.asFileUri(WELCOME_HTML_FILE_PATH))
+			.then(fileContent => {
+				// Set the help HTML to the file's contents.
+				const webviewThemeDataProvider = this._instantiationService.createInstance(
+					WebviewThemeDataProvider
+				);
+				const { styles } = webviewThemeDataProvider.getWebviewThemeData();
+				webviewThemeDataProvider.dispose();
+
+				const css = Object.entries(styles).map(([key, value]) => `${key}: ${value};`).join('\n');
+
+				const html = fileContent.value.toString()
+					.replace('__styles__', css);
+
+				this._welcomeHTML = html;
+				this.showWelcomePage();
+			}).catch(error => {
+				// Set the help HTML to an error message. This will be
+				// displayed in the Help pane.
+				this._welcomeHTML = `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${WELCOME_HTML_FILE_PATH}:</p><p>${error}</body></html>`;
 			});
 
 		// Register onDidColorThemeChange handler.
@@ -595,6 +633,24 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			this.deleteLanguageRuntimeHelpEntries(sessionId);
 			this._helpClients.delete(sessionId);
 		}));
+	}
+
+	showWelcomePage() {
+		// Add the help entry.
+		const helpEntry = this._instantiationService.createInstance(HelpEntry,
+			this._welcomeHTML,
+			'',
+			'',
+			'',
+			'welcome.html',
+			'welcome.html'
+		);
+
+		// Add the onDidNavigate event handler.
+		helpEntry.onDidNavigate(url => {
+			this.navigate(helpEntry.sourceUrl, url);
+		});
+		this.addHelpEntry(helpEntry);
 	}
 
 	private async handleShowHelpEvent(

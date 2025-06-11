@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta http-equiv="Content-Security-Policy"
+		content="default-src 'none'; media-src https:; script-src 'self' 'nonce-__nonce__'; style-src 'nonce-__nonce__'; frame-src *;">
+	<style nonce="__nonce__">
+		body {
+			padding: 0;
+		}
+
+		.container {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			height: 100vh;
+		}
+
+		__styles__
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<h1>Welcome to Positron</h1>
+	</div>
+
+	<script nonce="__nonce__" async type="module">
+		const vscode = acquireVsCodeApi();
+		vscode.postMessage({
+			"id": "positron-help-complete",
+			"title": "Welcome",
+		});
+	</script>
+</body>
+
+</html>

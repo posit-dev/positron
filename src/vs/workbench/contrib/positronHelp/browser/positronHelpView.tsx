@@ -258,6 +258,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 
 		// Home handler.
 		const homeHandler = () => {
+			this.positronHelpService.showWelcomePage();
 		};
 
 		// Create and register the PositronReactRenderer for the action bars.
