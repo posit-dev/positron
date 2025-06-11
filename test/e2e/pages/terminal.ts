@@ -34,50 +34,43 @@ export class Terminal {
 			web?: boolean;
 		} = {}
 	): Promise<string[]> {
-		const { timeout = 15000, expectedCount = 1, web = false } = options;
+		const { timeout = 15000, expectedCount = 1 } = options;
 
-		if (process.platform === 'darwin' && !web) {
-			const matchingLines = this.code.driver.page.locator(TERMINAL_WRAPPER).getByText(terminalText);
-			await expect(matchingLines).toHaveCount(expectedCount, { timeout });
+		await expect(async () => {
 
-			return expectedCount ? matchingLines.allTextContents() : [];
-		} else {
-			await expect(async () => {
+			// since we are interacting with right click menus, don't poll too fast
+			await this.code.wait(2000);
 
-				// since we are interacting with right click menus, don't poll too fast
-				await this.code.wait(2000);
+			if (process.platform !== 'darwin') {
+				await this.popups.handleContextMenu(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Select All');
+			} else {
+				await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
+				await this.code.driver.page.keyboard.press('Meta+A');
+			}
 
-				if (process.platform !== 'darwin') {
-					await this.popups.handleContextMenu(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Select All');
-				} else {
-					await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
-					await this.code.driver.page.keyboard.press('Meta+A');
-				}
+			// wait a little between selection and copy
+			await this.code.wait(1000);
 
-				// wait a little between selection and copy
-				await this.code.wait(1000);
+			if (process.platform !== 'darwin') {
+				await this.popups.handleContextMenu(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Copy');
+			} else {
+				await this.code.driver.page.keyboard.press('Meta+C');
+			}
 
-				if (process.platform !== 'darwin') {
-					await this.popups.handleContextMenu(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Copy');
-				} else {
-					await this.code.driver.page.keyboard.press('Meta+C');
-				}
+			const text = await this.clipboard.getClipboardText();
 
-				const text = await this.clipboard.getClipboardText();
+			// clean up regex text
+			const safeTerminalText = terminalText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+			// allow case insensitive matches
+			const matches = text!.match(new RegExp(safeTerminalText, 'gi'));
 
-				// clean up regex text
-				const safeTerminalText = terminalText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-				// allow case insensitive matches
-				const matches = text!.match(new RegExp(safeTerminalText, 'gi'));
+			expect(matches?.length).toBe(expectedCount);
 
-				expect(matches?.length).toBe(expectedCount);
+			return matches;
 
-				return matches;
+		}).toPass({ timeout: timeout });
 
-			}).toPass({ timeout: timeout });
-
-			return [];
-		}
+		return [];
 	}
 
 	async waitForTerminalLines() {

@@ -48,7 +48,7 @@ export async function verifyGitStatus(app: Application) {
 		// Git status should show that we're on the main branch
 		await app.workbench.terminal.createTerminal();
 		await app.workbench.terminal.runCommandInTerminal('git status');
-		await app.workbench.terminal.waitForTerminalText('On branch main', { web: app.web });
+		await app.workbench.terminal.waitForTerminalText('On branch main');
 	});
 }
 
