@@ -4,16 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import { URI } from '../../base/common/uri.js';
-import { IExtensionManifest } from '../extensions/common/extensions.js';
-import { ensureNoDisposablesAreLeakedInTestSuite } from '../../base/test/common/utils.js';
-import { validatePositronExtensionManifest } from '../extensions/common/positronExtensionValidator.js';
+import { URI } from '../../../../base/common/uri.js';
+import { IExtensionManifest } from '../../common/extensions.js';
+import { validatePositronExtensionManifest } from '../../common/positronExtensionValidator.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 
 /**
  * Validate Positron Extension Manifest suite.
  */
-suite('Validate Positron Extension Manifest', () => {
-	test('Validate Positron Extension Manifest Positron Version', () => {
+suite('Positron Extension Validator', () => {
+	test('Positron Extension Validator - Positron Version', () => {
 		// Setup the tests.
 		const uri = URI.parse('http://test-extension.com');
 		const manifest: IExtensionManifest = {
