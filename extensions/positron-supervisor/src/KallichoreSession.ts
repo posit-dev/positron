@@ -1649,7 +1649,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 *
 	 * @param data The message payload
 	 */
-	handleJupyterMessage(data: any) {
+	async handleJupyterMessage(data: any) {
 		// Deserialize the message buffers from base64, if any
 		if (data.buffers?.length > 0) {
 			data.buffers = data.buffers.map((b: string) => {
@@ -1685,12 +1685,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					this._activeBackendRequestHeader = msg.header;
 					break;
 				case JupyterMessageType.RpcRequest: {
-					this.onCommRequest(msg).then(() => {
+					try {
+						await this.onCommRequest(msg);
 						this.log(`Handled comm request: ${JSON.stringify(msg.content)}`, vscode.LogLevel.Debug);
-					})
-						.catch((err) => {
-							this.log(`Failed to handle comm request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
-						});
+					} catch(err) {
+						this.log(`Failed to handle comm request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
+					}
 					break;
 				}
 			}
@@ -1723,7 +1723,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Ensure the kernel is ready; otherwise messages will be emitted to the
 		// frontend before the kernel is "started"
-		this._ready.wait();
+		await this._ready.wait();
 
 		// Translate the Jupyter message to a LanguageRuntimeMessage and emit it
 		this._messages.emitJupyter(msg);
