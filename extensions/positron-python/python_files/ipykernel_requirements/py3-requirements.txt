@@ -66,8 +66,8 @@ jedi==0.19.2 \
 jupyter-client==8.6.3 \
     --hash=sha256:e8a19cc986cc45905ac3362915f410f3af85424b4c0905e94fa5f2cb08e8f23f
     # via ipykernel
-jupyter-core==5.7.2 \
-    --hash=sha256:4f7315d2f6b4bcf2e3e7cb6e46772eba760ae459cd1f59d29eb57b0a01bd7409
+jupyter-core==5.8.1 \
+    --hash=sha256:c28d268fc90fb53f1338ded2eb410704c5449a358406e8a948b75706e24863d0
     # via
     #   ipykernel
     #   jupyter-client
@@ -121,14 +121,14 @@ traitlets==5.14.3 \
     #   jupyter-client
     #   jupyter-core
     #   matplotlib-inline
-typing-extensions==4.13.2 \
-    --hash=sha256:a439e7c04b49fec3e5d3e2beaa21755cadbbdc391694e28ccdd36ca4a1408f8c
+typing-extensions==4.14.0 \
+    --hash=sha256:a1514509136dd0b477638fc68d6a91497af5076466ad0fa6c338e44e359944af
     # via
     #   exceptiongroup
     #   ipython
 wcwidth==0.2.13 \
     --hash=sha256:3da69048e4540d84af32131829ff948f1e022c1c6bdb8d6102117aac784f6859
     # via prompt-toolkit
-zipp==3.21.0 \
-    --hash=sha256:ac1bbe05fd2991f160ebce24ffbac5f6d11d83dc90891255885223d42b3cd931
+zipp==3.23.0 \
+    --hash=sha256:071652d6115ed432f5ce1d34c336c0adfd6a884660d1e9712a256d3d3bd4b14e
     # via importlib-metadata
