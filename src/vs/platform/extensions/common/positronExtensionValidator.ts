@@ -46,7 +46,7 @@ export function isValidPositronExtensionVersion(positronVersion: string, product
 	}
 
 	// In Positron, we employ a customized SemVer versioning scheme where
-	// ^2025.1.0 means >= 2025.1.0. Replace the caret (^) with a greater
+	// ^2025.1.0 means >=2025.1.0. Replace the caret (^) with a greater
 	// than or equal to (>=) operator.
 	return isVersionValid(positronVersion, productDate, requestedVersion.replace(/^(\^)/, '>='), notices);
 }
