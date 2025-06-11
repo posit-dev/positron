@@ -29,6 +29,7 @@ import { NotebookOutputRendererInfo } from '../../../notebook/common/notebookOut
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { IPositronPlotMetadata } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { ZoomLevel } from '../../../positronPlots/browser/components/zoomPlotMenuButton.js';
 
 class TestNotebookService implements Partial<INotebookService> {
 	getRenderers(): INotebookRendererInfo[] {
@@ -105,6 +106,7 @@ suite('Positron - PositronIPyWidgetsService', () => {
 			session_id: session.sessionId,
 			code: '',
 			output_id: message.output_id,
+			zoom_level: ZoomLevel.Fit,
 		} satisfies IPositronPlotMetadata);
 
 		return { session, plotClient };

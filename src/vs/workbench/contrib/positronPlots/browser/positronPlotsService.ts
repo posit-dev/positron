@@ -55,6 +55,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
+import { ZoomLevel } from './components/zoomPlotMenuButton.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -306,6 +307,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 						});
 					}
 				}
+
+				this.storePlotMetadata(plotClient.metadata);
 			});
 
 			// Delete any cached plot thumbnail descriptors that are no longer valid.
@@ -562,6 +565,26 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 	}
 
+	setEditorPlotZoom(plotId: string, zoomLevel: ZoomLevel): void {
+		const plot = this._editorPlots.get(plotId);
+		if (plot instanceof PlotClientInstance) {
+			plot.metadata.zoom_level = zoomLevel;
+		} else {
+			this._notificationService.error(localize('positronPlots.zoom.setInvalidPlotType', 'Cannot set zoom for this plot type'));
+		}
+	}
+
+	getEditorPlotZoom(plotId: string): ZoomLevel | undefined {
+		const plot = this._editorPlots.get(plotId);
+		if (plot instanceof PlotClientInstance) {
+			// Return the zoom level for the plot, or the default zoom level if not set
+			return plot.metadata.zoom_level;
+		} else {
+			this._notificationService.error(localize('positronPlots.zoom.getInvalidPlotType', 'Cannot get zoom for this plot type'));
+			return undefined;
+		}
+	}
+
 	/**
 	 * Sets a custom plot size and applies it as a custom sizing policy.
 	 *
@@ -666,6 +689,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							}
 							metadata.language = session.runtimeMetadata.languageId;
 
+							if (!metadata.zoom_level) {
+								metadata.zoom_level = ZoomLevel.Fit;
+							}
+
 							const commProxy = this.createCommProxy(client, metadata);
 							plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
 							registered = true;
@@ -686,6 +713,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							location: PlotClientLocation.View,
 							suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
 							language: session.runtimeMetadata.languageId,
+							zoom_level: ZoomLevel.Fit,
 						};
 						const commProxy = this.createCommProxy(client, metadata);
 						plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
@@ -768,6 +796,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					pre_render: data?.pre_render,
 					suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
 					language: session.runtimeMetadata.languageId,
+					zoom_level: ZoomLevel.Fit,
 				};
 
 				// Register the plot client
@@ -884,6 +913,11 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				if (!metadata.suggested_file_name) {
 					metadata.suggested_file_name = createSuggestedFileNameForPlot(this._storageService);
 				}
+
+				if (!metadata.zoom_level) {
+					metadata.zoom_level = ZoomLevel.Fit;
+				}
+
 				this.createEditorPlot(metadata, commProxy);
 
 				this.openEditor(plotId, this.getPreferredEditorGroup(), metadata);

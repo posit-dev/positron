@@ -67,6 +67,17 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 
 	const zoomHandler = (zoom: number) => {
 		setZoom(zoom);
+		const currentPlotId = props.positronPlotsService.selectedPlotId;
+		if (!currentPlotId) {
+			return;
+		}
+
+		const plot = props.positronPlotsService.positronPlotInstances.find(plot => plot.id === currentPlotId);
+		if (!plot) {
+			return;
+		}
+		// Update the zoom level in the plot metadata.
+		plot.metadata.zoom_level = zoom;
 	};
 
 	// Hooks.
@@ -129,10 +140,42 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		return () => disposableStore.dispose();
 	}, [computeHistoryVisibility, props.positronPlotsService, props.reactComponentContainer]);
 
+	useEffect(() => {
+		// Set the initial zoom level for the current plot.
+		const currentPlot = props.positronPlotsService.selectedPlotId;
+
+		if (currentPlot) {
+			const plot = props.positronPlotsService.positronPlotInstances.find(plot => plot.id === currentPlot);
+			if (plot) {
+				setZoom(plot.metadata.zoom_level || ZoomLevel.Fit);
+			}
+		}
+	}, [props.positronPlotsService.positronPlotInstances, props.positronPlotsService.selectedPlotId]);
+
+	useEffect(() => {
+		const disposable = props.positronPlotsService.onDidSelectPlot((selectedPlotId) => {
+			const plot = props.positronPlotsService.positronPlotInstances.find(plot => plot.id === selectedPlotId);
+			if (plot) {
+				setZoom(plot.metadata.zoom_level || ZoomLevel.Fit);
+			} else {
+				setZoom(ZoomLevel.Fit);
+			}
+		});
+
+		return () => {
+			disposable.dispose();
+		};
+	}, [props.positronPlotsService])
+
 	// Render.
 	return (
 		<PositronPlotsContextProvider {...props}>
-			<ActionBars {...props} zoomHandler={zoomHandler} zoomLevel={zoom} />
+			<ActionBars
+				{...props}
+				key={props.positronPlotsService.selectedPlotId}
+				zoomHandler={zoomHandler}
+				zoomLevel={zoom}
+			/>
 			<PlotsContainer
 				darkFilterMode={darkFilterMode}
 				height={height > 0 ? height - 34 : 0}

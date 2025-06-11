@@ -5,6 +5,7 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
+import { ZoomLevel } from '../../../contrib/positronPlots/browser/components/zoomPlotMenuButton.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 import { ILanguageRuntimeMessageOutput } from '../../languageRuntime/common/languageRuntimeService.js';
 import { createSuggestedFileNameForPlot, IPositronPlotClient } from './positronPlots.js';
@@ -30,6 +31,7 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 			code: code ? code : '',
 			suggested_file_name: createSuggestedFileNameForPlot(storageService),
 			output_id: message.output_id,
+			zoom_level: ZoomLevel.Fit,
 		};
 
 		// Find the image MIME type. This is guaranteed to exist since we only create this object if

@@ -12,7 +12,6 @@ import React, { useEffect, useState } from 'react';
 // Other dependencies.
 import { DynamicPlotInstance } from '../../positronPlots/browser/components/dynamicPlotInstance.js';
 import { StaticPlotInstance } from '../../positronPlots/browser/components/staticPlotInstance.js';
-import { ZoomLevel } from '../../positronPlots/browser/components/zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
@@ -37,13 +36,13 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 				height={props.height}
 				plotClient={props.plotClient}
 				width={props.width}
-				zoom={ZoomLevel.Fit} />;
+				zoom={props.plotClient.metadata.zoom_level} />;
 		}
 		if (props.plotClient instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={props.plotClient.id}
 				plotClient={props.plotClient}
-				zoom={ZoomLevel.OneHundred} />;
+				zoom={props.plotClient.metadata.zoom_level} />;
 		}
 		return null;
 	};
