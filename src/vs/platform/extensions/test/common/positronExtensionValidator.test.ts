@@ -40,7 +40,7 @@ suite('Positron Extension Validator', () => {
 				// Test builds.
 				for (const build of buildsToTest) {
 					// Create the version under test and validate the manifest for it.
-					const versionUnderTest = `${year}.${month}.${build}`;
+					const versionUnderTest = `${year}.${String(month).padStart(2, '0')}.${build}`;
 					const testResult = validatePositronExtensionManifest(versionUnderTest, undefined, uri, manifest, false).length;
 
 					// Check the text result based on the year and month.
