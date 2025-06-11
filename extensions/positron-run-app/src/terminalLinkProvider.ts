@@ -86,7 +86,7 @@ export class AppLauncherTerminalLinkProvider implements vscode.TerminalLinkProvi
 
 		const quickPick = vscode.window.createQuickPick();
 		quickPick.title = vscode.l10n.t('Open App Link');
-		quickPick.placeholder = vscode.l10n.t('How would you like to open: {0}', uri.toString());
+		quickPick.placeholder = vscode.l10n.t('How would you like to open: {0}', uri.toString(true));
 		quickPick.items = [
 			{ label: viewerPane, },
 			{ label: browserWindow, },

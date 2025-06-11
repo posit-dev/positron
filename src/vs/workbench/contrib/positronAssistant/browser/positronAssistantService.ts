@@ -18,6 +18,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { Emitter } from '../../../../base/common/event.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 /**
  * PositronAssistantService class.
@@ -42,6 +43,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExecutionHistoryService private readonly _historyService: IExecutionHistoryService,
+		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 	) {
 		super();
 	}
@@ -193,7 +195,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		onCancel: () => void,
 		onClose: () => void,
 	): void {
-		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, this, sources, onAction, onCancel, onClose);
+		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, this, this._positronModalDialogsService, sources, onAction, onCancel, onClose);
 	}
 
 	getSupportedProviders(): string[] {
