@@ -16,7 +16,7 @@ test.beforeEach(async function ({ app, sessions }) {
 	await app.workbench.layouts.enterLayout("stacked");
 });
 
-test.describe('R - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
+test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
 	test.describe.configure({ mode: 'serial' });
 	const folderTemplate = FolderTemplate.R_PROJECT;
 

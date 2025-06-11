@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Jupyter - New Folder Flow', {
+test.describe('New Folder Flow: Jupyter Project', {
 	tag: [tags.MODAL, tags.NEW_FOLDER_FLOW],
 }, () => {
 	const folderTemplate = FolderTemplate.JUPYTER_NOTEBOOK;

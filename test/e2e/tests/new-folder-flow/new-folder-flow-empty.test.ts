@@ -11,10 +11,10 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Empty Folder - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
+test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
 	const folderTemplate = FolderTemplate.EMPTY_PROJECT;
 
-	test('Empty Folder - Folder Defaults', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
+	test('Verify empty folder defaults', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
 		const { newFolderFlow } = app.workbench;
 		const folderName = addRandomNumSuffix('empty-project');
 

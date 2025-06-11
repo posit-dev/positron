@@ -13,7 +13,7 @@ test.use({
 
 // Not running conda test on windows because conda reeks havoc on selecting the correct python interpreter
 // Not running uv either because it is not installed on windows for now
-test.describe('Python - New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
+test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
 	const folderTemplate = FolderTemplate.PYTHON_PROJECT;
 
 	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, sessions, python }) {

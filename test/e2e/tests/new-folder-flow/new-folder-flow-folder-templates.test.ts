@@ -9,7 +9,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Folder Templates - Interpreter Startup Behavior', {
+test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 	tag: [tags.INTERPRETER, tags.WEB, tags.MODAL, tags.NEW_FOLDER_FLOW]
 }, () => {
 
@@ -26,7 +26,7 @@ test.describe('Folder Templates - Interpreter Startup Behavior', {
 		await app.workbench.settings.clearWorkspaceSettings();
 	});
 
-	test('Verify only Empty Project available when global startup is disabled', async function ({ app, workspaceSettings, hotKeys }) {
+	test('Verify only Empty Project available when global interpreter startup is disabled', async function ({ app, workspaceSettings, hotKeys }) {
 		// Disable startup behavior for all interpreters
 		await workspaceSettings.set([['interpreters.startupBehavior', '"disabled"']]);
 		await hotKeys.newFolderFromTemplate();
