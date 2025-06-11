@@ -10,9 +10,12 @@ import { validatePositronExtensionManifest } from '../../common/positronExtensio
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 
 /**
- * Validate Positron Extension Manifest suite.
+ * Positron Extension Validator suite.
  */
 suite('Positron Extension Validator', () => {
+	/**
+	 * Test for validating the Positron extension manifest's Positron version.
+	 */
 	test('Positron Extension Validator - Positron Version', () => {
 		// Setup the tests.
 		const uri = URI.parse('http://test-extension.com');
