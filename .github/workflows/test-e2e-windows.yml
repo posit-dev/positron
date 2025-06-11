@@ -183,6 +183,7 @@ jobs:
         uses: ./.github/actions/gen-report-dir
 
       - name: Run Bootstrap Extensions Test
+        id: bootstrap
         shell: pwsh
         env:
           POSITRON_PY_VER_SEL: 3.10.10
@@ -193,7 +194,7 @@ jobs:
         run: |
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
           $BOOTSTRAP_EXIT_CODE = $LASTEXITCODE
-          "BOOTSTRAP_EXIT_CODE=$BOOTSTRAP_EXIT_CODE" | Out-File -FilePath bootstrap-result.env
+          "BOOTSTRAP_EXIT_CODE=$BOOTSTRAP_EXIT_CODE" >> $env:GITHUB_OUTPUT
 
       - name: Run Main Test Suite (Electron)
         shell: pwsh
@@ -214,15 +215,7 @@ jobs:
           $env:SKIP_CLONE = "true"
           npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
-          $BOOTSTRAP_EXIT_CODE = 0
-          if (Test-Path bootstrap-result.env) {
-            Get-Content bootstrap-result.env | ForEach-Object {
-              if ($_ -match "^BOOTSTRAP_EXIT_CODE=(\d+)$") {
-                $BOOTSTRAP_EXIT_CODE = [int]$matches[1]
-              }
-            }
-          }
-
+          $BOOTSTRAP_EXIT_CODE = [int]"${{ steps.bootstrap.outputs.BOOTSTRAP_EXIT_CODE }}"
           if ($BOOTSTRAP_EXIT_CODE -ne 0) {
             Write-Host "Bootstrap extensions test failed earlier. Exiting with code $BOOTSTRAP_EXIT_CODE."
             exit $BOOTSTRAP_EXIT_CODE
