@@ -918,7 +918,7 @@
                 },
                 "python.enableAutoReload": {
                     "default": true,
-                    "description": "%python.enableAutoReload.description%",
+                    "markdownDescription": "%python.enableAutoReload.description%",
                     "scope": "resource",
                     "type": "boolean"
                 }
