@@ -744,8 +744,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
         kernel.onDidChangeRuntimeState((state) => {
             this._stateEmitter.fire(state);
-            // if (state === positron.RuntimeState.Ready && this.kernelSpec) {
-            // }
         });
         kernel.onDidReceiveRuntimeMessage((message) => {
             // Check if an IPyWidgets Output widget is starting to listen to a parent message ID.
@@ -832,21 +830,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         const configurationService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         const settings = configurationService.getSettings();
         if (settings.enableAutoReload) {
-            // Enable module hot-reloading for the kernel.
-            const settingUri = `positron://settings/python.enableAutoReload`;
-            const banner = vscode.l10n.t(
-                'Automatic import reloading for Python is enabled. It can be disabled with \x1b]8;;{0}\x1b\\this setting\x1b]8;;\x1b\\.',
-                settingUri,
-            );
-            info.banner += '\n' + banner;
-            // this._messageEmitter.fire({
-            //     id: createUniqueId(),
-            //     parent_id: '',
-            //     when: new Date().toISOString(),
-            //     type: positron.LanguageRuntimeMessageType.Stream,
-            //     name: positron.LanguageRuntimeStreamName.Stdout,
-            //     text: banner,
-            // } as positron.LanguageRuntimeStream);
             // Execute the autoreload magic command.
             this._kernel?.execute(
                 '%load_ext autoreload\n%autoreload 2',
@@ -854,6 +837,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 positron.RuntimeCodeExecutionMode.Silent,
                 positron.RuntimeErrorBehavior.Continue,
             );
+
+            // Enable module hot-reloading for the kernel.
+            const settingUri = `positron://settings/python.enableAutoReload`;
+            const banner = vscode.l10n.t(
+                'Automatic import reloading for Python is enabled. It can be disabled with the \x1b]8;;{0}\x1b\\python.enableAutoReload setting\x1b]8;;\x1b\\.',
+                settingUri,
+            );
+            info.banner += banner;
         }
     }
 
