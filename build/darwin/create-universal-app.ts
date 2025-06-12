@@ -59,7 +59,9 @@ const stashPatterns = [
 	// Exclusions from Node Addon API
 	'**/@vscode/node-addon-api/**',
 	'**/@parcel/node-addon-api/**',
-	'**/@parcel/**/watcher.node'
+	'**/@parcel/**/watcher.node',
+	// Exclusions from positron-assistant
+	'**/resources/copilot/**',  // Copilot language server binary
 ];
 
 // Some generated files may end up being different in both distributions.
