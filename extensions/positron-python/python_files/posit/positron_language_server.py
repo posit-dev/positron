@@ -102,6 +102,10 @@ if __name__ == "__main__":
                 "level": args.loglevel,
                 "handlers": handlers,
             },
+            "asyncio": {
+                "level": args.loglevel,
+                "handlers": handlers,
+            },
         }
     }
     if args.logfile is not None:
