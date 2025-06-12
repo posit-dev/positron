@@ -50,7 +50,10 @@ async function main() {
 	const serverName = platform() === 'win32' ? 'copilot-language-server.exe' : 'copilot-language-server';
 	// There is no win32-arm64 build yet; try to use x64 instead.
 	// See: https://github.com/github/copilot-language-server-release/issues/5.
-	const targetArch = platform() === 'win32' ? 'x64' : arch();
+	// Use npm_config_arch to allow overriding the architecture (e.g. for cross-compilation).
+	const targetArch = platform() === 'win32'
+		? 'x64'
+		: (process.env.npm_config_arch || arch());
 	const npmServerPath = path.join(npmDir, 'native', `${platform()}-${targetArch}`, serverName);
 	const bundledServerPath = path.join(bundleDir, serverName);
 	await copyFile(npmServerPath, bundledServerPath);
