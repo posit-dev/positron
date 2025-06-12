@@ -43,6 +43,7 @@ import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { Channel } from './Channel';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
+import { CommBackendChannel, CommRpcMessage, CommRpcResponse, RawComm } from './RawComm';
 
 /**
  * The reason for a disconnection event.
@@ -72,8 +73,6 @@ export interface DisconnectedEvent {
 	/** The reason for the disconnection */
 	reason: DisconnectReason;
 }
-
-export type CommChannel = Channel<Record<string, unknown>>;
 
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
@@ -155,7 +154,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _clients: Map<string, Comm> = new Map();
 
 	/** A map of active comms unmanaged by Positron */
-	private readonly _comms: Map<string, CommChannel> = new Map();
+	private readonly _comms: Map<string, CommBackendChannel> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -746,19 +745,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async createComm(
 		type: string,
 		params: Record<string, unknown>,
-	): Promise<CommChannel> {
+	): Promise<RawComm> {
 		const id = `extension-comm-${type}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 
-		const msg: JupyterCommOpen = {
-			target_name: type,
-			comm_id: id,
-			data: params
-		};
-		const commOpen = new CommOpenCommand(msg);
-		await this.sendCommand(commOpen);
-
-		const channel: CommChannel = new Channel();
-
+		const channel: CommBackendChannel = new Channel();
 		this._comms.set(id, channel);
 		channel.register({
 			dispose: () => {
@@ -771,7 +761,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		});
 
-		return channel;
+		const msg: JupyterCommOpen = {
+			target_name: type,
+			comm_id: id,
+			data: params
+		};
+		const commOpen = new CommOpenCommand(msg);
+		await this.sendCommand(commOpen);
+
+		return new RawCommImpl(id, this, channel);
 	}
 
 	/**
@@ -1904,6 +1902,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				if (request.replyType === msg.header.msg_type) {
 					request.resolve(msg.content);
 					this._pendingRequests.delete(msg.parent_header.msg_id);
+
+					// If this is a reply for an unmanaged comm, return early.
+					// The comm socket gets the response via the now resolved request
+					// promise.
+					if (msg.header.msg_type === 'comm_msg') {
+						const commMsg = msg.content as JupyterCommMsg;
+						if (this._comms.has(commMsg.comm_id)) {
+							return;
+						}
+					}
 				}
 			}
 		}
@@ -1946,7 +1954,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			const channel = this._comms.get(commMsg.comm_id);
 
 			if (channel) {
-				channel.send(commMsg.data);
+				const rpcMsg = commMsg.data as CommRpcMessage;
+				if (rpcMsg.id) {
+					const req = new CommBackendRequest(this, commMsg.comm_id, rpcMsg);
+					channel.send(req);
+				} else {
+					channel.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
+				}
 				return;
 			}
 		}
@@ -2129,5 +2143,82 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this.log(`Failed to perform queued request '${req.method}': ${err}`, vscode.LogLevel.Error);
 			}
 		}
+	}
+}
+
+class RawCommImpl {
+	constructor(
+		private readonly commId: string,
+		private readonly session: KallichoreSession,
+		public readonly receiver: CommBackendChannel,
+	) {}
+
+	notify(method: string, params?: Record<string, unknown>) {
+		const msg: CommRpcMessage = {
+			jsonrpc: '2.0',
+			method,
+			params,
+		};
+
+		// We don't expect a response here, so `id` can be created and forgotten
+		const id = createUniqueId();
+		this.session.sendClientMessage(this.commId, id, msg);
+	}
+
+	async request(method: string, params?: Record<string, unknown>): Promise<any> {
+		const id = createUniqueId();
+
+		const msg: CommRpcMessage = {
+			jsonrpc: '2.0',
+			id,
+			method,
+			params,
+		};
+
+		const commMsg: JupyterCommMsg = {
+			comm_id: this.commId,
+			data: msg
+		};
+
+		const request = new CommMsgRequest(id, commMsg);
+		this.session.sendRequest(request);
+	}
+}
+
+class CommBackendRequest {
+	kind: 'request' = 'request';
+	readonly method: string;
+	readonly params?: Record<string, unknown>;
+
+	private readonly id: string;
+
+	constructor(
+		private readonly session: KallichoreSession,
+		private readonly commId: string,
+		private readonly message: CommRpcMessage,
+	) {
+		this.method = message.method;
+		this.params = message.params;
+
+		if (!this.message.id) {
+			throw new Error('Expected `id` field in request');
+		}
+		this.id = this.message.id;
+	}
+
+	reply(result: any) {
+		const msg: CommRpcResponse = {
+			jsonrpc: '2.0',
+			id: this.id,
+			method: this.method,
+			result,
+		};
+
+		const commMsg: JupyterCommMsg = {
+			comm_id: this.commId,
+			data: msg
+		};
+
+		this.session.sendClientMessage(this.commId, this.id, commMsg);
 	}
 }

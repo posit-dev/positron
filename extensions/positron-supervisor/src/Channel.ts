@@ -61,7 +61,7 @@ export class Channel<T> implements AsyncIterable<T>, AsyncIterator<T>, vscode.Di
   }
 
 	register(disposable: vscode.Disposable) {
-		this.disposables.push(disposable)
+		this.disposables.push(disposable);
 	}
 
 	[Symbol.asyncIterator]() {
