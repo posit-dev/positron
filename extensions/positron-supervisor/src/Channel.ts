@@ -20,6 +20,8 @@ export class Channel<T> implements AsyncIterable<T>, AsyncIterator<T>, vscode.Di
 	private queue: T[] = [];
 	private pending_consumers: ((value: IteratorResult<T>) => void)[] = [];
 	private i = 0;
+	private disposables: vscode.Disposable[] = [];
+	private isDisposed = false;
 
 	send(value: T) {
 		if (this.closed) {
@@ -35,7 +37,7 @@ export class Channel<T> implements AsyncIterable<T>, AsyncIterator<T>, vscode.Di
 		}
 	}
 
-	close() {
+	private close() {
 		this.closed = true;
 
 		// Resolve all pending consumers as done
@@ -45,8 +47,22 @@ export class Channel<T> implements AsyncIterable<T>, AsyncIterator<T>, vscode.Di
 	}
 
   dispose() {
+   // Since channel is owned by multiple endpoints we need to be careful about
+   // `dispose()` being idempotent
+  	if (this.isDisposed) {
+			return;
+   	}
+		this.isDisposed = true;
+
 		this.close();
+		for (const disposable of this.disposables) {
+			disposable.dispose();
+		}
   }
+
+	register(disposable: vscode.Disposable) {
+		this.disposables.push(disposable)
+	}
 
 	[Symbol.asyncIterator]() {
 		return this;
