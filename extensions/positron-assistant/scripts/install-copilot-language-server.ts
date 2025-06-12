@@ -32,16 +32,7 @@ async function getBundledCopilotVersion(versionPath: string): Promise<string | u
 
 async function main() {
 	const bundleDir = path.join('resources', 'copilot');
-
-	// There is no win32-arm64 build yet; try to use x64 instead.
-	// See: https://github.com/github/copilot-language-server-release/issues/5.
-	// On other platforms, use the system architecture, or the npm_config_arch
-	// environment variable if set (e.g. for cross-compilation).
-	const targetArch = platform() === 'win32' ? 'x64' : process.env.npm_config_arch || arch();
-	const serverDir = platform() === 'darwin' ?
-		path.join(bundleDir, targetArch) : bundleDir;
-
-	await mkdir(serverDir, { recursive: true });
+	await mkdir(bundleDir, { recursive: true });
 
 	const npmDir = path.join('node_modules', '@github', 'copilot-language-server');
 	const npmVersion = await getNpmCopilotVersion(npmDir);
@@ -55,12 +46,28 @@ async function main() {
 	}
 
 	console.log(`Updating Copilot Language Server: ${bundleVersion} -> ${npmVersion}`);
-
 	const serverName = platform() === 'win32' ? 'copilot-language-server.exe' : 'copilot-language-server';
-	const npmServerPath = path.join(npmDir, 'native', `${platform()}-${targetArch}`, serverName);
-	const bundledServerPath = path.join(serverDir, serverName);
-	await copyFile(npmServerPath, bundledServerPath);
-	await writeFile(bundleVersionPath, npmVersion, 'utf8');
+
+	// There is no win32-arm64 build yet; try to use x64 instead.
+	// See: https://github.com/github/copilot-language-server-release/issues/5.
+	// Bundle both arm64 and x64 for macOS, and use the one that matches the
+	// current architecture on Linux.
+	const targetArches = platform() === 'win32' ? ['x64'] :
+		platform() === 'darwin' ? ['arm64', 'x64'] :
+			[process.env.npm_config_arch || arch()];
+
+	// Copy the server for each target architecture.
+	for (const targetArch of targetArches) {
+		// Use the architecture as a subdirectory for macOS.
+		const serverDir = platform() === 'darwin' ?
+			path.join(bundleDir, targetArch) : bundleDir;
+
+		await mkdir(serverDir, { recursive: true });
+		const npmServerPath = path.join(npmDir, 'native', `${platform()}-${targetArch}`, serverName);
+		const bundledServerPath = path.join(serverDir, serverName);
+		await copyFile(npmServerPath, bundledServerPath);
+		await writeFile(bundleVersionPath, npmVersion, 'utf8');
+	}
 }
 
 main().catch(error => {
