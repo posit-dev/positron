@@ -191,14 +191,18 @@ const ProviderNotice = (props: { provider: IProvider }) => {
 		(key) => {
 			switch (key) {
 				case 'posit-eula':
-					return <a href='https://posit.co/about/eula/'>{positEulaLabel}</a>;
+					return <ExternalLink href='https://posit.co/about/eula/'>{positEulaLabel}</ExternalLink>;
 				case 'provider-tos': {
 					const link = getProviderTermsOfServiceLink(props.provider.id);
-					return link ? <a href={link}>{providerTermsOfServiceLabel}</a> : providerTermsOfServiceLabel;
+					return link ?
+						<ExternalLink href={link}>{providerTermsOfServiceLabel}</ExternalLink> :
+						providerTermsOfServiceLabel;
 				}
 				case 'provider-privacy-policy': {
 					const link = getProviderPrivacyPolicyLink(props.provider.id);
-					return link ? <a href={link}>{providerPrivacyPolicyLabel}</a> : providerPrivacyPolicyLabel;
+					return link ?
+						<ExternalLink href={link}>{providerPrivacyPolicyLabel}</ExternalLink> :
+						providerPrivacyPolicyLabel;
 				}
 				default:
 					return undefined;
@@ -213,4 +217,10 @@ const ProviderNotice = (props: { provider: IProvider }) => {
 		<p>{termsOfService}</p>
 		<p>{disclaimerText}</p>
 	</div>;
+}
+
+const ExternalLink = (props: { href: string, children: React.ReactNode }) => {
+	return <a href={props.href} rel='noreferrer' target='_blank'>
+		{props.children}
+	</a>;
 }
