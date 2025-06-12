@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 
@@ -12,6 +12,7 @@ export class NewFolderFlow {
 	private cancelButton = this.code.driver.page.getByRole('button', { name: 'Cancel' });
 	private nextButton = this.code.driver.page.getByRole('button', { name: 'Next', exact: true });
 	private createButton = this.code.driver.page.getByRole('button', { name: 'Create', exact: true });
+	private folderTemplateButton = (label: string) => this.code.driver.page.locator('label').filter({ hasText: label });
 	private folderNameInput = this.code.driver.page.getByLabel(/Enter the name of your new/);
 	private existingEnvRadioButton = this.code.driver.page.getByText(/Use an existing/);
 	private envProviderDropdown = this.code.driver.page.locator('#flow-sub-step-python-environment').locator('button');
@@ -28,14 +29,19 @@ export class NewFolderFlow {
 	 * @param options The options to configure the new folder.
 	 */
 	async createNewFolder(options: CreateFolderOptions) {
-		await this.quickaccess.runCommand('positron.workbench.action.newFolderFromTemplate', { keepOpen: false });
+		await test.step(`Create a new folder: ${options.folderName}`, async () => {
+			await this.quickaccess.runCommand('positron.workbench.action.newFolderFromTemplate', { keepOpen: false });
 
-		await this.setFolderTemplate(options.folderTemplate);
-		await this.setFolderNameLocation(options);
-		await this.setConfiguration(options);
+			await this.setFolderTemplate(options.folderTemplate);
+			await this.setFolderNameLocation(options);
 
-		await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
-		await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'New Folder From Template' })).not.toBeVisible();
+			if (options.folderTemplate !== FolderTemplate.EMPTY_PROJECT) {
+				await this.setConfiguration(options);
+			}
+
+			await this.code.driver.page.getByRole('button', { name: 'Current Window' }).click();
+			await expect(this.code.driver.page.locator('.simple-title-bar').filter({ hasText: 'New Folder From Template' })).not.toBeVisible();
+		});
 	}
 
 	/**
@@ -60,7 +66,8 @@ export class NewFolderFlow {
 			await this.code.driver.page.getByText('Initialize Git repository').check();
 		}
 
-		await this.clickFlowButton(FlowButton.NEXT);
+		const button = options.folderTemplate === FolderTemplate.EMPTY_PROJECT ? FlowButton.CREATE : FlowButton.NEXT;
+		await this.clickFlowButton(button);
 	}
 
 	/**
@@ -167,7 +174,40 @@ export class NewFolderFlow {
 
 		}).toPass({ intervals: [1_000, 5_000, 10_000], timeout: 15000 });
 	}
+
+	async expectFolderTemplatesToBeVisible(visibleTemplates: Partial<Record<FolderTemplate, boolean>> = {}, closeModal = true) {
+		const defaultVisibility: Record<FolderTemplate, boolean> = {
+			[FolderTemplate.R_PROJECT]: false,
+			[FolderTemplate.PYTHON_PROJECT]: false,
+			[FolderTemplate.JUPYTER_NOTEBOOK]: false,
+			[FolderTemplate.EMPTY_PROJECT]: false,
+		};
+
+		const mergedVisibility = { ...defaultVisibility, ...visibleTemplates };
+
+		for (const template of Object.values(FolderTemplate)) {
+			const isVisible = mergedVisibility[template];
+
+			if (isVisible) {
+				await expect(this.folderTemplateButton(template)).toBeVisible();
+			} else {
+				await expect(this.folderTemplateButton(template)).not.toBeVisible();
+			}
+		}
+
+		if (closeModal) {
+			await this.clickFlowButton(FlowButton.CANCEL);
+		}
+	}
+
+	async verifyFolderCreation(folderName: string) {
+		await test.step(`Verify folder created`, async () => {
+			await expect(this.code.driver.page.locator('#top-action-bar-current-working-folder')).toHaveText(folderName, { timeout: 60000 }); // this is really slow on windows CI for some reason
+		});
+	}
 }
+
+
 
 export interface CreateFolderOptions {
 	folderTemplate: FolderTemplate;
