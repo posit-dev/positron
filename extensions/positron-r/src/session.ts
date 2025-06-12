@@ -49,6 +49,16 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	/** Queue for LSP events */
 	private _lspQueue: PQueue;
 
+	/**
+	 * Promise that resolves after LSP server activation is finished.
+	 * Tracked to avoid stopping in the middle of startup.
+	 * Resolves to the port number the client should connect on.
+	 */
+	private _lspStartingPromise: Promise<number> = Promise.resolve(0);
+
+	/** Client ID for the LSP, used to close the Jupyter comm during deactivation */
+	private _lspClientId?: string;
+
 	/** The Jupyter kernel-based session implementing the Language Runtime API */
 	private _kernel?: JupyterLanguageRuntimeSession;
 
@@ -301,10 +311,6 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
-	// Keep track of LSP init to avoid stopping in the middle of startup.
-	// Resolves to the port number used to connect on the client side.
-	private _lspStarting: Promise<number> = Promise.resolve(0);
-
 	async restart(workingDirectory: string | undefined): Promise<void> {
 		if (this._kernel) {
 			this._kernel.emitJupyterLog('Restarting');
@@ -318,7 +324,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			// keep track of this state itself.
 			const timedOut = await Promise.race([
 				// No need to log LSP start failures here; they're logged on activation.
-				this._lspStarting.catch(() => { }),
+				this._lspStartingPromise.catch(() => { }),
 				whenTimeout(400, () => true),
 			]);
 			if (timedOut) {
@@ -725,10 +731,11 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			// port since it is in charge of binding to it, which avoids
 			// race conditions). We also use this promise to avoid restarting
 			// in the middle of initialization.
-			this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
+			this._lspClientId = this._kernel.createPositronLspClientId();
+			this._lspStartingPromise = this._kernel.startPositronLsp(this._lspClientId, '127.0.0.1');
 			let port: number;
 			try {
-				port = await this._lspStarting;
+				port = await this._lspStartingPromise;
 			} catch (err) {
 				this._kernel.emitJupyterLog(`Error starting Positron LSP: ${err}`, vscode.LogLevel.Error);
 				return;
@@ -774,7 +781,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 			}
 			this._kernel?.emitJupyterLog(`Stopping Positron LSP server`);
 			await this._lsp.deactivate();
-
+			if (this._lspClientId) {
+				this._kernel?.removeClient(this._lspClientId);
+				this._lspClientId = undefined;
+			}
 			this._kernel?.emitJupyterLog(`Positron LSP server stopped`, vscode.LogLevel.Debug);
 		});
 	}
@@ -802,7 +812,8 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private async startDap(): Promise<void> {
 		if (this._kernel) {
 			try {
-				await this._kernel.startPositronDap('ark', 'Ark Positron R');
+				let clientId = this._kernel.createPositronDapClientId();
+				await this._kernel.startPositronDap(clientId, 'ark', 'Ark Positron R');
 			} catch (err) {
 				this._kernel.emitJupyterLog(`Error starting DAP: ${err}`, vscode.LogLevel.Error);
 			}
