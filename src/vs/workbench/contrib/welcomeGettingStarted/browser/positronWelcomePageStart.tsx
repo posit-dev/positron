@@ -73,7 +73,7 @@ const WelcomePageNoWorkspace = (props: PositronWelcomePageStartProps) => {
 		<>
 			<WelcomeButton
 				ariaLabel={localize('positronOpenFolder', "Open Folder...")}
-				codicon='folder-opened'
+				codicon='positron-open-folder'
 				label={localize('positronOpenFolder', "Open Folder...")}
 				onPressed={() => props.commandService.executeCommand(OpenFolderAction.ID)}
 			/>
