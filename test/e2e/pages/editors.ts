@@ -93,4 +93,10 @@ export class Editors {
 			await expect(this.code.driver.page.locator('[id="workbench.parts.editor"]').getByRole('code').getByText(text)).toBeVisible();
 		});
 	}
+
+	async expectActiveEditorIconClassToMatch(iconClass: RegExp): Promise<void> {
+		await test.step(`Expect active editor icon to match: ${iconClass}`, async () => {
+			await expect(this.activeEditor.locator(this.editorIcon)).toHaveClass(iconClass);
+		});
+	}
 }

@@ -18,10 +18,16 @@ export class QuickInput {
 	private static QUICKINPUT_OK_BUTTON = '.quick-input-widget .quick-input-action a:has-text("OK")';
 	quickInputList: Locator;
 	quickInput: Locator;
+	quickInputTitleBar: Locator;
 
 	constructor(private code: Code) {
 		this.quickInputList = this.code.driver.page.locator(QUICK_INPUT_LIST);
 		this.quickInput = this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT);
+		this.quickInputTitleBar = this.code.driver.page.locator(`.quick-input-title`);
+	}
+
+	async expectTitleBarToHaveText(text: string): Promise<void> {
+		await expect(this.quickInputTitleBar).toHaveText(text);
 	}
 
 	async waitForQuickInputOpened({ timeout = 10000 }: { timeout?: number } = {}): Promise<void> {

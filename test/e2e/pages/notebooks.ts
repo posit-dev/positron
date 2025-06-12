@@ -79,6 +79,12 @@ export class Notebooks {
 		});
 	}
 
+	async expectKernelToBe(kernelName: string) {
+		await test.step(`Expect kernel to be: ${kernelName}`, async () => {
+			await expect(this.kernelDropdown).toHaveText(new RegExp(kernelName, 'i'));
+		});
+	}
+
 	async createNewNotebook() {
 		await this.quickaccess.runCommand(NEW_NOTEBOOK_COMMAND);
 	}
