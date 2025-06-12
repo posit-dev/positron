@@ -158,6 +158,7 @@ export const MAXIMUM_PYTHON_VERSION_EXCLUSIVE = { major: 3, minor: 14, patch: 0,
 export const INTERPRETERS_INCLUDE_SETTING_KEY = 'interpreters.include';
 export const INTERPRETERS_EXCLUDE_SETTING_KEY = 'interpreters.exclude';
 export const INTERPRETERS_OVERRIDE_SETTING_KEY = 'interpreters.override';
+export const AUTORELOAD_SETTING_KEY = 'enableAutoReload';
 // --- End Positron
 
 export * from '../constants';
