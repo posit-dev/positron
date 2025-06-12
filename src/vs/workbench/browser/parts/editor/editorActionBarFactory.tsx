@@ -320,84 +320,110 @@ export class EditorActionBarFactory extends Disposable {
 			}
 		}
 
-		// Build the action bar elements.
+		// Build the action bar elements from the primary actions.
 		const elements: JSX.Element[] = [];
-		for (const action of primaryActions) {
-			// Process the action.
+		for (let action of primaryActions) {
+			// Handle separators.
 			if (action instanceof Separator) {
-				// Separator action.
 				elements.push(<ActionBarSeparator />);
-			} else if (action instanceof MenuItemAction) {
-				// Menu item action.
-				if (!processedActions.has(action.id)) {
-					// Add the action to the processed actions.
-					processedActions.add(action.id);
+				continue;
+			}
 
-					// If no action bar options are specified, use the default action bar button.
-					if (!action.positronActionBarOptions) {
-						elements.push(<ActionBarActionButton action={action} />);
-					} else if (isPositronActionBarButtonOptions(action.positronActionBarOptions)) {
-						elements.push(<ActionBarActionButton action={action} />);
-					} else if (isPositronActionBarCheckboxOptions(action.positronActionBarOptions)) {
-						elements.push(<ActionBarActionCheckbox action={action} />);
-					} else if (isPositronActionBarToggleOptions(action.positronActionBarOptions)) {
-						elements.push(<ActionBarActionToggle action={action} />);
-					} else {
-						// This indicates an unknown positronActionBarOptions.
-						console.warn('EditorActionBarFactory: Unknown positronActionBarOptions');
-					}
+			// If the action is already processed, skip it.
+			if (processedActions.has(action.id)) {
+				continue;
+			}
+
+			// Mark the action as processed.
+			processedActions.add(action.id);
+
+			// Handle submenu item actions.
+			if (action instanceof SubmenuItemAction) {
+				// Get the unprocessed actions of the submenu item action. Continue, if there are none.
+				const unprocessedActions = action.actions.filter(action => !processedActions.has(action.id));
+				if (unprocessedActions.length === 0) {
+					continue;
 				}
-			} else if (action instanceof SubmenuItemAction) {
-				// Process the action.
-				if (!action.item.rememberDefaultAction) {
-					// Push the action bar menu button.
-					elements.push(
-						<ActionBarMenuButton
-							actions={() => action.actions}
-							align='left'
-							ariaLabel={action.label ?? action.tooltip}
-							dropdownIndicator='disabled'
-							icon={action.item.icon}
-							tooltip={actionTooltip(
-								this._contextKeyService,
-								this._keybindingService,
-								action,
-								false
-							)}
-						/>
-					);
-				} else {
-					// Submenu action. Get the first action.
-					const firstAction = action.actions[0];
 
-					// The first action must be a menu item action.
-					if (firstAction instanceof MenuItemAction) {
-						// Push the action bar menu button.
+				// Handle multiple unprocessed actions.
+				if (unprocessedActions.length > 1) {
+					// If not remembering the default action, push the action bar menu button and continue.
+					if (!action.item.rememberDefaultAction) {
 						elements.push(
 							<ActionBarMenuButton
-								actions={() => action.actions}
+								actions={() => unprocessedActions}
 								align='left'
-								ariaLabel={firstAction.label ?? firstAction.tooltip}
-								dropdownAriaLabel={action.label ?? action.tooltip}
-								dropdownIndicator='enabled-split'
-								dropdownTooltip={actionTooltip(
+								ariaLabel={action.label ?? action.tooltip}
+								dropdownIndicator='disabled'
+								icon={action.item.icon}
+								tooltip={actionTooltip(
 									this._contextKeyService,
 									this._keybindingService,
 									action,
 									false
 								)}
-								icon={firstAction.item.icon}
-								label={firstAction.item.icon ? undefined : firstAction.label}
-								tooltip={actionTooltip(
-									this._contextKeyService,
-									this._keybindingService,
-									firstAction,
-									false
-								)}
 							/>
 						);
+						continue;
 					}
+
+					// Get the first action. If it is not a menu item action, push all unprocessed actions
+					// to the secondary actions and continue.
+					const firstAction = unprocessedActions[0];
+					if (!(firstAction instanceof MenuItemAction)) {
+						secondaryActions.push(...unprocessedActions);
+						continue;
+					}
+
+					// Push the dropdown action bar menu button and continue.
+					elements.push(
+						<ActionBarMenuButton
+							actions={() => unprocessedActions}
+							align='left'
+							ariaLabel={firstAction.label ?? firstAction.tooltip}
+							dropdownAriaLabel={action.label ?? action.tooltip}
+							dropdownIndicator='enabled-split'
+							dropdownTooltip={actionTooltip(
+								this._contextKeyService,
+								this._keybindingService,
+								action,
+								false
+							)}
+							icon={firstAction.item.icon}
+							label={firstAction.item.icon ? undefined : firstAction.label}
+							tooltip={actionTooltip(
+								this._contextKeyService,
+								this._keybindingService,
+								firstAction,
+								false
+							)}
+						/>
+					);
+					continue;
 				}
+
+				// There is only one unprocessed action, it becomes the action.
+				action = unprocessedActions[0];
+			}
+
+			// If the action is not a menu item action, push it to the secondary actions and continue.
+			if (!(action instanceof MenuItemAction)) {
+				secondaryActions.push(action);
+				continue;
+			}
+
+			// Handle the menu item action.
+			if (!action.positronActionBarOptions || isPositronActionBarButtonOptions(action.positronActionBarOptions)) {
+				elements.push(<ActionBarActionButton action={action} />);
+			} else if (isPositronActionBarCheckboxOptions(action.positronActionBarOptions)) {
+				elements.push(<ActionBarActionCheckbox action={action} />);
+			} else if (isPositronActionBarToggleOptions(action.positronActionBarOptions)) {
+				elements.push(<ActionBarActionToggle action={action} />);
+			} else {
+				// This indicates unknown positronActionBarOptions and is a bug. Push the
+				// action to the secondary actions and log a warning.
+				secondaryActions.push(action);
+				console.warn('EditorActionBarFactory: Unknown positronActionBarOptions');
 			}
 		}
 
