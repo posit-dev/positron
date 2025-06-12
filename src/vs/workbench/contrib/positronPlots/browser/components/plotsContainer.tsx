@@ -180,12 +180,12 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				height={plotHeight}
 				plotClient={plotInstance}
 				width={plotWidth}
-				zoom={plotInstance.metadata.zoom_level} />;
+				zoom={plotInstance.zoomLevel} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={plotInstance.id}
 				plotClient={plotInstance}
-				zoom={plotInstance.metadata.zoom_level} />;
+				zoom={plotInstance.zoomLevel} />;
 		} else if (plotInstance instanceof WebviewPlotClient) {
 			return <WebviewPlotInstance
 				key={plotInstance.id}

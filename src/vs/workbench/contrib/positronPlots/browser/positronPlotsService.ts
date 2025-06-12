@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -566,11 +566,13 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	setEditorPlotZoom(plotId: string, zoomLevel: ZoomLevel): void {
 		const plot = this._editorPlots.get(plotId);
-		if (plot instanceof PlotClientInstance) {
+
+		if (isZoomablePlotClient(plot)) {
 			plot.zoomLevel = zoomLevel;
 			this.storePlotMetadata(plot.metadata);
 		} else {
-			this._notificationService.error(localize('positronPlots.zoom.setInvalidPlotType', 'Cannot set zoom for this plot type'));
+			// plot not found, show an error
+			this._notificationService.error(localize('positronPlots.zoom.invalidPlotId', 'Plot not found: {0}', plotId));
 		}
 	}
 

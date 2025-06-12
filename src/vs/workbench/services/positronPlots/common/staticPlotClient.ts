@@ -3,19 +3,25 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 import { ILanguageRuntimeMessageOutput } from '../../languageRuntime/common/languageRuntimeService.js';
-import { createSuggestedFileNameForPlot, IPositronPlotClient, ZoomLevel } from './positronPlots.js';
+import { createSuggestedFileNameForPlot, IPositronPlotClient, IZoomablePlotClient, ZoomLevel } from './positronPlots.js';
 
 /**
  * Creates a static plot client from a language runtime message.
  */
-export class StaticPlotClient extends Disposable implements IPositronPlotClient {
+export class StaticPlotClient extends Disposable implements IPositronPlotClient, IZoomablePlotClient {
 	public readonly metadata: IPositronPlotMetadata;
 	public readonly mimeType;
 	public readonly data;
+
+	// Zoom level emitter
+	public onDidChangeZoomLevel: Event<ZoomLevel>;
+
+	private readonly _zoomLevelEventEmitter = new Emitter<ZoomLevel>();
 
 	constructor(storageService: IStorageService, sessionId: string, message: ILanguageRuntimeMessageOutput,
 		public readonly code?: string) {
@@ -48,6 +54,9 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 		// Save the MIME type and data for the image.
 		this.mimeType = imageKey;
 		this.data = data;
+
+		// Set up the zoom level event emitter.
+		this.onDidChangeZoomLevel = this._zoomLevelEventEmitter.event;
 	}
 
 	get uri() {
@@ -60,5 +69,14 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient 
 
 	get id() {
 		return this.metadata.id;
+	}
+
+	set zoomLevel(zoom: ZoomLevel) {
+		this.metadata.zoom_level = zoom;
+		this._zoomLevelEventEmitter.fire(zoom);
+	}
+
+	get zoomLevel(): ZoomLevel {
+		return this.metadata.zoom_level ?? ZoomLevel.Fit;
 	}
 }
