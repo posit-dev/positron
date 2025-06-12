@@ -446,12 +446,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Note: This is only useful if the kernel hasn't already started an LSP
 	 * server.
 	 *
+	 * @param clientId The ID of the client comm, created with
+	 *  `createPositronLspClientId()`.
 	 * @param ipAddress The address of the client that will connect to the
 	 *  language server.
 	 */
-	async startPositronLsp(ipAddress: string): Promise<number> {
-		// Create a unique client ID for this instance
-		const clientId = `positron-lsp-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
+	async startPositronLsp(clientId: string, ipAddress: string): Promise<number> {
 		this.log(`Starting LSP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Info);
 
 		// Notify Positron that we're handling messages from this client
@@ -475,10 +475,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Requests that the kernel start a Debug Adapter Protocol server, and
 	 * connect it to the client locally on the given TCP address.
 	 *
+	 * @param clientId The ID of the client comm, created with
+	 *  `createPositronDapClientId()`.
 	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
 	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
 	 */
-	async startPositronDap(debugType: string, debugName: string) {
+	async startPositronDap(clientId: string, debugType: string, debugName: string) {
 		// NOTE: Ideally we'd connect to any address but the
 		// `debugServer` property passed in the configuration below
 		// needs to be localhost.
@@ -490,8 +492,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// The Jupyter kernel spec does not provide a way to query for
 		// supported comms; the only way to know is to try to create one.
 
-		// Create a unique client ID for this instance
-		const clientId = `positron-dap-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 		this.log(`Starting DAP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Debug);
 
 		// Notify Positron that we're handling messages from this client
@@ -515,6 +515,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Create the DAP client message handler
 		this._dapClient = new DapClient(clientId, port, debugType, debugName, this);
+	}
+
+	createPositronLspClientId(): string {
+		return `positron-lsp-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
+	}
+
+	createPositronDapClientId(): string {
+		return `positron-dap-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 	}
 
 	/**
@@ -1649,7 +1657,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 *
 	 * @param data The message payload
 	 */
-	handleJupyterMessage(data: any) {
+	async handleJupyterMessage(data: any) {
 		// Deserialize the message buffers from base64, if any
 		if (data.buffers?.length > 0) {
 			data.buffers = data.buffers.map((b: string) => {
@@ -1685,12 +1693,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					this._activeBackendRequestHeader = msg.header;
 					break;
 				case JupyterMessageType.RpcRequest: {
-					this.onCommRequest(msg).then(() => {
+					try {
+						await this.onCommRequest(msg);
 						this.log(`Handled comm request: ${JSON.stringify(msg.content)}`, vscode.LogLevel.Debug);
-					})
-						.catch((err) => {
-							this.log(`Failed to handle comm request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
-						});
+					} catch(err) {
+						this.log(`Failed to handle comm request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
+					}
 					break;
 				}
 			}
@@ -1723,7 +1731,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Ensure the kernel is ready; otherwise messages will be emitted to the
 		// frontend before the kernel is "started"
-		this._ready.wait();
+		await this._ready.wait();
 
 		// Translate the Jupyter message to a LanguageRuntimeMessage and emit it
 		this._messages.emitJupyter(msg);
