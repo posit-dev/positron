@@ -33,7 +33,7 @@ export class CreatePyprojectTomlCommandHandler implements IExtensionSingleActiva
         );
     }
 
-    public async createPyprojectToml(): Promise<CreatePyprojectTomlResult> {
+    public async createPyprojectToml(minPythonVersion?: string): Promise<CreatePyprojectTomlResult> {
         const workspaceFolder = this.workspaceService.workspaceFolders?.[0];
         if (!workspaceFolder) {
             traceError('No workspace folder found to create pyproject.toml');
@@ -42,6 +42,9 @@ export class CreatePyprojectTomlCommandHandler implements IExtensionSingleActiva
 
         const workspaceName = path.basename(workspaceFolder.uri.fsPath);
         const pyprojectPath = Uri.joinPath(workspaceFolder.uri, 'pyproject.toml');
+        if (!minPythonVersion) {
+            minPythonVersion = MINIMUM_PYTHON_VERSION.raw;
+        }
 
         try {
             await workspace.fs.stat(pyprojectPath);
@@ -52,12 +55,10 @@ export class CreatePyprojectTomlCommandHandler implements IExtensionSingleActiva
         }
 
         try {
-            // We use MINIMUM_PYTHON_VERSION as the least-strict option for the minimum Python version.
-            // See https://github.com/posit-dev/positron/issues/7902
             const tomlContent = `[project]
 name = "${workspaceName}"
 version = "0.1.0"
-requires-python = ">= ${MINIMUM_PYTHON_VERSION.raw}"
+requires-python = ">= ${minPythonVersion}"
 dependencies = []
 `;
             const contentBytes = new TextEncoder().encode(tomlContent);

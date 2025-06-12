@@ -408,24 +408,6 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	}
 
 	/**
-	 * Adds the pyproject.toml file.
-	 * Relies on the positron-python extension.
-	 */
-	private async _createPyprojectToml() {
-		const result = await this._commandService.executeCommand<CreatePyprojectTomlResult>(
-			'python.createPyprojectToml'
-		);
-		if (!result || !result.success) {
-			const errorDesc = result?.error ? result.error : 'unknown error';
-			const message = this._failedPythonEnvMessage(`Failed to create pyproject.toml: ${errorDesc}`);
-			this._logService.error(message);
-			this._notificationService.warn(message);
-		}
-
-		this._removePendingInitTask(NewFolderTask.CreatePyprojectToml);
-	}
-
-	/**
 	 * Creates the Python environment.
 	 * Relies on extension ms-python.python
 	 */
@@ -539,6 +521,30 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			this._removePendingInitTask(NewFolderTask.PythonEnvironment);
 			return;
 		}
+	}
+
+	/**
+	 * Adds the pyproject.toml file.
+	 * Relies on the positron-python extension.
+	 */
+	private async _createPyprojectToml() {
+		// Use the selected Python version for the `requires-python` field if available.
+		let minPythonVersion: string | undefined;
+		if (this._runtimeMetadata?.languageVersion) {
+			minPythonVersion = this._runtimeMetadata.languageVersion;
+		}
+
+		const result = await this._commandService.executeCommand<CreatePyprojectTomlResult>(
+			'python.createPyprojectToml', minPythonVersion
+		);
+		if (!result || !result.success) {
+			const errorDesc = result?.error ? result.error : 'unknown error';
+			const message = this._failedPythonEnvMessage(`Failed to create pyproject.toml: ${errorDesc}`);
+			this._logService.error(message);
+			this._notificationService.warn(message);
+		}
+
+		this._removePendingInitTask(NewFolderTask.CreatePyprojectToml);
 	}
 
 	/**
