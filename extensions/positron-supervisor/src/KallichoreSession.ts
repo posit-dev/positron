@@ -40,6 +40,8 @@ import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
+import { Channel } from './Channel';
+import { JupyterCommClose } from './jupyter/JupyterCommClose';
 
 /**
  * The reason for a disconnection event.
@@ -146,8 +148,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	private _profileChannel: vscode.OutputChannel | undefined;
 
-	/** A map of active comm channels */
-	private readonly _comms: Map<string, Comm> = new Map();
+	/** A map of active comms connected to Positron clients */
+	private readonly _clients: Map<string, Comm> = new Map();
+
+	/** A map of active comms unmanaged by Positron */
+	private readonly _comms: Map<string, Channel<Record<string, unknown>>> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -560,7 +565,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const request = new UICommRequest(method, args, promise);
 
 		// Find the UI comm
-		const uiComm = Array.from(this._comms.values())
+		const uiComm = Array.from(this._clients.values())
 			.find(c => c.target === positron.RuntimeClientType.Ui);
 
 		if (!uiComm) {
@@ -721,6 +726,23 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	async createComm(
+		type: string,
+		params: Record<string, unknown>,
+	): Promise<void> {
+		const id = `extension-comm-${type}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
+
+		const msg: JupyterCommOpen = {
+			target_name: type,
+			comm_id: id,
+			data: params
+		};
+		const commOpen = new CommOpenCommand(msg);
+		await this.sendCommand(commOpen);
+
+		this._comms.set(id, new Channel());
+	}
+
 	/**
 	 * Create a new client comm.
 	 *
@@ -752,7 +774,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			};
 			const commOpen = new CommOpenCommand(msg, metadata);
 			await this.sendCommand(commOpen);
-			this._comms.set(id, new Comm(id, type));
+			this._clients.set(id, new Comm(id, type));
 
 			// If we have any pending UI comm requests and we just created the
 			// UI comm, send them now
@@ -783,8 +805,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				const target = comms[key].target_name;
 				result[key] = target;
 				// If we don't have a comm object for this comm, create one
-				if (!this._comms.has(key)) {
-					this._comms.set(key, new Comm(key, target));
+				if (!this._clients.has(key)) {
+					this._clients.set(key, new Comm(key, target));
 				}
 
 				// If we just discovered a UI comm, send any pending UI comm
@@ -1723,7 +1745,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// All comms are now closed
-		this._comms.clear();
+		this._clients.clear();
 
 		// Clear any starting comms
 		this._startingComms.forEach((promise) => {
@@ -1860,13 +1882,35 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
+		// Handle comms that are not managed by Positron first
+		if (msg.header.msg_type === 'comm_close') {
+			const closeMsg = msg.content as JupyterCommClose;
+			const channel = this._comms.get(closeMsg.comm_id);
+
+			if (channel) {
+				channel.close();
+				this._comms.delete(closeMsg.comm_id);
+				return;
+			}
+		}
+		if (msg.header.msg_type === 'comm_msg') {
+			const commMsg = msg.content as JupyterCommMsg;
+			const channel = this._comms.get(commMsg.comm_id);
+
+			if (channel) {
+				channel.send(commMsg.data);
+				return;
+			}
+		}
+
+		// TODO: Make DAP and LSP comms unmanaged
 		if (msg.header.msg_type === 'comm_msg') {
 			const commMsg = msg.content as JupyterCommMsg;
 
 			// If we have a DAP client active and this is a comm message intended
 			// for that client, forward the message.
 			if (this._dapClient) {
-				const comm = this._comms.get(commMsg.comm_id);
+				const comm = this._clients.get(commMsg.comm_id);
 				if (comm && comm.id === this._dapClient.clientId) {
 					this._dapClient.handleDapMessage(commMsg.data);
 				}
