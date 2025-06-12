@@ -85,6 +85,7 @@ export const FolderTemplateStep = (props: PropsWithChildren<NewFolderFlowStepPro
 			</div>
 			<FolderTemplateGroup
 				describedBy='folder-template-selection-step-description'
+				folderTemplates={context.availableFolderTemplates}
 				labelledBy='folder-template-selection-step-title'
 				name='templateType'
 				selectedFolderTemplate={selectedTemplateType}

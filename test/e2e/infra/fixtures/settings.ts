@@ -19,7 +19,7 @@ export class SettingsFixture {
 	 * @param value The value to set the setting to
 	 */
 	async set(setting: Setting, restartApp = false) {
-		await this.setMultiple([setting], restartApp);
+		await this.setMultipleUserSettings([setting], restartApp);
 	}
 
 	/**
@@ -28,14 +28,14 @@ export class SettingsFixture {
 	 * effect. Please also remember to unset the setting after to avoid affecting other tests.
 	 * @param settings Array of key-value pairs to set in the user settings
 	 */
-	async setMultiple(settings: Setting[] = [], restartApp = false) {
+	async setMultipleUserSettings(settings: Setting[] = [], restartApp = false) {
 		if (settings.length === 0) {
 			// No settings were provided
 			return;
 		}
 
 		// Set the settings
-		await this.app.workbench.settings.addSettings([
+		await this.app.workbench.settings.addUserSettings([
 			// Set editor.wordWrap to "on" to avoid issues with long settings.
 			// See test/e2e/pages/settings.ts for more explanation.
 			['editor.wordWrap', '"on"'],
@@ -56,7 +56,7 @@ export class SettingsFixture {
 	 */
 	async unset(restartApp = false) {
 		// Clear all user settings
-		await this.app.workbench.settings.clearSettings();
+		await this.app.workbench.settings.clearUserSettings();
 
 		// Restart the application if requested, to apply the settings
 		if (restartApp) {

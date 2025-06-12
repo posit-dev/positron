@@ -18,6 +18,7 @@ import { FolderTemplate } from '../../../services/positronNewFolder/common/posit
  */
 interface FolderTemplateGroupProps {
 	name: string;
+	folderTemplates: FolderTemplate[];
 	selectedFolderTemplate?: string;
 	labelledBy?: string;
 	describedBy?: string;
@@ -31,11 +32,9 @@ interface FolderTemplateGroupProps {
  * @see https://www.w3.org/WAI/ARIA/apg/patterns/radio/ for accessibility guidelines.
  */
 export const FolderTemplateGroup = (props: PropsWithChildren<FolderTemplateGroupProps>) => {
-	const folderTemplates = Object.values(FolderTemplate);
-
 	// Hooks.
 	const [currentSelection, setCurrentSelection] = useState(props.selectedFolderTemplate);
-	const [activeIndexId, setActiveIndexId] = useState(props.selectedFolderTemplate ?? folderTemplates[0] ?? '');
+	const [activeIndexId, setActiveIndexId] = useState(props.selectedFolderTemplate ?? props.folderTemplates[0] ?? '');
 
 	// On folder template selected, update the current selection and notify the parent.
 	const onSelectionChanged = (folderTemplate: FolderTemplate) => {
@@ -52,7 +51,7 @@ export const FolderTemplateGroup = (props: PropsWithChildren<FolderTemplateGroup
 			className='folder-template-group'
 			role='radiogroup'
 		>
-			{folderTemplates.map((folderTemplate, index) => {
+			{props.folderTemplates.map((folderTemplate, index) => {
 				return (
 					<FolderTemplatePicker
 						key={index}

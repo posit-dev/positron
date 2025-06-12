@@ -244,7 +244,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			settings: [string, string][],
 			restartApp = false
 		) => {
-			await userSettings.setMultiple(settings, restartApp);
+			await userSettings.setMultipleUserSettings(settings, restartApp);
 			await app.workbench.sessions.expectNoStartUpMessaging();
 		};
 
@@ -255,23 +255,36 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await userSettings.unset();
 	}, { scope: 'worker' }],
 
-	workspaceSettings: [async ({ app }, use) => {
-		const workspaceSettings = new SettingsFixture(app);
+	userSettingsTest: [async ({ app }, use) => {
+		const settings = app.workbench.settings;
 
-		const setWorkspaceSetting = async (
-			settings: [string, string][],
+		const setUserSetting = async (
+			newSettings: [string, string][],
 			restartApp = false
 		) => {
-			await workspaceSettings.setMultiple(settings, restartApp);
+			if (newSettings.length === 0) {
+				// No settings were provided
+				return;
+			}
+			// set each setting in the workspace settings
+			for (const [key, value] of newSettings) {
+				await settings.setUserSettings([[key, value]]);
+			}
+			if (restartApp) {
+				await app.restart();
+			}
 			await app.workbench.sessions.expectNoStartUpMessaging();
 		};
 
-		await use({
-			set: setWorkspaceSetting
-		});
+		const clearUserSettings = async () => {
+			await app.workbench.settings.clearUserSettings();
+		};
 
-		await workspaceSettings.unset();
-	}, { scope: 'worker' }],
+		await use({
+			set: setUserSetting,
+			clear: clearUserSettings
+		});
+	}, { scope: 'test' }],
 
 	vscodeUserSettings: [async ({ }, use) => {
 		const manager = new SettingsFileManager(SettingsFileManager.getVSCodeSettingsPath());
@@ -493,6 +506,10 @@ interface TestFixtures {
 	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
+	userSettingsTest: {
+		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
+		clear: () => Promise<void>;
+	};
 }
 
 interface WorkerFixtures {
@@ -505,9 +522,6 @@ interface WorkerFixtures {
 	logsPath: string;
 	logger: MultiLogger;
 	userSettings: {
-		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
-	};
-	workspaceSettings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 	};
 	vscodeUserSettings: SettingsFileManager;

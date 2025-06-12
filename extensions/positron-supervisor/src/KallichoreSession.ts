@@ -1696,7 +1696,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					try {
 						await this.onCommRequest(msg);
 						this.log(`Handled comm request: ${JSON.stringify(msg.content)}`, vscode.LogLevel.Debug);
-					} catch(err) {
+					} catch (err) {
 						this.log(`Failed to handle comm request: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
 					}
 					break;

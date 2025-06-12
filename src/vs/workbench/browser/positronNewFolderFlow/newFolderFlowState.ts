@@ -5,7 +5,7 @@
 
 // Other dependencies.
 import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase } from '../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageStartupBehavior, RuntimeStartupPhase } from '../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
 import { EnvironmentSetupType, NewFolderFlowStep, PythonEnvironmentProvider } from './interfaces/newFolderFlowEnums.js';
@@ -102,6 +102,7 @@ export class NewFolderFlowStateManager
 
 	// The state of the New Folder Flow.
 	private _selectedRuntime: ILanguageRuntimeMetadata | undefined;
+	private _availableFolderTemplates: FolderTemplate[];
 	private _folderTemplate: FolderTemplate | undefined;
 	private _folderName: string;
 	private _folderNameFeedback: FlowFormattedTextItem | undefined;
@@ -149,6 +150,7 @@ export class NewFolderFlowStateManager
 		// Initialize the state.
 		this._services = config.services;
 		this._selectedRuntime = undefined;
+		this._availableFolderTemplates = this._getAvailableFolderTemplates();
 		this._folderTemplate = undefined;
 		this._folderName = '';
 		this._folderNameFeedback = undefined;
@@ -226,6 +228,13 @@ export class NewFolderFlowStateManager
 	set selectedRuntime(value: ILanguageRuntimeMetadata | undefined) {
 		this._selectedRuntime = value;
 		this._updateInterpreterRelatedState();
+	}
+
+	/**
+	 * Gets the available folder templates.
+	 */
+	get availableFolderTemplates(): FolderTemplate[] {
+		return this._availableFolderTemplates;
 	}
 
 	/**
@@ -704,6 +713,42 @@ export class NewFolderFlowStateManager
 			this._selectedRuntime = this._interpreters[0];
 			return;
 		}
+	}
+
+	/**
+	 * Constructs and returns the list of available folder templates, with folder templates filtered
+	 * on the current configuration settings for interpreter startup behavior.
+	 * @returns The list of available folder templates.
+	 */
+	private _getAvailableFolderTemplates(): FolderTemplate[] {
+		const generalStartupBehavior = this.services.configurationService.getValue('interpreters.startupBehavior');
+		const pythonStartupBehavior = this.services.configurationService.getValue('interpreters.startupBehavior', { overrideIdentifier: LanguageIds.Python });
+		const rStartupBehavior = this.services.configurationService.getValue('interpreters.startupBehavior', { overrideIdentifier: LanguageIds.R });
+
+		return Object.values(FolderTemplate).filter((template) => {
+			// Always include the Empty Project template, as it does not require any interpreter startup.
+			if (template === FolderTemplate.EmptyProject) {
+				return true;
+			}
+
+			// If interpreter startup is disabled altogether, do not include any templates that require interpreter startup.
+			if (generalStartupBehavior === LanguageStartupBehavior.Disabled) {
+				return false;
+			}
+
+			// Include the Python and Jupyter templates only if the Python startup behavior is not disabled.
+			if (template === FolderTemplate.PythonProject || template === FolderTemplate.JupyterNotebook) {
+				return pythonStartupBehavior !== LanguageStartupBehavior.Disabled;
+			}
+
+			// Include the R template only if the R startup behavior is not disabled.
+			if (template === FolderTemplate.RProject) {
+				return rStartupBehavior !== LanguageStartupBehavior.Disabled;
+			}
+
+			// Otherwise, include the template!
+			return true;
+		});
 	}
 
 	/**
