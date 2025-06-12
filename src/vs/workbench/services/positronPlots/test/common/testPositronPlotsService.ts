@@ -5,9 +5,9 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable, DisposableMap } from '../../../../../base/common/lifecycle.js';
-import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotRenderSettings } from '../../common/positronPlots.js';
+import { IPositronPlotsService, IPositronPlotClient, HistoryPolicy, DarkFilter, PlotRenderSettings, ZoomLevel } from '../../common/positronPlots.js';
 import { IPositronPlotSizingPolicy } from '../../common/sizingPolicy.js';
-import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
+import { IPositronPlotMetadata, PlotClientLocation } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
 
 /**
  * TestPositronPlotsService class.
@@ -104,7 +104,7 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 
 	/** The emitter for the _plotZoomEmitter event */
 	private readonly _onDidChangePlotZoomEmitter =
-		this._register(new Emitter<{ plotId: string; zoomLevel: number }>());
+		this._register(new Emitter<{ plotId: string; zoomLevel: number; location: PlotClientLocation }>());
 
 	//#endregion Private Properties
 
@@ -495,10 +495,10 @@ export class TestPositronPlotsService extends Disposable implements IPositronPlo
 	getEditorPlotZoomLevel(plotId: string): number | undefined {
 		const plotClient = this._editorPlots.get(plotId);
 		if (plotClient) {
-			return this._editorPlotZoomLevels.get(plotId) ?? 0;
+			return this._editorPlotZoomLevels.get(plotId) ?? ZoomLevel.Fit;
 		}
 
-		return 0; // Default to Fit for test implementation
+		return ZoomLevel.Fit; // Default to Fit for test implementation
 	}
 
 	/**

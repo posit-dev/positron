@@ -8,14 +8,14 @@ import React from 'react';
 
 // Other dependencies.
 import { Scrollable } from '../../../../../base/browser/ui/positronComponents/scrollable/Scrollable.js';
-import { ZoomLevel } from './zoomPlotMenuButton.js';
+import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 
 interface PanZoomImageProps {
 	width: number;
 	height: number;
 	imageUri: string;
 	description: string;
-	zoom: ZoomLevel;
+	zoom?: ZoomLevel;
 }
 
 /**
@@ -37,12 +37,13 @@ export const PanZoomImage = (props: PanZoomImageProps) => {
 		if (!imageRef.current) {
 			return;
 		}
+		const zoomLevel = props.zoom ?? ZoomLevel.Fit;
 		// scale by the zoom level
 		// if the zoom level is Fill, then the image should fill the container using css
-		const adjustedWidth = props.zoom === ZoomLevel.Fit ? naturalWidth : naturalWidth * props.zoom;
-		const adjustedHeight = props.zoom === ZoomLevel.Fit ? naturalHeight : naturalHeight * props.zoom;
+		const adjustedWidth = props.zoom === ZoomLevel.Fit ? naturalWidth : naturalWidth * zoomLevel;
+		const adjustedHeight = props.zoom === ZoomLevel.Fit ? naturalHeight : naturalHeight * zoomLevel;
 
-		if (props.zoom === ZoomLevel.Fit) {
+		if (zoomLevel === ZoomLevel.Fit) {
 			imageRef.current.style.width = '100%';
 			imageRef.current.style.height = '100%';
 			imageRef.current.style.objectFit = 'contain';

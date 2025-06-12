@@ -5,10 +5,9 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
-import { ZoomLevel } from '../../../contrib/positronPlots/browser/components/zoomPlotMenuButton.js';
 import { IPositronPlotMetadata } from '../../languageRuntime/common/languageRuntimePlotClient.js';
 import { ILanguageRuntimeMessageOutput } from '../../languageRuntime/common/languageRuntimeService.js';
-import { createSuggestedFileNameForPlot, IPositronPlotClient } from './positronPlots.js';
+import { createSuggestedFileNameForPlot, IPositronPlotClient, ZoomLevel } from './positronPlots.js';
 
 /**
  * Creates a static plot client from a language runtime message.

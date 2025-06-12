@@ -5,9 +5,8 @@
 
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { IPositronPlotClient } from '../../common/positronPlots.js';
+import { IPositronPlotClient, ZoomLevel } from '../../common/positronPlots.js';
 import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
-import { ZoomLevel } from '../../../../contrib/positronPlots/browser/components/zoomPlotMenuButton.js';
 
 /**
  * TestPositronPlotClient class.

@@ -11,14 +11,7 @@ import * as nls from '../../../../../nls.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-
-export enum ZoomLevel {
-	Fit = 0,
-	Fifty = 0.5,
-	SeventyFive = 0.75,
-	OneHundred = 1,
-	TwoHundred = 2,
-}
+import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 
 interface ZoomPlotMenuButtonProps {
 	readonly actionHandler: (zoomLevel: ZoomLevel) => void;
