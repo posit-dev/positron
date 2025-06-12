@@ -26,6 +26,7 @@ export class Settings {
 		await this.editors.waitForActiveTabNotDirty(file);
 		// Wait for the settings to be applied. I ran into this specifically with Chromium locally but it seems fine in CI :shrug:
 		await this.code.driver.page.waitForTimeout(1000);
+		await this.hotKeys.closeTab();
 	}
 
 	async clearUserSettings(): Promise<void> {
@@ -76,6 +77,7 @@ export class Settings {
 		// Retrieve clipboard contents
 		const rawText = await this.clipboard.getClipboardText();
 		if (!rawText) {
+			await this.hotKeys.closeTab();
 			return [];
 		}
 
@@ -88,9 +90,11 @@ export class Settings {
 		// Parse JSON safely
 		try {
 			const json = JSON.parse(cleanedText);
+			await this.hotKeys.closeTab();
 			return Object.entries(json) as [string, string][];
 		} catch (e) {
 			console.error('Error parsing workspace settings:', e);
+			await this.hotKeys.closeTab();
 			return [];
 		}
 	}
