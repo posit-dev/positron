@@ -287,7 +287,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		});
 
 		await settings.restoreWorkspaceSettings(backup);
-	}, { scope: 'worker' }],
+	}, { scope: 'test' }],
 
 	vscodeUserSettings: [async ({ }, use) => {
 		const manager = new SettingsFileManager(SettingsFileManager.getVSCodeSettingsPath());
@@ -509,6 +509,10 @@ interface TestFixtures {
 	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
+	workspaceSettings: {
+		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
+		clear: () => Promise<void>;
+	};
 }
 
 interface WorkerFixtures {
@@ -522,10 +526,6 @@ interface WorkerFixtures {
 	logger: MultiLogger;
 	userSettings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
-	};
-	workspaceSettings: {
-		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
-		clear: () => Promise<void>;
 	};
 	vscodeUserSettings: SettingsFileManager;
 	positronUserSettings: SettingsFileManager;
