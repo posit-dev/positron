@@ -72,6 +72,8 @@ export interface DisconnectedEvent {
 	reason: DisconnectReason;
 }
 
+export type CommChannel = Channel<Record<string, unknown>>;
+
 export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	/**
 	 * The runtime messages emitter; consumes Jupyter messages and translates
@@ -152,7 +154,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _clients: Map<string, Comm> = new Map();
 
 	/** A map of active comms unmanaged by Positron */
-	private readonly _comms: Map<string, Channel<Record<string, unknown>>> = new Map();
+	private readonly _comms: Map<string, CommChannel> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -729,7 +731,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	async createComm(
 		type: string,
 		params: Record<string, unknown>,
-	): Promise<void> {
+	): Promise<CommChannel> {
 		const id = `extension-comm-${type}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 
 		const msg: JupyterCommOpen = {
@@ -740,7 +742,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const commOpen = new CommOpenCommand(msg);
 		await this.sendCommand(commOpen);
 
-		this._comms.set(id, new Channel());
+		const channel: CommChannel = new Channel();
+
+		this._comms.set(id, channel);
+		channel.register({
+			dispose: () => {
+				// If already deleted, it means a `comm_close` from the backend was
+				// received and we don't need to send one.
+				if (this._comms.delete(id)) {
+					const commClose = new CommCloseCommand(id);
+					this.sendCommand(commClose);
+				}
+			}
+		});
+
+		return channel;
 	}
 
 	/**
@@ -1888,8 +1904,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			const channel = this._comms.get(closeMsg.comm_id);
 
 			if (channel) {
-				channel.close();
+				// Delete first, this prevents the channel disposable from sending a
+				// `comm_close` back
 				this._comms.delete(closeMsg.comm_id);
+				channel.dispose();
 				return;
 			}
 		}
