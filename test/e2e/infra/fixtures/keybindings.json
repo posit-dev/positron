@@ -12,5 +12,13 @@
         {
         "key": "cmd+j f",
         "command": "positron.workbench.action.newFolderFromTemplate"
+    },
+        {
+        "key": "cmd+j w",
+        "command": "workbench.action.closeFolder"
+    },
+    {
+        "key": "cmd+j l",
+        "command": "workbench.action.openWalkthrough"
     }
 ]

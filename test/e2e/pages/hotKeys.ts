@@ -90,11 +90,20 @@ export class HotKeys {
 		await this.pressHotKeys(`Cmd+K F`);
 	}
 
+	// -- Workspaces --
+	public async closeWorkspace() {
+		await this.pressHotKeys(`Cmd+J W`);
+	}
+
 	// --- User Custom Keybindings ---
 	// Add custom keybindings in: `positron/test/e2e/infra/fixtures/keybindings.json`
 
 	public async jupyterCellAddTag() {
 		await this.pressHotKeys(`Cmd+J J`);
+	}
+
+	public async welcomeWalkthrough() {
+		await this.pressHotKeys(`Cmd+J L`);
 	}
 
 	public async openWorkspaceSettingsJSON() {
