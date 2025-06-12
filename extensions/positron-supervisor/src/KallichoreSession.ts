@@ -851,6 +851,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	removeClient(id: string): void {
+		this._clients.delete(id);
+
 		// Ignore this if the session is already exited; an exited session has
 		// no clients
 		if (this._runtimeState === positron.RuntimeState.Exited) {
