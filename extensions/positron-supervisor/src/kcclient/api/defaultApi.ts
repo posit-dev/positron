@@ -16,6 +16,7 @@ import http from 'http';
 
 /* tslint:disable:no-unused-locals */
 import { ActiveSession } from '../model/activeSession';
+import { ClientHeartbeat } from '../model/clientHeartbeat';
 import { ConnectionInfo } from '../model/connectionInfo';
 import { ModelError } from '../model/modelError';
 import { NewSession } from '../model/newSession';
@@ -248,8 +249,9 @@ export class DefaultApi {
     /**
      * 
      * @summary Notify the server that a client is connected
+     * @param clientHeartbeat 
      */
-    public async clientHeartbeat (options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body: any;  }> {
+    public async clientHeartbeat (clientHeartbeat: ClientHeartbeat, options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body: any;  }> {
         const localVarPath = this.basePath + '/client_heartbeat';
         let localVarQueryParameters: any = {};
         let localVarHeaderParams: any = (<any>Object).assign({}, this._defaultHeaders);
@@ -262,6 +264,11 @@ export class DefaultApi {
         }
         let localVarFormParams: any = {};
 
+        // verify required parameter 'clientHeartbeat' is not null or undefined
+        if (clientHeartbeat === null || clientHeartbeat === undefined) {
+            throw new Error('Required parameter clientHeartbeat was null or undefined when calling clientHeartbeat.');
+        }
+
         (<any>Object).assign(localVarHeaderParams, options.headers);
 
         let localVarUseFormData = false;
@@ -273,6 +280,7 @@ export class DefaultApi {
             uri: localVarPath,
             useQuerystring: this._useQuerystring,
             json: true,
+            body: ObjectSerializer.serialize(clientHeartbeat, "ClientHeartbeat")
         };
 
         let authenticationPromise = Promise.resolve();
