@@ -282,7 +282,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 		}
 
 		// Add pyproject.toml file if requested
-		await this._createPyprojectToml();
+		if (this.pendingInitTasks.has(NewFolderTask.CreatePyprojectToml)) {
+			await this._createPyprojectToml();
+		}
 
 		// Complete the Python task
 		this._removePendingInitTask(NewFolderTask.Python);
@@ -406,18 +408,10 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 	}
 
 	/**
-	 * Adds the pyproject.toml file if requested.
+	 * Adds the pyproject.toml file.
+	 * Relies on the positron-python extension.
 	 */
 	private async _createPyprojectToml() {
-		if (!this._newFolderConfig) {
-			this._logService.error(`[New folder startup] create pyproject.toml - no new folder configuration found`);
-			return;
-		}
-
-		if (!this._newFolderConfig.createPyprojectToml) {
-			return;
-		}
-
 		const result = await this._commandService.executeCommand<CreatePyprojectTomlResult>(
 			'python.createPyprojectToml'
 		);
@@ -426,8 +420,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			const message = this._failedPythonEnvMessage(`Failed to create pyproject.toml: ${errorDesc}`);
 			this._logService.error(message);
 			this._notificationService.warn(message);
-			return;
 		}
+
+		this._removePendingInitTask(NewFolderTask.CreatePyprojectToml);
 	}
 
 	/**
@@ -817,6 +812,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 				tasks.add(NewFolderTask.Python);
 				if (this._newFolderConfig.pythonEnvProviderId) {
 					tasks.add(NewFolderTask.PythonEnvironment);
+				}
+				if (this._newFolderConfig.createPyprojectToml) {
+					tasks.add(NewFolderTask.CreatePyprojectToml);
 				}
 				break;
 			case FolderTemplate.JupyterNotebook:

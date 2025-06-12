@@ -1067,6 +1067,7 @@ export class NewFolderFlowStateManager
 			this._uvPythonVersion = undefined;
 			this._uvPythonVersionInfo = undefined;
 			this._isUvInstalled = undefined;
+			this._createPyprojectToml = true;
 		};
 
 		// Clear R-specific state.
