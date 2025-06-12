@@ -153,6 +153,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private readonly _onDidStartUiClientEmitter =
 		this._register(new Emitter<{ sessionId: string; uiClient: UiClientInstance }>());
 
+
+	// The dialog prompt instance for the modal wait prompt.
+	private _modalWaitPrompt: IModalDialogPromptInstance | undefined = undefined;
+
 	constructor(
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -2041,7 +2045,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		warning: string) {
 
 		const disposables = new DisposableStore();
-		let prompt: IModalDialogPromptInstance | undefined = undefined;
+
+		// If we already have a modal prompt waiting for the user to respond,
+		// close it since we are about to show a new one.
+		if (this._modalWaitPrompt) {
+			this._modalWaitPrompt.close(); // Causes onChoice to be called with `false`
+			this._modalWaitPrompt = undefined;
+		}
 
 		return new Promise<void>((resolve, reject) => {
 			const timer = setTimeout(() => {
@@ -2049,21 +2059,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				reject();
 
 				// Show a prompt to the user asking if they want to force quit the runtime.
-				prompt = this._positronModalDialogsService.showModalDialogPrompt(
+				this._modalWaitPrompt = this._positronModalDialogsService.showModalDialogPrompt(
 					nls.localize('positron.runtimeNotResponding', "{0} is not responding", session.runtimeMetadata.runtimeName),
 					warning,
 					nls.localize('positron.runtimeForceQuit', "Force Quit"),
 					nls.localize('positron.runtimeKeepWaiting', "Wait")
 				);
 
-				prompt.onChoice((choice) => {
+				disposables.add(this._modalWaitPrompt.onChoice((choice) => {
 					// If the user chose to force quit the runtime, do so.
 					if (choice) {
 						session.forceQuit();
 					}
 					// Regardless of their choice, we are done waiting for a state change.
+					this._modalWaitPrompt = undefined;
 					disposables.dispose();
-				});
+				}));
 			}, seconds * 1000);
 
 			// Runs when the requested state change was completed.
@@ -2074,8 +2085,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				// If we were prompting the user to force quit the runtime,
 				// close the prompt ourselves since the runtime is now
 				// responding.
-				if (prompt) {
-					prompt.close();
+				if (this._modalWaitPrompt) {
+					this._modalWaitPrompt.close();
+					this._modalWaitPrompt = undefined;
 				}
 				disposables.dispose();
 			};
