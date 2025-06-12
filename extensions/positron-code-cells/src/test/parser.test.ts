@@ -146,12 +146,11 @@ And a [link](target)`;
 			});
 		});
 
-		test('Parses section headers as cells', async () => {
-			const content = [codeCell3, codeCell2].join('\n\n');
+		test('Section headers end code cells', async () => {
+			const content = [codeCell2, codeCell3].join('\n\n');
 			const document = await vscode.workspace.openTextDocument({ language, content });
 			assert.deepStrictEqual(parseCells(document), [
-				{ range: new vscode.Range(0, 0, 4, 0), type: CellType.Code },
-				{ range: new vscode.Range(5, 0, 8, 3), type: CellType.Code }
+				{ range: new vscode.Range(0, 0, 4, 0), type: CellType.Code }
 			]);
 		});
 
