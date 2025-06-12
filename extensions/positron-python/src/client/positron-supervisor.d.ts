@@ -84,19 +84,37 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
      * Convenience method for starting the Positron LSP server, if the
      * language runtime supports it.
      *
+     * @param clientId The ID of the client comm, created with
+     *  `createPositronLspClientId()`.
      * @param ipAddress The address of the client that will connect to the
      *  language server.
      */
-    startPositronLsp(ipAddress: string): Promise<number>;
+    startPositronLsp(clientId: string, ipAddress: string): Promise<number>;
 
     /**
      * Convenience method for starting the Positron DAP server, if the
      * language runtime supports it.
      *
+     * @param clientId The ID of the client comm, created with
+     *  `createPositronDapClientId()`.
      * @param debugType Passed as `vscode.DebugConfiguration.type`.
      * @param debugName Passed as `vscode.DebugConfiguration.name`.
      */
-    startPositronDap(debugType: string, debugName: string): Promise<void>;
+    startPositronDap(clientId: string, debugType: string, debugName: string): Promise<void>;
+
+    /**
+     * Convenience method for creating a client id to pass to
+     * `startPositronLsp()`. The caller can later remove the client using this
+     * id as well.
+     */
+    createPositronLspClientId(): string;
+
+    /**
+     * Convenience method for creating a client id to pass to
+     * `startPositronDap()`. The caller can later remove the client using this
+     * id as well.
+     */
+    createPositronDapClientId(): string;
 
     /**
      * Method for emitting a message to the language server's Jupyter output
