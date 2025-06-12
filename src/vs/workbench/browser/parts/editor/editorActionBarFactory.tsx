@@ -420,10 +420,9 @@ export class EditorActionBarFactory extends Disposable {
 			} else if (isPositronActionBarToggleOptions(action.positronActionBarOptions)) {
 				elements.push(<ActionBarActionToggle action={action} />);
 			} else {
-				// This indicates unknown positronActionBarOptions and is a bug. Push the
-				// action to the secondary actions and log a warning.
-				secondaryActions.push(action);
-				console.warn('EditorActionBarFactory: Unknown positronActionBarOptions');
+				// This indicates unknown positronActionBarOptions and is a bug.
+				console.warn(`EditorActionBarFactory: Unknown positronActionBarOptions for action ${action.id}. Using ActionBarActionButton as fallback.`);
+				elements.push(<ActionBarActionButton action={action} />);
 			}
 		}
 
