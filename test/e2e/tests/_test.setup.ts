@@ -255,11 +255,10 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await userSettings.unset();
 	}, { scope: 'worker' }],
 
-	workspaceSettings: [async ({ app }, use) => {
+	userSettingsTest: [async ({ app }, use) => {
 		const settings = app.workbench.settings;
-		const backup = await settings.backupWorkspaceSettings();
 
-		const setWorkspaceSetting = async (
+		const setUserSetting = async (
 			newSettings: [string, string][],
 			restartApp = false
 		) => {
@@ -269,7 +268,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			}
 			// set each setting in the workspace settings
 			for (const [key, value] of newSettings) {
-				await settings.setWorkspaceSettings([[key, value]]);
+				await settings.setUserSettings([[key, value]]);
 			}
 			if (restartApp) {
 				await app.restart();
@@ -277,16 +276,14 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			await app.workbench.sessions.expectNoStartUpMessaging();
 		};
 
-		const clearWorkspaceSettings = async () => {
-			await app.workbench.settings.clearWorkspaceSettings();
+		const clearUserSettings = async () => {
+			await app.workbench.settings.clearUserSettings();
 		};
 
 		await use({
-			set: setWorkspaceSetting,
-			clear: clearWorkspaceSettings
+			set: setUserSetting,
+			clear: clearUserSettings
 		});
-
-		await settings.restoreWorkspaceSettings(backup);
 	}, { scope: 'test' }],
 
 	vscodeUserSettings: [async ({ }, use) => {
@@ -509,7 +506,7 @@ interface TestFixtures {
 	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
-	workspaceSettings: {
+	userSettingsTest: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
 		clear: () => Promise<void>;
 	};

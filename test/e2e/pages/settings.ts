@@ -51,6 +51,21 @@ export class Settings {
 		await this.editor.waitForEditorFocus('settings.json', 1);
 	}
 
+	async setUserSettings(settings: [key: string, value: string][]): Promise<void> {
+		await test.step(`Set user settings: ${settings}`, async () => {
+			await this.openUserSettingsFile();
+			const file = 'settings.json';
+			await this.editors.saveOpenedFile();
+			await this.code.driver.page.keyboard.press('ArrowRight');
+			await this.editor.type(settings.map(v => `"${v[0]}": ${v[1]},`).join(''), true);
+			await this.editors.saveOpenedFile();
+			await this.editors.waitForActiveTabNotDirty(file);
+			// Wait for the settings to be applied. I ran into this specifically with Chromium locally but it seems fine in CI :shrug:
+			await this.code.driver.page.waitForTimeout(1000);
+			// await this.hotKeys.closeTab();
+		});
+	}
+
 	async setWorkspaceSettings(settings: [key: string, value: string][]): Promise<void> {
 		await test.step(`Set workspace settings: ${settings}`, async () => {
 			await this.openWorkspaceSettingsFile();
@@ -145,6 +160,40 @@ export class Settings {
 	// Restore original workspace settings
 	async restoreWorkspaceSettings(settings: string): Promise<void> {
 		await this.openWorkspaceSettingsFile();
+		const file = 'settings.json';
+
+		// Clear current file
+		await this.hotKeys.selectAll();
+		await this.code.driver.page.keyboard.press('Delete');
+
+		// Copy original settings to clipboard
+		await this.clipboard.setClipboardText(settings.trim());
+
+		// Paste clipboard contents into the editor
+		await this.hotKeys.paste();
+
+		// Save and close
+		await this.editors.saveOpenedFile();
+		await this.editors.waitForActiveTabNotDirty(file);
+		await this.hotKeys.closeTab();
+	}
+
+	// Backup current user settings
+	async backupUserSettings(): Promise<string> {
+		await this.openUserSettingsFile();
+
+		// Select all content and copy to clipboard
+		await this.hotKeys.selectAll();
+		await this.hotKeys.copy();
+		await this.hotKeys.closeTab();
+
+		const clipboardText = await this.clipboard.getClipboardText();
+		return clipboardText ?? '';
+	}
+
+	// Restore original user settings
+	async restoreUserSettings(settings: string): Promise<void> {
+		await this.openUserSettingsFile();
 		const file = 'settings.json';
 
 		// Clear current file

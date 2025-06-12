@@ -28,8 +28,8 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 // beforeAll hook to ensure app instances pass to test correctly
 test.describe('Console Pane: Alternate Python', () => {
 
-	test.beforeAll(async ({ workspaceSettings }) => {
-		await workspaceSettings.set([['python.useBundledIpykernel', 'false']], true);
+	test.beforeAll(async ({ userSettings }) => {
+		await userSettings.set([['python.useBundledIpykernel', 'false']], true);
 	});
 
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {

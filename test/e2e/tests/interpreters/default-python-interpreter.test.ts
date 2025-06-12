@@ -16,7 +16,7 @@ test.describe('Default Interpreters - Python', {
 	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
-	test.beforeAll(async function ({ app, workspaceSettings }) {
+	test.beforeAll(async function ({ app, userSettings }) {
 
 		await app.workbench.settings.removeWorkspaceSettings(['interpreters.startupBehavior']);
 
@@ -27,7 +27,7 @@ test.describe('Default Interpreters - Python', {
 		// await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], true);
 
 		// hidden interpreter (Conda)
-		await workspaceSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], true);
+		await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], true);
 
 	});
 
