@@ -31,19 +31,17 @@ async function getBundledCopilotVersion(versionPath: string): Promise<string | u
 }
 
 async function main() {
-	let bundleDir = path.join('resources', 'copilot');
+	const bundleDir = path.join('resources', 'copilot');
 
 	// There is no win32-arm64 build yet; try to use x64 instead.
 	// See: https://github.com/github/copilot-language-server-release/issues/5.
 	// On other platforms, use the system architecture, or the npm_config_arch
 	// environment variable if set (e.g. for cross-compilation).
 	const targetArch = platform() === 'win32' ? 'x64' : process.env.npm_config_arch || arch();
+	const serverDir = platform() === 'darwin' ?
+		path.join(bundleDir, targetArch) : bundleDir;
 
-	if (platform() === 'darwin') {
-		bundleDir = path.join(bundleDir, targetArch);
-	}
-
-	await mkdir(bundleDir, { recursive: true });
+	await mkdir(serverDir, { recursive: true });
 
 	const npmDir = path.join('node_modules', '@github', 'copilot-language-server');
 	const npmVersion = await getNpmCopilotVersion(npmDir);
@@ -60,7 +58,7 @@ async function main() {
 
 	const serverName = platform() === 'win32' ? 'copilot-language-server.exe' : 'copilot-language-server';
 	const npmServerPath = path.join(npmDir, 'native', `${platform()}-${targetArch}`, serverName);
-	const bundledServerPath = path.join(bundleDir, serverName);
+	const bundledServerPath = path.join(serverDir, serverName);
 	await copyFile(npmServerPath, bundledServerPath);
 	await writeFile(bundleVersionPath, npmVersion, 'utf8');
 }
