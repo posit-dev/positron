@@ -212,12 +212,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// a selection.
 					case PositronAssistantToolName.SelectionEdit:
 						return inEditor && hasSelection;
-					// Only include the edit file tool in edit mode i.e. for the edit participant.
+					// Only include the edit file tool in edit or agent mode i.e. for the edit participant.
 					case PositronAssistantToolName.EditFile:
-						return this.id === ParticipantID.Edit;
+						return this.id === ParticipantID.Edit || this.id === ParticipantID.Agent;
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
+					// Allow all tools in Agent mode.
 					default:
-						return tool.tags.includes('positron-assistant');
+						return this.id === ParticipantID.Agent ||
+							tool.tags.includes('positron-assistant');
 				}
 			}
 		);
