@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { getLanguageModels } from './models';
 import { completionModels } from './completion';
-import { disposeModels, registerModel } from './extension';
+import { disposeModels, log, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
@@ -102,89 +102,6 @@ export async function getModelConfigurations(context: vscode.ExtensionContext, s
 	);
 
 	return fullConfigs;
-}
-
-export async function showModelList(context: vscode.ExtensionContext, storage: SecretStorage) {
-	// Create a quickpick with all configured models
-	const modelConfigs = await getModelConfigurations(context, storage);
-	const quickPick = vscode.window.createQuickPick();
-
-	// Create sections for chat and completion models
-	const chatModels = modelConfigs.filter(config =>
-		config.type === 'chat'
-	);
-	const completionModels = modelConfigs.filter(config =>
-		config.type === 'completion'
-	);
-
-	const addNewModelLabel = vscode.l10n.t('Add a Language Model');
-	const items: Array<vscode.QuickPickItem> = [
-		{
-			label: vscode.l10n.t('Chat Models'),
-			kind: vscode.QuickPickItemKind.Separator
-		},
-		...chatModels.map((config) => ({
-			label: config.name,
-			detail: config.model
-		})),
-		{
-			label: vscode.l10n.t('Completion Models'),
-			kind: vscode.QuickPickItemKind.Separator
-		},
-		...completionModels.map((config) => ({
-			label: config.name,
-			detail: config.model,
-			description: config.baseUrl
-		})),
-		{
-			label: '',
-			kind: vscode.QuickPickItemKind.Separator
-		},
-		{
-			label: addNewModelLabel,
-			description: vscode.l10n.t('Add a new language model configuration'),
-		}
-	];
-
-	vscode.window.showQuickPick(items, {
-		placeHolder: vscode.l10n.t('Remove a language model configuration'),
-		canPickMany: false,
-
-	}).then(async (selected) => {
-		if (!selected) {
-			return;
-		}
-		if (selected.label === addNewModelLabel) {
-			showConfigurationDialog(context, storage);
-		} else {
-			const selectedConfig = modelConfigs.find((config) => config.name === selected.label);
-			if (selectedConfig) {
-				confirmModelDeletion(context, storage, selectedConfig);
-			}
-		}
-	});
-}
-
-async function confirmModelDeletion(context: vscode.ExtensionContext, storage: SecretStorage, config: ModelConfig) {
-	const confirmed = await positron.window.showSimpleModalDialogPrompt(
-		vscode.l10n.t('Remove {0}', config.name),
-		vscode.l10n.t('Are you sure you want to remove the {0} model {1}?', config.type, config.name),
-		vscode.l10n.t('Remove'));
-
-	if (!confirmed) {
-		return;
-	}
-
-	try {
-		await deleteConfiguration(context, storage, config.id);
-		vscode.window.showInformationMessage(
-			vscode.l10n.t(`Language Model {0} has been removed successfully.`, config.name)
-		);
-	} catch (err) {
-		vscode.window.showErrorMessage(
-			vscode.l10n.t(`Failed to remove language model {0}: {1}`, config.name, JSON.stringify(err))
-		);
-	}
 }
 
 export async function getEnabledProviders(): Promise<string[]> {
@@ -410,4 +327,23 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 	disposeModels(id);
 
 	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
+}
+
+export function logStoredModels(context: vscode.ExtensionContext): void {
+	const models = getStoredModels(context);
+	const chatModels = models.filter(m => m.type === 'chat').map(m => ({
+		name: m.name,
+		model: m.model,
+		provider: m.provider,
+	}));
+	const completionModels = models.filter(m => m.type === 'completion').map(m => ({
+		name: m.name,
+		model: m.model,
+		provider: m.provider,
+	}));
+	const modelsInfo = {
+		chatModels: chatModels.length > 0 ? chatModels : 'None',
+		completionModels: completionModels.length > 0 ? completionModels : 'None',
+	};
+	log.info('Stored Models:', JSON.stringify(modelsInfo, null, 2));
 }

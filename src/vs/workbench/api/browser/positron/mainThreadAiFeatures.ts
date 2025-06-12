@@ -57,7 +57,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 					await this._proxy.$responseLanguageModelConfig(id, config, action);
 					resolve();
 				},
-				() => reject('User cancelled language model configuration.'),
 				() => this._proxy.$onCompleteLanguageModelConfig(id),
 			);
 		});

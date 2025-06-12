@@ -112,7 +112,6 @@ export interface IPositronAssistantService {
 	showLanguageModelModalDialog(
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
-		onCancel: () => void,
 		onClose: () => void,
 	): void;
 

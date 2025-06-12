@@ -8,7 +8,7 @@ import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const CHATBUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
-const ADD_MODEL_LINK = 'a[data-href="command:positron-assistant.addModelConfiguration"]';
+const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
 const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] button[aria-label="Add Model Provider..."]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
 const DONE_BUTTON = 'button.positron-button.action-bar-button.default';
@@ -60,7 +60,7 @@ export class Assistant {
 	}
 
 	async clickAddModelLink() {
-		await this.code.driver.page.locator(ADD_MODEL_LINK).click();
+		await this.code.driver.page.locator(CONFIGURE_MODELS_LINK).click();
 	}
 
 	async clickAddModelButton() {
@@ -68,8 +68,8 @@ export class Assistant {
 	}
 
 	async verifyAddModelLinkVisible() {
-		await expect(this.code.driver.page.locator(ADD_MODEL_LINK)).toBeVisible();
-		await expect(this.code.driver.page.locator(ADD_MODEL_LINK)).toHaveText('Add a Language Model.');
+		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toBeVisible();
+		await expect(this.code.driver.page.locator(CONFIGURE_MODELS_LINK)).toHaveText('Add a Language Model.');
 	}
 
 	async verifyAddModelButtonVisible() {

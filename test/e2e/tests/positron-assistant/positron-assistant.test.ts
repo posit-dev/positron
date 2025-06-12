@@ -79,7 +79,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.code.driver.page.keyboard.press(inlineChatShortcut);
 		await app.code.driver.page.locator('.chat-widget > .interactive-session').isVisible();
 		await app.workbench.assistant.verifyInlineChatInputsVisible();
-		await app.workbench.quickaccess.runCommand('positron-assistant.addModelConfiguration');
+		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignOutButton();
 		await app.workbench.assistant.clickDoneButton();
@@ -101,13 +101,9 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
  * Test suite Positron Assistant actions from the chat interface.
  */
 test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
-	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
-		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
-		await settings.set({
-			'positron.assistant.newModelConfiguration': true,
-		}, { reload: true });
+	test.beforeAll('Enable Assistant', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.quickaccess.runCommand('positron-assistant.addModelConfiguration');
+		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.clickDoneButton();

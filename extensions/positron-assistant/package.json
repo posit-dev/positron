@@ -106,14 +106,14 @@
     ],
     "commands": [
       {
-        "command": "positron-assistant.addModelConfiguration",
-        "title": "%commands.addModelConfiguration.title%",
-        "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable && !config.positron.assistant.newModelConfiguration"
-      },
-      {
         "command": "positron-assistant.configureModels",
         "title": "%commands.configureModels.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.logStoredModels",
+        "title": "%commands.logStoredModels.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
       }
