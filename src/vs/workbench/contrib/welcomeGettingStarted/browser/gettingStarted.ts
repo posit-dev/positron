@@ -908,7 +908,7 @@ export class GettingStartedPage extends EditorPane {
 
 		const headerText = $('div', {},
 			$('h1.product-name.positron.caption', {}, this.productService.nameLong),
-			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "an IDE for data science by Posit PBC"))
+			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "an IDE for Data Science by Posit"))
 		);
 		const header = $('.header', {},
 			$('div.product-logo.welcome-positron-logo.'),
