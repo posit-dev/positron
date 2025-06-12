@@ -12,12 +12,12 @@ import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progress
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../nls.js';
 import { PanZoomImage } from './panZoomImage.js';
-import { ZoomLevel } from './zoomPlotMenuButton.js';
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { PlotClientInstance, PlotClientState } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
+import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -25,7 +25,7 @@ import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/co
 interface DynamicPlotInstanceProps {
 	width: number;
 	height: number;
-	zoom: ZoomLevel;
+	zoom?: ZoomLevel;
 	plotClient: PlotClientInstance;
 }
 

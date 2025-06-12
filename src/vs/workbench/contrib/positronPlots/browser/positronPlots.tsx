@@ -13,14 +13,14 @@ import React, { PropsWithChildren, useCallback, useEffect, useState } from 'reac
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { PositronPlotsServices } from './positronPlotsState.js';
 import { PositronPlotsContextProvider } from './positronPlotsContext.js';
-import { HistoryPolicy, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { HistoryPolicy, IPositronPlotsService, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PlotsContainer } from './components/plotsContainer.js';
 import { ActionBars } from './components/actionBars.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { PositronPlotsViewPane } from './positronPlotsView.js';
-import { ZoomLevel } from './components/zoomPlotMenuButton.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
+import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 
 /**
  * PositronPlotsProps interface.
@@ -73,11 +73,11 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		}
 
 		const plot = props.positronPlotsService.positronPlotInstances.find(plot => plot.id === currentPlotId);
-		if (!plot) {
+		if (!plot || !(plot instanceof PlotClientInstance)) {
 			return;
 		}
 		// Update the zoom level in the plot metadata.
-		plot.metadata.zoom_level = zoom;
+		plot.zoomLevel = zoom;
 	};
 
 	// Hooks.
