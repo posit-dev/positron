@@ -49,7 +49,6 @@ class PositronWelcomeContribution extends Disposable implements IWorkbenchContri
 			pathPromise = getCodeSettingsPathNative(this.pathService);
 		}
 		pathPromise.then(async (codeSettingsPath) => {
-			console.log('Code settings path:', codeSettingsPath);
 			const codeSettingsExist = await this.fileService.exists(codeSettingsPath);
 
 			this.contextKeyService.createKey('positron.settingsImport.hasCodeSettings', codeSettingsExist);

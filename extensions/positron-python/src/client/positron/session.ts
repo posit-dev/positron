@@ -463,7 +463,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             });
         }
 
-        return this._kernel!.start();
+        return this._kernel!.start().then((info) => {
+            if (this.kernelSpec) {
+                this.enableAutoReloadIfEnabled(info);
+            }
+            return info;
+        });
     }
 
     private async onConsoleWidthChange(newWidth: number): Promise<void> {
@@ -827,6 +832,29 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 `Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
                 vscode.LogLevel.Error,
             );
+        }
+    }
+
+    private enableAutoReloadIfEnabled(info: positron.LanguageRuntimeInfo): void {
+        // Enable auto-reload if the setting is enabled.
+        const configurationService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
+        const settings = configurationService.getSettings();
+        if (settings.enableAutoReload) {
+            // Execute the autoreload magic command.
+            this._kernel?.execute(
+                '%load_ext autoreload\n%autoreload 2',
+                createUniqueId(),
+                positron.RuntimeCodeExecutionMode.Silent,
+                positron.RuntimeErrorBehavior.Continue,
+            );
+
+            // Enable module hot-reloading for the kernel.
+            const settingUri = `positron://settings/python.enableAutoReload`;
+            const banner = vscode.l10n.t(
+                'Automatic import reloading for Python is enabled. It can be disabled with the \x1b]8;;{0}\x1b\\python.enableAutoReload setting\x1b]8;;\x1b\\.',
+                settingUri,
+            );
+            info.banner += banner;
         }
     }
 

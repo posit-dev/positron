@@ -44,7 +44,11 @@ import { getOSType, OSType, isWindows } from './utils/platform';
 import { untildify } from './helpers';
 
 // --- Start Positron ---
-import { INTERPRETERS_EXCLUDE_SETTING_KEY, INTERPRETERS_INCLUDE_SETTING_KEY } from './constants';
+import {
+    INTERPRETERS_EXCLUDE_SETTING_KEY,
+    INTERPRETERS_INCLUDE_SETTING_KEY,
+    AUTORELOAD_SETTING_KEY,
+} from './constants';
 // --- End Positron ---
 
 export class PythonSettings implements IPythonSettings {
@@ -148,6 +152,8 @@ export class PythonSettings implements IPythonSettings {
     public languageServerLogLevel = 'error';
 
     public quietMode = false;
+
+    public enableAutoReload = false;
     // --- End Positron ---
 
     protected readonly changed = new EventEmitter<ConfigurationChangeEvent | undefined>();
@@ -351,6 +357,9 @@ export class PythonSettings implements IPythonSettings {
 
         // User-specified interpreter paths to exclude from available interpreters
         this._interpretersExclude = pythonSettings.get<string[]>(INTERPRETERS_EXCLUDE_SETTING_KEY) ?? [];
+
+        // Whether to enable auto-reload of modules within the console
+        this.enableAutoReload = pythonSettings.get<boolean>(AUTORELOAD_SETTING_KEY) === true;
         // --- End Positron ---
 
         const autoCompleteSettings = systemVariables.resolveAny(

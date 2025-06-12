@@ -188,6 +188,7 @@ export interface IPythonSettings {
     readonly quietMode: boolean;
     readonly interpretersInclude: string[];
     readonly interpretersExclude: string[];
+    readonly enableAutoReload: boolean;
     // --- End Positron ---
     readonly defaultInterpreterPath: string;
     readonly REPL: IREPLSettings;
