@@ -184,7 +184,7 @@ jobs:
 
       - name: Run Bootstrap Extensions Test
         id: bootstrap
-        shell: pwsh
+        shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
@@ -193,11 +193,11 @@ jobs:
           PWTEST_BLOB_DO_NOT_REMOVE: 1
         run: |
           npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
-          $BOOTSTRAP_EXIT_CODE = $LASTEXITCODE
-          "BOOTSTRAP_EXIT_CODE=$BOOTSTRAP_EXIT_CODE" >> $env:GITHUB_OUTPUT
+          BOOTSTRAP_EXIT_CODE=$?
+          echo "BOOTSTRAP_EXIT_CODE=$BOOTSTRAP_EXIT_CODE" >> $GITHUB_OUTPUT
 
       - name: Run Main Test Suite (Electron)
-        shell: pwsh
+        shell: bash
         env:
           POSITRON_PY_VER_SEL: 3.10.10
           POSITRON_R_VER_SEL: 4.4.0
@@ -211,16 +211,15 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
         run: |
-          $env:SKIP_BOOTSTRAP = "true"
-          $env:SKIP_CLONE = "true"
-          npx playwright test --project "e2e-windows" --grep "${{ env.PW_TAGS }}" --workers 2 --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          export SKIP_BOOTSTRAP=true
+          export SKIP_CLONE=true
+          npx playwright test --project "e2e-windows" --grep "${PW_TAGS}" --workers 2 --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
-          $BOOTSTRAP_EXIT_CODE = [int]"${{ steps.bootstrap.outputs.BOOTSTRAP_EXIT_CODE }}"
-          if ($BOOTSTRAP_EXIT_CODE -ne 0) {
-            Write-Host "Bootstrap extensions test failed earlier. Exiting with code $BOOTSTRAP_EXIT_CODE."
-            exit $BOOTSTRAP_EXIT_CODE
-          }
-
+          BOOTSTRAP_EXIT_CODE=${{ steps.bootstrap.outputs.BOOTSTRAP_EXIT_CODE }}
+          if [[ "$BOOTSTRAP_EXIT_CODE" -ne 0 ]]; then
+            echo "Bootstrap extensions test failed earlier. Exiting with code $BOOTSTRAP_EXIT_CODE."
+            exit "$BOOTSTRAP_EXIT_CODE"
+          fi
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
