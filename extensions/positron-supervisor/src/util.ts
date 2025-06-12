@@ -251,3 +251,7 @@ export function unpackSerializedObjectWithBuffers(payload: unknown): {
 export function isEnumMember<T extends Record<string, unknown>>(value: unknown, enumObj: T): value is T[keyof T] {
 	return Object.values(enumObj).includes(value as T[keyof T]);
 }
+
+export function delay(ms: number) {
+	return new Promise(resolve => setTimeout(resolve, ms));
+}
