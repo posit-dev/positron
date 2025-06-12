@@ -21,6 +21,12 @@ export interface IPositronPlotClient extends IDisposable {
 	readonly metadata: IPositronPlotMetadata;
 }
 
+export interface IZoomablePlotClient {
+	zoomLevel: ZoomLevel;
+
+	onDidChangeZoomLevel: Event<ZoomLevel>;
+}
+
 export enum ZoomLevel {
 	Fit = 0,
 	Fifty = 0.5,
@@ -75,6 +81,11 @@ export enum DarkFilter {
 	/** The dark filter follows the current theme (i.e. it's on in dark themes and off in light themes) */
 	Auto = 'auto'
 }
+
+export const isZoomablePlotClient = (obj: any): obj is IZoomablePlotClient => {
+	return 'zoomLevel' in obj && typeof obj.zoomLevel === 'number' &&
+		'onDidChangeZoomLevel' in obj && typeof obj.onDidChangeZoomLevel === 'function';
+};
 
 /**
  * Creates a suggested file name for a plot.

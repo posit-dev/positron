@@ -13,7 +13,7 @@ import React, { useEffect, useState } from 'react';
 import { DynamicPlotInstance } from '../../positronPlots/browser/components/dynamicPlotInstance.js';
 import { StaticPlotInstance } from '../../positronPlots/browser/components/staticPlotInstance.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { IPositronPlotClient, IPositronPlotsService, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotClient, IPositronPlotsService, ZoomLevel, isZoomablePlotClient } from '../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
@@ -66,14 +66,13 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// listen to the plots service for zoom level changes
-		if (props.plotClient instanceof PlotClientInstance) {
+		if (isZoomablePlotClient(props.plotClient)) {
+			// listen to the plots service for zoom level changes
 			disposableStore.add(props.plotClient.onDidChangeZoomLevel((zoomLevel) => {
 				setZoom(zoomLevel);
 			}));
 			setZoom(props.plotClient.zoomLevel);
 		}
-
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
