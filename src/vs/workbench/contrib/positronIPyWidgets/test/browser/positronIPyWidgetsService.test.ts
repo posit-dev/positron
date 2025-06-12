@@ -29,7 +29,7 @@ import { NotebookOutputRendererInfo } from '../../../notebook/common/notebookOut
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { VSBuffer } from '../../../../../base/common/buffer.js';
 import { IPositronPlotMetadata } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { ZoomLevel } from '../../../positronPlots/browser/components/zoomPlotMenuButton.js';
+import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 
 class TestNotebookService implements Partial<INotebookService> {
 	getRenderers(): INotebookRendererInfo[] {

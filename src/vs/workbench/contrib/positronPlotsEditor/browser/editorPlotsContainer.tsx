@@ -13,7 +13,7 @@ import React, { useEffect, useState } from 'react';
 import { DynamicPlotInstance } from '../../positronPlots/browser/components/dynamicPlotInstance.js';
 import { StaticPlotInstance } from '../../positronPlots/browser/components/staticPlotInstance.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotClient, IPositronPlotsService, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
@@ -26,7 +26,7 @@ interface EditorPlotsContainerProps {
 
 export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 
-	const [zoomLevel, setZoomLevel] = useState(props.plotClient.metadata.zoom_level);
+	const [zoom, setZoom] = useState<ZoomLevel>(props.plotClient instanceof PlotClientInstance ? props.plotClient.zoomLevel : ZoomLevel.Fit);
 	const [darkFilterMode, setDarkFilterMode] = useState(props.positronPlotsService.darkFilterMode);
 
 	const render = () => {
@@ -36,13 +36,14 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 				height={props.height}
 				plotClient={props.plotClient}
 				width={props.width}
-				zoom={zoomLevel} />;
+				zoom={zoom} />;
 		}
+		// add something to listen to static plot zoom level changes
 		if (props.plotClient instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={props.plotClient.id}
 				plotClient={props.plotClient}
-				zoom={zoomLevel} />;
+				zoom={zoom} />;
 		}
 		return null;
 	};
@@ -62,24 +63,24 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 
 	// Monitor zoom level changes
 	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
 		// listen to the plots service for zoom level changes
-		const disposable = props.positronPlotsService.onDidChangePlotZoom(({ plotId, zoomLevel }) => {
-			if (plotId !== props.plotClient.id) {
-				return;
-			}
-
-			// Update the zoom level state
-			setZoomLevel(zoomLevel);
-		});
-
-		return () => {
-			// Clean up the event listener when the component unmounts
-			disposable.dispose();
+		if (props.plotClient instanceof PlotClientInstance) {
+			disposableStore.add(props.plotClient.onDidChangeZoomLevel((zoomLevel) => {
+				setZoom(zoomLevel);
+			}));
+			setZoom(props.plotClient.zoomLevel);
 		}
-	}, [props.plotClient.id, props.positronPlotsService]);
+
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [props.plotClient]);
 
 	return (
-		<div className={`dark-filter-${darkFilterMode} ${props.plotClient.metadata.zoom_level}`} style={
+		<div className={`dark-filter-${darkFilterMode}`} style={
 			{
 				width: props.width,
 				height: props.height

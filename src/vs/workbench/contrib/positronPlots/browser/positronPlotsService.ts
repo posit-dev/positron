@@ -10,7 +10,7 @@ import { ILanguageRuntimeMessageOutput, LanguageRuntimeSessionMode, RuntimeOutpu
 import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { HTMLFileSystemProvider } from '../../../../platform/files/browser/htmlFileSystemProvider.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, DarkFilter, HistoryPolicy, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat, PlotRenderSettings, POSITRON_PLOTS_VIEW_ID, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { IStorageService, StorageTarget, StorageScope } from '../../../../platform/storage/common/storage.js';
@@ -55,7 +55,6 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
-import { ZoomLevel } from './components/zoomPlotMenuButton.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -137,9 +136,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** The emitter for the _sizingPolicyEmitter event */
 	private readonly _onDidChangeSizingPolicyEmitter = new Emitter<IPositronPlotSizingPolicy>;
-
-	/** The emitter for the onDidChangePlotZoom event */
-	private readonly _onDidChangePlotZoomEmitter = new Emitter<{ plotId: string; zoomLevel: number }>();
 
 	/** The ID Of the currently selected plot, if any */
 	private _selectedPlotId: string | undefined;
@@ -571,9 +567,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	setEditorPlotZoom(plotId: string, zoomLevel: ZoomLevel): void {
 		const plot = this._editorPlots.get(plotId);
 		if (plot instanceof PlotClientInstance) {
-			plot.metadata.zoom_level = zoomLevel;
+			plot.zoomLevel = zoomLevel;
 			this.storePlotMetadata(plot.metadata);
-			this._onDidChangePlotZoomEmitter.fire({ plotId, zoomLevel });
 		} else {
 			this._notificationService.error(localize('positronPlots.zoom.setInvalidPlotType', 'Cannot set zoom for this plot type'));
 		}
@@ -1028,7 +1023,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	onDidChangeDarkFilterMode: Event<DarkFilter> = this._onDidChangeDarkFilterMode.event;
 	onDidChangePlotsRenderSettings: Event<PlotRenderSettings> = this._onDidChangePlotsRenderSettings.event;
 	onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy> = this._onDidChangeSizingPolicyEmitter.event;
-	onDidChangePlotZoom: Event<{ plotId: string; zoomLevel: number }> = this._onDidChangePlotZoomEmitter.event;
 
 	// Gets the individual plot instances.
 	get positronPlotInstances(): IPositronPlotClient[] {

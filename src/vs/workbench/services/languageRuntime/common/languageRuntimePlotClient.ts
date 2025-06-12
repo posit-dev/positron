@@ -5,14 +5,13 @@
 
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { IPositronPlotClient } from '../../positronPlots/common/positronPlots.js';
+import { IPositronPlotClient, ZoomLevel } from '../../positronPlots/common/positronPlots.js';
 import { IntrinsicSize, PlotResult, PlotRenderFormat } from './positronPlotComm.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common/sizingPolicy.js';
 import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ZoomLevel } from '../../../contrib/positronPlots/browser/components/zoomPlotMenuButton.js';
 
 export const FreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
 
@@ -82,7 +81,7 @@ export interface IPositronPlotMetadata {
 	language?: string;
 
 	/** The zoom level for displaying the plot */
-	zoom_level: ZoomLevel;
+	zoom_level?: ZoomLevel;
 }
 
 /**
@@ -167,6 +166,12 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	private readonly _sizingPolicyEmitter = new Emitter<IPositronPlotSizingPolicy>;
 
 	/**
+	 * Event that fires when the zoom level is changed.
+	 */
+	onDidChangeZoomLevel: Event<ZoomLevel>;
+	private readonly _zoomLevelEmitter = new Emitter<ZoomLevel>();
+
+	/**
 	 * Creates a new plot client instance.
 	 *
 	 * @param _commProxy The proxy than handles comm requests
@@ -227,6 +232,9 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		// Connect the sizing policy emitter event
 		this.onDidChangeSizingPolicy = this._sizingPolicyEmitter.event;
+
+		// Connect the zoom level emitter event
+		this.onDidChangeZoomLevel = this._zoomLevelEmitter.event;
 
 		// Listen to our own state changes
 		this._register(this.onDidChangeState((state) => {
@@ -461,6 +469,17 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 		this.scheduleRender(req, 0);
 		return req.promise;
+	}
+
+	set zoomLevel(level: ZoomLevel) {
+		if (this.metadata.zoom_level !== level) {
+			this.metadata.zoom_level = level;
+			this._zoomLevelEmitter.fire(level);
+		}
+	}
+
+	get zoomLevel(): ZoomLevel {
+		return this.metadata.zoom_level ?? ZoomLevel.Fit;
 	}
 
 	override dispose(): void {

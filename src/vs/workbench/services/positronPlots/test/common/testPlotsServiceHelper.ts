@@ -6,7 +6,6 @@
 import { TestPositronPlotsService } from './testPositronPlotsService.js';
 import { TestPositronPlotClient } from './testPositronPlotClient.js';
 import { HistoryPolicy } from '../../common/positronPlots.js';
-import { ZoomLevel } from '../../../../contrib/positronPlots/browser/components/zoomPlotMenuButton.js';
 
 /**
  * Example of how to use the TestPositronPlotsService in tests.
@@ -22,7 +21,7 @@ export function createTestPlotsServiceWithPlots(): TestPositronPlotsService {
 		created: Date.now(),
 		parent_id: '',
 		code: 'plot(1:10)',
-		zoom_level: ZoomLevel.Fit,
+		zoom_level: 0,
 	});
 
 	const plotClient2 = new TestPositronPlotClient({
@@ -31,7 +30,7 @@ export function createTestPlotsServiceWithPlots(): TestPositronPlotsService {
 		created: Date.now() + 1000, // Created later
 		parent_id: '',
 		code: 'hist(rnorm(100))',
-		zoom_level: ZoomLevel.Fit,
+		zoom_level: 0,
 	});
 
 	// Add the plot clients to the service

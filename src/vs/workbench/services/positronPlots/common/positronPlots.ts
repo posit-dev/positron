@@ -21,6 +21,14 @@ export interface IPositronPlotClient extends IDisposable {
 	readonly metadata: IPositronPlotMetadata;
 }
 
+export enum ZoomLevel {
+	Fit = 0,
+	Fifty = 0.5,
+	SeventyFive = 0.75,
+	OneHundred = 1,
+	TwoHundred = 2,
+}
+
 /**
  * Settings necessary to render a plot in the format expected by the plot widget.
  */
@@ -163,12 +171,6 @@ export interface IPositronPlotsService {
 	 * This typically happens when the plot viewpane has been resized.
 	 */
 	readonly onDidChangeSizingPolicy: Event<IPositronPlotSizingPolicy>;
-
-	/**
-	 * Notifies subscribers when the selected plot zoom level has changed.
-	 * This typically happens when the plot viewpane has been resized.
-	 */
-	readonly onDidChangePlotZoom: Event<{ plotId: string; zoomLevel: number }>;
 
 	/**
 	 * Gets the cached plot thumbnail URI for a given plot ID.
