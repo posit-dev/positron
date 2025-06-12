@@ -20,7 +20,6 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { applyFontInfo } from '../../../../../editor/browser/config/domFontInfo.js';
-import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
 import { BareFontInfo, FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { FontMeasurements } from '../../../../../editor/browser/config/fontMeasurements.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
@@ -42,19 +41,38 @@ interface ConsoleInstanceProps {
 }
 
 /**
- * Gets the font info for the editor font.
+ * Gets the font info for the console, with fallback to terminal font settings.
  *
  * @param editorContainer The HTML element containing the editor, if known.
  * @param configurationService The configuration service.
  *
  * @returns The font info.
  */
-const getEditorFontInfo = (
+const getConsoleFontInfo = (
 	editorContainer: HTMLElement | undefined,
 	configurationService: IConfigurationService) => {
 
-	// Get the editor options and read the font info.
-	const editorOptions = configurationService.getValue<IEditorOptions>('editor');
+	// Get the console and terminal options
+	const terminalConfig = configurationService.getValue<any>('terminal.integrated');
+	const consoleFontFamily = configurationService.getValue<string>('console.fontFamily');
+	const consoleFontSize = configurationService.getValue<number>('console.fontSize');
+	const consoleLineHeight = configurationService.getValue<number>('console.lineHeight');
+	const consoleLetterSpacing = configurationService.getValue<number>('console.letterSpacing');
+	const consoleFontWeight = configurationService.getValue<number | string>('console.fontWeight');
+	const consoleFontWeightBold = configurationService.getValue<number | string>('console.fontWeightBold');
+	const consoleFontLigaturesEnabled = configurationService.getValue<boolean>('console.fontLigatures.enabled');
+
+	// Create console-specific options, falling back to terminal settings
+	const consoleOptions = {
+		fontFamily: consoleFontFamily || terminalConfig.fontFamily,
+		fontSize: consoleFontSize,
+		lineHeight: consoleLineHeight,
+		letterSpacing: consoleLetterSpacing,
+		fontWeight: consoleFontWeight ? String(consoleFontWeight) : terminalConfig.fontWeight,
+		fontWeightBold: consoleFontWeightBold ? String(consoleFontWeightBold) : terminalConfig.fontWeightBold,
+		fontLigatures: consoleFontLigaturesEnabled,
+		fontVariations: false
+	};
 
 	// Use the editor container to get the window, if it's available. Otherwise, use the active
 	// window.
@@ -64,7 +82,7 @@ const getEditorFontInfo = (
 
 	return FontMeasurements.readFontInfo(
 		window,
-		BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(window).value)
+		BareFontInfo.createFromRawSettings(consoleOptions, PixelRatio.getInstance(window).value)
 	);
 };
 
@@ -83,7 +101,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 	// State hooks.
 	const [editorFontInfo, setEditorFontInfo] =
-		useState<FontInfo>(getEditorFontInfo(undefined, positronConsoleContext.configurationService));
+		useState<FontInfo>(getConsoleFontInfo(undefined, positronConsoleContext.configurationService));
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
@@ -224,29 +242,27 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(positronConsoleContext.configurationService.onDidChangeConfiguration(
 			configurationChangeEvent => {
-				// When something in the editor changes, determine whether it's font-related
+				// When something in the terminal or console changes, determine whether it's font-related
 				// and, if it is, apply the new font info to the container.
-				if (configurationChangeEvent.affectsConfiguration('editor')) {
-					if (configurationChangeEvent.affectedKeys.has('editor.fontFamily') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontWeight') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontSize') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontLigatures') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontVariations') ||
-						configurationChangeEvent.affectedKeys.has('editor.lineHeight') ||
-						configurationChangeEvent.affectedKeys.has('editor.letterSpacing')
-					) {
-						// Get the font info.
-						const editorFontInfo = getEditorFontInfo(
-							consoleInstanceRef.current,
-							positronConsoleContext.configurationService
-						);
+				if (configurationChangeEvent.affectedKeys.has('terminal.integrated.fontFamily') ||
+					configurationChangeEvent.affectedKeys.has('console.fontFamily') ||
+					configurationChangeEvent.affectedKeys.has('console.fontWeight') ||
+					configurationChangeEvent.affectedKeys.has('console.fontWeightBold') ||
+					configurationChangeEvent.affectedKeys.has('console.fontSize') ||
+					configurationChangeEvent.affectedKeys.has('console.lineHeight') ||
+					configurationChangeEvent.affectedKeys.has('console.fontLigatures.enabled')
+				) {
+					// Get the font info.
+					const editorFontInfo = getConsoleFontInfo(
+						consoleInstanceRef.current,
+						positronConsoleContext.configurationService
+					);
 
-						// Set the editor font info.
-						setEditorFontInfo(editorFontInfo);
+					// Set the editor font info.
+					setEditorFontInfo(editorFontInfo);
 
-						// Apply the font info to the console instance.
-						applyFontInfo(consoleInstanceRef.current, editorFontInfo);
-					}
+					// Apply the font info to the console instance.
+					applyFontInfo(consoleInstanceRef.current, editorFontInfo);
 				}
 			}
 		));
