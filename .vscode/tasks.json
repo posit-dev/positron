@@ -93,22 +93,24 @@
 				"reveal": "never",
 				"group": "buildWatchers",
 				"close": false
-			},			"problemMatcher": {
-				"owner": "typescript",
-				"fileLocation": ["relative", "${workspaceFolder}/test/e2e"],
-				"pattern": {
-					"regexp": "\\[watch-e2e\\] ([^(]+)\\((\\d+),(\\d+)\\): (error TS\\d+: .+)",
-					"file": 1,
-					"line": 2,
-					"column": 3,
-					"message": 4
-				},
-				"background": {
-					"activeOnStart": true,
-					"beginsPattern": "\\[watch-e2e\\] \\d+:\\d+:\\d+ [AP]M - Starting compilation in watch mode",
-					"endsPattern": "\\[watch-e2e\\] \\d+:\\d+:\\d+ [AP]M - Found [0-9]+ errors?\\. Watching for file changes"
+			},			"problemMatcher": [
+				{
+					"owner": "typescript-watch",
+					"fileLocation": ["relative", "${workspaceFolder}/test/e2e"],
+					"pattern": {
+						"regexp": "\\[watch-e2e\\] ([^(]+)\\((\\d+),(\\d+)\\): (error TS\\d+: .+)",
+						"file": 1,
+						"line": 2,
+						"column": 3,
+						"message": 4
+					},
+					"watching": {
+						"activeOnStart": true,
+						"beginsPattern": "\\[watch-e2e\\] \\d+:\\d+:\\d+ [AP]M - (Starting compilation|File change detected\\. Starting incremental compilation)",
+						"endsPattern": "\\[watch-e2e\\] \\d+:\\d+:\\d+ [AP]M - Found [0-9]+ errors?\\. Watching for file changes"
+					}
 				}
-			}
+			]
 		},
 
 		{
