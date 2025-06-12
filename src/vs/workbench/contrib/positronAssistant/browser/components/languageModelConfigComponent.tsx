@@ -21,78 +21,66 @@ interface LanguageModelConfigComponentProps {
 	onCancel: () => void,
 }
 
-const knownProviders = ['anthropic', 'google', 'copilot'] as const;
-type Provider = typeof knownProviders[number];
+type IProvider = IPositronLanguageModelSource['provider'];
 
 const positEulaLabel = localize('positron.languageModelConfig.positEula', 'Posit EULA');
 const completionsOnlyEmphasizedText = localize('positron.languageModelConfig.completionsOnly', 'code completions only');
 const providerTermsOfServiceLabel = localize('positron.languageModelConfig.termsOfService', 'Terms of Service');
 const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
 
-function isKnownProvider(provider: string): provider is Provider {
-	return knownProviders.includes(provider as Provider);
-}
-
-function getProviderCompletionsOnlyNoticeText(provider: Provider) {
+function getProviderCompletionsOnlyNoticeText(providerDisplayName: string) {
 	return localize(
 		'positron.languageModelConfig.completionsOnlyNotice',
 		'{0} functions for {code-completions-only} in Positron at this time.',
-		getProviderDisplayName(provider),
+		providerDisplayName,
 	);
 }
 
-function getProviderTermsOfServiceText(provider: Provider) {
+function getProviderTermsOfServiceText(providerDisplayName: string) {
 	return localize(
 		'positron.languageModelConfig.tos',
 		'{0} is considered "Third Party Materials" as defined in the {posit-eula} and subject to the {0} {provider-tos} and {provider-privacy-policy}.',
-		getProviderDisplayName(provider),
+		providerDisplayName,
 	);
 }
 
-function getProviderUsageDisclaimerText(provider: Provider) {
+function getProviderUsageDisclaimerText(providerDisplayName: string) {
 	return localize(
 		'positron.languageModelConfig.tos2',
 		'Your use of {0} is optional and at your sole risk.',
-		getProviderDisplayName(provider),
+		providerDisplayName,
 	);
 }
 
-function getProviderDisplayName(provider: Provider) {
-	switch (provider) {
-		case 'anthropic':
-			return 'Anthropic';
-		case 'google':
-			return 'Google Gemini';
-		case 'copilot':
-			return 'GitHub Copilot';
-	}
-}
-
-function getProviderTermsOfServiceLink(provider: Provider) {
-	switch (provider) {
+function getProviderTermsOfServiceLink(providerId: string) {
+	switch (providerId) {
 		case 'anthropic':
 			return 'https://www.anthropic.com/legal/consumer-terms';
 		case 'google':
 			return 'https://cloud.google.com/terms/service-terms';
 		case 'copilot':
 			return 'https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#github-copilot';
+		default:
+			return undefined;
 	}
 }
 
-function getProviderPrivacyPolicyLink(provider: Provider) {
-	switch (provider) {
+function getProviderPrivacyPolicyLink(providerId: string) {
+	switch (providerId) {
 		case 'anthropic':
 			return 'https://www.anthropic.com/legal/privacy';
 		case 'google':
 			return 'https://policies.google.com/privacy';
 		case 'copilot':
 			return 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#personal-data-we-collect';
+		default:
+			return undefined;
 	}
 }
 
-function getProviderCompletionsOnlyNotice(provider: Provider) {
-	if (provider === 'copilot') {
-		const text = getProviderCompletionsOnlyNoticeText(provider);
+function getProviderCompletionsOnlyNotice(provider: IProvider) {
+	if (provider.id === 'copilot') {
+		const text = getProviderCompletionsOnlyNoticeText(provider.displayName);
 		return interpolate(
 			text,
 			(key) => key === 'code-completions-only' ?
@@ -157,7 +145,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 				</Button>
 			}
 		</div>
-		{isKnownProvider(props.provider.provider) ? <ProviderNotice provider={props.provider.provider} /> : null}
+		<ProviderNotice provider={props.source.provider} />
 	</>;
 }
 
@@ -194,10 +182,10 @@ const SignInButton = (props: { apiKeySpecified: boolean, authMethod: AuthMethod,
 	</Button>
 }
 
-const ProviderNotice = (props: { provider: Provider }) => {
+const ProviderNotice = (props: { provider: IProvider }) => {
 	const completionsOnlyNotice = getProviderCompletionsOnlyNotice(props.provider);
 
-	const termsOfServiceText = getProviderTermsOfServiceText(props.provider);
+	const termsOfServiceText = getProviderTermsOfServiceText(props.provider.displayName);
 	const termsOfService = interpolate(
 		termsOfServiceText,
 		(key) => {
@@ -205,12 +193,12 @@ const ProviderNotice = (props: { provider: Provider }) => {
 				case 'posit-eula':
 					return <a href='https://posit.co/about/eula/'>{positEulaLabel}</a>;
 				case 'provider-tos': {
-					const link = getProviderTermsOfServiceLink(props.provider);
-					return <a href={link}>{providerTermsOfServiceLabel}</a>;
+					const link = getProviderTermsOfServiceLink(props.provider.id);
+					return link ? <a href={link}>{providerTermsOfServiceLabel}</a> : providerTermsOfServiceLabel;
 				}
 				case 'provider-privacy-policy': {
-					const link = getProviderPrivacyPolicyLink(props.provider);
-					return <a href={link}>{providerPrivacyPolicyLabel}</a>;
+					const link = getProviderPrivacyPolicyLink(props.provider.id);
+					return link ? <a href={link}>{providerPrivacyPolicyLabel}</a> : providerPrivacyPolicyLabel;
 				}
 				default:
 					return undefined;
@@ -218,7 +206,7 @@ const ProviderNotice = (props: { provider: Provider }) => {
 		},
 	)
 
-	const disclaimerText = getProviderUsageDisclaimerText(props.provider);
+	const disclaimerText = getProviderUsageDisclaimerText(props.provider.displayName);
 
 	return <div className='language-model-dialog-tos' id='model-tos'>
 		{completionsOnlyNotice ? <p>{completionsOnlyNotice}</p> : null}
