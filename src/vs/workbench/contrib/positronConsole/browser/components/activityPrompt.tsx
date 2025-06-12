@@ -10,6 +10,8 @@ import './activityPrompt.css';
 import React, { KeyboardEvent, useEffect, useRef } from 'react';
 
 // Other dependencies.
+import * as DOM from '../../../../../base/browser/dom.js';
+import { PixelRatio } from '../../../../../base/browser/pixelRatio.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
 import { ConsoleOutputLines } from './consoleOutputLines.js';
@@ -17,12 +19,54 @@ import { IPositronConsoleInstance } from '../../../../services/positronConsole/b
 import { ActivityItemPrompt, ActivityItemPromptState } from '../../../../services/positronConsole/browser/classes/activityItemPrompt.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
+import { BareFontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { FontMeasurements } from '../../../../../editor/browser/config/fontMeasurements.js';
+import { applyFontInfo } from '../../../../../editor/browser/config/domFontInfo.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 
 // ActivityPromptProps interface.
 export interface ActivityPromptProps {
 	activityItemPrompt: ActivityItemPrompt;
 	positronConsoleInstance: IPositronConsoleInstance;
 }
+
+/**
+ * Gets the font info for the console, with fallback to terminal font settings.
+ *
+ * @param configurationService The configuration service.
+ *
+ * @returns The font info.
+ */
+const getConsoleFontInfo = (configurationService: IConfigurationService) => {
+	// Get the console and terminal options
+	const terminalConfig = configurationService.getValue<any>('terminal.integrated');
+	const consoleFontFamily = configurationService.getValue<string>('console.fontFamily');
+	const consoleFontSize = configurationService.getValue<number>('console.fontSize');
+	const consoleLineHeight = configurationService.getValue<number>('console.lineHeight');
+	const consoleLetterSpacing = configurationService.getValue<number>('console.letterSpacing');
+	const consoleFontWeight = configurationService.getValue<number | string>('console.fontWeight');
+	const consoleFontLigaturesEnabled = configurationService.getValue<boolean>('console.fontLigatures.enabled');
+
+	// Create console-specific options, falling back to terminal settings
+	const consoleOptions = {
+		fontFamily: consoleFontFamily || terminalConfig.fontFamily,
+		fontSize: consoleFontSize,
+		lineHeight: consoleLineHeight,
+		letterSpacing: consoleLetterSpacing,
+		fontWeight: consoleFontWeight ? String(consoleFontWeight) : terminalConfig.fontWeight,
+		fontWeightBold: consoleFontWeight ? String(consoleFontWeight) : terminalConfig.fontWeight,
+		fontLigatures: consoleFontLigaturesEnabled,
+		fontVariations: false // Terminal doesn't use fontVariations like editor
+	};
+
+	// Use the active window
+	const window = DOM.getActiveWindow();
+
+	return FontMeasurements.readFontInfo(
+		window,
+		BareFontInfo.createFromRawSettings(consoleOptions, PixelRatio.getInstance(window).value)
+	);
+};
 
 /**
  * ActivityPrompt component.
@@ -34,7 +78,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 	const inputRef = useRef<HTMLInputElement>(undefined!);
 
 	// Get services from the context.
-	const { openerService, notificationService, environmentService, pathService, clipboardService } = usePositronConsoleContext();
+	const { openerService, notificationService, environmentService, pathService, clipboardService, configurationService } = usePositronConsoleContext();
 
 	/**
 	 * Readies the input.
@@ -57,15 +101,32 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 			readyInput();
 		}));
 
+		// Add configuration change listener to update font when console settings change
+		disposableStore.add(configurationService.onDidChangeConfiguration(configurationChangeEvent => {
+			if (configurationChangeEvent.affectsConfiguration('console') ||
+				configurationChangeEvent.affectsConfiguration('terminal.integrated')) {
+				if (inputRef.current) {
+					const fontInfo = getConsoleFontInfo(configurationService);
+					applyFontInfo(inputRef.current, fontInfo);
+				}
+			}
+		}));
+
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [props.positronConsoleInstance]);
+	}, [props.positronConsoleInstance, configurationService]);
 
 	// useEffect hook that gets the input scrolled into view and focused.
 	useEffect(() => {
 		// Ready the input.
 		readyInput();
-	}, [inputRef]);
+
+		// Apply console font info to the input field
+		if (inputRef.current) {
+			const fontInfo = getConsoleFontInfo(configurationService);
+			applyFontInfo(inputRef.current, fontInfo);
+		}
+	}, [inputRef, configurationService]);
 
 
 	/**
