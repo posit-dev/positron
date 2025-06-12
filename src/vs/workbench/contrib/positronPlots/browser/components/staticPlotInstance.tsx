@@ -8,8 +8,8 @@ import React, { useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { PanZoomImage } from './panZoomImage.js';
-import { ZoomLevel } from './zoomPlotMenuButton.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
+import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 
 /**
  * StaticPlotInstanceProps interface.
