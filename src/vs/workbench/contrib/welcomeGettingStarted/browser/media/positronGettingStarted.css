@@ -47,7 +47,6 @@
 .positron-welcome-page-start.buttons button.positron-welcome-button.action-button.action {
 	background-color: var(--vscode-positronWelcome-background);
 	display: block;
-	width: 115px;
 	text-wrap: nowrap;
 	color: var(--vscode-positronWelcome-foreground);
 	border-radius: 5%;
@@ -62,7 +61,7 @@
 .positron-welcome-button .button-container {
 	display: grid;
 	text-align: center;
-	width: 96px;
+	min-width: 96px;
 }
 
 .positron-welcome-button.positron-button .button-container .button-icon.codicon {
