@@ -95,14 +95,14 @@ test.describe.skip('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.expectRecentToContain(['qa-example-content']);
 		});
 
-		test('Verify clicking on `Open Folder` opens file browser', { tag: [tags.MODAL, tags.WEB_ONLY] }, async function ({ app, page }) {
+		test('Verify clicking on `Open Folder` opens file browser', { tag: [tags.WEB_ONLY] }, async function ({ app, page }) {
 			const { welcome, quickInput } = app.workbench;
 
 			await welcome.openFolderButton.click();
 			await quickInput.expectTitleBarToHaveText('Open Folder');
 		});
 
-		test('Verify clicking on `New Folder from Template` opens New Folder Flow', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW] }, async function ({ app }) {
+		test('Verify clicking on `New Folder from Template` opens New Folder Flow', { tag: [tags.NEW_FOLDER_FLOW] }, async function ({ app }) {
 			const { welcome, newFolderFlow } = app.workbench;
 
 			await welcome.newFolderFromTemplateButton.click();
@@ -114,7 +114,7 @@ test.describe.skip('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			});
 		});
 
-		test('Verify clicking on `New Folder from Git` opens dialog', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW] }, async function ({ app }) {
+		test('Verify clicking on `New Folder from Git` opens dialog', { tag: [tags.MODAL] }, async function ({ app }) {
 			const { welcome, popups } = app.workbench;
 
 			await welcome.startButtons.getByText('New Folder from Git...').click();
