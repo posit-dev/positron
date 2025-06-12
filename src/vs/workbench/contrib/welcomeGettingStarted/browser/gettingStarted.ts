@@ -106,6 +106,11 @@ export interface IWelcomePageStartEntry {
 	when: ContextKeyExpression;
 }
 
+// --- Start Positron ---
+//
+// This function is not used in Positron. It is commented out rather than
+// being deleted to minimize merge conflicts.
+/*
 const parsedStartEntries: IWelcomePageStartEntry[] = startEntries.map((e, i) => ({
 	command: e.content.command,
 	description: e.description,
@@ -115,6 +120,8 @@ const parsedStartEntries: IWelcomePageStartEntry[] = startEntries.map((e, i) => 
 	title: e.title,
 	when: ContextKeyExpr.deserialize(e.when) ?? ContextKeyExpr.true()
 }));
+*/
+// --- End Positron ---
 
 type GettingStartedActionClassification = {
 	command: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The command being executed on the getting started page.' };
@@ -1132,6 +1139,11 @@ export class GettingStartedPage extends EditorPane {
 		return recentlyOpenedList;
 	}
 
+	// --- Start Positron ---
+	//
+	// This function is not used in Positron. It is commented out rather than
+	// being deleted to minimize merge conflicts.
+	/*
 	private buildStartList(): GettingStartedIndexList<IWelcomePageStartEntry> {
 		const renderStartEntry = (entry: IWelcomePageStartEntry): HTMLElement =>
 			$('li',
@@ -1159,6 +1171,8 @@ export class GettingStartedPage extends EditorPane {
 		startList.onDidChange(() => this.registerDispatchListeners());
 		return startList;
 	}
+	*/
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	//
@@ -1336,11 +1350,18 @@ export class GettingStartedPage extends EditorPane {
 		});
 	}
 
+	// --- Start Positron ---
+	//
+	// This function is not used in Positron. It is commented out rather than
+	// being deleted to minimize merge conflicts.
+	/*
 	private iconWidgetFor(category: IResolvedWalkthrough | { icon: { type: 'icon'; icon: ThemeIcon } }) {
 		const widget = category.icon.type === 'icon' ? $(ThemeIcon.asCSSSelector(category.icon.icon)) : $('img.category-icon', { src: category.icon.path });
 		widget.classList.add('icon-widget');
 		return widget;
 	}
+	*/
+	// --- End Positron ---
 
 	private focusSideEditorGroup() {
 		const fullSize = this.groupsService.getPart(this.group).contentDimension;
