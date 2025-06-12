@@ -905,14 +905,8 @@ export class GettingStartedPage extends EditorPane {
 
 		// --- Start Positron ---
 		// Diverged from upstream by removing Walkthroughs from the Welcome Page
-
-		const headerText = $('div', {},
-			$('h1.product-name.positron.caption', {}, this.productService.nameLong),
-			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "an IDE for Data Science by Posit"))
-		);
 		const header = $('.header', {},
-			$('div.product-logo.welcome-positron-logo.'),
-			headerText
+			$('div.product-logo.welcome-positron-logo'),
 		);
 
 		if (!header) {
