@@ -32,13 +32,13 @@ test.describe('New UV Environment', {
 
 		await app.workbench.terminal.runCommandInTerminal('uv init proj');
 
-		await app.workbench.terminal.waitForTerminalText('Initialized project', { web: app.web });
+		await app.workbench.terminal.waitForTerminalText('Initialized project');
 
 		await app.workbench.terminal.runCommandInTerminal('cd proj');
 
 		await app.workbench.terminal.runCommandInTerminal('uv sync');
 
-		await app.workbench.terminal.waitForTerminalText('Creating virtual environment', { web: app.web });
+		await app.workbench.terminal.waitForTerminalText('Creating virtual environment');
 
 		await openFolder(path.join('qa-example-content/proj'));
 

@@ -114,8 +114,8 @@
 }
 
 .action-bar-button-icon.enabled-split:hover {
+	padding: 0 4px;
 	border-radius: 4px;
-	padding: 0 4px 0 3px;
 	filter: brightness(90%);
 	background: var(--positronActionBar-hoverBackground);
 }
