@@ -100,6 +100,8 @@ export class PythonLsp implements vscode.Disposable {
             : [
                   { language: 'python', scheme: 'untitled' },
                   { language: 'python', scheme: 'inmemory' }, // Console
+                  // Assistant code confirmation widget: https://github.com/posit-dev/positron/issues/7750
+                  { language: 'python', scheme: 'assistant-code-confirmation-widget' },
                   { language: 'python', pattern: '**/*.py' },
               ];
 
