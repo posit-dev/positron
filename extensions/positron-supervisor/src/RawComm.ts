@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Channel } from './Channel';
+import { Receiver } from './Channel';
 import { CommBackendMessage } from './positron-supervisor';
 import { KallichoreSession } from './KallichoreSession';
 import { createUniqueId } from './util';
@@ -12,12 +12,12 @@ import { JupyterCommMsg } from './jupyter/JupyterCommMsg';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
 
 export class RawCommImpl implements vscode.Disposable {
-	readonly receiver: Channel<CommBackendMessage> = new Channel();
 	private readonly disposables: vscode.Disposable[] = [];
 
 	constructor(
 		private readonly commId: string,
 		private readonly session: KallichoreSession,
+		public readonly receiver: Receiver<CommBackendMessage>,
 	) {}
 
 	notify(method: string, params?: Record<string, unknown>) {
