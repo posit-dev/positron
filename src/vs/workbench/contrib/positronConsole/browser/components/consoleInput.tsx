@@ -575,6 +575,31 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				break;
 			}
 
+			// Up arrow processing.
+			case KeyCode.UpArrow: {
+				if (cmdOrCtrlKey && !historyBrowserActiveRef.current) {
+					// If the cmd or ctrl key is pressed, and the history
+					// browser is not up, engage the history browser with the
+					// prefix match strategy. This behavior mimics RStudio.
+					const entries =
+						positronConsoleContext.executionHistoryService.getInputEntries(
+							props.positronConsoleInstance.runtimeMetadata.languageId
+						);
+					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
+					consumeEvent();
+					break;
+				} else {
+					navigateHistoryUp(e);
+				}
+				break;
+			}
+
+			// Down arrow processing.
+			case KeyCode.DownArrow: {
+				navigateHistoryDown(e);
+				break;
+			}
+
 			// Bind Home key to `cursorLineStart` (same as Ctrl+A)
 			case KeyCode.Home: {
 				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {

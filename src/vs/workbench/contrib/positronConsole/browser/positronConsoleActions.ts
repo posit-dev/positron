@@ -623,11 +623,6 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				keybinding: {
-					when: PositronConsoleFocused,
-					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyCode.DownArrow,
-				},
 			});
 		}
 
@@ -660,11 +655,6 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				keybinding: {
-					when: PositronConsoleFocused,
-					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyCode.UpArrow,
-				},
 			});
 		}
 
@@ -697,11 +687,6 @@ export function registerPositronConsoleActions() {
 				},
 				f1: true,
 				category,
-				keybinding: {
-					when: PositronConsoleFocused,
-					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyMod.CtrlCmd | KeyCode.UpArrow
-				},
 			});
 		}
 
