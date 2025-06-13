@@ -5,6 +5,28 @@
 
 import { Channel } from './Channel';
 
+/**
+ * Raw comm unmanaged by Positron.
+ *
+ * This type of comm is not mapped to a Positron client. It lives entirely in
+ * the extension space and allows private communication between an extension and
+ * its kernel.
+ */
+export interface RawComm {
+	/** Async-iterable for messages sent from backend. */
+	receiver: Channel<CommBackendMessage>;
+
+	/** Send a notification to the backend comm. */
+	notify: (method: string, params?: Record<string, unknown>) => void;
+
+	/** Make a request to the backend comm. Resolves when backend responds. */
+	request: (method: string, params?: Record<string, unknown>) => Promise<any>;
+
+	/** Clear resources and sends `comm_close` to backend comm (unless the channel
+	  * was closed by the backend already). */
+	dispose: () => void;
+}
+
 export type CommBackendMessage =
 	| {
 		kind: 'request';
@@ -17,14 +39,6 @@ export type CommBackendMessage =
 		method: string;
 		params?: Record<string, unknown>;
 	};
-
-export type CommBackendChannel = Channel<CommBackendMessage>;
-
-export interface RawComm {
-	receiver: CommBackendChannel;
-	notify: (method: string, params?: Record<string, unknown>) => void;
-	request: (method: string, params?: Record<string, unknown>) => Promise<any>;
-}
 
 export interface CommRpcMessage {
 	jsonrpc: '2.0';

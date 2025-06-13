@@ -43,7 +43,7 @@ import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { Channel } from './Channel';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
-import { CommBackendChannel, CommRpcMessage, CommRpcResponse, RawComm } from './RawComm';
+import { CommBackendMessage, CommRpcMessage, CommRpcResponse, RawComm } from './RawComm';
 
 /**
  * The reason for a disconnection event.
@@ -154,7 +154,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _clients: Map<string, Comm> = new Map();
 
 	/** A map of active comms unmanaged by Positron */
-	private readonly _comms: Map<string, CommBackendChannel> = new Map();
+	private readonly _comms: Map<string, RawComm> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -748,9 +748,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	): Promise<RawComm> {
 		const id = `extension-comm-${type}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 
-		const channel: CommBackendChannel = new Channel();
-		this._comms.set(id, channel);
-		channel.register({
+		const comm = new RawCommImpl(id, this);
+		this._comms.set(id, comm);
+
+		comm.register({
 			dispose: () => {
 				// If already deleted, it means a `comm_close` from the backend was
 				// received and we don't need to send one.
@@ -769,7 +770,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const commOpen = new CommOpenCommand(msg);
 		await this.sendCommand(commOpen);
 
-		return new RawCommImpl(id, this, channel);
+		return comm;
 	}
 
 	/**
@@ -1941,27 +1942,27 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Handle comms that are not managed by Positron first
 		if (msg.header.msg_type === 'comm_close') {
 			const closeMsg = msg.content as JupyterCommClose;
-			const channel = this._comms.get(closeMsg.comm_id);
+			const comm = this._comms.get(closeMsg.comm_id);
 
-			if (channel) {
+			if (comm) {
 				// Delete first, this prevents the channel disposable from sending a
 				// `comm_close` back
 				this._comms.delete(closeMsg.comm_id);
-				channel.dispose();
+				comm.dispose();
 				return;
 			}
 		}
 		if (msg.header.msg_type === 'comm_msg') {
 			const commMsg = msg.content as JupyterCommMsg;
-			const channel = this._comms.get(commMsg.comm_id);
+			const comm = this._comms.get(commMsg.comm_id);
 
-			if (channel) {
+			if (comm) {
 				const rpcMsg = commMsg.data as CommRpcMessage;
 				if (rpcMsg.id) {
 					const req = new CommBackendRequest(this, commMsg.comm_id, rpcMsg);
-					channel.send(req);
+					comm.receiver.send(req);
 				} else {
-					channel.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
+					comm.receiver.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
 				}
 				return;
 			}
@@ -2148,11 +2149,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 }
 
-class RawCommImpl {
+class RawCommImpl implements vscode.Disposable {
+	readonly receiver: Channel<CommBackendMessage> = new Channel();
+	private readonly disposables: vscode.Disposable[] = [];
+
 	constructor(
 		private readonly commId: string,
 		private readonly session: KallichoreSession,
-		public readonly receiver: CommBackendChannel,
 	) {}
 
 	notify(method: string, params?: Record<string, unknown>) {
@@ -2184,6 +2187,18 @@ class RawCommImpl {
 
 		const request = new CommMsgRequest(id, commMsg);
 		this.session.sendRequest(request);
+	}
+
+	dispose() {
+		this.receiver.dispose();
+
+		for (const disposable of this.disposables) {
+			disposable.dispose();
+		}
+	}
+
+	register(disposable: vscode.Disposable) {
+		this.disposables.push(disposable);
 	}
 }
 
