@@ -13,7 +13,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
+test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
@@ -27,7 +27,6 @@ test.describe.skip('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			const { welcome } = app.workbench;
 
 			await welcome.expectLogoToBeVisible();
-			await welcome.expectTitleToBeVisible();
 			await welcome.expectFooterToBeVisible();
 			await welcome.expectTabTitleToBe('Welcome');
 			await welcome.expectStartToContain(['New Notebook', 'New File']);
@@ -87,10 +86,9 @@ test.describe.skip('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			const { welcome } = app.workbench;
 
 			await welcome.expectLogoToBeVisible();
-			await welcome.expectTitleToBeVisible();
 			await welcome.expectFooterToBeVisible();
 
-			await welcome.expectStartToContain(['Open Folder...', 'New Folder from Template...', 'New Folder from Git...']);
+			await welcome.expectStartToContain(['Open Folder...', 'New Folder...', 'New from Git...']);
 			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community', 'Report a bug']);
 			await welcome.expectRecentToContain(['qa-example-content']);
 		});
@@ -102,7 +100,7 @@ test.describe.skip('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await quickInput.expectTitleBarToHaveText('Open Folder');
 		});
 
-		test('Verify clicking on `New Folder from Template` opens New Folder Flow', { tag: [tags.NEW_FOLDER_FLOW] }, async function ({ app }) {
+		test('Verify clicking on `New Folder` opens New Folder Flow', { tag: [tags.NEW_FOLDER_FLOW] }, async function ({ app }) {
 			const { welcome, newFolderFlow } = app.workbench;
 
 			await welcome.newFolderFromTemplateButton.click();
@@ -114,10 +112,10 @@ test.describe.skip('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			});
 		});
 
-		test('Verify clicking on `New Folder from Git` opens dialog', { tag: [tags.MODAL] }, async function ({ app }) {
+		test('Verify clicking on `New from Git` opens dialog', { tag: [tags.MODAL] }, async function ({ app }) {
 			const { welcome, popups } = app.workbench;
 
-			await welcome.startButtons.getByText('New Folder from Git...').click();
+			await welcome.startButtons.getByText('New from Git...').click();
 			await popups.waitForModalDialogBox();
 			await popups.waitForModalDialogTitle('New Folder from Git');
 		});
