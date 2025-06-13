@@ -40,6 +40,9 @@ const enum PositronConsoleCommandId {
 	ClearInputHistory = 'workbench.action.positronConsole.clearInputHistory',
 	ExecuteCode = 'workbench.action.positronConsole.executeCode',
 	FocusConsole = 'workbench.action.positronConsole.focusConsole',
+	NavigateInputHistoryDown = 'workbench.action.positronConsole.navigateInputHistoryDown',
+	NavigateInputHistoryUp = 'workbench.action.positronConsole.navigateInputHistoryUp',
+	NavigateInputHistoryUpUsingPrefixMatch = 'workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch',
 }
 
 /**
@@ -110,46 +113,6 @@ export function registerPositronConsoleActions() {
 					sticky: false
 				});
 			}
-		}
-	});
-
-	/**
-	 * Register the focus console action. This action places focus in the active console,
-	 * if one exists.
-	 *
-	 * This action is equivalent to the `workbench.panel.positronConsole.focus` command.
-	 */
-	registerAction2(class extends Action2 {
-		/**
-		 * Constructor.
-		 */
-		constructor() {
-			super({
-				id: PositronConsoleCommandId.FocusConsole,
-				title: {
-					value: localize('workbench.action.positronConsole.focusConsole', "Focus Console"),
-					original: 'Focus Console'
-				},
-				f1: true,
-				keybinding: {
-					weight: KeybindingWeight.WorkbenchContrib,
-					primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyF)
-				},
-				category,
-			});
-		}
-
-		/**
-		 * Runs action; places focus in the console's input control.
-		 *
-		 * @param accessor The services accessor.
-		 */
-		async run(accessor: ServicesAccessor) {
-			const viewsService = accessor.get(IViewsService);
-
-			// Ensure that the panel and console are visible. This is essentially
-			// equivalent to what `workbench.panel.positronConsole.focus` does.
-			await viewsService.openView(POSITRON_CONSOLE_VIEW_ID, true);
 		}
 	});
 
@@ -600,6 +563,160 @@ export function registerPositronConsoleActions() {
 				text: '\n'
 			};
 			model.pushEditOperations([], [editOperation], () => []);
+		}
+	});
+
+	/**
+	 * Register the focus console action. This action places focus in the active console,
+	 * if one exists.
+	 *
+	 * This action is equivalent to the `workbench.panel.positronConsole.focus` command.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.FocusConsole,
+				title: {
+					value: localize('workbench.action.positronConsole.focusConsole', "Focus Console"),
+					original: 'Focus Console'
+				},
+				f1: true,
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyChord(KeyMod.CtrlCmd | KeyCode.KeyK, KeyCode.KeyF)
+				},
+				category,
+			});
+		}
+
+		/**
+		 * Runs action; places focus in the console's input control.
+		 *
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const viewsService = accessor.get(IViewsService);
+
+			// Ensure that the panel and console are visible. This is essentially
+			// equivalent to what `workbench.panel.positronConsole.focus` does.
+			await viewsService.openView(POSITRON_CONSOLE_VIEW_ID, true);
+		}
+	});
+
+	/**
+	 * Register the navigate input history down action. This action moves the cursor to the next
+	 * entry in the input history.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.NavigateInputHistoryDown,
+				title: {
+					value: localize('workbench.action.positronConsole.navigateInputHistoryDown', "Navigate Input History Down"),
+					original: 'Navigate Input History Down'
+				},
+				f1: true,
+				category,
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			if (positronConsoleService.activePositronConsoleInstance) {
+				positronConsoleService.activePositronConsoleInstance.navigateInputHistoryDown();
+			} else {
+				accessor.get(INotificationService).notify({
+					severity: Severity.Info,
+					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
+					sticky: false
+				});
+			}
+		}
+	});
+
+	/**
+	 * Register the navigate input history up action. This action moves the cursor to the previous
+	 * entry in the input history.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.NavigateInputHistoryUp,
+				title: {
+					value: localize('workbench.action.positronConsole.navigateInputHistoryUp', "Navigate Input History Up"),
+					original: 'Navigate Input History Up'
+				},
+				f1: true,
+				category,
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			if (positronConsoleService.activePositronConsoleInstance) {
+				positronConsoleService.activePositronConsoleInstance.navigateInputHistoryUp(false);
+			} else {
+				accessor.get(INotificationService).notify({
+					severity: Severity.Info,
+					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
+					sticky: false
+				});
+			}
+		}
+	});
+
+	/**
+	 * Register the navigate history up prefix match action. This action moves the cursor to the previous
+	 * entry in the input history using the prefix match strategy.
+	 */
+	registerAction2(class extends Action2 {
+		/**
+		 * Constructor.
+		 */
+		constructor() {
+			super({
+				id: PositronConsoleCommandId.NavigateInputHistoryUpUsingPrefixMatch,
+				title: {
+					value: localize('workbench.action.positronConsole.navigateInputHistoryUpUsingPrefixMatch', "Navigate Input History Up (Prefix Match)"),
+					original: 'Navigate Input History Up (Prefix Match)'
+				},
+				f1: true,
+				category,
+			});
+		}
+
+		/**
+		 * Runs action.
+		 * @param accessor The services accessor.
+		 */
+		async run(accessor: ServicesAccessor) {
+			const positronConsoleService = accessor.get(IPositronConsoleService);
+			if (positronConsoleService.activePositronConsoleInstance) {
+				positronConsoleService.activePositronConsoleInstance.navigateInputHistoryUp(true);
+			} else {
+				accessor.get(INotificationService).notify({
+					severity: Severity.Info,
+					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
+					sticky: false
+				});
+			}
 		}
 	});
 }

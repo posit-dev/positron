@@ -6,7 +6,7 @@
 import { Emitter, Event } from '../../../../../base/common/event.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { ICodeEditor } from '../../../../../editor/browser/editorBrowser.js';
-import { IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
+import { DidNavigateInputHistoryUpEventArgs, IPositronConsoleInstance, IPositronConsoleService, PositronConsoleState, SessionAttachMode } from '../../browser/interfaces/positronConsoleService.js';
 import { RuntimeItem } from '../../browser/classes/runtimeItem.js';
 import { ILanguageRuntimeMetadata, RuntimeCodeExecutionMode, RuntimeErrorBehavior } from '../../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata } from '../../../runtimeSession/common/runtimeSessionService.js';
@@ -258,6 +258,8 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 	private readonly _onDidPasteTextEmitter = new Emitter<string>();
 	private readonly _onDidSelectAllEmitter = new Emitter<void>();
 	private readonly _onDidClearConsoleEmitter = new Emitter<void>();
+	private readonly _onDidNavigateInputHistoryDownEmitter = new Emitter<void>();
+	private readonly _onDidNavigateInputHistoryUpEmitter = new Emitter<DidNavigateInputHistoryUpEventArgs>();
 	private readonly _onDidClearInputHistoryEmitter = new Emitter<void>();
 	private readonly _onDidSetPendingCodeEmitter = new Emitter<string | undefined>();
 	private readonly _onDidExecuteCodeEmitter = new Emitter<ILanguageRuntimeCodeExecutedEvent>();
@@ -314,6 +316,14 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	get onDidClearConsole(): Event<void> {
 		return this._onDidClearConsoleEmitter.event;
+	}
+
+	get onDidNavigateInputHistoryDown(): Event<void> {
+		return this._onDidNavigateInputHistoryDownEmitter.event;
+	}
+
+	get onDidNavigateInputHistoryUp(): Event<DidNavigateInputHistoryUpEventArgs> {
+		return this._onDidNavigateInputHistoryUpEmitter.event;
 	}
 
 	get onDidClearInputHistory(): Event<void> {
@@ -427,6 +437,16 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 
 	clearConsole(): void {
 		this._onDidClearConsoleEmitter.fire();
+	}
+
+	navigateInputHistoryDown(): void {
+		this._onDidNavigateInputHistoryDownEmitter.fire();
+	}
+
+	navigateInputHistoryUp(usingPrefixMatch: boolean): void {
+		this._onDidNavigateInputHistoryUpEmitter.fire({
+			usingPrefixMatch,
+		});
 	}
 
 	clearInputHistory(): void {

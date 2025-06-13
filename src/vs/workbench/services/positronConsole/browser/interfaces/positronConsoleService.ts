@@ -65,7 +65,6 @@ export interface IPositronConsoleService {
 	 */
 	readonly onDidStartPositronConsoleInstance: Event<IPositronConsoleInstance>;
 
-
 	/**
 	 * The onDidDeletePositronConsoleInstance event.
 	 */
@@ -161,6 +160,16 @@ export enum SessionAttachMode {
 	/** The console is reattaching to a connected session */
 	Connected = 'connected',
 }
+
+/**
+ * Event arguments for the onDidNavigateInputHistoryUp event.
+ */
+export type DidNavigateInputHistoryUpEventArgs = {
+	/**
+	 * A value which indicates whether to use the prefix match strategy.
+	 */
+	usingPrefixMatch: boolean;
+};
 
 /**
  * IPositronConsoleInstance interface.
@@ -273,6 +282,16 @@ export interface IPositronConsoleInstance {
 	readonly onDidClearConsole: Event<void>;
 
 	/**
+	 * The onDidNavigateInputHistoryDown event.
+	 */
+	readonly onDidNavigateInputHistoryDown: Event<void>;
+
+	/**
+	 * The onDidNavigateInputHistoryUp event.
+	 */
+	readonly onDidNavigateInputHistoryUp: Event<DidNavigateInputHistoryUpEventArgs>;
+
+	/**
 	 * The onDidClearInputHistory event.
 	 */
 	readonly onDidClearInputHistory: Event<void>;
@@ -353,6 +372,17 @@ export interface IPositronConsoleInstance {
 	 * Clears the console.
 	 */
 	clearConsole(): void;
+
+	/**
+	 * Navigates the input history down.
+	 */
+	navigateInputHistoryDown(): void;
+
+	/**
+	 * Navigates the input history up.
+	 * @param usingPrefixMatch A value which indicates whether to use the prefix match strategy.
+	 */
+	navigateInputHistoryUp(usingPrefixMatch: boolean): void;
 
 	/**
 	 * Clears the input history.
