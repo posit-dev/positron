@@ -3,47 +3,117 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
 import { Channel } from './Channel';
+import { CommBackendMessage } from './positron-supervisor';
+import { KallichoreSession } from './KallichoreSession';
+import { createUniqueId } from './util';
+import { JupyterCommMsg } from './jupyter/JupyterCommMsg';
+import { CommMsgRequest } from './jupyter/CommMsgRequest';
 
-/**
- * Raw comm unmanaged by Positron.
- *
- * This type of comm is not mapped to a Positron client. It lives entirely in
- * the extension space and allows private communication between an extension and
- * its kernel.
- */
-export interface RawComm {
-	/** Async-iterable for messages sent from backend. */
-	receiver: Channel<CommBackendMessage>;
+export class RawCommImpl implements vscode.Disposable {
+	readonly receiver: Channel<CommBackendMessage> = new Channel();
+	private readonly disposables: vscode.Disposable[] = [];
 
-	/** Send a notification to the backend comm. */
-	notify: (method: string, params?: Record<string, unknown>) => void;
+	constructor(
+		private readonly commId: string,
+		private readonly session: KallichoreSession,
+	) {}
 
-	/** Make a request to the backend comm. Resolves when backend responds. */
-	request: (method: string, params?: Record<string, unknown>) => Promise<any>;
+	notify(method: string, params?: Record<string, unknown>) {
+		const msg: CommRpcMessage = {
+			jsonrpc: '2.0',
+			method,
+			params,
+		};
 
-	/** Clear resources and sends `comm_close` to backend comm (unless the channel
-	  * was closed by the backend already). */
-	dispose: () => void;
+		// We don't expect a response here, so `id` can be created and forgotten
+		const id = createUniqueId();
+		this.session.sendClientMessage(this.commId, id, msg);
+	}
+
+	async request(method: string, params?: Record<string, unknown>): Promise<any> {
+		const id = createUniqueId();
+
+		const msg: CommRpcMessage = {
+			jsonrpc: '2.0',
+			id,
+			method,
+			params,
+		};
+
+		const commMsg: JupyterCommMsg = {
+			comm_id: this.commId,
+			data: msg
+		};
+
+		const request = new CommMsgRequest(id, commMsg);
+		this.session.sendRequest(request);
+	}
+
+	dispose() {
+		this.receiver.dispose();
+
+		for (const disposable of this.disposables) {
+			disposable.dispose();
+		}
+	}
+
+	register(disposable: vscode.Disposable) {
+		this.disposables.push(disposable);
+	}
 }
 
-/** Message from the backend.
- *
- * If a request, one of the `reply` or `reject` method must be called.
- */
-export type CommBackendMessage =
-	| {
-		kind: 'request';
-		method: string;
-		params?: Record<string, unknown>;
-		reply: (result: any) => void;
-		reject: (error: Error) => void;
+export class CommBackendRequest {
+	kind: 'request' = 'request';
+	readonly method: string;
+	readonly params?: Record<string, unknown>;
+
+	private readonly id: string;
+
+	constructor(
+		private readonly session: KallichoreSession,
+		private readonly commId: string,
+		private readonly message: CommRpcMessage,
+	) {
+		this.method = message.method;
+		this.params = message.params;
+
+		if (!this.message.id) {
+			throw new Error('Expected `id` field in request');
+		}
+		this.id = this.message.id;
 	}
-	| {
-		kind: 'notification';
-		method: string;
-		params?: Record<string, unknown>;
-	};
+
+	reply(result: any) {
+		const msg: CommRpcResponse = {
+			jsonrpc: '2.0',
+			id: this.id,
+			method: this.method,
+			result,
+		};
+		this.send(msg);
+	}
+
+	reject(error: Error, code = -32000) {
+		const msg: CommRpcError = {
+			jsonrpc: '2.0',
+			id: this.id,
+			method: this.method,
+			message: `${error}`,
+			code,
+		};
+		this.send(msg);
+	}
+
+	private send(data: Record<string, unknown>) {
+		const commMsg: JupyterCommMsg = {
+			comm_id: this.commId,
+			data,
+		};
+		this.session.sendClientMessage(this.commId, this.id, commMsg);
+	}
+}
 
 export interface CommRpcMessage {
 	jsonrpc: '2.0';
