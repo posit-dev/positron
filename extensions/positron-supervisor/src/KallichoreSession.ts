@@ -1763,8 +1763,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			this._connected = new Barrier();
 		}
 
-		// All comms are now closed
+		// All clients are now closed
 		this._clients.clear();
+
+		// Close all raw comms
+		for (const comm of this._comms.values()) {
+			comm.close();
+		}
+		this._comms.clear();
 
 		// Clear any starting comms
 		this._startingComms.forEach((promise) => {
@@ -1918,7 +1924,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			if (comm) {
 				this._comms.delete(closeMsg.comm_id);
-				comm.dispose();
+				comm.close();
 				return;
 			}
 		}
