@@ -29,7 +29,7 @@ test.use({
 });
 
 test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] }, () => {
-	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings, runCommand, app }) => {
+	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings, app, hotKeys }) => {
 		await app.workbench.settings.remove(['positron.importSettings.enable']);
 		await vscodeUserSettings.append({
 			'test': 'vs-code-settings',
@@ -41,7 +41,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			['editor.fontSize', '16'],
 			['workbench.colorTheme', 'Default Light+']
 		]);
-		await runCommand('workbench.action.reloadWindow');
+		await hotKeys.reloadWindow();
 	});
 
 	test.beforeEach(async ({ sessions, hotKeys }) => {
@@ -50,7 +50,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 	});
 
 	test.describe('Defer Import', () => {
-		test('Verify import prompt behavior on "Later"', async ({ runCommand, app }) => {
+		test('Verify import prompt behavior on "Later"', async ({ app, hotKeys }) => {
 			const { popups } = app.workbench;
 
 			// select "Later" and verify that the prompt is no longer visible
@@ -59,11 +59,11 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await popups.expectImportPromptToBeVisible(false);
 
 			// reload the window and verify that the prompt is shown again
-			await runCommand('workbench.action.reloadWindow');
+			await hotKeys.reloadWindow();
 			await popups.expectImportPromptToBeVisible();
 		});
 
-		test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, runCommand, page }) => {
+		test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, hotKeys, page }) => {
 			const { popups } = app.workbench;
 
 			// select "Don't Show Again" and verify that the prompt is no longer visible
@@ -72,7 +72,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await popups.expectImportPromptToBeVisible(false);
 
 			// verify that prompt is not shown again
-			await runCommand('workbench.action.reloadWindow');
+			await hotKeys.reloadWindow();
 			await sessions.expectNoStartUpMessaging();
 			await page.waitForTimeout(3000); // extra time to ensure the prompt is not shown
 			await popups.expectImportPromptToBeVisible(false);
@@ -80,31 +80,32 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 	});
 
 	test.describe('Import with Positron settings', () => {
-		test('Verify diff displays and rejected settings are not saved', async ({ app, page, runCommand }) => {
+		test('Verify diff displays and rejected settings are not saved', async ({ app, page, hotKeys }) => {
 			const { popups } = app.workbench;
 
 			// import settings and verify diff displays
-			await runCommand('Preferences: Import Settings...', { exactMatch: true });
+			await hotKeys.importSettings();
 			await expectDiffToBeVisible(page);
 
 			// reject the changes
 			await popups.rejectButton.click();
 			await expectDiffToBeVisible(page, false);
-			await runCommand('Open User Settings (JSON)');
+			await hotKeys.openUserSettingsJSON();
 			await expect(page.getByText('"test": "positron-settings"')).toHaveCount(1);
 		});
 
-		test('Verify diff displays and accepted settings are saved', async ({ app, page, runCommand }) => {
+		test('Verify diff displays and accepted settings are saved', async ({ app, page, hotKeys }) => {
 			const { popups } = app.workbench;
 
 			// import settings and verify diff displays
-			await runCommand('Preferences: Import Settings...', { exactMatch: true });
+			await hotKeys.importSettings();
 			await expectDiffToBeVisible(page);
 
 			// accept changes
 			await popups.acceptButton.click();
 			await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
-			await runCommand('Open User Settings (JSON)');
+			await hotKeys.openUserSettingsJSON();
+			await hotKeys.scrollToTop();
 			await expect(page.getByText('Settings imported from Visual Studio Code')).toBeVisible();
 		});
 	});
@@ -114,11 +115,11 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await settings.clear();
 		});
 
-		test('Verify import import occurs and is clean without a diff', async ({ app, page, runCommand }) => {
+		test('Verify import import occurs and is clean without a diff', async ({ app, page, hotKeys }) => {
 			const { popups } = app.workbench;
 
 			// import settings
-			await runCommand('Preferences: Import Settings...', { exactMatch: true });
+			await hotKeys.importSettings();
 			await expect(page.getByRole('tab', { name: 'settings.json' })).toBeVisible();
 
 			// accept changes
@@ -126,7 +127,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
 
 			// verify settings imported
-			await runCommand('Open User Settings (JSON)');
+			await hotKeys.openUserSettingsJSON();
 			await expect(page.getByText('Settings imported from Visual Studio Code')).toBeVisible();
 		});
 	});

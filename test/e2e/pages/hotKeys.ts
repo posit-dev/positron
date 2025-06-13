@@ -91,6 +91,10 @@ export class HotKeys {
 	}
 
 	// -- Workspaces --
+	public async reloadWindow() {
+		await this.pressHotKeys(`Cmd+R`);
+	}
+
 	public async closeWorkspace() {
 		await this.pressHotKeys(`Cmd+J W`);
 	}
@@ -116,6 +120,10 @@ export class HotKeys {
 
 	public async openUserSettingsJSON() {
 		await this.pressHotKeys(`Cmd+J U`);
+	}
+
+	public async importSettings() {
+		await this.pressHotKeys(`Cmd+J I`);
 	}
 
 	/**
