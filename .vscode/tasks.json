@@ -161,7 +161,8 @@
 				"close": true
 			},
 			"problemMatcher": "$tsc"
-		},		{
+		},
+		{
 			"type": "npm",
 			"script": "kill-watch-e2ed",
 			"label": "Kill E2E Tests - Build",
