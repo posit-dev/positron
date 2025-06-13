@@ -4,10 +4,11 @@
 <head>
 	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; media-src https:; script-src 'self' 'nonce-__nonce__'; style-src 'nonce-__nonce__'; frame-src *;">
+		content="media-src 'self'; script-src 'self' 'nonce-__nonce__'; style-src 'nonce-__nonce__'; frame-src *;">
 	<style nonce="__nonce__">
 		body {
 			padding: 0;
+			background-color: var(--vscode-editor-background);
 		}
 
 		.container {
@@ -18,13 +19,68 @@
 			height: 100vh;
 		}
 
-		__styles__
+		.header {
+			display: flex;
+			flex-direction: row;
+			text-wrap-mode: nowrap;
+		}
+
+		.logo {
+			max-width: 6em;
+			max-height: 6em;
+			margin-right: 12px;
+		}
+
+		.header-text {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: flex-start;
+		}
+
+		.title {
+			font-size: 3.5em;
+			font-weight: 800;
+			color: var(--vscode-positronWelcome-foreground);
+			margin: 0;
+			padding-top: 0.2em;
+			line-height: 16px;
+		}
+
+		.caption {
+			font-weight: 600;
+			color: var(--vscode-positronWelcome-secondaryForeground);
+			margin: 0.6em 0 0 0
+		}
+
+		ul {
+			list-style-type: none;
+			padding: 0;
+			margin: 0;
+		}
 	</style>
 </head>
 
 <body>
 	<div class="container">
-		<h1>Welcome to Positron</h1>
+		<div class="header">
+			<img src="__logoSrc__" alt="Positron Logo" class="logo">
+			<div class="header-text">
+				<h1 class="title">__productName__</h1>
+				<h2 class="caption">an IDE for data science</h2>
+			</div>
+		</div>
+		<div>
+			<ul>
+				<li><a href="#">Positron Documentation</a></li>
+				<li><a href="#">Positron Community Forum</a></li>
+				<li><a href="#">Report a bug in Positron</a></li>
+
+				<li><a href="#">Posit Cheat Sheets</a></li>
+				<li><a href="#">Posit Products</a></li>
+				<li><a href="#">Posit Support</a></li>
+			</ul>
+		</div>
 	</div>
 
 	<script nonce="__nonce__" async type="module">
