@@ -94,7 +94,7 @@ export interface NewFolderConfiguration {
 	readonly folderPath: string;
 	readonly folderName: string;
 	readonly initGitRepo: boolean;
-	readonly createPyprojectToml: boolean;
+	readonly createPyprojectToml: boolean | undefined;
 	readonly pythonEnvProviderId: string | undefined;
 	readonly pythonEnvProviderName: string | undefined;
 	readonly installIpykernel: boolean | undefined;

@@ -87,6 +87,34 @@ suite('Create pyproject.toml Command', () => {
         assert.isTrue(workspaceWriteFileStub.calledOnce, 'writeFile should be called once');
     });
 
+    test('Writes correct minimum python version when specified', async () => {
+        const mockWorkspaceFolder: WorkspaceFolder = {
+            uri: Uri.file('/test/workspace'),
+            name: 'test-workspace',
+            index: 0,
+        };
+        when(workspaceService.workspaceFolders).thenReturn([mockWorkspaceFolder]);
+
+        // Mock file does not exist (stat throws)
+        workspaceStatStub.rejects(new Error('File not found'));
+        // Mock successful file write
+        workspaceWriteFileStub.resolves();
+
+        const minVersion = '3.10';
+        const result = await createPyprojectTomlCommandHandler.createPyprojectToml(minVersion);
+
+        assert.equal(result.success, true);
+        if (result.success) {
+            assert.include(result.path, 'pyproject.toml');
+        }
+        assert.isTrue(workspaceWriteFileStub.calledOnce, 'writeFile should be called once');
+
+        // Verify the content written to the file
+        const [, contentBytes] = workspaceWriteFileStub.getCall(0).args;
+        const content = Buffer.from(contentBytes).toString('utf8');
+        assert.include(content, `requires-python = ">= ${minVersion}"`);
+    });
+
     test('Returns success when pyproject.toml file already exists', async () => {
         const mockWorkspaceFolder: WorkspaceFolder = {
             uri: Uri.file('/test/workspace'),
