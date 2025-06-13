@@ -79,7 +79,7 @@ const WelcomePageNoWorkspace = (props: PositronWelcomePageStartProps) => {
 			/>
 			<WelcomeButton
 				ariaLabel={localize('positron.welcome.newFolderFromTemplate', "New Folder...")}
-				codicon='positron-new-project'
+				codicon='positron-new-folder'
 				label={localize('positron.welcome.newFolderFromTemplate', "New Folder...")}
 				onPressed={() => props.commandService.executeCommand(PositronNewFolderFromTemplateAction.ID)}
 			/>
