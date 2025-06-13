@@ -237,13 +237,19 @@ export interface JupyterKernelExtra {
  * This type of comm is not mapped to a Positron client. It lives entirely in
  * the extension space and allows private communication between an extension and
  * its kernel.
+ *
+ * It's a disposable. Dispose of it once it's closed or you're no longer using
+ * it. If the comm has not already been closed by the kernel, a client-initiated
+ * `comm_close` message is emitted.
  */
 export interface RawComm {
-	/** Send a notification to the backend comm. */
-	notify: (method: string, params?: Record<string, unknown>) => void;
+	/** Send a notification to the backend comm. Returns `false` if comm was closed. */
+	notify: (method: string, params?: Record<string, unknown>) => boolean;
 
-	/** Make a request to the backend comm. Resolves when backend responds. */
-	request: (method: string, params?: Record<string, unknown>) => Promise<any>;
+	/** Make a request to the backend comm. Resolves when backend responds. The tuple's
+	  * first value indicates whether the comm was closed (and no request was emitted).
+		* The second value is the result if the request was made. */
+	request: (method: string, params?: Record<string, unknown>) => Promise<[boolean, any]>;
 
 	/** Clear resources and sends `comm_close` to backend comm (unless the channel
 	  * was closed by the backend already). */
