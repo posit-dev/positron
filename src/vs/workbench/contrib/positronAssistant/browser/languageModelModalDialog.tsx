@@ -74,65 +74,47 @@ interface LanguageModelConfigurationProps {
 	onClose: () => void;
 }
 
-export interface LanguageModelUIConfiguration extends IPositronLanguageModelConfig {
-	signedIn?: boolean;
-	isTest?: boolean;
-	apiKey?: string;
-}
-
 // Other Models --> just "Models"?
 
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
-	const enabledProviders = props.sources.map(source => source.provider.id);
-	const hasAnthropic = enabledProviders.includes('anthropic');
-	const hasMistral = enabledProviders.includes('mistral');
+	// Construct the list of providers from the sources
+	const providers = props.sources
+		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot'))
+		.sort((a, b) => {
+			if (a.provider.id === 'echo' || a.provider.id === 'error') {
+				return 1;
+			}
+			if (b.provider.id === 'echo' || b.provider.id === 'error') {
+				return -1;
+			}
+			return a.provider.displayName.localeCompare(b.provider.displayName);
+		});
 
-	// defaultSource is used to pre-select the provider in the modal dialog.
-	// we can probably just select the first one by default, which happens to be Anthropic?
-	// this was used for the old modal dialog, but we don't need this anymore
-	const defaultSource = props.sources.find(source => {
-		// If Anthropic is available, prefer it for chat models
-		if (hasAnthropic) {
-			return source.provider.id === 'anthropic';
-		}
-		// If Mistral is available, prefer it for completion models ?????
-		// is this working?
-		if (hasMistral) {
-			return source.provider.id === 'mistral';
-		}
-		// In all other cases, prefer the first available provider
-		return true;
-	})!;
+	// Create dropdown options for each provider -- do we need to use dropdown items here?
+	const providerOptions = providers
+		.map(source => new DropDownListBoxItem({
+			identifier: source.provider.id,
+			title: source.provider.displayName,
+			value: source,
+		}));
+
+	const defaultProvider = providers[0];
 
 	// this is the source of the provider, for the awareness of the extension
-	const [source, setSource] = React.useState<IPositronLanguageModelSource>(defaultSource);
+	const [selectedProvider, setSelectedProvider] = React.useState<IPositronLanguageModelSource>(defaultProvider);
 	// this contains some info for the UI state, like if we're signed in, api key (goes in safe storage), other info goes in regular storage
-	const [providerConfig, setProviderConfig] = React.useState<LanguageModelUIConfiguration>({ ...defaultSource.defaults, name: defaultSource.provider.displayName, provider: defaultSource.provider.id, type: defaultSource.type });
-
-	// this is also truly part of the UI state, it is the api key entered in the text box
-	const [apiKey, setApiKey] = React.useState<string>();
-
-	const [baseUrl, setBaseUrl] = React.useState<string | undefined>(defaultSource.defaults.baseUrl);
-	const [resourceName, setResourceName] = React.useState<string | undefined>(defaultSource.defaults.resourceName);
-	const [project, setProject] = React.useState<string | undefined>(defaultSource.defaults.project);
-	const [location, setLocation] = React.useState<string | undefined>(defaultSource.defaults.location);
-	const [toolCalls, setToolCalls] = React.useState<boolean | undefined>(defaultSource.defaults.toolCalls);
-	const [numCtx, setNumCtx] = React.useState<number | undefined>(defaultSource.defaults.numCtx);
-	const [model, setModel] = React.useState<string>(defaultSource.defaults.model);
-	const [name, setName] = React.useState<string>(defaultSource.defaults.name);
-
+	const [providerConfig, setProviderConfig] = React.useState<IPositronLanguageModelConfig>({
+		...defaultProvider.defaults,
+		name: defaultProvider.provider.displayName,
+		provider: defaultProvider.provider.id,
+		type: defaultProvider.type
+	});
 	// these are truly part of the UI state and not part of the provider config
-	const [authMethod, setAuthMethod] = React.useState<AuthMethod>(defaultSource.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY);
+	const [authMethod, setAuthMethod] = React.useState<AuthMethod>(defaultProvider.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY);
 
 	// these are purely UI state, not part of the provider config
 	const [showProgress, setShowProgress] = React.useState(false);
-	const [errorMessage, setError] = React.useState<string>();
-
-	// this is maybe already covered above in the useStates?
-	// useEffect(() => {
-	// 	setSource(defaultSource);
-	// 	setAuthMethod(defaultSource.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY)
-	// }, [defaultSource]);
+	const [errorMessage, setErrorMessage] = React.useState<string>();
 
 	useEffect(() => {
 		const disposables: IDisposable[] = [];
@@ -146,20 +128,20 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			// this is because we can't learn the result of the sign-in action directly, so we need to listen to this
 			// event and update our local sources state accordingly
 			// NOTE: we don't get the api key back from the extension
-			const updatedSource = { ...source, supportedOptions: source.supportedOptions, signedIn: newConfig.signedIn };
+			const updatedSource = { ...selectedProvider, supportedOptions: selectedProvider.supportedOptions, signedIn: newConfig.signedIn };
 			if (index >= 0) {
 				props.sources[index] = updatedSource;
 			}
 
 			// if newSource matches source, update source
-			if (source.provider.id === newConfig.provider.id) {
-				setSource(updatedSource);
+			if (selectedProvider.provider.id === newConfig.provider.id) {
+				setSelectedProvider(updatedSource);
 			}
 
 		}));
 
 		return () => { disposables.forEach(d => d.dispose()); }
-	}, [props.positronAssistantService, props.sources, source]);
+	}, [props.positronAssistantService, props.sources, selectedProvider]);
 
 	// CURRENTLY
 	// sources = state of the UI, contains signedIn info
@@ -171,51 +153,22 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	// providerConfig = current state for the selected provider, which is also what's sent to the extension; still what is sent to storage
 
 	useEffect(() => {
-		setModel(source.defaults.model);
-		setName(source.defaults.name);
-		setApiKey(source.defaults.apiKey);
-		setBaseUrl(source.defaults.baseUrl);
-		setResourceName(source.defaults.resourceName);
-		setProject(source.defaults.project);
-		setLocation(source.defaults.location);
-		setToolCalls(source.defaults.toolCalls);
-		setNumCtx(source.defaults.numCtx);
-	}, [source]);
-
-	useEffect(() => {
-		const newAuthMethod = source.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY;
+		const newAuthMethod = selectedProvider.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY;
 		setAuthMethod(newAuthMethod);
-	}, [source.defaults.oauth]);
+	}, [selectedProvider.defaults.oauth]);
 
 	const authMethodRadioButtons: RadioButtonItem[] = [
 		new RadioButtonItem({
 			identifier: AuthMethod.OAUTH,
 			title: localize('positron.languageModelProviderModalDialog.oauth', "OAuth"),
-			disabled: !source.supportedOptions.includes(AuthMethod.OAUTH),
+			disabled: !selectedProvider.supportedOptions.includes(AuthMethod.OAUTH),
 		}),
 		new RadioButtonItem({
 			identifier: AuthMethod.API_KEY,
 			title: localize('positron.languageModelProviderModalDialog.apiKey', "API Key"),
-			disabled: !source.supportedOptions.includes(AuthMethod.API_KEY),
+			disabled: !selectedProvider.supportedOptions.includes(AuthMethod.API_KEY),
 		}),
 	];
-
-	const providers = props.sources
-		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot'))
-		.sort((a, b) => {
-			if (a.provider.id === 'echo' || a.provider.id === 'error') {
-				return 1;
-			}
-			if (b.provider.id === 'echo' || b.provider.id === 'error') {
-				return -1;
-			}
-			return a.provider.displayName.localeCompare(b.provider.displayName);
-		})
-		.map(source => new DropDownListBoxItem({
-			identifier: source.provider.id,
-			title: source.provider.displayName,
-			value: source,
-		}))
 
 	const onAccept = async () => {
 		if (await shouldCloseModal()) {
@@ -226,34 +179,34 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	}
 
 	const onSignIn = async () => {
-		if (!source) {
+		if (!selectedProvider) {
 			return;
 		}
 		setShowProgress(true);
-		setError(undefined);
+		setErrorMessage(undefined);
 		if (providerConfig) {
 			if (authMethod === AuthMethod.API_KEY) {
 				await props.onAction(
 					providerConfig,
-					source.signedIn ? 'delete' : 'save')
+					selectedProvider.signedIn ? 'delete' : 'save')
 					.catch((e) => {
-						setError(e.message);
+						setErrorMessage(e.message);
 					}).finally(() => {
 						setShowProgress(false);
 					});
 			} else {
 				await props.onAction(
 					providerConfig,
-					source.signedIn ? 'oauth-signout' : 'oauth-signin')
+					selectedProvider.signedIn ? 'oauth-signout' : 'oauth-signin')
 					.catch((e) => {
-						setError(e.message);
+						setErrorMessage(e.message);
 					}).finally(() => {
 						setShowProgress(false);
 					});
 			}
 		} else {
 			setShowProgress(false);
-			setError(localize('positron.languageModelProviderModalDialog.incompleteConfig', 'The configuration is incomplete.'));
+			setErrorMessage(localize('positron.languageModelProviderModalDialog.incompleteConfig', 'The configuration is incomplete.'));
 		}
 
 		if (providerConfig.completions) {
@@ -284,34 +237,22 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	// Cancel pending actions with providers
 	// NOTE: this is currently only applicable to Copilot OAuth
 	const onCancelPending = async () => {
-		props.onAction({
-			type: providerConfig.type,
-			provider: source.provider.id,
-			model: model,
-			name: name,
-			apiKey: apiKey,
-			baseUrl: baseUrl,
-			resourceName: resourceName,
-			project: project,
-			location: location,
-			toolCalls: toolCalls,
-			numCtx: numCtx,
-		}, 'cancel')
+		props.onAction(providerConfig, 'cancel')
 			.catch((e) => {
-				setError(e.message);
+				setErrorMessage(e.message);
 			}).finally(() => {
 				setShowProgress(false);
 			});
 	}
 
 	const shouldCloseModal = async () => {
-		if (source.signedIn) {
+		if (selectedProvider.signedIn) {
 			return true;
 		}
 
 		if (authMethod === AuthMethod.OAUTH && showProgress) {
 			return await props.positronModalDialogsService.showSimpleModalDialogPrompt(
-				localize('positron.languageModelProviderModalDialog.oauthInProgressTitle', "{0} Authentication in Progress", source.provider.displayName),
+				localize('positron.languageModelProviderModalDialog.oauthInProgressTitle', "{0} Authentication in Progress", selectedProvider.provider.displayName),
 				localize('positron.languageModelProviderModalDialog.oauthInProgressMessage', "The sign in flow is in progress. If you close this dialog, your sign in may not complete. Are you sure you want to close and abandon signing in?"),
 				localize('positron.languageModelProviderModalDialog.ok', "Yes"),
 				localize('positron.languageModelProviderModalDialog.cancel', "No"),
@@ -319,7 +260,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}
 		if (authMethod === AuthMethod.API_KEY && !!providerConfig.apiKey && providerConfig.apiKey.length > 0) {
 			return await props.positronModalDialogsService.showSimpleModalDialogPrompt(
-				localize('positron.languageModelProviderModalDialog.apiKeySignInIncompleteTitle', "{0} Authentication Incomplete", source.provider.displayName),
+				localize('positron.languageModelProviderModalDialog.apiKeySignInIncompleteTitle', "{0} Authentication Incomplete", selectedProvider.provider.displayName),
 				localize('positron.languageModelProviderModalDialog.apiKeySignInIncompleteMessage', "You have entered an API key, but have not signed in. If you close this dialog, your API key will not be saved. Are you sure you want to close and abandon signing in?"),
 				localize('positron.languageModelProviderModalDialog.ok', "Yes"),
 				localize('positron.languageModelProviderModalDialog.cancel', "No"),
@@ -346,17 +287,17 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			</label>
 			<div className='language-model button-container'>
 				{
-					providers.map(provider => {
+					providerOptions.map(provider => {
 						return <LanguageModelButton
 							key={provider.options.identifier}
 							disabled={showProgress}
 							displayName={provider.options.title ?? provider.options.identifier}
 							identifier={provider.options.identifier}
-							selected={provider.options.identifier === source.provider.id}
+							selected={provider.options.identifier === selectedProvider.provider.id}
 							onClick={() => {
-								setSource(provider.options.value);
+								setSelectedProvider(provider.options.value);
 								setProviderConfig({ ...provider.options.value, ...provider.options.value.defaults, provider: provider.options.identifier, type: provider.options.value.type });
-								setError(undefined);
+								setErrorMessage(undefined);
 							}}
 						/>
 					})
@@ -379,7 +320,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				authMethod={authMethod}
 				provider={providerConfig}
 				signingIn={showProgress}
-				source={source}
+				source={selectedProvider}
 				onCancel={onCancelPending}
 				onChange={(config) => {
 					setProviderConfig(config);
