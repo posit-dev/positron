@@ -94,7 +94,8 @@
 				"reveal": "never",
 				"group": "testWatchers",
 				"close": false
-			},			"problemMatcher": [
+			},
+			"problemMatcher": [
 				{
 					"owner": "typescript-watch",
 					"fileLocation": ["relative", "${workspaceFolder}/test/e2e"],
