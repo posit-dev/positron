@@ -11,6 +11,7 @@ import { CommMsgRequest } from './jupyter/CommMsgRequest';
 
 export class RawCommImpl implements vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
+	private closed = false;
 
 	constructor(
 		private readonly commId: string,
@@ -19,7 +20,11 @@ export class RawCommImpl implements vscode.Disposable {
 		private readonly onRequest: (method: string, params?: Record<string, unknown>) => any,
 	) {}
 
-	notify(method: string, params?: Record<string, unknown>) {
+	notify(method: string, params?: Record<string, unknown>): boolean {
+		if (this.closed) {
+			return false;
+		}
+
 		const msg: CommRpcMessage = {
 			jsonrpc: '2.0',
 			method,
@@ -29,9 +34,15 @@ export class RawCommImpl implements vscode.Disposable {
 		// We don't expect a response here, so `id` can be created and forgotten
 		const id = createUniqueId();
 		this.session.sendClientMessage(this.commId, id, msg);
+
+		return true;
 	}
 
-	async request(method: string, params?: Record<string, unknown>): Promise<any> {
+	async request(method: string, params?: Record<string, unknown>): Promise<[boolean, any]> {
+		if (this.closed) {
+			return [false, undefined];
+		}
+
 		const id = createUniqueId();
 
 		const msg: CommRpcMessage = {
@@ -47,7 +58,7 @@ export class RawCommImpl implements vscode.Disposable {
 		};
 
 		const request = new CommMsgRequest(id, commMsg);
-		this.session.sendRequest(request);
+		return [true, this.session.sendRequest(request)];
 	}
 
 	// Relay message from backend to extension
@@ -104,7 +115,12 @@ export class RawCommImpl implements vscode.Disposable {
 		this.session.sendClientMessage(this.commId, id, commMsg);
 	}
 
+	close() {
+		this.closed = true;
+	}
+
 	dispose() {
+		this.close();
 		for (const disposable of this.disposables) {
 			disposable.dispose();
 		}
