@@ -91,7 +91,7 @@
 			"isBackground": true,
 			"presentation": {
 				"reveal": "never",
-				"group": "buildWatchers",
+				"group": "testWatchers",
 				"close": false
 			},			"problemMatcher": [
 				{
