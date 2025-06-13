@@ -1933,6 +1933,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			const commHandle = this._comms.get(commMsg.comm_id);
 
 			if (commHandle) {
+				// Channel is still opened, go ahead and forward message
 				const [_, tx] = commHandle;
 				const rpcMsg = commMsg.data as CommRpcMessage;
 
