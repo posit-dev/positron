@@ -35,10 +35,22 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 		await app.workbench.positConnect.deleteUserContent();
 	});
 	*/
-	test.beforeAll('Check Dogfoods API status', async function ({ app }, testInfo: TestInfo) {
+	test.beforeAll('Check Dogfoods API status', async function ({ app, page }, testInfo: TestInfo) {
 		try {
+			// to test that catch block works, add `throw new Error('Force fail');` here.
 			await app.workbench.positConnect.getUser();
 		} catch {
+			await app.workbench.quickaccess.runCommand('workbench.action.positronPreview.openUrl', { keepOpen: true });
+			await app.workbench.quickInput.waitForQuickInputOpened();
+			await app.workbench.quickInput.type(`${process.env.E2E_CONNECT_SERVER}`);
+			await page.keyboard.press('Enter');
+			await app.workbench.quickInput.waitForQuickInputClosed();
+			await app.code.wait(5000);
+			const screenshot = await page.screenshot();
+			await testInfo.attach('API check failed screenshot', {
+				body: screenshot,
+				contentType: 'image/png'
+			});
 			testInfo.annotations.push({ type: 'skip', description: 'Skipping due to env var' });
 			test.skip();
 		}
