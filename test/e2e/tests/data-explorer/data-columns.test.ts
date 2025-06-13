@@ -11,7 +11,7 @@ test.use({
 });
 
 // Note that expecting modal popup (filter columns) to be out helps ensure nothing weird happens after double-escaping.
-test.describe('Verify data columns using UI', () => {
+test.describe('Verify data columns using UI', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
 	test.afterEach(async ({ app, page }) => {
 		await page.getByRole('button', { name: 'Select Column' }).focus();
 		await page.keyboard.press('Escape');
@@ -21,14 +21,14 @@ test.describe('Verify data columns using UI', () => {
 		await app.workbench.sessions.deleteAll();
 	});
 
-	test('Verify data columns - Python', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLORER] }, async function ({ app, python, page, openDataFile }) {
+	test('Verify data columns - Python', async function ({ app, python, openDataFile }) {
 		await openDataFile('data-files/data_explorer/data_columns.csv');
 		await app.workbench.dataExplorer.addFilterButton.click();
 		await app.workbench.dataExplorer.selectColumnButton.click();
 		await app.workbench.dataExplorer.verifyColumnHeaders(expectedColumnNames);
 	});
 
-	test('Verify data columns - R', { tag: [tags.WIN, tags.WEB, tags.DATA_EXPLORER] }, async function ({ app, r, page, openDataFile }) {
+	test('Verify data columns - R', async function ({ app, r, openDataFile }) {
 		await openDataFile('data-files/data_explorer/data_columns.csv');
 		await app.workbench.dataExplorer.addFilterButton.click();
 		await app.workbench.dataExplorer.selectColumnButton.click();
@@ -38,8 +38,8 @@ test.describe('Verify data columns using UI', () => {
 
 // R is not being included here due to `check_names` default R function.
 // Although `check_names` can be set to false, it makes things very complicated with column names with quotes, among other issues.
-test.describe('Verify data columns using data frame through console (with Python only)', () => {
-	test.afterEach(async ({ app, page }) => {
+test.describe('Verify data columns using data frame through console (with Python only)', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
+	test.afterEach(async ({ app }) => {
 		await app.workbench.console.clearButton.click();
 		await app.workbench.sessions.deleteAll();
 	});

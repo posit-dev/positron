@@ -62,7 +62,7 @@ expected = [
 	'supercalifragilisticexpialidocious_column_name_that_is_really_really_long_to_test_limits',
 	'''whitespace\t(tab)''',
     'duplicate',
-    'duplicate_1',
+    'duplicate.1',
     'Nombre_Español',
     'ID_Único',
     'Nome_Português',
