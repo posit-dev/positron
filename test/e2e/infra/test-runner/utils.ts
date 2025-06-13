@@ -90,25 +90,25 @@ export async function copyFixtureFile(fixtureFilename: string, destinationFolder
 	const fileName = path.basename(filePath);
 	const destinationPath = path.join(destinationFolder, fileName);
 
-	// Read and adjust keybindings for platform
-	let data: string;
-	try {
-		data = await fs.promises.readFile(filePath, 'utf8');
-	} catch (err) {
-		console.error('✗ Failed to read:', err);
-		throw err;
-	}
+	// Ensure destination directory exists
+	const destDir = path.dirname(destinationPath);
 
-	if (replaceCtrl && (process.platform === 'win32' || process.platform === 'linux')) {
-		data = data.replace(/cmd/gi, 'ctrl');
-	}
-
-	// Create directories and write files asynchronously
 	try {
-		await fs.promises.mkdir(path.dirname(destinationPath), { recursive: true });
-		await fs.promises.writeFile(destinationPath, data, 'utf8');
+		// Create directory if it doesn't exist yet
+		await fs.promises.mkdir(destDir, { recursive: true });
+
+		if (replaceCtrl && (process.platform === 'win32' || process.platform === 'linux')) {
+			// For files needing text replacement
+			const data = await fs.promises.readFile(filePath, 'utf8');
+			const modifiedData = data.replace(/cmd/gi, 'ctrl');
+			await fs.promises.writeFile(destinationPath, modifiedData, 'utf8');
+		} else {
+			// Direct file copy when no replacement needed
+			await fs.promises.copyFile(filePath, destinationPath);
+		}
 	} catch (err) {
-		console.error('✗ Failed to write:', err);
+		console.error(`✗ Failed to copy fixture file ${fixtureFilename}:`, err);
 		throw err;
 	}
 }
+

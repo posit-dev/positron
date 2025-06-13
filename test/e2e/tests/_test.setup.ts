@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, ContextMenu, getRandomUserDataDir, Setting, copyFixtureFile } from '../infra';
+import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, ContextMenu, getRandomUserDataDir, copyFixtureFile } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -84,18 +84,19 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		options.userDataDir = getRandomUserDataDir(options);
 
-		// Copy keybindings and settings fixtures to the user data directory
-		const userDir = options.web ? join(options.userDataDir, 'data', 'User') : join(options.userDataDir, 'User');
-
-		await copyFixtureFile('keybindings.json', userDir, true);
-		await copyFixtureFile('settings.json', userDir,);
-
 		await use(options);
 	}, { scope: 'worker', auto: true }],
 
 	userDataDir: [async ({ options }, use) => {
-		await use(options.userDataDir);
-	}, { scope: 'worker' }],
+		const userDir = options.web ? join(options.userDataDir, 'data', 'User') : join(options.userDataDir, 'User');
+		process.env.PLAYWRIGHT_USER_DATA_DIR = userDir;
+
+		// Copy keybindings and settings fixtures to the user data directory
+		await copyFixtureFile('keybindings.json', userDir, true);
+		await copyFixtureFile('settings.json', userDir,);
+
+		await use(userDir);
+	}, { scope: 'worker', auto: true }],
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
@@ -238,18 +239,23 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(hotKeys);
 	},
 
-	// ex: await settings.set([['editor.actionBar.enabled', 'true']], true);
+	// ex: await settings.set({'editor.actionBar.enabled': true});
 	settings: [async ({ app }, use) => {
 		const { settings } = app.workbench;
 
 		await use({
 			set: async (
-				newSettings: [string, string][],
-				restartApp = false
+				newSettings: Record<string, unknown>,
+				options?: { restartApp?: boolean; waitMs?: number }
 			) => {
+				const { restartApp = false, waitMs = 0 } = options || {};
+
 				await settings.set(newSettings);
 				if (restartApp) {
 					await app.restart();
+				}
+				if (waitMs) {
+					await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect
 				}
 				await app.workbench.sessions.expectNoStartUpMessaging();
 			},
@@ -482,7 +488,7 @@ interface WorkerFixtures {
 	logsPath: string;
 	logger: MultiLogger;
 	settings: {
-		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
+		set: (settings: Record<string, unknown>, options?: { restartApp?: boolean; waitMs?: number }) => Promise<void>;
 		clear: () => Promise<void>;
 	};
 	vsCodeSettings: VscodeSettings;

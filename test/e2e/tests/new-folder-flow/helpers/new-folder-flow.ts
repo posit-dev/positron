@@ -31,15 +31,7 @@ export async function verifyConsoleReady(app: Application, folderTemplate: Folde
 
 export async function verifyGitFilesArePresent(app: Application) {
 	await test.step('Verify that the .git files are present', async () => {
-		// To ensure that the .git files are present, temporarily clear out the files.exclude setting
-		const settingsBackup = await app.workbench.settings.backup();
-		await app.workbench.settings.set([['files.exclude', '{ "**/.git": false, "**/.gitignore": false }']]);
-
-		// Check that the git-related files are present in the explorer
 		await app.workbench.explorer.verifyExplorerFilesExist(['.git', '.gitignore']);
-
-		// Restore the original settings
-		await app.workbench.settings.restore(settingsBackup);
 	});
 }
 

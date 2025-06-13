@@ -19,7 +19,9 @@ test.describe('Notebooks', {
 	test.describe('Python Notebooks', () => {
 		test.beforeAll(async function ({ app, settings }) {
 			if (app.web) {
-				await settings.set([['files.simpleDialog.enable', 'true']]);
+				await settings.set({
+					'files.simpleDialog.enable': true,
+				});
 			}
 		});
 

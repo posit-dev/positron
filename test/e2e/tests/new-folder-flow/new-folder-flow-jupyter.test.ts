@@ -17,11 +17,14 @@ test.describe('New Folder Flow: Jupyter Project', {
 }, () => {
 	const folderTemplate = FolderTemplate.JUPYTER_NOTEBOOK;
 
+	test.beforeAll(async function ({ settings }) {
+		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { waitMs: 1000 });
+	});
+
 	test('Jupyter Folder Defaults', {
 		tag: [tags.CRITICAL, tags.WIN]
 	}, async function ({ app, settings }) {
 		const folderName = addRandomNumSuffix('python-notebook-runtime');
-		await settings.set([['interpreters.startupBehavior', '"auto"']]);
 
 		// Create a new Python notebook folder
 		await app.workbench.newFolderFlow.createNewFolder({

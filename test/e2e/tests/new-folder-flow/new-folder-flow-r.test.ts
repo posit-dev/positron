@@ -22,7 +22,9 @@ test.describe('New Folder Flow: R Project', { tag: [tags.MODAL, tags.NEW_FOLDER_
 
 	test('R - Folder Defaults', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app, settings }) {
 		const folderName = addRandomNumSuffix('r-defaults');
-		await settings.set([['interpreters.startupBehavior', '"auto"']]);
+		await settings.set({
+			'interpreters.startupBehavior': 'auto',
+		});
 
 		await createNewFolder(app, {
 			folderTemplate,
