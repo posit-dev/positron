@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, tags, expect } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 import { expectedColumnNames } from './helpers/expected_columns';
 
 test.use({
