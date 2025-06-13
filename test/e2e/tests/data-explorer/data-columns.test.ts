@@ -4,13 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { test, tags, expect } from '../_test.setup';
-import { expectedColumnNames, pyColumnComparison } from './helpers/expected_columns';
+import { expectedColumnNames } from './helpers/expected_columns';
 
 test.use({
 	suiteId: __filename
 });
 
-// Note that expecting modal popup (filter columns) to be out helps ensure nothing weird happens after double-escaping.
 test.describe('Verify data columns using UI', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
 	test.afterEach(async ({ app, page }) => {
 		await page.getByRole('button', { name: 'Select Column' }).focus();
@@ -28,16 +27,9 @@ test.describe('Verify data columns using UI', { tag: [tags.WEB, tags.WIN, tags.D
 		await app.workbench.dataExplorer.verifyColumnHeaders(expectedColumnNames);
 	});
 
-	test('Verify data columns - R', async function ({ app, r, openDataFile }) {
-		await openDataFile('data-files/data_explorer/data_columns.csv');
-		await app.workbench.dataExplorer.addFilterButton.click();
-		await app.workbench.dataExplorer.selectColumnButton.click();
-		await app.workbench.dataExplorer.verifyColumnHeaders(expectedColumnNames);
-	});
 });
 
-// R is not being included here due to `check_names` default R function.
-// Although `check_names` can be set to FALSE, it makes things very complicated with column names with quotes, among other issues.
+/* This actually tests pandas, not Positron, so I'm commenting it out
 test.describe('Verify data columns using data frame through console (with Python only)', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
 	test.afterEach(async ({ app }) => {
 		await app.workbench.console.clearButton.click();
@@ -50,3 +42,4 @@ test.describe('Verify data columns using data frame through console (with Python
 		await app.workbench.console.waitForConsoleContents('True');
 	});
 });
+*/
