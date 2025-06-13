@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession } from './positron-supervisor';
+import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, RawComm } from './positron-supervisor';
 import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -43,7 +43,7 @@ import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { Channel } from './Channel';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
-import { CommBackendMessage, CommRpcError, CommRpcMessage, CommRpcResponse, RawComm } from './RawComm';
+import { CommBackendRequest, CommRpcMessage, RawCommImpl } from './RawComm';
 
 /**
  * The reason for a disconnection event.
@@ -1958,11 +1958,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			if (comm) {
 				const rpcMsg = commMsg.data as CommRpcMessage;
+				const chan = comm.receiver as Channel<CommBackendMessage>;
 				if (rpcMsg.id) {
 					const req = new CommBackendRequest(this, commMsg.comm_id, rpcMsg);
-					comm.receiver.send(req);
+					chan.send(req);
 				} else {
-					comm.receiver.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
+					chan.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
 				}
 				return;
 			}
@@ -2146,109 +2147,5 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				this.log(`Failed to perform queued request '${req.method}': ${err}`, vscode.LogLevel.Error);
 			}
 		}
-	}
-}
-
-class RawCommImpl implements vscode.Disposable {
-	readonly receiver: Channel<CommBackendMessage> = new Channel();
-	private readonly disposables: vscode.Disposable[] = [];
-
-	constructor(
-		private readonly commId: string,
-		private readonly session: KallichoreSession,
-	) {}
-
-	notify(method: string, params?: Record<string, unknown>) {
-		const msg: CommRpcMessage = {
-			jsonrpc: '2.0',
-			method,
-			params,
-		};
-
-		// We don't expect a response here, so `id` can be created and forgotten
-		const id = createUniqueId();
-		this.session.sendClientMessage(this.commId, id, msg);
-	}
-
-	async request(method: string, params?: Record<string, unknown>): Promise<any> {
-		const id = createUniqueId();
-
-		const msg: CommRpcMessage = {
-			jsonrpc: '2.0',
-			id,
-			method,
-			params,
-		};
-
-		const commMsg: JupyterCommMsg = {
-			comm_id: this.commId,
-			data: msg
-		};
-
-		const request = new CommMsgRequest(id, commMsg);
-		this.session.sendRequest(request);
-	}
-
-	dispose() {
-		this.receiver.dispose();
-
-		for (const disposable of this.disposables) {
-			disposable.dispose();
-		}
-	}
-
-	register(disposable: vscode.Disposable) {
-		this.disposables.push(disposable);
-	}
-}
-
-class CommBackendRequest {
-	kind: 'request' = 'request';
-	readonly method: string;
-	readonly params?: Record<string, unknown>;
-
-	private readonly id: string;
-
-	constructor(
-		private readonly session: KallichoreSession,
-		private readonly commId: string,
-		private readonly message: CommRpcMessage,
-	) {
-		this.method = message.method;
-		this.params = message.params;
-
-		if (!this.message.id) {
-			throw new Error('Expected `id` field in request');
-		}
-		this.id = this.message.id;
-	}
-
-	reply(result: any) {
-		const msg: CommRpcResponse = {
-			jsonrpc: '2.0',
-			id: this.id,
-			method: this.method,
-			result,
-		};
-		this.send(msg);
-	}
-
-	reject(error: Error, code = -32000) {
-		const msg: CommRpcError = {
-			jsonrpc: '2.0',
-			id: this.id,
-			method: this.method,
-			message: `${error}`,
-			code,
-		};
-		this.send(msg);
-	}
-
-	private send(data: Record<string, unknown>) {
-		const commMsg: JupyterCommMsg = {
-			comm_id: this.commId,
-			data,
-		};
-		this.session.sendClientMessage(this.commId, this.id, commMsg);
 	}
 }
