@@ -300,19 +300,20 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 	};
 
 	/**
-	 * Consumes an event.
+	 * Navigates the history up.
+	 * @param e The optional keyboard event that triggered the navigation.
 	 */
-	const consumeKbdEvent = (e: IKeyboardEvent) => {
-		e.preventDefault();
-		e.stopPropagation();
-	};
-	const navigateHistoryUp = (e: IKeyboardEvent) => {
-		// If the history browser is present, Up should select the
-		// previous history item.
+	const navigateHistoryUp = (e: IKeyboardEvent | undefined = undefined) => {
+		// If the history browser is present, select the previous history item.
 		if (historyBrowserActiveRef.current) {
-			setHistoryBrowserSelectedIndex(Math.max(
-				0, historyBrowserSelectedIndexRef.current - 1));
-			consumeKbdEvent(e);
+			// Select the previous history item.
+			setHistoryBrowserSelectedIndex(Math.max(0, historyBrowserSelectedIndexRef.current - 1));
+
+			// Consume the event and return.
+			if (e) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
 			return;
 		}
 
@@ -320,7 +321,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		const position = codeEditorWidgetRef.current.getPosition();
 		if (position?.lineNumber === 1) {
 			// Consume the event.
-			consumeKbdEvent(e);
+			if (e) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
 
 			// If there are history entries, process the event.
 			if (historyNavigatorRef.current) {
@@ -344,14 +348,24 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		}
 	};
 
-	const navigateHistoryDown = (e: IKeyboardEvent) => {
-
+	/**
+	 * Navigates the history down.
+	 * @param e The optional keyboard event that triggered the navigation.
+	 */
+	const navigateHistoryDown = (e: IKeyboardEvent | undefined = undefined) => {
 		// If the history browser is up, update the selected index.
 		if (historyBrowserActiveRef.current) {
+			// Select the next history item.
 			setHistoryBrowserSelectedIndex(Math.min(
 				historyItemsRef.current.length - 1,
-				historyBrowserSelectedIndexRef.current + 1));
-			consumeKbdEvent(e);
+				historyBrowserSelectedIndexRef.current + 1
+			));
+
+			// Consume the event and return.
+			if (e) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
 			return;
 		}
 
@@ -361,7 +375,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		const textModel = codeEditorWidgetRef.current.getModel();
 		if (position?.lineNumber === textModel?.getLineCount()) {
 			// Consume the event.
-			consumeKbdEvent(e);
+			if (e) {
+				e.preventDefault();
+				e.stopPropagation();
+			}
 
 			// If there are history entries, process the event.
 			if (historyNavigatorRef.current) {
@@ -555,31 +572,6 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					acceptHistoryMatch(historyBrowserSelectedIndexRef.current);
 					consumeEvent();
 				}
-				break;
-			}
-
-			// Up arrow processing.
-			case KeyCode.UpArrow: {
-				if (cmdOrCtrlKey && !historyBrowserActiveRef.current) {
-					// If the cmd or ctrl key is pressed, and the history
-					// browser is not up, engage the history browser with the
-					// prefix match strategy. This behavior mimics RStudio.
-					const entries =
-						positronConsoleContext.executionHistoryService.getInputEntries(
-							props.positronConsoleInstance.runtimeMetadata.languageId
-						);
-					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
-					consumeEvent();
-					break;
-				} else {
-					navigateHistoryUp(e);
-				}
-				break;
-			}
-
-			// Down arrow processing.
-			case KeyCode.DownArrow: {
-				navigateHistoryDown(e);
 				break;
 			}
 
@@ -950,6 +942,28 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidClearConsole event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidClearConsole(() => {
+			// Focus the code editor widget.
+			codeEditorWidget.focus();
+		}));
+
+		// Add the onDidNavigateInputHistoryDown event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidNavigateInputHistoryDown(() => {
+			navigateHistoryDown();
+			codeEditorWidget.focus();
+		}));
+
+		// Add the onDidNavigateInputHistoryUp event handler.
+		disposableStore.add(props.positronConsoleInstance.onDidNavigateInputHistoryUp(e => {
+			// If the history browser is not active, engage the history browser with the prefix match
+			// strategy. Otherwise, navigate history up.
+			if (e.usingPrefixMatch && !historyBrowserActiveRef.current) {
+				engageHistoryBrowser(new HistoryPrefixMatchStrategy(positronConsoleContext.executionHistoryService.getInputEntries(
+					props.positronConsoleInstance.runtimeMetadata.languageId
+				)));
+			} else {
+				navigateHistoryUp();
+			}
+
 			// Focus the code editor widget.
 			codeEditorWidget.focus();
 		}));
