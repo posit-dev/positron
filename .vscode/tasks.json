@@ -104,7 +104,7 @@
 						"column": 3,
 						"message": 4
 					},
-					"watching": {
+					"background": {
 						"activeOnStart": true,
 						"beginsPattern": "\\[watch-e2e\\] \\d+:\\d+:\\d+ [AP]M - (Starting compilation|File change detected\\. Starting incremental compilation)",
 						"endsPattern": "\\[watch-e2e\\] \\d+:\\d+:\\d+ [AP]M - Found [0-9]+ errors?\\. Watching for file changes"
