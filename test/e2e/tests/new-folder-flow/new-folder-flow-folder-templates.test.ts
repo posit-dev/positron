@@ -17,6 +17,10 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 	// Some extra diligence around clearing settings is used to avoid the language-specific settings
 	// being overridden by other language-specific settings. At present, other tests don't set
 	// language-specific settings, but this may change in the future
+	test.beforeAll(async function ({ settings }) {
+		await settings.clear();
+	});
+
 	test.beforeEach(async function ({ settings }) {
 		await settings.clear();
 	});

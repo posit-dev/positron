@@ -14,7 +14,9 @@ test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT] }, () => 
 	test.beforeAll(async function ({ app, r, settings }) {
 		try {
 			// don't use native file picker
-			await settings.set([['files.simpleDialog.enable', 'true']]);
+			await settings.set([
+				['files.simpleDialog.enable', 'true'],
+				['interpreters.startupBehavior', '"auto"']]);
 
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.console.clearButton.click();

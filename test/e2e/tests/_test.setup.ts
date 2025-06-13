@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, ContextMenu, getRandomUserDataDir, Setting, copySettingsFile } from '../infra';
+import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, ContextMenu, getRandomUserDataDir, Setting, copyFixtureFile } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -84,15 +84,11 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		options.userDataDir = getRandomUserDataDir(options);
 
-		// Copy user keybindings from the fixture to the user data directory
-		const keybindingsSource = join(ROOT_PATH, 'test/e2e/fixtures/keybindings.json');
-		const userSettingsSource = join(ROOT_PATH, 'test/e2e/fixtures/settings.json');
-		const chromeDestination = path.join(options.userDataDir, 'data', 'User');
-		const electronDestination = path.join(options.userDataDir, 'User');
+		// Copy keybindings and settings fixtures to the user data directory
+		const userDir = options.web ? join(options.userDataDir, 'data', 'User') : join(options.userDataDir, 'User');
 
-		console.log(electronDestination);
-		await copySettingsFile(keybindingsSource, join(options.web ? chromeDestination : electronDestination, 'keybindings.json'));
-		await copySettingsFile(userSettingsSource, join(options.web ? chromeDestination : electronDestination, 'settings.json'));
+		await copyFixtureFile('keybindings.json', userDir, true);
+		await copyFixtureFile('settings.json', userDir,);
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],

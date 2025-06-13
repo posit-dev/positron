@@ -77,27 +77,36 @@ function copyRepo(source: string, destination: string): void {
 }
 
 /**
- * Copies the keybindings.json file to both Chrome and Electron user data directories.
- * @param source The path to the keybindings.json file.
- * @param destination The base user data directory.
+ * Copies a fixture file to a specified destination folder.
+ * If `replaceCtrl` is true, it replaces 'cmd' with 'ctrl' in the file content for compatibility with non-macOS platforms.
+ *
+ * @param fixtureFilename - The name of the fixture file to copy.
+ * @param destinationFolder - The folder where the fixture file should be copied.
+ * @param replaceCtrl - Whether to replace 'cmd' with 'ctrl' in the file content (default: false).
  */
-export async function copySettingsFile(source: string, destination: string): Promise<void> {
+export async function copyFixtureFile(fixtureFilename: string, destinationFolder: string, replaceCtrl = false): Promise<void> {
+	const fixturesSource = path.join(process.cwd(), 'test/e2e/fixtures');
+	const filePath = path.join(fixturesSource, fixtureFilename);
+	const fileName = path.basename(filePath);
+	const destinationPath = path.join(destinationFolder, fileName);
+
 	// Read and adjust keybindings for platform
 	let data: string;
 	try {
-		data = await fs.promises.readFile(source, 'utf8');
+		data = await fs.promises.readFile(filePath, 'utf8');
 	} catch (err) {
 		console.error('✗ Failed to read:', err);
 		throw err;
 	}
-	if (process.platform === 'win32' || process.platform === 'linux') {
+
+	if (replaceCtrl && (process.platform === 'win32' || process.platform === 'linux')) {
 		data = data.replace(/cmd/gi, 'ctrl');
 	}
 
 	// Create directories and write files asynchronously
 	try {
-		await fs.promises.mkdir(path.dirname(destination), { recursive: true });
-		await fs.promises.writeFile(destination, data, 'utf8');
+		await fs.promises.mkdir(path.dirname(destinationPath), { recursive: true });
+		await fs.promises.writeFile(destinationPath, data, 'utf8');
 	} catch (err) {
 		console.error('✗ Failed to write:', err);
 		throw err;

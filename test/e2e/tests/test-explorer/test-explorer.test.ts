@@ -14,7 +14,10 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 	test.beforeAll(async function ({ app, r, settings }) {
 		try {
 			// don't use native file picker
-			await settings.set([['files.simpleDialog.enable', 'true']], true);
+			await settings.set([
+				['files.simpleDialog.enable', 'true'],
+				['interpreters.startupBehavior', '"auto"']],
+				true);
 
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.console.clearButton.click();

@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import { Clipboard } from './clipboard';
 import { Code } from '../infra/code';
 import { Editor } from './editor';
@@ -17,14 +16,13 @@ export class UserSettings {
 
 	constructor(private code: Code, private editors: Editors, private editor: Editor, private clipboard: Clipboard, private hotKeys: HotKeys) { }
 
-	// --- User Settings Methods ---
-
-	async openSettings(): Promise<void> {
-		await this.hotKeys.openUserSettingsJSON();
-	}
-
+	/**
+	 * Action: Opens the user settings JSON and sets the provided settings.
+	 *
+	 * @param settings
+	 */
 	async set(settings: Setting[]): Promise<void> {
-		await this.openSettings();
+		await this.hotKeys.openUserSettingsJSON();
 
 		// Get the current content
 		await this.hotKeys.selectAll();
@@ -41,6 +39,8 @@ export class UserSettings {
 		} catch (e) {
 			console.error('Error parsing settings:', e);
 			console.error('Actual content:', cleanedContent);
+			console.error('Falling back to empty object');
+			// If we still can't parse, revert to empty object
 			currentSettings = {};
 		}
 
@@ -68,13 +68,18 @@ export class UserSettings {
 		await this.hotKeys.paste();
 
 		// Save and wait for changes to be applied
-		await this.editors.saveOpenedFile();
+		await this.hotKeys.save();
 		await this.editors.waitForActiveTabNotDirty(FILENAME);
 		// Wait for the settings to be applied
 		await this.code.driver.page.waitForTimeout(2000);
 		await this.hotKeys.closeTab();
 	}
 
+	/**
+	 * Action: Opens the user settings JSON and removes the specified keys.
+	 *
+	 * @param keysToRemove
+	 */
 	async remove(keysToRemove: string[]): Promise<void> {
 		const settings = await this.getSettings();
 		const updatedSettings = settings.filter(([key]) => !keysToRemove.includes(key));
@@ -83,19 +88,22 @@ export class UserSettings {
 		const newSettingsJson = `{ ${updatedSettings.map(([k, v]) => `"${k}": ${JSON.stringify(v)}`).join(', ')} }`;
 
 		// Clear the file and write new settings
-		await this.openSettings();
-		const file = 'settings.json';
+		await this.hotKeys.openUserSettingsJSON();
 		await this.hotKeys.selectAll();
 		await this.code.driver.page.keyboard.press('Delete');
-		await this.editor.selectTabAndType(file, newSettingsJson);
-		await this.editors.saveOpenedFile();
-		await this.editors.waitForActiveTabNotDirty(file);
+		await this.editor.selectTabAndType(FILENAME, newSettingsJson);
+		await this.hotKeys.save();
+		await this.editors.waitForActiveTabNotDirty(FILENAME);
 		await this.hotKeys.closeTab();
 	}
 
-	// Read all settings in settings.json into an array of key-value pairs
+	/**
+	 * Helper: Opens the user settings JSON and retrieves all user settings.
+	 *
+	 * @returns A list of all user settings in the format [key, value].
+	 */
 	async getSettings(): Promise<[key: string, value: string][]> {
-		await this.openSettings();
+		await this.hotKeys.openUserSettingsJSON();
 
 		// Select all content and copy to clipboard
 		await this.hotKeys.selectAll();
@@ -126,19 +134,27 @@ export class UserSettings {
 		}
 	}
 
+	/**
+	 * Action: Opens the user settings JSON and clears all settings.
+	 */
 	async clear(): Promise<void> {
-		await this.openSettings();
+		await this.hotKeys.openUserSettingsJSON();
 		const file = 'settings.json';
 		await this.hotKeys.selectAll();
 		await this.code.driver.page.keyboard.press('Delete');
 		await this.editor.type('{', true); // will auto close }
-		await this.editors.saveOpenedFile();
+		await this.hotKeys.save();
 		await this.editors.waitForActiveTabNotDirty(file);
 		await this.hotKeys.closeTab();
 	}
 
+	/**
+	 * Action: Opens the user settings JSON and returns the content as a string.
+	 *
+	 * @returns The content of the user settings JSON.
+	 */
 	async backup(): Promise<string> {
-		await this.openSettings();
+		await this.hotKeys.openUserSettingsJSON();
 
 		// Select all content and copy to clipboard
 		await this.hotKeys.selectAll();
@@ -149,8 +165,13 @@ export class UserSettings {
 		return clipboardText ?? '';
 	}
 
+	/**
+	 * Action: Restores the user settings JSON from a string.
+	 *
+	 * @param settings The settings to restore, as a string.
+	 */
 	async restore(settings: string): Promise<void> {
-		await this.openSettings();
+		await this.hotKeys.openUserSettingsJSON();
 
 		// Clear current file
 		await this.hotKeys.selectAll();
@@ -163,7 +184,7 @@ export class UserSettings {
 		await this.hotKeys.paste();
 
 		// Save and close
-		await this.editors.saveOpenedFile();
+		await this.hotKeys.save();
 		await this.editors.waitForActiveTabNotDirty(FILENAME);
 		await this.hotKeys.closeTab();
 	}
