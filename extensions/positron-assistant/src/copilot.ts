@@ -9,7 +9,7 @@ import * as path from 'path';
 
 import { ExtensionContext } from 'vscode';
 import { Command, Executable, ExecuteCommandRequest, InlineCompletionItem, InlineCompletionRequest, LanguageClient, LanguageClientOptions, NotificationType, RequestType, ServerOptions, TransportKind } from 'vscode-languageclient/node';
-import { platform } from 'os';
+import { arch, platform } from 'os';
 import { ALL_DOCUMENTS_SELECTOR } from './constants.js';
 
 interface EditorPluginInfo {
@@ -129,7 +129,15 @@ export class CopilotService implements vscode.Disposable {
 		if (!this._client) {
 			// The client does not exist, create it.
 			const serverName = platform() === 'win32' ? 'copilot-language-server.exe' : 'copilot-language-server';
-			const command = path.join(this._context.extensionPath, 'resources', 'copilot', serverName);
+			let serverPath = path.join(this._context.extensionPath, 'resources', 'copilot');
+
+			// On macOS, we include both x64 and arm64 architectures, so select
+			// the correct one based on the current architecture.
+			if (platform() === 'darwin') {
+				serverPath = path.join(serverPath, arch());
+			}
+
+			const command = path.join(serverPath, serverName);
 			const executable: Executable = {
 				command,
 				args: ['--stdio'],
