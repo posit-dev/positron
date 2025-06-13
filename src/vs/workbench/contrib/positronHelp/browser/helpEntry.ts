@@ -23,6 +23,7 @@ import { WebviewFindDelegate } from '../../webview/browser/webviewFindWidget.js'
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
 import { POSITRON_HELP_COPY } from './positronHelpIdentifiers.js';
 import { IOverlayWebview, IWebviewService, WebviewContentPurpose } from '../../webview/browser/webview.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 /**
  * Constants.
@@ -155,6 +156,14 @@ type PositronHelpMessageCopySelection = {
 };
 
 /**
+ * PositronHelpMessageExecuteCommand type.
+ */
+type PositronHelpMessageExecuteCommand = {
+	readonly id: 'positron-help-execute-command';
+	command: string;
+};
+
+/**
  * PositronHelpMessage type.
  */
 type PositronHelpMessage =
@@ -168,7 +177,8 @@ type PositronHelpMessage =
 	| PositronHelpMessageContextMenu
 	| PositronHelpMessageKeydown
 	| PositronHelpMessageKeyup
-	| PositronHelpMessageCopySelection;
+	| PositronHelpMessageCopySelection
+	| PositronHelpMessageExecuteCommand;
 
 /**
  * IHelpEntry interface.
@@ -344,7 +354,8 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IThemeService private readonly _themeService: IThemeService,
-		@IWebviewService private readonly _webviewService: IWebviewService
+		@IWebviewService private readonly _webviewService: IWebviewService,
+		@ICommandService private readonly _commandService: ICommandService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -554,6 +565,14 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 							this._clipboardService.writeText(message.selection);
 						}
 						break;
+
+					// positron-execute-command message.
+					case 'positron-help-execute-command': {
+						if (message.command) {
+							this._commandService.executeCommand(message.command);
+						}
+						break;
+					}
 				}
 			});
 
