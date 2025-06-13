@@ -56,8 +56,22 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	getPositronChatContext(request: IChatRequestData): IPositronChatContext {
 		const variablesInstance = this._variableService.activePositronVariablesInstance as PositronVariablesInstance | undefined;
 		const activeSession = variablesInstance && this.summarizeSession(variablesInstance.session);
+
+		const now = new Date();
+		const options: Intl.DateTimeFormatOptions = {
+			weekday: 'long',
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric',
+			hour: '2-digit',
+			minute: '2-digit',
+			second: '2-digit',
+			timeZoneName: 'short',
+		};
+
 		const context: IPositronChatContext = {
 			activeSession,
+			currentDate: now.toLocaleDateString(undefined, options),
 			plots: {
 				hasPlots: this.getCurrentPlotUri() !== undefined,
 			},

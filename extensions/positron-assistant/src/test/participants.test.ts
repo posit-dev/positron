@@ -136,6 +136,7 @@ suite('PositronAssistantParticipant', () => {
 			plots: {
 				hasPlots: true,
 			},
+			currentDate: 'Wednesday 11 June 2025 at 13:30:00 BST',
 			variables: [
 				{
 					access_key: 'x',
@@ -183,6 +184,10 @@ ${c.shell}
 <plots>
 ${c.plots!.hasPlots ? 'A plot is visible.' : ''}
 </plots>
+
+<date>
+Today's date is: Wednesday 11 June 2025 at 13:30:00 BST
+</date>
 </context>`);
 	});
 
