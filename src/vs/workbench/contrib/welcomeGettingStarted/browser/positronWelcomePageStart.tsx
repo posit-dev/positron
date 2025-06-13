@@ -78,15 +78,15 @@ const WelcomePageNoWorkspace = (props: PositronWelcomePageStartProps) => {
 				onPressed={() => props.commandService.executeCommand(OpenFolderAction.ID)}
 			/>
 			<WelcomeButton
-				ariaLabel={localize('positron.welcome.newFolderFromTemplate', "New Folder from Template...")}
+				ariaLabel={localize('positron.welcome.newFolderFromTemplate', "New Folder...")}
 				codicon='positron-new-project'
-				label={localize('positron.welcome.newFolderFromTemplate', "New Folder from Template...")}
+				label={localize('positron.welcome.newFolderFromTemplate', "New Folder...")}
 				onPressed={() => props.commandService.executeCommand(PositronNewFolderFromTemplateAction.ID)}
 			/>
 			<WelcomeButton
-				ariaLabel={localize('positron.welcome.newFolderFromGit', "New Folder from Git...")}
+				ariaLabel={localize('positron.welcome.newFolderFromGit', "New from Git...")}
 				codicon='positron-new-folder-from-git'
-				label={localize('positron.welcome.newFolderFromGit', "New Folder from Git...")}
+				label={localize('positron.welcome.newFolderFromGit', "New from Git...")}
 				onPressed={() => props.commandService.executeCommand(PositronNewFolderFromGitAction.ID)}
 			/>
 		</>
