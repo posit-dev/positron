@@ -24,6 +24,9 @@ export enum ParticipantID {
 	/** The participant used in the chat pane in Edit mode. */
 	Edit = 'positron.assistant.editingSessionEditor',
 
+	/** The participant used in the chat pane in Agent mode. */
+	Agent = 'positron.assistant.agent',
+
 	/** The participant used in editor inline chats. */
 	Editor = 'positron.assistant.editor',
 
@@ -199,7 +202,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					case PositronAssistantToolName.ExecuteCode:
 						return inChatPane &&
 							// The execute code tool does not yet support notebook sessions.
-							positronContext.activeSession?.mode !== positron.LanguageRuntimeSessionMode.Notebook;
+							positronContext.activeSession?.mode !== positron.LanguageRuntimeSessionMode.Notebook &&
+							this.id === ParticipantID.Agent;
 					// Only include the documentEdit tool in an editor and if there is
 					// no selection.
 					case PositronAssistantToolName.DocumentEdit:
@@ -208,12 +212,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// a selection.
 					case PositronAssistantToolName.SelectionEdit:
 						return inEditor && hasSelection;
-					// Only include the edit file tool in edit mode i.e. for the edit participant.
+					// Only include the edit file tool in edit or agent mode i.e. for the edit participant.
 					case PositronAssistantToolName.EditFile:
-						return this.id === ParticipantID.Edit;
+						return this.id === ParticipantID.Edit || this.id === ParticipantID.Agent;
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
+					// Allow all tools in Agent mode.
 					default:
-						return tool.tags.includes('positron-assistant');
+						return this.id === ParticipantID.Agent ||
+							tool.tags.includes('positron-assistant');
 				}
 			}
 		);
@@ -575,6 +581,17 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 	}
 }
 
+/** The participant used in the chat pane in Agent mode. */
+export class PositronAssistantAgentParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
+	id = ParticipantID.Agent;
+
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		const agent = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'agent.md'), 'utf8');
+		return defaultSystem + '\n\n' + agent;
+	}
+}
+
 /** The participant used in terminal inline chats. */
 class PositronAssistantTerminalParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Terminal;
@@ -679,6 +696,7 @@ export function registerParticipants(context: vscode.ExtensionContext) {
 
 	// Register the Positron Assistant chat participants.
 	participantService.registerParticipant(new PositronAssistantChatParticipant(context));
+	participantService.registerParticipant(new PositronAssistantAgentParticipant(context));
 	participantService.registerParticipant(new PositronAssistantTerminalParticipant(context));
 	participantService.registerParticipant(new PositronAssistantEditorParticipant(context));
 	participantService.registerParticipant(new PositronAssistantNotebookParticipant(context));

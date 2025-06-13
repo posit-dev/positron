@@ -8,6 +8,7 @@
 	"commands.category": "Positron Assistant",
 	"chatParticipants.fullName": "Positron Assistant",
 	"chatParticipants.ask.description": "Ask Assistant",
+	"chatParticipants.agent.description": "Complete tasks in your workspace",
 	"chatParticipants.edit.description": "Edit files in your workspace",
 	"chatParticipants.commands.quarto.description": "Convert the conversation so far into a new Quarto document.",
 	"configuration.title": "Positron Assistant",
