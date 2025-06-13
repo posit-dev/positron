@@ -66,8 +66,10 @@ async function main() {
 		const npmServerPath = path.join(npmDir, 'native', `${platform()}-${targetArch}`, serverName);
 		const bundledServerPath = path.join(serverDir, serverName);
 		await copyFile(npmServerPath, bundledServerPath);
-		await writeFile(bundleVersionPath, npmVersion, 'utf8');
 	}
+
+	// Write the new version to the VERSION file.
+	await writeFile(bundleVersionPath, npmVersion, 'utf8');
 }
 
 main().catch(error => {
