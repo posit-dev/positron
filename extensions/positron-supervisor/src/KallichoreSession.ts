@@ -1948,24 +1948,28 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Handle comms that are not managed by Positron first
-		if (msg.header.msg_type === 'comm_close') {
-			const closeMsg = msg.content as JupyterCommClose;
-			const comm = this._comms.get(closeMsg.comm_id);
+		switch (msg.header.msg_type) {
+			case 'comm_close': {
+				const closeMsg = msg.content as JupyterCommClose;
+				const comm = this._comms.get(closeMsg.comm_id);
 
-			if (comm) {
-				this._comms.delete(closeMsg.comm_id);
-				comm.close();
-				return;
+				if (comm) {
+					this._comms.delete(closeMsg.comm_id);
+					comm.close();
+					return;
+				}
+				break;
 			}
-		}
 
-		if (msg.header.msg_type === 'comm_msg') {
-			const commMsg = msg.content as JupyterCommMsg;
-			const comm = this._comms.get(commMsg.comm_id);
+			case 'comm_msg': {
+				const commMsg = msg.content as JupyterCommMsg;
+				const comm = this._comms.get(commMsg.comm_id);
 
-			if (comm) {
-				comm.handleMessage(commMsg);
-				return;
+				if (comm) {
+					comm.handleMessage(commMsg);
+					return;
+				}
+				break;
 			}
 		}
 
