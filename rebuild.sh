@@ -35,6 +35,7 @@ npm run kill-watchd
 npm run kill-watch-webd
 npm run kill-watch-clientd
 npm run kill-watch-extensionsd
+npm run kill-watch-e2ed
 
 # Remove any existing node_modules folders.
 git ls-files --directory -i -o -x node_modules | xargs rm -rf
@@ -48,5 +49,9 @@ rm -rf extensions/positron-r/amalthea/target/release
 
 # Run npm install to rebuild 'node_modules'.
 npm install
+
+# Run 'npm install' for e2e tests.
+echo "Installing e2e test dependencies..."
+npm --prefix test/e2e install
 
 echo "Done"
