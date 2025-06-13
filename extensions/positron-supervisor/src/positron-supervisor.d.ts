@@ -117,6 +117,17 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	createPositronDapClientId(): string;
 
 	/**
+	 * Start a raw comm for communication between frontend and backend.
+	 *
+	 * Unlike Positron clients, this kind of comm is private to the calling
+	 * extension and its kernel.
+	 *
+	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
+	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
+	 */
+	createComm(type: string, params: Record<string, unknown>): Promise<RawComm>;
+
+	/**
 	 * Method for emitting a message to the language server's Jupyter output
 	 * channel.
 	 *
@@ -212,3 +223,48 @@ export interface JupyterKernelExtra {
 		init: (args: Array<string>, delay: number) => void;
 	};
 }
+
+/**
+ * Raw comm unmanaged by Positron.
+ *
+ * This type of comm is not mapped to a Positron client. It lives entirely in
+ * the extension space and allows private communication between an extension and
+ * its kernel.
+ */
+export interface RawComm {
+	/** Async-iterable for messages sent from backend. */
+	receiver: Channel<CommBackendMessage>;
+
+	/** Send a notification to the backend comm. */
+	notify: (method: string, params?: Record<string, unknown>) => void;
+
+	/** Make a request to the backend comm. Resolves when backend responds. */
+	request: (method: string, params?: Record<string, unknown>) => Promise<any>;
+
+	/** Clear resources and sends `comm_close` to backend comm (unless the channel
+	  * was closed by the backend already). */
+	dispose: () => void;
+}
+
+/**
+ * Communication channel. Dispose to close.
+ */
+export interface Channel<T> extends AsyncIterable<T>, vscode.Disposable {}
+
+/** Message from the backend.
+ *
+ * If a request, one of the `reply` or `reject` method must be called.
+ */
+export type CommBackendMessage =
+	| {
+		kind: 'request';
+		method: string;
+		params?: Record<string, unknown>;
+		reply: (result: any) => void;
+		reject: (error: Error) => void;
+	}
+	| {
+		kind: 'notification';
+		method: string;
+		params?: Record<string, unknown>;
+	};
