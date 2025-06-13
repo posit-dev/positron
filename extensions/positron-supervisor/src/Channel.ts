@@ -28,9 +28,14 @@ export class Sender<T> implements vscode.Disposable {
 
 	constructor(private state: ChannelState<T>) {}
 
-	send(value: T) {
+	/**
+	 * Sends a value to the channel.
+	 * @param value A value to send
+	 * @returns `true` if the value was sent successfully, `false` if the channel is closed.
+	 */
+	send(value: T): boolean {
 		if (this.state.closed) {
-			throw new Error('Can\'t send values after channel is closed');
+			return false;
 		}
 
 		if (this.state.pending_consumers.length > 0) {
@@ -40,6 +45,8 @@ export class Sender<T> implements vscode.Disposable {
 			// No consumer waiting, queue up the value
 			this.state.queue.push(value);
 		}
+
+		return true;
 	}
 
 	dispose() {
