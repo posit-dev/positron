@@ -44,6 +44,19 @@
         ]
       },
       {
+        "id": "positron.assistant.agent",
+        "name": "assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.agent.description%",
+        "isDefault": true,
+        "locations": [
+          "panel"
+        ],
+        "modes": [
+          "agent"
+        ]
+      },
+      {
         "id": "positron.assistant.terminal",
         "name": "assistant",
         "fullName": "%chatParticipants.fullName%",
