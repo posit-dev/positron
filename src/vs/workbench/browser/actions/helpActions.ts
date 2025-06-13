@@ -402,3 +402,31 @@ if (OpenPrivacyStatementUrlAction.AVAILABLE) {
 registerAction2(GetStartedWithAccessibilityFeatures);
 
 registerAction2(AskVSCodeCopilot);
+
+// --- Start Positron ---
+registerAction2(class extends Action2 {
+	static readonly ID = 'workbench.action.openPositronDocumentation';
+	private readonly URL = 'https://positron.posit.co/';
+
+	constructor() {
+		super({
+			id: 'workbench.action.openPositronDocumentation',
+			title: localize2('openPositronDocumentation', 'Positron Documentation'),
+			category: Categories.Help,
+			f1: true,
+			menu: {
+				id: MenuId.MenubarHelpMenu,
+				group: '1_welcome',
+				order: 7
+			}
+		});
+	}
+
+	run(accessor: ServicesAccessor): void {
+		const openerService = accessor.get(IOpenerService);
+		openerService.open(
+			URI.parse(this.URL)
+		);
+	}
+});
+// --- End Positron ---
