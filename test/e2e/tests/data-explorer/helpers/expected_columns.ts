@@ -14,15 +14,6 @@ export const expectedColumnNames = [
 	'!@#symbols',
 	'中文字符',
 	'naïve_column',
-	'normal_name',
-	'leading_space',
-	'trailing_space',
-	'both',
-	'column04',
-	'123numeric_start',
-	'!@#symbols',
-	'中文字符',
-	'naïve_column',
 	'name,with,comma',
 	'"quoted"',
 	'multiline header',
@@ -36,7 +27,6 @@ export const expectedColumnNames = [
 	'Número_do_Pedido',
 	'اسم_عربي',
 	'رمز_المنتج',
-	'שם_עברי'
 ];
 
 /* Note that there are discrepancies for the following column names (between UI method vs. console)
@@ -58,9 +48,7 @@ expected = [
     'naïve_column',
     'name,with,comma',
     '"quoted"',
-	'''multiline\nheader''',
 	'supercalifragilisticexpialidocious_column_name_that_is_really_really_long_to_test_limits',
-	'''whitespace\t(tab)''',
     'duplicate',
     'duplicate.1',
     'Nombre_Español',

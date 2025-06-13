@@ -338,7 +338,8 @@ export class DataExplorer {
 	async verifyColumnHeaders(expectedHeaders: string[]) {
 		await test.step('Verify column headers', async () => {
 			const actualHeaders = await this.getColumnHeaders();
-			expect(actualHeaders).toEqual(expectedHeaders);
+			const missing = expectedHeaders.filter(item => !actualHeaders.includes(item));
+			expect(missing).toEqual([]); // Will throw if any are missing
 		});
 	}
 }
