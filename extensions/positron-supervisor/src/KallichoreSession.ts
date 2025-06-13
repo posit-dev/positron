@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, RawComm } from './positron-supervisor';
+import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, RawComm } from './positron-supervisor';
 import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -41,9 +41,8 @@ import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
-import { channel, Sender } from './Channel';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
-import { CommBackendRequest, CommRpcMessage, RawCommImpl } from './RawComm';
+import { RawCommImpl } from './RawComm';
 
 /**
  * The reason for a disconnection event.
@@ -154,7 +153,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _clients: Map<string, Comm> = new Map();
 
 	/** A map of active comms unmanaged by Positron */
-	private readonly _comms: Map<string, [RawComm, Sender<CommBackendMessage>]> = new Map();
+	private readonly _comms: Map<string, RawCommImpl> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -744,13 +743,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	async createComm(
 		type: string,
-		params: Record<string, unknown>,
-	): Promise<RawComm> {
+		handleNotification: (method: string, params?: Record<string, unknown>) => void,
+		handleRequest: (method: string, params?: Record<string, unknown>) => any,
+		params: Record<string, unknown> = {},
+	): Promise<RawCommImpl> {
 		const id = `extension-comm-${type}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 
-		const [tx, rx] = channel<CommBackendMessage>();
-		const comm = new RawCommImpl(id, this, rx);
-		this._comms.set(id, [comm, tx]);
+		const comm = new RawCommImpl(id, this, handleNotification, handleRequest);
+		this._comms.set(id, comm);
 
 		// Disposal handler that allows extension to initiate close comm
 		comm.register({
@@ -767,7 +767,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const msg: JupyterCommOpen = {
 			target_name: type,
 			comm_id: id,
-			data: params
+			data: params,
 		};
 		const commOpen = new CommOpenCommand(msg);
 		await this.sendCommand(commOpen);
@@ -1944,35 +1944,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Handle comms that are not managed by Positron first
 		if (msg.header.msg_type === 'comm_close') {
 			const closeMsg = msg.content as JupyterCommClose;
-			const commHandle = this._comms.get(closeMsg.comm_id);
+			const comm = this._comms.get(closeMsg.comm_id);
 
-			if (commHandle) {
-				// Delete first, this prevents the channel disposable from sending a
-				// `comm_close` back
+			if (comm) {
 				this._comms.delete(closeMsg.comm_id);
-
-				const [comm, _] = commHandle;
 				comm.dispose();
-
 				return;
 			}
 		}
 
 		if (msg.header.msg_type === 'comm_msg') {
 			const commMsg = msg.content as JupyterCommMsg;
-			const commHandle = this._comms.get(commMsg.comm_id);
+			const comm = this._comms.get(commMsg.comm_id);
 
-			if (commHandle) {
-				// Channel is still opened, go ahead and forward message
-				const [_, tx] = commHandle;
-				const rpcMsg = commMsg.data as CommRpcMessage;
-
-				if (rpcMsg.id) {
-					tx.send(new CommBackendRequest(this, commMsg.comm_id, rpcMsg));
-				} else {
-					tx.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
-				}
-
+			if (comm) {
+				comm.handleMessage(commMsg);
 				return;
 			}
 		}
