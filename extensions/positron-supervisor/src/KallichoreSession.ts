@@ -41,7 +41,7 @@ import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
 import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
-import { Channel } from './Channel';
+import { channel, Sender } from './Channel';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
 import { CommBackendRequest, CommRpcMessage, RawCommImpl } from './RawComm';
 
@@ -154,7 +154,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _clients: Map<string, Comm> = new Map();
 
 	/** A map of active comms unmanaged by Positron */
-	private readonly _comms: Map<string, RawComm> = new Map();
+	private readonly _comms: Map<string, [RawComm, Sender<CommBackendMessage>]> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -748,9 +748,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	): Promise<RawComm> {
 		const id = `extension-comm-${type}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 
-		const comm = new RawCommImpl(id, this);
-		this._comms.set(id, comm);
+		const [tx, rx] = channel<CommBackendMessage>();
+		const comm = new RawCommImpl(id, this, rx);
+		this._comms.set(id, [comm, tx]);
 
+		// Disposal handler that allows extension to initiate close comm
 		comm.register({
 			dispose: () => {
 				// If already deleted, it means a `comm_close` from the backend was
@@ -1942,29 +1944,34 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// Handle comms that are not managed by Positron first
 		if (msg.header.msg_type === 'comm_close') {
 			const closeMsg = msg.content as JupyterCommClose;
-			const comm = this._comms.get(closeMsg.comm_id);
+			const commHandle = this._comms.get(closeMsg.comm_id);
 
-			if (comm) {
+			if (commHandle) {
 				// Delete first, this prevents the channel disposable from sending a
 				// `comm_close` back
 				this._comms.delete(closeMsg.comm_id);
+
+				const [comm, _] = commHandle;
 				comm.dispose();
+
 				return;
 			}
 		}
+
 		if (msg.header.msg_type === 'comm_msg') {
 			const commMsg = msg.content as JupyterCommMsg;
-			const comm = this._comms.get(commMsg.comm_id);
+			const commHandle = this._comms.get(commMsg.comm_id);
 
-			if (comm) {
+			if (commHandle) {
+				const [_, tx] = commHandle;
 				const rpcMsg = commMsg.data as CommRpcMessage;
-				const chan = comm.receiver as Channel<CommBackendMessage>;
+
 				if (rpcMsg.id) {
-					const req = new CommBackendRequest(this, commMsg.comm_id, rpcMsg);
-					chan.send(req);
+					tx.send(new CommBackendRequest(this, commMsg.comm_id, rpcMsg));
 				} else {
-					chan.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
+					tx.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
 				}
+
 				return;
 			}
 		}
