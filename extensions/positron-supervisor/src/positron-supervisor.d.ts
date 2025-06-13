@@ -122,13 +122,13 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * Unlike Positron clients, this kind of comm is private to the calling
 	 * extension and its kernel.
 	 *
-	 * @param type Comm type, used to generate comm identifier.
+	 * @param target_name Comm type, also used to generate comm identifier.
 	 * @param handleNotification Handle notification from backend.
 	 * @param handleRequest Handle request from backend. Throw error to reject.
 	 * @param params Optionally, additional parameters included in `comm_open`.
 	 */
 	createComm(
-		type: string,
+		target_name: string,
 		handleNotification: (method: string, params?: Record<string, unknown>) => void,
 		handleRequest: (method: string, params?: Record<string, unknown>) => any,
 		params?: Record<string, unknown>,
