@@ -9,7 +9,6 @@ import { localize } from '../../../../../nls.js'
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js'
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js'
 import { LanguageModelUIConfiguration } from '../languageModelModalDialog.js'
-import { EmbeddedLink } from '../../../../../base/browser/ui/positronComponents/embeddedLink/EmbeddedLink.js'
 import { AuthMethod } from '../types.js'
 
 interface LanguageModelConfigComponentProps {
@@ -22,39 +21,116 @@ interface LanguageModelConfigComponentProps {
 	onCancel: () => void,
 }
 
-export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
-	function getTos(provider: string): string {
-		const providerConfig = new Array<string>();
+type IProvider = IPositronLanguageModelSource['provider'];
 
-		switch (provider) {
-			case 'anthropic':
-				providerConfig.push('Anthropic');
-				providerConfig.push('[Terms of Service](https://www.anthropic.com/legal/consumer-terms)');
-				providerConfig.push('[Privacy Policy](https://www.anthropic.com/legal/privacy)');
-				break;
-			case 'google':
-				providerConfig.push('Google Gemini');
-				providerConfig.push('[Terms of Service](https://cloud.google.com/terms/service-terms)');
-				providerConfig.push('[Privacy Policy](https://policies.google.com/privacy)');
-				break;
-			case 'copilot':
-				providerConfig.push('GitHub Copilot');
-				providerConfig.push('[Terms of Service](https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#github-copilot)');
-				providerConfig.push('[Privacy Policy](https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#personal-data-we-collect)');
-				break;
-			default:
-				return '';
-		}
+const positEulaLabel = localize('positron.languageModelConfig.positEula', 'Posit EULA');
+const completionsOnlyEmphasizedText = localize('positron.languageModelConfig.completionsOnly', 'code completions only');
+const providerTermsOfServiceLabel = localize('positron.languageModelConfig.termsOfService', 'Terms of Service');
+const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
 
-		return localize('positron.newConnectionModalDialog.tos',
-			'{0} is considered "Third Party Materials" as defined in the [Posit EULA](https://posit.co/about/eula/) and subject to the {0} terms of service at {1} and privacy policy at {2}.\n\nYour use of {0} is optional and at your sole risk.',
-			...providerConfig
+function getProviderCompletionsOnlyNoticeText(providerDisplayName: string) {
+	return localize(
+		'positron.languageModelConfig.completionsOnlyNotice',
+		'{0} functions for {code-completions-only} in Positron at this time.',
+		providerDisplayName,
+	);
+}
+
+function getProviderTermsOfServiceText(providerDisplayName: string) {
+	return localize(
+		'positron.languageModelConfig.tos',
+		'{0} is considered "Third Party Materials" as defined in the {posit-eula} and subject to the {0} {provider-tos} and {provider-privacy-policy}.',
+		providerDisplayName,
+	);
+}
+
+function getProviderUsageDisclaimerText(providerDisplayName: string) {
+	return localize(
+		'positron.languageModelConfig.tos2',
+		'Your use of {0} is optional and at your sole risk.',
+		providerDisplayName,
+	);
+}
+
+function getProviderTermsOfServiceLink(providerId: string) {
+	switch (providerId) {
+		case 'anthropic':
+			return 'https://www.anthropic.com/legal/consumer-terms';
+		case 'google':
+			return 'https://cloud.google.com/terms/service-terms';
+		case 'copilot':
+			return 'https://docs.github.com/en/site-policy/github-terms/github-terms-for-additional-products-and-features#github-copilot';
+		default:
+			return undefined;
+	}
+}
+
+function getProviderPrivacyPolicyLink(providerId: string) {
+	switch (providerId) {
+		case 'anthropic':
+			return 'https://www.anthropic.com/legal/privacy';
+		case 'google':
+			return 'https://policies.google.com/privacy';
+		case 'copilot':
+			return 'https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement#personal-data-we-collect';
+		default:
+			return undefined;
+	}
+}
+
+function getProviderCompletionsOnlyNotice(provider: IProvider) {
+	if (provider.id === 'copilot') {
+		const text = getProviderCompletionsOnlyNoticeText(provider.displayName);
+		return interpolate(
+			text,
+			(key) => key === 'code-completions-only' ?
+				<strong>{completionsOnlyEmphasizedText}</strong> :
+				undefined
 		);
 	}
+	return undefined;
+}
 
+/**
+ * Interpolates placeholders in a string with React nodes.
+ *
+ * Scans the input `text` for placeholders in the form `{key}` and replaces each with the result of the `value` function.
+ * If `value(key)` returns `undefined`, the original placeholder is left in place.
+ *
+ * @param text The input string containing zero or more `{key}` placeholders.
+ * @param value A function that takes a key and returns a React node to replace the corresponding placeholder, or `undefined` to leave it unchanged.
+ * @returns An array of React nodes and strings representing the interpolated text.
+ */
+function interpolate(text: string, value: (key: string) => React.ReactNode | undefined): React.ReactNode[] {
+	const nodes: React.ReactNode[] = [];
+	let index = 0;
+	for (const match of text.matchAll(/\{([^\}]+)\}/g)) {
+		// Push text before the match, if any.
+		if (index < match.index) {
+			nodes.push(text.slice(index, match.index));
+		}
+
+		// Push the interpolated value, if there is one, or the original text.
+		const key = match[1];
+		const replacement = value(key) ?? match[0];
+		nodes.push(replacement);
+
+		// Bump the index.
+		index = match.index + match[0].length;
+	}
+
+	// Push remaining text.
+	if (index < text.length) {
+		nodes.push(text.slice(index));
+	}
+
+	return nodes;
+}
+
+export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	const apiKeySpecified = props.source.supportedOptions.includes(AuthMethod.API_KEY) && !!props.provider.apiKey && props.provider.apiKey.length > 0;
 
-	return (<>
+	return <>
 		<div className='language-model-container input'>
 			{props.source.supportedOptions.includes('apiKey') && !props.source.signedIn && (
 				<ApiKey apiKey={props.provider.apiKey} signedIn={props.source.signedIn} onChange={(newApiKey) => {
@@ -65,14 +141,12 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 			{
 				props.signingIn && props.provider.oauth && !props.source.signedIn &&
 				<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
-					{localize('positron.newConnectionModalDialog.cancel', "Cancel")}
+					{localize('positron.languageModelConfig.cancel', "Cancel")}
 				</Button>
 			}
 		</div>
-		<div className='language-model-dialog-tos' id='model-tos'>
-			<EmbeddedLink>{getTos(props.provider.provider)}</EmbeddedLink>
-		</div>
-	</>)
+		<ProviderNotice provider={props.source.provider} />
+	</>;
 }
 
 // Language config parts
@@ -81,7 +155,7 @@ const ApiKey = (props: { apiKey?: string, signedIn?: boolean, onChange: (newApiK
 		<div className='language-model-authentication-container' id='api-key-input'>
 			<LabeledTextInput
 				disabled={props.signedIn}
-				label={(() => localize('positron.newConnectionModalDialog.apiKey', "API Key"))()}
+				label={(() => localize('positron.languageModelConfig.apiKey', "API Key"))()}
 				type='password'
 				value={props.apiKey ?? ''}
 				onChange={e => { props.onChange(e.currentTarget.value) }} />
@@ -100,10 +174,53 @@ const SignInButton = (props: { apiKeySpecified: boolean, authMethod: AuthMethod,
 	>
 		{(() => {
 			if (props.signedIn) {
-				return localize('positron.newConnectionModalDialog.signOut', "Sign out");
+				return localize('positron.languageModelConfig.signOut', "Sign out");
 			} else {
-				return localize('positron.newConnectionModalDialog.signIn', "Sign in");
+				return localize('positron.languageModelConfig.signIn', "Sign in");
 			}
 		})()}
 	</Button>
+}
+
+const ProviderNotice = (props: { provider: IProvider }) => {
+	const completionsOnlyNotice = getProviderCompletionsOnlyNotice(props.provider);
+
+	const termsOfServiceText = getProviderTermsOfServiceText(props.provider.displayName);
+	const termsOfService = interpolate(
+		termsOfServiceText,
+		(key) => {
+			switch (key) {
+				case 'posit-eula':
+					return <ExternalLink href='https://posit.co/about/eula/'>{positEulaLabel}</ExternalLink>;
+				case 'provider-tos': {
+					const link = getProviderTermsOfServiceLink(props.provider.id);
+					return link ?
+						<ExternalLink href={link}>{providerTermsOfServiceLabel}</ExternalLink> :
+						providerTermsOfServiceLabel;
+				}
+				case 'provider-privacy-policy': {
+					const link = getProviderPrivacyPolicyLink(props.provider.id);
+					return link ?
+						<ExternalLink href={link}>{providerPrivacyPolicyLabel}</ExternalLink> :
+						providerPrivacyPolicyLabel;
+				}
+				default:
+					return undefined;
+			}
+		},
+	)
+
+	const disclaimerText = getProviderUsageDisclaimerText(props.provider.displayName);
+
+	return <div className='language-model-dialog-tos' id='model-tos'>
+		{completionsOnlyNotice ? <p>{completionsOnlyNotice}</p> : null}
+		<p>{termsOfService}</p>
+		<p>{disclaimerText}</p>
+	</div>;
+}
+
+const ExternalLink = (props: { href: string, children: React.ReactNode }) => {
+	return <a href={props.href} rel='noreferrer' target='_blank'>
+		{props.children}
+	</a>;
 }
