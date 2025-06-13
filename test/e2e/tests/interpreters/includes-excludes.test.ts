@@ -19,7 +19,7 @@ test.describe('Interpreter: Includes', {
 		await settings.set({
 			'python.interpreters.include': '["/home/runner/scratch/python-env"]',
 			'positron.r.customRootFolders': '["/home/runner/scratch"]'
-		}, { restartApp: true });
+		}, { reload: true });
 	});
 
 	test('Python - Can Include an Interpreter', {
@@ -53,7 +53,7 @@ test.describe('Interpreter: Excludes', {
 		await settings.set({
 			'python.interpreters.exclude': '["~/.pyenv"]',
 			'positron.r.interpreters.exclude': '["/opt/R/4.4.2"]',
-		}, { restartApp: true });
+		}, { reload: true });
 	});
 
 	test('R - Can Exclude an Interpreter', async function ({ app, sessions }) {
@@ -87,7 +87,7 @@ test.describe('Interpreter: Excludes', {
 		}
 
 		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
-		await settings.set({ 'python.interpreters.exclude': '["~/.pyenv"]' }, { restartApp: true });
+		await settings.set({ 'python.interpreters.exclude': '["~/.pyenv"]' }, { reload: true });
 
 		try {
 			await sessions.start('pythonAlt', { reuse: false });
@@ -112,7 +112,7 @@ test.describe('Interpreter: Override', {
 		await settings.set({
 			'python.interpreters.override': '["/home/runner/scratch/python-env"]',
 			'positron.r.interpreters.override': '["/opt/R/4.4.2/bin/R"]'
-		}, { restartApp: true });
+		}, { reload: true });
 	});
 
 	test('R - Can Override Interpreter Discovery', async function ({ app, sessions }) {

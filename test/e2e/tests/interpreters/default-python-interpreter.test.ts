@@ -27,7 +27,7 @@ test.describe('Default Interpreters - Python', {
 		// await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], true);
 
 		// hidden interpreter (Conda)
-		await settings.set({ 'python.defaultInterpreterPath': '/home/runner/scratch/python-env/bin/python' }, { restartApp: true });
+		await settings.set({ 'python.defaultInterpreterPath': '/home/runner/scratch/python-env/bin/python' }, { reload: true });
 
 	});
 

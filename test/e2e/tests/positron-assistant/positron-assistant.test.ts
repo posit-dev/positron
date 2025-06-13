@@ -16,7 +16,7 @@ test.beforeAll('Enable Assistant', async function ({ settings }) {
 		'positron.assistant.enable': true,
 		'positron.assistant.newModelConfiguration': true,
 		'positron.assistant.testModels': true
-	}, { restartApp: true });
+	}, { reload: true });
 });
 
 /**

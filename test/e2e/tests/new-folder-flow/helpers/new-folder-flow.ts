@@ -64,7 +64,7 @@ export async function verifyCondaFilesArePresent(app: Application) {
 
 export async function verifyCondaEnvStarts(app: Application) {
 	await test.step('Verify conda environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents('(Conda) started');
+		await app.workbench.console.waitForConsoleContents(/(Conda).*started/);
 	});
 }
 

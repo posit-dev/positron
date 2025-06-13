@@ -38,13 +38,11 @@ test.describe('Top Action Bar - Save Actions', {
 		await app.workbench.editor.selectTabAndType(fileName, 'Puppies frolicking in a meadow of wildflowers');
 
 		// The file is now "dirty" and the save buttons should be enabled
-		await app.workbench.editors.waitForTab(fileName, true);
 		await expect(app.workbench.topActionBar.saveButton).toBeEnabled();
 		await expect(app.workbench.topActionBar.saveAllButton).toBeEnabled();
 		await app.workbench.topActionBar.saveButton.click();
 
 		// The file is now saved, so the file should no longer be "dirty"
-		await app.workbench.editors.waitForTab(fileName, false);
 		// The Save button stays enabled even when the active file is not "dirty"
 		await expect(app.workbench.topActionBar.saveButton).toBeEnabled();
 		// The Save All button is disabled when less than 2 files are "dirty"
@@ -66,8 +64,6 @@ test.describe('Top Action Bar - Save Actions', {
 		await app.workbench.editor.selectTabAndType(fileName2, text);
 
 		// The files are now "dirty" and the save buttons should be enabled
-		await app.workbench.editors.waitForTab(fileName1, true);
-		await app.workbench.editors.waitForTab(fileName2, true);
 		await expect(app.workbench.topActionBar.saveButton).toBeEnabled();
 		await expect(app.workbench.topActionBar.saveAllButton).toBeEnabled();
 		await app.workbench.topActionBar.saveAllButton.click();
@@ -92,7 +88,6 @@ test.describe('Top Action Bar - Save Actions', {
 		await app.workbench.editor.selectTabAndType(fileName, text);
 
 		// The file is now "dirty" and the save buttons should be enabled
-		await app.workbench.editors.waitForTab(fileName, true);
 		await expect(app.workbench.topActionBar.saveButton).toBeEnabled();
 		await expect(app.workbench.topActionBar.saveAllButton).toBeEnabled();
 		// We won't try to click the Save buttons because a system dialog will pop up and we

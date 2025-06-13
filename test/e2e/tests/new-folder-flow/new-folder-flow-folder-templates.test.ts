@@ -26,7 +26,7 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 		const { newFolderFlow } = app.workbench;
 
 		// Disable startup behavior for all interpreters
-		await settings.set({ 'interpreters.startupBehavior': 'disabled' }, { waitMs: 1000 });
+		await settings.set({ 'interpreters.startupBehavior': 'disabled' }, { reload: 'web', waitMs: 1000 });
 		await hotKeys.newFolderFromTemplate();
 
 		// Only Empty Project should be available
@@ -42,7 +42,7 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 		const { newFolderFlow } = app.workbench;
 
 		// Disable startup behavior for Python
-		await settings.set({ '[python]': { "interpreters.startupBehavior": "disabled" } }, { waitMs: 1000 });
+		await settings.set({ '[python]': { "interpreters.startupBehavior": "disabled" } }, { reload: 'web', waitMs: 1000 });
 		await hotKeys.newFolderFromTemplate();
 
 		// Only Empty Project and R Project should be available
@@ -58,7 +58,7 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 		const { newFolderFlow } = app.workbench;
 
 		// Disable startup behavior for R
-		await settings.set({ '[r]': { "interpreters.startupBehavior": "disabled" } }, { waitMs: 1000 });
+		await settings.set({ '[r]': { "interpreters.startupBehavior": "disabled" } }, { reload: 'web', waitMs: 1000 });
 		await hotKeys.newFolderFromTemplate();
 
 		// Only templates other than R should be available

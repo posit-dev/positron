@@ -19,8 +19,8 @@ test.describe('Reticulate', {
 	test.beforeAll(async function ({ app, settings }) {
 		try {
 			await settings.set({
-				'positron.reticulate.enabled': true
-			});
+				'positron.reticulate.enabled': true,
+			}, { 'reload': 'web' });
 
 		} catch (e) {
 			await app.code.driver.takeScreenshot('reticulateSetup');

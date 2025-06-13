@@ -246,15 +246,15 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use({
 			set: async (
 				newSettings: Record<string, unknown>,
-				options?: { restartApp?: boolean; waitMs?: number }
+				options?: { reload?: boolean | 'web'; waitMs?: number }
 			) => {
-				const { restartApp = false, waitMs = 0 } = options || {};
+				const { reload = false, waitMs = 0 } = options || {};
 
 				await settings.set(newSettings);
-				if (restartApp) {
-					await app.restart();
+				if (reload === true || (reload === 'web' && app.web === true)) {
+					await app.workbench.hotKeys.reloadWindow();
 				}
-				if (waitMs) {
+				else if (waitMs) {
 					await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect
 				}
 				await app.workbench.sessions.expectNoStartUpMessaging();
@@ -488,7 +488,7 @@ interface WorkerFixtures {
 	logsPath: string;
 	logger: MultiLogger;
 	settings: {
-		set: (settings: Record<string, unknown>, options?: { restartApp?: boolean; waitMs?: number }) => Promise<void>;
+		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number }) => Promise<void>;
 		clear: () => Promise<void>;
 	};
 	vsCodeSettings: VscodeSettings;

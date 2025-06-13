@@ -29,7 +29,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 test.describe('Console Pane: Alternate Python', () => {
 
 	test.beforeAll(async ({ settings }) => {
-		await settings.set({ 'python.useBundledIpykernel': false }, { restartApp: true });
+		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true });
 	});
 
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {

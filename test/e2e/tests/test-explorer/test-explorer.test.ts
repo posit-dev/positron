@@ -17,7 +17,7 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 			await settings.set({
 				'files.simpleDialog.enable': true,
 				'interpreters.startupBehavior': 'auto'
-			}, { restartApp: true });
+			}, { reload: true });
 
 			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 			await app.workbench.console.clearButton.click();

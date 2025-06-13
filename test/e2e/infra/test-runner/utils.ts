@@ -85,26 +85,24 @@ function copyRepo(source: string, destination: string): void {
  * @param replaceCtrl - Whether to replace 'cmd' with 'ctrl' in the file content (default: false).
  */
 export async function copyFixtureFile(fixtureFilename: string, destinationFolder: string, replaceCtrl = false): Promise<void> {
-	const fixturesSource = path.join(process.cwd(), 'test/e2e/fixtures');
-	const filePath = path.join(fixturesSource, fixtureFilename);
-	const fileName = path.basename(filePath);
-	const destinationPath = path.join(destinationFolder, fileName);
-
-	// Ensure destination directory exists
-	const destDir = path.dirname(destinationPath);
+	const fixturesDir = path.join(process.cwd(), 'test/e2e/fixtures');
+	const fixturesFilePath = path.join(fixturesDir, fixtureFilename);
+	const fileName = path.basename(fixturesFilePath);
+	const destinationFilePath = path.join(destinationFolder, fileName);
 
 	try {
-		// Create directory if it doesn't exist yet
+		// Create destination directory if it doesn't exist yet
+		const destDir = path.dirname(destinationFilePath);
 		await fs.promises.mkdir(destDir, { recursive: true });
 
 		if (replaceCtrl && (process.platform === 'win32' || process.platform === 'linux')) {
 			// For files needing text replacement
-			const data = await fs.promises.readFile(filePath, 'utf8');
+			const data = await fs.promises.readFile(fixturesFilePath, 'utf8');
 			const modifiedData = data.replace(/cmd/gi, 'ctrl');
-			await fs.promises.writeFile(destinationPath, modifiedData, 'utf8');
+			await fs.promises.writeFile(destinationFilePath, modifiedData, 'utf8');
 		} else {
 			// Direct file copy when no replacement needed
-			await fs.promises.copyFile(filePath, destinationPath);
+			await fs.promises.copyFile(fixturesFilePath, destinationFilePath);
 		}
 	} catch (err) {
 		console.error(`✗ Failed to copy fixture file ${fixtureFilename}:`, err);

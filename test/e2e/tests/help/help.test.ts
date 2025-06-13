@@ -14,7 +14,7 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 	test.beforeAll(async function ({ settings }) {
 		// Enable reduced motion so we don't have to wait for animations of expanding
 		// and collapsing the panel.
-		await settings.set({ 'workbench.reduceMotion': 'on' });
+		await settings.set({ 'workbench.reduceMotion': 'on' }, { reload: 'web' });
 	});
 
 	test('Python - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, python }) {
