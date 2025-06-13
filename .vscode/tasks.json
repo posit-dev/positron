@@ -369,10 +369,19 @@
 					"beginsPattern": "never match",
 					"endsPattern": ".*"
 				}
-			},
-			"dependsOn": [
+			},			"dependsOn": [
 				"Core - Build"
 			]
+		},
+		{
+			"label": "Kill Positron Build Watchers",
+			"dependsOn": [
+				"Kill Ext - Build",
+				"Kill Core - Build",
+				"Kill E2E Tests - Build"
+			],
+			"group": "build",
+			"problemMatcher": []
 		}
 	]
 }
