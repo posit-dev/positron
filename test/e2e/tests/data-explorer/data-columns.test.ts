@@ -37,7 +37,7 @@ test.describe('Verify data columns using UI', { tag: [tags.WEB, tags.WIN, tags.D
 });
 
 // R is not being included here due to `check_names` default R function.
-// Although `check_names` can be set to false, it makes things very complicated with column names with quotes, among other issues.
+// Although `check_names` can be set to FALSE, it makes things very complicated with column names with quotes, among other issues.
 test.describe('Verify data columns using data frame through console (with Python only)', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
 	test.afterEach(async ({ app }) => {
 		await app.workbench.console.clearButton.click();
