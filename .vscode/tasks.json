@@ -86,7 +86,7 @@
 			}
 		},		{
 			"type": "npm",
-			"script": "watch-e2e",
+			"script": "watch-e2ed",
 			"label": "E2E Tests - Build",
 			"isBackground": true,
 			"presentation": {
@@ -161,10 +161,9 @@
 				"close": true
 			},
 			"problemMatcher": "$tsc"
-		},
-		{
+		},		{
 			"type": "npm",
-			"script": "kill-watch-e2e",
+			"script": "kill-watch-e2ed",
 			"label": "Kill E2E Tests - Build",
 			"group": "build",
 			"presentation": {
