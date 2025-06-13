@@ -75,7 +75,10 @@ def _resolve_value_from_path(context: Any, path: Iterable[str]) -> Any:
     for access_key in path:
         # Check for membership via inspector
         inspector = get_inspector(context)
-        key = decode_access_key(access_key)
+        try:
+            key = decode_access_key(access_key)
+        except Exception as err:
+            raise ValueError(f"Invalid access key: {access_key!r}. Reason: {err!r}") from err
         is_known = inspector.has_child(key)
         if is_known:
             value = inspector.get_child(key)
