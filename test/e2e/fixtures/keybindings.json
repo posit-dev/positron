@@ -27,5 +27,11 @@
     },{
         "key": "cmd+j i",
         "command": "positron.workbench.action.importSettings" // Preferences: Import Settings...
+    }, {
+        "key": "cmd+j a",
+        "command": "workbench.action.closeAuxiliaryBar" // Views: Hide Secondary Side Bar
+    },{
+        "key": "cmd+j b",
+        "command": "workbench.action.showAuxiliaryBar" // Views: Show Secondary Side Bar
     }
 ]

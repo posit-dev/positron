@@ -16,61 +16,102 @@ export class HotKeys {
 		return process.platform === 'darwin' ? 'Meta' : 'Control';
 	}
 
-	// --- Editing actions ---
+	// ----------------------
+	// --- Editing Actions ---
+	// ----------------------
+	/**
+	 * Copy selected content to clipboard
+	 */
 	public async copy() {
 		await this.pressHotKeys(`Cmd+C`);
 	}
 
+	/**
+	 * Cut selected content to clipboard
+	 */
 	public async cut() {
 		await this.pressHotKeys(`Cmd+X`);
 	}
 
+	/**
+	 * Paste content from clipboard
+	 */
 	public async paste() {
 		await this.pressHotKeys(`Cmd+V`);
 	}
 
+	/**
+	 * Redo the last undone action
+	 */
+	public async redo() {
+		await this.pressHotKeys(`Cmd+Shift+Z`);
+	}
+
+	/**
+	 * Select all content
+	 */
 	public async selectAll() {
 		await this.pressHotKeys(`Cmd+A`);
 	}
 
+	/**
+	 * Undo the last action
+	 */
 	public async undo() {
 		await this.pressHotKeys(`Cmd+Z`);
 	}
 
-	// --- File actions ---
-	public async save() {
-		await this.pressHotKeys(`Cmd+S`);
-	}
-
+	// --------------------
+	// --- File Actions ---
+	// --------------------
+	/**
+	 * Open a file
+	 */
 	public async openFile() {
 		await this.pressHotKeys(`Cmd+O`);
 	}
 
+	/**
+	 * Save the current file
+	 */
+	public async save() {
+		await this.pressHotKeys(`Cmd+S`);
+	}
+
+	// -------------------------
 	// --- Find & Navigation ---
-	public async find() {
-		await this.pressHotKeys(`Cmd+F`);
-	}
-
-	public async firstTab() {
-		await this.pressHotKeys(`Cmd+1`);
-	}
-
-	public async switchTabLeft() {
-		await this.pressHotKeys(`Cmd+Shift+[`);
-	}
-
-	public async switchTabRight() {
-		await this.pressHotKeys(`Cmd+Shift+]`);
-	}
-
-	public async closeTab() {
-		await this.pressHotKeys(`Cmd+W`);
-	}
-
+	// -------------------------
+	/**
+	 * Close all editor tabs
+	 */
 	public async closeAllEditors() {
 		await this.pressHotKeys(`Cmd+K Cmd+W`);
 	}
 
+	/**
+	 * Close the current tab
+	 */
+	public async closeTab() {
+		await this.pressHotKeys(`Cmd+W`);
+	}
+
+	/**
+	 * Open the find dialog
+	 */
+	public async find() {
+		await this.pressHotKeys(`Cmd+F`);
+	}
+
+	/**
+	 * Switch to the first tab
+	 */
+	public async firstTab() {
+		await this.pressHotKeys(`Cmd+1`);
+	}
+
+	/**
+	 * Scroll to the top of the document
+	 */
 	public async scrollToTop() {
 		const platform = process.platform;
 
@@ -81,49 +122,108 @@ export class HotKeys {
 		}
 	}
 
-	// --- Console & Visuals ---
-	public async visualMode() {
-		await this.pressHotKeys(`Cmd+Shift+F4`);
+	/**
+	 * Switch to the tab on the left
+	 */
+	public async switchTabLeft() {
+		await this.pressHotKeys(`Cmd+Shift+[`);
 	}
 
+	/**
+	 * Switch to the tab on the right
+	 */
+	public async switchTabRight() {
+		await this.pressHotKeys(`Cmd+Shift+]`);
+	}
+
+	// ------------------------
+	// --- Console & Visuals ---
+	// ------------------------
+	/**
+	 * Focus the console
+	 */
 	public async focusConsole() {
 		await this.pressHotKeys(`Cmd+K F`);
 	}
 
-	// -- Workspaces --
-	public async reloadWindow() {
-		await this.pressHotKeys(`Cmd+R`);
+	/**
+	 * Switch to visual mode
+	 */
+	public async visualMode() {
+		await this.pressHotKeys(`Cmd+Shift+F4`);
 	}
 
+	// ----------------------
+	// --- Layout Views ---
+	// ----------------------
+	/**
+	 * Toggle the sidebar visibility
+	 */
+	public async showSecondarySidebar() {
+		await this.pressHotKeys(`Cmd+J B`);
+	}
+
+	public async hideSecondarySidebar() {
+		await this.pressHotKeys(`Cmd+J A`);
+	}
+
+	// ----------------------
+	// --- Workspace Actions ---
+	// ----------------------
+	/**
+	 * Close the current workspace
+	 */
 	public async closeWorkspace() {
 		await this.pressHotKeys(`Cmd+J W`);
 	}
 
-	// --- User Custom Keybindings ---
-	// Add custom keybindings in: `positron/test/e2e/infra/fixtures/keybindings.json`
+	/**
+	 * Import settings
+	 */
+	public async importSettings() {
+		await this.pressHotKeys(`Cmd+J I`);
+	}
 
+	/**
+	 * Add a tag to a Jupyter cell
+	 */
 	public async jupyterCellAddTag() {
 		await this.pressHotKeys(`Cmd+J J`);
 	}
 
-	public async welcomeWalkthrough() {
-		await this.pressHotKeys(`Cmd+J L`);
-	}
-
-	public async openWorkspaceSettingsJSON() {
-		await this.pressHotKeys(`Cmd+J K`);
-	}
-
+	/**
+	 * Create a new folder from template
+	 */
 	public async newFolderFromTemplate() {
 		await this.pressHotKeys(`Cmd+J F`);
 	}
 
+	/**
+	 * Open user settings JSON
+	 */
 	public async openUserSettingsJSON() {
 		await this.pressHotKeys(`Cmd+J U`);
 	}
 
-	public async importSettings() {
-		await this.pressHotKeys(`Cmd+J I`);
+	/**
+	 * Open workspace settings JSON
+	 */
+	public async openWorkspaceSettingsJSON() {
+		await this.pressHotKeys(`Cmd+J K`);
+	}
+
+	/**
+	 * Reload the window
+	 */
+	public async reloadWindow() {
+		await this.pressHotKeys(`Cmd+R`);
+	}
+
+	/**
+	 * Open the welcome walkthrough
+	 */
+	public async welcomeWalkthrough() {
+		await this.pressHotKeys(`Cmd+J L`);
 	}
 
 	/**
@@ -149,7 +249,11 @@ export class HotKeys {
 		await stepWrapper(`Press hotkeys: ${keyCombo}`, async () => {
 			// Replace "Cmd" with the platform-appropriate modifier key
 			// and (for Windows and Ubuntu) replace "Option" with "Alt"
-			const keySequences = keyCombo.split(' ').map(keys => keys.replace(/cmd/gi, modifierKey));
+			const keySequences = keyCombo.split(' ').map(keys => {
+				return keys
+					.replace(/cmd/gi, modifierKey)
+					.replace(/option/gi, process.platform !== 'darwin' ? 'Alt' : 'Option');
+			});
 
 			for (const key of keySequences) {
 				await this.code.driver.page.keyboard.press(key);

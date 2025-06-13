@@ -38,7 +38,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 		});
 		await positronUserSettings.set({
 			'test': 'positron-settings',
-			'editor.fontSize': '16',
+			'editor.fontSize': 16,
 			'workbench.colorTheme': 'Default Light+'
 		});
 		await hotKeys.reloadWindow();
