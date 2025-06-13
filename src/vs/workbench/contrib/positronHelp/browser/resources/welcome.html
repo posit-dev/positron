@@ -23,6 +23,7 @@
 			display: flex;
 			flex-direction: row;
 			text-wrap-mode: nowrap;
+			margin-bottom: 2em;
 		}
 
 		.logo {
@@ -63,23 +64,25 @@
 
 <body>
 	<div class="container">
-		<div class="header">
-			<img src="__logoSrc__" alt="Positron Logo" class="logo">
-			<div class="header-text">
-				<h1 class="title">__productName__</h1>
-				<h2 class="caption">an IDE for data science</h2>
+		<div class="inner">
+			<div class="header">
+				<img src="__logoSrc__" alt="Positron Logo" class="logo">
+				<div class="header-text">
+					<h1 class="title">__productName__</h1>
+					<h2 class="caption">an IDE for data science by Posit PBC</h2>
+				</div>
 			</div>
-		</div>
-		<div>
-			<ul>
-				<li><a href="#">Positron Documentation</a></li>
-				<li><a href="#">Positron Community Forum</a></li>
-				<li><a href="#">Report a bug in Positron</a></li>
-
-				<li><a href="#">Posit Cheat Sheets</a></li>
-				<li><a href="#">Posit Products</a></li>
-				<li><a href="#">Posit Support</a></li>
-			</ul>
+			<div>
+				<ul>
+					<li><a href="https://positron.posit.co/">Positron Documentation</a></li>
+					<li><a href="https://github.com/posit-dev/positron/discussions">Positron Community Forum</a></li>
+					<li><a href="command:workbench.action.openIssueReporter">Report a bug in Positron</a></li>
+					<br />
+					<li><a href="https://posit.co/resources/cheatsheets/">Posit Cheat Sheets</a></li>
+					<li><a href="https://posit.co/products/">Posit Products</a></li>
+					<li><a href="https://support.posit.co/">Posit Support</a></li>
+				</ul>
+			</div>
 		</div>
 	</div>
 
@@ -88,6 +91,27 @@
 		vscode.postMessage({
 			"id": "positron-help-complete",
 			"title": "Welcome",
+		});
+
+		document.addEventListener("click", (event) => {
+			if (event.target.tagName === "A") {
+				const href = event.target.getAttribute("href");
+				if (href) {
+					if (href.startsWith("command:")) {
+						// If the link is a command, post it to the extension host.
+						vscode.postMessage({
+							"id": "positron-help-execute-command",
+							"command": href.substring(8) // Remove "command:" prefix
+						});
+					} else {
+						// Otherwise, treat it as a URL and navigate.
+						vscode.postMessage({
+							"id": "positron-help-navigate",
+							"url": href
+						});
+					}
+				}
+			}
 		});
 	</script>
 </body>
