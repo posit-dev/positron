@@ -923,6 +923,22 @@ export class GettingStartedPage extends EditorPane {
 		const recentList = this.buildRecentlyOpenedList();
 		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
+		// The "Connect to..." button is normally a part of the start list
+		// which is not used in Positron. We show the action underneath the
+		// recent list instead.
+		const otherList = $('.other-actions', {},
+			$('hr'),
+			$('button.button-link',
+				{
+					'x-dispatch': 'selectStartEntry:topLevelRemoteOpen',
+					title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
+					when: '!isWeb',
+				},
+				this.iconWidgetFor({ icon: { type: 'icon', icon: Codicon.remote } }),
+				localize('gettingStarted.topLevelRemoteOpen.title', "Connect to...")
+			)
+		);
+
 		const footer = $('.footer', {},
 			$('p.showOnStartup', {},
 				showOnStartupCheckbox.domNode,
@@ -939,7 +955,7 @@ export class GettingStartedPage extends EditorPane {
 				this.layoutService,
 				this.workspaceContextService
 			);
-			reset(leftColumn, leftContent, recentList.getDomElement());
+			reset(leftColumn, leftContent, recentList.getDomElement(), otherList);
 			reset(rightColumn, helpList.getDomElement());
 		};
 		layoutRecentList();
@@ -1344,18 +1360,11 @@ export class GettingStartedPage extends EditorPane {
 		});
 	}
 
-	// --- Start Positron ---
-	//
-	// This function is not used in Positron. It is commented out rather than
-	// being deleted to minimize merge conflicts.
-	/*
 	private iconWidgetFor(category: IResolvedWalkthrough | { icon: { type: 'icon'; icon: ThemeIcon } }) {
 		const widget = category.icon.type === 'icon' ? $(ThemeIcon.asCSSSelector(category.icon.icon)) : $('img.category-icon', { src: category.icon.path });
 		widget.classList.add('icon-widget');
 		return widget;
 	}
-	*/
-	// --- End Positron ---
 
 	private focusSideEditorGroup() {
 		const fullSize = this.groupsService.getPart(this.group).contentDimension;
