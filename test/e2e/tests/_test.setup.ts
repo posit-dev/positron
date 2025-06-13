@@ -260,6 +260,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 				await app.workbench.sessions.expectNoStartUpMessaging();
 			},
 			clear: () => settings.clear(),
+			remove: (settingsToRemove: string[]) => settings.remove(settingsToRemove),
 		});
 	}, { scope: 'worker' }],
 
@@ -490,6 +491,7 @@ interface WorkerFixtures {
 	settings: {
 		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number }) => Promise<void>;
 		clear: () => Promise<void>;
+		remove: (settingsToRemove: string[]) => Promise<void>;
 	};
 	vsCodeSettings: VscodeSettings;
 }

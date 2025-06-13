@@ -16,9 +16,9 @@ test.describe('Default Interpreters - Python', {
 	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
-	test.beforeAll(async function ({ app, settings }) {
+	test.beforeAll(async function ({ settings }) {
 
-		await app.workbench.settings.remove(['interpreters.startupBehavior']);
+		await settings.remove(['interpreters.startupBehavior']);
 
 		await deletePositronHistoryFiles();
 
@@ -37,7 +37,7 @@ test.describe('Default Interpreters - Python', {
 
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand, sessions }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ runCommand, sessions }) {
 
 		await runCommand('workbench.action.reloadWindow');
 		await expect(async () => {

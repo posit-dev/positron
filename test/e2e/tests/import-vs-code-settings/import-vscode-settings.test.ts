@@ -29,8 +29,8 @@ test.use({
 });
 
 test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] }, () => {
-	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings, app, hotKeys }) => {
-		await app.workbench.settings.remove(['positron.importSettings.enable']);
+	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings, hotKeys }) => {
+		await positronUserSettings.remove(['positron.importSettings.enable']);
 		await vscodeUserSettings.append({
 			'test': 'vs-code-settings',
 			'editor.fontSize': 8,
