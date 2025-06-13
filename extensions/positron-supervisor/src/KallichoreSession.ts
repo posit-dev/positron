@@ -43,7 +43,7 @@ import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { Channel } from './Channel';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
-import { CommBackendMessage, CommRpcMessage, CommRpcResponse, RawComm } from './RawComm';
+import { CommBackendMessage, CommRpcError, CommRpcMessage, CommRpcResponse, RawComm } from './RawComm';
 
 /**
  * The reason for a disconnection event.
@@ -2230,12 +2230,25 @@ class CommBackendRequest {
 			method: this.method,
 			result,
 		};
+		this.send(msg);
+	}
 
+	reject(error: Error, code = -32000) {
+		const msg: CommRpcError = {
+			jsonrpc: '2.0',
+			id: this.id,
+			method: this.method,
+			message: `${error}`,
+			code,
+		};
+		this.send(msg);
+	}
+
+	private send(data: Record<string, unknown>) {
 		const commMsg: JupyterCommMsg = {
 			comm_id: this.commId,
-			data: msg
+			data,
 		};
-
 		this.session.sendClientMessage(this.commId, this.id, commMsg);
 	}
 }

@@ -27,12 +27,17 @@ export interface RawComm {
 	dispose: () => void;
 }
 
+/** Message from the backend.
+ *
+ * If a request, one of the `reply` or `reject` method must be called.
+ */
 export type CommBackendMessage =
 	| {
 		kind: 'request';
 		method: string;
 		params?: Record<string, unknown>;
 		reply: (result: any) => void;
+		reject: (error: Error) => void;
 	}
 	| {
 		kind: 'notification';
@@ -53,6 +58,14 @@ export interface CommRpcMessage {
 export interface CommRpcResponse {
 	jsonrpc: '2.0';
 	result: any;
+	id: string;
+	[key: string]: unknown;
+}
+
+export interface CommRpcError {
+	jsonrpc: '2.0';
+	message: string;
+	code: number;
 	id: string;
 	[key: string]: unknown;
 }
