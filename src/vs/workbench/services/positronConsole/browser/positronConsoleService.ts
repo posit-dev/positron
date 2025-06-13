@@ -952,12 +952,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * The onDidNavigateInputHistoryDown event emitter.
 	 */
-	private readonly _onDidNavigateInputHistoryDown = this._register(new Emitter<void>());
+	private readonly _onDidNavigateInputHistoryDownEmitter = this._register(new Emitter<void>());
 
 	/**
 	 * The onDidNavigateInputHistoryUp event emitter.
 	 */
-	private readonly _onDidNavigateInputHistoryUp = this._register(new Emitter<DidNavigateInputHistoryUpEventArgs>());
+	private readonly _onDidNavigateInputHistoryUpEmitter = this._register(new Emitter<DidNavigateInputHistoryUpEventArgs>());
 
 	/**
 	 * The onDidClearInputHistory event emitter.
@@ -1249,12 +1249,12 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	/**
 	 * onDidNavigateInputHistoryDown event.
 	 */
-	readonly onDidNavigateInputHistoryDown = this._onDidNavigateInputHistoryDown.event;
+	readonly onDidNavigateInputHistoryDown = this._onDidNavigateInputHistoryDownEmitter.event;
 
 	/**
 	 * onDidNavigateInputHistoryUp event.
 	 */
-	readonly onDidNavigateInputHistoryUp = this._onDidNavigateInputHistoryUp.event;
+	readonly onDidNavigateInputHistoryUp = this._onDidNavigateInputHistoryUpEmitter.event;
 
 	/**
 	 * onDidClearInputHistory event.
@@ -1358,7 +1358,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * Navigates the input history down.
 	 */
 	navigateInputHistoryDown(): void {
-		this._onDidNavigateInputHistoryDown.fire();
+		this._onDidNavigateInputHistoryDownEmitter.fire();
 	}
 
 	/**
@@ -1366,7 +1366,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	 * @param usingPrefixMatch A value which indicates whether to use the prefix match strategy.
 	 */
 	navigateInputHistoryUp(usingPrefixMatch: boolean): void {
-		this._onDidNavigateInputHistoryUp.fire({
+		this._onDidNavigateInputHistoryUpEmitter.fire({
 			usingPrefixMatch,
 		});
 	}
