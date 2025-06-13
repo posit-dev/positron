@@ -328,4 +328,17 @@ export class DataExplorer {
 			await expect(hoverTooltip).toContainText('Missing Values');
 		});
 	}
+
+	// Note that herein we're getting the column headers from the filter popup, hence why new function and const.
+	async getColumnHeaders(): Promise<string[]> {
+		const headersLocator = this.code.driver.page.locator('div.column-name');
+		return await headersLocator.allInnerTexts();
+	}
+
+	async verifyColumnHeaders(expectedHeaders: string[]) {
+		await test.step('Verify column headers', async () => {
+			const actualHeaders = await this.getColumnHeaders();
+			expect(actualHeaders).toEqual(expectedHeaders);
+		});
+	}
 }
