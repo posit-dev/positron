@@ -115,6 +115,97 @@
 				}
 			}
 		});
+
+		// Adds message listener.
+		const addMessageListener = () => {
+			// Add the event listener.
+			window.addEventListener("message", (message) => {
+				// Switch on the message ID.
+				switch (message.data.id) {
+					// positron-help-scroll-to message. Sent to scroll the window to a saved scroll
+					// position. This message will arrive when the document's readyState becomes
+					// interactive.
+					case "positron-help-scroll-to":
+						window.scrollTo(message.data.scrollX, message.data.scrollY);
+						break;
+
+					// positron-help-update-find message. Sent to start a new find operation.
+					case "positron-help-update-find":
+						// Reset selection so we are finding from the top of the document.
+						window.getSelection().removeAllRanges();
+
+						// If the find value was specified, perform the find.
+						if (message.data.findValue) {
+							// Perform the find.
+							findResult = window.find(
+								message.data.findValue,
+								false, // aCaseSensitive
+								false, // aBackwards
+								false, // aWrapAround
+								false, // aWholeWord - Unimplemented
+								false // aSearchInFrames
+							);
+
+							// Post the find result.
+							window.parent.postMessage(
+								{
+									id: "positron-help-find-result",
+									findResult,
+								},
+								"*"
+							);
+						}
+						break;
+
+					// positron-help-find-previous message. Sent to find the previous occurance.
+					case "positron-help-find-previous":
+						if (findResult && message.data.findValue) {
+							window.find(
+								message.data.findValue,
+								false, // aCaseSensitive
+								true, // aBackwards
+								false, // aWrapAround
+								false, // aWholeWord - Unimplemented
+								false // aSearchInFrames
+							);
+						}
+						break;
+
+					// positron-help-find-previous message. Sent to find the next occurance.
+					case "positron-help-find-next":
+						if (findResult && message.data.findValue) {
+							window.find(
+								message.data.findValue,
+								false, // aCaseSensitive
+								false, // aBackwards
+								false, // aWrapAround
+								false, // aWholeWord - Unimplemented
+								false // aSearchInFrames
+							);
+						}
+						break;
+
+					// positron-help-focus message. Sent to focus the help window.
+					case "positron-help-focus":
+						window.focus();
+						break;
+
+					// positron-help-copy-selection message. Sent to copy the selection.
+					case "positron-help-copy-selection":
+						// Post the positron-help-selection message.
+						window.parent.postMessage(
+							{
+								id: "positron-help-copy-selection",
+								selection: window.getSelection().toString(),
+							},
+							"*"
+						);
+						break;
+				}
+			});
+		};
+
+		addMessageListener();
 	</script>
 </body>
 
