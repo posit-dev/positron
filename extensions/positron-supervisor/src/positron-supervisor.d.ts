@@ -122,10 +122,17 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * Unlike Positron clients, this kind of comm is private to the calling
 	 * extension and its kernel.
 	 *
-	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
-	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
+	 * @param type Comm type, used to generate comm identifier.
+	 * @param handleNotification Handle notification from backend.
+	 * @param handleRequest Handle request from backend. Throw error to reject.
+	 * @param params Optionally, additional parameters included in `comm_open`.
 	 */
-	createComm(type: string, params: Record<string, unknown>): Promise<RawComm>;
+	createComm(
+		type: string,
+		handleNotification: (method: string, params?: Record<string, unknown>) => void,
+		handleRequest: (method: string, params?: Record<string, unknown>) => any,
+		params?: Record<string, unknown>,
+	): Promise<RawComm>;
 
 	/**
 	 * Method for emitting a message to the language server's Jupyter output
@@ -232,9 +239,6 @@ export interface JupyterKernelExtra {
  * its kernel.
  */
 export interface RawComm {
-	/** Async-iterable for messages sent from backend. */
-	receiver: Channel<CommBackendMessage>;
-
 	/** Send a notification to the backend comm. */
 	notify: (method: string, params?: Record<string, unknown>) => void;
 
@@ -245,26 +249,3 @@ export interface RawComm {
 	  * was closed by the backend already). */
 	dispose: () => void;
 }
-
-/**
- * Communication channel. Dispose to close.
- */
-export interface Channel<T> extends AsyncIterable<T>, vscode.Disposable {}
-
-/** Message from the backend.
- *
- * If a request, one of the `reply` or `reject` method must be called.
- */
-export type CommBackendMessage =
-	| {
-		kind: 'request';
-		method: string;
-		params?: Record<string, unknown>;
-		reply: (result: any) => void;
-		reject: (error: Error) => void;
-	}
-	| {
-		kind: 'notification';
-		method: string;
-		params?: Record<string, unknown>;
-	};
