@@ -634,6 +634,12 @@ export function registerPositronConsoleActions() {
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 			if (positronConsoleService.activePositronConsoleInstance) {
 				positronConsoleService.activePositronConsoleInstance.navigateInputHistoryDown();
+			} else {
+				accessor.get(INotificationService).notify({
+					severity: Severity.Info,
+					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
+					sticky: false
+				});
 			}
 		}
 	});
@@ -666,6 +672,12 @@ export function registerPositronConsoleActions() {
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 			if (positronConsoleService.activePositronConsoleInstance) {
 				positronConsoleService.activePositronConsoleInstance.navigateInputHistoryUp(false);
+			} else {
+				accessor.get(INotificationService).notify({
+					severity: Severity.Info,
+					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
+					sticky: false
+				});
 			}
 		}
 	});
@@ -698,6 +710,12 @@ export function registerPositronConsoleActions() {
 			const positronConsoleService = accessor.get(IPositronConsoleService);
 			if (positronConsoleService.activePositronConsoleInstance) {
 				positronConsoleService.activePositronConsoleInstance.navigateInputHistoryUp(true);
+			} else {
+				accessor.get(INotificationService).notify({
+					severity: Severity.Info,
+					message: localize('positron.navigateInputHistory.noActiveConsole', "Cannot navigate input history. A console is not active."),
+					sticky: false
+				});
 			}
 		}
 	});
