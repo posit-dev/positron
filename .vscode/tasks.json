@@ -84,7 +84,8 @@
 					"endsPattern": "Finished compilation"
 				}
 			}
-		},		{
+		},
+		{
 			"type": "npm",
 			"script": "watch-e2ed",
 			"label": "E2E Tests - Build",
