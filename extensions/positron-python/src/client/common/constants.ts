@@ -85,6 +85,7 @@ export namespace Commands {
     export const Get_Uv_Python_Versions = 'python.getUvPythonVersions';
     export const Is_Global_Python = 'python.isGlobalPython';
     export const Show_Interpreter_Debug_Info = 'python.interpreters.debugInfo';
+    export const Create_Pyproject_Toml = 'python.createPyprojectToml';
     // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';
     export const InstallPython = 'python.installPython';

@@ -122,6 +122,7 @@ export const showNewFolderFlowModalDialog = async (
 						folderPath: folder.path,
 						folderName: result.folderName,
 						initGitRepo: result.initGitRepo,
+						createPyprojectToml: result.createPyprojectToml,
 						pythonEnvProviderId: result.pythonEnvProviderId,
 						pythonEnvProviderName: result.pythonEnvProviderName,
 						installIpykernel: result.installIpykernel,

@@ -69,6 +69,7 @@ export interface NewFolderFlowState {
 	parentFolder: URI;
 	initGitRepo: boolean;
 	openInNewWindow: boolean;
+	createPyprojectToml: boolean | undefined;
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
 	pythonEnvProviderId: string | undefined;
 	condaPythonVersion: string | undefined;
@@ -114,6 +115,7 @@ export class NewFolderFlowStateManager
 	private _pythonEnvSetupType: EnvironmentSetupType | undefined;
 	private _pythonEnvProviderId: string | undefined;
 	private _installIpykernel: boolean | undefined;
+	private _createPyprojectToml: boolean | undefined;
 	private _minimumPythonVersion: string | undefined;
 	private _condaPythonVersion: string | undefined;
 	private _condaPythonVersionInfo: CondaPythonVersionInfo | undefined;
@@ -164,6 +166,7 @@ export class NewFolderFlowStateManager
 		this._useRenv = undefined;
 		this._steps = config.steps ?? [config.initialStep];
 		this._currentStep = config.initialStep;
+		this._createPyprojectToml = undefined;
 		this._pythonEnvProviders = undefined;
 		this._interpreters = undefined;
 		this._preferredInterpreter = undefined;
@@ -253,6 +256,10 @@ export class NewFolderFlowStateManager
 		if (this._folderTemplate !== folderTemplate) {
 			this._resetFolderConfig();
 		}
+		if (folderTemplate === FolderTemplate.PythonProject) {
+			// Defaults to true for Python projects only.
+			this.createPyprojectToml = true;
+		}
 		this._folderTemplate = folderTemplate;
 		this._updateInterpreterRelatedState();
 	}
@@ -322,6 +329,22 @@ export class NewFolderFlowStateManager
 	 */
 	set initGitRepo(value: boolean) {
 		this._initGitRepo = value;
+	}
+
+	/**
+	 * Gets the createPyprojectToml flag.
+	 * @returns The createPyprojectToml flag.
+	 */
+	get createPyprojectToml(): boolean | undefined {
+		return this._createPyprojectToml;
+	}
+
+	/**
+	 * Sets the createPyprojectToml flag.
+	 * @param value Whether to create a pyproject.toml file.
+	 */
+	set createPyprojectToml(value: boolean | undefined) {
+		this._createPyprojectToml = value;
 	}
 
 	/**
@@ -603,6 +626,7 @@ export class NewFolderFlowStateManager
 			pythonEnvProviderId: this._pythonEnvProviderId,
 			pythonEnvProviderName: this._getEnvProviderName(),
 			installIpykernel: this._installIpykernel,
+			createPyprojectToml: this._createPyprojectToml,
 			condaPythonVersion: this._condaPythonVersion,
 			uvPythonVersion: this._uvPythonVersion,
 			useRenv: this._useRenv,
@@ -1023,6 +1047,7 @@ export class NewFolderFlowStateManager
 	 */
 	private _resetFolderConfig() {
 		this._initGitRepo = false;
+		this._createPyprojectToml = undefined;
 		this._useRenv = undefined;
 		this.folderNameFeedback = undefined;
 	}
@@ -1046,6 +1071,7 @@ export class NewFolderFlowStateManager
 			this._uvPythonVersion = undefined;
 			this._uvPythonVersionInfo = undefined;
 			this._isUvInstalled = undefined;
+			this._createPyprojectToml = undefined;
 		};
 
 		// Clear R-specific state.

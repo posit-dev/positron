@@ -80,6 +80,7 @@ export enum NewFolderTask {
 	PythonEnvironment = 'pythonEnvironment',
 	REnvironment = 'rEnvironment',
 	CreateNewFile = 'createNewFile',
+	CreatePyprojectToml = 'createPyprojectToml',
 }
 
 /**
@@ -93,6 +94,7 @@ export interface NewFolderConfiguration {
 	readonly folderPath: string;
 	readonly folderName: string;
 	readonly initGitRepo: boolean;
+	readonly createPyprojectToml: boolean | undefined;
 	readonly pythonEnvProviderId: string | undefined;
 	readonly pythonEnvProviderName: string | undefined;
 	readonly installIpykernel: boolean | undefined;
@@ -193,6 +195,14 @@ export type CreateEnvironmentResult = {
 	readonly error?: Error;
 	readonly metadata?: ILanguageRuntimeMetadata;
 };
+
+/**
+ * CreatePyprojectTomlResult type.
+ * Used to capture the result of creating a pyproject.toml file in the new folder.
+ * Based on the result from the Create_Pyproject_Toml 'python.createPyprojectToml'
+ * command defined in extensions/positron-python/src/client/common/application/commands/createPyprojectToml.ts.
+ */
+export type CreatePyprojectTomlResult = { success: true; path: string } | { success: false; error: string };
 
 /**
  * LanguageIds enum.

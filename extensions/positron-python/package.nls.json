@@ -5,6 +5,7 @@
     "python.command.python.startNativeREPL.title": "Start Native Python REPL",
     "python.command.python.createEnvironment.title": "Create Environment...",
     "python.command.python.createNewFile.title": "New Python File",
+    "python.command.python.createPyprojectToml.title": "Create pyproject.toml If Not Found",
     "python.command.python.createTerminal.title": "Create Terminal",
     "python.command.python.execInTerminal.title": "Run Python File in Terminal",
     "python.command.python.execDashInTerminal.title": "Run Dash App in Terminal",

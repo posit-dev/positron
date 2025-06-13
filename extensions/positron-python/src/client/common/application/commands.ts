@@ -110,6 +110,7 @@ export interface ICommandNameArgumentTypeMapping extends ICommandNameWithoutArgu
     [Commands.Exec_Streamlit_In_Terminal]: [];
     [Commands.Exec_In_Console]: [];
     [Commands.Focus_Positron_Console]: [];
+    [Commands.Create_Pyproject_Toml]: [string | undefined];
     // --- End Positron ---
     [Commands.Tests_Configure]: [undefined, undefined | CommandSource, undefined | Uri];
     [Commands.Tests_CopilotSetup]: [undefined | Uri];

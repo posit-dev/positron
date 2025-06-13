@@ -316,6 +316,17 @@ export const FolderNameLocationStep = (props: PropsWithChildren<NewFolderFlowSte
 						))()}
 					onChanged={(checked) => context.initGitRepo = checked}
 				/>
+				{context.folderTemplate === FolderTemplate.PythonProject && (
+					<Checkbox
+						initialChecked={context.createPyprojectToml}
+						label={(() =>
+							localize(
+								'folderNameLocationSubStep.createPyprojectToml.label',
+								"Create pyproject.toml file"
+							))()}
+						onChanged={(checked) => context.createPyprojectToml = checked}
+					/>
+				)}
 			</PositronFlowSubStep>
 		</PositronFlowStep>
 	);
