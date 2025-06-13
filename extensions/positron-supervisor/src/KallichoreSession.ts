@@ -727,12 +727,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	async createComm(
-		type: string,
+		target_name: string,
 		handleNotification: (method: string, params?: Record<string, unknown>) => void,
 		handleRequest: (method: string, params?: Record<string, unknown>) => any,
 		params: Record<string, unknown> = {},
 	): Promise<RawCommImpl> {
-		const id = `extension-comm-${type}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
+		const id = `extension-comm-${target_name}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 
 		const comm = new RawCommImpl(id, this, handleNotification, handleRequest);
 		this._comms.set(id, comm);
@@ -750,7 +750,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		});
 
 		const msg: JupyterCommOpen = {
-			target_name: type,
+			target_name,
 			comm_id: id,
 			data: params,
 		};
