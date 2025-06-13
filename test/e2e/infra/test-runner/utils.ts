@@ -16,7 +16,7 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 	const cacheDir = path.join(os.tmpdir(), 'qa-example-content-cache');
 	const cachedCommitFile = path.join(cacheDir, '.cached-commit');
-	const branch = 'main';
+	const branch = 'mi/remove-workspace-settings';
 
 	// Check if the machine is online by attempting to fetch the latest commit hash.
 	let remoteCommitHash: string | null = null;
@@ -79,18 +79,15 @@ function copyRepo(source: string, destination: string): void {
 /**
  * Copies the keybindings.json file to both Chrome and Electron user data directories.
  * @param source The path to the keybindings.json file.
- * @param userDataDir The base user data directory.
+ * @param destination The base user data directory.
  */
-export async function copyKeybindings(source: string, userDataDir: string): Promise<void> {
-	const chromeKeyBindingsPath = path.join(userDataDir, 'data', 'User', 'keybindings.json');
-	const electronKeyBindingsPath = path.join(userDataDir, 'User', 'keybindings.json');
-
+export async function copySettingsFile(source: string, destination: string): Promise<void> {
 	// Read and adjust keybindings for platform
 	let data: string;
 	try {
 		data = await fs.promises.readFile(source, 'utf8');
 	} catch (err) {
-		console.error('✗ Failed to read keybindings:', err);
+		console.error('✗ Failed to read:', err);
 		throw err;
 	}
 	if (process.platform === 'win32' || process.platform === 'linux') {
@@ -99,12 +96,10 @@ export async function copyKeybindings(source: string, userDataDir: string): Prom
 
 	// Create directories and write files asynchronously
 	try {
-		await fs.promises.mkdir(path.dirname(chromeKeyBindingsPath), { recursive: true });
-		await fs.promises.mkdir(path.dirname(electronKeyBindingsPath), { recursive: true });
-		await fs.promises.writeFile(chromeKeyBindingsPath, data, 'utf8');
-		await fs.promises.writeFile(electronKeyBindingsPath, data, 'utf8');
+		await fs.promises.mkdir(path.dirname(destination), { recursive: true });
+		await fs.promises.writeFile(destination, data, 'utf8');
 	} catch (err) {
-		console.error('✗ Failed to write keybindings:', err);
+		console.error('✗ Failed to write:', err);
 		throw err;
 	}
 }

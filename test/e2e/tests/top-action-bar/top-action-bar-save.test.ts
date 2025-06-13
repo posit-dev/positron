@@ -14,9 +14,9 @@ test.describe('Top Action Bar - Save Actions', {
 	tag: [tags.WEB, tags.TOP_ACTION_BAR]
 }, () => {
 
-	test.beforeAll(async function ({ app, userSettings }) {
+	test.beforeAll(async function ({ app, settings }) {
 		if (app.web) {
-			await userSettings.set([['files.autoSave', 'false']]);
+			await settings.set([['files.autoSave', 'false']]);
 		}
 	});
 

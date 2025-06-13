@@ -17,16 +17,15 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 	// Some extra diligence around clearing settings is used to avoid the language-specific settings
 	// being overridden by other language-specific settings. At present, other tests don't set
 	// language-specific settings, but this may change in the future
-	test.beforeEach(async function ({ userSettingsTest: userSettings }) {
-		// Clear all interpreter settings before each test
-		await userSettings.clear();
+	test.beforeEach(async function ({ app }) {
+		await app.workbench.settings.clear();
 	});
 
-	test.skip('Verify only Empty Project available when global interpreter startup is disabled', async function ({ app, hotKeys, userSettingsTest: userSettings }) {
-		const { newFolderFlow } = app.workbench;
+	test('Verify only Empty Project available when global interpreter startup is disabled', async function ({ app, hotKeys }) {
+		const { newFolderFlow, settings } = app.workbench;
 
 		// Disable startup behavior for all interpreters
-		await userSettings.set([['interpreters.startupBehavior', '"disabled"']]);
+		await settings.set([['interpreters.startupBehavior', '"disabled"']]);
 		await hotKeys.newFolderFromTemplate();
 
 		// Only Empty Project should be available
@@ -38,11 +37,11 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 
 	test('Verify Python and Jupyter templates hidden when Python startup is disabled', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/8045' },]
-	}, async function ({ app, hotKeys, userSettingsTest: userSettings }) {
-		const { newFolderFlow } = app.workbench;
+	}, async function ({ app, hotKeys }) {
+		const { newFolderFlow, settings } = app.workbench;
 
 		// Disable startup behavior for Python
-		await userSettings.set([['[python]', '{ "interpreters.startupBehavior": "disabled" }']]);
+		await settings.set([['[python]', '{ "interpreters.startupBehavior": "disabled" }']]);
 		await hotKeys.newFolderFromTemplate();
 
 		// Only Empty Project and R Project should be available
@@ -54,11 +53,11 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 
 	test('Verify R folder template hidden when R startup is disabled', {
 		annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/8045' },]
-	}, async function ({ app, hotKeys, userSettingsTest: userSettings }) {
-		const { newFolderFlow } = app.workbench;
+	}, async function ({ app, hotKeys }) {
+		const { newFolderFlow, settings } = app.workbench;
 
 		// Disable startup behavior for R
-		await userSettings.set([['[r]', '{ "interpreters.startupBehavior": "disabled" }']]);
+		await settings.set([['[r]', '{ "interpreters.startupBehavior": "disabled" }']]);
 		await hotKeys.newFolderFromTemplate();
 
 		// Only templates other than R should be available

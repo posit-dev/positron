@@ -114,6 +114,10 @@ export class HotKeys {
 		await this.pressHotKeys(`Cmd+J F`);
 	}
 
+	public async openUserSettingsJSON() {
+		await this.pressHotKeys(`Cmd+J U`);
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.

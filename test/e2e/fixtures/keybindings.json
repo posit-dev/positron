@@ -20,5 +20,9 @@
     {
         "key": "cmd+j l",
         "command": "workbench.action.openWalkthrough"
+    },
+    {
+        "key": "cmd+j u",
+        "command": "workbench.action.openSettingsJson" // user settings
     }
 ]

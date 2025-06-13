@@ -28,27 +28,20 @@ test.use({
 	suiteId: __filename
 });
 
-let workspaceSettings: string;
-
 test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] }, () => {
-	test.beforeAll(async ({ vscodeUserSettings, positronUserSettings, runCommand, app }) => {
-		workspaceSettings = await app.workbench.settings.backupWorkspaceSettings();
-		await app.workbench.settings.removeWorkspaceSettings(['positron.importSettings.enable']);
+	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings, runCommand, app }) => {
+		await app.workbench.settings.remove(['positron.importSettings.enable']);
 		await vscodeUserSettings.append({
 			'test': 'vs-code-settings',
 			'editor.fontSize': 8,
 			'workbench.colorTheme': 'Default Dark',
 		});
-		await positronUserSettings.append({
-			'test': 'positron-settings',
-			'editor.fontSize': 16,
-			'workbench.colorTheme': 'Default Light+',
-		});
+		await positronUserSettings.set([
+			['test', 'positron-settings'],
+			['editor.fontSize', '16'],
+			['workbench.colorTheme', 'Default Light+']
+		]);
 		await runCommand('workbench.action.reloadWindow');
-	});
-
-	test.afterAll(async ({ app }) => {
-		await app.workbench.settings.restoreWorkspaceSettings(workspaceSettings);
 	});
 
 	test.beforeEach(async ({ sessions, hotKeys }) => {
@@ -117,8 +110,8 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 	});
 
 	test.describe('Import without Positron settings', () => {
-		test.beforeEach(async ({ positronUserSettings }) => {
-			await positronUserSettings.delete();
+		test.beforeEach(async ({ settings }) => {
+			await settings.clear();
 		});
 
 		test('Verify import import occurs and is clean without a diff', async ({ app, page, runCommand }) => {

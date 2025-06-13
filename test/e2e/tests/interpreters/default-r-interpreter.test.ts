@@ -16,9 +16,9 @@ test.describe('Default Interpreters - R', {
 	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
-	test.beforeAll(async function ({ app, userSettings }) {
+	test.beforeAll(async function ({ app, settings }) {
 
-		await app.workbench.settings.removeWorkspaceSettings(['interpreters.startupBehavior']);
+		await app.workbench.settings.remove(['interpreters.startupBehavior']);
 
 		await deletePositronHistoryFiles();
 
@@ -26,7 +26,7 @@ test.describe('Default Interpreters - R', {
 		// await userSettings.set([['positron.r.interpreters.default', '"/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R"']], true);
 
 		// hidden CI interpreter:
-		await userSettings.set([['positron.r.interpreters.default', '"/home/runner/scratch/R-4.4.1/bin/R"']], true);
+		await settings.set([['positron.r.interpreters.default', '"/home/runner/scratch/R-4.4.1/bin/R"']], true);
 
 	});
 

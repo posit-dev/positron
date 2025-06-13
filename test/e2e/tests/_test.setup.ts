@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu, getRandomUserDataDir, copyKeybindings } from '../infra';
+import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, ContextMenu, getRandomUserDataDir, Setting, copySettingsFile } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -85,8 +85,14 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		options.userDataDir = getRandomUserDataDir(options);
 
 		// Copy user keybindings from the fixture to the user data directory
-		const userKeyBindingsPath = join(ROOT_PATH, 'test/e2e/infra/fixtures/keybindings.json');
-		await copyKeybindings(userKeyBindingsPath, options.userDataDir);
+		const keybindingsSource = join(ROOT_PATH, 'test/e2e/fixtures/keybindings.json');
+		const userSettingsSource = join(ROOT_PATH, 'test/e2e/fixtures/settings.json');
+		const chromeDestination = path.join(options.userDataDir, 'data', 'User');
+		const electronDestination = path.join(options.userDataDir, 'User');
+
+		console.log(electronDestination);
+		await copySettingsFile(keybindingsSource, join(options.web ? chromeDestination : electronDestination, 'keybindings.json'));
+		await copySettingsFile(userSettingsSource, join(options.web ? chromeDestination : electronDestination, 'settings.json'));
 
 		await use(options);
 	}, { scope: 'worker', auto: true }],
@@ -236,65 +242,27 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(hotKeys);
 	},
 
-	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
-	userSettings: [async ({ app }, use) => {
-		const userSettings = new SettingsFixture(app);
-
-		const setUserSetting = async (
-			settings: [string, string][],
-			restartApp = false
-		) => {
-			await userSettings.setMultipleUserSettings(settings, restartApp);
-			await app.workbench.sessions.expectNoStartUpMessaging();
-		};
+	// ex: await settings.set([['editor.actionBar.enabled', 'true']], true);
+	settings: [async ({ app }, use) => {
+		const { settings } = app.workbench;
 
 		await use({
-			set: setUserSetting
+			set: async (
+				newSettings: [string, string][],
+				restartApp = false
+			) => {
+				await settings.set(newSettings);
+				if (restartApp) {
+					await app.restart();
+				}
+				await app.workbench.sessions.expectNoStartUpMessaging();
+			},
+			clear: () => settings.clear(),
 		});
-
-		await userSettings.unset();
 	}, { scope: 'worker' }],
 
-	userSettingsTest: [async ({ app }, use) => {
-		const settings = app.workbench.settings;
-
-		const setUserSetting = async (
-			newSettings: [string, string][],
-			restartApp = false
-		) => {
-			if (newSettings.length === 0) {
-				// No settings were provided
-				return;
-			}
-			// set each setting in the workspace settings
-			for (const [key, value] of newSettings) {
-				await settings.setUserSettings([[key, value]]);
-			}
-			if (restartApp) {
-				await app.restart();
-			}
-			await app.workbench.sessions.expectNoStartUpMessaging();
-		};
-
-		const clearUserSettings = async () => {
-			await app.workbench.settings.clearUserSettings();
-		};
-
-		await use({
-			set: setUserSetting,
-			clear: clearUserSettings
-		});
-	}, { scope: 'test' }],
-
-	vscodeUserSettings: [async ({ }, use) => {
-		const manager = new SettingsFileManager(SettingsFileManager.getVSCodeSettingsPath());
-		await manager.backupIfExists();
-		await use(manager);
-		await manager.restoreFromBackup();
-	}, { scope: 'worker' }],
-
-	positronUserSettings: [async ({ userDataDir }, use) => {
-		const manager = new SettingsFileManager(SettingsFileManager.getPositronSettingsPath(userDataDir));
+	vsCodeSettings: [async ({ }, use) => {
+		const manager = new VscodeSettings(VscodeSettings.getVSCodeSettingsPath());
 		await manager.backupIfExists();
 		await use(manager);
 		await manager.restoreFromBackup();
@@ -506,10 +474,6 @@ interface TestFixtures {
 	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
-	userSettingsTest: {
-		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
-		clear: () => Promise<void>;
-	};
 }
 
 interface WorkerFixtures {
@@ -521,11 +485,11 @@ interface WorkerFixtures {
 	app: Application;
 	logsPath: string;
 	logger: MultiLogger;
-	userSettings: {
+	settings: {
 		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
+		clear: () => Promise<void>;
 	};
-	vscodeUserSettings: SettingsFileManager;
-	positronUserSettings: SettingsFileManager;
+	vsCodeSettings: VscodeSettings;
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {

@@ -9,7 +9,7 @@ import os from 'os';
 
 const BACKUP_SUFFIX = '.playwright-backup';
 
-export class SettingsFileManager {
+export class VscodeSettings {
 	private readonly settingsPath: string;
 
 	constructor(settingsPath: string) {
@@ -100,12 +100,5 @@ export class SettingsFileManager {
 			const configHome = process.env.XDG_CONFIG_HOME || path.join(home, '.config');
 			return path.join(configHome, 'Code', 'User', 'settings.json');
 		}
-	}
-
-	/**
-	 * Returns the path to the Positron user settings file for the given userDataDir.
-	 */
-	static getPositronSettingsPath(userDataDir: string): string {
-		return path.join(userDataDir, 'User', 'settings.json');
 	}
 }
