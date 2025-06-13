@@ -27,8 +27,8 @@
 		}
 
 		.logo {
-			max-width: 6em;
-			max-height: 6em;
+			max-width: min(17.1vw, 6em);
+			max-height: min(17.1vw, 6em);
 			margin-right: 12px;
 		}
 
@@ -40,7 +40,7 @@
 		}
 
 		.title {
-			font-size: 3.5em;
+			font-size: min(10vw, 3.5em);
 			font-weight: 800;
 			color: var(--vscode-positronWelcome-foreground);
 			margin: 0;
@@ -49,9 +49,11 @@
 		}
 
 		.caption {
+			font-size: min(4.3vw, 1.5em);
 			font-weight: 600;
 			color: var(--vscode-positronWelcome-secondaryForeground);
-			margin: 0.6em 0 0 0
+			margin: 0.6em 0 0 0;
+			text-wrap-mode: wrap;
 		}
 
 		ul {
