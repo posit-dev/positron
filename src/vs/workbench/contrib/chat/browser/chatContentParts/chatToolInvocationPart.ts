@@ -444,7 +444,16 @@ class ChatToolInvocationSubPart extends Disposable {
 			}
 		};
 		const langId = this.languageService.getLanguageIdByLanguageName(terminalData.language ?? 'sh') ?? 'shellscript';
-		const model = this.modelService.createModel(terminalData.command, this.languageService.createById(langId));
+		// --- Start Positron ---
+		// Pass a resource with a custom scheme so that language packs can ignore these code blocks.
+		// See: https://github.com/posit-dev/positron/issues/7750.
+		// const model = this.modelService.createModel(terminalData.command, this.languageService.createById(langId));
+		const resource = URI.from({
+			scheme: 'assistant-code-confirmation-widget',
+			path: generateUuid(),
+		});
+		const model = this.modelService.createModel(terminalData.command, this.languageService.createById(langId), resource);
+		// --- End Positron ---
 		const editor = this._register(this.editorPool.get());
 		const renderPromise = editor.object.render({
 			codeBlockIndex: this.codeBlockStartIndex,

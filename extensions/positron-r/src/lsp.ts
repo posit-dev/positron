@@ -118,7 +118,17 @@ export class ArkLsp implements vscode.Disposable {
 				},
 			errorHandler: new RErrorHandler(this._version, port),
 			outputChannel: outputChannel,
-			revealOutputChannelOn: RevealOutputChannelOn.Never
+			revealOutputChannelOn: RevealOutputChannelOn.Never,
+			middleware: {
+				handleDiagnostics(uri, diagnostics, next) {
+					// Disable diagnostics for Assistant code confirmation widgets:
+					// https://github.com/posit-dev/positron/issues/7750
+					if (uri.scheme === 'assistant-code-confirmation-widget') {
+						return undefined;
+					}
+					return next(uri, diagnostics);
+				},
+			}
 		};
 
 		// With a `.` rather than a `-` so vscode-languageserver can look up related options correctly
