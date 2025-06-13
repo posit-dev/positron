@@ -4,8 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { Receiver } from './Channel';
-import { CommBackendMessage } from './positron-supervisor';
 import { KallichoreSession } from './KallichoreSession';
 import { createUniqueId } from './util';
 import { JupyterCommMsg } from './jupyter/JupyterCommMsg';
@@ -17,7 +15,8 @@ export class RawCommImpl implements vscode.Disposable {
 	constructor(
 		private readonly commId: string,
 		private readonly session: KallichoreSession,
-		public readonly receiver: Receiver<CommBackendMessage>,
+		private readonly onNotification: (method: string, params?: Record<string, unknown>) => void,
+		private readonly onRequest: (method: string, params?: Record<string, unknown>) => any,
 	) {}
 
 	notify(method: string, params?: Record<string, unknown>) {
@@ -51,9 +50,61 @@ export class RawCommImpl implements vscode.Disposable {
 		this.session.sendRequest(request);
 	}
 
-	dispose() {
-		this.receiver.dispose();
+	// Relay message from backend to extension
+	handleMessage(message: JupyterCommMsg) {
+		const data = message.data;
+		const rpc = data as CommRpcMessage;
+		const isNotification = rpc.id === undefined;
 
+		try {
+			if (isNotification) {
+				this.onNotification(rpc.method, rpc.params);
+			} else {
+				const result = this.onRequest(rpc.method, rpc.params);
+				this.reply(rpc.id!, rpc.method, result);
+			}
+		} catch (err) {
+			if (isNotification) {
+				this.session.log(
+					`Notification handler for ${message.comm_id} failed:  ${err}`,
+					vscode.LogLevel.Warning
+				);
+			} else {
+				this.reject(rpc.id!, rpc.method, err);
+			}
+		}
+	}
+
+	private reply(id: string, method: string, result: any) {
+		const msg: CommRpcResponse = {
+			jsonrpc: '2.0',
+			id,
+			method,
+			result,
+		};
+		this.send(id, msg);
+	}
+
+	private reject(id: string, method: string, error: Error, code = -32000) {
+		const msg: CommRpcError = {
+			jsonrpc: '2.0',
+			id,
+			method,
+			message: `${error}`,
+			code,
+		};
+		this.send(id, msg);
+	}
+
+	private send(id: string, data: Record<string, unknown>) {
+		const commMsg: JupyterCommMsg = {
+			comm_id: this.commId,
+			data,
+		};
+		this.session.sendClientMessage(this.commId, id, commMsg);
+	}
+
+	dispose() {
 		for (const disposable of this.disposables) {
 			disposable.dispose();
 		}
@@ -64,58 +115,7 @@ export class RawCommImpl implements vscode.Disposable {
 	}
 }
 
-export class CommBackendRequest {
-	kind: 'request' = 'request';
-	readonly method: string;
-	readonly params?: Record<string, unknown>;
-
-	private readonly id: string;
-
-	constructor(
-		private readonly session: KallichoreSession,
-		private readonly commId: string,
-		private readonly message: CommRpcMessage,
-	) {
-		this.method = message.method;
-		this.params = message.params;
-
-		if (!this.message.id) {
-			throw new Error('Expected `id` field in request');
-		}
-		this.id = this.message.id;
-	}
-
-	reply(result: any) {
-		const msg: CommRpcResponse = {
-			jsonrpc: '2.0',
-			id: this.id,
-			method: this.method,
-			result,
-		};
-		this.send(msg);
-	}
-
-	reject(error: Error, code = -32000) {
-		const msg: CommRpcError = {
-			jsonrpc: '2.0',
-			id: this.id,
-			method: this.method,
-			message: `${error}`,
-			code,
-		};
-		this.send(msg);
-	}
-
-	private send(data: Record<string, unknown>) {
-		const commMsg: JupyterCommMsg = {
-			comm_id: this.commId,
-			data,
-		};
-		this.session.sendClientMessage(this.commId, this.id, commMsg);
-	}
-}
-
-export interface CommRpcMessage {
+interface CommRpcMessage {
 	jsonrpc: '2.0';
 	method: string;
 	// If present, this indicates a request, otherwise a notification.
@@ -125,14 +125,14 @@ export interface CommRpcMessage {
 	[key: string]: unknown;
 }
 
-export interface CommRpcResponse {
+interface CommRpcResponse {
 	jsonrpc: '2.0';
 	result: any;
 	id: string;
 	[key: string]: unknown;
 }
 
-export interface CommRpcError {
+interface CommRpcError {
 	jsonrpc: '2.0';
 	message: string;
 	code: number;
