@@ -35,6 +35,7 @@ export const showLanguageModelModalDialog = (
 	positronAssistantService: IPositronAssistantService,
 	positronModalDialogsService: IPositronModalDialogsService,
 	sources: IPositronLanguageModelSource[],
+	// maybe pass in stored configs here in addition to sources which is for UI state
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onClose: () => void,
 ) => {
@@ -66,7 +67,7 @@ interface LanguageModelConfigurationProps {
 	layoutService: ILayoutService;
 	positronAssistantService: IPositronAssistantService;
 	positronModalDialogsService: IPositronModalDialogsService;
-	sources: IPositronLanguageModelSource[];
+	sources: IPositronLanguageModelSource[]; // full array of static sources we've defined
 	configurationService: IConfigurationService;
 	renderer: PositronModalReactRenderer;
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>;
@@ -79,16 +80,23 @@ export interface LanguageModelUIConfiguration extends IPositronLanguageModelConf
 	apiKey?: string;
 }
 
+// Other Models --> just "Models"?
+
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
 	const enabledProviders = props.sources.map(source => source.provider.id);
 	const hasAnthropic = enabledProviders.includes('anthropic');
 	const hasMistral = enabledProviders.includes('mistral');
+
+	// defaultSource is used to pre-select the provider in the modal dialog.
+	// we can probably just select the first one by default, which happens to be Anthropic?
+	// this was used for the old modal dialog, but we don't need this anymore
 	const defaultSource = props.sources.find(source => {
 		// If Anthropic is available, prefer it for chat models
 		if (hasAnthropic) {
 			return source.provider.id === 'anthropic';
 		}
-		// If Mistral is available, prefer it for completion models
+		// If Mistral is available, prefer it for completion models ?????
+		// is this working?
 		if (hasMistral) {
 			return source.provider.id === 'mistral';
 		}
@@ -96,9 +104,14 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		return true;
 	})!;
 
+	// this is the source of the provider, for the awareness of the extension
 	const [source, setSource] = React.useState<IPositronLanguageModelSource>(defaultSource);
+	// this contains some info for the UI state, like if we're signed in, api key (goes in safe storage), other info goes in regular storage
 	const [providerConfig, setProviderConfig] = React.useState<LanguageModelUIConfiguration>({ ...defaultSource.defaults, name: defaultSource.provider.displayName, provider: defaultSource.provider.id, type: defaultSource.type });
+
+	// this is also truly part of the UI state, it is the api key entered in the text box
 	const [apiKey, setApiKey] = React.useState<string>();
+
 	const [baseUrl, setBaseUrl] = React.useState<string | undefined>(defaultSource.defaults.baseUrl);
 	const [resourceName, setResourceName] = React.useState<string | undefined>(defaultSource.defaults.resourceName);
 	const [project, setProject] = React.useState<string | undefined>(defaultSource.defaults.project);
@@ -107,20 +120,32 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [numCtx, setNumCtx] = React.useState<number | undefined>(defaultSource.defaults.numCtx);
 	const [model, setModel] = React.useState<string>(defaultSource.defaults.model);
 	const [name, setName] = React.useState<string>(defaultSource.defaults.name);
-	const [authMethod, setAuthMethod] = React.useState<AuthMethod>(AuthMethod.API_KEY);
+
+	// these are truly part of the UI state and not part of the provider config
+	const [authMethod, setAuthMethod] = React.useState<AuthMethod>(defaultSource.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY);
+
+	// these are purely UI state, not part of the provider config
 	const [showProgress, setShowProgress] = React.useState(false);
 	const [errorMessage, setError] = React.useState<string>();
 
-	useEffect(() => {
-		setSource(defaultSource);
-		setAuthMethod(defaultSource.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY)
-	}, [defaultSource]);
+	// this is maybe already covered above in the useStates?
+	// useEffect(() => {
+	// 	setSource(defaultSource);
+	// 	setAuthMethod(defaultSource.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY)
+	// }, [defaultSource]);
 
 	useEffect(() => {
 		const disposables: IDisposable[] = [];
+
+		// if we pass in stored model configs, this would be modifed to update that stored config
 		disposables.push(props.positronAssistantService.onChangeLanguageModelConfig((newConfig) => {
 			// find newSource in props.sources and update it
 			const index = props.sources.findIndex(source => source.provider.id === newConfig.provider.id);
+
+			// NOTE: the goal of this is to record in the source that we're now signed in, so that the UI can reflect that
+			// this is because we can't learn the result of the sign-in action directly, so we need to listen to this
+			// event and update our local sources state accordingly
+			// NOTE: we don't get the api key back from the extension
 			const updatedSource = { ...source, supportedOptions: source.supportedOptions, signedIn: newConfig.signedIn };
 			if (index >= 0) {
 				props.sources[index] = updatedSource;
@@ -135,6 +160,15 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 		return () => { disposables.forEach(d => d.dispose()); }
 	}, [props.positronAssistantService, props.sources, source]);
+
+	// CURRENTLY
+	// sources = state of the UI, contains signedIn info
+	// providerConfig = bundle of info that is sent at sign in / sign out and returned by the extension once that action completes; it is also what is persisted in storage
+
+	// PROPOSED
+	// sources = initial info to populate the UI, such as which providers, the auth methods that are available, etc.
+	// configsForSources = getStoredConfigs(), has values for
+	// providerConfig = current state for the selected provider, which is also what's sent to the extension; still what is sent to storage
 
 	useEffect(() => {
 		setModel(source.defaults.model);
@@ -244,7 +278,11 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}
 	}
 
+	// find positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
+	// for the onAction actions
+
 	// Cancel pending actions with providers
+	// NOTE: this is currently only applicable to Copilot OAuth
 	const onCancelPending = async () => {
 		props.onAction({
 			type: providerConfig.type,

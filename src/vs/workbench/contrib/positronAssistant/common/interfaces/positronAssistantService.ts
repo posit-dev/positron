@@ -62,6 +62,8 @@ export interface IPositronLanguageModelSource {
 	authMethods?: string[];
 }
 
+// this is redefined in the positron api in src/positron-dts/positron.d.ts
+// as LanguageModelConfig which extends LanguageModelConfigOptions
 export interface IPositronLanguageModelConfig {
 	type: PositronLanguageModelType;
 	provider: string;
