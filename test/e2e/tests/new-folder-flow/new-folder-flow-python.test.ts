@@ -16,8 +16,9 @@ test.use({
 test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FOLDER_FLOW, tags.WEB] }, () => {
 	const folderTemplate = FolderTemplate.PYTHON_PROJECT;
 
-	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, sessions, python }) {
+	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, sessions, python, settings }) {
 		const folderName = addRandomNumSuffix('ipykernel-installed');
+		await settings.set([['interpreters.startupBehavior', '"auto"']]);
 
 		await createNewFolder(app, {
 			folderTemplate,

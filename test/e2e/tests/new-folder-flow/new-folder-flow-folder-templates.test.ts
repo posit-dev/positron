@@ -17,8 +17,8 @@ test.describe('New Folder Flow: Template visibility via Interpreter Settings', {
 	// Some extra diligence around clearing settings is used to avoid the language-specific settings
 	// being overridden by other language-specific settings. At present, other tests don't set
 	// language-specific settings, but this may change in the future
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.settings.clear();
+	test.beforeEach(async function ({ settings }) {
+		await settings.clear();
 	});
 
 	test('Verify only Empty Project available when global interpreter startup is disabled', async function ({ app, hotKeys }) {
