@@ -675,6 +675,29 @@ def test_list_and_recursive_inspect(
     _verify_inspect([], list_result["variables"], [expected(varname)], variables_comm)
 
 
+@pytest.mark.parametrize("varname", ["x", "_"])
+def test_inspect_by_name(varname: str, shell: PositronShell, variables_comm: DummyComm) -> None:
+    # Test inspecting a variable by name instead of encoded access key: https://github.com/posit-dev/positron/issues/8052.
+
+    # Test against a dict with duplicate keys but differing types and values.
+    shell.user_ns[varname] = {"0": 0, 0: 1}
+
+    def verify_inspect(encoded_path: list[JsonData], expected_display_value: str) -> None:
+        children = _do_inspect(encoded_path, variables_comm)
+        assert len(children) == 1
+        assert children[0].display_value == expected_display_value
+
+    # Path: parent name and string child access key.
+    verify_inspect([varname, encode_access_key("0")], "0")
+
+    # Path: parent name and child name - defaults to the string key "0"
+    # i.e. same as the previous case.
+    verify_inspect([varname, "0"], "0")
+
+    # Path: parent name and integer child access key.
+    verify_inspect([varname, encode_access_key(0)], "1")
+
+
 def _verify_inspect(
     encoded_path: list[JsonData],
     children: list[Variable],

@@ -47,7 +47,13 @@ def decode_access_key(access_key: str) -> Any:
         return access_key
 
     # Deserialize the access key.
-    json_data: JsonData = json.loads(access_key)
+    try:
+        json_data: JsonData = json.loads(access_key)
+    except json.JSONDecodeError:
+        # If it's not valid JSON, assume it's a string access key and return it as-is.
+        # This may happen if a request tries to access a variable by name rather than access key.
+        # See https://github.com/posit-dev/positron/issues/8052.
+        return access_key
 
     # Validate the json data structure.
     if (
@@ -55,7 +61,10 @@ def decode_access_key(access_key: str) -> Any:
         or not isinstance(json_data["type"], str)
         or not isinstance(json_data["data"], (dict, list, str, int, float, bool, type(None)))
     ):
-        raise ValueError(f"Unexpected json data structure: {json_data}")
+        # If it doesn't match the schema, assume it's a string access key and return it as-is.
+        # This may happen if a request tries to access a variable by name rather than access key.
+        # See https://github.com/posit-dev/positron/issues/8052.
+        return access_key
 
     # Get the inspector for this type.
     # TODO(pyright): cast shouldn't be necessary, recheck in a future version of pyright
