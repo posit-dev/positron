@@ -467,7 +467,6 @@ export class Sessions {
 	 * Helper: Wait for runtimes to finish loading
 	 */
 	async expectNoStartUpMessaging() {
-		await expect(this.page.locator('.top-action-bar-container')).toBeVisible();
 		await this.console.focus();
 		await this.code.driver.page.mouse.move(0, 0);
 		await expect(this.page.locator('text=/^Starting up|^Starting|^Preparing|^Discovering( \\w+)? interpreters|starting\\.$/i')).toHaveCount(0, { timeout: 90000 });

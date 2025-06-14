@@ -101,11 +101,15 @@ export class UserSettings {
 	 * @param settings Object with key-value pairs to set
 	 * @param editor An object with openTab, save, and closeTab methods for UI automation
 	 */
-	async set(settings: Record<string, unknown>): Promise<void> {
+	async set(settings: Record<string, unknown>, options?: { keepOpen: boolean }): Promise<void> {
+		const { keepOpen = true } = options || {};
+
 		await this.mergeSetting(settings);
 		await this.hotKeys.openUserSettingsJSON();
 		await expect(this.code.driver.page.getByRole('tab', { name: USER_SETTINGS_FILENAME })).toBeVisible();
 		await this.hotKeys.save();
-		await this.hotKeys.closeTab();
+		if (!keepOpen) {
+			await this.hotKeys.closeTab();
+		}
 	}
 }

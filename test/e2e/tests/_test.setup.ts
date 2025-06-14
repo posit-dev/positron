@@ -246,18 +246,25 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use({
 			set: async (
 				newSettings: Record<string, unknown>,
-				options?: { reload?: boolean | 'web'; waitMs?: number }
+				options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }
 			) => {
-				const { reload = false, waitMs = 0 } = options || {};
+				const { reload = false, waitMs = 0, waitForReady = false, keepOpen = false } = options || {};
 
-				await settings.set(newSettings);
+				await settings.set(newSettings, { keepOpen });
+
 				if (reload === true || (reload === 'web' && app.web === true)) {
 					await app.workbench.hotKeys.reloadWindow();
+					const workbench = app.code.driver.page.locator('.monaco-workbench');
+					await playwright.expect(workbench).not.toBeVisible();
+					await playwright.expect(workbench).toBeVisible();
 				}
 				else if (waitMs) {
 					await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect
 				}
-				await app.workbench.sessions.expectNoStartUpMessaging();
+
+				if (waitForReady) {
+					await app.workbench.sessions.expectNoStartUpMessaging();
+				}
 			},
 			clear: () => settings.clear(),
 			remove: (settingsToRemove: string[]) => settings.remove(settingsToRemove),
@@ -360,10 +367,6 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		}
 
 	}, { auto: true, scope: 'test' }],
-
-	page: async ({ app }, use) => {
-		await use(app.code.driver.page);
-	},
 
 	autoTestFixture: [async ({ logger, suiteId, app }, use, testInfo) => {
 		if (!suiteId) { throw new Error('suiteId is required'); }
@@ -489,7 +492,7 @@ interface WorkerFixtures {
 	logsPath: string;
 	logger: MultiLogger;
 	settings: {
-		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number }) => Promise<void>;
+		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
 		clear: () => Promise<void>;
 		remove: (settingsToRemove: string[]) => Promise<void>;
 	};
