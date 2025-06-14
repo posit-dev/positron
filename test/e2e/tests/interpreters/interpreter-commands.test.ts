@@ -17,6 +17,10 @@ Summary:
  * |Interrupt |R       |Empty error line (visible) |
  * |Shutdown  |Python  |'exited'                   |
  * |Shutdown  |R       |'exited'                   |
+ * |Clear     |Python  |'int... has been cleared'  |
+ * |Clear     |R       |'int... has been cleared'  |
+ * |Rename Act|Python  |'RenamedActive_Python'     |
+ * |Rename Act|R.      |'RenamedActive_R'          |
  */
 
 import { test, tags, expect } from '../_test.setup';
@@ -68,4 +72,65 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, and Shutdown', {
 		await page.keyboard.press('Enter');
 		await app.workbench.console.waitForConsoleContents('exited');
 	});
+
+	test('Verify Clear Saved Interpreter command works (→ interpreter has been cleared) - Python', { tag: [tags.WIN] }, async function ({ app, python, page }) {
+		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.clearAffiliatedRuntime', { keepOpen: true });
+		await app.workbench.quickInput.waitForQuickInputOpened();
+		const anyPythonSession = app.workbench.quickInput.quickInputList.getByText(/Python:/);
+		await anyPythonSession.waitFor({ state: 'visible' });
+		await page.keyboard.press('Enter');
+		await app.workbench.quickInput.waitForQuickInputClosed();
+		await app.workbench.popups.toastLocator
+			.locator('span', { hasText: /(Python|interpreter has been cleared)/ })
+			.waitFor({ state: 'visible', timeout: 2000 });
+	});
+
+	test('Verify Clear Saved Interpreter command works (→ interpreter has been cleared) - R', { tag: [tags.WIN] }, async function ({ app, r, page }) {
+		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.clearAffiliatedRuntime', { keepOpen: true });
+		await app.workbench.quickInput.waitForQuickInputOpened();
+		const anyRSession = app.workbench.quickInput.quickInputList.getByText(/R:/);
+		await anyRSession.waitFor({ state: 'visible' });
+		await page.keyboard.press('Enter');
+		await app.workbench.quickInput.waitForQuickInputClosed();
+		await app.workbench.popups.toastLocator
+			.locator('span', { hasText: /(R|interpreter has been cleared)/ })
+			.waitFor({ state: 'visible', timeout: 2000 });
+	});
+
+	test('Verify Rename Active Session command works (→ RenamedActive_Python) - Python', { tag: [tags.WIN] }, async function ({ app, python, page }) {
+		await app.workbench.quickaccess.runCommand('workbench.action.language.runtime.renameActiveSession', { keepOpen: true });
+		await app.workbench.quickInput.waitForQuickInputOpened();
+		await app.workbench.quickInput.type('RenamedActive_Python');
+		await page.keyboard.press('Enter');
+		await app.workbench.quickInput.waitForQuickInputClosed();
+		const renamedInterpreter = page.getByRole('button', {
+			name: 'Select Interpreter Session'
+		}).locator('.action-bar-button-label', { hasText: 'RenamedActive_Python' });
+		await renamedInterpreter.waitFor({ state: 'visible' });
+	});
+
+	test('Verify Rename Active Session command works (→ RenamedActive_R) - R', { tag: [tags.WIN] }, async function ({ app, r, page }) {
+		await app.workbench.quickaccess.runCommand('workbench.action.language.runtime.renameActiveSession', { keepOpen: true });
+		await app.workbench.quickInput.waitForQuickInputOpened();
+		await app.workbench.quickInput.type('RenamedActive_R');
+		await page.keyboard.press('Enter');
+		await app.workbench.quickInput.waitForQuickInputClosed();
+		const renamedInterpreter = page.getByRole('button', {
+			name: 'Select Interpreter Session'
+		}).locator('.action-bar-button-label', { hasText: 'RenamedActive_R' });
+		await renamedInterpreter.waitFor({ state: 'visible' });
+	});
 });
+
+/*
+A couple questions for next week:
+1. What would be relevant to add to the POM here? Any suggestions are welcome. Or anything I used that I could have adopted from the codebase?
+2. Having trouble with session output test, to find the output pane... I've tried multiple ways, but the structure seems complex. Any ideas?
+	test('Verify Show Active Interpreter Session Output command works (→ [Python]) - Python', { tag: [tags.WIN] }, async function ({ app, python, page }) {
+		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.showOutput', { keepOpen: false });
+	});
+
+	test('Verify Show Active Interpreter Session Output command works (→ [R]?) - R', { tag: [tags.WIN] }, async function ({ app, r, page }) {
+		await app.workbench.quickaccess.runCommand('workbench.action.languageRuntime.showOutput', { keepOpen: false });
+	});
+*/
