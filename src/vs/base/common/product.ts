@@ -57,6 +57,9 @@ export type ExtensionVirtualWorkspaceSupport = {
 
 export interface IProductConfiguration {
 	// --- Start Positron ---
+	/** The company name shown in the native about dialog */
+	readonly companyName: string;
+
 	/** The base version: underlying Code - OSS version */
 	readonly version: string;
 

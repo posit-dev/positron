@@ -91,13 +91,22 @@ export class BrowserDialogHandler extends AbstractDialogHandler {
 				navigator.userAgent
 			);
 		};
+		// --- Start Positron ---
+		const aboutProductHeader = localize({ key: 'aboutProductHeader', comment: ['Header for the about dialog'] },
+			"{0} by {1}",
+			this.productService.nameLong,
+			this.productService.companyName
+		);
+		// --- End Positron ---
 
 		const detail = detailString(true);
 		const detailToCopy = detailString(false);
 
 		const { button } = await this.doShow(
 			Severity.Info,
-			this.productService.nameLong,
+			// --- Start Positron ---
+			aboutProductHeader,
+			// --- End Positron ---
 			[
 				localize({ key: 'copy', comment: ['&& denotes a mnemonic'] }, "&&Copy"),
 				localize('ok', "OK")
