@@ -245,7 +245,7 @@ class MistralCompletion extends OpenAILegacyCompletion {
 		type: positron.PositronLanguageModelType.Completion,
 		provider: {
 			id: 'mistral',
-			displayName: 'Mistral'
+			displayName: 'Mistral AI'
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
@@ -388,8 +388,8 @@ abstract class FimPromptCompletion extends CompletionModel {
 		}
 
 		const { related, prefix, suffix } = await this.getDocumentContext(document, position);
-		const relatedText = Object.entries(related).map((filename, text) => {
-			return `<file filename="${filename}">${text}</file>`;
+		const relatedText = Object.entries(related).map(([filename, text]) => {
+			return `<|file_separator|>${filename}\n${text}\n`;
 		}).join('\n');
 
 		const controller = new AbortController();
@@ -400,8 +400,12 @@ abstract class FimPromptCompletion extends CompletionModel {
 		const { textStream } = await ai.streamText({
 			model: this.model,
 			system: system,
-			messages: [{ role: 'user', content: `${relatedText}<prefix>${prefix}</prefix><suffix>${suffix}</suffix>` }],
+			messages: [
+				{ role: 'user', content: `${relatedText}\n<|file_separator|>${document.fileName}\n<|fim_prefix|>${prefix}<|fim_suffix|>${suffix}\n<|fim_middle|>` }
+			],
 			maxTokens: 128,
+			temperature: 0.2,
+			stopSequences: ['\n\n', '<|fim_prefix|>', '<|fim_suffix|>', '<|file_separator|>'],
 			abortSignal: signal,
 		});
 
@@ -455,8 +459,8 @@ class OpenAICompletion extends FimPromptCompletion {
 		},
 		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
-			name: 'GPT-4o',
-			model: 'gpt-4o',
+			name: 'GPT-4.1 Mini',
+			model: 'gpt-4.1-mini',
 			baseUrl: 'https://api.openai.com/v1',
 		},
 	};
@@ -561,8 +565,8 @@ class GoogleCompletion extends FimPromptCompletion {
 		},
 		supportedOptions: ['baseUrl', 'apiKey'],
 		defaults: {
-			name: 'Gemini 2.0 Flash-Lite',
-			model: 'gemini-2.0-flash-lite',
+			name: 'Gemini 2.0 Flash',
+			model: 'gemini-2.0-flash-001',
 			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 			apiKey: undefined,
 		},

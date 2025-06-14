@@ -333,6 +333,7 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 			model: 'gpt-4o',
 			baseUrl: 'https://api.openai.com/v1',
 			toolCalls: true,
+			completions: true,
 		},
 	};
 
@@ -356,14 +357,15 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 		type: positron.PositronLanguageModelType.Chat,
 		provider: {
 			id: 'mistral',
-			displayName: 'Mistral'
+			displayName: 'Mistral AI'
 		},
-		supportedOptions: ['apiKey', 'baseUrl', 'toolCalls'],
+		supportedOptions: ['apiKey', 'baseUrl'],
 		defaults: {
-			name: 'Pixtral Large',
-			model: 'pixtral-large-latest',
+			name: 'Mistral Medium',
+			model: 'mistral-medium-latest',
 			baseUrl: 'https://api.mistral.ai/v1',
 			toolCalls: true,
+			completions: true,
 		},
 	};
 
@@ -591,6 +593,7 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 			baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
 			apiKey: undefined,
 			toolCalls: true,
+			completions: true,
 		},
 	};
 
