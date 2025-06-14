@@ -24,11 +24,17 @@ import { IInstantiationService, createDecorator } from '../../../../platform/ins
 import { HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
 
 /**
  * The help HTML file path.
  */
 const HELP_HTML_FILE_PATH = 'vs/workbench/contrib/positronHelp/browser/resources/help.html';
+
+/**
+ * The welcome page HTML file path.
+ */
+const WELCOME_HTML_FILE_PATH = 'vs/workbench/contrib/positronHelp/browser/resources/welcome.html';
 
 /**
  * The Positron help view ID.
@@ -120,6 +126,11 @@ export interface IPositronHelpService {
 	 * Show the find widget.
 	 */
 	find(): void;
+
+	/**
+	 * Show the welcome page.
+	 */
+	showWelcomePage(): void;
 }
 
 /**
@@ -132,6 +143,11 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * Gets or sets the help HTML.
 	 */
 	private _helpHTML = '<!DOCTYPE html><html><body></body></html>';
+
+	/**
+	 * Gets or sets the welcome HTML.
+	 */
+	private _welcomeHTML = '<!DOCTYPE html><html><body></body></html>';
 
 	/**
 	 * Gets or sets the help entries.
@@ -194,7 +210,8 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IThemeService private readonly _themeService: IThemeService,
-		@IViewsService private readonly _viewsService: IViewsService
+		@IViewsService private readonly _viewsService: IViewsService,
+		@IProductService private readonly _productService: IProductService,
 
 	) {
 		// Call the base class's constructor.
@@ -209,6 +226,27 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 				// Set the help HTML to an error message. This will be
 				// displayed in the Help pane.
 				this._helpHTML = `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${HELP_HTML_FILE_PATH}:</p><p>${error}</body></html>`;
+			});
+
+		// Load the welcome HTML file.
+		this._fileService.readFile(FileAccess.asFileUri(WELCOME_HTML_FILE_PATH))
+			.then(async fileContent => {
+				// Set the help HTML to the file's contents.
+				const wordmarkContent = await this._fileService.readFile(FileAccess.asFileUri('vs/workbench/browser/media/positron-icon.svg'));
+
+				// Convert SVG buffer to base64 encoded data URL
+				const base64Svg = btoa(wordmarkContent.value.toString());
+				const dataUrl = `data:image/svg+xml;base64,${base64Svg}`;
+
+				const html = fileContent.value.toString();
+				this._welcomeHTML = html
+					.replace('__productName__', this._productService.nameLong)
+					.replace('__logoSrc__', dataUrl);
+				this.showWelcomePage();
+			}).catch(error => {
+				// Set the help HTML to an error message. This will be
+				// displayed in the Help pane.
+				this._welcomeHTML = `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${WELCOME_HTML_FILE_PATH}:</p><p>${error}</body></html>`;
 			});
 
 		// Register onDidColorThemeChange handler.
@@ -595,6 +633,24 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			this.deleteLanguageRuntimeHelpEntries(sessionId);
 			this._helpClients.delete(sessionId);
 		}));
+	}
+
+	showWelcomePage() {
+		// Add the help entry.
+		const helpEntry = this._instantiationService.createInstance(HelpEntry,
+			this._welcomeHTML,
+			'',
+			'',
+			'',
+			'welcome.html',
+			'welcome.html'
+		);
+
+		// Add the onDidNavigate event handler.
+		helpEntry.onDidNavigate(url => {
+			this.navigate(helpEntry.sourceUrl, url);
+		});
+		this.addHelpEntry(helpEntry);
 	}
 
 	private async handleShowHelpEvent(
