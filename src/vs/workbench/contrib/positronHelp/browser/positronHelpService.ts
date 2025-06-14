@@ -433,10 +433,13 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * @param helpEntry The help entry to add.
 	 */
 	private addHelpEntry(helpEntry: HelpEntry) {
-		// If the help entry being added matches the current help entry, don't open it again.
-		if (this._helpEntries[this._helpEntryIndex]?.sourceUrl === helpEntry.sourceUrl) {
-			return;
-		}
+		// Note: The frontend can't know whether the content underlying the url is fully static or not,
+		// so the frontend should not be in charge of whether or not we re-request the url content.
+		//
+		// // If the help entry being added matches the current help entry, don't open it again.
+		// if (this._helpEntries[this._helpEntryIndex]?.sourceUrl === helpEntry.sourceUrl) {
+		// 	return;
+		// }
 
 		// Splice the help entry into the help entries at the current help entry index and trim the
 		// remaining help entries to 10.
