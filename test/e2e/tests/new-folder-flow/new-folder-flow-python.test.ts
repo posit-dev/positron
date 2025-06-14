@@ -5,7 +5,7 @@
 
 import { FolderTemplate } from '../../infra';
 import { test, tags } from '../_test.setup';
-import { addRandomNumSuffix, createNewFolder, verifyCondaEnvStarts, verifyCondaFilesArePresent, verifyConsoleReady, verifyFolderCreation, verifyGitFilesArePresent, verifyGitStatus, verifyUvEnvStarts, verifyVenvEnvStarts } from './helpers/new-folder-flow.js';
+import { addRandomNumSuffix, createNewFolder, verifyCondaEnvStarts, verifyCondaFilesArePresent, verifyConsoleReady, verifyFolderCreation, verifyGitFilesArePresent, verifyGitStatus, verifyUvEnvStarts, verifyVenvEnvStarts, verifyPyprojectTomlCreated, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
 
 test.use({
 	suiteId: __filename
@@ -28,11 +28,13 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			folderName,
 			status: 'existing',
 			ipykernelFeedback: 'hide',
-			interpreterPath: (await sessions.getSelectedSessionInfo()).path
+			interpreterPath: (await sessions.getSelectedSessionInfo()).path,
+			createPyprojectToml: false,
 		});
 
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
+		await verifyPyprojectTomlNotCreated(app);
 	});
 
 	// untagged windows because we cannot find any way to copy text from the terminal now that its a canvas
@@ -46,6 +48,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			initGitRepo: true,
 			status: 'new',
 			pythonEnv: 'venv',
+			createPyprojectToml: true,
 		});
 
 		await verifyFolderCreation(app, folderName);
@@ -53,6 +56,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 		await verifyGitFilesArePresent(app);
 		await verifyVenvEnvStarts(app);
 		await verifyGitStatus(app);
+		await verifyPyprojectTomlCreated(app);
 	});
 
 	test('New env: Conda environment', async function ({ app }) {
@@ -62,12 +66,14 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			folderName,
 			status: 'new',
 			pythonEnv: 'conda', // test relies on conda already installed on machine
+			createPyprojectToml: true,
 		});
 
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyCondaFilesArePresent(app);
 		await verifyCondaEnvStarts(app);
+		await verifyPyprojectTomlCreated(app);
 	});
 
 	test('New env: Venv environment', { tag: [tags.CRITICAL, tags.WIN] }, async function ({ app }) {
@@ -78,11 +84,13 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			folderName,
 			status: 'new',
 			pythonEnv: 'venv',
+			createPyprojectToml: false,
 		});
 
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyVenvEnvStarts(app);
+		await verifyPyprojectTomlNotCreated(app);
 	});
 
 	test('New env: uv environment', { tag: [tags.CRITICAL] }, async function ({ app }) {
@@ -93,10 +101,12 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 			folderName,
 			status: 'new',
 			pythonEnv: 'uv',  // test relies on uv already installed on machine
+			createPyprojectToml: true,
 		});
 
 		await verifyFolderCreation(app, folderName);
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyUvEnvStarts(app);
+		await verifyPyprojectTomlCreated(app);
 	});
 });

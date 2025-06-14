@@ -5,7 +5,7 @@
 
 import { FolderTemplate } from '../../infra';
 import { test, tags } from '../_test.setup';
-import { addRandomNumSuffix } from './helpers/new-folder-flow.js';
+import { addRandomNumSuffix, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
 
 test.use({
 	suiteId: __filename
@@ -25,5 +25,6 @@ test.describe('New Folder Flow: Empty Project', { tag: [tags.MODAL, tags.NEW_FOL
 		});
 
 		await newFolderFlow.verifyFolderCreation(folderName);
+		await verifyPyprojectTomlNotCreated(app);
 	});
 });

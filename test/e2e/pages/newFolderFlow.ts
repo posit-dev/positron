@@ -59,11 +59,22 @@ export class NewFolderFlow {
 	 * @param initGitRepo Whether to initialize a Git repository.
 	 **/
 	async setFolderNameLocation(options: CreateFolderOptions) {
-		const { folderName, initGitRepo } = options;
+		const { folderName, initGitRepo, createPyprojectToml, folderTemplate: type } = options;
 
 		await this.folderNameInput.fill(folderName);
 		if (initGitRepo) {
 			await this.code.driver.page.getByText('Initialize Git repository').check();
+		}
+
+		if (type === FolderTemplate.PYTHON_PROJECT) {
+			const checkboxLabel = this.code.driver.page.getByText('Create pyproject.toml file');
+			const shouldBeChecked = createPyprojectToml ?? false;
+			if (!shouldBeChecked) {
+				// It's checked by default, so click to uncheck
+				await checkboxLabel.click();
+			}
+		} else {
+			await expect(this.code.driver.page.getByText('Create pyproject.toml file')).not.toBeVisible();
 		}
 
 		const button = options.folderTemplate === FolderTemplate.EMPTY_PROJECT ? FlowButton.CREATE : FlowButton.NEXT;
@@ -232,6 +243,7 @@ export interface CreateFolderOptions {
 	rEnvCheckbox?: boolean;
 	pythonEnv?: 'conda' | 'venv' | 'uv';
 	initGitRepo?: boolean;
+	createPyprojectToml?: boolean;
 	ipykernelFeedback?: 'show' | 'hide';
 	interpreterPath?: string;
 }

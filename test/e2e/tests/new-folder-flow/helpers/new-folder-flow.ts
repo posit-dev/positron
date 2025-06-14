@@ -79,3 +79,17 @@ export async function verifyUvEnvStarts(app: Application) {
 		await app.workbench.console.waitForConsoleContents('(Uv: .venv) started.');
 	});
 }
+
+export async function verifyPyprojectTomlCreated(app: Application) {
+	await test.step('Verify pyproject.toml file is created', async () => {
+		const files = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
+		await expect(files.getByText('pyproject.toml')).toBeVisible({ timeout: 50000 });
+	});
+}
+
+export async function verifyPyprojectTomlNotCreated(app: Application) {
+	await test.step('Verify pyproject.toml file is not created', async () => {
+		const files = app.code.driver.page.locator('.monaco-list > .monaco-scrollable-element');
+		await expect(files.getByText('pyproject.toml')).toHaveCount(0, { timeout: 50000 });
+	});
+}

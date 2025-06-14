@@ -6,7 +6,7 @@
 import { Application } from '../../infra/index.js';
 import { FolderTemplate } from '../../pages/newFolderFlow.js';
 import { test, tags, expect } from '../_test.setup';
-import { addRandomNumSuffix, verifyConsoleReady, verifyFolderCreation } from './helpers/new-folder-flow.js';
+import { addRandomNumSuffix, verifyConsoleReady, verifyFolderCreation, verifyPyprojectTomlNotCreated } from './helpers/new-folder-flow.js';
 
 test.use({
 	suiteId: __filename
@@ -36,6 +36,7 @@ test.describe('New Folder Flow: Jupyter Project', {
 		await verifyConsoleReady(app, folderTemplate);
 		await verifyNotebookEditorVisible(app);
 		await verifyNotebookAndConsolePythonVersion(app);
+		await verifyPyprojectTomlNotCreated(app);
 	});
 });
 
