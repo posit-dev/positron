@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 export { prepareTestEnv } from './test-setup';
-export { cloneTestRepo, copyKeybindings } from './utils';
+export { cloneTestRepo, copyFixtureFile } from './utils';
 export { createApp, getRandomUserDataDir } from './create-app';
 export { createLogger } from './logger';
 export { TestTags } from './test-tags';
