@@ -35,8 +35,27 @@ export interface JupyterKernel {
 }
 
 /**
+ * Message sent from the frontend requesting a server to start
+ */
+export interface ServerStartMessage {
+	/** The IP address or host name on which the client is listening for server requests. The server is
+	 * in charge of picking the exact port to communicate over, since the server is the
+	 * one that binds to the port (to prevent race conditions).
+	 */
+	host: string;
+}
+
+/**
+ * Message sent to the frontend to acknowledge that the corresponding server has started
+ */
+export interface ServerStartedMessage {
+	/** The port that the frontend should connect to on the `ip_address` it sent over */
+	port: number;
+}
+
+/**
  * This set of type definitions defines the interfaces used by the Positron
- * Positron Supervisor extension.
+ * Supervisor extension.
  */
 
 /**
@@ -84,19 +103,42 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * Convenience method for starting the Positron LSP server, if the
 	 * language runtime supports it.
 	 *
+	 * @param clientId The ID of the client comm, created with
+	 *  `createPositronLspClientId()`.
 	 * @param ipAddress The address of the client that will connect to the
 	 *  language server.
 	 */
-	startPositronLsp(ipAddress: string): Promise<number>;
+	startPositronLsp(clientId: string, ipAddress: string): Promise<number>;
 
 	/**
-	 * Convenience method for starting the Positron DAP server, if the
-	 * language runtime supports it.
-	 *
-	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
-	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
+	 * Convenience method for creating a client id to pass to
+	 * `startPositronLsp()`. The caller can later remove the client using this
+	 * id as well.
 	 */
-	startPositronDap(debugType: string, debugName: string): Promise<void>;
+	createPositronLspClientId(): string;
+
+	/**
+	 * Creates a server communication channel and returns both the comm and the port.
+	 *
+	 * @param targetName The name of the comm target
+	 * @param host The IP address or host name for the server
+	 * @returns A promise that resolves to a tuple of [RawComm, port number]
+	 */
+	createServerComm(targetName: string, host: string): Promise<[RawComm, number]>;
+
+	/**
+	 * Start a raw comm for communication between frontend and backend.
+	 *
+	 * Unlike Positron clients, this kind of comm is private to the calling
+	 * extension and its kernel.
+	 *
+	 * @param target_name Comm type, also used to generate comm identifier.
+	 * @param params Optionally, additional parameters included in `comm_open`.
+	 */
+	createComm(
+		target_name: string,
+		params?: Record<string, unknown>,
+	): Promise<RawComm>;
 
 	/**
 	 * Method for emitting a message to the language server's Jupyter output
@@ -110,8 +152,18 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	/**
 	 * A Jupyter kernel is guaranteed to have a `showOutput()`
 	 * method, so we declare it non-optional.
+	 *
+	 * @param channel The name of the output channel to show.
+	 * If not provided, the default channel is shown.
 	 */
-	showOutput(): void;
+	showOutput(channel?: positron.LanguageRuntimeSessionChannel): void;
+
+	/**
+	 * Return a list of output channels
+	 *
+	 * @returns A list of output channels available on this runtime
+	 */
+	listOutputChannels(): positron.LanguageRuntimeSessionChannel[];
 
 	/**
 	 * A Jupyter kernel is guaranteed to have a `callMethod()` method; it uses
@@ -153,17 +205,24 @@ export interface PositronSupervisorApi extends vscode.Disposable {
 	): Promise<JupyterLanguageRuntimeSession>;
 
 	/**
+	 * Validate an existing session for a Jupyter-compatible kernel.
+	 */
+	validateSession(sessionId: string): Promise<boolean>;
+
+	/**
 	 * Restore a session for a Jupyter-compatible kernel.
 	 *
 	 * @param runtimeMetadata The metadata for the language runtime to be
 	 * wrapped by the adapter.
 	 * @param sessionMetadata The metadata for the session to be reconnected.
+	 * @param dynState The initial dynamic state of the session.
 	 *
 	 * @returns A JupyterLanguageRuntimeSession that wraps the kernel.
 	 */
 	restoreSession(
 		runtimeMetadata: positron.LanguageRuntimeMetadata,
-		sessionMetadata: positron.RuntimeSessionMetadata
+		sessionMetadata: positron.RuntimeSessionMetadata,
+		dynState: positron.LanguageRuntimeDynState,
 	): Promise<JupyterLanguageRuntimeSession>;
 }
 
@@ -177,3 +236,56 @@ export interface JupyterKernelExtra {
 		init: (args: Array<string>, delay: number) => void;
 	};
 }
+
+/**
+ * Raw comm unmanaged by Positron.
+ *
+ * This type of comm is not mapped to a Positron client. It lives entirely in
+ * the extension space and allows private communication between an extension and
+ * its kernel.
+ *
+ * It's a disposable. Dispose of it once it's closed or you're no longer using
+ * it. If the comm has not already been closed by the kernel, a client-initiated
+ * `comm_close` message is emitted.
+ */
+export interface RawComm {
+	/** The comm ID. */
+	id: string;
+
+	/** Async-iterable for messages sent from backend. */
+	receiver: Channel<CommBackendMessage>;
+
+	/** Send a notification to the backend comm. Returns `false` if comm was closed. */
+	notify: (method: string, params?: Record<string, unknown>) => boolean;
+
+	/** Make a request to the backend comm. Resolves when backend responds. The tuple's
+			* first value indicates whether the comm was closed (and no request was emitted).
+			* The second value is the result if the request was made. */
+	request: (method: string, params?: Record<string, unknown>) => Promise<[boolean, any]>;
+
+	/** Clear resources and sends `comm_close` to backend comm (unless the channel
+			* was closed by the backend already). */
+	dispose: () => void;
+}
+
+/**
+ * Communication channel. Dispose to close.
+ */
+export interface Channel<T> extends AsyncIterable<T>, vscode.Disposable { }
+
+/** Message from the backend.
+ *
+ * If a request, the `handle` method _must_ be called.
+ */
+export type CommBackendMessage =
+	| {
+		kind: 'request';
+		method: string;
+		params?: Record<string, unknown>;
+		handle: (handler: () => any) => void;
+	}
+	| {
+		kind: 'notification';
+		method: string;
+		params?: Record<string, unknown>;
+	};

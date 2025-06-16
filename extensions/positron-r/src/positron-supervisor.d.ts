@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 
+// eslint-disable-next-line import/no-unresolved
 import * as positron from 'positron';
 
 export interface JupyterSessionState {
@@ -31,6 +32,25 @@ export interface JupyterSession {
 export interface JupyterKernel {
 	connectToSession(session: JupyterSession): Promise<void>;
 	log(msg: string): void;
+}
+
+/**
+ * Message sent from the frontend requesting a server to start
+ */
+export interface ServerStartMessage {
+	/** The IP address or host name on which the client is listening for server requests. The server is
+	 * in charge of picking the exact port to communicate over, since the server is the
+	 * one that binds to the port (to prevent race conditions).
+	 */
+	host: string;
+}
+
+/**
+ * Message sent to the frontend to acknowledge that the corresponding server has started
+ */
+export interface ServerStartedMessage {
+	/** The port that the frontend should connect to on the `ip_address` it sent over */
+	port: number;
 }
 
 /**
@@ -91,17 +111,6 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	startPositronLsp(clientId: string, ipAddress: string): Promise<number>;
 
 	/**
-	 * Convenience method for starting the Positron DAP server, if the
-	 * language runtime supports it.
-	 *
-	 * @param clientId The ID of the client comm, created with
-	 *  `createPositronDapClientId()`.
-	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
-	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
-	 */
-	startPositronDap(clientId: string, debugType: string, debugName: string): Promise<void>;
-
-	/**
 	 * Convenience method for creating a client id to pass to
 	 * `startPositronLsp()`. The caller can later remove the client using this
 	 * id as well.
@@ -109,11 +118,27 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	createPositronLspClientId(): string;
 
 	/**
-	 * Convenience method for creating a client id to pass to
-	 * `startPositronDap()`. The caller can later remove the client using this
-	 * id as well.
+	 * Creates a server communication channel and returns both the comm and the port.
+	 *
+	 * @param targetName The name of the comm target
+	 * @param host The IP address or host name for the server
+	 * @returns A promise that resolves to a tuple of [RawComm, port number]
 	 */
-	createPositronDapClientId(): string;
+	createServerComm(targetName: string, host: string): Promise<[RawComm, number]>;
+
+	/**
+	 * Start a raw comm for communication between frontend and backend.
+	 *
+	 * Unlike Positron clients, this kind of comm is private to the calling
+	 * extension and its kernel.
+	 *
+	 * @param target_name Comm type, also used to generate comm identifier.
+	 * @param params Optionally, additional parameters included in `comm_open`.
+	 */
+	createComm(
+		target_name: string,
+		params?: Record<string, unknown>,
+	): Promise<RawComm>;
 
 	/**
 	 * Method for emitting a message to the language server's Jupyter output
@@ -128,7 +153,8 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * A Jupyter kernel is guaranteed to have a `showOutput()`
 	 * method, so we declare it non-optional.
 	 *
-	 * @param channel The channel to show the output of.
+	 * @param channel The name of the output channel to show.
+	 * If not provided, the default channel is shown.
 	 */
 	showOutput(channel?: positron.LanguageRuntimeSessionChannel): void;
 
@@ -209,4 +235,73 @@ export interface JupyterKernelExtra {
 	sleepOnStartup?: {
 		init: (args: Array<string>, delay: number) => void;
 	};
+}
+
+/**
+ * Raw comm unmanaged by Positron.
+ *
+ * This type of comm is not mapped to a Positron client. It lives entirely in
+ * the extension space and allows private communication between an extension and
+ * its kernel.
+ *
+ * It's a disposable. Dispose of it once it's closed or you're no longer using
+ * it. If the comm has not already been closed by the kernel, a client-initiated
+ * `comm_close` message is emitted.
+ */
+export interface RawComm {
+	/** The comm ID. */
+	id: string;
+
+	/** Async-iterable for messages sent from backend. */
+	receiver: Channel<CommBackendMessage>;
+
+	/** Send a notification to the backend comm. Returns `false` if comm was closed. */
+	notify: (method: string, params?: Record<string, unknown>) => boolean;
+
+	/** Make a request to the backend comm. Resolves when backend responds. The tuple's
+			* first value indicates whether the comm was closed (and no request was emitted).
+			* The second value is the result if the request was made. */
+	request: (method: string, params?: Record<string, unknown>) => Promise<[boolean, any]>;
+
+	/** Clear resources and sends `comm_close` to backend comm (unless the channel
+			* was closed by the backend already). */
+	dispose: () => void;
+}
+
+/**
+ * Communication channel. Dispose to close.
+ */
+export interface Channel<T> extends AsyncIterable<T>, vscode.Disposable { }
+
+/** Message from the backend.
+ *
+ * If a request, the `handle` method _must_ be called.
+ */
+export type CommBackendMessage =
+	| {
+		kind: 'request';
+		method: string;
+		params?: Record<string, unknown>;
+		handle: (handler: () => any) => void;
+	}
+	| {
+		kind: 'notification';
+		method: string;
+		params?: Record<string, unknown>;
+	};
+
+/**
+ * Interface for DAP communication instances
+ */
+export interface DapCommInterface {
+	readonly targetName: string;
+	readonly debugType: string;
+	readonly debugName: string;
+
+	readonly comm?: RawComm;
+	readonly serverPort?: number;
+
+	createComm(): Promise<void>;
+	handleMessage(msg: any): boolean;
+	dispose(): void;
 }
