@@ -34,17 +34,23 @@ test.describe('Python Debugging', {
 		});
 
 		const helperFile = 'helper_functions.py';
-		await openFile(join('workspaces', 'python_module_caching', 'helper', helperFile));
 
-		await app.workbench.editor.replaceTerm(helperFile, '"Hello', 2, 'Goodbye');
+		await test.step('Edit helper', async () => {
 
-		await hotKeys.save();
+			await openFile(join('workspaces', 'python_module_caching', 'helper', helperFile));
 
-		await openFile(join('workspaces', 'python_module_caching', 'app.py'));
+			await app.workbench.editor.replaceTerm(helperFile, '"Hello', 2, 'Goodbye');
 
-		await app.workbench.editor.pressPlay(true);
+			await hotKeys.save();
+		});
 
-		await app.workbench.console.waitForConsoleContents('Goodbye World');
+		await test.step('Re-run with edited helper', async () => {
+			await openFile(join('workspaces', 'python_module_caching', 'app.py'));
+
+			await app.workbench.editor.pressPlay(true);
+
+			await app.workbench.console.waitForConsoleContents('Goodbye World');
+		});
 
 	});
 });
