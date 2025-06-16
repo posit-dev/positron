@@ -18,10 +18,6 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 				'files.simpleDialog.enable': true,
 				'interpreters.startupBehavior': 'auto'
 			}, { reload: true });
-
-			await hotKeys.hideSecondarySidebar();
-			await app.workbench.console.clearButton.click();
-			await hotKeys.showSecondarySidebar();
 		} catch (e) {
 			await app.code.driver.takeScreenshot('testExplorerSetup');
 			throw e;
