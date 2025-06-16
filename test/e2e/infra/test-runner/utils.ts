@@ -16,7 +16,7 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 	const cacheDir = path.join(os.tmpdir(), 'qa-example-content-cache');
 	const cachedCommitFile = path.join(cacheDir, '.cached-commit');
-	const branch = 'mi/remove-workspace-settings';
+	const branch = 'main';
 
 	// Check if the machine is online by attempting to fetch the latest commit hash.
 	let remoteCommitHash: string | null = null;
