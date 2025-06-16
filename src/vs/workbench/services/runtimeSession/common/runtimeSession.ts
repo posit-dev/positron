@@ -374,7 +374,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined {
 		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
-		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'} `);
+		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'}`);
 		return session;
 	}
 
@@ -632,7 +632,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// This shouldn't happen, but could in unusual circumstances, e.g.
 			// the extension that supplies the runtime was uninstalled and this
 			// is a stale session that it owned the last time we were running.
-			this._logService.error(`Error getting manager for runtime ${formatLanguageRuntimeMetadata(runtimeMetadata)}: ${err} `);
+			this._logService.error(`Error getting manager for runtime ${formatLanguageRuntimeMetadata(runtimeMetadata)}: ${err}`);
 			// Treat the session as invalid if we can't get the manager.
 			return false;
 		}
@@ -687,7 +687,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// It's possible that startPromise is never awaited, so we log any errors here
 		// at the debug level since we still expect the error to be handled/logged elsewhere.
-		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err} `));
+		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
 
 		// For notebook sessions, update the starting sessions map so that any concurrent
 		// start/restore requests return the same pending promise.
@@ -736,7 +736,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			session = await sessionManager.restoreSession(runtimeMetadata, sessionMetadata, sessionName);
 		} catch (err) {
 			this._logService.error(
-				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime` +
+				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
 				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
 			throw err;
 		}
