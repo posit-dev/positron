@@ -754,5 +754,3 @@ p_bar = (
 p_bar.show()
 ```
 </examples-python>
-
-The next messages you see will be from the USER.
