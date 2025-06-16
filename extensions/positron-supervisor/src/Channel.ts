@@ -26,7 +26,7 @@ export function channel<T>(): [Sender<T>, Receiver<T>] {
 export class Sender<T> implements vscode.Disposable {
 	private disposables: vscode.Disposable[] = [];
 
-	constructor(private state: ChannelState<T>) {}
+	constructor(private state: ChannelState<T>) { }
 
 	/**
 	 * Sends a value to the channel.
@@ -40,7 +40,8 @@ export class Sender<T> implements vscode.Disposable {
 
 		if (this.state.pending_consumers.length > 0) {
 			// There is a consumer waiting, resolve it immediately
-			this.state.pending_consumers.shift()!({ value, done: false });
+			const consumer = this.state.pending_consumers.shift();
+			consumer!({ value, done: false });
 		} else {
 			// No consumer waiting, queue up the value
 			this.state.queue.push(value);
@@ -68,7 +69,7 @@ export class Receiver<T> implements AsyncIterable<T>, AsyncIterator<T>, vscode.D
 	private i = 0;
 	private disposables: vscode.Disposable[] = [];
 
-	constructor(private state: ChannelState<T>) {}
+	constructor(private state: ChannelState<T>) { }
 
 	[Symbol.asyncIterator]() {
 		return this;
@@ -78,6 +79,9 @@ export class Receiver<T> implements AsyncIterable<T>, AsyncIterator<T>, vscode.D
 		if (this.state.queue.length > 0) {
 			++this.i;
 
+			// Get the value from queue first, before any potential await
+			const value = this.state.queue.shift()!;
+
 			// Yield regularly to event loop to avoid starvation. Sends are
 			// synchronous and handlers might be synchronous as well.
 			if (this.i > YIELD_THRESHOLD) {
@@ -85,7 +89,7 @@ export class Receiver<T> implements AsyncIterable<T>, AsyncIterator<T>, vscode.D
 				await delay(0);
 			}
 
-			return { value: this.state.queue.shift()!, done: false };
+			return { value, done: false };
 		}
 
 		// If nothing in the queue and the channel is closed, we're done

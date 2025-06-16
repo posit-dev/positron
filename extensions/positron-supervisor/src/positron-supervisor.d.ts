@@ -35,6 +35,25 @@ export interface JupyterKernel {
 }
 
 /**
+ * Message sent from the frontend requesting a server to start
+ */
+export interface ServerStartMessage {
+	/** The IP address or host name on which the client is listening for server requests. The server is
+	 * in charge of picking the exact port to communicate over, since the server is the
+	 * one that binds to the port (to prevent race conditions).
+	 */
+	host: string;
+}
+
+/**
+ * Message sent to the frontend to acknowledge that the corresponding server has started
+ */
+export interface ServerStartedMessage {
+	/** The port that the frontend should connect to on the `ip_address` it sent over */
+	port: number;
+}
+
+/**
  * This set of type definitions defines the interfaces used by the Positron
  * Supervisor extension.
  */
@@ -92,17 +111,6 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	startPositronLsp(clientId: string, ipAddress: string): Promise<number>;
 
 	/**
-	 * Convenience method for starting the Positron DAP server, if the
-	 * language runtime supports it.
-	 *
-	 * @param clientId The ID of the client comm, created with
-	 *  `createPositronDapClientId()`.
-	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
-	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
-	 */
-	startPositronDap(clientId: string, debugType: string, debugName: string): Promise<void>;
-
-	/**
 	 * Convenience method for creating a client id to pass to
 	 * `startPositronLsp()`. The caller can later remove the client using this
 	 * id as well.
@@ -110,11 +118,13 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	createPositronLspClientId(): string;
 
 	/**
-	 * Convenience method for creating a client id to pass to
-	 * `startPositronDap()`. The caller can later remove the client using this
-	 * id as well.
+	 * Creates a server communication channel and returns both the comm and the port.
+	 *
+	 * @param targetName The name of the comm target
+	 * @param host The IP address or host name for the server
+	 * @returns A promise that resolves to a tuple of [RawComm, port number]
 	 */
-	createPositronDapClientId(): string;
+	createServerComm(targetName: string, host: string): Promise<[RawComm, number]>;
 
 	/**
 	 * Start a raw comm for communication between frontend and backend.
@@ -214,6 +224,13 @@ export interface PositronSupervisorApi extends vscode.Disposable {
 		sessionMetadata: positron.RuntimeSessionMetadata,
 		dynState: positron.LanguageRuntimeDynState,
 	): Promise<JupyterLanguageRuntimeSession>;
+
+	/**
+	 * Implementation classes exposed for use by other extensions
+	 */
+	readonly implementations: {
+		DapComm: DapCommConstructor;
+	};
 }
 
 /** Specific functionality implemented by runtimes */
@@ -279,3 +296,25 @@ export type CommBackendMessage =
 		method: string;
 		params?: Record<string, unknown>;
 	};
+
+export interface DapCommInterface {
+	readonly targetName: string;
+	readonly debugType: string;
+	readonly debugName: string;
+
+	readonly comm?: RawComm;
+	readonly serverPort?: number;
+
+	createComm(): Promise<void>;
+	handleMessage(msg: any): boolean;
+	dispose(): void;
+}
+
+export interface DapCommConstructor {
+	new(
+		session: JupyterLanguageRuntimeSession,
+		targetName: string,
+		debugType: string,
+		debugName: string,
+	): DapCommInterface;
+}

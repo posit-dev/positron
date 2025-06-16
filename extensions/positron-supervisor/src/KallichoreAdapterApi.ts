@@ -119,7 +119,12 @@ function constructWebSocketUri(apiBasePath: string, sessionId: string): string {
 	return `ws://${uri.authority}/sessions/${sessionId}/channels`;
 }
 
+import { DapComm } from './DapClient';
+
 export class KCApi implements PositronSupervisorApi {
+	readonly implementations = {
+		DapComm
+	};
 
 	/** The instance of the API; the API is code-generated from the Kallichore
 	 * OpenAPI spec */
