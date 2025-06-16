@@ -24,7 +24,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 	});
 });
 
-// This nesting is necessary because the userSettings fixture must be used in a
+// This nesting is necessary because the settings fixture must be used in a
 // beforeAll hook to ensure app instances pass to test correctly
 test.describe('Console Pane: Alternate Python', () => {
 

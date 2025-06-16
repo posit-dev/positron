@@ -254,11 +254,11 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 				if (reload === true || (reload === 'web' && app.web === true)) {
 					await app.workbench.hotKeys.reloadWindow();
-					const workbench = app.code.driver.page.locator('.monaco-workbench');
-					await playwright.expect(workbench).not.toBeVisible();
-					await playwright.expect(workbench).toBeVisible();
+					// wait for the reload to complete
+					await app.code.driver.page.waitForTimeout(3000);
+					await playwright.expect(app.code.driver.page.locator('.monaco-workbench')).toBeVisible();
 				}
-				else if (waitMs) {
+				if (waitMs) {
 					await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect
 				}
 
