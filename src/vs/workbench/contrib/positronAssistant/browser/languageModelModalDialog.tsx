@@ -131,7 +131,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		return () => { disposables.forEach(d => d.dispose()); }
 	}, [props.positronAssistantService]);
 
-	// Keep selectedProvider and providerConfig in sync with providerSources
+	// Keep selectedProvider in sync with providerSources
 	useEffect(() => {
 		const updatedSource = providerSources.find(source => source.provider.id === selectedProvider.provider.id);
 		if (updatedSource) {

@@ -181,8 +181,8 @@ const ApiKey = (props: { apiKey?: string, onChange: (newApiKey: string) => void 
 }
 
 const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, onSignIn: () => void }) => {
-	// When the auth method is 'apiKey' and the user is not signed in, we use the default button style, so that the
-	// Enter key can be used to sign in with the text input provided.
+	// Use the default button style when the auth method is 'apiKey' and authentication is in progress (user
+	// is entering an API key). This allows the Enter key to submit the API key input field.
 	const useDefaultButtonStyle = props.authMethod === AuthMethod.API_KEY && props.authStatus === AuthStatus.IN_PROGRESS;
 	return <Button
 		className={`language-model button sign-in ${useDefaultButtonStyle ? 'default' : ''}`}
