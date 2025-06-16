@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, RawComm } from './positron-supervisor';
+import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, RawComm } from './positron-supervisor';
 import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -42,7 +42,8 @@ import { AdoptedSession } from './AdoptedSession';
 import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 import { JupyterCommClose } from './jupyter/JupyterCommClose';
-import { RawCommImpl } from './RawComm';
+import { CommBackendRequest, CommRpcMessage, RawCommImpl } from './RawComm';
+import { channel, Sender } from './Channel';
 
 /**
  * The reason for a disconnection event.
@@ -153,7 +154,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _clients: Map<string, Comm> = new Map();
 
 	/** A map of active comms unmanaged by Positron */
-	private readonly _comms: Map<string, RawCommImpl> = new Map();
+	private readonly _comms: Map<string, [RawComm, Sender<CommBackendMessage>]> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -743,14 +744,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	async createComm(
 		target_name: string,
-		handleNotification: (method: string, params?: Record<string, unknown>) => void,
-		handleRequest: (method: string, params?: Record<string, unknown>) => any,
 		params: Record<string, unknown> = {},
 	): Promise<RawCommImpl> {
 		const id = `extension-comm-${target_name}-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 
-		const comm = new RawCommImpl(id, this, handleNotification, handleRequest);
-		this._comms.set(id, comm);
+		const [tx, rx] = channel<CommBackendMessage>();
+		const comm = new RawCommImpl(id, this, rx);
+		this._comms.set(id, [comm, tx]);
 
 		// Disposal handler that allows extension to initiate close comm
 		comm.register({
@@ -758,8 +758,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// If already deleted, it means a `comm_close` from the backend was
 				// received and we don't need to send one.
 				if (this._comms.delete(id)) {
-					const commClose = new CommCloseCommand(id);
-					this.sendCommand(commClose);
+					comm.close_and_notify();
 				}
 			}
 		});
@@ -1796,8 +1795,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._clients.clear();
 
 		// Close all raw comms
-		for (const comm of this._comms.values()) {
-			comm.close();
+		for (const [comm, tx] of this._comms.values()) {
+			// Don't dispose of comm, this resource is owned by caller of `createComm()`.
+			(comm as RawCommImpl).close();
+			tx.dispose();
 		}
 		this._comms.clear();
 
@@ -1951,11 +1952,15 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		switch (msg.header.msg_type) {
 			case 'comm_close': {
 				const closeMsg = msg.content as JupyterCommClose;
-				const comm = this._comms.get(closeMsg.comm_id);
+				const commHandle = this._comms.get(closeMsg.comm_id);
 
-				if (comm) {
+				if (commHandle) {
+					// Delete first, this prevents the channel disposable from sending a
+					// `comm_close` back
 					this._comms.delete(closeMsg.comm_id);
-					comm.close();
+
+					const [comm, _] = commHandle;
+					comm.dispose();
 					return;
 				}
 				break;
@@ -1963,10 +1968,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			case 'comm_msg': {
 				const commMsg = msg.content as JupyterCommMsg;
-				const comm = this._comms.get(commMsg.comm_id);
+				const commHandle = this._comms.get(commMsg.comm_id);
 
-				if (comm) {
-					comm.handleMessage(commMsg);
+				if (commHandle) {
+					const [_, tx] = commHandle;
+					const rpcMsg = commMsg.data as CommRpcMessage;
+
+					if (rpcMsg.id) {
+						tx.send(new CommBackendRequest(this, commMsg.comm_id, rpcMsg));
+					} else {
+						tx.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
+					}
 					return;
 				}
 				break;

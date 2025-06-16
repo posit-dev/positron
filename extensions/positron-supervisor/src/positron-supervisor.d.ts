@@ -123,14 +123,10 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
 	 * extension and its kernel.
 	 *
 	 * @param target_name Comm type, also used to generate comm identifier.
-	 * @param handleNotification Handle notification from backend.
-	 * @param handleRequest Handle request from backend. Throw error to reject.
 	 * @param params Optionally, additional parameters included in `comm_open`.
 	 */
 	createComm(
 		target_name: string,
-		handleNotification: (method: string, params?: Record<string, unknown>) => void,
-		handleRequest: (method: string, params?: Record<string, unknown>) => any,
 		params?: Record<string, unknown>,
 	): Promise<RawComm>;
 
@@ -243,6 +239,9 @@ export interface JupyterKernelExtra {
  * `comm_close` message is emitted.
  */
 export interface RawComm {
+	/** Async-iterable for messages sent from backend. */
+	receiver: Channel<CommBackendMessage>;
+
 	/** Send a notification to the backend comm. Returns `false` if comm was closed. */
 	notify: (method: string, params?: Record<string, unknown>) => boolean;
 
@@ -255,3 +254,25 @@ export interface RawComm {
 	  * was closed by the backend already). */
 	dispose: () => void;
 }
+
+/**
+ * Communication channel. Dispose to close.
+ */
+export interface Channel<T> extends AsyncIterable<T>, vscode.Disposable {}
+
+/** Message from the backend.
+ *
+ * If a request, the `handle` method _must_ be called.
+ */
+export type CommBackendMessage =
+	| {
+		kind: 'request';
+		method: string;
+		params?: Record<string, unknown>;
+		handle: (handler: () => any) => void;
+	}
+	| {
+		kind: 'notification';
+		method: string;
+		params?: Record<string, unknown>;
+	};
