@@ -893,7 +893,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		const code = this._recentExecutions.get(message.parent_id) ?? '';
 
 		if (message.kind === RuntimeOutputKind.StaticImage) {
-			return new StaticPlotClient(this._storageService, session.sessionId, message, code);
+			return StaticPlotClient.fromMessage(this._storageService, session.sessionId, message, code);
 		} else if (message.kind === RuntimeOutputKind.PlotWidget) {
 			return new NotebookOutputPlotClient(this._notebookOutputWebviewService, session, message, code);
 		}
@@ -1426,7 +1426,10 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 
 		if (plotClient instanceof StaticPlotClient) {
-			this._editorPlots.set(plotClient.id, plotClient);
+			// Create a copy of the StaticPlotClient for the editor
+			const plotCopy = StaticPlotClient.fromMetadata(this._storageService, plotClient.metadata, plotClient.mimeType, plotClient.data);
+			this._editorPlots.set(plotClient.id, plotCopy);
+			this._register(plotCopy);
 		}
 
 		// Create a new plot client instance for the editor

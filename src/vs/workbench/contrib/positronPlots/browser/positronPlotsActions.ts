@@ -16,7 +16,7 @@ import { IQuickInputService, IQuickPick, IQuickPickItem } from '../../../../plat
 import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IPositronPlotClient, IPositronPlotsService, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Uri } from 'vscode';
@@ -664,7 +664,10 @@ abstract class PlotsEditorZoomAction extends Action2 {
 	 */
 	async run(accessor: ServicesAccessor, plotId: Uri): Promise<void> {
 		const plotsService = accessor.get(IPositronPlotsService);
-		plotsService.setEditorPlotZoom(plotId.path, this.zoomLevel);
+		const plotInstance = plotsService.getEditorInstance(plotId.path);
+		if (isZoomablePlotClient(plotInstance)) {
+			plotInstance.zoomLevel = this.zoomLevel;
+		}
 	}
 }
 
