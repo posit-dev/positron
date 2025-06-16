@@ -1355,7 +1355,7 @@ export class MainThreadLanguageRuntime
 
 	private readonly _sessions: Map<number, ExtHostLanguageRuntimeSessionAdapter> = new Map();
 
-	private readonly _registeredRuntimes: Map<number, ILanguageRuntimeMetadata> = new Map();
+	private readonly _registeredRuntimes: Map<string, ILanguageRuntimeMetadata> = new Map();
 
 	/**
 	 * Instance counter
@@ -1472,8 +1472,8 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to register a language runtime
-	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
-		this._registeredRuntimes.set(handle, metadata);
+	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void {
+		this._registeredRuntimes.set(metadata.runtimeId, metadata);
 		this._languageRuntimeService.registerRuntime(metadata);
 	}
 
@@ -1506,6 +1506,11 @@ export class MainThreadLanguageRuntime
 		return this._runtimeSessionService.selectRuntime(
 			runtimeId,
 			'Extension-requested runtime selection via Positron API');
+	}
+
+	// Called by the extension host to get a list of all registered runtimes
+	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]> {
+		return Promise.resolve(Array.from(this._registeredRuntimes.values()));
 	}
 
 	// Called by the extension host to start a previously registered language runtime
@@ -1583,11 +1588,12 @@ export class MainThreadLanguageRuntime
 		this._runtimeStartupService.completeDiscovery(this._id);
 	}
 
-	$unregisterLanguageRuntime(handle: number): void {
-		const runtime = this._registeredRuntimes.get(handle);
+	// Called by the extension host to unregister a language runtime
+	$unregisterLanguageRuntime(runtimeId: string): void {
+		const runtime = this._registeredRuntimes.get(runtimeId);
 		if (runtime) {
-			this._languageRuntimeService.unregisterRuntime(runtime.runtimeId);
-			this._registeredRuntimes.delete(handle);
+			this._languageRuntimeService.unregisterRuntime(runtimeId);
+			this._registeredRuntimes.delete(runtimeId);
 		}
 	}
 
