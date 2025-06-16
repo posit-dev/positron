@@ -44,6 +44,19 @@
         ]
       },
       {
+        "id": "positron.assistant.agent",
+        "name": "assistant",
+        "fullName": "%chatParticipants.fullName%",
+        "description": "%chatParticipants.agent.description%",
+        "isDefault": true,
+        "locations": [
+          "panel"
+        ],
+        "modes": [
+          "agent"
+        ]
+      },
+      {
         "id": "positron.assistant.terminal",
         "name": "assistant",
         "fullName": "%chatParticipants.fullName%",
@@ -345,7 +358,7 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@github/copilot-language-server": "^1.286.0",
+    "@github/copilot-language-server": "^1.335.0",
     "vscode-languageclient": "^9.0.1"
   }
 }

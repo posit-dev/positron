@@ -53,6 +53,16 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** Queue for language server activation/deactivation */
     private _lspQueue: PQueue;
 
+    /**
+     * Promise that resolves after LSP server activation is finished.
+     * Tracked to avoid stopping in the middle of startup.
+     * Resolves to the port number the client should connect on.
+     */
+    private _lspStartingPromise: Promise<number> = Promise.resolve(0);
+
+    /** Client ID for the LSP, used to close the Jupyter comm during deactivation */
+    private _lspClientId?: string;
+
     /** The Jupyter kernel-based implementation of the Language Runtime API */
     private _kernel?: JupyterLanguageRuntimeSession;
 
@@ -453,7 +463,12 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             });
         }
 
-        return this._kernel!.start();
+        return this._kernel!.start().then((info) => {
+            if (this.kernelSpec) {
+                this.enableAutoReloadIfEnabled(info);
+            }
+            return info;
+        });
     }
 
     private async onConsoleWidthChange(newWidth: number): Promise<void> {
@@ -488,10 +503,6 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             throw new Error('Cannot interrupt; kernel not started');
         }
     }
-
-    // Keep track of LSP init to avoid stopping in the middle of startup.
-    // Resolves to the port number used to connect on the client side.
-    private _lspStarting: Promise<number> = Promise.resolve(0);
 
     private async createLsp(interpreter: PythonEnvironment): Promise<void> {
         const environmentService = this.serviceContainer.get<IEnvironmentVariablesProvider>(
@@ -569,10 +580,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // port since it is in charge of binding to it, which avoids
             // race conditions). We also use this promise to avoid restarting
             // in the middle of initialization.
-            this._lspStarting = this._kernel.startPositronLsp('127.0.0.1');
+            this._lspClientId = this._kernel.createPositronLspClientId();
+            this._lspStartingPromise = this._kernel.startPositronLsp(this._lspClientId, '127.0.0.1');
             let port: number;
             try {
-                port = await this._lspStarting;
+                port = await this._lspStartingPromise;
             } catch (err) {
                 this._kernel.emitJupyterLog(`Error starting Positron LSP: ${err}`, vscode.LogLevel.Error);
                 return;
@@ -619,7 +631,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
 
             this._kernel?.emitJupyterLog(`Stopping Positron LSP server, reason: ${reason}`);
             await this._lsp.deactivate();
-
+            if (this._lspClientId) {
+                this._kernel?.removeClient(this._lspClientId);
+                this._lspClientId = undefined;
+            }
             this._kernel?.emitJupyterLog(`Positron LSP server stopped`, vscode.LogLevel.Debug);
         });
     }
@@ -637,7 +652,7 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             // keep track of this state itself.
             const timedOut = await Promise.race([
                 // No need to log LSP start failures here; they're logged on activation.
-                this._lspStarting.ignoreErrors(),
+                this._lspStartingPromise.ignoreErrors(),
                 whenTimeout(400, () => true),
             ]);
             if (timedOut) {
@@ -817,6 +832,29 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
                 `Error setting initial console width: ${runtimeError.message} (${runtimeError.code})`,
                 vscode.LogLevel.Error,
             );
+        }
+    }
+
+    private enableAutoReloadIfEnabled(info: positron.LanguageRuntimeInfo): void {
+        // Enable auto-reload if the setting is enabled.
+        const configurationService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
+        const settings = configurationService.getSettings();
+        if (settings.enableAutoReload) {
+            // Execute the autoreload magic command.
+            this._kernel?.execute(
+                '%load_ext autoreload\n%autoreload 2',
+                createUniqueId(),
+                positron.RuntimeCodeExecutionMode.Silent,
+                positron.RuntimeErrorBehavior.Continue,
+            );
+
+            // Enable module hot-reloading for the kernel.
+            const settingUri = `positron://settings/python.enableAutoReload`;
+            const banner = vscode.l10n.t(
+                'Automatic import reloading for Python is enabled. It can be disabled with the \x1b]8;;{0}\x1b\\python.enableAutoReload setting\x1b]8;;\x1b\\.',
+                settingUri,
+            );
+            info.banner += banner;
         }
     }
 

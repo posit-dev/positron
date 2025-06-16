@@ -3,8 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { availableRuntimes, FlowButton } from '../../infra';
-import { test, expect, tags } from '../_test.setup';
+import { availableRuntimes } from '../../infra';
+import { test, tags } from '../_test.setup';
 
 const pythonRuntime = availableRuntimes['python'];
 const rRuntime = availableRuntimes['r'];
@@ -14,124 +14,111 @@ test.use({
 });
 
 test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
-	test.beforeEach(async function ({ runCommand }) {
-		await runCommand('Help: Welcome');
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
 	});
 
-	test.afterEach(async function ({ runCommand }) {
-		await runCommand('View: Close All Editors');
-	});
-
-	test.describe('General', () => {
-		test('Verify Welcome page header and footer', async function ({ app }) {
-			await expect(app.workbench.welcome.logo).toBeVisible();
-			await expect(app.workbench.welcome.title).toHaveText([/(Positron)|(Positron Dev)/, 'an IDE for data science']);
-			await expect(app.workbench.welcome.footer).toHaveText('Show welcome page on startup');
+	test.describe('Workspace', () => {
+		test.beforeEach(async function ({ hotKeys }) {
+			await hotKeys.welcomeWalkthrough();
 		});
 
-		test('Verify Welcome page content', async function ({ app }) {
-			const { welcome, quickaccess } = app.workbench;
+		test('Verify page header, footer, content', async function ({ app }) {
+			const { welcome } = app.workbench;
 
-			let OPEN_BUTTONS_LABELS = ['Open File...', 'Open Folder...', 'New Folder...', 'New Folder from Git...'];
-
-			// Button list for macOS
-			if (!app.web && process.platform === 'darwin') {
-				OPEN_BUTTONS_LABELS = ['Open...', 'New Folder...', 'New Folder from Git...'];
-			}
-
-			// On desktop, a "Connect to..." button is shown
-			if (!app.web) {
-				OPEN_BUTTONS_LABELS.push('Connect to...');
-			}
-
-			await expect(welcome.startTitle).toHaveText('Start');
-			await expect(welcome.startButtons).toHaveText(['New Notebook', 'New File', 'New Console', 'New Folder']);
-			await expect(welcome.helpTitle).toHaveText('Help');
-			await expect(welcome.helpLinks).toHaveText(['Positron Documentation', 'Positron Community', 'Report a bug']);
-			await expect(welcome.openTitle).toHaveText('Open');
-			await expect(welcome.openButtons).toHaveText(OPEN_BUTTONS_LABELS);
-
-			await quickaccess.runCommand('File: Clear Recently Opened...');
-
-			await expect(welcome.recentTitle).toHaveText('Recent');
-			// 'open a folder' is a button so there is no character space because of its padding
-			await expect(welcome.recentSection.locator('.empty-recent')).toHaveText('You have no recent folders,open a folderto start.');
-		});
-
-		test('Verify clicking on `new folder` from the Welcome page opens wizard', { tag: [tags.MODAL] }, async function ({ app }) {
-			const { welcome, popups, newFolderFlow } = app.workbench;
-
-			await welcome.newFolderButton.click();
-			await popups.popupCurrentlyOpen();
-			await popups.waitForModalDialogBox();
-
-			// confirm New Folder Flow dialog box is open
-			await popups.waitForModalDialogTitle('New Folder');
-			await newFolderFlow.clickFlowButton(FlowButton.CANCEL);
-		});
-	});
-
-	test.describe('Python', () => {
-		test('Python - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app }) {
-			await app.workbench.welcome.newFileButton.click();
-			await app.workbench.quickInput.selectQuickInputElementContaining('Python File');
-
-			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/python-lang-file-icon/);
-		});
-
-		test('Python - Verify clicking on `new console` from the Welcome page starts interpreter', async function ({ app, sessions }) {
-			const { welcome, quickInput } = app.workbench;
-			await sessions.deleteAll();
-
-			await welcome.newConsoleButton.click();
-			await sessions.expectStartNewSessionMenuToBeVisible();
-
-			await quickInput.type(pythonRuntime.name);
-			const fullRuntimeName = await quickInput.selectQuickInputElementContaining(pythonRuntime.name);
-			await sessions.expectAllSessionsToBeReady();
-
-			await sessions.expectSessionCountToBe(1);
-			await sessions.expectSessionPickerToBe(fullRuntimeName);
+			await welcome.expectLogoToBeVisible();
+			await welcome.expectFooterToBeVisible();
+			await welcome.expectTabTitleToBe('Welcome');
+			await welcome.expectStartToContain(['New Notebook', 'New File']);
+			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a bug']);
+			await welcome.expectRecentToContain([]);
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
-			await app.workbench.welcome.newNotebookButton.click();
-			await app.workbench.popups.clickOnModalDialogPopupOption('Python Notebook');
+			const { welcome, popups, editors, notebooks } = app.workbench;
 
-			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
-			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(new RegExp(pythonRuntime.name, 'i'));
-		});
-	});
-
-	test.describe('R', () => {
-		test('R - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app }) {
-			await app.workbench.welcome.newFileButton.click();
-			await app.workbench.quickInput.selectQuickInputElementContaining('R File');
-
-			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/r-lang-file-icon/);
+			await welcome.newNotebookButton.click();
+			await popups.clickOnModalDialogPopupOption('Python Notebook');
+			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
+			await notebooks.expectKernelToBe(pythonRuntime.name);
 		});
 
-		test('R - Verify clicking on `new console` from the Welcome page starts interpreter', async function ({ app, sessions }) {
-			const { welcome, quickInput } = app.workbench;
-			await sessions.deleteAll();
+		test('Python - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, python }) {
+			const { welcome, quickInput, editors } = app.workbench;
 
-			await welcome.newConsoleButton.click();
-			await sessions.expectStartNewSessionMenuToBeVisible();
-
-			await quickInput.type(rRuntime.name);
-			const fullRuntimeName = await quickInput.selectQuickInputElementContaining(rRuntime.name);
-			await sessions.expectAllSessionsToBeReady();
-
-			await sessions.expectSessionCountToBe(1);
-			await sessions.expectSessionPickerToBe(fullRuntimeName);
+			await welcome.newFileButton.click();
+			await quickInput.selectQuickInputElementContaining('Python File');
+			await editors.expectActiveEditorIconClassToMatch(/python-lang-file-icon/);
 		});
 
 		test('R - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, r }) {
-			await app.workbench.welcome.newNotebookButton.click();
-			await app.workbench.popups.clickOnModalDialogPopupOption('R Notebook');
+			const { welcome, popups, editors, notebooks } = app.workbench;
 
-			await expect(app.workbench.editors.activeEditor.locator(app.workbench.editors.editorIcon)).toHaveClass(/ipynb-ext-file-icon/);
-			await expect(app.workbench.notebooks.kernelDropdown).toHaveText(new RegExp(rRuntime.name, 'i'));
+			await welcome.newNotebookButton.click();
+			await popups.clickOnModalDialogPopupOption('R Notebook');
+
+			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
+			await notebooks.expectKernelToBe(rRuntime.name);
+		});
+
+		test('R - Verify clicking on `new file` from the Welcome page opens editor', async function ({ app, r }) {
+			const { welcome, quickInput, editors } = app.workbench;
+
+			await welcome.newFileButton.click();
+			await quickInput.selectQuickInputElementContaining('R File');
+
+			await editors.expectActiveEditorIconClassToMatch(/r-lang-file-icon/);
 		});
 	});
+
+	test.describe('No Workspace', () => {
+		test.beforeAll(async function ({ hotKeys, sessions }) {
+			await hotKeys.closeWorkspace();
+			await sessions.expectSessionPickerToBe('Start Session');
+			await sessions.expectNoStartUpMessaging();
+		});
+
+		test.beforeEach(async function ({ hotKeys }) {
+			await hotKeys.welcomeWalkthrough();
+		});
+
+		test('Verify page header, footer, content', async function ({ app }) {
+			const { welcome } = app.workbench;
+
+			await welcome.expectLogoToBeVisible();
+			await welcome.expectFooterToBeVisible();
+
+			await welcome.expectStartToContain(['Open Folder...', 'New Folder...', 'New from Git...']);
+			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a bug']);
+			await welcome.expectRecentToContain(['qa-example-content']);
+		});
+
+		test('Verify clicking on `Open Folder` opens file browser', { tag: [tags.WEB_ONLY] }, async function ({ app, page }) {
+			const { welcome, quickInput } = app.workbench;
+
+			await welcome.openFolderButton.click();
+			await quickInput.expectTitleBarToHaveText('Open Folder');
+		});
+
+		test('Verify clicking on `New Folder` opens New Folder Flow', { tag: [tags.NEW_FOLDER_FLOW] }, async function ({ app }) {
+			const { welcome, newFolderFlow } = app.workbench;
+
+			await welcome.newFolderFromTemplateButton.click();
+			await newFolderFlow.expectFolderTemplatesToBeVisible({
+				'Empty Project': true,
+				'Python Project': true,
+				'R Project': true,
+				'Jupyter Notebook': true
+			});
+		});
+
+		test('Verify clicking on `New from Git` opens dialog', { tag: [tags.MODAL] }, async function ({ app }) {
+			const { welcome, popups } = app.workbench;
+
+			await welcome.startButtons.getByText('New from Git...').click();
+			await popups.waitForModalDialogBox();
+			await popups.waitForModalDialogTitle('New Folder from Git');
+		});
+	});
+
 });

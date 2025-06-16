@@ -10,7 +10,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IWorkspaceTrustManagementService } from '../../../../platform/workspace/common/workspaceTrust.js';
-import { CreateEnvironmentResult, IPositronNewFolderService, NewFolderConfiguration, NewFolderStartupPhase, NewFolderTask, FolderTemplate, POSITRON_NEW_FOLDER_CONFIG_STORAGE_KEY } from './positronNewFolder.js';
+import { CreateEnvironmentResult, CreatePyprojectTomlResult, IPositronNewFolderService, NewFolderConfiguration, NewFolderStartupPhase, NewFolderTask, FolderTemplate, POSITRON_NEW_FOLDER_CONFIG_STORAGE_KEY } from './positronNewFolder.js';
 import { Event } from '../../../../base/common/event.js';
 import { Barrier } from '../../../../base/common/async.js';
 import { ILanguageRuntimeMetadata, LanguageRuntimeSessionMode } from '../../languageRuntime/common/languageRuntimeService.js';
@@ -281,6 +281,11 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			await this._createPythonEnvironment();
 		}
 
+		// Add pyproject.toml file if requested
+		if (this.pendingInitTasks.has(NewFolderTask.CreatePyprojectToml)) {
+			await this._createPyprojectToml();
+		}
+
 		// Complete the Python task
 		this._removePendingInitTask(NewFolderTask.Python);
 	}
@@ -516,6 +521,30 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 			this._removePendingInitTask(NewFolderTask.PythonEnvironment);
 			return;
 		}
+	}
+
+	/**
+	 * Adds the pyproject.toml file.
+	 * Relies on the positron-python extension.
+	 */
+	private async _createPyprojectToml() {
+		// Use the selected Python version for the `requires-python` field if available.
+		let minPythonVersion: string | undefined;
+		if (this._runtimeMetadata?.languageVersion) {
+			minPythonVersion = this._runtimeMetadata.languageVersion;
+		}
+
+		const result = await this._commandService.executeCommand<CreatePyprojectTomlResult>(
+			'python.createPyprojectToml', minPythonVersion
+		);
+		if (!result || !result.success) {
+			const errorDesc = result?.error ? result.error : 'unknown error';
+			const message = this._failedPythonEnvMessage(`Failed to create pyproject.toml: ${errorDesc}`);
+			this._logService.error(message);
+			this._notificationService.warn(message);
+		}
+
+		this._removePendingInitTask(NewFolderTask.CreatePyprojectToml);
 	}
 
 	/**
@@ -789,6 +818,9 @@ export class PositronNewFolderService extends Disposable implements IPositronNew
 				tasks.add(NewFolderTask.Python);
 				if (this._newFolderConfig.pythonEnvProviderId) {
 					tasks.add(NewFolderTask.PythonEnvironment);
+				}
+				if (this._newFolderConfig.createPyprojectToml) {
+					tasks.add(NewFolderTask.CreatePyprojectToml);
 				}
 				break;
 			case FolderTemplate.JupyterNotebook:

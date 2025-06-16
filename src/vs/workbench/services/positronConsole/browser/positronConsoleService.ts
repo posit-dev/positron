@@ -35,7 +35,7 @@ import { RuntimeItemStartupFailure } from './classes/runtimeItemStartupFailure.j
 import { ActivityItem, ActivityItemOutput, RuntimeItemActivity } from './classes/runtimeItemActivity.js';
 import { ActivityItemInput, ActivityItemInputState } from './classes/activityItemInput.js';
 import { ActivityItemStream, ActivityItemStreamType } from './classes/activityItemStream.js';
-import { IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
+import { DidNavigateInputHistoryUpEventArgs, IPositronConsoleInstance, IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID, PositronConsoleState, SessionAttachMode } from './interfaces/positronConsoleService.js';
 import { ILanguageRuntimeExit, ILanguageRuntimeInfo, ILanguageRuntimeMessage, ILanguageRuntimeMessageOutput, ILanguageRuntimeMessageOutputData, ILanguageRuntimeMessageUpdateOutput, ILanguageRuntimeMetadata, LanguageRuntimeSessionMode, RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus, RuntimeErrorBehavior, RuntimeExitReason, RuntimeOnlineState, RuntimeOutputKind, RuntimeState, formatLanguageRuntimeMetadata, formatLanguageRuntimeSession } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService, RuntimeStartMode } from '../../runtimeSession/common/runtimeSessionService.js';
 import { UiFrontendEvent } from '../../languageRuntime/common/positronUiComm.js';
@@ -950,6 +950,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	private readonly _onDidClearConsoleEmitter = this._register(new Emitter<void>);
 
 	/**
+	 * The onDidNavigateInputHistoryDown event emitter.
+	 */
+	private readonly _onDidNavigateInputHistoryDownEmitter = this._register(new Emitter<void>());
+
+	/**
+	 * The onDidNavigateInputHistoryUp event emitter.
+	 */
+	private readonly _onDidNavigateInputHistoryUpEmitter = this._register(new Emitter<DidNavigateInputHistoryUpEventArgs>());
+
+	/**
 	 * The onDidClearInputHistory event emitter.
 	 */
 	private readonly _onDidClearInputHistoryEmitter = this._register(new Emitter<void>);
@@ -1237,6 +1247,16 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 	readonly onDidClearConsole = this._onDidClearConsoleEmitter.event;
 
 	/**
+	 * onDidNavigateInputHistoryDown event.
+	 */
+	readonly onDidNavigateInputHistoryDown = this._onDidNavigateInputHistoryDownEmitter.event;
+
+	/**
+	 * onDidNavigateInputHistoryUp event.
+	 */
+	readonly onDidNavigateInputHistoryUp = this._onDidNavigateInputHistoryUpEmitter.event;
+
+	/**
 	 * onDidClearInputHistory event.
 	 */
 	readonly onDidClearInputHistory = this._onDidClearInputHistoryEmitter.event;
@@ -1332,6 +1352,23 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			this._onDidChangeRuntimeItemsEmitter.fire();
 			this._onDidClearConsoleEmitter.fire();
 		}
+	}
+
+	/**
+	 * Navigates the input history down.
+	 */
+	navigateInputHistoryDown(): void {
+		this._onDidNavigateInputHistoryDownEmitter.fire();
+	}
+
+	/**
+	 * Navigates the input history up.
+	 * @param usingPrefixMatch A value which indicates whether to use the prefix match strategy.
+	 */
+	navigateInputHistoryUp(usingPrefixMatch: boolean): void {
+		this._onDidNavigateInputHistoryUpEmitter.fire({
+			usingPrefixMatch,
+		});
 	}
 
 	/**

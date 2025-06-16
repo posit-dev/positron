@@ -34,9 +34,14 @@ export class Editor {
 	/**
 	 * Action: Enter text in the editor
 	 * @param text the text to type into the editor
+	 * @param pressEnter whether to press Enter after typing the text
 	 */
-	async type(text: string): Promise<void> {
+	async type(text: string, pressEnter = false): Promise<void> {
 		await this.editorPane.pressSequentially(text);
+
+		if (pressEnter) {
+			await this.editorPane.press('Enter');
+		}
 	}
 
 	/** Action: Select tab by name

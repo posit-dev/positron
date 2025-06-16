@@ -5,7 +5,7 @@
 
 // Other dependencies.
 import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, RuntimeStartupPhase } from '../../services/languageRuntime/common/languageRuntimeService.js';
+import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageStartupBehavior, RuntimeStartupPhase } from '../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
 import { EnvironmentSetupType, NewFolderFlowStep, PythonEnvironmentProvider } from './interfaces/newFolderFlowEnums.js';
@@ -69,6 +69,7 @@ export interface NewFolderFlowState {
 	parentFolder: URI;
 	initGitRepo: boolean;
 	openInNewWindow: boolean;
+	createPyprojectToml: boolean | undefined;
 	pythonEnvSetupType: EnvironmentSetupType | undefined;
 	pythonEnvProviderId: string | undefined;
 	condaPythonVersion: string | undefined;
@@ -102,6 +103,7 @@ export class NewFolderFlowStateManager
 
 	// The state of the New Folder Flow.
 	private _selectedRuntime: ILanguageRuntimeMetadata | undefined;
+	private _availableFolderTemplates: FolderTemplate[];
 	private _folderTemplate: FolderTemplate | undefined;
 	private _folderName: string;
 	private _folderNameFeedback: FlowFormattedTextItem | undefined;
@@ -113,6 +115,7 @@ export class NewFolderFlowStateManager
 	private _pythonEnvSetupType: EnvironmentSetupType | undefined;
 	private _pythonEnvProviderId: string | undefined;
 	private _installIpykernel: boolean | undefined;
+	private _createPyprojectToml: boolean | undefined;
 	private _minimumPythonVersion: string | undefined;
 	private _condaPythonVersion: string | undefined;
 	private _condaPythonVersionInfo: CondaPythonVersionInfo | undefined;
@@ -149,6 +152,7 @@ export class NewFolderFlowStateManager
 		// Initialize the state.
 		this._services = config.services;
 		this._selectedRuntime = undefined;
+		this._availableFolderTemplates = this._getAvailableFolderTemplates();
 		this._folderTemplate = undefined;
 		this._folderName = '';
 		this._folderNameFeedback = undefined;
@@ -162,6 +166,7 @@ export class NewFolderFlowStateManager
 		this._useRenv = undefined;
 		this._steps = config.steps ?? [config.initialStep];
 		this._currentStep = config.initialStep;
+		this._createPyprojectToml = undefined;
 		this._pythonEnvProviders = undefined;
 		this._interpreters = undefined;
 		this._preferredInterpreter = undefined;
@@ -229,6 +234,13 @@ export class NewFolderFlowStateManager
 	}
 
 	/**
+	 * Gets the available folder templates.
+	 */
+	get availableFolderTemplates(): FolderTemplate[] {
+		return this._availableFolderTemplates;
+	}
+
+	/**
 	 * Gets the folder template.
 	 * @returns The folder template.
 	 */
@@ -243,6 +255,10 @@ export class NewFolderFlowStateManager
 	set folderTemplate(folderTemplate: FolderTemplate | undefined) {
 		if (this._folderTemplate !== folderTemplate) {
 			this._resetFolderConfig();
+		}
+		if (folderTemplate === FolderTemplate.PythonProject) {
+			// Defaults to true for Python projects only.
+			this.createPyprojectToml = true;
 		}
 		this._folderTemplate = folderTemplate;
 		this._updateInterpreterRelatedState();
@@ -313,6 +329,22 @@ export class NewFolderFlowStateManager
 	 */
 	set initGitRepo(value: boolean) {
 		this._initGitRepo = value;
+	}
+
+	/**
+	 * Gets the createPyprojectToml flag.
+	 * @returns The createPyprojectToml flag.
+	 */
+	get createPyprojectToml(): boolean | undefined {
+		return this._createPyprojectToml;
+	}
+
+	/**
+	 * Sets the createPyprojectToml flag.
+	 * @param value Whether to create a pyproject.toml file.
+	 */
+	set createPyprojectToml(value: boolean | undefined) {
+		this._createPyprojectToml = value;
 	}
 
 	/**
@@ -594,6 +626,7 @@ export class NewFolderFlowStateManager
 			pythonEnvProviderId: this._pythonEnvProviderId,
 			pythonEnvProviderName: this._getEnvProviderName(),
 			installIpykernel: this._installIpykernel,
+			createPyprojectToml: this._createPyprojectToml,
 			condaPythonVersion: this._condaPythonVersion,
 			uvPythonVersion: this._uvPythonVersion,
 			useRenv: this._useRenv,
@@ -704,6 +737,42 @@ export class NewFolderFlowStateManager
 			this._selectedRuntime = this._interpreters[0];
 			return;
 		}
+	}
+
+	/**
+	 * Constructs and returns the list of available folder templates, with folder templates filtered
+	 * on the current configuration settings for interpreter startup behavior.
+	 * @returns The list of available folder templates.
+	 */
+	private _getAvailableFolderTemplates(): FolderTemplate[] {
+		const generalStartupBehavior = this.services.configurationService.getValue('interpreters.startupBehavior');
+		const pythonStartupBehavior = this.services.configurationService.getValue('interpreters.startupBehavior', { overrideIdentifier: LanguageIds.Python });
+		const rStartupBehavior = this.services.configurationService.getValue('interpreters.startupBehavior', { overrideIdentifier: LanguageIds.R });
+
+		return Object.values(FolderTemplate).filter((template) => {
+			// Always include the Empty Project template, as it does not require any interpreter startup.
+			if (template === FolderTemplate.EmptyProject) {
+				return true;
+			}
+
+			// If interpreter startup is disabled altogether, do not include any templates that require interpreter startup.
+			if (generalStartupBehavior === LanguageStartupBehavior.Disabled) {
+				return false;
+			}
+
+			// Include the Python and Jupyter templates only if the Python startup behavior is not disabled.
+			if (template === FolderTemplate.PythonProject || template === FolderTemplate.JupyterNotebook) {
+				return pythonStartupBehavior !== LanguageStartupBehavior.Disabled;
+			}
+
+			// Include the R template only if the R startup behavior is not disabled.
+			if (template === FolderTemplate.RProject) {
+				return rStartupBehavior !== LanguageStartupBehavior.Disabled;
+			}
+
+			// Otherwise, include the template!
+			return true;
+		});
 	}
 
 	/**
@@ -978,6 +1047,7 @@ export class NewFolderFlowStateManager
 	 */
 	private _resetFolderConfig() {
 		this._initGitRepo = false;
+		this._createPyprojectToml = undefined;
 		this._useRenv = undefined;
 		this.folderNameFeedback = undefined;
 	}
@@ -1001,6 +1071,7 @@ export class NewFolderFlowStateManager
 			this._uvPythonVersion = undefined;
 			this._uvPythonVersionInfo = undefined;
 			this._isUvInstalled = undefined;
+			this._createPyprojectToml = undefined;
 		};
 
 		// Clear R-specific state.

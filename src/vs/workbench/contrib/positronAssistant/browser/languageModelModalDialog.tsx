@@ -289,7 +289,11 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	}
 
 	const shouldCloseModal = async () => {
-		if (authMethod === AuthMethod.OAUTH && !source.signedIn && showProgress) {
+		if (source.signedIn) {
+			return true;
+		}
+
+		if (authMethod === AuthMethod.OAUTH && showProgress) {
 			return await props.positronModalDialogsService.showSimpleModalDialogPrompt(
 				localize('positron.languageModelProviderModalDialog.oauthInProgressTitle', "{0} Authentication in Progress", source.provider.displayName),
 				localize('positron.languageModelProviderModalDialog.oauthInProgressMessage', "The sign in flow is in progress. If you close this dialog, your sign in may not complete. Are you sure you want to close and abandon signing in?"),
@@ -305,6 +309,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				localize('positron.languageModelProviderModalDialog.cancel', "No"),
 			)
 		}
+
 		return true;
 	}
 
