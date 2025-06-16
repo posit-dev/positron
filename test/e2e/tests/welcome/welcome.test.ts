@@ -30,7 +30,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.expectFooterToBeVisible();
 			await welcome.expectTabTitleToBe('Welcome');
 			await welcome.expectStartToContain(['New Notebook', 'New File']);
-			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community', 'Report a bug']);
+			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a bug']);
 			await welcome.expectRecentToContain([]);
 		});
 
@@ -89,7 +89,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.expectFooterToBeVisible();
 
 			await welcome.expectStartToContain(['Open Folder...', 'New Folder...', 'New from Git...']);
-			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community', 'Report a bug']);
+			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a bug']);
 			await welcome.expectRecentToContain(['qa-example-content']);
 		});
 

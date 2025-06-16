@@ -1051,7 +1051,7 @@ export class GettingStartedPage extends EditorPane {
 			},
 			{
 				id: 'positron-community',
-				title: 'Positron Community',
+				title: 'Positron Community Forum',
 				href: 'https://github.com/posit-dev/positron/discussions'
 			},
 			{
