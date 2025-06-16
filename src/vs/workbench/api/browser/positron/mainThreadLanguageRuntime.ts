@@ -91,7 +91,7 @@ class QueuedRuntimeStateEvent extends QueuedRuntimeEvent {
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
-class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
+class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILanguageRuntimeSession {
 
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
@@ -144,6 +144,8 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		private readonly _editorService: IEditorService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 
+		super();
+
 		// Save handle
 		this.handle = initialState.handle;
 		this.dynState = {
@@ -162,7 +164,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		this.onDidEndSession = this._exitEmitter.event;
 
 		// Listen to state changes and track the current state
-		this.onDidChangeRuntimeState((state) => {
+		this._register(this.onDidChangeRuntimeState((state) => {
 			this._currentState = state;
 
 			if (state === RuntimeState.Exited) {
@@ -181,14 +183,14 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 				// Remove all clients; none can send or receive data any more
 				this._clients.clear();
 			}
-		});
+		}));
 
 		// Listen for changes to the foreground session and notify the extension host
-		this._runtimeSessionService.onDidChangeForegroundSession((session) => {
+		this._register(this._runtimeSessionService.onDidChangeForegroundSession((session) => {
 			this._proxy.$notifyForegroundSessionChanged(session?.sessionId);
-		});
+		}));
 
-		this._runtimeSessionService.onDidReceiveRuntimeEvent(globalEvent => {
+		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(globalEvent => {
 			// Ignore events for other sessions.
 			if (globalEvent.session_id !== this.sessionId) {
 				return;
@@ -250,7 +252,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 			// Propagate event
 			this._onDidReceiveRuntimeMessageClientEventEmitter.fire(ev);
-		});
+		}));
 	}
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
@@ -988,7 +990,8 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 	static clientCounter = 0;
 
-	dispose(): void {
+	override dispose(): void {
+		super.dispose();
 		// Cleanup (dispose) the ExtHost side of the session.
 		this._proxy.$disposeLanguageRuntime(this.handle);
 	}
