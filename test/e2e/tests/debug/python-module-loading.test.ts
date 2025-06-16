@@ -21,7 +21,7 @@ test.describe('Python Debugging', {
 
 	});
 
-	test('Python - Verify Basic Script Debugging', async function ({ app, python, openFile, hotKeys }) {
+	test('Python - Verify Module Auto Reload', async function ({ app, python, openFile, hotKeys }) {
 
 		await test.step('Open file, run, validate ouput', async () => {
 
