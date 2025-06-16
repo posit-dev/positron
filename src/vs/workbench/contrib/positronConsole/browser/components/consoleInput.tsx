@@ -174,11 +174,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		} catch (err) {
 			if (err instanceof Error) {
 				positronConsoleContext.notificationService.error(
-					localize('Cannot execute code: {0} ({1})', err.name, err.message)
+					localize('positronConsole.incompleteError', 'Cannot execute code: {0} ({1})', err.name, err.message)
 				);
 			} else {
 				positronConsoleContext.notificationService.error(
-					localize('Cannot execute code: {0}', JSON.stringify(err))
+					localize('positronConsole.incompleteUnknownError', 'Cannot execute code: {0}', JSON.stringify(err))
 				);
 			}
 			return false;

@@ -233,11 +233,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						} catch (err) {
 							if (err instanceof Error) {
 								this._notificationService.error(
-									localize('Failed to restore session {0} for extension {1}: {2}', session.sessionId, extensionId.value, err.message)
+									localize('positron.runtimeSession.restoreFailed', 'Failed to restore session {0} for extension {1}: {2}', session.sessionId, extensionId.value, err.message)
 								);
 							} else {
 								this._notificationService.error(
-									localize('Unknown error restoring session {0} for extension {1}: {2}', session.metadata.sessionId, extensionId.value, JSON.stringify(err))
+									localize('positron.runtimeSession.restoreFailedUnkown', 'Unknown error restoring session {0} for extension {1}: {2}', session.metadata.sessionId, extensionId.value, JSON.stringify(err))
 								);
 							}
 						}
