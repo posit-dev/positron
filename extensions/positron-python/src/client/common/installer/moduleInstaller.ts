@@ -293,7 +293,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                 const spawnOptions: SpawnOptions = { token };
                 executionResult = await processService.exec(command, args, spawnOptions);
             }
-            if (executionResult.stderr?.startsWith('error: externally-managed-environment')) {
+            if (executionResult.stderr?.includes('error: externally-managed-environment')) {
                 throw new ExternallyManagedEnvironmentError(executionResult.stderr);
             }
             // --- End Positron ---
