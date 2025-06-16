@@ -65,13 +65,15 @@ export class Editor {
 		});
 	}
 
-	async pressPlay(): Promise<void> {
+	async pressPlay(skipToastVerification: boolean = false): Promise<void> {
 		await this.code.driver.page.locator(PLAY_BUTTON).click();
 
-		// await appearance and disappearance of the toast
-		const appRunningToast = this.code.driver.page.locator('.notifications-toasts').getByText(/Running.*application:/);
-		await expect(appRunningToast).toBeVisible({ timeout: 30000 });
-		await expect(appRunningToast).not.toBeVisible({ timeout: 45000 });
+		if (!skipToastVerification) {
+			// await appearance and disappearance of the toast
+			const appRunningToast = this.code.driver.page.locator('.notifications-toasts').getByText(/Running.*application:/);
+			await expect(appRunningToast).toBeVisible({ timeout: 30000 });
+			await expect(appRunningToast).not.toBeVisible({ timeout: 45000 });
+		}
 	}
 
 	async pressToLine(filename: string, lineNumber: number, press: string): Promise<void> {
