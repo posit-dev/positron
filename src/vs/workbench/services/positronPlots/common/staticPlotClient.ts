@@ -17,18 +17,21 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 	public readonly metadata: IPositronPlotMetadata;
 	public readonly mimeType;
 	public readonly data;
+	public readonly code?: string;
 
 	// Zoom level emitter
 	public onDidChangeZoomLevel: Event<ZoomLevel>;
 
 	private readonly _zoomLevelEventEmitter = new Emitter<ZoomLevel>();
 
-	constructor(storageService: IStorageService, sessionId: string, message: ILanguageRuntimeMessageOutput,
-		public readonly code?: string) {
-		super();
+	static fromMetadata(storageService: IStorageService, metadata: IPositronPlotMetadata, mimeType: string, data: string): StaticPlotClient {
+		// Create a new StaticPlotClient instance from the provided metadata, MIME type, and data.
+		return new StaticPlotClient(storageService, metadata.session_id, metadata, mimeType, data);
+	}
 
+	static fromMessage(storageService: IStorageService, sessionId: string, message: ILanguageRuntimeMessageOutput, code?: string): StaticPlotClient {
 		// Create the metadata for the plot.
-		this.metadata = {
+		const metadata = {
 			id: message.id,
 			parent_id: message.parent_id,
 			created: Date.parse(message.when),
@@ -52,8 +55,18 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 		}
 
 		// Save the MIME type and data for the image.
-		this.mimeType = imageKey;
+		const mimeType = imageKey;
+
+		return new StaticPlotClient(storageService, sessionId, metadata, mimeType, data);
+	}
+
+	private constructor(storageService: IStorageService, sessionId: string, metadata: IPositronPlotMetadata, mimeType: string, data: string) {
+		super();
+
+		this.metadata = metadata;
+		this.mimeType = mimeType;
 		this.data = data;
+		this.code = metadata.code;
 
 		// Set up the zoom level event emitter.
 		this.onDidChangeZoomLevel = this._zoomLevelEventEmitter.event;
