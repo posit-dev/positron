@@ -8,14 +8,13 @@ import { IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../.
 import { localize } from '../../../../../nls.js'
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js'
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js'
-import { LanguageModelUIConfiguration } from '../languageModelModalDialog.js'
-import { AuthMethod } from '../types.js'
+import { AuthMethod, AuthStatus } from '../types.js'
 
 interface LanguageModelConfigComponentProps {
 	authMethod: AuthMethod,
-	provider: LanguageModelUIConfiguration,
+	authStatus: AuthStatus,
+	config: IPositronLanguageModelConfig,
 	source: IPositronLanguageModelSource,
-	signingIn?: boolean,
 	onChange: (config: IPositronLanguageModelConfig) => void,
 	onSignIn: () => void,
 	onCancel: () => void,
@@ -27,6 +26,10 @@ const positEulaLabel = localize('positron.languageModelConfig.positEula', 'Posit
 const completionsOnlyEmphasizedText = localize('positron.languageModelConfig.completionsOnly', 'code completions only');
 const providerTermsOfServiceLabel = localize('positron.languageModelConfig.termsOfService', 'Terms of Service');
 const providerPrivacyPolicyLabel = localize('positron.languageModelConfig.privacyPolicy', 'Privacy Policy');
+
+const apiKeyInputLabel = localize('positron.languageModelConfig.apiKeyInputLabel', 'API Key');
+const signInButtonLabel = localize('positron.languageModelConfig.signIn', 'Sign in');
+const signOutButtonLabel = localize('positron.languageModelConfig.signOut', 'Sign out');
 
 function getProviderCompletionsOnlyNoticeText(providerDisplayName: string) {
 	return localize(
@@ -127,35 +130,50 @@ function interpolate(text: string, value: (key: string) => React.ReactNode | und
 	return nodes;
 }
 
+/**
+ * A component for configuring a language model provider.
+ * Currently, this displays the appropriate authentication method UI based on the provider's authentication method,
+ * and allows the user to sign in with OAuth or an API key.
+ * It also displays terms of service and usage disclaimers for the provider.
+ * In the future, this component may be extended to support additional configuration options for language models.
+ */
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
-	const apiKeySpecified = props.source.supportedOptions.includes(AuthMethod.API_KEY) && !!props.provider.apiKey && props.provider.apiKey.length > 0;
+	const { authMethod, authStatus, config, source } = props;
+	const { apiKey } = config;
+
+	// This currently only updates the API key for the provider, but in the future it may be extended to support
+	// additional configuration options for language models.
+	const onChange = (newApiKey: string) => {
+		props.onChange({ ...props.config, apiKey: newApiKey });
+	};
 
 	return <>
 		<div className='language-model-container input'>
-			{props.source.supportedOptions.includes('apiKey') && !props.source.signedIn && (
-				<ApiKey apiKey={props.provider.apiKey} signedIn={props.source.signedIn} onChange={(newApiKey) => {
-					props.onChange({ ...props.provider, apiKey: newApiKey });
-				}} onSignIn={props.onSignIn} />
-			)}
-			<SignInButton apiKeySpecified={apiKeySpecified} authMethod={props.authMethod} signedIn={props.source.signedIn} signingIn={props.signingIn} onSignIn={props.onSignIn} />
 			{
-				props.signingIn && props.provider.oauth && !props.source.signedIn &&
-				<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
-					{localize('positron.languageModelConfig.cancel', "Cancel")}
-				</Button>
+				authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN ? (
+					<ApiKey apiKey={apiKey} onChange={onChange} />
+				) : null
+			}
+			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
+			{
+				props.authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.IN_PROGRESS ? (
+					<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
+						{localize('positron.languageModelConfig.cancel', "Cancel")}
+					</Button>
+				) : null
 			}
 		</div>
-		<ProviderNotice provider={props.source.provider} />
+		{/* this is the only usage of source..maybe don't need it anymore? */}
+		<ProviderNotice provider={source.provider} />
 	</>;
 }
 
 // Language config parts
-const ApiKey = (props: { apiKey?: string, signedIn?: boolean, onChange: (newApiKey: string) => void, onSignIn: () => void }) => {
+const ApiKey = (props: { apiKey?: string, onChange: (newApiKey: string) => void }) => {
 	return (<>
 		<div className='language-model-authentication-container' id='api-key-input'>
 			<LabeledTextInput
-				disabled={props.signedIn}
-				label={(() => localize('positron.languageModelConfig.apiKey', "API Key"))()}
+				label={apiKeyInputLabel}
 				type='password'
 				value={props.apiKey ?? ''}
 				onChange={e => { props.onChange(e.currentTarget.value) }} />
@@ -163,22 +181,16 @@ const ApiKey = (props: { apiKey?: string, signedIn?: boolean, onChange: (newApiK
 	</>)
 }
 
-const SignInButton = (props: { apiKeySpecified: boolean, authMethod: AuthMethod, signedIn?: boolean, signingIn?: boolean, onSignIn: () => void }) => {
+const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, onSignIn: () => void }) => {
 	// When the auth method is 'apiKey' and the user is not signed in, we use the default button style, so that the
 	// Enter key can be used to sign in with the text input provided.
-	const useDefaultButtonStyle = props.authMethod === AuthMethod.API_KEY && props.apiKeySpecified && !props.signedIn;
+	const useDefaultButtonStyle = props.authMethod === AuthMethod.API_KEY && props.authStatus === AuthStatus.IN_PROGRESS;
 	return <Button
 		className={`language-model button sign-in ${useDefaultButtonStyle ? 'default' : ''}`}
-		disabled={props.signingIn}
+		disabled={props.authStatus === AuthStatus.IN_PROGRESS}
 		onPressed={props.onSignIn}
 	>
-		{(() => {
-			if (props.signedIn) {
-				return localize('positron.languageModelConfig.signOut', "Sign out");
-			} else {
-				return localize('positron.languageModelConfig.signIn', "Sign in");
-			}
-		})()}
+		{props.authStatus === AuthStatus.SIGNED_IN ? signOutButtonLabel : signInButtonLabel}
 	</Button>
 }
 
