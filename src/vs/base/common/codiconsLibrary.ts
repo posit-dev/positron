@@ -673,7 +673,6 @@ export const codiconsLibrary = {
 	positronNewFile: register('positron-new-file', 0xf27a),
 	positronNewNotebook: register('positron-new-notebook', 0xf27b),
 	positronNewFolder: register('positron-new-folder', 0xf27c),
-	positronNewFolder: register('positron-new-folder', 0xf27c),
 	positronTwoPaneDsLayout: register('positron-two-pane-ds-layout', 0xf27d),
 	positronFourPaneDsLayout: register('positron-four-pane-ds-layout', 0xf27e),
 	positronNotebookLayout: register('positron-notebook-layout', 0xf27f),
