@@ -177,6 +177,8 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 			throw new Error('Plot client not found');
 		}
 
+		await super.setInput(input, options, context, token);
+
 		input.setName(this._plotClient.metadata.suggested_file_name ?? createSuggestedFileNameForPlot(this.storageService));
 
 		this.renderContainer(this._plotClient);
@@ -188,8 +190,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 				this.renderContainer(this._plotClient);
 			}
 		});
-
-		await super.setInput(input, options, context, token);
 	}
 
 	override layout(dimension: DOM.Dimension): void {
