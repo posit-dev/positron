@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+	<meta http-equiv="Content-Security-Policy"
+		content="media-src 'self'; script-src 'self' 'nonce-__nonce__'; style-src 'nonce-__nonce__'; frame-src *;">
+	<style nonce="__nonce__">
+		body {
+			padding: 0;
+			background-color: var(--vscode-editor-background);
+		}
+
+		.container {
+			display: flex;
+			flex-direction: column;
+			justify-content: center;
+			align-items: center;
+			height: 100vh;
+		}
+
+		.logo {
+			width: min(75vw, 25em);
+			height: auto;
+			margin-bottom: 2em;
+		}
+
+		ul {
+			list-style-type: none;
+			padding: 0;
+			margin: 0;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<div>
+			<img src="__logoSrc__" alt="Positron Logo" class="logo">
+
+			<div>
+				<ul>
+					<li><a href="https://positron.posit.co/">Positron Documentation</a></li>
+					<li><a href="https://github.com/posit-dev/positron/discussions">Positron Community Forum</a></li>
+					<li><a href="command:workbench.action.openIssueReporter">Report a bug in Positron</a></li>
+					<br />
+					<li><a href="https://posit.co/resources/cheatsheets/">Posit Cheat Sheets</a></li>
+					<li><a href="https://posit.co/products/">Posit Products</a></li>
+					<li><a href="https://support.posit.co/">Posit Support</a></li>
+				</ul>
+			</div>
+		</div>
+	</div>
+
+	<script nonce="__nonce__" async type="module">
+		const vscode = acquireVsCodeApi();
+		vscode.postMessage({
+			"id": "positron-help-complete",
+			"title": "Welcome",
+		});
+
+		document.addEventListener("click", (event) => {
+			if (event.target.tagName === "A") {
+				const href = event.target.getAttribute("href");
+				if (href) {
+					if (href.startsWith("command:")) {
+						// If the link is a command, post it to the extension host.
+						vscode.postMessage({
+							"id": "positron-help-execute-command",
+							"command": href.substring(8) // Remove "command:" prefix
+						});
+					} else {
+						// Otherwise, treat it as a URL and navigate.
+						vscode.postMessage({
+							"id": "positron-help-navigate",
+							"url": href
+						});
+					}
+				}
+			}
+		});
+
+		// Adds message listener.
+		const addMessageListener = () => {
+			// Add the event listener.
+			window.addEventListener("message", (message) => {
+				// Switch on the message ID.
+				switch (message.data.id) {
+					// positron-help-scroll-to message. Sent to scroll the window to a saved scroll
+					// position. This message will arrive when the document's readyState becomes
+					// interactive.
+					case "positron-help-scroll-to":
+						window.scrollTo(message.data.scrollX, message.data.scrollY);
+						break;
+
+					// positron-help-update-find message. Sent to start a new find operation.
+					case "positron-help-update-find":
+						// Reset selection so we are finding from the top of the document.
+						window.getSelection().removeAllRanges();
+
+						// If the find value was specified, perform the find.
+						if (message.data.findValue) {
+							// Perform the find.
+							findResult = window.find(
+								message.data.findValue,
+								false, // aCaseSensitive
+								false, // aBackwards
+								false, // aWrapAround
+								false, // aWholeWord - Unimplemented
+								false // aSearchInFrames
+							);
+
+							// Post the find result.
+							window.parent.postMessage(
+								{
+									id: "positron-help-find-result",
+									findResult,
+								},
+								"*"
+							);
+						}
+						break;
+
+					// positron-help-find-previous message. Sent to find the previous occurance.
+					case "positron-help-find-previous":
+						if (findResult && message.data.findValue) {
+							window.find(
+								message.data.findValue,
+								false, // aCaseSensitive
+								true, // aBackwards
+								false, // aWrapAround
+								false, // aWholeWord - Unimplemented
+								false // aSearchInFrames
+							);
+						}
+						break;
+
+					// positron-help-find-previous message. Sent to find the next occurance.
+					case "positron-help-find-next":
+						if (findResult && message.data.findValue) {
+							window.find(
+								message.data.findValue,
+								false, // aCaseSensitive
+								false, // aBackwards
+								false, // aWrapAround
+								false, // aWholeWord - Unimplemented
+								false // aSearchInFrames
+							);
+						}
+						break;
+
+					// positron-help-focus message. Sent to focus the help window.
+					case "positron-help-focus":
+						window.focus();
+						break;
+
+					// positron-help-copy-selection message. Sent to copy the selection.
+					case "positron-help-copy-selection":
+						// Post the positron-help-selection message.
+						window.parent.postMessage(
+							{
+								id: "positron-help-copy-selection",
+								selection: window.getSelection().toString(),
+							},
+							"*"
+						);
+						break;
+				}
+			});
+		};
+
+		addMessageListener();
+	</script>
+</body>
+
+</html>
