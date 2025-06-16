@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
-import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, RawComm } from './positron-supervisor';
+import { CommBackendMessage, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterSession, RawComm, ServerStartMessage, ServerStartedMessage } from './positron-supervisor';
 import { ActiveSession, ConnectionInfo, DefaultApi, HttpError, InterruptMode, NewSession, RestartSession, Status, VarAction, VarActionType } from './kcclient/api';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterRequest } from './jupyter/JupyterRequest';
@@ -33,7 +33,6 @@ import { RpcReplyCommand } from './jupyter/RpcReplyCommand';
 import { JupyterCommRequest } from './jupyter/JupyterCommRequest';
 import { Comm } from './Comm';
 import { CommMsgRequest } from './jupyter/CommMsgRequest';
-import { DapClient } from './DapClient';
 import { SocketSession } from './ws/SocketSession';
 import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
@@ -125,9 +124,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	/** Whether it is possible to connect to the session's websocket */
 	private _canConnect = true;
-
-	/** The Debug Adapter Protocol client, if any */
-	private _dapClient: DapClient | undefined;
 
 	/** A map of pending comm startups */
 	private _startingComms: Map<string, PromiseHandles<number>> = new Map();
@@ -462,58 +458,45 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return startPromise.promise;
 	}
 
-	/**
-	 * Requests that the kernel start a Debug Adapter Protocol server, and
-	 * connect it to the client locally on the given TCP address.
-	 *
-	 * @param clientId The ID of the client comm, created with
-	 *  `createPositronDapClientId()`.
-	 * @param debugType Passed as `vscode.DebugConfiguration.type`.
-	 * @param debugName Passed as `vscode.DebugConfiguration.name`.
-	 */
-	async startPositronDap(clientId: string, debugType: string, debugName: string) {
-		// NOTE: Ideally we'd connect to any address but the
-		// `debugServer` property passed in the configuration below
-		// needs to be localhost.
-		const ipAddress = '127.0.0.1';
-
-		// TODO: Should we query the kernel to see if it can create a DAP
-		// (QueryInterface style) instead of just demanding it?
-		//
-		// The Jupyter kernel spec does not provide a way to query for
-		// supported comms; the only way to know is to try to create one.
-
-		this.log(`Starting DAP server ${clientId} for ${ipAddress}`, vscode.LogLevel.Debug);
-
-		// Notify Positron that we're handling messages from this client
-		this._disposables.push(positron.runtime.registerClientInstance(clientId));
-
-		await this.createClient(
-			clientId,
-			positron.RuntimeClientType.Dap,
-			{ ip_address: ipAddress }
-		);
-
-		// Create a promise that will resolve when the DAP starts on the server
-		// side. When the promise resolves we obtain the port the client should
-		// connect on.
-		const startPromise = new PromiseHandles<number>();
-		this._startingComms.set(clientId, startPromise);
-
-		// Immediately await that promise because `startPositronDap()` handles the full
-		// DAP setup, unlike the LSP where the extension finishes the setup.
-		const port = await startPromise.promise;
-
-		// Create the DAP client message handler
-		this._dapClient = new DapClient(clientId, port, debugType, debugName, this);
-	}
-
 	createPositronLspClientId(): string {
 		return `positron-lsp-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 	}
 
-	createPositronDapClientId(): string {
-		return `positron-dap-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
+	/**
+	 * Creates a server communication channel and returns both the comm and the port.
+	 *
+	 * @param target_name The name of the comm target
+	 * @param host The IP address or host name for the server
+	 * @returns A promise that resolves to a tuple of [RawComm, port number]
+	 */
+	async createServerComm(target_name: string, host: string): Promise<[RawComm, number]> {
+		this.log(`Starting server comm '${target_name}' for ${host}`);
+		const comm = await this.createComm(target_name, { ip_address: host });
+
+		const result = await comm.receiver.next();
+
+		if (result.done) {
+			comm.dispose();
+			throw new Error('Comm was closed before sending a `server_started` message');
+		}
+
+		const message = result.value;
+
+		if (message.method !== 'server_started') {
+			comm.dispose();
+			throw new Error('Comm was closed before sending a `server_started` message');
+		}
+
+		const serverStarted = message.params as any;
+		const port = serverStarted.port;
+
+		if (typeof port !== 'number') {
+			comm.dispose();
+			throw new Error('`server_started` message doesn\'t include a port');
+		}
+
+		this.log(`Started server comm '${target_name}' for ${host} on port ${port}`);
+		return [comm, port];
 	}
 
 	/**
@@ -1979,25 +1962,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					} else {
 						tx.send({ kind: 'notification', method: rpcMsg.method, params: rpcMsg.params });
 					}
+
 					return;
 				}
+
 				break;
 			}
 		}
 
-		// TODO: Make DAP and LSP comms unmanaged
+		// TODO: Make LSP comms unmanaged
 		if (msg.header.msg_type === 'comm_msg') {
 			const commMsg = msg.content as JupyterCommMsg;
-
-			// If we have a DAP client active and this is a comm message intended
-			// for that client, forward the message.
-			if (this._dapClient) {
-				const comm = this._clients.get(commMsg.comm_id);
-				if (comm && comm.id === this._dapClient.clientId) {
-					this._dapClient.handleDapMessage(commMsg.data);
-				}
-			}
-
 			// If this is a `server_started` message, resolve the promise that
 			// was created when the comm was started.
 			if (commMsg.data.msg_type === 'server_started') {
