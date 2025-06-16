@@ -14,7 +14,6 @@ import { PositronModalReactRenderer } from '../../../browser/positronModalReactR
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
-import { DropDownListBoxItem } from '../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { IPositronAssistantService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
 import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
@@ -61,6 +60,15 @@ export const showLanguageModelModalDialog = (
 	);
 };
 
+const providerSourceToConfig = (source: IPositronLanguageModelSource): IPositronLanguageModelConfig => {
+	return {
+		...source.defaults,
+		name: source.provider.displayName,
+		provider: source.provider.id,
+		type: source.type
+	};
+}
+
 interface LanguageModelConfigurationProps {
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
@@ -75,7 +83,7 @@ interface LanguageModelConfigurationProps {
 }
 
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
-	// Construct the list of providers from the sources
+	// Construct the list of providers from the sources, which are defined in the extension. See extensions/positron-assistant/src/models.ts
 	const providers = props.sources
 		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot'))
 		.sort((a, b) => {
@@ -88,27 +96,14 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			return a.provider.displayName.localeCompare(b.provider.displayName);
 		});
 
-	// Create dropdown options for each provider -- do we need to use dropdown items here?
-	const providerOptions = providers
-		.map(source => new DropDownListBoxItem({
-			identifier: source.provider.id,
-			title: source.provider.displayName,
-			value: source,
-		}));
-
-	// Default to the first provider in the list, which will be pre-selected in the UI.
+	// Default to the first provider in the list.
 	const defaultProvider = providers[0];
 
-	// Providers are defined in the extension. See extensions/positron-assistant/src/models.ts
+	// The currently selected language model provider. The UI preselects this initial provider.
 	const [selectedProvider, setSelectedProvider] = useState<IPositronLanguageModelSource>(defaultProvider);
 
 	// Config for the provider, which is what is sent to the extension when signing in or out of a provider.
-	const [providerConfig, setProviderConfig] = useState<IPositronLanguageModelConfig>({
-		...defaultProvider.defaults,
-		name: defaultProvider.provider.displayName,
-		provider: defaultProvider.provider.id,
-		type: defaultProvider.type
-	});
+	const [providerConfig, setProviderConfig] = useState<IPositronLanguageModelConfig>(() => providerSourceToConfig(defaultProvider));
 
 	// UI State
 	const [showProgress, setShowProgress] = useState(false);
@@ -124,7 +119,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	useEffect(() => {
 		const disposables: IDisposable[] = [];
 		disposables.push(props.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
-			setProviderSources((prevSources) => {
+			setProviderSources(prevSources => {
 				const index = prevSources.findIndex(source => source.provider.id === newSource.provider.id);
 				const updatedSources = [...prevSources];
 				if (index !== -1) {
@@ -138,17 +133,15 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	// Keep selectedProvider and providerConfig in sync with providerSources
 	useEffect(() => {
-		const updated = providerSources.find(source => source.provider.id === selectedProvider.provider.id);
-		if (updated) {
-			setSelectedProvider(updated);
-			setProviderConfig(config => ({
-				...config,
-				// update signedIn and any other dynamic fields from the new source
-				...updated.defaults,
-				name: updated.provider.displayName,
-				provider: updated.provider.id,
-				type: updated.type
-			}));
+		const updatedSource = providerSources.find(source => source.provider.id === selectedProvider.provider.id);
+		if (updatedSource) {
+			setSelectedProvider(prevSource => {
+				return {
+					...prevSource,
+					supportedOptions: updatedSource.supportedOptions,
+					signedIn: updatedSource.signedIn,
+				}
+			});
 		}
 	}, [providerSources, selectedProvider]);
 
@@ -190,24 +183,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		return AuthMethod.API_KEY;
 	}
 
-	/** Radio buttons for the authentication method selection */
-	const authMethodRadioButtons: RadioButtonItem[] = [
-		new RadioButtonItem({
-			identifier: AuthMethod.OAUTH,
-			title: localize('positron.languageModelProviderModalDialog.oauth', "OAuth"),
-			disabled: !selectedProvider.supportedOptions.includes(AuthMethod.OAUTH),
-		}),
-		new RadioButtonItem({
-			identifier: AuthMethod.API_KEY,
-			title: localize('positron.languageModelProviderModalDialog.apiKey', "API Key"),
-			disabled: !selectedProvider.supportedOptions.includes(AuthMethod.API_KEY),
-		}),
-	];
-
 	/** When the user clicks a different provider in the modal */
 	const onProviderChange = (provider: IPositronLanguageModelSource) => {
 		setSelectedProvider(provider);
-		setProviderConfig({ ...provider.defaults, provider: provider.provider.id, type: provider.type });
+		setProviderConfig(providerSourceToConfig(provider));
 		setShowProgress(false);
 		setErrorMessage(undefined);
 	}
@@ -221,7 +200,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}
 	}
 
-	/** If the modal should be closed. Asks user to accept/reject modal close if auth is currently in progress. */
+	/** Checks if the modal should be closed. Asks user to accept/reject modal close if auth is currently in progress. */
 	const shouldCloseModal = async () => {
 		if (isSignedIn()) {
 			return true;
@@ -316,6 +295,20 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			});
 	}
 
+	/** Radio buttons for the authentication method selection */
+	const authMethodRadioButtons: RadioButtonItem[] = [
+		new RadioButtonItem({
+			identifier: AuthMethod.OAUTH,
+			title: localize('positron.languageModelProviderModalDialog.oauth', "OAuth"),
+			disabled: !selectedProvider.supportedOptions.includes(AuthMethod.OAUTH),
+		}),
+		new RadioButtonItem({
+			identifier: AuthMethod.API_KEY,
+			title: localize('positron.languageModelProviderModalDialog.apiKey', "API Key"),
+			disabled: !selectedProvider.supportedOptions.includes(AuthMethod.API_KEY),
+		}),
+	];
+
 	return <OKModalDialog
 		height={400}
 		okButtonTitle={(() => localize('positron.languageModelModalDialog.close', "Close"))()}
@@ -331,14 +324,14 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			</label>
 			<div className='language-model button-container'>
 				{
-					providerOptions.map(provider => {
+					providerSources.map(source => {
 						return <LanguageModelButton
-							key={provider.options.identifier}
+							key={source.provider.id}
 							disabled={showProgress}
-							displayName={provider.options.title ?? provider.options.identifier}
-							identifier={provider.options.identifier}
-							selected={provider.options.identifier === selectedProvider.provider.id}
-							onClick={() => onProviderChange(provider.options.value)}
+							displayName={source.provider.displayName}
+							identifier={source.provider.id}
+							selected={source.provider.id === selectedProvider.provider.id}
+							onClick={() => onProviderChange(source)}
 						/>
 					})
 				}
