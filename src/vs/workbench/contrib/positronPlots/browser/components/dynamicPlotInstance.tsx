@@ -82,17 +82,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 					});
 				}
 
-				let result;
-				// If the plot will probably take a long time to render, do not
-				// automatically resize it unless requested to do so.
-				if (props.plotClient.renderEstimateMs < 1000 || forceRerender) {
-					result = await props.plotClient.renderWithSizingPolicy(
-						plotSize,
-						ratio
-					);
-				} else {
-					return;
-				}
+				const result = await props.plotClient.renderWithSizingPolicy(
+					plotSize,
+					ratio
+				);
+
 
 				// Update the URI to the URI of the new plot.
 				setUri(result.uri);

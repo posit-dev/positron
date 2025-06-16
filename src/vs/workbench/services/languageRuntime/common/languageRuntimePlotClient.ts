@@ -343,6 +343,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			this._stateEmitter.fire(PlotClientState.Rendering);
 
 			request.promise.then((rendered) => {
+				if (rendered.renderTimeMs > 3000 && rendered.size && !this._lastRender) {
+					// Set sizing policy to the current size to avoid redraws
+					this.sizingPolicy = new PlotSizingPolicyCustom(rendered.size, true);
+				}
 				this._stateEmitter.fire(PlotClientState.Rendered);
 				if (!preview) {
 					this._lastRender = rendered;

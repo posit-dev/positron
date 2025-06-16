@@ -583,7 +583,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
-	 * Clears the custom plot size, if one is set. If the custom plot size policy is in used,
+	 * Clears the custom plot size, if one is set. If the custom plot size policy is in use,
 	 * switch to the automatic sizing policy.
 	 */
 	clearCustomPlotSize(): void {
