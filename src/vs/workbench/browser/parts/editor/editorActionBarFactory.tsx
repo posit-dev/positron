@@ -198,7 +198,6 @@ export class EditorActionBarFactory extends Disposable {
 					icon={ThemeIcon.fromId('positron-format-document')}
 					tooltip={positronFormatDocumentTooltip}
 					onPressed={() => {
-						console.log('Format Document pressed');
 						this._commandService.executeCommand('editor.action.formatDocument');
 					}}
 				/>
