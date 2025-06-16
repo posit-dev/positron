@@ -163,7 +163,6 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 				) : null
 			}
 		</div>
-		{/* this is the only usage of source..maybe don't need it anymore? */}
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
