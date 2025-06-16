@@ -17,8 +17,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 	test.beforeAll('Enable Assistant', async function ({ userSettings }) {
 		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
 		await userSettings.set([['positron.assistant.enable', 'true'],
-		['positron.assistant.newModelConfiguration', 'true'],
-		['positron.assistant.testModels', 'true']], true);
+		['positron.assistant.testModels', 'true']], false);
 	});
 
 	/**
@@ -47,6 +46,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickSignInButton();
 		await expect(app.workbench.assistant.verifySignOutButtonVisible(5000)).rejects.toThrow();
 		await app.workbench.assistant.clickDoneButton();
+		await app.code.driver.page.locator('.positron-button:has-text("Yes")').click();
 	});
 
 	/**
