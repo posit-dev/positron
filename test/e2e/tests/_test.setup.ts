@@ -368,6 +368,10 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	}, { auto: true, scope: 'test' }],
 
+	page: async ({ app }, use) => {
+		await use(app.code.driver.page);
+	},
+
 	autoTestFixture: [async ({ logger, suiteId, app }, use, testInfo) => {
 		if (!suiteId) { throw new Error('suiteId is required'); }
 
