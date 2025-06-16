@@ -100,6 +100,17 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 		}
 	});
 
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+	.registerConfiguration({
+		properties: {
+			'positron.plots.freezeSlowPlots': {
+				type: 'boolean',
+				default: true,
+				description: localize('positron.plots.freezeSlowPlotsSetting', "Freeze slow plots to prevent them from being re-rendered when the viewport size changes. This can improve performance for large plots."),
+			}
+		}
+	});
+
 Registry.
 	as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench).
 	registerWorkbenchContribution(PositronPlotsContribution, LifecyclePhase.Restored);
