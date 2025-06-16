@@ -48,19 +48,22 @@ function handleNotRunnable(code: string) {
 }
 
 async function handleManuallyRunnable(_runtime: RSession, code: string) {
-	const console = await positron.window.getConsoleForLanguage('r');
-
-	if (!console) {
-		// Not an expected path, but technically possible,
-		// and we should still do something somewhat useful.
+	try {
+		// Note that the `runtime` doesn't know anything about its console, so
+		// we can't use that to paste the code into the console. Instead, we use
+		// `positron.runtime.pasteText()` to paste into the most recently active
+		// R session, which should align with the one the user clicked the
+		// hyperlink in.
+		await positron.runtime.pasteText('r', code);
+	} catch (error) {
+		// Not an expected path, but technically possible if a console can't be
+		// started for some reason, and we should still do something somewhat
+		// useful.
 		vscode.window.showInformationMessage(vscode.l10n.t(
 			`Failed to locate an R console. Code hyperlink written to clipboard instead: \`${code}\`.`
 		));
 		vscode.env.clipboard.writeText(code);
-		return;
 	}
-
-	console.pasteText(code);
 }
 
 function handleAutomaticallyRunnable(runtime: RSession, code: string) {

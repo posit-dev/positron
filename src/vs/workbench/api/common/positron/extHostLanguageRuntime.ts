@@ -1182,6 +1182,10 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		return executionObserver.promise.p;
 	}
 
+	public async pasteText(languageId: string, text: string): Promise<void> {
+		return this._proxy.$pasteText(languageId, text);
+	}
+
 	/**
 	 * Selects and starts a language runtime.
 	 *

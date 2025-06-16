@@ -1675,6 +1675,16 @@ declare module 'positron' {
 			observer?: ExecutionObserver): Thenable<Record<string, any>>;
 
 		/**
+		 * Paste text into a language runtime's console without running it.
+		 *
+		 * @param languageId The language ID of the console to paste into.
+		 * @param text The text to paste.
+		 *
+		 * @returns A Thenable that resolves when the code has been pasted into the console.
+		 */
+		export function pasteText(languageId: string, text: string): Thenable<void>;
+
+		/**
 		 * Register a language runtime manager with Positron.
 		 *
 		 * @param languageId The language ID for which the manager can provide

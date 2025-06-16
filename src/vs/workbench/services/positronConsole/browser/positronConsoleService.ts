@@ -547,8 +547,48 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
 		executionId?: string): Promise<string> {
-		// When code is executed in the console service, open the console view. This opens
-		// the relevant pane composite if needed.
+		let positronConsoleInstance;
+		try {
+			positronConsoleInstance = await this.getOrStartPositronConsoleInstanceForLanguage(languageId);
+		} catch (error) {
+			throw Error(`Failed to execute code due to: ${error}.\nCode to execute: ${code}`);
+		}
+
+		// Focus the Positron console instance, if we're supposed to.
+		if (focus) {
+			positronConsoleInstance.focusInput();
+		}
+
+		// Enqueue the code in the Positron console instance.
+		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId);
+
+		return Promise.resolve(positronConsoleInstance.sessionId);
+	}
+
+	/**
+	 * Paste text into a PositronConsoleInstance.
+	 *
+	 * If a session for the `languageId` hasn't been started yet, a new one is
+	 * created. Otherwise, the active or most recently used session is chosen.
+	 *
+	 * @param languageId The language ID.
+	 * @param text The text to paste.
+	 */
+	async pasteText(languageId: string, text: string): Promise<void> {
+		try {
+			const positronConsoleInstance = await this.getOrStartPositronConsoleInstanceForLanguage(languageId);
+			positronConsoleInstance.pasteText(text);
+		} catch (error) {
+			throw Error(`Failed to paste text due to: ${error}.\nText to paste: ${text}`);
+		}
+	}
+
+	//#endregion IPositronConsoleService Implementation
+
+	//#region Private Methods
+
+	private async getOrStartPositronConsoleInstanceForLanguage(languageId: string): Promise<PositronConsoleInstance> {
+		// Open the console view. This opens the relevant pane composite if needed.
 		await this._viewsService.openView(POSITRON_CONSOLE_VIEW_ID, false);
 
 		// Get the running runtimes for the language.
@@ -568,15 +608,14 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 					languageRuntime.runtimeName,
 					LanguageRuntimeSessionMode.Console,
 					undefined, // No notebook URI (console sesion)
-					`User executed code in language ${languageId}, and no running runtime session was found ` +
+					`User requires a console for language ${languageId}, but no running runtime session was found ` +
 					`for the language.`,
 					RuntimeStartMode.Starting,
 					true
 				);
 			} else {
-				// There is no registered runtime for the language, so we can't execute code.
-				throw new Error(
-					`Cannot execute code because there is no registered runtime for the '${languageId}' language.`);
+				// There is no registered runtime for the language.
+				throw new Error(`There is no registered runtime for the '${languageId}' language.`);
 			}
 		}
 
@@ -597,9 +636,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 		}
 
 		if (!positronConsoleInstance) {
-			throw new Error(
-				`Could not find or create console for language ID ${languageId} ` +
-				`(attempting to execute ${code})`);
+			throw new Error(`Could not find or create console for language ID ${languageId} `);
 		}
 
 		// Activate the Positron console instance.
@@ -611,19 +648,8 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 			this._runtimeSessionService.foregroundSession = positronConsoleInstance.session;
 		}
 
-		// Focus the Positron console instance, if we're supposed to.
-		if (focus) {
-			positronConsoleInstance.focusInput();
-		}
-
-		// Enqueue the code in the Positron console instance.
-		await positronConsoleInstance.enqueueCode(code, attribution, allowIncomplete, mode, errorBehavior, executionId);
-		return Promise.resolve(positronConsoleInstance.sessionId);
+		return positronConsoleInstance;
 	}
-
-	//#endregion IPositronConsoleService Implementation
-
-	//#region Private Methods
 
 	/**
 	 * Starts a Positron console instance for the specified runtime session.

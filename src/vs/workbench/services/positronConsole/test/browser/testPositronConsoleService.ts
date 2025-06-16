@@ -180,6 +180,10 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		return event.sessionId;
 	}
 
+	async pasteText(_languageId: string, _text: string): Promise<void> {
+		// No-op for test implementation
+	}
+
 	/**
 	 * Adds a test console instance to the service.
 	 * @param instance The instance to add.

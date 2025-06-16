@@ -136,6 +136,17 @@ export interface IPositronConsoleService {
 		executionId?: string): Promise<string>;
 
 	/**
+	 * Paste text into a PositronConsoleInstance.
+	 *
+	 * If a session for the `languageId` hasn't been started yet, a new one is
+	 * created. Otherwise, the active or most recently used session is chosen.
+	 *
+	 * @param languageId The language ID.
+	 * @param text The text to paste.
+	 */
+	pasteText(languageId: string, text: string): Promise<void>;
+
+	/**
 	 * Fires when code is executed in any Positron console instance.
 	 */
 	onDidExecuteCode: Event<ILanguageRuntimeCodeExecutedEvent>;
