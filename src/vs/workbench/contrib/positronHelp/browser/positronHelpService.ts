@@ -225,7 +225,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			}).catch(error => {
 				// Set the help HTML to an error message. This will be
 				// displayed in the Help pane.
-				this._helpHTML = `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${HELP_HTML_FILE_PATH}:</p><p>${error}</body></html>`;
+				this._helpHTML = notFoundHelper(error, HELP_HTML_FILE_PATH);
 			});
 
 		// Load the welcome HTML file.
@@ -246,7 +246,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			}).catch(error => {
 				// Set the help HTML to an error message. This will be
 				// displayed in the Help pane.
-				this._welcomeHTML = `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${WELCOME_HTML_FILE_PATH}:</p><p>${error}</body></html>`;
+				this._welcomeHTML = notFoundHelper(error, WELCOME_HTML_FILE_PATH);
 			});
 
 		// Register onDidColorThemeChange handler.
@@ -765,6 +765,15 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 	//#endregion Private Methods
 }
+
+/**
+ * Format HTML string that contains an error message when a file could not be read.
+ * @param error Error returned when reading file.
+ * @param path Path to the file that could not be read.
+ * @returns HTML string that contains an error message.
+ */
+const notFoundHelper = (error: any, path: string) => `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${path}:</p><p>${error}</body></html>`;
+
 
 // Export the Positron help service identifier.
 export const IPositronHelpService = createDecorator<IPositronHelpService>(POSITRON_HELP_SERVICE_ID);
