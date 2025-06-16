@@ -212,15 +212,23 @@ export class NewFolderFlow {
 
 		const mergedVisibility = { ...defaultVisibility, ...visibleTemplates };
 
-		for (const template of Object.values(FolderTemplate)) {
-			const isVisible = mergedVisibility[template];
+		await test.step(`Verify folder flow template dialog`, async () => {
+			await expect(this.code.driver.page.locator('.simple-title-bar-title').getByText('New Folder From Template')).toBeVisible();
 
-			if (isVisible) {
-				await expect(this.folderTemplateButton(template)).toBeVisible();
-			} else {
-				await expect(this.folderTemplateButton(template)).not.toBeVisible();
+			for (const template of Object.values(FolderTemplate)) {
+				const isVisible = mergedVisibility[template];
+
+				if (isVisible) {
+					await test.step(`Verify "${template}" is visible`, async () => {
+						await expect(this.folderTemplateButton(template)).toBeVisible();
+					});
+				} else {
+					await test.step(`Verify "${template}" is not visible`, async () => {
+						await expect(this.folderTemplateButton(template)).not.toBeVisible();
+					});
+				}
 			}
-		}
+		});
 
 		if (closeModal) {
 			await this.clickFlowButton(FlowButton.CANCEL);

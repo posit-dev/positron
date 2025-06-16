@@ -35,7 +35,7 @@ export * from '../pages/outline';
 export * from '../pages/clipboard';
 export * from '../pages/extensions';
 export * from '../pages/editors';
-export * from '../pages/settings';
+export * from '../pages/userSettings';
 export * from '../pages/debug';
 export * from '../pages/problems';
 export * from '../pages/references';
@@ -45,10 +45,6 @@ export * from '../pages/hotKeys';
 
 // utils
 export * from '../pages/utils/aws';
-export * from '../pages/utils/settingsFileManager';
 export * from '../pages/utils/contextMenu';
-
-// fixtures
-export * from './fixtures/settings';
-
+export * from '../pages/utils/vscodeSettings';
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';

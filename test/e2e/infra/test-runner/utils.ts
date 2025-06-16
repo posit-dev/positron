@@ -16,7 +16,7 @@ export function cloneTestRepo(workspacePath = process.env.WORKSPACE_PATH || 'WOR
 	const testRepoUrl = 'https://github.com/posit-dev/qa-example-content.git';
 	const cacheDir = path.join(os.tmpdir(), 'qa-example-content-cache');
 	const cachedCommitFile = path.join(cacheDir, '.cached-commit');
-	const branch = 'main';
+	const branch = 'mi/remove-workspace-settings';
 
 	// Check if the machine is online by attempting to fetch the latest commit hash.
 	let remoteCommitHash: string | null = null;
@@ -77,34 +77,36 @@ function copyRepo(source: string, destination: string): void {
 }
 
 /**
- * Copies the keybindings.json file to both Chrome and Electron user data directories.
- * @param source The path to the keybindings.json file.
- * @param userDataDir The base user data directory.
+ * Copies a fixture file to a specified destination folder.
+ * If `replaceCtrl` is true, it replaces 'cmd' with 'ctrl' in the file content for compatibility with non-macOS platforms.
+ *
+ * @param fixtureFilename - The name of the fixture file to copy.
+ * @param destinationFolder - The folder where the fixture file should be copied.
+ * @param replaceCtrl - Whether to replace 'cmd' with 'ctrl' in the file content (default: false).
  */
-export async function copyKeybindings(source: string, userDataDir: string): Promise<void> {
-	const chromeKeyBindingsPath = path.join(userDataDir, 'data', 'User', 'keybindings.json');
-	const electronKeyBindingsPath = path.join(userDataDir, 'User', 'keybindings.json');
+export async function copyFixtureFile(fixtureFilename: string, destinationFolder: string, replaceCtrl = false): Promise<void> {
+	const fixturesDir = path.join(process.cwd(), 'test/e2e/fixtures');
+	const fixturesFilePath = path.join(fixturesDir, fixtureFilename);
+	const fileName = path.basename(fixturesFilePath);
+	const destinationFilePath = path.join(destinationFolder, fileName);
 
-	// Read and adjust keybindings for platform
-	let data: string;
 	try {
-		data = await fs.promises.readFile(source, 'utf8');
-	} catch (err) {
-		console.error('✗ Failed to read keybindings:', err);
-		throw err;
-	}
-	if (process.platform === 'win32' || process.platform === 'linux') {
-		data = data.replace(/cmd/gi, 'ctrl');
-	}
+		// Create destination directory if it doesn't exist yet
+		const destDir = path.dirname(destinationFilePath);
+		await fs.promises.mkdir(destDir, { recursive: true });
 
-	// Create directories and write files asynchronously
-	try {
-		await fs.promises.mkdir(path.dirname(chromeKeyBindingsPath), { recursive: true });
-		await fs.promises.mkdir(path.dirname(electronKeyBindingsPath), { recursive: true });
-		await fs.promises.writeFile(chromeKeyBindingsPath, data, 'utf8');
-		await fs.promises.writeFile(electronKeyBindingsPath, data, 'utf8');
+		if (replaceCtrl && (process.platform === 'win32' || process.platform === 'linux')) {
+			// For files needing text replacement
+			const data = await fs.promises.readFile(fixturesFilePath, 'utf8');
+			const modifiedData = data.replace(/cmd/gi, 'ctrl');
+			await fs.promises.writeFile(destinationFilePath, modifiedData, 'utf8');
+		} else {
+			// Direct file copy when no replacement needed
+			await fs.promises.copyFile(fixturesFilePath, destinationFilePath);
+		}
 	} catch (err) {
-		console.error('✗ Failed to write keybindings:', err);
+		console.error(`✗ Failed to copy fixture file ${fixtureFilename}:`, err);
 		throw err;
 	}
 }
+

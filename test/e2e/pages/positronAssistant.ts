@@ -53,6 +53,12 @@ export class Assistant {
 		});
 	}
 
+	async closeInlineChat() {
+		await test.step('Close Inline Chat', async () => {
+			this.code.driver.page.getByRole('button', { name: 'Close (Escape)' }).click();
+		});
+	}
+
 	async clickAddModelLink() {
 		await this.code.driver.page.locator(ADD_MODEL_LINK).click();
 	}

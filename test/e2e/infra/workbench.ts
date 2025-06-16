@@ -29,7 +29,7 @@ import { Outline } from '../pages/outline';
 import { Clipboard } from '../pages/clipboard';
 import { QuickInput } from '../pages/quickInput';
 import { Extensions } from '../pages/extensions';
-import { Settings } from '../pages/settings';
+import { UserSettings } from '../pages/userSettings';
 import { Debug } from '../pages/debug';
 import { EditorActionBar } from '../pages/editorActionBar';
 import { Problems } from '../pages/problems';
@@ -72,7 +72,7 @@ export class Workbench {
 	readonly quickInput: QuickInput;
 	readonly extensions: Extensions;
 	readonly editors: Editors;
-	readonly settings: Settings;
+	readonly settings: UserSettings;
 	readonly debug: Debug;
 	readonly editorActionBar: EditorActionBar;
 	readonly problems: Problems;
@@ -112,7 +112,7 @@ export class Workbench {
 		this.testExplorer = new TestExplorer(code);
 		this.outline = new Outline(code, this.quickaccess);
 		this.extensions = new Extensions(code, this.quickaccess);
-		this.settings = new Settings(code, this.editors, this.editor, this.quickaccess, this.clipboard, this.hotKeys);
+		this.settings = new UserSettings(code, this.hotKeys);
 		this.debug = new Debug(code);
 		this.editorActionBar = new EditorActionBar(code.driver.page, this.viewer, this.quickaccess);
 		this.problems = new Problems(code, this.quickaccess);
