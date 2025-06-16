@@ -173,13 +173,12 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	/** Derive the auth method from the selected provider */
 	const getAuthMethod = () => {
-		// Currently, if the provider supports OAuth, we use that as the auth method.
-		// If it does not support OAuth, we use API key auth.
-		// There is not currently a way to have more than one auth method per provider,
-		// so we can assume that if OAuth is supported, it is the only auth method.
+		// We don't currently support more than one auth method per provider,
+		// so if OAuth is supported, it is the only auth method.
 		if (selectedProvider.supportedOptions.includes(AuthMethod.OAUTH)) {
 			return AuthMethod.OAUTH;
 		}
+		// Otherwise, we assume API key auth is supported.
 		return AuthMethod.API_KEY;
 	}
 

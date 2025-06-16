@@ -10,7 +10,6 @@ import { completionModels } from './completion';
 import { disposeModels, log, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
 
-// this is the regular storage, and we store the apikey in the secret storage, so it is omitted here
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
 	id: string;
 }

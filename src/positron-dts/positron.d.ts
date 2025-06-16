@@ -2013,8 +2013,6 @@ declare module 'positron' {
 
 		/**
 		 * Positron Language Model configuration.
-		 * this doesn't get persisted or the other one LanguageModelConfigOptions
-		 * doesn't get persisted.
 		 */
 		export interface LanguageModelConfig extends LanguageModelConfigOptions {
 			type: PositronLanguageModelType;
