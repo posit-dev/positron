@@ -10,11 +10,12 @@ import Severity from '../../../../../base/common/severity.js';
 import { INotificationHandle } from '../../../../../platform/notification/common/notification.js';
 import { IRuntimeSessionService } from '../../../runtimeSession/common/runtimeSessionService.js';
 import { PositronConnectionsDriverManager } from '../../browser/positronConnectionsDrivers.js';
+import { IDisposable } from '../../../../../base/common/lifecycle.js';
 
 export const IPositronConnectionsService = createDecorator<IPositronConnectionsService>('positronConnectionsService');
 export const POSITRON_CONNECTIONS_VIEW_ID = 'workbench.panel.positronConnections';
 
-export interface IPositronConnectionsService {
+export interface IPositronConnectionsService extends IDisposable {
 	readonly _serviceBrand: undefined;
 	readonly driverManager: PositronConnectionsDriverManager;
 
