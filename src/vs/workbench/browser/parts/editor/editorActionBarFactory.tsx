@@ -302,10 +302,11 @@ export class EditorActionBarFactory extends Disposable {
 
 	/**
 	 * Builds action bar elements for a menu.
-	 * @param processedActions The set of processed actions.
-	 * @param buildSecondaryActions A value which indicates whether to build secondary actions.
-	 * @param menuId The menu ID.
-	 * @param actionIds The set of action IDs to filter by, if any.
+	 * @param processedActions The set of action IDs that have already been processed (used to prevent duplicates).
+	 * @param buildSecondaryActions A value which indicates whether to build the secondary actions.
+	 * @param menuId The menu ID of the menu to build action bar elements from.
+	 * @param actionIds An optional set of specific action IDs to filter by; if provided, only actions with these IDs will be processed.
+	 * @returns An array of JSX elements representing the action bar components.
 	 */
 	private buildActionBarElements(
 		processedActions: Set<string>,
