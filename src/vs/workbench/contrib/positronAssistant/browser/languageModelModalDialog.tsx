@@ -236,7 +236,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		setError(undefined);
 		if (providerConfig) {
 			if (authMethod === AuthMethod.API_KEY) {
-				props.onAction(
+				await props.onAction(
 					providerConfig,
 					source.signedIn ? 'delete' : 'save')
 					.catch((e) => {
@@ -245,7 +245,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 						setShowProgress(false);
 					});
 			} else {
-				props.onAction(
+				await props.onAction(
 					providerConfig,
 					source.signedIn ? 'oauth-signout' : 'oauth-signin')
 					.catch((e) => {
@@ -260,6 +260,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}
 
 		if (providerConfig.completions) {
+			setShowProgress(true);
 			// Assume a completion source exists with the same provider ID and compatible auth details
 			const completionSource = props.sources.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
 			const completionConfig = {
@@ -269,7 +270,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				apiKey: providerConfig.apiKey,
 				oauth: providerConfig.oauth,
 			}
-			props.onAction(
+			await props.onAction(
 				completionConfig,
 				source.signedIn ? 'delete' : 'save')
 				.catch((e) => {
