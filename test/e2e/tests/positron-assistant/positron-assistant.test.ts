@@ -14,14 +14,6 @@ test.use({
  * Test suite for the setup of Positron Assistant.
  */
 test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
-	test.beforeAll('Enable Assistant', async function ({ settings }) {
-		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
-		await settings.set({
-			'positron.assistant.enable': true,
-			'positron.assistant.testModels': true
-		});
-	});
-
 	/**
 	 * Verifies that the Positron Assistant can be opened and that the
 	 * add model button is visible in the interface. Once Assistant is on by default,
@@ -91,6 +83,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignOutButton();
 		await app.workbench.assistant.clickDoneButton();
+		await app.workbench.assistant.closeInlineChat();
 	});
 
 	test('Verify Authentication Type When Switching Providers', async function ({ app }) {
@@ -111,9 +104,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
 		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
 		await settings.set({
-			'positron.assistant.enable': true,
 			'positron.assistant.newModelConfiguration': true,
-			'positron.assistant.testModels': true
 		}, { reload: true });
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.quickaccess.runCommand('positron-assistant.addModelConfiguration');
@@ -142,7 +133,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	});
 
 	/**
-	 * Testst that R code from chat responses can be executed in the console.
+	 * Test that R code from chat responses can be executed in the console.
 	 * Verifies that code execution creates the expected variable with the correct value.
 	 *
 	 * @param app - Application fixture providing access to UI elements
