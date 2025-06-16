@@ -344,7 +344,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		// wait for the archive to finalize and the output stream to close
 		await new Promise((resolve, reject) => {
-			output.on('close', resolve);
+			output.on('close', () => resolve(undefined));
 			output.on('error', reject);
 			archive.finalize();
 		});
