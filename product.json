@@ -196,8 +196,8 @@
 		},
 		{
 			"name": "ms-pyright.pyright",
-			"version": "1.1.401",
-			"sha256sum": "981fd1ec52e00844a49f94a0332528fc24d71e207cc7580e0c4140681c49eac9",
+			"version": "1.1.402",
+			"sha256sum": "7ffa5a8649fa800b282c25ad70ce290367e036238d52727da7cdcac3d57439e9",
 			"repo": "https://github.com/Microsoft/pyright",
 			"metadata": {
 				"id": "593fe6a5-513e-4cb3-abfb-5b9f5fe39802",
