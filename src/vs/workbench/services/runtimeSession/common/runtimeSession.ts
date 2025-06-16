@@ -213,6 +213,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// When an extension activates, check to see if we have any disconnected
 		// sessions owned by that extension. If we do, try to reconnect them.
 		this._register(this._extensionService.onDidChangeExtensionsStatus((e) => {
+			this._logService.debug(`Extension status changed; checking ${this._disconnectedSessions.size} sessions`);
 			for (const extensionId of e) {
 				for (const session of this._disconnectedSessions.values()) {
 					if (session.runtimeMetadata.extensionId.value === extensionId.value) {
@@ -223,11 +224,28 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						// Attempt to reconnect the session.
 						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
 							`attempting to reconnect session ${session.sessionId}`);
-						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata, session.dynState.sessionName, false);
+						try {
+							this.restoreRuntimeSession(session.runtimeMetadata,
+								session.metadata,
+								session.dynState.sessionName,
+								false);
+							this._logService.debug(`Completed reconnection for session ${session.sessionId}`);
+						} catch (err) {
+							if (err instanceof Error) {
+								this._notificationService.error(
+									localize('Failed to restore session {0} for extension {1}: {2}', session.sessionId, extensionId.value, err.message)
+								);
+							} else {
+								this._notificationService.error(
+									localize('Unknown error restoring session {0} for extension {1}: {2}', session.metadata.sessionId, extensionId.value, JSON.stringify(err))
+								);
+							}
+						}
 					}
 				}
 			}
-		}));
+		}
+		));
 
 		// Changing the application storage scope causes disconnected sessions
 		// to become unusable, since the information needed to reconnect to them
@@ -243,6 +261,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 					this._onDidDeleteRuntimeSessionEmitter.fire(value.sessionId);
 				});
 				this._disconnectedSessions.clear();
+				this._logService.debug(`There are now ${this._disconnectedSessions.size} disconnected sessions`);
 			}
 		}));
 
@@ -357,7 +376,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getNotebookSessionForNotebookUri(notebookUri: URI): ILanguageRuntimeSession | undefined {
 		const session = this._notebookSessionsByNotebookUri.get(notebookUri);
-		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'}`);
+		this._logService.info(`Lookup notebook session for notebook URI ${notebookUri.toString()}: ${session ? session.metadata.sessionId : 'not found'} `);
 		return session;
 	}
 
@@ -467,7 +486,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	focusSession(sessionId: string): void {
 		const session = this.getSession(sessionId);
 		if (!session) {
-			throw new Error(`Could not find session with id {sessionId}.`);
+			throw new Error(`Could not find session with id { sessionId }.`);
 		}
 
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
@@ -522,7 +541,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}));
 			disposables.add(disposableTimeout(() => {
 				disposables.dispose();
-				reject(new Error(`Timed out waiting for runtime ` +
+				reject(new Error(`Timed out waiting for runtime` +
 					`${formatLanguageRuntimeSession(session)} to finish exiting.`));
 			}, 5000));
 		});
@@ -592,7 +611,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Start the runtime.
 		this._logService.info(
-			`Starting session for language runtime ` +
+			`Starting session for language runtime` +
 			`${formatLanguageRuntimeMetadata(languageRuntime)} (Source: ${source})`);
 		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, source, startMode, activate, notebookUri);
 	}
@@ -615,7 +634,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// This shouldn't happen, but could in unusual circumstances, e.g.
 			// the extension that supplies the runtime was uninstalled and this
 			// is a stale session that it owned the last time we were running.
-			this._logService.error(`Error getting manager for runtime ${formatLanguageRuntimeMetadata(runtimeMetadata)}: ${err}`);
+			this._logService.error(`Error getting manager for runtime ${formatLanguageRuntimeMetadata(runtimeMetadata)}: ${err} `);
 			// Treat the session as invalid if we can't get the manager.
 			return false;
 		}
@@ -655,7 +674,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			runtimeMetadata.runtimeId);
 		if (!languageRuntime) {
 			this._logService.debug(`[Reconnect ${sessionMetadata.sessionId}]: ` +
-				`Registering runtime ${runtimeMetadata.runtimeName}`);
+				`Registering runtime ${runtimeMetadata.runtimeName} `);
 			this._languageRuntimeService.registerRuntime(runtimeMetadata);
 		}
 
@@ -670,7 +689,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// It's possible that startPromise is never awaited, so we log any errors here
 		// at the debug level since we still expect the error to be handled/logged elsewhere.
-		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err}`));
+		startPromise.p.catch(err => this._logService.debug(`Error starting runtime session: ${err} `));
 
 		// For notebook sessions, update the starting sessions map so that any concurrent
 		// start/restore requests return the same pending promise.
@@ -719,8 +738,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			session = await sessionManager.restoreSession(runtimeMetadata, sessionMetadata, sessionName);
 		} catch (err) {
 			this._logService.error(
-				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime ` +
-				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed. Reason: ${err}`);
+				`Reconnecting to session '${sessionMetadata.sessionId}' for language runtime` +
+				`${formatLanguageRuntimeMetadata(runtimeMetadata)} failed.Reason: ${err} `);
 			throw err;
 		}
 

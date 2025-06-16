@@ -47,6 +47,7 @@ import { IPositronConsoleInstance, PositronConsoleState } from '../../../../serv
 import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
 import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { localize } from '../../../../../nls.js';
 
 // Position enumeration.
 const enum Position {
@@ -164,8 +165,26 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		if (!session) {
 			return false;
 		}
-		// Check on whether the code is complete and can be executed.
-		switch (await session.isCodeFragmentComplete(code)) {
+
+		// Determine whether the code is complete, incomplete, invalid, or
+		// unknown. We handle errors here since callers don't handle them.
+		let status = RuntimeCodeFragmentStatus.Unknown;
+		try {
+			status = await session.isCodeFragmentComplete(code);
+		} catch (err) {
+			if (err instanceof Error) {
+				positronConsoleContext.notificationService.error(
+					localize('Cannot execute code: {0} ({1})', err.name, err.message)
+				);
+			} else {
+				positronConsoleContext.notificationService.error(
+					localize('Cannot execute code: {0}', JSON.stringify(err))
+				);
+			}
+			return false;
+		}
+
+		switch (status) {
 			// If the code fragment is complete, execute it.
 			case RuntimeCodeFragmentStatus.Complete:
 				break;
