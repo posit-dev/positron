@@ -572,6 +572,24 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		});
 	}
 
+	/** Additional language-specific prompts for active sessions */
+	protected async getActiveSessionInstructions(): Promise<string> {
+		const sessions = await positron.runtime.getActiveSessions();
+		const languages = sessions.map((session) => session.runtimeMetadata.languageId);
+
+		const instructions = await Promise.all(languages.map(async (id) => {
+			try {
+				const instructions = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', `instructions-${id}.md`), 'utf8');
+				return instructions + '\n\n';
+			} catch {
+				// There are no additional instructions for this language ID
+				return '';
+			}
+		}));
+
+		return instructions.join('');
+	}
+
 	dispose(): void { }
 }
 
@@ -582,7 +600,8 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
-		return defaultSystem + '\n\n' + filepaths;
+		const languages = await this.getActiveSessionInstructions();
+		return defaultSystem + '\n\n' + filepaths + '\n\n' + languages;
 	}
 }
 
@@ -593,7 +612,8 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 		const agent = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'agent.md'), 'utf8');
-		return defaultSystem + '\n\n' + agent;
+		const languages = await this.getActiveSessionInstructions();
+		return defaultSystem + '\n\n' + agent + '\n\n' + languages;
 	}
 }
 
