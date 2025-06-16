@@ -19,41 +19,10 @@
 			height: 100vh;
 		}
 
-		.header {
-			display: flex;
-			flex-direction: row;
-			text-wrap-mode: nowrap;
-			margin-bottom: 2em;
-		}
-
 		.logo {
-			max-width: min(17.1vw, 6em);
-			max-height: min(17.1vw, 6em);
-			margin-right: 12px;
-		}
-
-		.header-text {
-			display: flex;
-			flex-direction: column;
-			justify-content: center;
-			align-items: flex-start;
-		}
-
-		.title {
-			font-size: min(10vw, 3.5em);
-			font-weight: 800;
-			color: var(--vscode-positronWelcome-foreground);
-			margin: 0;
-			padding-top: 0.2em;
-			line-height: 16px;
-		}
-
-		.caption {
-			font-size: min(4.3vw, 1.5em);
-			font-weight: 600;
-			color: var(--vscode-positronWelcome-secondaryForeground);
-			margin: 0.6em 0 0 0;
-			text-wrap-mode: wrap;
+			width: min(75vw, 25em);
+			height: auto;
+			margin-bottom: 2em;
 		}
 
 		ul {
@@ -67,13 +36,8 @@
 <body>
 	<div class="container">
 		<div>
-			<div class="header">
-				<img src="__logoSrc__" alt="Positron Logo" class="logo">
-				<div class="header-text">
-					<h1 class="title">__productName__</h1>
-					<h2 class="caption">an IDE for data science by Posit PBC</h2>
-				</div>
-			</div>
+			<img src="__logoSrc__" alt="Positron Logo" class="logo">
+
 			<div>
 				<ul>
 					<li><a href="https://positron.posit.co/">Positron Documentation</a></li>

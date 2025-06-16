@@ -24,7 +24,6 @@ import { IInstantiationService, createDecorator } from '../../../../platform/ins
 import { HelpClientInstance } from '../../../services/languageRuntime/common/languageRuntimeHelpClient.js';
 import { RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IProductService } from '../../../../platform/product/common/productService.js';
 
 /**
  * The help HTML file path.
@@ -211,7 +210,6 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IThemeService private readonly _themeService: IThemeService,
 		@IViewsService private readonly _viewsService: IViewsService,
-		@IProductService private readonly _productService: IProductService,
 
 	) {
 		// Call the base class's constructor.
@@ -232,7 +230,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		this._fileService.readFile(FileAccess.asFileUri(WELCOME_HTML_FILE_PATH))
 			.then(async fileContent => {
 				// Set the help HTML to the file's contents.
-				const wordmarkContent = await this._fileService.readFile(FileAccess.asFileUri('vs/workbench/browser/media/positron-icon.svg'));
+				const wordmarkContent = await this._fileService.readFile(FileAccess.asFileUri('vs/workbench/browser/media/positron-header.svg'));
 
 				// Convert SVG buffer to base64 encoded data URL
 				const base64Svg = btoa(wordmarkContent.value.toString());
@@ -240,7 +238,6 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 				const html = fileContent.value.toString();
 				this._welcomeHTML = html
-					.replace('__productName__', this._productService.nameLong)
 					.replace('__logoSrc__', dataUrl);
 				this.showWelcomePage();
 			}).catch(error => {
