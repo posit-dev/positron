@@ -175,7 +175,7 @@ export const startEntries: GettingStartedStartEntryContent = [
 	{
 		id: 'topLevelNewFolderFromGit',
 		title: localize('gettingStarted.newFolderFromGit.title', "New Folder from Git..."),
-		description: localize('gettingStarted.newFolderFromGit.description', "Open a new folder from Git"),
+		description: localize('gettingStarted.newFolderFromGit.description', "Create a new folder from Git"),
 		icon: Codicon.positronNewFolderFromGit,
 		content: {
 			type: 'startEntry',

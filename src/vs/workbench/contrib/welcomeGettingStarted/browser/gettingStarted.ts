@@ -79,9 +79,6 @@ import './media/positronGettingStarted.css';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { createWelcomePageLeft } from './positronWelcomePageLeft.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 // --- End Positron ---
 
@@ -90,6 +87,14 @@ const configurationKey = 'workbench.startupEditor';
 
 export const allWalkthroughsHiddenContext = new RawContextKey<boolean>('allWalkthroughsHidden', false);
 export const inWelcomeContext = new RawContextKey<boolean>('inWelcome', false);
+
+// --- Start Positron ---
+export interface IWelcomePageHelpEntry {
+	id: string;
+	title: string;
+	href: string;
+}
+// --- End Positron ---
 
 export interface IWelcomePageStartEntry {
 	id: string;
@@ -101,6 +106,11 @@ export interface IWelcomePageStartEntry {
 	when: ContextKeyExpression;
 }
 
+// --- Start Positron ---
+//
+// This function is not used in Positron. It is commented out rather than
+// being deleted to minimize merge conflicts.
+/*
 const parsedStartEntries: IWelcomePageStartEntry[] = startEntries.map((e, i) => ({
 	command: e.content.command,
 	description: e.description,
@@ -110,6 +120,8 @@ const parsedStartEntries: IWelcomePageStartEntry[] = startEntries.map((e, i) => 
 	title: e.title,
 	when: ContextKeyExpr.deserialize(e.when) ?? ContextKeyExpr.true()
 }));
+*/
+// --- End Positron ---
 
 type GettingStartedActionClassification = {
 	command: { classification: 'PublicNonPersonalData'; purpose: 'FeatureInsight'; comment: 'The command being executed on the getting started page.' };
@@ -159,6 +171,7 @@ export class GettingStartedPage extends EditorPane {
 
 	private contextService: IContextKeyService;
 	// --- Start Positron ---
+	private helpList?: GettingStartedIndexList<IWelcomePageHelpEntry>;
 	private recentlyOpenedList?: GettingStartedIndexList<RecentEntry>;
 	private startList?: GettingStartedIndexList<IWelcomePageStartEntry>;
 	private gettingStartedList?: GettingStartedIndexList<IResolvedWalkthrough>;
@@ -203,9 +216,6 @@ export class GettingStartedPage extends EditorPane {
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@ILayoutService private readonly layoutService: ILayoutService,
-		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
-		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
-		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
 	) {
 
@@ -895,14 +905,8 @@ export class GettingStartedPage extends EditorPane {
 
 		// --- Start Positron ---
 		// Diverged from upstream by removing Walkthroughs from the Welcome Page
-
-		const headerText = $('div', {},
-			$('h1.product-name.positron.caption', {}, this.productService.nameLong),
-			$('p.subtitle.positron.description', {}, localize({ key: 'gettingStarted.editingEvolved', comment: ['Shown as subtitle on the Welcome page.'] }, "an IDE for data science"))
-		);
 		const header = $('.header', {},
-			$('div.product-logo.welcome-positron-logo.'),
-			headerText
+			$('div.product-logo.welcome-positron-logo'),
 		);
 
 		if (!header) {
@@ -914,9 +918,26 @@ export class GettingStartedPage extends EditorPane {
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);
 
-		const startList = this.buildStartList();
+		const helpList = this.buildHelpList();
+		//const startList = this.buildStartList();
 		const recentList = this.buildRecentlyOpenedList();
 		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+
+		// The "Connect to..." button is normally a part of the start list
+		// which is not used in Positron. We show the action underneath the
+		// recent list instead.
+		const otherList = $('.other-actions', {},
+			$('hr'),
+			$('button.button-link',
+				{
+					'x-dispatch': 'selectStartEntry:topLevelRemoteOpen',
+					title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
+					when: '!isWeb',
+				},
+				this.iconWidgetFor({ icon: { type: 'icon', icon: Codicon.remote } }),
+				localize('gettingStarted.topLevelRemoteOpen.title', "Connect to...")
+			)
+		);
 
 		const footer = $('.footer', {},
 			$('p.showOnStartup', {},
@@ -926,10 +947,16 @@ export class GettingStartedPage extends EditorPane {
 
 		const layoutRecentList = () => {
 			const leftContent = $('div.positron-welcome-left-column');
-			this.positronReactRenderer = createWelcomePageLeft(leftContent, this.openerService, this.keybindingService,
-				this.layoutService, this.commandService, this.configurationService, this.runtimeSessionService, this.runtimeStartupService, this.languageRuntimeService);
-			reset(leftColumn, leftContent);
-			reset(rightColumn, startList.getDomElement(), recentList.getDomElement());
+			this.positronReactRenderer = createWelcomePageLeft(
+				leftContent,
+				this.commandService,
+				this.configurationService,
+				this.keybindingService,
+				this.layoutService,
+				this.workspaceContextService
+			);
+			reset(leftColumn, leftContent, recentList.getDomElement(), otherList);
+			reset(rightColumn, helpList.getDomElement());
 		};
 		layoutRecentList();
 
@@ -982,6 +1009,64 @@ export class GettingStartedPage extends EditorPane {
 
 		this.setSlide('categories');
 	}
+
+	// --- Start Positron ---
+	private buildHelpList(): GettingStartedIndexList<IWelcomePageHelpEntry> {
+		const renderHelpEntry = (entry: IWelcomePageHelpEntry): HTMLElement => {
+			const li = $('li');
+			const link = $('button.button-link');
+
+			link.innerText = entry.title;
+			link.title = entry.title;
+			link.setAttribute('aria-label', entry.title);
+			link.addEventListener('click', e => {
+				this.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>('gettingStarted.ActionExecuted', { command: 'openLink', argument: entry.href, walkthroughId: this.currentWalkthrough?.id });
+				this.openerService.open(entry.href);
+				e.preventDefault();
+				e.stopPropagation();
+			});
+
+			li.appendChild(link);
+			return li;
+		};
+
+		if (this.helpList) {
+			this.helpList.dispose();
+		}
+
+		const helpList = this.helpList = new GettingStartedIndexList(
+			{
+				title: localize('help', "Help"),
+				klass: 'welcome-help-links',
+				limit: 10,
+				renderElement: renderHelpEntry,
+				contextService: this.contextService
+			});
+
+		const helpEntries: IWelcomePageHelpEntry[] = [
+			{
+				id: 'positron-documentation',
+				title: localize('positron.welcome.positronDocumentation', "Positron Documentation"),
+				href: 'https://positron.posit.co/'
+			},
+			{
+				id: 'positron-community',
+				title: 'Positron Community Forum',
+				href: 'https://github.com/posit-dev/positron/discussions'
+			},
+			{
+				id: 'report-bug',
+				title: 'Report a bug',
+				href: 'https://github.com/posit-dev/positron/issues'
+			}
+		];
+
+		helpList.setEntries(helpEntries);
+		helpList.onDidChange(() => this.registerDispatchListeners());
+
+		return helpList;
+	}
+	// --- End Positron ---
 
 	private buildRecentlyOpenedList(): GettingStartedIndexList<RecentEntry> {
 		const renderRecent = (recent: RecentEntry) => {
@@ -1064,6 +1149,11 @@ export class GettingStartedPage extends EditorPane {
 		return recentlyOpenedList;
 	}
 
+	// --- Start Positron ---
+	//
+	// This function is not used in Positron. It is commented out rather than
+	// being deleted to minimize merge conflicts.
+	/*
 	private buildStartList(): GettingStartedIndexList<IWelcomePageStartEntry> {
 		const renderStartEntry = (entry: IWelcomePageStartEntry): HTMLElement =>
 			$('li',
@@ -1091,6 +1181,8 @@ export class GettingStartedPage extends EditorPane {
 		startList.onDidChange(() => this.registerDispatchListeners());
 		return startList;
 	}
+	*/
+	// --- End Positron ---
 
 	// --- Start Positron ---
 	//
@@ -1193,6 +1285,7 @@ export class GettingStartedPage extends EditorPane {
 		this.categoriesPageScrollbar?.scanDomNode();
 		this.detailsPageScrollbar?.scanDomNode();
 
+		this.helpList?.layout(size);
 		this.startList?.layout(size);
 		this.gettingStartedList?.layout(size);
 		this.recentlyOpenedList?.layout(size);

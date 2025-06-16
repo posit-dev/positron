@@ -106,13 +106,22 @@ export class NativeDialogHandler extends AbstractDialogHandler {
 			);
 			// --- End Positron ---
 		};
+		// --- Start Positron ---
+		const aboutProductHeader = localize({ key: 'aboutProductHeader', comment: ['Header for the about dialog'] },
+			"{0} by {1}",
+			this.productService.nameLong,
+			this.productService.companyName
+		);
+		// --- End Positron ---
 
 		const detail = detailString(true);
 		const detailToCopy = detailString(false);
 
 		const { response } = await this.nativeHostService.showMessageBox({
 			type: 'info',
-			message: this.productService.nameLong,
+			// --- Start Positron ---
+			message: aboutProductHeader,
+			// --- End Positron ---
 			detail: `\n${detail}`,
 			buttons: [
 				localize({ key: 'copy', comment: ['&& denotes a mnemonic'] }, "&&Copy"),
