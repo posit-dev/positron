@@ -143,7 +143,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				}
 			});
 		}
-	}, [providerSources, selectedProvider]);
+	}, [providerSources, selectedProvider.provider.id]);
 
 	/** Check if the current provider is one of the signed in providers */
 	const isSignedIn = () => {
