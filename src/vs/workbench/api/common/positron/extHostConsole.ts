@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import { Disposable } from 'vscode';
 import { MainThreadConsoleServiceShape } from './extHost.positron.protocol.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 
@@ -19,7 +20,7 @@ import { ILogService } from '../../../../platform/log/common/log.js';
  * `positron.Console` is modeled after the design of `vscode.TextEditor`, which
  * similarly has both `ExtHostTextEditor` and `MainThreadTextEditor`.
  */
-export class ExtHostConsole {
+export class ExtHostConsole implements Disposable {
 
 	private _disposed: boolean = false;
 
