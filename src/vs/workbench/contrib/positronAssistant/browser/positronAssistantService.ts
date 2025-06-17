@@ -19,6 +19,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { IProductService } from '../../../../platform/product/common/productService.js';
 
 /**
  * PositronAssistantService class.
@@ -44,6 +45,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IExecutionHistoryService private readonly _historyService: IExecutionHistoryService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
+		@IProductService protected readonly _productService: IProductService,
 	) {
 		super();
 	}
@@ -69,8 +71,13 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 			timeZoneName: 'short',
 		};
 
+		const positronVersion = this._productService ?
+			`${this._productService.positronVersion}-${this._productService.positronBuildNumber}`
+			: undefined;
+
 		const context: IPositronChatContext = {
 			activeSession,
+			positronVersion,
 			currentDate: now.toLocaleDateString(undefined, options),
 			plots: {
 				hasPlots: this.getCurrentPlotUri() !== undefined,

@@ -2081,6 +2081,7 @@ declare module 'positron' {
 					error?: any;
 				}[];
 			};
+			positronVersion?: string;
 			currentDate?: string;
 			plots?: {
 				hasPlots: boolean;
