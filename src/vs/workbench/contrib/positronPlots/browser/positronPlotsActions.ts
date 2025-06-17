@@ -19,7 +19,7 @@ import { IEditorService } from '../../../services/editor/common/editorService.js
 import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { Uri } from 'vscode';
+import { URI } from '../../../../base/common/uri.js';
 import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 
 export enum PlotActionTarget {
@@ -644,7 +644,7 @@ export abstract class PlotsEditorZoomAction extends Action2 {
 	 * @param accessor The service accessor.
 	 * @param plotId The plot ID to zoom.
 	 */
-	async run(accessor: ServicesAccessor, plotId: Uri): Promise<void> {
+	async run(accessor: ServicesAccessor, plotId: URI): Promise<void> {
 		const plotsService = accessor.get(IPositronPlotsService);
 		const plotInstance = plotsService.getEditorInstance(plotId.path);
 		if (isZoomablePlotClient(plotInstance)) {
