@@ -176,13 +176,13 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	/** Derive the auth method from the selected provider */
 	const getAuthMethod = () => {
-		// We don't currently support more than one auth method per provider,
-		// so if OAuth is supported, it is the only auth method.
+		// We don't currently support more than one auth method per provider.
 		if (selectedProvider.supportedOptions.includes(AuthMethod.OAUTH)) {
 			return AuthMethod.OAUTH;
+		} else if (selectedProvider.supportedOptions.includes(AuthMethod.API_KEY)) {
+			return AuthMethod.API_KEY;
 		}
-		// Otherwise, we assume API key auth is supported.
-		return AuthMethod.API_KEY;
+		return AuthMethod.NONE;
 	}
 
 	/** When the user clicks a different provider in the modal */
@@ -237,6 +237,8 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		setErrorMessage(undefined);
 		if (providerConfig) {
 			switch (getAuthMethod()) {
+				case AuthMethod.NONE:
+				// Use the same actions as API_KEY
 				case AuthMethod.API_KEY:
 					await props.onAction(providerConfig, isSignedIn() ? 'delete' : 'save')
 						.catch((e) => {
@@ -341,17 +343,20 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			<label className='language-model-section'>
 				{(() => localize('positron.languageModelProviderModalDialog.authentication', "Authentication"))()}
 			</label>
-			<div className='language-model-authentication-method-container'>
-				<RadioGroup
-					entries={authMethodRadioButtons}
-					initialSelectionId={getAuthMethod()}
-					name='authMethod'
-					onSelectionChanged={(authMethod) => {
-						// TODO: it's not currently possible to change the auth method, as each provider only
-						// supports one auth method at a time. This is a placeholder for future support.
-					}}
-				/>
-			</div>
+			{
+				getAuthMethod() !== AuthMethod.NONE &&
+				<div className='language-model-authentication-method-container'>
+					<RadioGroup
+						entries={authMethodRadioButtons}
+						initialSelectionId={getAuthMethod()}
+						name='authMethod'
+						onSelectionChanged={(authMethod) => {
+							// TODO: it's not currently possible to change the auth method, as each provider only
+							// supports one auth method at a time. This is a placeholder for future support.
+						}}
+					/>
+				</div>
+			}
 			<LanguageModelConfigComponent
 				authMethod={getAuthMethod()}
 				authStatus={getAuthStatus()}

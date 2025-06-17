@@ -6,6 +6,7 @@
 export enum AuthMethod {
 	API_KEY = 'apiKey',
 	OAUTH = 'oauth',
+	NONE = 'none',
 }
 
 export enum AuthStatus {
