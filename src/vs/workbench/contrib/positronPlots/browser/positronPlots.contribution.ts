@@ -18,7 +18,7 @@ import { IPositronPlotsService, POSITRON_PLOTS_VIEW_ID } from '../../../services
 import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { MenuRegistry, registerAction2, MenuId, ISubmenuItem } from '../../../../platform/actions/common/actions.js';
-import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsActiveEditorZoomAction, PlotsClearAction, PlotsCopyAction, PlotsEditorAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction, PlotsSizingPolicyAction, ZoomFiftyAction, ZoomOneHundredAction, ZoomSeventyFiveAction, ZoomToFitAction, ZoomTwoHundredAction } from './positronPlotsActions.js';
+import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsClearAction, PlotsEditorZoomAction, PlotsCopyAction, PlotsEditorAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsRefreshAction, PlotsSaveAction, PlotsSizingPolicyAction, ZoomFiftyAction, ZoomOneHundredAction, ZoomSeventyFiveAction, ZoomToFitAction, ZoomTwoHundredAction } from './positronPlotsActions.js';
 import { POSITRON_SESSION_CONTAINER } from '../../positronSession/browser/positronSessionContainer.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize, localize2 } from '../../../../nls.js';
@@ -77,7 +77,6 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		registerAction2(PlotsActiveEditorCopyAction);
 		registerAction2(PlotsActiveEditorSaveAction);
 		registerAction2(PlotsSizingPolicyAction);
-		registerAction2(PlotsActiveEditorZoomAction); // Keep this to register the SUBMENU_ID
 		this.registerEditorZoomSubMenu();
 	}
 
@@ -85,7 +84,7 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 		// Register the main submenu for the editor action bar
 		const zoomSubmenu: ISubmenuItem = {
 			title: localize2('positronPlots.zoomSubMenuTitle', 'Set the plot zoom'),
-			submenu: PlotsActiveEditorZoomAction.SUBMENU_ID,
+			submenu: PlotsEditorZoomAction.SUBMENU_ID,
 			when: PLOT_IS_ACTIVE_EDITOR,
 			group: 'navigation',
 			order: 3,

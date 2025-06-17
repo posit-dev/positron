@@ -20,6 +20,7 @@ import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomL
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Uri } from 'vscode';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 
 export enum PlotActionTarget {
 	VIEW = 'view',
@@ -627,29 +628,10 @@ export class PlotsSizingPolicyAction extends AbstractPlotsAction {
 	}
 }
 
-export class PlotsActiveEditorZoomAction extends Action2 {
-	static readonly ID = 'workbench.action.positronPlots.zoomActiveEditor';
+export abstract class PlotsEditorZoomAction extends Action2 {
 	static readonly SUBMENU_ID = MenuId.for('positronPlots.zoomSubmenu');
+	static readonly ZOOM_LEVEL_CONTEXT_KEY = 'positronPlotsEditorZoomLevel';
 
-	constructor() {
-		super({
-			id: PlotsActiveEditorZoomAction.ID,
-			title: localize2('positronPlots.zoomSubMenuTitle', 'Zoom'), // Title for the action if shown in lists like Keyboard Shortcuts
-			category, // POSITRON_PLOTS_ACTION_CATEGORY
-			f1: false, // Not in command palette by default
-			// The 'menu' and 'icon' properties are removed.
-			// This action itself is not directly placed in a menu to act as a submenu trigger.
-			// An ISubmenuItem will be registered in positronPlots.contribution.ts for that.
-		});
-	}
-
-	async run(accessor: ServicesAccessor): Promise<void> {
-		// This is a no-op. The action primarily serves to define SUBMENU_ID.
-		// The actual zoom functionality is handled by individual zoom actions.
-	}
-}
-
-abstract class PlotsEditorZoomAction extends Action2 {
 	abstract zoomLevel: ZoomLevel;
 
 	constructor(descriptor: IAction2Options) {
@@ -682,9 +664,12 @@ export class ZoomToFitAction extends PlotsEditorZoomAction {
 			category,
 			f1: false, // Not in command palette by default
 			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.Fit.toString()),
+			},
 			menu: [
 				{
-					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					id: PlotsEditorZoomAction.SUBMENU_ID,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 1,
@@ -705,9 +690,12 @@ export class ZoomFiftyAction extends PlotsEditorZoomAction {
 			category,
 			f1: false, // Not in command palette by default
 			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.Fifty.toString()),
+			},
 			menu: [
 				{
-					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					id: PlotsEditorZoomAction.SUBMENU_ID,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 2,
@@ -728,9 +716,12 @@ export class ZoomSeventyFiveAction extends PlotsEditorZoomAction {
 			category,
 			f1: false, // Not in command palette by default
 			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.SeventyFive.toString()),
+			},
 			menu: [
 				{
-					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					id: PlotsEditorZoomAction.SUBMENU_ID,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 3,
@@ -751,9 +742,12 @@ export class ZoomOneHundredAction extends PlotsEditorZoomAction {
 			category,
 			f1: false, // Not in command palette by default
 			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.OneHundred.toString()),
+			},
 			menu: [
 				{
-					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					id: PlotsEditorZoomAction.SUBMENU_ID,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 4,
@@ -774,9 +768,12 @@ export class ZoomTwoHundredAction extends PlotsEditorZoomAction {
 			category,
 			f1: false, // Not in command palette by default
 			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.TwoHundred.toString()),
+			},
 			menu: [
 				{
-					id: PlotsActiveEditorZoomAction.SUBMENU_ID,
+					id: PlotsEditorZoomAction.SUBMENU_ID,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 5,
