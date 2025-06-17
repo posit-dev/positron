@@ -85,6 +85,20 @@ configurationRegistry.registerConfiguration({
 			description: localize('showReleaseNotes', "Show Release Notes after an update."),
 			tags: ['usesOnlineServices'],
 			included: false
+		},
+		'update.systemArchitecture': {
+			type: 'string',
+			enum: ['auto', 'universal', 'x64', 'arm64'],
+			default: 'auto',
+			scope: ConfigurationScope.APPLICATION,
+			description: localize('systemArchitecture', "Configure the system architecture for macOS updates."),
+			included: isMacintosh && !isWeb,
+			enumDescriptions: [
+				localize('auto', "Automatically select the correct architecture"),
+				localize('universal', "Universal binary for macOS, supporting both Intel and Apple Silicon"),
+				localize('x64', "64-bit binary for Intel Macs"),
+				localize('arm64', "arm64 binary for Apple Silicon Macs")
+			]
 		}
 	}
 	// --- End Positron ---
