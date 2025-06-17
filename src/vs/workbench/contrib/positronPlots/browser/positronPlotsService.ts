@@ -583,7 +583,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	/**
-	 * Clears the custom plot size, if one is set. If the custom plot size policy is in used,
+	 * Clears the custom plot size, if one is set. If the custom plot size policy is in use,
 	 * switch to the automatic sizing policy.
 	 */
 	clearCustomPlotSize(): void {
@@ -1498,7 +1498,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 			id: sizingPolicy.id,
 			size: sizingPolicy instanceof PlotSizingPolicyCustom ? sizingPolicy.size : undefined
 		};
-		const plotClient = new PlotClientInstance(comm, sizingPolicy ?? this._selectedSizingPolicy, { ...metadata, location: location });
+		const plotClient = new PlotClientInstance(comm, this._configurationService, sizingPolicy ?? this._selectedSizingPolicy, { ...metadata, location: location });
 		let plotClients = this._plotClientsByComm.get(metadata.id);
 
 		if (!plotClients) {

@@ -63,7 +63,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		}
 
 		// Request a plot render at the current viewport size, using a given sizing policy.
-		const render = async (policy: IPositronPlotSizingPolicy) => {
+		const render = async (policy: IPositronPlotSizingPolicy, forceRerender?: boolean) => {
 			let plotSize = policy.getPlotSize({
 				height: props.height,
 				width: props.width
@@ -82,9 +82,11 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 					});
 				}
 
-				// Wait for the plot to render.
-				const result =
-					await props.plotClient.renderWithSizingPolicy(plotSize, ratio);
+				const result = await props.plotClient.renderWithSizingPolicy(
+					plotSize,
+					ratio
+				);
+
 
 				// Update the URI to the URI of the new plot.
 				setUri(result.uri);
@@ -109,7 +111,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
 		// Re-render if the sizing policy changes.
 		disposables.add(props.plotClient.onDidChangeSizingPolicy((policy) => {
-			render(policy);
+			render(policy, true);
 		}));
 
 		let progressBar: ProgressBar | undefined;
