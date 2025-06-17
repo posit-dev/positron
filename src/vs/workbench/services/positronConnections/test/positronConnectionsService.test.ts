@@ -36,7 +36,7 @@ suite('Positron - Connections Service', () => {
 	});
 
 	teardown(() => {
-		//sinon.restore();
+		sinon.restore();
 	});
 
 	async function createSession() {
@@ -77,7 +77,6 @@ suite('Positron - Connections Service', () => {
 		connectionsService.clearAllConnections();
 		assert.equal(changeConnectionsSpy.callCount, 3); // the event fires once per connection
 		assert.equal(connectionsService.getConnections().length, 0);
-		return;
 	});
 
 	test('Sessions created by runtimes', async () => {

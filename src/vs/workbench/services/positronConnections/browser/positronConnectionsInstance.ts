@@ -124,7 +124,6 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 		try {
 			this._entries = await flatten_children(await this.getChildren(), this._expanded_entries);
 		} catch (err) {
-			console.log('refreshing entries for errr', this.id, err);
 			this.service.notify(`Failed to refresh connection entries: ${err.message}`, Severity.Error);
 		}
 		this.onDidChangeEntriesEmitter.fire(this._entries);
