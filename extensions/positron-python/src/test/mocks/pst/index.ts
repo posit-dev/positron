@@ -11,11 +11,41 @@ export enum LanguageRuntimeSessionMode {
     Background = 'background',
 }
 
+/**
+ * Possible code execution modes for a language runtime
+ */
 export enum RuntimeCodeExecutionMode {
+    /**
+     * Interactive code execution:
+     *          Displayed to user: Yes
+     * Combined with pending code: Yes
+     *          Stored in history: Yes
+     */
     Interactive = 'interactive',
+
+    /**
+     * Non-interactive code execution:
+     *          Displayed to user: Yes
+     * Combined with pending code: No
+     *          Stored in history: Yes
+     */
     NonInteractive = 'non-interactive',
+
+    /**
+     * Transient code execution:
+     *          Displayed to user: Yes
+     * Combined with pending code: No
+     *          Stored in history: No
+     */
     Transient = 'transient',
-    Silent = 'silent'
+
+    /**
+     * Silent code execution:
+     *          Displayed to user: No
+     * Combined with pending code: No
+     *          Stored in history: No
+     */
+    Silent = 'silent',
 }
 
 export enum RuntimeErrorBehavior {
