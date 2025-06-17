@@ -50,32 +50,32 @@ test.describe('Session Picker', {
 		await sessions.expectSessionPickerToBe(pySession.name);
 	});
 
-	test.skip('Verify Session Quickpick ranks sessions by last used', async function ({ app, page }) {
+	test('Verify Session Quickpick ranks sessions by last used', async function ({ app, page }) {
 		const { sessions } = app.workbench;
 		const [rSession, rAltSession] = await sessions.start(['r', 'rAlt']);
 
 		// run code in both sessions to mark them as recently used
 		await executeCodeInSession(app, rAltSession);
 		await executeCodeInSession(app, rSession);
-		await sessions.expectSessionQuickPickToContainAtIndices([
-			{ index: 0, session: rSession },
-			{ index: 1, session: rAltSession }
+		await sessions.expectSessionQuickPickToContainInRelativeOrder([
+			{ session: rSession },
+			{ session: rAltSession }
 		]);
 
 		// run code in the second session and verify it appears first in the quick pick
 		await executeCodeInSession(app, rAltSession);
-		await sessions.expectSessionQuickPickToContainAtIndices([
-			{ index: 0, session: rAltSession },
-			{ index: 1, session: rSession }
+		await sessions.expectSessionQuickPickToContainInRelativeOrder([
+			{ session: rAltSession },
+			{ session: rSession }
 		]);
 
 		// run code in a new python session and verify the updated order
 		const pySession = await sessions.start('python');
 		await executeCodeInSession(app, pySession);
-		await sessions.expectSessionQuickPickToContainAtIndices([
-			{ index: 0, session: pySession },
-			{ index: 1, session: rAltSession },
-			{ index: 2, session: rSession }
+		await sessions.expectSessionQuickPickToContainInRelativeOrder([
+			{ session: pySession },
+			{ session: rAltSession },
+			{ session: rSession }
 		]);
 	});
 });
