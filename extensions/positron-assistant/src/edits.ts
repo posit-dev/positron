@@ -37,7 +37,15 @@ export function registerMappedEditsProvider(
 					return {};
 				}
 
-				const edits = JSON.parse(json) as LMTextEdit[];
+				let edits = JSON.parse(json) as LMTextEdit[];
+
+				// When the model returns a single edit, it may forget to wrap
+				// it in an array. Tolerate this by ensuring edits is always an
+				// array.
+				if (!Array.isArray(edits)) {
+					edits = [edits];
+				}
+
 				for (const edit of edits) {
 					if ('append' in edit) {
 						const lastLine = document.lineAt(document.lineCount - 1);
