@@ -9,7 +9,12 @@ export enum AuthMethod {
 }
 
 export enum AuthStatus {
+	/** Currently signed in */
 	SIGNED_IN = 'signedIn',
-	IN_PROGRESS = 'inProgress',
+	/** User input entered, but not yet submitted for auth */
+	SIGN_IN_PENDING = 'signInPending',
+	/** Sign in submitted, waiting for response from auth process */
+	SIGNING_IN = 'signingIn',
+	/** Currently signed out */
 	SIGNED_OUT = 'signedOut',
 }

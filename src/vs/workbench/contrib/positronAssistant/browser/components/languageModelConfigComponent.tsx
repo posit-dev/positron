@@ -140,6 +140,8 @@ function interpolate(text: string, value: (key: string) => React.ReactNode | und
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	const { authMethod, authStatus, config, source } = props;
 	const { apiKey } = config;
+	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN;
+	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN;
 
 	// This currently only updates the API key for the provider, but in the future it may be extended to support
 	// additional configuration options for language models.
@@ -149,18 +151,12 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 
 	return <>
 		<div className='language-model-container input'>
-			{
-				authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN ? (
-					<ApiKey apiKey={apiKey} onChange={onChange} />
-				) : null
-			}
+			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onChange} />}
 			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
-			{
-				props.authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.IN_PROGRESS ? (
-					<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
-						{localize('positron.languageModelConfig.cancel', "Cancel")}
-					</Button>
-				) : null
+			{showCancelButton &&
+				<Button className='language-model button cancel' onPressed={() => props.onCancel()}>
+					{localize('positron.languageModelConfig.cancel', "Cancel")}
+				</Button>
 			}
 		</div>
 		<ProviderNotice provider={source.provider} />
@@ -183,10 +179,10 @@ const ApiKey = (props: { apiKey?: string, onChange: (newApiKey: string) => void 
 const SignInButton = (props: { authMethod: AuthMethod, authStatus: AuthStatus, onSignIn: () => void }) => {
 	// Use the default button style when the auth method is 'apiKey' and authentication is in progress (user
 	// is entering an API key). This allows the Enter key to submit the API key input field.
-	const useDefaultButtonStyle = props.authMethod === AuthMethod.API_KEY && props.authStatus === AuthStatus.IN_PROGRESS;
+	const useDefaultButtonStyle = props.authMethod === AuthMethod.API_KEY && props.authStatus === AuthStatus.SIGN_IN_PENDING;
 	return <Button
 		className={`language-model button sign-in ${useDefaultButtonStyle ? 'default' : ''}`}
-		disabled={props.authStatus === AuthStatus.IN_PROGRESS}
+		disabled={props.authStatus === AuthStatus.SIGNING_IN}
 		onPressed={props.onSignIn}
 	>
 		{props.authStatus === AuthStatus.SIGNED_IN ? signOutButtonLabel : signInButtonLabel}

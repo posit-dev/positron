@@ -147,7 +147,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	/** Check if the current provider is one of the signed in providers */
 	const isSignedIn = () => {
-		return providerSources.some(source => source.provider.id === providerConfig.provider && source.signedIn);
+		return providerSources.some(source => source.provider.id === selectedProvider.provider.id && source.signedIn);
 	}
 
 	/** Check if OAuth is in progress */
@@ -157,7 +157,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 
 	/** Check if API key auth is in progress */
 	const isApiKeyAuthInProgress = () => {
-		return showProgress && getAuthMethod() === AuthMethod.API_KEY && !!providerConfig.apiKey && providerConfig.apiKey.length > 0;
+		return getAuthMethod() === AuthMethod.API_KEY && !!providerConfig.apiKey && providerConfig.apiKey.length > 0;
 	}
 
 	/** Derive the auth status from the selected provider or progress state */
@@ -166,7 +166,10 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			return AuthStatus.SIGNED_IN;
 		}
 		if (showProgress) {
-			return AuthStatus.IN_PROGRESS;
+			return AuthStatus.SIGNING_IN;
+		}
+		if (isApiKeyAuthInProgress()) {
+			return AuthStatus.SIGN_IN_PENDING;
 		}
 		return AuthStatus.SIGNED_OUT;
 	}
