@@ -8,6 +8,7 @@ import { ExtHostConsoleServiceShape, ExtHostPositronContext, MainPositronContext
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { MainThreadConsole } from './mainThreadConsole.js';
+import { dispose } from '../../../../base/common/lifecycle.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadConsoleService)
 export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
@@ -61,24 +62,17 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 			})
 		);
 
-		// TODO:
-		// As of right now, we never delete console instances from the maps in
-		// `MainThreadConsoleService` and `ExtHostConsoleService` because we don't have a hook to
-		// know when a console is stopped. In particular, we should really call the `ExtHostConsole`
-		// `dispose()` method, which will ensure that any API callers who use the corresponding
-		// `Console` object will get a warning / error when calling the API of a closed console.
-		//
-		// this._disposables.add(
-		// 	this._positronConsoleService.onDidRemovePositronConsoleInstance((console) => {
-		// 		const sessionId = console.session.sessionId;
-		//
-		// 		// First update ext host
-		// 		this._proxy.$removeConsole(sessionId);
-		//
-		// 		// Then update main thread
-		// 		this.removeConsole(sessionId);
-		// 	})
-		// )
+		this._disposables.add(
+			this._positronConsoleService.onDidDeletePositronConsoleInstance((console) => {
+				const sessionId = console.sessionMetadata.sessionId;
+
+				// First update ext host
+				this._proxy.$deleteConsole(sessionId);
+
+				// Then update main thread
+				this.deleteConsole(sessionId);
+			})
+		)
 
 		this._disposables.add(
 			this._positronConsoleService.onDidChangeActivePositronConsoleInstance((console) => {
@@ -105,13 +99,20 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		this._mainThreadConsolesBySessionId.set(sessionId, mainThreadConsole);
 	}
 
-	// TODO:
-	// See comment in constructor
-	//
-	// private removeConsole(id: string) {
-	// 	// No dispose() method to call
-	// 	this._mainThreadConsolesByLanguageId.delete(id);
-	// }
+	private deleteConsole(sessionId: string) {
+		const mainThreadConsole = this._mainThreadConsolesBySessionId.get(sessionId);
+		this._mainThreadConsolesBySessionId.delete(sessionId);
+		dispose(mainThreadConsole);
+
+		// Removing the console implies it is no longer active for that language, so remove it from
+		// `this._activeSessionIdsByLanguage` as well.
+		for (const [entryLanguageId, entrySessionId] of this._activeSessionIdsByLanguage.entries()) {
+			if (sessionId === entrySessionId) {
+				this._activeSessionIdsByLanguage.delete(entryLanguageId);
+				break;
+			}
+		}
+	}
 
 	// --- from extension host process
 

@@ -115,7 +115,7 @@ export interface MainThreadConsoleServiceShape {
 export interface ExtHostConsoleServiceShape {
 	$onDidChangeConsoleWidth(newWidth: number): void;
 	$addConsole(sessionId: string): void;
-	$removeConsole(sessionId: string): void;
+	$deleteConsole(sessionId: string): void;
 }
 
 export interface MainThreadMethodsShape { }

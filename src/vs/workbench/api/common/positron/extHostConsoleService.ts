@@ -88,8 +88,8 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 		this._extHostConsolesBySessionId.set(sessionId, extHostConsole);
 	}
 
-	// Called when a console instance is removed
-	$removeConsole(sessionId: string): void {
+	// Called when a console instance is deleted
+	$deleteConsole(sessionId: string): void {
 		const extHostConsole = this._extHostConsolesBySessionId.get(sessionId);
 		this._extHostConsolesBySessionId.delete(sessionId);
 		// "Dispose" of an `ExtHostConsole`, ensuring that future API calls warn / error
