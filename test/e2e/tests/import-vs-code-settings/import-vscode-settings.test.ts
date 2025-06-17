@@ -30,18 +30,17 @@ test.use({
 
 test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] }, () => {
 	test.beforeAll(async ({ vsCodeSettings: vscodeUserSettings, settings: positronUserSettings, hotKeys }) => {
-		await positronUserSettings.remove(['positron.importSettings.enable']);
 		await vscodeUserSettings.append({
 			'test': 'vs-code-settings',
-			'editor.fontSize': 8,
+			'editor.fontSize': 12,
 			'workbench.colorTheme': 'Default Dark',
 		});
 		await positronUserSettings.set({
+			'positron.importSettings.enable': true,
 			'test': 'positron-settings',
 			'editor.fontSize': 16,
-			'workbench.colorTheme': 'Default Light+'
-		});
-		await hotKeys.reloadWindow();
+			'workbench.colorTheme': 'Default Light+',
+		}, { reload: true, waitMs: 1000 });
 	});
 
 	test.beforeEach(async ({ sessions, hotKeys }) => {
