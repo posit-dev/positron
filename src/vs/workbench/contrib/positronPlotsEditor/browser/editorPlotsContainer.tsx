@@ -26,7 +26,7 @@ interface EditorPlotsContainerProps {
 
 export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 
-	const [zoom, setZoom] = useState<ZoomLevel>(props.plotClient instanceof PlotClientInstance ? props.plotClient.zoomLevel : ZoomLevel.Fit);
+	const [zoom, setZoom] = useState<ZoomLevel>(ZoomLevel.Fit);
 	const [darkFilterMode, setDarkFilterMode] = useState(props.positronPlotsService.darkFilterMode);
 
 	const render = () => {
@@ -79,7 +79,7 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 	}, [props.plotClient]);
 
 	return (
-		<div className={`dark-filter-${darkFilterMode}`} style={
+		<div className={'dark-filter-' + darkFilterMode} style={
 			{
 				width: props.width,
 				height: props.height

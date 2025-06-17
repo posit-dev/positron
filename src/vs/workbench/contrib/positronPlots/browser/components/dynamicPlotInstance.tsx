@@ -25,7 +25,7 @@ import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlo
 interface DynamicPlotInstanceProps {
 	width: number;
 	height: number;
-	zoom?: ZoomLevel;
+	zoom: ZoomLevel;
 	plotClient: PlotClientInstance;
 }
 

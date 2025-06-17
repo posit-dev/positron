@@ -564,17 +564,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		}
 	}
 
-	getEditorPlotZoom(plotId: string): ZoomLevel | undefined {
-		const plot = this._editorPlots.get(plotId);
-		if (plot instanceof PlotClientInstance) {
-			// Return the zoom level for the plot, or the default zoom level if not set
-			return plot.metadata.zoom_level;
-		} else {
-			this._notificationService.error(localize('positronPlots.zoom.getInvalidPlotType', 'Cannot get zoom for this plot type'));
-			return undefined;
-		}
-	}
-
 	/**
 	 * Sets a custom plot size and applies it as a custom sizing policy.
 	 *
