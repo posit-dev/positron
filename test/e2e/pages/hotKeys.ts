@@ -216,7 +216,7 @@ export class HotKeys {
 	 * Reload the window
 	 */
 	public async reloadWindow() {
-		await this.pressHotKeys(`Cmd+R`);
+		await this.pressHotKeys(`Cmd+R R`);
 	}
 
 	/**
