@@ -454,12 +454,12 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 			precondition: PLOT_IS_ACTIVE_EDITOR,
 			menu: [
 				{
-					id: MenuId.EditorTitle,
+					id: MenuId.EditorActionsLeft,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 2,
 				}
-			]
+			],
 		});
 	}
 
@@ -491,7 +491,7 @@ export class PlotsActiveEditorSaveAction extends Action2 {
 			precondition: PLOT_IS_ACTIVE_EDITOR,
 			menu: [
 				{
-					id: MenuId.EditorTitle,
+					id: MenuId.EditorActionsLeft,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 1,

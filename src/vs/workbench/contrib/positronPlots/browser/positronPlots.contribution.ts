@@ -90,7 +90,7 @@ class PositronPlotsContribution extends Disposable implements IWorkbenchContribu
 			order: 3,
 			icon: Codicon.positronSizeToFit
 		};
-		MenuRegistry.appendMenuItem(MenuId.EditorTitle, zoomSubmenu);
+		MenuRegistry.appendMenuItem(MenuId.EditorActionsLeft, zoomSubmenu);
 
 		// Register all the zoom actions
 		registerAction2(ZoomToFitAction);
