@@ -63,7 +63,7 @@ import { gettingStartedCheckedCodicon, gettingStartedUncheckedCodicon } from './
 import { GettingStartedEditorOptions, GettingStartedInput } from './gettingStartedInput.js';
 import { IResolvedWalkthrough, IResolvedWalkthroughStep, IWalkthroughsService, hiddenEntriesConfigurationKey, parseDescription } from './gettingStartedService.js';
 import { RestoreWalkthroughsConfigurationValue, restoreWalkthroughsConfigurationKey } from './startupPage.js';
-import { NEW_WELCOME_EXPERIENCE, startEntries } from '../common/gettingStartedContent.js';
+import { NEW_WELCOME_EXPERIENCE, startEntries, walkthroughs } from '../common/gettingStartedContent.js';
 import { GroupDirection, GroupsOrder, IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IHostService } from '../../../services/host/browser/host.js';
@@ -1254,6 +1254,19 @@ export class GettingStartedPage extends EditorPane {
 		if (this.gettingStartedList) { this.gettingStartedList.dispose(); }
 
 		const rankWalkthrough = (e: IResolvedWalkthrough) => {
+			// --- Start Positron ---
+			/**
+			 * The walkthrough experience on the welcome page is customized to
+			 * not show VS Code's built-in walkthroughs. The built-in walkthroughs
+			 * we want to hide are filtered out by not providing a rank for them.
+			 * Walkthroughs without a rank are hidden on the welcome page but still
+			 * accessible via the command palette
+			 */
+			if (walkthroughs.some(w => w.id === e.id)) {
+				return null;
+			}
+			// --- End Positron ---
+
 			let rank: number | null = e.order;
 
 			if (e.isFeatured) { rank += 7; }
