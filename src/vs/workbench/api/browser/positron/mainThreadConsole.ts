@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Disposable } from 'vscode';
 import { IPositronConsoleInstance } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
@@ -13,7 +14,7 @@ import { IPositronConsoleInstance } from '../../../services/positronConsole/brow
  * When the extension host requests console behavior from the main thread, it
  * typically ends up here.
  */
-export class MainThreadConsole {
+export class MainThreadConsole implements Disposable {
 	constructor(
 		private readonly _console: IPositronConsoleInstance
 	) {
@@ -21,5 +22,9 @@ export class MainThreadConsole {
 
 	pasteText(text: string): void {
 		this._console.pasteText(text);
+	}
+
+	dispose() {
+		// Currently a no-op
 	}
 }
