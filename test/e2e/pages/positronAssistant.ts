@@ -7,11 +7,11 @@
 import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 
-const CHATBUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
+const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
 const ADD_MODEL_BUTTON = '[id="workbench.panel.chat"] button[aria-label="Add Model Provider..."]';
 const APIKEY_INPUT = '#api-key-input input.text-input[type="password"]';
-const DONE_BUTTON = 'button.positron-button.action-bar-button.default';
+const CLOSE_BUTTON = 'button.positron-button.action-bar-button.default:has-text("Close")';
 const SIGN_IN_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign in")';
 const SIGN_OUT_BUTTON = 'button.positron-button.language-model.button.sign-in:has-text("Sign out")';
 const ANTHROPIC_BUTTON = 'button.positron-button.language-model.button:has(#anthropic-provider-button)';
@@ -40,7 +40,7 @@ export class Assistant {
 	constructor(private code: Code) { }
 
 	async verifyChatButtonVisible() {
-		await expect(this.code.driver.page.locator(CHATBUTTON)).toBeVisible();
+		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
 	}
 
 	async openPositronAssistantChat() {
@@ -48,7 +48,7 @@ export class Assistant {
 			await this.verifyChatButtonVisible();
 			const addModelLinkIsVisible = await this.code.driver.page.locator(CHAT_PANEL).isVisible();
 			if (!addModelLinkIsVisible) {
-				await this.code.driver.page.locator(CHATBUTTON).click();
+				await this.code.driver.page.locator(CHAT_BUTTON).click();
 			}
 		});
 	}
@@ -127,8 +127,8 @@ export class Assistant {
 		await this.code.driver.page.locator(SIGN_IN_BUTTON).click();
 	}
 
-	async clickDoneButton() {
-		await this.code.driver.page.locator(DONE_BUTTON).click();
+	async clickCloseButton() {
+		await this.code.driver.page.locator(CLOSE_BUTTON).click();
 	}
 
 	async clickSignOutButton() {
