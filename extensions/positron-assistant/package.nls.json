@@ -12,7 +12,7 @@
 	"chatParticipants.edit.description": "Edit files in your workspace",
 	"chatParticipants.commands.quarto.description": "Convert the conversation so far into a new Quarto document.",
 	"configuration.title": "Positron Assistant",
-	"configuration.enable.description": "Enable Positron Assistant, an experimental AI assistant for Positron.",
+	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.",
 	"configuration.useAnthropicSdk.description": "Use the Anthropic SDK for Anthropic models rather than the generic AI SDK.",
 	"configuration.streamingEdits.enable": "Enable streaming edits in inline editor chats."
 }
