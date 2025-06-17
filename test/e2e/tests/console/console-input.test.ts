@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Console Input', {
-	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.CONSOLE]
+	tag: [tags.WEB, tags.WIN, tags.CONSOLE]
 }, () => {
 
 	test.beforeEach(async function ({ app }) {

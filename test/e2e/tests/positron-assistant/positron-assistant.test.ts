@@ -28,7 +28,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 
 
 	/**
-	 * Verifies an error is returned when a bad api key is unput.
+	 * Verifies an error is returned when a bad api key is input.
 	 *
 	 * @param app - Application fixture providing access to UI elements
 	 */

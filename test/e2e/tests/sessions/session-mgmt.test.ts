@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Sessions: Management', {
-	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
+	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS]
 }, () => {
 
 	test.beforeEach(async function ({ app }) {
@@ -22,7 +22,7 @@ test.describe('Sessions: Management', {
 		await sessions.deleteDisconnectedSessions();
 	});
 
-	test('Validate active session list in console matches active session list in session picker', async function ({ app, sessions }) {
+	test('Validate active session list in console matches active session list in session picker', { tag: tags.CRITICAL }, async function ({ app, sessions }) {
 		const { console } = app.workbench;
 
 		// Start sessions and verify active sessions: order matters!

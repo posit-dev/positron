@@ -20,7 +20,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { waitMs: 1000 });
 	});
 
-	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, sessions, python, settings }) {
+	test('Existing env: ipykernel already installed', { tag: [tags.WIN], }, async function ({ app, sessions, python }) {
 		const folderName = addRandomNumSuffix('ipykernel-installed');
 
 		await createNewFolder(app, {
@@ -38,7 +38,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 	});
 
 	// untagged windows because we cannot find any way to copy text from the terminal now that its a canvas
-	test('New env: Git initialized', { tag: [tags.CRITICAL] }, async function ({ app, settings }) {
+	test('New env: Git initialized', async function ({ app, settings }) {
 		const folderName = addRandomNumSuffix('git-init');
 		await settings.set({ 'files.exclude': { '**/.git': false, '**/.gitignore': false } }, { waitMs: 1000 });
 

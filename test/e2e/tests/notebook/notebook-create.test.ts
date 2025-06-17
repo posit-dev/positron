@@ -14,7 +14,7 @@ test.use({
 let newFileName: string;
 
 test.describe('Notebooks', {
-	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.WEB, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 	test.describe('Python Notebooks', () => {
 		test.beforeAll(async function ({ app, settings }) {
@@ -39,7 +39,7 @@ test.describe('Notebooks', {
 			await cleanup.removeTestFiles([newFileName]);
 		});
 
-		test('Python - Verify code cell execution in notebook', async function ({ app }) {
+		test('Python - Verify code cell execution in notebook', { tag: tags.CRITICAL }, async function ({ app }) {
 			await app.workbench.notebooks.addCodeToCellAtIndex('eval("8**2")');
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('64');
@@ -153,7 +153,7 @@ test.describe('Notebooks', {
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
 		});
 
-		test('R - Verify code cell execution in notebook', async function ({ app }) {
+		test('R - Verify code cell execution in notebook', { tag: tags.CRITICAL }, async function ({ app }) {
 			await app.workbench.notebooks.addCodeToCellAtIndex('eval(parse(text="8**2"))');
 			await app.workbench.notebooks.executeCodeInCell();
 			await app.workbench.notebooks.assertCellOutput('[1] 64');

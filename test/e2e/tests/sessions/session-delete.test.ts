@@ -10,7 +10,7 @@ test.use({
 });
 
 test.describe('Sessions: Delete', {
-	tag: [tags.WEB, tags.CRITICAL, tags.WIN, tags.SESSIONS, tags.CRITICAL]
+	tag: [tags.WEB, tags.WIN, tags.SESSIONS]
 }, () => {
 
 	test('Python - Validate can delete a single session', async function ({ sessions }) {
@@ -51,7 +51,7 @@ test.describe('Sessions: Delete', {
 		await variables.expectRuntimeToBe('not.visible', `${rSession.name}|${pySession.name}|None`);
 	});
 
-	test('Python & R - Validate can delete multiple sessions', async function ({ sessions }) {
+	test('Python & R - Validate can delete multiple sessions', { tag: tags.CRITICAL }, async function ({ sessions }) {
 		await sessions.start(['python', 'r', 'python', 'pythonAlt', 'pythonAlt', 'r', 'rAlt', 'rAlt']);
 		await sessions.expectSessionCountToBe(8);
 		await sessions.deleteAll();

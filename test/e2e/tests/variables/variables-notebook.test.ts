@@ -18,10 +18,6 @@ test.describe('Variables Pane - Notebook', {
 }, () => {
 	test('Python - Verify Variables pane basic function for notebook', async function ({ app, python }) {
 		await app.workbench.notebooks.createNewNotebook();
-
-		// workaround issue where starting multiple interpreters in quick succession can cause startup failure
-		await app.code.wait(1000);
-
 		await app.workbench.notebooks.selectInterpreter('Python');
 		await app.workbench.notebooks.addCodeToCellAtIndex('y = [2, 3, 4, 5]');
 		await app.workbench.notebooks.executeCodeInCell();

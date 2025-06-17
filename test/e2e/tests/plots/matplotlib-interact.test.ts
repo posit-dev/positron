@@ -15,17 +15,17 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () =
 
 	test('Python - Matplotlib Interact Test', {
 		tag: [tags.CRITICAL, tags.WEB, tags.WIN],
-	}, async function ({ app, python }) {
+	}, async function ({ app, runCommand, python }) {
 
-		const notebooks = app.workbench.notebooks;
+		const { notebooks, quickaccess } = app.workbench;
 
-		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'matplotlib', 'interact.ipynb'));
+		await quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'matplotlib', 'interact.ipynb'));
 
 		await notebooks.selectInterpreter('Python');
 
 		await notebooks.runAllCells();
 
-		await app.workbench.quickaccess.runCommand('workbench.action.togglePanel');
+		await runCommand('workbench.action.togglePanel');
 
 		const plotLocator = app.workbench.notebooks.frameLocator.locator('.widget-output');
 
