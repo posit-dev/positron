@@ -110,8 +110,8 @@ test.describe('Interpreter: Override', {
 
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
-			'python.interpreters.override': '["/home/runner/scratch/python-env"]',
-			'positron.r.interpreters.override': '["/opt/R/4.4.2/bin/R"]'
+			'python.interpreters.override': ["/home/runner/scratch/python-env"],
+			'positron.r.interpreters.override': ["/opt/R/4.4.2/bin/R"]
 		}, { reload: true });
 	});
 
