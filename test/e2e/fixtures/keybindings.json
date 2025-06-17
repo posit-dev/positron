@@ -33,5 +33,9 @@
     },{
         "key": "cmd+j b",
         "command": "workbench.action.showAuxiliaryBar" // Views: Show Secondary Side Bar
+    },
+    {
+        "key": "cmd+r r",
+        "command": "workbench.action.reloadWindow"
     }
 ]
