@@ -8,7 +8,6 @@ import { expect } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const LOGO = '.product-logo';
-const TITLE = '.gettingStartedCategoriesContainer div.header div .positron';
 const FOOTER = '.gettingStartedCategoriesContainer div.footer';
 const START_SECTION = '.positron-welcome-page-start';
 const HELP_TITLE = '.welcome-help-links';
@@ -21,7 +20,6 @@ const BUTTON_ROLE = 'button';
 export class Welcome {
 
 	logo = this.code.driver.page.locator(LOGO);
-	title = this.code.driver.page.locator(TITLE);
 	footer = this.code.driver.page.locator(FOOTER);
 	startSection = this.code.driver.page.locator(START_SECTION);
 	startButtons = this.startSection.getByRole(BUTTON_ROLE);
@@ -35,17 +33,13 @@ export class Welcome {
 	recentTitle = this.recentSection.getByRole(HEADING_ROLE);
 	newNotebookButton = this.startButtons.getByText('New Notebook');
 	newFileButton = this.startButtons.getByText('New File');
-	newFolderFromTemplateButton = this.startButtons.getByText('New Folder from Template');
+	newFolderFromTemplateButton = this.startButtons.getByText('New Folder');
 	openFolderButton = this.startButtons.getByText('Open Folder');
 
 	constructor(private code: Code) { }
 
 	async expectLogoToBeVisible() {
 		await expect(this.logo).toBeVisible();
-	}
-
-	async expectTitleToBeVisible() {
-		await expect(this.title).toHaveText([/Positron|Positron Dev/, 'an IDE for Data Science by Posit']);
 	}
 
 	async expectFooterToBeVisible() {

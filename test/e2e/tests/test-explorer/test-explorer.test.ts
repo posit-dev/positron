@@ -11,17 +11,13 @@ test.use({
 });
 
 test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
-	test.beforeAll(async function ({ app, r, userSettings }) {
+	test.beforeAll(async function ({ app, r, settings, hotKeys }) {
 		try {
 			// don't use native file picker
-			await userSettings.set([[
-				'files.simpleDialog.enable',
-				'true',
-			]]);
-
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.clearButton.click();
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await settings.set({
+				'files.simpleDialog.enable': true,
+				'interpreters.startupBehavior': 'auto'
+			}, { reload: true });
 		} catch (e) {
 			await app.code.driver.takeScreenshot('testExplorerSetup');
 			throw e;
