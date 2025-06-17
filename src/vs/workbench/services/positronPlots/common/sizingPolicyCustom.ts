@@ -19,7 +19,7 @@ export class PlotSizingPolicyCustom implements IPositronPlotSizingPolicy {
 
 	constructor(public readonly size: IPlotSize, slow: boolean = false) {
 		const name = slow
-			? nls.localize('plotSizingPolicy.CustomSlow', "{0}×{1} (slow plot, no resizing)", size.width, size.height)
+			? nls.localize('plotSizingPolicy.CustomSlow', "{0}×{1} (frozen)", size.width, size.height)
 			: nls.localize('plotSizingPolicy.Custom', "{0}×{1} (custom)", size.width, size.height);
 
 		this._name = name;

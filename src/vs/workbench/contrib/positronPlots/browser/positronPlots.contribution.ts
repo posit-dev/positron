@@ -103,10 +103,10 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 	.registerConfiguration({
 		properties: {
-			'positron.plots.freezeSlowPlots': {
+			'positron.plots.frozenSlowPlots': {
 				type: 'boolean',
 				default: true,
-				description: localize('positron.plots.freezeSlowPlotsSetting', "Freeze slow plots to prevent them from being re-rendered when the viewport size changes. This can improve performance for large plots."),
+				description: localize('positron.plots.frozenSlowPlotsSetting', "Freeze slow to generate plots at a fixed size to avoid re-rendering on viewport changes, improving responsiveness of the IDE when working with complex charts."),
 			}
 		}
 	});
