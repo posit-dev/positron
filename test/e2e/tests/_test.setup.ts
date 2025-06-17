@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, Setting, SettingsFixture, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, SettingsFileManager, ContextMenu, getRandomUserDataDir, copyKeybindings } from '../infra';
+import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, ContextMenu, getRandomUserDataDir, copyFixtureFile } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -84,16 +84,19 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		options.userDataDir = getRandomUserDataDir(options);
 
-		// Copy user keybindings from the fixture to the user data directory
-		const userKeyBindingsPath = join(ROOT_PATH, 'test/e2e/infra/fixtures/keybindings.json');
-		await copyKeybindings(userKeyBindingsPath, options.userDataDir);
-
 		await use(options);
 	}, { scope: 'worker', auto: true }],
 
 	userDataDir: [async ({ options }, use) => {
-		await use(options.userDataDir);
-	}, { scope: 'worker' }],
+		const userDir = options.web ? join(options.userDataDir, 'data', 'User') : join(options.userDataDir, 'User');
+		process.env.PLAYWRIGHT_USER_DATA_DIR = userDir;
+
+		// Copy keybindings and settings fixtures to the user data directory
+		await copyFixtureFile('keybindings.json', userDir, true);
+		await copyFixtureFile('settings.json', userDir,);
+
+		await use(userDir);
+	}, { scope: 'worker', auto: true }],
 
 	restartApp: [async ({ app }, use) => {
 		await app.restart();
@@ -236,65 +239,40 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use(hotKeys);
 	},
 
-	// ex: await userSettings.set([['editor.actionBar.enabled', 'true']], false);
-	userSettings: [async ({ app }, use) => {
-		const userSettings = new SettingsFixture(app);
-
-		const setUserSetting = async (
-			settings: [string, string][],
-			restartApp = false
-		) => {
-			await userSettings.setMultipleUserSettings(settings, restartApp);
-			await app.workbench.sessions.expectNoStartUpMessaging();
-		};
+	// ex: await settings.set({'editor.actionBar.enabled': true});
+	settings: [async ({ app }, use) => {
+		const { settings } = app.workbench;
 
 		await use({
-			set: setUserSetting
-		});
+			set: async (
+				newSettings: Record<string, unknown>,
+				options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }
+			) => {
+				const { reload = false, waitMs = 0, waitForReady = false, keepOpen = false } = options || {};
 
-		await userSettings.unset();
+				await settings.set(newSettings, { keepOpen });
+
+				if (reload === true || (reload === 'web' && app.web === true)) {
+					await app.workbench.hotKeys.reloadWindow();
+					// wait for the reload to complete
+					await app.code.driver.page.waitForTimeout(3000);
+					await playwright.expect(app.code.driver.page.locator('.monaco-workbench')).toBeVisible();
+				}
+				if (waitMs) {
+					await app.code.driver.page.waitForTimeout(waitMs); // wait for settings to take effect
+				}
+
+				if (waitForReady) {
+					await app.workbench.sessions.expectNoStartUpMessaging();
+				}
+			},
+			clear: () => settings.clear(),
+			remove: (settingsToRemove: string[]) => settings.remove(settingsToRemove),
+		});
 	}, { scope: 'worker' }],
 
-	userSettingsTest: [async ({ app }, use) => {
-		const settings = app.workbench.settings;
-
-		const setUserSetting = async (
-			newSettings: [string, string][],
-			restartApp = false
-		) => {
-			if (newSettings.length === 0) {
-				// No settings were provided
-				return;
-			}
-			// set each setting in the workspace settings
-			for (const [key, value] of newSettings) {
-				await settings.setUserSettings([[key, value]]);
-			}
-			if (restartApp) {
-				await app.restart();
-			}
-			await app.workbench.sessions.expectNoStartUpMessaging();
-		};
-
-		const clearUserSettings = async () => {
-			await app.workbench.settings.clearUserSettings();
-		};
-
-		await use({
-			set: setUserSetting,
-			clear: clearUserSettings
-		});
-	}, { scope: 'test' }],
-
-	vscodeUserSettings: [async ({ }, use) => {
-		const manager = new SettingsFileManager(SettingsFileManager.getVSCodeSettingsPath());
-		await manager.backupIfExists();
-		await use(manager);
-		await manager.restoreFromBackup();
-	}, { scope: 'worker' }],
-
-	positronUserSettings: [async ({ userDataDir }, use) => {
-		const manager = new SettingsFileManager(SettingsFileManager.getPositronSettingsPath(userDataDir));
+	vsCodeSettings: [async ({ }, use) => {
+		const manager = new VscodeSettings(VscodeSettings.getVSCodeSettingsPath());
 		await manager.backupIfExists();
 		await use(manager);
 		await manager.restoreFromBackup();
@@ -344,7 +322,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		// wait for the archive to finalize and the output stream to close
 		await new Promise((resolve, reject) => {
-			output.on('close', resolve);
+			output.on('close', () => resolve(undefined));
 			output.on('error', reject);
 			archive.finalize();
 		});
@@ -506,10 +484,6 @@ interface TestFixtures {
 	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
-	userSettingsTest: {
-		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
-		clear: () => Promise<void>;
-	};
 }
 
 interface WorkerFixtures {
@@ -521,11 +495,12 @@ interface WorkerFixtures {
 	app: Application;
 	logsPath: string;
 	logger: MultiLogger;
-	userSettings: {
-		set: (settings: Setting[], restartApp?: boolean) => Promise<void>;
+	settings: {
+		set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+		clear: () => Promise<void>;
+		remove: (settingsToRemove: string[]) => Promise<void>;
 	};
-	vscodeUserSettings: SettingsFileManager;
-	positronUserSettings: SettingsFileManager;
+	vsCodeSettings: VscodeSettings;
 }
 
 export type CustomTestOptions = playwright.PlaywrightTestOptions & {

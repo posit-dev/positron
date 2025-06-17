@@ -16,6 +16,10 @@ test.describe('New UV Environment', {
 	tag: [tags.INTERPRETER]
 }, () => {
 
+	test.beforeAll(async function ({ settings }) {
+		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { reload: 'web' });
+	});
+
 	test.afterAll(async () => {
 		const projPath = '/tmp/vscsmoke/qa-example-content/proj';
 		try {

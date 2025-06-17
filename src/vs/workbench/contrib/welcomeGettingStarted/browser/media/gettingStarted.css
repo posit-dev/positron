@@ -117,6 +117,16 @@
 		". left-column . right-column ."
 		". footer footer footer .";
 }
+
+/* The below css is modifying margins to support a list of actions separated by a horizontal rule below the recently opened list */
+.monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .categories-column > div.recently-opened {
+	margin-bottom: 12px;
+}
+
+.monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlideCategories > .gettingStartedCategoriesContainer > .categories-column > div.other-actions > hr {
+	margin-bottom: 0px 0px 12px 0px;
+}
+
 /*--- End Positron ---*/
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer.width-constrained .gettingStartedSlideCategories > .gettingStartedCategoriesContainer {

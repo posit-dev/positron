@@ -31,6 +31,11 @@ import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } fr
 const HELP_HTML_FILE_PATH = 'vs/workbench/contrib/positronHelp/browser/resources/help.html';
 
 /**
+ * The welcome page HTML file path.
+ */
+const WELCOME_HTML_FILE_PATH = 'vs/workbench/contrib/positronHelp/browser/resources/welcome.html';
+
+/**
  * The Positron help view ID.
  */
 export const POSITRON_HELP_VIEW_ID = 'workbench.panel.positronHelp';
@@ -120,6 +125,11 @@ export interface IPositronHelpService {
 	 * Show the find widget.
 	 */
 	find(): void;
+
+	/**
+	 * Show the welcome page.
+	 */
+	showWelcomePage(): void;
 }
 
 /**
@@ -132,6 +142,11 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 	 * Gets or sets the help HTML.
 	 */
 	private _helpHTML = '<!DOCTYPE html><html><body></body></html>';
+
+	/**
+	 * Gets or sets the welcome HTML.
+	 */
+	private _welcomeHTML = '<!DOCTYPE html><html><body></body></html>';
 
 	/**
 	 * Gets or sets the help entries.
@@ -194,7 +209,7 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IThemeService private readonly _themeService: IThemeService,
-		@IViewsService private readonly _viewsService: IViewsService
+		@IViewsService private readonly _viewsService: IViewsService,
 
 	) {
 		// Call the base class's constructor.
@@ -208,7 +223,27 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 			}).catch(error => {
 				// Set the help HTML to an error message. This will be
 				// displayed in the Help pane.
-				this._helpHTML = `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${HELP_HTML_FILE_PATH}:</p><p>${error}</body></html>`;
+				this._helpHTML = notFoundHelper(error, HELP_HTML_FILE_PATH);
+			});
+
+		// Load the welcome HTML file.
+		this._fileService.readFile(FileAccess.asFileUri(WELCOME_HTML_FILE_PATH))
+			.then(async fileContent => {
+				// Set the help HTML to the file's contents.
+				const wordmarkContent = await this._fileService.readFile(FileAccess.asFileUri('vs/workbench/browser/media/positron-header.svg'));
+
+				// Convert SVG buffer to base64 encoded data URL
+				const base64Svg = btoa(wordmarkContent.value.toString());
+				const dataUrl = `data:image/svg+xml;base64,${base64Svg}`;
+
+				const html = fileContent.value.toString();
+				this._welcomeHTML = html
+					.replace('__logoSrc__', dataUrl);
+				this.showWelcomePage();
+			}).catch(error => {
+				// Set the help HTML to an error message. This will be
+				// displayed in the Help pane.
+				this._welcomeHTML = notFoundHelper(error, WELCOME_HTML_FILE_PATH);
 			});
 
 		// Register onDidColorThemeChange handler.
@@ -597,6 +632,24 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		}));
 	}
 
+	showWelcomePage() {
+		// Add the help entry.
+		const helpEntry = this._instantiationService.createInstance(HelpEntry,
+			this._welcomeHTML,
+			'',
+			'',
+			'',
+			'welcome.html',
+			'welcome.html'
+		);
+
+		// Add the onDidNavigate event handler.
+		helpEntry.onDidNavigate(url => {
+			this.navigate(helpEntry.sourceUrl, url);
+		});
+		this.addHelpEntry(helpEntry);
+	}
+
 	private async handleShowHelpEvent(
 		session: ILanguageRuntimeSession,
 		showHelpEvent: ShowHelpEvent) {
@@ -709,6 +762,15 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 
 	//#endregion Private Methods
 }
+
+/**
+ * Format HTML string that contains an error message when a file could not be read.
+ * @param error Error returned when reading file.
+ * @param path Path to the file that could not be read.
+ * @returns HTML string that contains an error message.
+ */
+const notFoundHelper = (error: any, path: string) => `<!DOCTYPE html><html><body><h1>Error Loading Help</h1><p>Cannot read ${path}:</p><p>${error}</body></html>`;
+
 
 // Export the Positron help service identifier.
 export const IPositronHelpService = createDecorator<IPositronHelpService>(POSITRON_HELP_SERVICE_ID);
