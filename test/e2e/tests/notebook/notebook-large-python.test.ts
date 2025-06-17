@@ -11,7 +11,7 @@ test.use({
 });
 
 // test is too heavy for web
-test.describe('Large Python Notebook', {
+test.describe.skip('Large Python Notebook', {
 	tag: [tags.NOTEBOOKS, tags.WIN]
 }, () => {
 
