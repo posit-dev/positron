@@ -45,7 +45,7 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from '../../../../platform/storage/common/storage.js';
-import { ITelemetryService, TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';
+import { ITelemetryService, TelemetryLevel, firstSessionDateStorageKey } from '../../../../platform/telemetry/common/telemetry.js';
 import { getTelemetryLevel } from '../../../../platform/telemetry/common/telemetryUtils.js';
 import { defaultButtonStyles, defaultKeybindingLabelStyles, defaultToggleStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IWindowOpenable } from '../../../../platform/window/common/window.js';
@@ -170,6 +170,8 @@ export class GettingStartedPage extends EditorPane {
 	private container: HTMLElement;
 
 	private contextService: IContextKeyService;
+
+	private hasScrolledToFirstCategory = false;
 	// --- Start Positron ---
 	private helpList?: GettingStartedIndexList<IWelcomePageHelpEntry>;
 	private recentlyOpenedList?: GettingStartedIndexList<RecentEntry>;
@@ -187,6 +189,7 @@ export class GettingStartedPage extends EditorPane {
 	private detailsRenderer: GettingStartedDetailsRenderer;
 
 	private readonly categoriesSlideDisposables: DisposableStore;
+	private showFeaturedWalkthrough = true;
 
 	private positronReactRenderer!: PositronReactRenderer;
 
@@ -904,7 +907,7 @@ export class GettingStartedPage extends EditorPane {
 		}));
 
 		// --- Start Positron ---
-		// Diverged from upstream by removing Walkthroughs from the Welcome Page
+		// Diverged from upstream by changing the contents of the welcome page
 		const header = $('.header', {},
 			$('div.product-logo.welcome-positron-logo'),
 		);
@@ -921,7 +924,7 @@ export class GettingStartedPage extends EditorPane {
 		const helpList = this.buildHelpList();
 		//const startList = this.buildStartList();
 		const recentList = this.buildRecentlyOpenedList();
-		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
 		// The "Connect to..." button is normally a part of the start list
 		// which is not used in Positron. We show the action underneath the
@@ -956,7 +959,7 @@ export class GettingStartedPage extends EditorPane {
 				this.workspaceContextService
 			);
 			reset(leftColumn, leftContent, recentList.getDomElement(), otherList);
-			reset(rightColumn, helpList.getDomElement());
+			reset(rightColumn, gettingStartedList.getDomElement(), helpList.getDomElement());
 		};
 		layoutRecentList();
 
@@ -967,9 +970,7 @@ export class GettingStartedPage extends EditorPane {
 
 		this.updateCategoryProgress();
 		this.registerDispatchListeners();
-		// --- Start Positron ---
-		// removed showing the first featured walkthrough "Get Started with Positron" on first startup
-		/*
+
 		if (this.editorInput.selectedCategory) {
 			const showNewExperience = this.editorInput.selectedCategory === NEW_WELCOME_EXPERIENCE;
 			this.currentWalkthrough = this.gettingStartedCategories.find(category => category.id === this.editorInput.selectedCategory);
@@ -999,13 +1000,27 @@ export class GettingStartedPage extends EditorPane {
 		}
 
 		const someStepsComplete = this.gettingStartedCategories.some(category => category.steps.find(s => s.done));
-		*/
 		if (this.editorInput.showTelemetryNotice && this.productService.openToWelcomeMainPage) {
 			const telemetryNotice = $('p.telemetry-notice');
 			this.buildTelemetryFooter(telemetryNotice);
 			footer.appendChild(telemetryNotice);
+		} else if (!this.productService.openToWelcomeMainPage && !someStepsComplete && !this.hasScrolledToFirstCategory && this.showFeaturedWalkthrough) {
+			const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
+			const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
+			const fistContentBehaviour = daysSinceFirstSession < 1 ? 'openToFirstCategory' : 'index';
+
+			if (fistContentBehaviour === 'openToFirstCategory') {
+				const first = this.gettingStartedCategories.filter(c => !c.when || this.contextService.contextMatchesRules(c.when))[0];
+				if (first) {
+					this.hasScrolledToFirstCategory = true;
+					this.currentWalkthrough = first;
+					this.editorInput.selectedCategory = this.currentWalkthrough?.id;
+					this.buildCategorySlide(this.editorInput.selectedCategory, undefined);
+					this.setSlide('details');
+					return;
+				}
+			}
 		}
-		// --- End Positron ---
 
 		this.setSlide('categories');
 	}
@@ -1184,11 +1199,6 @@ export class GettingStartedPage extends EditorPane {
 	*/
 	// --- End Positron ---
 
-	// --- Start Positron ---
-	//
-	// This function is not used in Positron. It is commented out rather than
-	// being deleted to minimize merge conflicts.
-	/*
 	private buildGettingStartedWalkthroughsList(): GettingStartedIndexList<IResolvedWalkthrough> {
 
 		const renderGetttingStaredWalkthrough = (category: IResolvedWalkthrough): HTMLElement => {
@@ -1275,9 +1285,6 @@ export class GettingStartedPage extends EditorPane {
 
 		return gettingStartedList;
 	}
-
-	*/
-	// --- End Positron ---
 
 	layout(size: Dimension) {
 		this.detailsScrollbar?.scanDomNode();
