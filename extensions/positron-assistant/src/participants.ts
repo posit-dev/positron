@@ -50,6 +50,7 @@ export interface IPositronAssistantParticipant extends vscode.ChatParticipant {
 
 export class ParticipantService implements vscode.Disposable {
 	private readonly _participants = new Map<ParticipantID, IPositronAssistantParticipant>();
+	private readonly _sessionModels = new Map<string, string>(); // sessionId -> modelId
 
 	registerParticipant(participant: IPositronAssistantParticipant): void {
 		this._participants.set(participant.id, participant);
@@ -74,8 +75,29 @@ export class ParticipantService implements vscode.Disposable {
 		return undefined;
 	}
 
+	/**
+	 * Track the model used for a chat session.
+	 *
+	 * @param sessionId The chat session ID
+	 * @param modelId The language model ID used for this session
+	 */
+	trackSessionModel(sessionId: string, modelId: string): void {
+		this._sessionModels.set(sessionId, modelId);
+	}
+
+	/**
+	 * Get the model ID for a chat session.
+	 *
+	 * @param sessionId The chat session ID
+	 * @returns The model ID if found, undefined otherwise
+	 */
+	getSessionModel(sessionId: string): string | undefined {
+		return this._sessionModels.get(sessionId);
+	}
+
 	dispose() {
 		this._participants.forEach((participant) => participant.dispose());
+		this._sessionModels.clear();
 	}
 }
 
@@ -86,6 +108,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
+		private readonly _participantService: ParticipantService,
 	) { }
 	readonly iconPath = new vscode.ThemeIcon('positron-assistant');
 
@@ -461,6 +484,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			return;
 		}
 
+		// Track the model being used for this session
+		const toolContext = request.toolInvocationToken as any;
+		if (toolContext?.sessionId && request.model?.id) {
+			this._participantService.trackSessionModel(toolContext.sessionId, request.model.id);
+		}
+
 		const modelResponse = await request.model.sendRequest(messages, {
 			tools,
 			modelOptions: {
@@ -725,12 +754,12 @@ export function registerParticipants(context: vscode.ExtensionContext) {
 	context.subscriptions.push(participantService);
 
 	// Register the Positron Assistant chat participants.
-	participantService.registerParticipant(new PositronAssistantChatParticipant(context));
-	participantService.registerParticipant(new PositronAssistantAgentParticipant(context));
-	participantService.registerParticipant(new PositronAssistantTerminalParticipant(context));
-	participantService.registerParticipant(new PositronAssistantEditorParticipant(context));
-	participantService.registerParticipant(new PositronAssistantNotebookParticipant(context));
-	participantService.registerParticipant(new PositronAssistantEditParticipant(context));
+	participantService.registerParticipant(new PositronAssistantChatParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantAgentParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantTerminalParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantEditorParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantNotebookParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantEditParticipant(context, participantService));
 
 	return participantService;
 }
