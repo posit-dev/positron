@@ -336,11 +336,6 @@ export interface IPositronPlotsService {
 	setPlotsRenderSettings(settings: PlotRenderSettings): void;
 
 	/**
-	 * Sets the plot zoom level for the given editor plot ID.
-	 */
-	setEditorPlotZoom(plotId: string, zoom: number): void;
-
-	/**
 	 * Placeholder for service initialization.
 	 */
 	initialize(): void;
