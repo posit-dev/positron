@@ -97,7 +97,10 @@
 			},
 			"problemMatcher": [
 				{
-					"owner": "typescript-watch",
+					"base": "$tsc-watch",
+					"owner": "typescript",
+					"source": "watch-e2e",
+					"applyTo": "allDocuments",
 					"fileLocation": ["relative", "${workspaceFolder}/test/e2e"],
 					"pattern": {
 						"regexp": "\\[watch-e2e\\] ([^(]+)\\((\\d+),(\\d+)\\): (error TS\\d+: .+)",
