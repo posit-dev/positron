@@ -101,6 +101,7 @@ export class EditorActionBarControl extends Disposable {
 		// Create the editor action bar factory.
 		const editorActionBarFactory = this._register(new EditorActionBarFactory(
 			this._editorGroup,
+			this._commandService,
 			this._contextKeyService,
 			this._keybindingService,
 			this._menuService,
