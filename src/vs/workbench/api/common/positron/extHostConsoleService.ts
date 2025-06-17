@@ -46,18 +46,18 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	}
 
 	/**
-	 * Queries the main thread for the console that aligns with this
+	 * Queries the main thread for the active console that aligns with this
 	 * `languageId`.
 	 *
 	 * @param languageId The language id to find a console for.
 	 * @returns A promise that resolves to a `positron.Console` or `undefined`
 	 * if no console can be found.
 	 */
-	async getConsoleForLanguage(languageId: string): Promise<positron.Console | undefined> {
-		const sessionId = await this._proxy.$getSessionIdForLanguage(languageId);
+	async getActiveConsoleForLanguage(languageId: string): Promise<positron.Console | undefined> {
+		const sessionId = await this._proxy.$getActiveSessionIdForLanguage(languageId);
 
 		if (!sessionId) {
-			// Main thread says there is no `sessionId` for this `languageId`
+			// Main thread says there is no active `sessionId` for this `languageId`
 			return undefined;
 		}
 

@@ -48,7 +48,7 @@ function handleNotRunnable(code: string) {
 }
 
 async function handleManuallyRunnable(_runtime: RSession, code: string) {
-	const console = await positron.window.getConsoleForLanguage('r');
+	const console = await positron.window.getActiveConsoleForLanguage('r');
 
 	if (!console) {
 		// Not an expected path, but technically possible,

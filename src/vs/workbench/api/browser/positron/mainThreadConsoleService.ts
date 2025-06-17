@@ -15,7 +15,7 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	private readonly _disposables = new DisposableStore();
 
 	/**
-	 * A Map of session ids to the respective console.
+	 * A Map from session id to the respective console.
 	 * Each session id maps to a single console.
 	 * Multiple sessions could map to the same console, this happens
 	 * when a user power-cycles the session for a console instance
@@ -24,6 +24,11 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	 * Kept in sync with consoles in `ExtHostConsoleService`
 	 */
 	private readonly _mainThreadConsolesBySessionId = new Map<string, MainThreadConsole>();
+
+	/**
+	 * A Map from language id to the active console session id for that language.
+	 */
+	private readonly _activeSessionIdsByLanguage = new Map<string, string>();
 
 	private readonly _proxy: ExtHostConsoleServiceShape;
 
@@ -74,6 +79,21 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		// 		this.removeConsole(sessionId);
 		// 	})
 		// )
+
+		this._disposables.add(
+			this._positronConsoleService.onDidChangeActivePositronConsoleInstance((console) => {
+				if (!console) {
+					// No console is active currently. Nothing for us to update.
+					// We only remove active session ids on console deletion.
+					return;
+				}
+
+				const languageId = console.runtimeMetadata.languageId;
+				const sessionId = console.sessionMetadata.sessionId;
+
+				this._activeSessionIdsByLanguage.set(languageId, sessionId);
+			})
+		)
 	}
 
 	dispose(): void {
@@ -104,24 +124,20 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 	 *
 	 * @param languageId The language id to find a session id for.
 	 */
-	$getSessionIdForLanguage(languageId: string): Promise<string | undefined> {
-		// TODO: This is wrong in a multi-session world. It finds the
-		// first matching `languageId` in the map, but we likely want the "most
-		// recently activated and still alive" one. Reprex to prove it is wrong,
-		// which should eventually become a test:
-		// - Start R console 1
-		// - Start R console 2
-		// - Run `cli::cli_alert("{.run revdepcheck::cloud_summary()}")` in R
-		//   console 2 and click the hyperlink.
-		// - The pasted code will incorrectly end up in R console 1.
+	$getActiveSessionIdForLanguage(languageId: string): Promise<string | undefined> {
+		const sessionId = this._activeSessionIdsByLanguage.get(languageId);
 
-		for (let [sessionId, console] of this._mainThreadConsolesBySessionId.entries()) {
-			if (console.getLanguageId() === languageId) {
-				return Promise.resolve(sessionId);
-			}
+		if (!sessionId) {
+			return Promise.resolve(undefined);
 		}
 
-		return Promise.resolve(undefined);
+		// Double check that we know about this console on the main thread side, for added safety.
+		// If we don't, something is probably out of sync.
+		if (!this._mainThreadConsolesBySessionId.get(sessionId)) {
+			return Promise.resolve(undefined);
+		}
+
+		return Promise.resolve(sessionId);
 	}
 
 	$tryPasteText(sessionId: string, text: string): void {

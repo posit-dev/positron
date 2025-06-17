@@ -19,10 +19,6 @@ export class MainThreadConsole {
 	) {
 	}
 
-	getLanguageId(): string {
-		return this._console.runtimeMetadata.languageId;
-	}
-
 	pasteText(text: string): void {
 		this._console.pasteText(text);
 	}

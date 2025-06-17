@@ -108,7 +108,7 @@ export interface ExtHostContextKeyServiceShape { }
 
 export interface MainThreadConsoleServiceShape {
 	$getConsoleWidth(): Promise<number>;
-	$getSessionIdForLanguage(languageId: string): Promise<string | undefined>;
+	$getActiveSessionIdForLanguage(languageId: string): Promise<string | undefined>;
 	$tryPasteText(sessionId: string, text: string): void;
 }
 
