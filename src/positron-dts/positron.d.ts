@@ -1310,13 +1310,6 @@ declare module 'positron' {
 			token: vscode.CancellationToken): vscode.ProviderResult<string>;
 	}
 
-	export interface Console {
-		/**
-		 * Pastes text into the console.
-		 */
-		pasteText(text: string): void;
-	}
-
 	/**
 	 * ConnectionsInput interface defines the structure for connection inputs.
 	 */
@@ -1527,16 +1520,6 @@ declare module 'positron' {
 		export function showSimpleModalDialogMessage(title: string,
 			message: string,
 			okButtonTitle?: string): Thenable<null>;
-
-		/**
-		 * Get the `Console` for a runtime `languageId`
-		 *
-		 * @param languageId The runtime language id to retrieve a `Console` for, i.e. 'r' or 'python'.
-		 *
-		 * @returns A Thenable that resolves to a `Console` or `undefined` if no `Console` for
-		 *   that `languageId` exists.
-		 */
-		export function getConsoleForLanguage(languageId: string): Thenable<Console | undefined>;
 
 		/**
 		 * Fires when the width of the console input changes. The new width is passed as

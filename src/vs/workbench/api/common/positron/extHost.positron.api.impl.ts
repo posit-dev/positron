@@ -77,7 +77,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 	const extHostPreviewPanels = rpcProtocol.set(ExtHostPositronContext.ExtHostPreviewPanel, new ExtHostPreviewPanels(rpcProtocol, extHostWebviews, extHostWorkspace));
 	const extHostModalDialogs = rpcProtocol.set(ExtHostPositronContext.ExtHostModalDialogs, new ExtHostModalDialogs(rpcProtocol));
 	const extHostContextKeyService = rpcProtocol.set(ExtHostPositronContext.ExtHostContextKeyService, new ExtHostContextKeyService(rpcProtocol));
-	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol, extHostLogService));
+	const extHostConsoleService = rpcProtocol.set(ExtHostPositronContext.ExtHostConsoleService, new ExtHostConsoleService(rpcProtocol));
 	const extHostPlotsService = rpcProtocol.set(ExtHostPositronContext.ExtHostPlotsService, new ExtHostPlotsService(rpcProtocol));
 	const extHostMethods = rpcProtocol.set(ExtHostPositronContext.ExtHostMethods,
 		new ExtHostMethods(rpcProtocol, extHostEditors, extHostDocuments, extHostModalDialogs,
@@ -185,9 +185,6 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			},
 			showSimpleModalDialogMessage(title: string, message: string, okButtonTitle?: string): Thenable<null> {
 				return extHostModalDialogs.showSimpleModalDialogMessage(title, message, okButtonTitle);
-			},
-			getConsoleForLanguage(languageId: string) {
-				return extHostConsoleService.getConsoleForLanguage(languageId);
 			},
 			get onDidChangeConsoleWidth() {
 				return extHostConsoleService.onDidChangeConsoleWidth;
