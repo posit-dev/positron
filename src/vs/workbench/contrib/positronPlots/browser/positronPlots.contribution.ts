@@ -84,7 +84,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 		properties: {
 			'positron.plots.darkFilter': {
 				type: 'string',
-				default: 'auto',
+				default: 'off',
 				enum: [
 					'on',
 					'off',
