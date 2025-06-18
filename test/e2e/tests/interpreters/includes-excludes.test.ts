@@ -17,8 +17,8 @@ test.describe('Interpreter: Includes', {
 
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
-			'python.interpreters.include': '["/home/runner/scratch/python-env"]',
-			'positron.r.customRootFolders': '["/home/runner/scratch"]'
+			'python.interpreters.include': ["/home/runner/scratch/python-env"],
+			'positron.r.customRootFolders': ["/home/runner/scratch"]
 		}, { reload: true });
 	});
 
@@ -51,8 +51,8 @@ test.describe('Interpreter: Excludes', {
 
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
-			'python.interpreters.exclude': '["~/.pyenv"]',
-			'positron.r.interpreters.exclude': '["/opt/R/4.4.2"]',
+			'python.interpreters.exclude': ["~/.pyenv"],
+			'positron.r.interpreters.exclude': ["/opt/R/4.4.2"],
 		}, { reload: true });
 	});
 
@@ -87,7 +87,9 @@ test.describe('Interpreter: Excludes', {
 		}
 
 		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
-		await settings.set({ 'python.interpreters.exclude': '["~/.pyenv"]' }, { reload: true });
+		await settings.set({
+			'python.interpreters.exclude': ["~/.pyenv"]
+		}, { reload: true });
 
 		try {
 			await sessions.start('pythonAlt', { reuse: false });
