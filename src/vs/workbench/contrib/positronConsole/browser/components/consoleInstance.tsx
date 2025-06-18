@@ -59,8 +59,7 @@ const getConsoleFontInfo = (
 	const consoleLineHeight = configurationService.getValue<number>('console.lineHeight');
 	const consoleLetterSpacing = configurationService.getValue<number>('console.letterSpacing');
 	const consoleFontWeight = configurationService.getValue<number | string>('console.fontWeight');
-	const consoleFontWeightBold = configurationService.getValue<number | string>('console.fontWeightBold');
-	const consoleFontLigaturesEnabled = configurationService.getValue<boolean>('console.fontLigatures.enabled');
+	const consoleFontLigaturesEnabled = configurationService.getValue<boolean | string>('console.fontLigatures');
 
 	// Create console-specific options, falling back to terminal settings
 	const consoleOptions = {
@@ -69,7 +68,6 @@ const getConsoleFontInfo = (
 		lineHeight: consoleLineHeight,
 		letterSpacing: consoleLetterSpacing,
 		fontWeight: consoleFontWeight ? String(consoleFontWeight) : terminalConfig.fontWeight,
-		fontWeightBold: consoleFontWeightBold ? String(consoleFontWeightBold) : terminalConfig.fontWeightBold,
 		fontLigatures: consoleFontLigaturesEnabled,
 		fontVariations: false
 	};
@@ -244,13 +242,18 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			configurationChangeEvent => {
 				// When something in the terminal or console changes, determine whether it's font-related
 				// and, if it is, apply the new font info to the container.
-				if (configurationChangeEvent.affectedKeys.has('terminal.integrated.fontFamily') ||
+				if (
+					configurationChangeEvent.affectedKeys.has('editor.fontFamily') ||
+					configurationChangeEvent.affectedKeys.has('editor.fontWeight') ||
+					configurationChangeEvent.affectedKeys.has('editor.fontLigatures') ||
+					configurationChangeEvent.affectedKeys.has('editor.fontVariations') ||
 					configurationChangeEvent.affectedKeys.has('console.fontFamily') ||
 					configurationChangeEvent.affectedKeys.has('console.fontWeight') ||
-					configurationChangeEvent.affectedKeys.has('console.fontWeightBold') ||
 					configurationChangeEvent.affectedKeys.has('console.fontSize') ||
 					configurationChangeEvent.affectedKeys.has('console.lineHeight') ||
-					configurationChangeEvent.affectedKeys.has('console.fontLigatures.enabled')
+					configurationChangeEvent.affectedKeys.has('console.letterSpacing') ||
+					configurationChangeEvent.affectedKeys.has('console.fontLigatures') ||
+					configurationChangeEvent.affectedKeys.has('console.fontVariations')
 				) {
 					// Get the font info.
 					const editorFontInfo = getConsoleFontInfo(
