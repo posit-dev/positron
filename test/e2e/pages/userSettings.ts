@@ -44,7 +44,7 @@ export class UserSettings {
 	async remove(keysToRemove: string[]): Promise<void> {
 		let currentSettings = {};
 		try {
-			const fileContent = await fs.readFile(this.settingsPath, 'utf-8');
+			const fileContent = await fs.readFile(this.settingsFilePath, 'utf-8');
 			if (fileContent.trim()) {
 				currentSettings = JSON.parse(fileContent);
 			}
