@@ -2223,6 +2223,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			if (exit.reason === RuntimeExitReason.ExtensionHost) {
 				this.setState(PositronConsoleState.Disconnected);
+				// The runtime must be detached, so that when it is reconnected, it is reattached
+				// to the new extension host.
+				this.detachRuntime();
 				return;
 			}
 

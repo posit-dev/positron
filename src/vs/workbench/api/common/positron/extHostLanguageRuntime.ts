@@ -14,7 +14,7 @@ import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.j
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { URI } from '../../../../base/common/uri.js';
-import { DeferredPromise, retry } from '../../../../base/common/async.js';
+import { DeferredPromise } from '../../../../base/common/async.js';
 import { IRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { SerializableObjectWithBuffers } from '../../../services/extensions/common/proxyIdentifier.js';
@@ -187,8 +187,6 @@ interface LanguageRuntimeManager {
 export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRuntimeShape {
 
 	private readonly _proxy: extHostProtocol.MainThreadLanguageRuntimeShape;
-
-	private readonly _registeredRuntimes = new Array<positron.LanguageRuntimeMetadata>();
 
 	private readonly _runtimeManagersByRuntimeId = new Map<string, LanguageRuntimeManager>();
 
@@ -967,27 +965,11 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 	}
 
 	public getRegisteredRuntimes(): Promise<positron.LanguageRuntimeMetadata[]> {
-		return Promise.resolve(this._registeredRuntimes);
+		return this._proxy.$getRegisteredRuntimes();
 	}
 
 	public async getPreferredRuntime(languageId: string): Promise<positron.LanguageRuntimeMetadata | undefined> {
-		const metadata = await this._proxy.$getPreferredRuntime(languageId);
-		if (!metadata) {
-			return undefined;
-		}
-
-		// If discovery is in progress, a runtime may exist on the main thread but not
-		// the extension host, so retry a bunch of times. Retrying is more likely to return
-		// faster than waiting for the entire discovery phase to complete since runtimes are
-		// discovered concurrently across languages.
-		return retry(async () => {
-			const runtime = this._registeredRuntimes.find(runtime => runtime.runtimeId === metadata.runtimeId);
-			if (!runtime) {
-				this._logService.warn(`Could not find runtime ${metadata.runtimeId} on extension host. Waiting 2 seconds and retrying.`);
-				throw new Error(`Runtime exists on main thread but not extension host: ${metadata.runtimeId}`);
-			}
-			return runtime;
-		}, 2000, 5);
+		return this._proxy.$getPreferredRuntime(languageId);
 	}
 
 	public async getActiveSessions(): Promise<positron.LanguageRuntimeSession[]> {
@@ -1085,17 +1067,6 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			if (index >= 0) {
 				this._runtimeManagers.splice(index, 1);
 			}
-
-			// Remove its associated runtimes
-			this._runtimeManagersByRuntimeId.forEach((m, runtimeId) => {
-				if (m.manager === manager) {
-					this._runtimeManagersByRuntimeId.delete(runtimeId);
-					const index = this._registeredRuntimes.findIndex(runtime => runtime.runtimeId === runtimeId);
-					if (index >= 0) {
-						this._registeredRuntimes.splice(index, 1);
-					}
-				}
-			});
 		});
 	}
 
@@ -1104,25 +1075,19 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		manager: positron.LanguageRuntimeManager,
 		runtime: positron.LanguageRuntimeMetadata): IDisposable {
 
-		// Create a handle and register the runtime with the main thread
-		const handle = this._registeredRuntimes.length;
-
 		// Register the runtime with the main thread
-		this._proxy.$registerLanguageRuntime(handle, {
+		this._proxy.$registerLanguageRuntime({
 			extensionId: extension.identifier,
 			...runtime
 		});
 		this._onDidRegisterRuntimeEmitter.fire(runtime);
-
-		// Add this runtime to the set of registered runtimes
-		this._registeredRuntimes.push(runtime);
 
 		// Save the manager associated with this runtime, too; we'll need to use
 		// it to create a runtime session later
 		this._runtimeManagersByRuntimeId.set(runtime.runtimeId, { manager, languageId: runtime.languageId, extension });
 
 		return new Disposable(() => {
-			this._proxy.$unregisterLanguageRuntime(handle);
+			this._proxy.$unregisterLanguageRuntime(runtime.runtimeId);
 		});
 	}
 
