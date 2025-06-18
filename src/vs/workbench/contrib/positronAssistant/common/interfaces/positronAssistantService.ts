@@ -76,6 +76,7 @@ export interface IPositronLanguageModelConfig {
 	location?: string;
 	numCtx?: number;
 	maxOutputTokens?: number;
+	completions?: boolean;
 }
 
 //#endregion
