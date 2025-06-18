@@ -327,7 +327,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						}).join('\n');
 						const path = vscode.workspace.asRelativePath(value);
 
-						// TODO: The UI doesn't handle folder references well yet, so don't add it to the response.
+						// TODO: Adding a URI as a response reference shows it in the "Used N references" block.
+						//       Files render with the correct icons and when clicked open in the editor.
+						//       Folders currently render with the wrong icon and when clicked try to open in the editor,
+						//       and opening folders in the editor displays a warning message.
 						// response.reference(value);
 
 						// Attach the folder's contents.
