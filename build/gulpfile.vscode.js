@@ -108,6 +108,7 @@ const vscodeResourceIncludes = [
 	// --- Start Positron ---
 	// Positron Help
 	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
+	'out-build/vs/workbench/contrib/positronHelp/browser/resources/welcome.html',
 	// --- End Positron ---
 
 	// Tree Sitter highlights
