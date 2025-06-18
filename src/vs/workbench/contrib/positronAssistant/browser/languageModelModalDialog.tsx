@@ -236,7 +236,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		setError(undefined);
 		if (providerConfig) {
 			if (authMethod === AuthMethod.API_KEY) {
-				props.onAction(
+				await props.onAction(
 					providerConfig,
 					source.signedIn ? 'delete' : 'save')
 					.catch((e) => {
@@ -245,7 +245,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 						setShowProgress(false);
 					});
 			} else {
-				props.onAction(
+				await props.onAction(
 					providerConfig,
 					source.signedIn ? 'oauth-signout' : 'oauth-signin')
 					.catch((e) => {
@@ -257,6 +257,27 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		} else {
 			setShowProgress(false);
 			setError(localize('positron.languageModelProviderModalDialog.incompleteConfig', 'The configuration is incomplete.'));
+		}
+
+		if (providerConfig.completions) {
+			setShowProgress(true);
+			// Assume a completion source exists with the same provider ID and compatible auth details
+			const completionSource = props.sources.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
+			const completionConfig = {
+				provider: providerConfig.provider,
+				type: PositronLanguageModelType.Completion,
+				...completionSource.defaults,
+				apiKey: providerConfig.apiKey,
+				oauth: providerConfig.oauth,
+			}
+			await props.onAction(
+				completionConfig,
+				source.signedIn ? 'delete' : 'save')
+				.catch((e) => {
+					setError(e.message);
+				}).finally(() => {
+					setShowProgress(false);
+				});
 		}
 	}
 
