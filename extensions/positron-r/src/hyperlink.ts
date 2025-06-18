@@ -64,13 +64,14 @@ async function handleManuallyRunnable(_runtime: RSession, code: string) {
 }
 
 function handleAutomaticallyRunnable(runtime: RSession, code: string) {
-	const id = randomUUID();
-
-	// Fire and forget style
-	runtime.execute(
-		code,
-		id,
-		positron.RuntimeCodeExecutionMode.Interactive,
+	positron.runtime.executeCode(
+		'r',	// R code
+		code,	// The code to execute.
+		true,	// Focus the console after executing the code.
+		true,	// Do not check the code for completeness before executing.
+		// Specify the runtime execution mode as NonInteractive so that the
+		// code is not combined with pending code before being executed.
+		positron.RuntimeCodeExecutionMode.NonInteractive,
 		positron.RuntimeErrorBehavior.Continue
 	);
 }
