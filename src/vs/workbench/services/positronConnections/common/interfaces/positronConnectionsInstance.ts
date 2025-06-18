@@ -30,9 +30,7 @@ export class ConnectionMetadata implements IConnectionMetadata {
 	}
 
 	update(values: Partial<IConnectionMetadata>): void {
-		console.log(values);
 		Object.assign(this, values);
-		console.log(this);
 	}
 }
 

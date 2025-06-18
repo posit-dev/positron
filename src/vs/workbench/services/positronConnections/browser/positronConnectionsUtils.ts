@@ -3,12 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IPositronConnectionItem, IPositronConnectionEntry } from '../common/interfaces/positronConnectionsInstance.js';
-
-
-
-class PositronConnectionEntry extends Disposable implements IPositronConnectionEntry {
+class PositronConnectionEntry implements IPositronConnectionEntry {
 
 	error?: string;
 
@@ -17,7 +13,6 @@ class PositronConnectionEntry extends Disposable implements IPositronConnectionE
 		readonly level: number,
 		readonly expanded: boolean | undefined
 	) {
-		super();
 	}
 
 	get id() {

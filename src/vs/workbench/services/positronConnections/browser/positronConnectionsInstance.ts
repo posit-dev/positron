@@ -96,6 +96,8 @@ export class PositronConnectionsInstance extends BaseConnectionsInstance impleme
 	) {
 		super(metadata);
 
+		this._register(client);
+
 		this._register(this.client.onDidClose(() => {
 			this.active = false;
 		}));
