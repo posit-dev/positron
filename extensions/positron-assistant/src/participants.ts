@@ -769,7 +769,7 @@ export function getDefaultContextItems(): string[] {
  * Whether the experimental streaming edit mode is enabled.
  */
 function isStreamingEditsEnabled(): boolean {
-	return vscode.workspace.getConfiguration('positron.assistant.streamingEdits').get('enable', false);
+	return vscode.workspace.getConfiguration('positron.assistant.streamingEdits').get('enable', true);
 }
 
 /** Processes streaming text. */

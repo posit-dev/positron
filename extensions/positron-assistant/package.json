@@ -135,7 +135,7 @@
           },
           "positron.assistant.streamingEdits.enable": {
             "type": "boolean",
-            "default": false,
+            "default": true,
             "description": "%configuration.streamingEdits.enable%",
             "tags": ["experimental"]
           }
