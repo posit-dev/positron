@@ -159,10 +159,10 @@ export class EditorActionBarFactory extends Disposable {
 		// Create the set of processed actions.
 		const processedActions = new Set<string>();
 
-		// Create the left action bar elements from the editor title menu's editor title run action
-		// and the editor actions left menu.
+		// Create the left action bar elements from the editor title menu's editor title run submenu
+		// item and the editor actions left menu.
 		const leftActionBarElements = [
-			// Build action bar elements from the editor title run menu.
+			// Build action bar elements from the editor title run submenu item.
 			...this.buildActionBarElements(
 				processedActions,
 				false,
