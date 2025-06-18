@@ -98,6 +98,7 @@ And a [link](target)`;
 		const codeCellBody = '\n123\n456';
 		const codeCell1 = `#+\n${codeCellBody}`;
 		const codeCell2 = `# %%\n789\n\n012`;
+		const codeCell3 = `# Header ----\n\n123\n456`;
 
 		const parser = getParser(language);
 
@@ -143,6 +144,14 @@ And a [link](target)`;
 				const cell = singleCell(document, expectedType);
 				assert.strictEqual(parser?.getCellText(cell, document), expectedText);
 			});
+		});
+
+		test('Section headers end code cells', async () => {
+			const content = [codeCell2, codeCell3].join('\n\n');
+			const document = await vscode.workspace.openTextDocument({ language, content });
+			assert.deepStrictEqual(parseCells(document), [
+				{ range: new vscode.Range(0, 0, 4, 0), type: CellType.Code }
+			]);
 		});
 
 		test('New cell', async () => {
