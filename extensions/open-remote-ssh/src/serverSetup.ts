@@ -151,7 +151,7 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
     const exitCode = parseInt(resultMap.exitCode, 10);
     if (exitCode === 66) {
         throw new ServerInstallError(
-            `There is no available Positron server with version '${installOptions.version}' for ${resultMap.platform} (${resultMap.arch}).`
+            `There is no available Positron server with version ${installOptions.version} for ${resultMap.platform} ${resultMap.arch}.`
             + `\nPlease check the [system requirements](https://positron.posit.co/remote-ssh.html#system-requirements) and [troubleshooting guides](https://positron.posit.co/remote-ssh.html#how-it-works-troubleshooting).`
         );
     } else if (exitCode !== 0) {
