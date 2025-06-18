@@ -223,11 +223,28 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 						// Attempt to reconnect the session.
 						this._logService.debug(`Extension ${extensionId.value} has been reloaded; ` +
 							`attempting to reconnect session ${session.sessionId}`);
-						this.restoreRuntimeSession(session.runtimeMetadata, session.metadata, session.dynState.sessionName, false);
+						try {
+							this.restoreRuntimeSession(session.runtimeMetadata,
+								session.metadata,
+								session.dynState.sessionName,
+								false);
+							this._logService.debug(`Completed reconnection for session ${session.sessionId}`);
+						} catch (err) {
+							if (err instanceof Error) {
+								this._notificationService.error(
+									localize('positron.runtimeSession.restoreFailed', 'Failed to restore session {0} for extension {1}: {2}', session.sessionId, extensionId.value, err.message)
+								);
+							} else {
+								this._notificationService.error(
+									localize('positron.runtimeSession.restoreFailedUnkown', 'Unknown error restoring session {0} for extension {1}: {2}', session.metadata.sessionId, extensionId.value, JSON.stringify(err))
+								);
+							}
+						}
 					}
 				}
 			}
-		}));
+		}
+		));
 
 		// Changing the application storage scope causes disconnected sessions
 		// to become unusable, since the information needed to reconnect to them
@@ -467,7 +484,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	focusSession(sessionId: string): void {
 		const session = this.getSession(sessionId);
 		if (!session) {
-			throw new Error(`Could not find session with id {sessionId}.`);
+			throw new Error(`Could not find session with id ${sessionId}.`);
 		}
 
 		if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
