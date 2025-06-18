@@ -39,24 +39,24 @@ export interface ActivityPromptProps {
  */
 const getConsoleFontInfo = (configurationService: IConfigurationService) => {
 	// Get the console and terminal options
-	const terminalConfig = configurationService.getValue<any>('terminal.integrated');
+	const editorConfig = configurationService.getValue<any>('editor');
 	const consoleFontFamily = configurationService.getValue<string>('console.fontFamily');
 	const consoleFontSize = configurationService.getValue<number>('console.fontSize');
+	const consoleFontWeight = configurationService.getValue<number | string>('console.fontWeight');
+	const consoleFontLigatures = configurationService.getValue<boolean | string>('console.fontLigatures');
+	const consoleFontVariations = configurationService.getValue<boolean | string>('console.fontVariations');
 	const consoleLineHeight = configurationService.getValue<number>('console.lineHeight');
 	const consoleLetterSpacing = configurationService.getValue<number>('console.letterSpacing');
-	const consoleFontWeight = configurationService.getValue<number | string>('console.fontWeight');
-	const consoleFontLigaturesEnabled = configurationService.getValue<boolean>('console.fontLigatures.enabled');
 
 	// Create console-specific options, falling back to terminal settings
 	const consoleOptions = {
-		fontFamily: consoleFontFamily || terminalConfig.fontFamily,
+		fontFamily: consoleFontFamily || editorConfig.fontFamily,
 		fontSize: consoleFontSize,
 		lineHeight: consoleLineHeight,
 		letterSpacing: consoleLetterSpacing,
-		fontWeight: consoleFontWeight ? String(consoleFontWeight) : terminalConfig.fontWeight,
-		fontWeightBold: consoleFontWeight ? String(consoleFontWeight) : terminalConfig.fontWeight,
-		fontLigatures: consoleFontLigaturesEnabled,
-		fontVariations: false // Terminal doesn't use fontVariations like editor
+		fontWeight: consoleFontWeight ? String(consoleFontWeight) : editorConfig.fontWeight,
+		fontLigatures: consoleFontLigatures ? consoleFontLigatures : editorConfig.fontLigatures,
+		fontVariations: consoleFontVariations ? consoleFontVariations : editorConfig.fontVariations,
 	};
 
 	// Use the active window
