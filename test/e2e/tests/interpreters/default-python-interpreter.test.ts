@@ -19,6 +19,7 @@ test.describe('Default Interpreters - Python', {
 	test.beforeAll(async function ({ settings }) {
 
 		await settings.remove(['interpreters.startupBehavior']);
+		await settings.set({ 'interpreters.startupBehavior': 'always' });
 
 		await deletePositronHistoryFiles();
 
