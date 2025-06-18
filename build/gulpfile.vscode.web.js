@@ -44,6 +44,7 @@ const vscodeWebResourceIncludes = [
 	// Positron Help
 	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
 	'out-build/vs/workbench/contrib/positronHelp/browser/resources/welcome.html',
+	'out-build/vs/workbench/browser/media/positron-header.svg',
 	// --- End Positron ---
 
 	// NLS
