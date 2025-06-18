@@ -78,7 +78,6 @@ const pythonCellParser: CellParser = {
 
 const rCellParser: CellParser = {
 	isCellStart: (line) => rIsCellStartRegExp.test(line),
-	// isCellEnd: (_line) => false,
 	isCellEnd: (_line) => rIsSectionHeaderRegExp.test(_line),
 	getCellType: (_line) => CellType.Code,
 	getCellText: getCellText,
