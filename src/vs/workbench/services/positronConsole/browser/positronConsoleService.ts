@@ -182,10 +182,9 @@ export const scrollbackSizeSettingId = 'console.scrollbackSize';
 export const consoleFontSizeSettingId = 'console.fontSize';
 export const consoleFontFamilySettingId = 'console.fontFamily';
 export const consoleFontWeightSettingId = 'console.fontWeight';
-export const consoleFontWeightBoldSettingId = 'console.fontWeightBold';
 export const consoleLineHeightSettingId = 'console.lineHeight';
 export const consoleLetterSpacingSettingId = 'console.letterSpacing';
-export const consoleFontLigaturesEnabledSettingId = 'console.fontLigatures.enabled';
+export const consoleFontLigaturesEnabledSettingId = 'console.fontLigatures';
 
 const consoleConfiguration = {
 	...consoleServiceConfigurationBaseNode,
@@ -199,7 +198,7 @@ const consoleConfiguration = {
 		},
 		'console.fontFamily': {
 			type: 'string' as const,
-			markdownDescription: localize('console.fontFamily', "Controls the font family of the console. Defaults to {0}'s value.", '`#terminal.integrated.fontFamily#`'),
+			markdownDescription: localize('console.fontFamily', "Controls the font family of the console. Defaults to {0}'s value.", '`#editor.fontFamily#`'),
 			default: ''
 		},
 		'console.fontSize': {
@@ -240,28 +239,32 @@ const consoleConfiguration = {
 			markdownDescription: localize('console.fontWeight', "Controls the font weight of the console. Accepts \"normal\" and \"bold\" keywords or numbers between 1 and 1000."),
 			default: 'normal'
 		},
-		'console.fontWeightBold': {
+		'console.fontLigatures': {
 			anyOf: [
 				{
-					type: 'number' as const,
-					minimum: 1,
-					maximum: 1000,
-					errorMessage: localize('console.fontWeightBoldError', "Only \"normal\" and \"bold\" keywords or numbers between 1 and 1000 are allowed.")
+					type: 'boolean' as const,
+					description: localize('console.fontLigatures.boolean', "Enables/Disables font ligatures ('calt' and 'liga' font features) in the console. Change this to a string for fine-grained control of the 'font-feature-settings' CSS property."),
 				},
 				{
 					type: 'string' as const,
-					pattern: '^(normal|bold|1000|[1-9][0-9]{0,2})$'
-				},
-				{
-					enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900']
+					description: localize('console.fontLigatures.string', "Explicit 'font-feature-settings' CSS property for the console. A boolean can be passed instead if one only needs to turn on/off ligatures.")
 				}
 			],
-			markdownDescription: localize('console.fontWeightBold', "Controls the font weight for bold text in the console. Accepts \"normal\" and \"bold\" keywords or numbers between 1 and 1000."),
-			default: 'bold'
+			markdownDescription: localize('console.fontLigatures', "Configures font ligatures or font features in the console. Can be either a boolean to enable/disable ligatures or a string for the value of the CSS 'font-feature-settings' property."),
+			default: false
 		},
-		'console.fontLigatures.enabled': {
-			type: 'boolean' as const,
-			markdownDescription: localize('console.fontLigatures.enabled', "Controls whether font ligatures are enabled in the console."),
+		'console.fontVariations': {
+			anyOf: [
+				{
+					type: 'boolean' as const,
+					description: localize('console.fontVariations.boolean', "Enables/Disables the translation from font-weight to font-variation-settings. Change this to a string for fine-grained control of the 'font-variation-settings' CSS property."),
+				},
+				{
+					type: 'string' as const,
+					description: localize('console.fontVariations.string', "Explicit 'font-variation-settings' CSS property. A boolean can be passed instead if one only needs to translate font-weight to font-variation-settings.")
+				}
+			],
+			markdownDescription: localize('console.fontVariations', "Configures font variations. Can be either a boolean to enable/disable the translation from font-weight to font-variation-settings or a string for the value of the CSS 'font-variation-settings' property."),
 			default: false
 		}
 	}
