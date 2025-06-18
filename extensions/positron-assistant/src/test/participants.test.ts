@@ -87,7 +87,8 @@ suite('PositronAssistantParticipant', () => {
 	let response: TestChatResponseStream;
 	let tokenSource: vscode.CancellationTokenSource;
 	let token: vscode.CancellationToken;
-	let referenceUri: vscode.Uri;
+	let fileReferenceUri: vscode.Uri;
+	let folderReferenceUri: vscode.Uri;
 	let llmsTxtUri: vscode.Uri;
 	let chatParticipant: PositronAssistantChatParticipant;
 	let editorParticipant: PositronAssistantEditorParticipant;
@@ -101,7 +102,8 @@ suite('PositronAssistantParticipant', () => {
 
 		const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
 		assert.ok(workspaceFolder, 'This test should be run from the ../test-workspace workspace');
-		referenceUri = vscode.Uri.joinPath(workspaceFolder.uri, 'reference.ts');
+		fileReferenceUri = vscode.Uri.joinPath(workspaceFolder.uri, 'reference.ts');
+		folderReferenceUri = vscode.Uri.joinPath(workspaceFolder.uri, 'folder');
 		llmsTxtUri = vscode.Uri.joinPath(workspaceFolder.uri, 'llms.txt');
 
 		const extensionContext = mock<vscode.ExtensionContext>({});
@@ -119,6 +121,7 @@ suite('PositronAssistantParticipant', () => {
 		const request = makeChatRequest({ model, references: [] });
 		const context: vscode.ChatContext = { history: [] };
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
+		const positronVersion = `${positron.version}-${positron.buildNumber}`;
 		const positronChatContext: positron.ai.ChatContext = {
 			activeSession: {
 				identifier: 'test-console',
@@ -136,6 +139,8 @@ suite('PositronAssistantParticipant', () => {
 			plots: {
 				hasPlots: true,
 			},
+			positronVersion,
+			currentDate: 'Wednesday 11 June 2025 at 13:30:00 BST',
 			variables: [
 				{
 					access_key: 'x',
@@ -183,6 +188,14 @@ ${c.shell}
 <plots>
 ${c.plots!.hasPlots ? 'A plot is visible.' : ''}
 </plots>
+
+<version>
+Positron version: ${positronVersion}
+</version>
+
+<date>
+Today's date is: Wednesday 11 June 2025 at 13:30:00 BST
+</date>
 </context>`);
 	});
 
@@ -191,7 +204,7 @@ ${c.plots!.hasPlots ? 'A plot is visible.' : ''}
 		const references: vscode.ChatPromptReference[] = [{
 			id: 'test-file-reference',
 			name: 'Test File',
-			value: referenceUri,
+			value: fileReferenceUri,
 			modelDescription: 'Test file description',
 		}];
 		const request = makeChatRequest({ model, references });
@@ -205,8 +218,8 @@ ${c.plots!.hasPlots ? 'A plot is visible.' : ''}
 		// The first user message should contain the formatted context.
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
-		const document = await vscode.workspace.openTextDocument(referenceUri);
-		const filePath = vscode.workspace.asRelativePath(referenceUri);
+		const document = await vscode.workspace.openTextDocument(fileReferenceUri);
+		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages[0],
@@ -218,10 +231,42 @@ ${document.getText()}
 </attachments>`);
 	});
 
+	test('should include folder attachment', async () => {
+		// Setup test inputs.
+		const references: vscode.ChatPromptReference[] = [{
+			id: 'test-folder-reference',
+			name: 'Test folder',
+			value: folderReferenceUri,
+			modelDescription: 'Test folder description',
+		}];
+		const request = makeChatRequest({ model, references });
+		const context: vscode.ChatContext = { history: [] };
+		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
+		const sendRequestSpy = sinon.spy(model, 'sendRequest');
+
+		// Call the method under test.
+		await chatParticipant.requestHandler(request, context, response, token);
+
+		// The first user message should contain the formatted context.
+		sinon.assert.calledOnce(sendRequestSpy);
+		const [messages,] = sendRequestSpy.getCall(0).args;
+		const filePath = vscode.workspace.asRelativePath(folderReferenceUri);
+		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
+		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
+		assertContextMessage(messages[0],
+			`<attachments>
+${attachmentsText}
+<attachment filePath="${filePath}" description="Contents of the directory">
+file.txt
+subfolder/
+</attachment>
+</attachments>`);
+	});
+
 	test('should include file range attachment', async () => {
 		// Setup test inputs.
 		const range = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(1, 0));
-		const location = new vscode.Location(referenceUri, range);
+		const location = new vscode.Location(fileReferenceUri, range);
 		const references: vscode.ChatPromptReference[] = [{
 			id: 'test-file-reference',
 			name: 'Test File',
@@ -239,8 +284,8 @@ ${document.getText()}
 		// The first user message should contain the formatted context.
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
-		const document = await vscode.workspace.openTextDocument(referenceUri);
-		const filePath = vscode.workspace.asRelativePath(referenceUri);
+		const document = await vscode.workspace.openTextDocument(fileReferenceUri);
+		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
 		const attachmentsText = await readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages[0],
@@ -294,35 +339,34 @@ ${attachmentsText}
 		// Create an llms.txt file in the workspace.
 		const llmsTxtContent = `This is a test llms.txt file.
 It should be included in the chat message.`;
-		disposables.push({
-			dispose: () => {
-				// Delete the llms.txt file from the workspace.
-				vscode.workspace.fs.delete(llmsTxtUri);
-			},
-		});
 		await vscode.workspace.fs.writeFile(llmsTxtUri, Buffer.from(llmsTxtContent));
 
-		// Setup test inputs.
-		const request = makeChatRequest({ model, references: [] });
-		const context: vscode.ChatContext = { history: [] };
-		sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
-		const sendRequestSpy = sinon.spy(model, 'sendRequest');
+		try {
+			// Setup test inputs.
+			const request = makeChatRequest({ model, references: [] });
+			const context: vscode.ChatContext = { history: [] };
+			sinon.stub(positron.ai, 'getPositronChatContext').resolves({});
+			const sendRequestSpy = sinon.spy(model, 'sendRequest');
 
-		// Call the method under test.
-		await chatParticipant.requestHandler(request, context, response, token);
+			// Call the method under test.
+			await chatParticipant.requestHandler(request, context, response, token);
 
-		// The first user message should contain the formatted context.
-		sinon.assert.calledOnce(sendRequestSpy);
-		const [messages,] = sendRequestSpy.getCall(0).args;
-		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		assertContextMessage(messages[0],
-			`<instructions>
+			// The first user message should contain the formatted context.
+			sinon.assert.calledOnce(sendRequestSpy);
+			const [messages,] = sendRequestSpy.getCall(0).args;
+			assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
+			assertContextMessage(messages[0],
+				`<instructions>
 ${llmsTxtContent}
 </instructions>`);
+		} finally {
+			// Delete the llms.txt file from the workspace.
+			await vscode.workspace.fs.delete(llmsTxtUri);
+		}
 	});
 
 	test('should include editor information', async () => {
-		const document = await vscode.workspace.openTextDocument(referenceUri);
+		const document = await vscode.workspace.openTextDocument(fileReferenceUri);
 		const selection = new vscode.Selection(new vscode.Position(0, 0), new vscode.Position(1, 0));
 		// TODO: Not sure what wholeRange is supposed to be. We don't currently use it.
 		const wholeRange = new vscode.Range(new vscode.Position(0, 0), new vscode.Position(1, 0));
@@ -339,7 +383,7 @@ ${llmsTxtContent}
 		sinon.assert.calledOnce(sendRequestSpy);
 		const [messages,] = sendRequestSpy.getCall(0).args;
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
-		const filePath = vscode.workspace.asRelativePath(referenceUri);
+		const filePath = vscode.workspace.asRelativePath(fileReferenceUri);
 		assertContextMessage(messages[0],
 			`<editor description="Current active editor" filePath="${filePath}" language="${document.languageId}" line="${selection.active.line + 1}" column="${selection.active.character + 1}" documentOffset="${document.offsetAt(selection.active)}">
 <document description="Full contents of the active file">

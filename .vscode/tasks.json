@@ -90,6 +90,7 @@
 			"script": "watch-e2ed",
 			"label": "E2E Tests - Build",
 			"isBackground": true,
+			"group": "test",
 			"presentation": {
 				"reveal": "never",
 				"group": "testWatchers",
@@ -97,7 +98,10 @@
 			},
 			"problemMatcher": [
 				{
-					"owner": "typescript-watch",
+					"base": "$tsc-watch",
+					"owner": "typescript",
+					"source": "watch-e2e",
+					"applyTo": "allDocuments",
 					"fileLocation": ["relative", "${workspaceFolder}/test/e2e"],
 					"pattern": {
 						"regexp": "\\[watch-e2e\\] ([^(]+)\\((\\d+),(\\d+)\\): (error TS\\d+: .+)",
@@ -113,14 +117,24 @@
 					}
 				}
 			]
-		},
-
-		{
-			"label": "VS Code - Build",
+		},		{
+			"label": "Positron Only - Build",
 			"dependsOn": [
 				"Core - Build",
-				"Ext - Build",
+				"Ext - Build"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": []
+		},
+		{
+			"label": "Positron with E2E Tests - Build",
+			"dependsOn": [
 				"E2E Tests - Build",
+				"Core - Build",
+				"Ext - Build"
 			],
 			"group": {
 				"kind": "build",

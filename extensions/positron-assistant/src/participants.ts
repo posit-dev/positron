@@ -314,20 +314,46 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						language: document.languageId,
 					}));
 				} else if (value instanceof vscode.Uri) {
-					// The user attached a file - usually a manually attached file in the workspace.
-					const document = await vscode.workspace.openTextDocument(value);
-					const path = vscode.workspace.asRelativePath(value);
-					const documentText = document.getText();
+					const fileStat = await vscode.workspace.fs.stat(value);
+					if (fileStat.type === vscode.FileType.Directory) {
+						// The user attached a directory - usually a manually attached directory in the workspace.
+						// Format the directory contents for the prompt.
+						const entries = await vscode.workspace.fs.readDirectory(value);
+						const entriesText = entries.map(([name, type]) => {
+							if (type === vscode.FileType.Directory) {
+								return `${name}/`;
+							}
+							return name;
+						}).join('\n');
+						const path = vscode.workspace.asRelativePath(value);
 
-					// Add the file as a reference in the response.
-					response.reference(value);
+						// TODO: Adding a URI as a response reference shows it in the "Used N references" block.
+						//       Files render with the correct icons and when clicked open in the editor.
+						//       Folders currently render with the wrong icon and when clicked try to open in the editor,
+						//       and opening folders in the editor displays a warning message.
+						// response.reference(value);
 
-					// Attach the full document text.
-					attachmentPrompts.push(xml.node('attachment', documentText, {
-						filePath: path,
-						description: 'Full contents of the file',
-						language: document.languageId,
-					}));
+						// Attach the folder's contents.
+						attachmentPrompts.push(xml.node('attachment', entriesText, {
+							filePath: path,
+							description: 'Contents of the directory',
+						}));
+					} else {
+						// The user attached a file - usually a manually attached file in the workspace.
+						const document = await vscode.workspace.openTextDocument(value);
+						const path = vscode.workspace.asRelativePath(value);
+						const documentText = document.getText();
+
+						// Add the file as a reference in the response.
+						response.reference(value);
+
+						// Attach the full document text.
+						attachmentPrompts.push(xml.node('attachment', documentText, {
+							filePath: path,
+							description: 'Full contents of the file',
+							language: document.languageId,
+						}));
+					}
 				} else if (value instanceof vscode.ChatReferenceBinaryData) {
 					if (isChatImageMimeType(value.mimeType)) {
 						// The user attached an image - usually a pasted image or screenshot of the IDE.
@@ -404,6 +430,16 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				xml.node('plots', 'A plot is visible.')
 			);
 		}
+		if (positronContext.positronVersion) {
+			positronContextPrompts.push(
+				xml.node('version', `Positron version: ${positronContext.positronVersion}`),
+			);
+		}
+		if (positronContext.currentDate) {
+			positronContextPrompts.push(
+				xml.node('date', `Today's date is: ${positronContext.currentDate}`),
+			);
+		}
 		if (positronContextPrompts.length > 0) {
 			prompts.push(xml.node('context', positronContextPrompts.join('\n\n')));
 		}
@@ -476,7 +512,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			if (chunk instanceof vscode.LanguageModelTextPart) {
 				textResponses.push(chunk);
 
-				console.log(chunk.value);
 				if (textProcessor) {
 					// If there is a text processor, let it process the chunk
 					// and write to the chat response stream.
@@ -567,6 +602,24 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		});
 	}
 
+	/** Additional language-specific prompts for active sessions */
+	protected async getActiveSessionInstructions(): Promise<string> {
+		const sessions = await positron.runtime.getActiveSessions();
+		const languages = sessions.map((session) => session.runtimeMetadata.languageId);
+
+		const instructions = await Promise.all(languages.map(async (id) => {
+			try {
+				const instructions = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', `instructions-${id}.md`), 'utf8');
+				return instructions + '\n\n';
+			} catch {
+				// There are no additional instructions for this language ID
+				return '';
+			}
+		}));
+
+		return instructions.join('');
+	}
+
 	dispose(): void { }
 }
 
@@ -577,7 +630,8 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
-		return defaultSystem + '\n\n' + filepaths;
+		const languages = await this.getActiveSessionInstructions();
+		return defaultSystem + '\n\n' + filepaths + '\n\n' + languages;
 	}
 }
 
@@ -588,7 +642,8 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 		const agent = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'agent.md'), 'utf8');
-		return defaultSystem + '\n\n' + agent;
+		const languages = await this.getActiveSessionInstructions();
+		return defaultSystem + '\n\n' + agent + '\n\n' + languages;
 	}
 }
 

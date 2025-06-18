@@ -15,9 +15,11 @@ test.describe('Interpreter: Includes', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['python.interpreters.include', '["/home/runner/scratch/python-env"]'],
-		['positron.r.customRootFolders', '["/home/runner/scratch"]']], true);
+	test.beforeAll(async function ({ settings }) {
+		await settings.set({
+			'python.interpreters.include': ["/home/runner/scratch/python-env"],
+			'positron.r.customRootFolders': ["/home/runner/scratch"]
+		}, { reload: true });
 	});
 
 	test('Python - Can Include an Interpreter', {
@@ -47,9 +49,11 @@ test.describe('Interpreter: Excludes', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]'],
-		['positron.r.interpreters.exclude', '["/opt/R/4.4.2"]']], true);
+	test.beforeAll(async function ({ settings }) {
+		await settings.set({
+			'python.interpreters.exclude': ["~/.pyenv"],
+			'positron.r.interpreters.exclude': ["/opt/R/4.4.2"],
+		}, { reload: true });
 	});
 
 	test('R - Can Exclude an Interpreter', async function ({ app, sessions }) {
@@ -74,7 +78,7 @@ test.describe('Interpreter: Excludes', {
 		await app.code.driver.page.keyboard.press('Escape');
 	});
 
-	test('Python - Can Exclude an Interpreter', async function ({ app, userSettings, sessions }) {
+	test('Python - Can Exclude an Interpreter', async function ({ app, settings, sessions }) {
 
 		const alternatePython = process.env.POSITRON_PY_ALT_VER_SEL;
 
@@ -83,7 +87,9 @@ test.describe('Interpreter: Excludes', {
 		}
 
 		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
-		await userSettings.set([['python.interpreters.exclude', '["~/.pyenv"]']], true);
+		await settings.set({
+			'python.interpreters.exclude': ["~/.pyenv"]
+		}, { reload: true });
 
 		try {
 			await sessions.start('pythonAlt', { reuse: false });
@@ -104,9 +110,11 @@ test.describe('Interpreter: Override', {
 	tag: [tags.INTERPRETER, tags.WEB]
 }, () => {
 
-	test.beforeAll(async function ({ userSettings }) {
-		await userSettings.set([['python.interpreters.override', '["/home/runner/scratch/python-env"]'],
-		['positron.r.interpreters.override', '["/opt/R/4.4.2/bin/R"]']], true);
+	test.beforeAll(async function ({ settings }) {
+		await settings.set({
+			'python.interpreters.override': ["/home/runner/scratch/python-env"],
+			'positron.r.interpreters.override': ["/opt/R/4.4.2/bin/R"]
+		}, { reload: true });
 	});
 
 	test('R - Can Override Interpreter Discovery', async function ({ app, sessions }) {

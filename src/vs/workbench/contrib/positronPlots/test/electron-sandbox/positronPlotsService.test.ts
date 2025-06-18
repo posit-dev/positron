@@ -18,6 +18,7 @@ import { startTestLanguageRuntimeSession } from '../../../../services/runtimeSes
 import { PositronPlotCommProxy } from '../../../../services/languageRuntime/common/positronPlotCommProxy.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyFill } from '../../../../services/positronPlots/common/sizingPolicyFill.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 
 suite('Positron - Plots Service', () => {
 
@@ -121,7 +122,7 @@ suite('Positron - Plots Service', () => {
 		sinon.stub(plotCommProxyStub, 'onDidRenderUpdate').value(() => { });
 		sinon.stub(plotCommProxyStub, 'onDidShowPlot').value(() => { });
 
-		const plotClientInstance = new PlotClientInstance(plotCommProxyStub as unknown as PositronPlotCommProxy, new PlotSizingPolicyAuto(), {} as IPositronPlotMetadata);
+		const plotClientInstance = new PlotClientInstance(plotCommProxyStub as unknown as PositronPlotCommProxy, {} as IConfigurationService, new PlotSizingPolicyAuto(), {} as IPositronPlotMetadata);
 		disposables.add(plotClientInstance);
 
 		let sizingPolicyChanged = false;

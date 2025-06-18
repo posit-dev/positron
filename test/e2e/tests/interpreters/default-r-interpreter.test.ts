@@ -16,17 +16,18 @@ test.describe('Default Interpreters - R', {
 	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
-	test.beforeAll(async function ({ app, userSettings }) {
+	test.beforeAll(async function ({ settings }) {
 
-		await app.workbench.settings.removeWorkspaceSettings(['interpreters.startupBehavior']);
+		await settings.remove(['interpreters.startupBehavior']);
+		await settings.set({ 'interpreters.startupBehavior': 'always' });
 
 		await deletePositronHistoryFiles();
 
 		// local debugging sample:
-		// await userSettings.set([['positron.r.interpreters.default', '"/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R"']], true);
+		// await settings.set({'positron.r.interpreters.default': '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R'}, { reload: true });
 
 		// hidden CI interpreter:
-		await userSettings.set([['positron.r.interpreters.default', '"/home/runner/scratch/R-4.4.1/bin/R"']], true);
+		await settings.set({ 'positron.r.interpreters.default': '/home/runner/scratch/R-4.4.1/bin/R' }, { reload: true });
 
 	});
 
@@ -36,21 +37,27 @@ test.describe('Default Interpreters - R', {
 
 	});
 
-	test('R - Add a default interpreter', async function ({ app, runCommand, sessions }) {
+	test('R - Add a default interpreter', async function ({ runCommand, sessions }) {
 
 		await runCommand('workbench.action.reloadWindow');
 
 		await expect(async () => {
 
-			const { name, path } = await sessions.getMetadata();
+			try {
+				const { name, path } = await sessions.getMetadata();
 
-			// Local debugging sample:
-			// expect(name).toContain('R 4.3.3');
-			// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
+				// Local debugging sample:
+				// expect(name).toContain('R 4.3.3');
+				// expect(path).toContain('R.framework/Versions/4.3-arm64/Resources/R');
 
-			// hidden CI interpreter:
-			expect(name).toMatch(/R 4\.4\.1/);
-			expect(path).toMatch(/R-4\.4\.1\/bin\/R/);
+				// hidden CI interpreter:
+				expect(name).toMatch(/R 4\.4\.1/);
+				expect(path).toMatch(/R-4\.4\.1\/bin\/R/);
+
+			} catch (error) {
+				await runCommand('workbench.action.reloadWindow');
+				throw error;
+			}
 
 		}).toPass({ timeout: 60000 });
 	});

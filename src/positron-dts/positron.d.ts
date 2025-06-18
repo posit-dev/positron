@@ -136,13 +136,36 @@ declare module 'positron' {
 	 * Possible code execution modes for a language runtime
 	 */
 	export enum RuntimeCodeExecutionMode {
-		/** The code was entered interactively, and should be executed and stored in the runtime's history. */
+		/**
+		 * Interactive code execution:
+		 *          Displayed to user: Yes
+		 * Combined with pending code: Yes
+		 *          Stored in history: Yes
+		 */
 		Interactive = 'interactive',
 
-		/** The code should be executed but not stored in history. */
+		/**
+		 * Non-interactive code execution:
+		 *          Displayed to user: Yes
+		 * Combined with pending code: No
+		 *          Stored in history: Yes
+		 */
+		NonInteractive = 'non-interactive',
+
+		/**
+		 * Transient code execution:
+		 *          Displayed to user: Yes
+		 * Combined with pending code: No
+		 *          Stored in history: No
+		 */
 		Transient = 'transient',
 
-		/** The code execution should be fully silent, neither displayed to the user nor stored in history. */
+		/**
+		 * Silent code execution:
+		 *          Displayed to user: No
+		 * Combined with pending code: No
+		 *          Stored in history: No
+		 */
 		Silent = 'silent'
 	}
 
@@ -2011,6 +2034,7 @@ declare module 'positron' {
 			location?: string;
 			numCtx?: number;
 			maxOutputTokens?: number;
+			completions?: boolean;
 		}
 
 		/**
@@ -2081,6 +2105,8 @@ declare module 'positron' {
 					error?: any;
 				}[];
 			};
+			positronVersion?: string;
+			currentDate?: string;
 			plots?: {
 				hasPlots: boolean;
 			};

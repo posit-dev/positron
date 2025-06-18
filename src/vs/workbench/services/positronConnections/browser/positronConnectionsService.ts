@@ -11,9 +11,6 @@ import { IPositronConnectionsService, POSITRON_CONNECTIONS_VIEW_ID } from '../co
 import { DisconnectedPositronConnectionsInstance, PositronConnectionsInstance } from './positronConnectionsInstance.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { POSITRON_CONNECTIONS_VIEW_ENABLED, USE_POSITRON_CONNECTIONS_KEY } from './positronConnectionsFeatureFlag.js';
-import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IConfigurationChangeEvent, IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IViewsService } from '../../views/common/viewsService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
@@ -22,7 +19,7 @@ import { IStorageService, StorageScope, StorageTarget } from '../../../../platfo
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { PositronConnectionsDriverManager } from './positronConnectionsDrivers.js';
 
-class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
+export class PositronConnectionsService extends Disposable implements IPositronConnectionsService {
 
 	readonly _serviceBrand: undefined;
 
@@ -34,14 +31,11 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 
 	private readonly connections: IPositronConnectionInstance[] = [];
 	public readonly driverManager: PositronConnectionsDriverManager;
-	private readonly viewEnabled: IContextKey<boolean>;
 
 	constructor(
 		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private readonly storageService: IStorageService,
 		@ISecretStorageService private readonly secretStorageService: ISecretStorageService,
-		@IContextKeyService private readonly contextKeyService: IContextKeyService,
-		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IViewsService private readonly viewsService: IViewsService,
 		@ILogService public readonly logService: ILogService,
 		@INotificationService private readonly notificationService: INotificationService,
@@ -49,10 +43,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		super();
 
 		this.driverManager = new PositronConnectionsDriverManager(this);
-
-		this.viewEnabled = POSITRON_CONNECTIONS_VIEW_ENABLED.bindTo(this.contextKeyService);
-		const enabled = this.configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
-		this.viewEnabled.set(enabled);
 
 		// Whenever a session starts, we'll register an observer that will create a ConnectionsInstance
 		// whenever a new connections client is created by the backend.
@@ -65,20 +55,9 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 			this.notificationService.error('Error while loading stored connections');
 		});
 
-		this._register(this.configurationService.onDidChangeConfiguration((e) => {
-			this.handleConfigChange(e);
-		}));
-
 		this._register(this.onDidFocus(async (id) => {
 			await this.viewsService.openView(POSITRON_CONNECTIONS_VIEW_ID, false);
 		}));
-	}
-
-	private handleConfigChange(e: IConfigurationChangeEvent) {
-		if (e.affectsConfiguration(USE_POSITRON_CONNECTIONS_KEY)) {
-			const enabled = this.configurationService.getValue<boolean>(USE_POSITRON_CONNECTIONS_KEY);
-			this.viewEnabled.set(enabled);
-		}
 	}
 
 	getConnections() {
@@ -162,6 +141,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 				this
 			);
 
+			this._register(instance);
 			this.addConnection(instance);
 		}));
 
@@ -180,6 +160,7 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 					this
 				);
 
+				this._register(instance);
 				this.addConnection(instance);
 			});
 		});
@@ -231,7 +212,6 @@ class PositronConnectionsService extends Disposable implements IPositronConnecti
 		ids.forEach((id) => {
 			this.removeConnection(id);
 		});
-		this.onDidChangeConnectionsEmitter.fire(this.connections);
 	}
 
 	hasConnection(clientId: string) {

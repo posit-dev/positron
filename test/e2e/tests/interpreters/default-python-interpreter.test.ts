@@ -16,18 +16,19 @@ test.describe('Default Interpreters - Python', {
 	tag: [tags.INTERPRETER, tags.NIGHTLY_ONLY]
 }, () => {
 
-	test.beforeAll(async function ({ app, userSettings }) {
+	test.beforeAll(async function ({ settings }) {
 
-		await app.workbench.settings.removeWorkspaceSettings(['interpreters.startupBehavior']);
+		await settings.remove(['interpreters.startupBehavior']);
+		await settings.set({ 'interpreters.startupBehavior': 'always' });
 
 		await deletePositronHistoryFiles();
 
 		// local debugging sample:
 		// const homeDir = process.env.HOME || '';
-		// await userSettings.set([['python.defaultInterpreterPath', `"${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}"`]], true);
+		// await settings.set({'python.defaultInterpreterPath': `${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}`}, { reload: true });
 
 		// hidden interpreter (Conda)
-		await userSettings.set([['python.defaultInterpreterPath', '"/home/runner/scratch/python-env/bin/python"']], true);
+		await settings.set({ 'python.defaultInterpreterPath': '/home/runner/scratch/python-env/bin/python' }, { reload: true });
 
 	});
 
@@ -37,20 +38,27 @@ test.describe('Default Interpreters - Python', {
 
 	});
 
-	test('Python - Add a default interpreter (Conda)', async function ({ app, runCommand, sessions }) {
+	test('Python - Add a default interpreter (Conda)', async function ({ runCommand, sessions }) {
 
 		await runCommand('workbench.action.reloadWindow');
+
 		await expect(async () => {
 
-			const { name, path } = await sessions.getMetadata();
+			try {
+				const { name, path } = await sessions.getMetadata();
 
-			// Local debugging sample:
-			// expect(name).toMatch(/Python 3\.13\.0/);
-			// expect(path).toMatch(/.pyenv\/versions\/3.13.0\/bin\/python/);
+				// Local debugging sample:
+				// expect(name).toMatch(/Python 3\.13\.0/);
+				// expect(path).toMatch(/.pyenv\/versions\/3.13.0\/bin\/python/);
 
-			// hidden CI interpreter:
-			expect(name).toMatch(/Python 3\.12\.10/);
-			expect(path).toMatch(/python-env\/bin\/python/);
+				// hidden CI interpreter:
+				expect(name).toMatch(/Python 3\.12\.10/);
+				expect(path).toMatch(/python-env\/bin\/python/);
+
+			} catch (error) {
+				await runCommand('workbench.action.reloadWindow');
+				throw error;
+			}
 
 		}).toPass({ timeout: 60000 });
 	});
