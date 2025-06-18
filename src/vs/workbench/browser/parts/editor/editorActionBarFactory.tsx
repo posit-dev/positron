@@ -11,13 +11,16 @@ import { localize } from '../../../../nls.js';
 import { IEditorGroupView } from './editor.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronActionBar } from '../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { ContextKeyExpr, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
+import { ActionBarButton } from '../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarSeparator } from '../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { ActionBarActionButton } from '../../../../platform/positronActionBar/browser/components/actionBarActionButton.js';
@@ -34,21 +37,29 @@ const PADDING_RIGHT = 8;
 /**
  * Localized strings.
  */
-const positronMoreActionsTooltip = localize(
-	'positronMoreActionsTooltip',
-	"More Actions..."
+const positronFormatDocumentAriaLabel = localize(
+	'positronFormatDocumentAriaLabel',
+	"Format Document"
 );
-const positronMoreActionsAriaLabel = localize(
-	'positronMoreActionsAriaLabel',
-	"More actions"
+const positronFormatDocumentTooltip = localize(
+	'positronFormatDocumentTooltip',
+	"Format Document"
+);
+const positronMoveIntoNewWindowAriaLabel = localize(
+	'positronMoveIntoNewWindowAriaLabel',
+	"Move into new window"
 );
 const positronMoveIntoNewWindowTooltip = localize(
 	'positronMoveIntoNewWindowTooltip',
 	"Move into New Window"
 );
-const positronMoveIntoNewWindowAriaLabel = localize(
-	'positronMoveIntoNewWindowAriaLabel',
-	"Move into new window"
+const positronMoreActionsAriaLabel = localize(
+	'positronMoreActionsAriaLabel',
+	"More actions"
+);
+const positronMoreActionsTooltip = localize(
+	'positronMoreActionsTooltip',
+	"More Actions..."
 );
 
 /**
@@ -65,6 +76,15 @@ interface SubmenuDescriptor {
 */
 export class EditorActionBarFactory extends Disposable {
 	//#region Private Properties
+
+	/**
+	 * The context key expression for showing the format document action.
+	 */
+	private readonly _showFormatDocumentContextKeyExpr = ContextKeyExpr.and(
+		EditorContextKeys.notInCompositeEditor,
+		EditorContextKeys.writable,
+		EditorContextKeys.hasDocumentFormattingProvider
+	);
 
 	/**
 	 * Gets the menu disposable stores.
@@ -111,12 +131,14 @@ export class EditorActionBarFactory extends Disposable {
 	/**
 	 * Constructor.
 	 * @param _editorGroup The editor group.
+	 * @param _commandService The command service.
 	 * @param _contextKeyService The context key service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _menuService The menu service.
 	 */
 	constructor(
 		private readonly _editorGroup: IEditorGroupView,
+		private readonly _commandService: ICommandService,
 		private readonly _contextKeyService: IContextKeyService,
 		private readonly _keybindingService: IKeybindingService,
 		private readonly _menuService: IMenuService,
@@ -159,27 +181,50 @@ export class EditorActionBarFactory extends Disposable {
 		// Create the set of processed actions.
 		const processedActions = new Set<string>();
 
-		// Build the left action bar elements from the editor actions left menu.
+		// Create the left action bar elements from the editor title menu's EditorTitleRun action.
 		const leftActionBarElements = this.buildActionBarElements(
 			processedActions,
-			MenuId.EditorActionsLeft,
-			false
+			false,
+			MenuId.EditorTitle,
+			new Set(['submenuitem.EditorTitleRun']),
 		);
 
-		// Build the right action bar elements from the editor actions right menu and the editor
-		// title menu.
+		// Append the format document action to the left action bar elements, if applicable.
+		const activeEditorContextKeyService = this._editorGroup.activeEditorPane?.scopedContextKeyService;
+		if (activeEditorContextKeyService && activeEditorContextKeyService.contextMatchesRules(this._showFormatDocumentContextKeyExpr)) {
+			leftActionBarElements.push(
+				<ActionBarButton
+					ariaLabel={positronFormatDocumentAriaLabel}
+					icon={ThemeIcon.fromId('positron-format-document')}
+					tooltip={positronFormatDocumentTooltip}
+					onPressed={() => {
+						this._commandService.executeCommand('editor.action.formatDocument');
+					}}
+				/>
+			);
+		}
+
+		// Append the editor actions left menu's EditorActionsLeft action to the left action bar elements.
+		leftActionBarElements.push(...this.buildActionBarElements(
+			processedActions,
+			false,
+			MenuId.EditorActionsLeft,
+		));
+
+		// Build the right action bar elements from the editor actions right menu and the remaining
+		// actions on the editor title menu.
 		const rightActionBarElements = [
-			// Build the right action bar elements from the editor actions right menu.
+			// Build action bar elements from the editor actions right menu.
 			...this.buildActionBarElements(
 				processedActions,
+				false,
 				MenuId.EditorActionsRight,
-				false
 			),
-			// Build the right action bar elements from the editor title menu.
+			// Build action bar elements from the remaining actions on the editor title menu.
 			...this.buildActionBarElements(
 				processedActions,
+				true,
 				MenuId.EditorTitle,
-				true
 			)
 		];
 
@@ -257,16 +302,19 @@ export class EditorActionBarFactory extends Disposable {
 
 	/**
 	 * Builds action bar elements for a menu.
-	 * @param processedActions The processed actions.
-	 * @param menuId The menu ID.
-	 * @param buildSecondaryActions A value which indicates whether to build secondary actions.
+	 * @param processedActions The set of action IDs that have already been processed (used to prevent duplicates).
+	 * @param buildSecondaryActions A value which indicates whether to build the secondary actions.
+	 * @param menuId The menu ID of the menu to build action bar elements from.
+	 * @param actionIds An optional set of specific action IDs to filter by; if provided, only actions with these IDs will be processed.
+	 * @returns An array of JSX elements representing the action bar components.
 	 */
 	private buildActionBarElements(
 		processedActions: Set<string>,
+		buildSecondaryActions: boolean,
 		menuId: MenuId,
-		buildSecondaryActions: boolean
+		actionIds: Set<string> | undefined = undefined,
 	) {
-		// Get the menu.
+		// Get the menu. If it does not exist, return an empty array.
 		const menu = this._menus.get(menuId);
 		if (!menu) {
 			return [];
@@ -413,6 +461,11 @@ export class EditorActionBarFactory extends Disposable {
 
 		// Build the action bar elements from the primary actions.
 		for (const action of primaryActions) {
+			// If action IDs were specified, filter the actions by their IDs.
+			if (actionIds && !actionIds.has(action.id)) {
+				continue;
+			}
+
 			// Process separators.
 			if (action instanceof Separator) {
 				actionBarElements.push(<ActionBarSeparator />);

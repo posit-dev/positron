@@ -16,11 +16,11 @@ test.use({
 test.describe('Reticulate', {
 	tag: [tags.RETICULATE, tags.WEB],
 }, () => {
-	test.beforeAll(async function ({ app, userSettings }) {
+	test.beforeAll(async function ({ app, settings }) {
 		try {
-			await userSettings.set([
-				['positron.reticulate.enabled', 'true']
-			]);
+			await settings.set({
+				'positron.reticulate.enabled': true,
+			}, { 'reload': 'web' });
 
 		} catch (e) {
 			await app.code.driver.takeScreenshot('reticulateSetup');

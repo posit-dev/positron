@@ -35,6 +35,8 @@ export interface IPositronChatContext {
 	plots?: {
 		hasPlots: boolean;
 	};
+	positronVersion?: string;
+	currentDate: string;
 	variables: Variable[];
 	shell?: string;
 }

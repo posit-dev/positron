@@ -28,5 +28,6 @@
 		"terminalCursor.foreground": "#32485B",
 		"terminal.tab.activeBorder": "#32485B",
 		"welcomePage.progress.foreground": "#32485B",
+		"notebook.selectedCellBackground": "#d3dbcd50",
 	},
 }

@@ -1,0 +1,41 @@
+// Place your key bindings in this file to override the defaults
+// Note use cmd as modifier here, `copyKeybindings()` will correctly change to ctrl for Windows/Linux
+[
+    {
+        "key": "cmd+j j",
+        "command": "jupyter-cell-tags.addTag" // Add Cell Tag
+    },
+    {
+        "key": "cmd+j k",
+        "command": "workbench.action.openWorkspaceSettingsFile" // Preferences: Open Workspace Settings (JSON)
+    },
+        {
+        "key": "cmd+j f",
+        "command": "positron.workbench.action.newFolderFromTemplate" // Workspaces: New Folder from Template
+    },
+        {
+        "key": "cmd+j w",
+        "command": "workbench.action.closeFolder" // Workspaces: Close Workspace
+    },
+    {
+        "key": "cmd+j l",
+        "command": "workbench.action.openWalkthrough" // Open New Welcome Experience
+    },
+    {
+        "key": "cmd+j u",
+        "command": "workbench.action.openSettingsJson" // Preferences: Open User Settings (JSON)
+    },{
+        "key": "cmd+j i",
+        "command": "positron.workbench.action.importSettings" // Preferences: Import Settings...
+    }, {
+        "key": "cmd+j a",
+        "command": "workbench.action.closeAuxiliaryBar" // Views: Hide Secondary Side Bar
+    },{
+        "key": "cmd+j b",
+        "command": "workbench.action.showAuxiliaryBar" // Views: Show Secondary Side Bar
+    },
+    {
+        "key": "cmd+r r",
+        "command": "workbench.action.reloadWindow"
+    }
+]

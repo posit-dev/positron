@@ -11,6 +11,9 @@ import { IPlotSize, IPositronPlotSizingPolicy } from '../../positronPlots/common
 import { PositronPlotCommProxy } from './positronPlotCommProxy.js';
 import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyCustom.js';
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+
+const FreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
 
 export enum PlotClientLocation {
 	/** The plot is in the editor */
@@ -164,8 +167,10 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	 */
 	constructor(
 		private readonly _commProxy: PositronPlotCommProxy,
+		private readonly _configurationService: IConfigurationService,
 		private _sizingPolicy: IPositronPlotSizingPolicy,
 		public readonly metadata: IPositronPlotMetadata
+
 	) {
 		super();
 		// If the plot comes with a pre-rendering, set it as the last render. This
@@ -343,6 +348,13 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 			this._stateEmitter.fire(PlotClientState.Rendering);
 
 			request.promise.then((rendered) => {
+				const frozen = this._configurationService.getValue(FreezeSlowPlotsConfigKey);
+
+				if (rendered.renderTimeMs > 3000 && rendered.size && !this._lastRender && frozen) {
+					// Set sizing policy to the current size to avoid redraws
+
+					this.sizingPolicy = new PlotSizingPolicyCustom(rendered.size, true);
+				}
 				this._stateEmitter.fire(PlotClientState.Rendered);
 				if (!preview) {
 					this._lastRender = rendered;
