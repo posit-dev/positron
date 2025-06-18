@@ -101,7 +101,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		this._proxy.$removeLanguageModelConfig(source);
 	}
 
-	async isFileExcluded(file: vscode.Uri): Promise<boolean> {
-		return this._proxy.$isFileExcluded(file);
+	async areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
+		return this._proxy.$areCompletionsEnabled(file);
 	}
 }

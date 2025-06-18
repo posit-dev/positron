@@ -132,11 +132,11 @@ export interface IPositronAssistantService {
 	removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
 
 	/**
-	 * Check if a file should be excluded from AI processing.
+	 * Check if a file should be excluded from AI completions.
 	 * @param uri The URI of the file to check.
-	 * @returns True if the file is excluded from the Positron Assistant, false otherwise.
+	 * @returns True if the file should be excluded from the Positron Assistant, false otherwise.
 	 */
-	isFileExcluded(uri: URI): boolean;
+	areCompletionsEnabled(uri: URI): boolean;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronAssistantService.

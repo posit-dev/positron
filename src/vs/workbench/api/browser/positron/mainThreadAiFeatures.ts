@@ -110,15 +110,15 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Check if a file is excluded from AI processing based on configuration settings.
+	 * Check if a file should be excluded from AI completions based on configuration settings.
 	 */
-	async $isFileExcluded(file: UriComponents): Promise<boolean> {
+	async $areCompletionsEnabled(file: UriComponents): Promise<boolean> {
 		const uri = URI.revive(file);
 		if (!uri) {
 			return true; // If URI is invalid, consider it excluded
 		}
 
 		// Use the language model ignored files service to check if the file should be excluded
-		return this._positronAssistantService.isFileExcluded(uri);
+		return this._positronAssistantService.areCompletionsEnabled(uri);
 	}
 }

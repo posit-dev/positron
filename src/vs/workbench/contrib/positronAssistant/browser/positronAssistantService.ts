@@ -209,7 +209,7 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		this._onLanguageModelConfigEmitter.fire(source);
 	}
 
-	isFileExcluded(uri: URI): boolean {
+	areCompletionsEnabled(uri: URI): boolean {
 		const globPattern = this._configurationService.getValue<string[]>('positron.assistant.inlineCompletionExcludes');
 
 		if (!globPattern || globPattern.length === 0) {
