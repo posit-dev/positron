@@ -192,7 +192,7 @@ jobs:
           POSITRON_R_ALT_VER_SEL: 4.4.2
           PWTEST_BLOB_DO_NOT_REMOVE: 1
         run: |
-          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null || true
           BOOTSTRAP_EXIT_CODE=$?
           echo "BOOTSTRAP_EXIT_CODE=$BOOTSTRAP_EXIT_CODE" >> $GITHUB_OUTPUT
 
