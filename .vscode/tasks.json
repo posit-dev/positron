@@ -117,10 +117,22 @@
 					}
 				}
 			]
+		},		{
+			"label": "Positron Only - Build",
+			"dependsOn": [
+				"Core - Build",
+				"Ext - Build"
+			],
+			"group": {
+				"kind": "build",
+				"isDefault": true
+			},
+			"problemMatcher": []
 		},
 		{
-			"label": "VS Code - Build",
+			"label": "Positron with E2E Tests - Build",
 			"dependsOn": [
+				"E2E Tests - Build",
 				"Core - Build",
 				"Ext - Build"
 			],
