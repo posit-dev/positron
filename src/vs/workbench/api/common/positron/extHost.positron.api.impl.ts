@@ -141,6 +141,10 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 				Thenable<Array<Array<positron.RuntimeVariable>>> {
 				return extHostLanguageRuntime.getSessionVariables(sessionId, accessKeys);
 			},
+			getSessionVariableDataSummaries(sessionId: string, accessKeys: Array<Array<string>>):
+				Thenable<Array<string>> {
+				return extHostLanguageRuntime.getSessionVariableDataSummaries(sessionId, accessKeys);
+			},
 			registerClientHandler(handler: positron.RuntimeClientHandler): vscode.Disposable {
 				return extHostLanguageRuntime.registerClientHandler(handler);
 			},

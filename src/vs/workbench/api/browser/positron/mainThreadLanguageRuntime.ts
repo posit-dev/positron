@@ -1583,6 +1583,32 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
+	$getSessionVariableDataSummaries(handle: number, accessKeys: Array<Array<string>>): Promise<Array<string>> {
+		const sessionId = this.findSession(handle).sessionId;
+		const instances = this._positronVariablesService.positronVariablesInstances;
+		for (const instance of instances) {
+			if (instance.session.sessionId === sessionId) {
+				return this.getSessionVariableDataSummaries(instance, accessKeys);
+			}
+		}
+		throw new Error(`No variables provider found for session ${sessionId}`);
+	}
+
+	async getSessionVariableDataSummaries(instance: IPositronVariablesInstance, accessKeys: Array<Array<string>>): Promise<Array<string>> {
+		const client = instance.getClientInstance();
+		if (!client) {
+			throw new Error(`No variables provider available for session ${instance.session.sessionId}`);
+		}
+		if (accessKeys.length === 0) {
+			throw new Error('No access keys provided for variable data retrieval');
+		}
+		const result = [];
+		for (const accessKey of accessKeys) {
+			result.push((await client.comm.summarizeData(accessKey)));
+		}
+		return result;
+	}
+
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
 		this._runtimeStartupService.completeDiscovery(this._id);
