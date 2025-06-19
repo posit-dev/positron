@@ -440,11 +440,9 @@ class SummarizeDataRequest(BaseModel):
         description="The JSON-RPC method name (summarize_data)",
     )
 
-    jsonrpc: str = (
-        Field(
-            default="2.0",
-            description="The JSON-RPC version specifier",
-        ),
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
     )
 
 
