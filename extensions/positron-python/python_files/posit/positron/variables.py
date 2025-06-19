@@ -769,20 +769,27 @@ class VariablesService:
         )
 
         profiles = []
+        skipped_columns = []
         for i, column in enumerate(schema.columns):
+            summary_stats = None
             try:
                 summary_stats = table_view._prof_summary_stats(i, format_options)  # noqa: SLF001
-                profiles.append(
-                    {
-                        "column_name": column.column_name,
-                        "type_display": column.type_display,
-                        "summary_stats": summary_stats,
-                    }
-                )
             except Exception as e:
-                # Skip columns that can't be summarized
-                logger.warning(f"Skipping summary stats for column {i} ({column.column_name}): {e}")
+                # Collect failed columns for later logging
+                skipped_columns.append((i, column.column_name, e))
                 continue
+
+            profiles.append(
+                {
+                    "column_name": column.column_name,
+                    "type_display": column.type_display,
+                    "summary_stats": summary_stats,
+                }
+            )
+
+        # Log all skipped columns at once
+        for i, column_name, error in skipped_columns:
+            logger.warning(f"Skipping summary stats for column {i} ({column_name}): {error}")
 
         self._send_result(
             {
