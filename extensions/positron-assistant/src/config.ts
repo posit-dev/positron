@@ -292,6 +292,10 @@ async function oauthSignout(userConfig: positron.ai.LanguageModelConfig, sources
 
 }
 
+/**
+ * Note: the LanguageModelSource object returned by this function is not the same as the original
+ * one that was used to create the configuration.
+ */
 export function expandConfigToSource(config: StoredModelConfig): positron.ai.LanguageModelSource {
 	return {
 		...config,

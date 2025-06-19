@@ -119,11 +119,19 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	useEffect(() => {
 		const disposables: IDisposable[] = [];
 		disposables.push(props.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
+			// Note: newSource is technically an IPositronLanguageModelSource, but it may not be in the same format and may be missing
+			// some properties from the original source. See expandConfigToSource in extensions/positron-assistant/src/config.ts
+			// for how the source is expanded from the stored model config.
 			setProviderSources(prevSources => {
 				const index = prevSources.findIndex(source => source.provider.id === newSource.provider.id);
 				const updatedSources = [...prevSources];
 				if (index !== -1) {
-					updatedSources[index] = newSource;
+					updatedSources[index] = {
+						...prevSources[index],
+						// We only update the signedIn status, as the other properties should not change, and the
+						// shape of the newSource differs from the original source.
+						signedIn: newSource.signedIn,
+					};
 				}
 				return updatedSources;
 			});
@@ -135,13 +143,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	useEffect(() => {
 		const updatedSource = providerSources.find(source => source.provider.id === selectedProvider.provider.id);
 		if (updatedSource) {
-			setSelectedProvider(prevSource => {
-				return {
-					...prevSource,
-					supportedOptions: updatedSource.supportedOptions,
-					signedIn: updatedSource.signedIn,
-				}
-			});
+			setSelectedProvider(updatedSource);
 		}
 	}, [providerSources, selectedProvider.provider.id]);
 
@@ -186,7 +188,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	}
 
 	/** When the user clicks a different provider in the modal */
-	const onProviderChange = (provider: IPositronLanguageModelSource) => {
+	const onChangeProvider = (provider: IPositronLanguageModelSource) => {
 		setSelectedProvider(provider);
 		setProviderConfig(providerSourceToConfig(provider));
 		setShowProgress(false);
@@ -335,7 +337,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 							displayName={source.provider.displayName}
 							identifier={source.provider.id}
 							selected={source.provider.id === selectedProvider.provider.id}
-							onClick={() => onProviderChange(source)}
+							onClick={() => onChangeProvider(source)}
 						/>
 					})
 				}
