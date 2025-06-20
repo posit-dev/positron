@@ -7,28 +7,24 @@
 import './languageModelModalDialog.css';
 
 // React.
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { PositronModalReactRenderer } from '../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { OKCancelModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
-import { DropDownListBoxItem } from '../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
-import { LabeledTextInput } from '../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { IPositronAssistantService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
 import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LanguageModelButton } from './components/languageModelButton.js';
-import { DropDownListBox } from '../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { OKModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { LanguageModelConfigComponent } from './components/languageModelConfigComponent.js';
 import { RadioButtonItem } from '../../../browser/positronComponents/positronModalDialog/components/radioButton.js';
 import { RadioGroup } from '../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
-import { AuthMethod } from './types.js';
+import { AuthMethod, AuthStatus } from './types.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 
 export const showLanguageModelModalDialog = (
@@ -39,7 +35,6 @@ export const showLanguageModelModalDialog = (
 	positronModalDialogsService: IPositronModalDialogsService,
 	sources: IPositronLanguageModelSource[],
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
-	onCancel: () => void,
 	onClose: () => void,
 ) => {
 	const renderer = new PositronModalReactRenderer({
@@ -59,12 +54,20 @@ export const showLanguageModelModalDialog = (
 				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
-				onCancel={onCancel}
 				onClose={onClose}
 			/>
 		</div>
 	);
 };
+
+const providerSourceToConfig = (source: IPositronLanguageModelSource): IPositronLanguageModelConfig => {
+	return {
+		...source.defaults,
+		name: source.provider.displayName,
+		provider: source.provider.id,
+		type: source.type
+	};
+}
 
 interface LanguageModelConfigurationProps {
 	keybindingService: IKeybindingService;
@@ -74,110 +77,13 @@ interface LanguageModelConfigurationProps {
 	sources: IPositronLanguageModelSource[];
 	configurationService: IConfigurationService;
 	renderer: PositronModalReactRenderer;
+	// To find available actions, search for positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>;
-	onCancel: () => void;
 	onClose: () => void;
 }
 
-export interface LanguageModelUIConfiguration extends IPositronLanguageModelConfig {
-	signedIn?: boolean;
-	isTest?: boolean;
-	apiKey?: string;
-}
-
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
-	const [type, setType] = React.useState<PositronLanguageModelType>(PositronLanguageModelType.Chat);
-
-	const useNewConfig = props.configurationService.getValue<boolean>('positron.assistant.newModelConfiguration') ?? true;
-	const enabledProviders = props.sources.map(source => source.provider.id);
-	const hasAnthropic = enabledProviders.includes('anthropic');
-	const hasMistral = enabledProviders.includes('mistral');
-	const defaultSource = props.sources.find(source => {
-		// If Anthropic is available, prefer it for chat models
-		if (type === 'chat') {
-			if (hasAnthropic) {
-				return source.provider.id === 'anthropic';
-			}
-			// If Mistral is available, prefer it for completion models
-			if (hasMistral) {
-				return source.provider.id === 'mistral';
-			}
-			// In all other cases, prefer the first available provider
-			return true;
-		}
-		return false;
-	})!;
-
-	const [source, setSource] = React.useState<IPositronLanguageModelSource>(defaultSource);
-	const [providerConfig, setProviderConfig] = React.useState<LanguageModelUIConfiguration>({ ...defaultSource.defaults, name: defaultSource.provider.displayName, provider: defaultSource.provider.id, type: defaultSource.type });
-	const [apiKey, setApiKey] = React.useState<string>();
-	const [baseUrl, setBaseUrl] = React.useState<string | undefined>(defaultSource.defaults.baseUrl);
-	const [resourceName, setResourceName] = React.useState<string | undefined>(defaultSource.defaults.resourceName);
-	const [project, setProject] = React.useState<string | undefined>(defaultSource.defaults.project);
-	const [location, setLocation] = React.useState<string | undefined>(defaultSource.defaults.location);
-	const [toolCalls, setToolCalls] = React.useState<boolean | undefined>(defaultSource.defaults.toolCalls);
-	const [numCtx, setNumCtx] = React.useState<number | undefined>(defaultSource.defaults.numCtx);
-	const [model, setModel] = React.useState<string>(defaultSource.defaults.model);
-	const [name, setName] = React.useState<string>(defaultSource.defaults.name);
-	const [authMethod, setAuthMethod] = React.useState<AuthMethod>(AuthMethod.API_KEY);
-	const [showProgress, setShowProgress] = React.useState(false);
-	const [errorMessage, setError] = React.useState<string>();
-
-	useEffect(() => {
-		setSource(defaultSource);
-		setAuthMethod(defaultSource.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY)
-	}, [defaultSource]);
-
-	useEffect(() => {
-		const disposables: IDisposable[] = [];
-		disposables.push(props.positronAssistantService.onChangeLanguageModelConfig((newConfig) => {
-			// find newSource in props.sources and update it
-			const index = props.sources.findIndex(source => source.provider.id === newConfig.provider.id);
-			const updatedSource = { ...source, supportedOptions: source.supportedOptions, signedIn: newConfig.signedIn };
-			if (index >= 0) {
-				props.sources[index] = updatedSource;
-			}
-
-			// if newSource matches source, update source
-			if (source.provider.id === newConfig.provider.id) {
-				setSource(updatedSource);
-			}
-
-		}));
-
-		return () => { disposables.forEach(d => d.dispose()); }
-	}, [props.positronAssistantService, props.sources, source]);
-
-	useEffect(() => {
-		setModel(source.defaults.model);
-		setName(source.defaults.name);
-		setApiKey(source.defaults.apiKey);
-		setBaseUrl(source.defaults.baseUrl);
-		setResourceName(source.defaults.resourceName);
-		setProject(source.defaults.project);
-		setLocation(source.defaults.location);
-		setToolCalls(source.defaults.toolCalls);
-		setNumCtx(source.defaults.numCtx);
-	}, [source]);
-
-	useEffect(() => {
-		const newAuthMethod = source.defaults.oauth ? AuthMethod.OAUTH : AuthMethod.API_KEY;
-		setAuthMethod(newAuthMethod);
-	}, [source.defaults.oauth]);
-
-	const authMethodRadioButtons: RadioButtonItem[] = [
-		new RadioButtonItem({
-			identifier: AuthMethod.OAUTH,
-			title: localize('positron.languageModelProviderModalDialog.oauth', "OAuth"),
-			disabled: !source.supportedOptions.includes(AuthMethod.OAUTH),
-		}),
-		new RadioButtonItem({
-			identifier: AuthMethod.API_KEY,
-			title: localize('positron.languageModelProviderModalDialog.apiKey', "API Key"),
-			disabled: !source.supportedOptions.includes(AuthMethod.API_KEY),
-		}),
-	];
-
+	// Construct the list of providers from the sources, which are defined in the extension. See extensions/positron-assistant/src/models.ts
 	const providers = props.sources
 		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot'))
 		.sort((a, b) => {
@@ -188,143 +94,133 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				return -1;
 			}
 			return a.provider.displayName.localeCompare(b.provider.displayName);
-		})
-		.map(source => new DropDownListBoxItem({
-			identifier: source.provider.id,
-			title: source.provider.displayName,
-			value: source,
-		}))
+		});
 
-	const onAccept = async () => {
-		if (useNewConfig) {
-			if (await shouldCloseModal()) {
-				await onCancelPending();
-				props.onClose();
-				props.renderer.dispose();
-			}
-		} else {
-			setShowProgress(true);
-			setError(undefined);
-			props.onAction({
-				type: type,
-				provider: source.provider.id,
-				model: model,
-				name: name,
-				apiKey: apiKey,
-				baseUrl: baseUrl,
-				resourceName: resourceName,
-				project: project,
-				location: location,
-				toolCalls: toolCalls,
-				numCtx: numCtx,
-			}, 'save')
-				.catch((e) => {
-					setError(e.message);
-				}).finally(() => {
-					setShowProgress(false);
-					props.onClose();
-					props.renderer.dispose();
-				});
-		}
-	}
+	// Default to the first provider in the list.
+	const defaultProvider = providers[0];
 
-	const onSignIn = async () => {
-		if (!source) {
-			return;
-		}
-		setShowProgress(true);
-		setError(undefined);
-		if (providerConfig) {
-			if (authMethod === AuthMethod.API_KEY) {
-				await props.onAction(
-					providerConfig,
-					source.signedIn ? 'delete' : 'save')
-					.catch((e) => {
-						setError(e.message);
-					}).finally(() => {
-						setShowProgress(false);
-					});
-			} else {
-				await props.onAction(
-					providerConfig,
-					source.signedIn ? 'oauth-signout' : 'oauth-signin')
-					.catch((e) => {
-						setError(e.message);
-					}).finally(() => {
-						setShowProgress(false);
-					});
-			}
-		} else {
-			setShowProgress(false);
-			setError(localize('positron.languageModelProviderModalDialog.incompleteConfig', 'The configuration is incomplete.'));
-		}
+	// The currently selected language model provider. The UI preselects this initial provider.
+	const [selectedProvider, setSelectedProvider] = useState<IPositronLanguageModelSource>(defaultProvider);
 
-		if (providerConfig.completions) {
-			setShowProgress(true);
-			// Assume a completion source exists with the same provider ID and compatible auth details
-			const completionSource = props.sources.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
-			const completionConfig = {
-				provider: providerConfig.provider,
-				type: PositronLanguageModelType.Completion,
-				...completionSource.defaults,
-				apiKey: providerConfig.apiKey,
-				oauth: providerConfig.oauth,
-			}
-			await props.onAction(
-				completionConfig,
-				source.signedIn ? 'delete' : 'save')
-				.catch((e) => {
-					setError(e.message);
-				}).finally(() => {
-					setShowProgress(false);
-				});
-		}
-	}
+	// Config for the provider, which is what is sent to the extension when signing in or out of a provider.
+	const [providerConfig, setProviderConfig] = useState<IPositronLanguageModelConfig>(() => providerSourceToConfig(defaultProvider));
 
-	// Returns a cancel for the dialog and closes it
-	const onCancel = async () => {
-		props.onCancel();
-		props.renderer.dispose();
-	}
+	// UI State
+	const [showProgress, setShowProgress] = useState(false);
+	const [errorMessage, setErrorMessage] = useState<string>();
 
-	// Cancel pending actions with providers
-	const onCancelPending = async () => {
-		props.onAction({
-			type: type,
-			provider: source.provider.id,
-			model: model,
-			name: name,
-			apiKey: apiKey,
-			baseUrl: baseUrl,
-			resourceName: resourceName,
-			project: project,
-			location: location,
-			toolCalls: toolCalls,
-			numCtx: numCtx,
-		}, 'cancel')
-			.catch((e) => {
-				setError(e.message);
-			}).finally(() => {
-				setShowProgress(false);
+	// List of provider sources, which is updated when the service emits a change to a language model config.
+	// Each provider source contains the info needed to populate the modal UI with provider details, such as
+	// the provider ID, auth methods and whether the user is signed in or not with the provider.
+	const [providerSources, setProviderSources] = useState<IPositronLanguageModelSource[]>(providers);
+
+	// Update the provider sources when the service emits a change to the language model config.
+	// This occurs when a user signs in or out of a provider.
+	useEffect(() => {
+		const disposables: IDisposable[] = [];
+		disposables.push(props.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
+			// Note: newSource is technically an IPositronLanguageModelSource, but it may not be in the same format and may be missing
+			// some properties from the original source. See expandConfigToSource in extensions/positron-assistant/src/config.ts
+			// for how the source is expanded from the stored model config.
+			setProviderSources(prevSources => {
+				const index = prevSources.findIndex(source => source.provider.id === newSource.provider.id);
+				const updatedSources = [...prevSources];
+				if (index !== -1) {
+					updatedSources[index] = {
+						...prevSources[index],
+						// We only update the signedIn status, as the other properties should not change, and the
+						// shape of the newSource differs from the original source.
+						signedIn: newSource.signedIn,
+					};
+				}
+				return updatedSources;
 			});
+		}));
+		return () => { disposables.forEach(d => d.dispose()); }
+	}, [props.positronAssistantService]);
+
+	// Keep selectedProvider in sync with providerSources
+	useEffect(() => {
+		const updatedSource = providerSources.find(source => source.provider.id === selectedProvider.provider.id);
+		if (updatedSource) {
+			setSelectedProvider(updatedSource);
+		}
+	}, [providerSources, selectedProvider.provider.id]);
+
+	/** Check if the current provider is one of the signed in providers */
+	const isSignedIn = () => {
+		return providerSources.some(source => source.provider.id === selectedProvider.provider.id && source.signedIn);
 	}
 
+	/** Check if OAuth is in progress */
+	const isOauthInProgress = () => {
+		return showProgress && getAuthMethod() === AuthMethod.OAUTH;
+	}
+
+	/** Check if API key auth is in progress */
+	const isApiKeyAuthInProgress = () => {
+		return getAuthMethod() === AuthMethod.API_KEY && !!providerConfig.apiKey && providerConfig.apiKey.length > 0;
+	}
+
+	/** Derive the auth status from the selected provider or progress state */
+	const getAuthStatus = () => {
+		if (selectedProvider.signedIn) {
+			return AuthStatus.SIGNED_IN;
+		}
+		if (showProgress) {
+			return AuthStatus.SIGNING_IN;
+		}
+		if (isApiKeyAuthInProgress()) {
+			return AuthStatus.SIGN_IN_PENDING;
+		}
+		return AuthStatus.SIGNED_OUT;
+	}
+
+	/** Derive the auth method from the selected provider */
+	const getAuthMethod = () => {
+		// We don't currently support more than one auth method per provider.
+		if (selectedProvider.supportedOptions.includes(AuthMethod.OAUTH)) {
+			return AuthMethod.OAUTH;
+		} else if (selectedProvider.supportedOptions.includes(AuthMethod.API_KEY)) {
+			return AuthMethod.API_KEY;
+		}
+		return AuthMethod.NONE;
+	}
+
+	/** When the user clicks a different provider in the modal */
+	const onChangeProvider = (provider: IPositronLanguageModelSource) => {
+		setSelectedProvider(provider);
+		setProviderConfig(providerSourceToConfig(provider));
+		setShowProgress(false);
+		setErrorMessage(undefined);
+	}
+
+	/** When the user clicks the Close button or presses Esc */
+	const onClose = async () => {
+		if (await shouldCloseModal()) {
+			await onCancel();
+			props.onClose();
+			props.renderer.dispose();
+		}
+	}
+
+	/** Checks if the modal should be closed. Asks user to accept/reject modal close if auth is currently in progress. */
 	const shouldCloseModal = async () => {
-		if (source.signedIn) {
+		if (isSignedIn()) {
 			return true;
 		}
 
-		if (authMethod === AuthMethod.OAUTH && showProgress) {
+		if (isOauthInProgress()) {
 			return await props.positronModalDialogsService.showSimpleModalDialogPrompt(
-				localize('positron.languageModelProviderModalDialog.oauthInProgressTitle', "{0} Authentication in Progress", source.provider.displayName),
+				localize('positron.languageModelProviderModalDialog.oauthInProgressTitle', "{0} Authentication in Progress", selectedProvider.provider.displayName),
 				localize('positron.languageModelProviderModalDialog.oauthInProgressMessage', "The sign in flow is in progress. If you close this dialog, your sign in may not complete. Are you sure you want to close and abandon signing in?"),
 				localize('positron.languageModelProviderModalDialog.ok', "Yes"),
 				localize('positron.languageModelProviderModalDialog.cancel', "No"),
 			)
 		}
-		if (authMethod === AuthMethod.API_KEY && !!providerConfig.apiKey && providerConfig.apiKey.length > 0) {
+		if (isApiKeyAuthInProgress()) {
 			return await props.positronModalDialogsService.showSimpleModalDialogPrompt(
-				localize('positron.languageModelProviderModalDialog.apiKeySignInIncompleteTitle', "{0} Authentication Incomplete", source.provider.displayName),
+				localize('positron.languageModelProviderModalDialog.apiKeySignInIncompleteTitle', "{0} Authentication Incomplete", selectedProvider.provider.displayName),
 				localize('positron.languageModelProviderModalDialog.apiKeySignInIncompleteMessage', "You have entered an API key, but have not signed in. If you close this dialog, your API key will not be saved. Are you sure you want to close and abandon signing in?"),
 				localize('positron.languageModelProviderModalDialog.ok', "Yes"),
 				localize('positron.languageModelProviderModalDialog.cancel', "No"),
@@ -334,197 +230,152 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		return true;
 	}
 
-	function oldDialog() {
-		return <OKCancelModalDialog
-			cancelButtonTitle={(() => localize('positron.languageModelModalDialog.cancel', "Cancel"))()}
-			catchErrors={true}
-			height={540}
-			okButtonTitle={(() => localize('positron.languageModelModalDialog.save', "Save"))()}
-			renderer={props.renderer}
-			title={(() => localize('positron.languageModelModalDialog.title.old', "Add a Language Model Provider"))()}
-			width={540}
-			onAccept={onAccept}
-			onCancel={onCancel}
-		>
-			<VerticalStack>
-				<label>
-					{(() => localize('positron.languageModelProviderModalDialog.type', "Type"))()}
-					<DropDownListBox<string, PositronLanguageModelType>
-						entries={[
-							new DropDownListBoxItem({
-								identifier: 'chat',
-								title: (() => localize('positron.languageModelProviderModalDialog.chat', "Chat"))(),
-								value: 'chat',
-							}),
-							new DropDownListBoxItem({
-								identifier: 'completion',
-								title: (() => localize('positron.languageModelProviderModalDialog.completion', "Completion"))(),
-								value: 'completion',
-							})
-						]}
-						keybindingService={props.keybindingService}
-						layoutService={props.layoutService}
-						selectedIdentifier={type}
-						title={(() => localize('positron.languageModelProviderModalDialog.selectType', "SelectType"))()}
-						onSelectionChanged={(item) => setType(item.options.value)}
-					/>
-				</label>
-				<label>
-					{(() => localize('positron.languageModelProviderModalDialog.provider', "Provider"))()}
-					<DropDownListBox
-						entries={providers}
-						keybindingService={props.keybindingService}
-						layoutService={props.layoutService}
-						selectedIdentifier={source?.provider.id}
-						title={(() => localize('positron.languageModelProviderModalDialog.selectProvider', "Select Provider"))()}
-						onSelectionChanged={(item) => setSource(item.options.value)}
-					/>
-				</label>
+	/** When the user clicks the Sign In button */
+	const onSignIn = async () => {
+		if (!selectedProvider) {
+			return;
+		}
+		setShowProgress(true);
+		setErrorMessage(undefined);
+		if (providerConfig) {
+			switch (getAuthMethod()) {
+				case AuthMethod.NONE:
+				// Use the same actions as API_KEY
+				case AuthMethod.API_KEY:
+					await props.onAction(providerConfig, isSignedIn() ? 'delete' : 'save')
+						.catch((e) => {
+							setErrorMessage(e.message);
+						}).finally(() => {
+							setShowProgress(false);
+						});
+					break;
+				case AuthMethod.OAUTH:
+					await props.onAction(providerConfig, isSignedIn() ? 'oauth-signout' : 'oauth-signin')
+						.catch((e) => {
+							setErrorMessage(e.message);
+						}).finally(() => {
+							setShowProgress(false);
+						});
+					break;
+				default:
+					setShowProgress(false);
+					setErrorMessage(localize('positron.languageModelProviderModalDialog.unsupportedAuthMethod', 'Unsupported authentication method.'));
+					break;
+			}
+		} else {
+			setShowProgress(false);
+			setErrorMessage(localize('positron.languageModelProviderModalDialog.incompleteConfig', 'The configuration is incomplete.'));
+		}
 
-				<LabeledTextInput
-					label={(() => localize('positron.languageModelProviderModalDialog.name', "Name"))()}
-					validator={(value) => value ? undefined : localize('positron.languageModelProviderModalDialog.missingName', 'A model name is required')}
-					value={name}
-					onChange={e => { setName(e.currentTarget.value) }}
-				/>
-				<LabeledTextInput
-					label={(() => localize('positron.languageModelProviderModalDialog.model', "Model"))()}
-					validator={(value) => value ? undefined : localize('positron.languageModelProviderModalDialog.missingModel', 'A model is required')}
-					value={model}
-					onChange={e => { setModel(e.currentTarget.value) }}
-				/>
-				{source?.supportedOptions.includes('baseUrl') &&
-					<LabeledTextInput
-						label={(() => localize('positron.languageModelProviderModalDialog.baseURL', "Base URL"))()}
-						value={baseUrl ?? ''}
-						onChange={e => { setBaseUrl(e.currentTarget.value) }}
-					/>}
-				{source?.supportedOptions.includes('project') &&
-					<LabeledTextInput
-						label={(() => localize('positron.languageModelProviderModalDialog.project', "Google Cloud Project ID"))()}
-						value={project ?? ''}
-						onChange={e => { setProject(e.currentTarget.value) }}
-					/>}
-				{source?.supportedOptions.includes('location') &&
-					<LabeledTextInput
-						label={(() => localize('positron.languageModelProviderModalDialog.location', "Google Cloud Location"))()}
-						value={location ?? ''}
-						onChange={e => { setLocation(e.currentTarget.value) }}
-					/>}
-				{source?.supportedOptions.includes('resourceName') &&
-					<LabeledTextInput
-						label={(() => localize('positron.languageModelProviderModalDialog.resourceName', "Azure resource name"))()}
-						value={resourceName ?? ''}
-						onChange={e => { setResourceName(e.currentTarget.value) }}
-					/>}
-				{source?.supportedOptions.includes('apiKey') &&
-					<LabeledTextInput
-						label={(() => localize('positron.languageModelProviderModalDialog.apiKey', "API Key"))()}
-						type='password'
-						validator={(value) => value ? undefined : localize('positron.languageModelProviderModalDialog.missingApiKey', 'An API key is required')}
-						value={apiKey ?? ''}
-						onChange={e => { setApiKey(e.currentTarget.value) }}
-					/>
-				}
-				{source?.supportedOptions.includes('numCtx') &&
-					<LabeledTextInput
-						label={(() => localize('positron.languageModelProviderModalDialog.numCtx', "Context Window size"))()}
-						type='number'
-						value={numCtx ?? 2048}
-						onChange={e => { setNumCtx(parseInt(e.currentTarget.value)) }}
-					/>
-				}
-				{source?.supportedOptions.includes('toolCalls') &&
-					<div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-						<input
-							checked={toolCalls}
-							id='toolCallsCheckbox'
-							type='checkbox'
-							onChange={e => { setToolCalls(e.target.checked) }}
-						/>
-						<label htmlFor='toolCallsCheckbox'>
-							{(() => localize('positron.languageModelProviderModalDialog.toolCalls', "Enable tool calling"))()}
-						</label>
-					</div>
-				}
-				{showProgress &&
-					<ProgressBar />
-				}
-			</VerticalStack>
-		</OKCancelModalDialog>
+		if (providerConfig.completions) {
+			setShowProgress(true);
+			// Assume a completion source exists with the same provider ID and compatible auth details
+			const completionSource = providerSources.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
+			const completionConfig = {
+				provider: providerConfig.provider,
+				type: PositronLanguageModelType.Completion,
+				...completionSource.defaults,
+				apiKey: providerConfig.apiKey,
+				oauth: providerConfig.oauth,
+			}
+			await props.onAction(
+				completionConfig,
+				selectedProvider.signedIn ? 'delete' : 'save')
+				.catch((e) => {
+					setErrorMessage(e.message);
+				}).finally(() => {
+					setShowProgress(false);
+				});
+		}
 	}
 
-	function newDialog() {
-		return <OKModalDialog
-			height={400}
-			okButtonTitle={(() => localize('positron.languageModelModalDialog.close', "Close"))()}
-			renderer={props.renderer}
-			title={(() => localize('positron.languageModelModalDialog.title', "Configure Language Model Providers"))()}
-			width={600}
-			onAccept={onAccept}
-			// onCancel is called when the Escape key is pressed, which in this dialog has the same effect as clicking the OK button
-			// so we just call onAccept to close the dialog
-			onCancel={onAccept}
-		>
-			<VerticalStack>
-				<label className='language-model-section'>
-					{(() => localize('positron.languageModelProviderModalDialog.provider', "Provider"))()}
-				</label>
-				<div className='language-model button-container'>
-					{
-						providers.map(provider => {
-							return <LanguageModelButton
-								key={provider.options.identifier}
-								disabled={showProgress}
-								displayName={provider.options.title ?? provider.options.identifier}
-								identifier={provider.options.identifier}
-								selected={provider.options.identifier === source.provider.id}
-								onClick={() => {
-									setSource(provider.options.value);
-									setProviderConfig({ ...provider.options.value, ...provider.options.value.defaults, provider: provider.options.identifier });
-									setError(undefined);
-								}}
-							/>
-						})
-					}
-				</div>
-				<label className='language-model-section'>
-					{(() => localize('positron.languageModelProviderModalDialog.authentication', "Authentication"))()}
-				</label>
+	/** Signal to the current provider that the user has requested cancellation */
+	const onCancel = async () => {
+		// NOTE: this action is currently only applicable to Copilot OAuth.
+		// See positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
+		await props.onAction(providerConfig, 'cancel')
+			.catch((e) => {
+				setErrorMessage(e.message);
+			}).finally(() => {
+				setShowProgress(false);
+			});
+	}
+
+	/** Radio buttons for the authentication method selection */
+	const authMethodRadioButtons: RadioButtonItem[] = [
+		new RadioButtonItem({
+			identifier: AuthMethod.OAUTH,
+			title: localize('positron.languageModelProviderModalDialog.oauth', "OAuth"),
+			disabled: !selectedProvider.supportedOptions.includes(AuthMethod.OAUTH),
+		}),
+		new RadioButtonItem({
+			identifier: AuthMethod.API_KEY,
+			title: localize('positron.languageModelProviderModalDialog.apiKey', "API Key"),
+			disabled: !selectedProvider.supportedOptions.includes(AuthMethod.API_KEY),
+		}),
+	];
+
+	return <OKModalDialog
+		height={400}
+		okButtonTitle={(() => localize('positron.languageModelModalDialog.close', "Close"))()}
+		renderer={props.renderer}
+		title={(() => localize('positron.languageModelModalDialog.title', "Configure Language Model Providers"))()}
+		width={600}
+		onAccept={onClose}
+		onCancel={onClose}
+	>
+		<VerticalStack>
+			<label className='language-model-section'>
+				{(() => localize('positron.languageModelProviderModalDialog.provider', "Provider"))()}
+			</label>
+			<div className='language-model button-container'>
+				{
+					providerSources.map(source => {
+						return <LanguageModelButton
+							key={source.provider.id}
+							disabled={showProgress}
+							displayName={source.provider.displayName}
+							identifier={source.provider.id}
+							selected={source.provider.id === selectedProvider.provider.id}
+							onClick={() => onChangeProvider(source)}
+						/>
+					})
+				}
+			</div>
+			<label className='language-model-section'>
+				{(() => localize('positron.languageModelProviderModalDialog.authentication', "Authentication"))()}
+			</label>
+			{
+				getAuthMethod() !== AuthMethod.NONE &&
 				<div className='language-model-authentication-method-container'>
 					<RadioGroup
 						entries={authMethodRadioButtons}
-						initialSelectionId={authMethod}
+						initialSelectionId={getAuthMethod()}
 						name='authMethod'
 						onSelectionChanged={(authMethod) => {
-							setAuthMethod(authMethod as AuthMethod);
+							// TODO: it's not currently possible to change the auth method, as each provider only
+							// supports one auth method at a time. This is a placeholder for future support.
 						}}
 					/>
 				</div>
-				<LanguageModelConfigComponent
-					authMethod={authMethod}
-					provider={providerConfig}
-					signingIn={showProgress}
-					source={source}
-					onCancel={onCancelPending}
-					onChange={(config) => {
-						setProviderConfig(config);
-					}}
-					onSignIn={onSignIn}
-				/>
-				{showProgress &&
-					<ProgressBar />
-				}
-				{errorMessage &&
-					<div className='language-model-error error error-msg'>{errorMessage}</div>
-				}
-			</VerticalStack>
-		</OKModalDialog>;
-	}
-
-	if (useNewConfig) {
-		return newDialog();
-	} else {
-		return oldDialog();
-	}
+			}
+			<LanguageModelConfigComponent
+				authMethod={getAuthMethod()}
+				authStatus={getAuthStatus()}
+				config={providerConfig}
+				source={selectedProvider}
+				onCancel={onCancel}
+				onChange={(config) => {
+					setProviderConfig(config);
+				}}
+				onSignIn={onSignIn}
+			/>
+			{showProgress &&
+				<ProgressBar />
+			}
+			{errorMessage &&
+				<div className='language-model-error error error-msg'>{errorMessage}</div>
+			}
+		</VerticalStack>
+	</OKModalDialog>;
 }

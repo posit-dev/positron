@@ -53,6 +53,7 @@ export type PositronLanguageModelOptions = Exclude<{
 	[K in keyof IPositronLanguageModelConfig]: undefined extends IPositronLanguageModelConfig[K] ? K : never
 }[keyof IPositronLanguageModelConfig], undefined>;
 
+// Equivalent in positron.d.ts API: LanguageModelSource
 export interface IPositronLanguageModelSource {
 	type: PositronLanguageModelType;
 	provider: { id: string; displayName: string };
@@ -62,6 +63,7 @@ export interface IPositronLanguageModelSource {
 	authMethods?: string[];
 }
 
+// Equivalent in positron.d.ts API: LanguageModelConfig
 export interface IPositronLanguageModelConfig {
 	type: PositronLanguageModelType;
 	provider: string;
@@ -112,7 +114,6 @@ export interface IPositronAssistantService {
 	showLanguageModelModalDialog(
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
-		onCancel: () => void,
 		onClose: () => void,
 	): void;
 

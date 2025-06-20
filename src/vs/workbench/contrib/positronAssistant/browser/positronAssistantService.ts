@@ -232,10 +232,9 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	showLanguageModelModalDialog(
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
-		onCancel: () => void,
 		onClose: () => void,
 	): void {
-		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, this, this._positronModalDialogsService, sources, onAction, onCancel, onClose);
+		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, this, this._positronModalDialogsService, sources, onAction, onClose);
 	}
 
 	getSupportedProviders(): string[] {
