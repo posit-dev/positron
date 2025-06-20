@@ -249,11 +249,11 @@ export class NativeWindow extends BaseWindow {
 					label: localize('downloadArmBuild', "Download"),
 					run: () => {
 						// --- Start Positron ---
-						// const quality = this.productService.quality;
-						// const stableURL = 'https://code.visualstudio.com/docs/?dv=osx';
-						// const insidersURL = 'https://code.visualstudio.com/docs/?dv=osx&build=insiders';
-						// this.openerService.open(quality === 'stable' ? stableURL : insidersURL);
-						this.openerService.open('https://positron.posit.co/download');
+/* 						const quality = this.productService.quality;
+						const stableURL = 'https://code.visualstudio.com/docs/?dv=osx';
+						const insidersURL = 'https://code.visualstudio.com/docs/?dv=osx&build=insiders';
+						this.openerService.open(quality === 'stable' ? stableURL : insidersURL);
+ */						this.openerService.open('https://positron.posit.co/download');
 						// --- End Positron ---
 					}
 				}],
