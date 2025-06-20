@@ -243,7 +243,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerConfigureModelsCommand(context, storage);
 
 	// Register mapped edits provider
-	registerMappedEditsProvider(context, participantService);
+	registerMappedEditsProvider(context, participantService, log);
 
 	// Register code action provider
 	registerCodeActionProvider(context);
