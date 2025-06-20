@@ -22,9 +22,9 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await app.workbench.help.openHelpPanel();
 
 		const helpFrame = await app.workbench.help.getHelpWelcomePageFrame();
-
-		await expect(helpFrame.getByRole('link', { name: 'Positron Documentation' })).toBeVisible();
-
+		const docLink = helpFrame.getByRole('link', { name: 'Positron Documentation' });
+		await expect(docLink).toBeVisible();
+		await expect(docLink).toHaveAttribute('href', 'https://positron.posit.co/');
 
 	});
 
