@@ -747,7 +747,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			firstLinkToButton = true;
 			// create a multi-line message
 			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n");
-			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.addModelConfiguration)`;
+			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureModels)`;
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
 			welcomeTitle = localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant");

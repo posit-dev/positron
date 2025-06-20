@@ -54,7 +54,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 			class: undefined,
 			tooltip: addModelProviderTooltip(),
 			run: async () => {
-				await positronActionBarContext.commandService.executeCommand('positron-assistant.addModelConfiguration');
+				await positronActionBarContext.commandService.executeCommand('positron-assistant.configureModels');
 			}
 		}];
 
@@ -67,7 +67,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 				label={addModelProviderLabel()}
 				tooltip={addModelProviderTooltip()}
 				onPressed={async () => {
-					await positronActionBarContext.commandService.executeCommand('positron-assistant.addModelConfiguration');
+					await positronActionBarContext.commandService.executeCommand('positron-assistant.configureModels');
 				}}
 			/>;
 		}

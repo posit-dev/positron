@@ -28,7 +28,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 
 
 	/**
-	 * Verifies an error is returned when a bad api key is unput.
+	 * Verifies an error is returned when a bad api key is input.
 	 *
 	 * @param app - Application fixture providing access to UI elements
 	 */
@@ -39,7 +39,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.enterApiKey('1234');
 		await app.workbench.assistant.clickSignInButton();
 		await expect(app.workbench.assistant.verifySignOutButtonVisible(5000)).rejects.toThrow();
-		await app.workbench.assistant.clickDoneButton();
+		await app.workbench.assistant.clickCloseButton();
 		await app.code.driver.page.locator('.positron-button:has-text("Yes")').click();
 	});
 
@@ -57,7 +57,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.verifySignOutButtonVisible();
 		await app.workbench.assistant.clickSignOutButton();
 		await app.workbench.assistant.verifySignInButtonVisible();
-		await app.workbench.assistant.clickDoneButton();
+		await app.workbench.assistant.clickCloseButton();
 	});
 
 	/**
@@ -72,17 +72,17 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.clickAddModelButton();
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
-		await app.workbench.assistant.clickDoneButton();
+		await app.workbench.assistant.clickCloseButton();
 		await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 		await app.workbench.editor.clickOnTerm('chinook-sqlite.py', 'data_file_path', 4);
 		const inlineChatShortcut = process.platform === 'darwin' ? 'Meta+I' : 'Control+I';
 		await app.code.driver.page.keyboard.press(inlineChatShortcut);
 		await app.code.driver.page.locator('.chat-widget > .interactive-session').isVisible();
 		await app.workbench.assistant.verifyInlineChatInputsVisible();
-		await app.workbench.quickaccess.runCommand('positron-assistant.addModelConfiguration');
+		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignOutButton();
-		await app.workbench.assistant.clickDoneButton();
+		await app.workbench.assistant.clickCloseButton();
 		await app.workbench.assistant.closeInlineChat();
 	});
 
@@ -93,7 +93,7 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
 		await app.workbench.assistant.verifyAuthMethod('oauth');
 		await app.workbench.assistant.selectModelProvider('Anthropic');
 		await app.workbench.assistant.verifyAuthMethod('apiKey');
-		await app.workbench.assistant.clickDoneButton();
+		await app.workbench.assistant.clickCloseButton();
 	});
 
 });
@@ -101,16 +101,12 @@ test.describe('Positron Assistant Setup', { tag: [tags.WIN, tags.ASSISTANT, tags
  * Test suite Positron Assistant actions from the chat interface.
  */
 test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTANT, tags.WEB, tags.CRITICAL] }, () => {
-	test.beforeAll('Enable Assistant', async function ({ app, settings }) {
-		// Need to turn on the assistant for these tests to work. Can remove once it's on by default.
-		await settings.set({
-			'positron.assistant.newModelConfiguration': true,
-		}, { reload: true });
+	test.beforeAll('Enable Assistant', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
-		await app.workbench.quickaccess.runCommand('positron-assistant.addModelConfiguration');
+		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
-		await app.workbench.assistant.clickDoneButton();
+		await app.workbench.assistant.clickCloseButton();
 	});
 
 	test.beforeEach('How to clear chat', async function ({ app }) {
