@@ -260,7 +260,7 @@
                     {
                         "id": "python.panes",
                         "title": "%walkthrough.positron.step.python.panes.title%",
-                        "description": "%walkthrough.step.python.panes.description%",
+                        "description": "%walkthrough.positron.step.python.panes.description%",
                         "media": {
                             "markdown": "resources/walkthrough/panes.md"
                         }
@@ -268,7 +268,7 @@
                     {
                         "id": "python.interpreterManagement",
                         "title": "%walkthrough.positron.step.python.interpreterManagement.title%",
-                        "description": "%walkthrough.step.python.interpreterManagement.description%",
+                        "description": "%walkthrough.positron.step.python.interpreterManagement.description%",
                         "media": {
                             "markdown": "resources/walkthrough/interpreterManagement.md"
                         }
@@ -276,7 +276,7 @@
                     {
                         "id": "python.bundledExtensions",
                         "title": "%walkthrough.positron.step.python.bundledExtensions.title%",
-                        "description": "%walkthrough.step.python.bundledExtensions.description%",
+                        "description": "%walkthrough.positron.step.python.bundledExtensions.description%",
                         "media": {
                             "markdown": "resources/walkthrough/bundledExtensions.md"
                         }
@@ -292,7 +292,7 @@
                     {
                         "id": "python.autoReload",
                         "title": "%walkthrough.positron.step.python.autoReload.title%",
-                        "description": "%walkthrough.step.python.autoReload.description%",
+                        "description": "%walkthrough.positron.step.python.autoReload.description%",
                         "media": {
                             "markdown": "resources/walkthrough/autoReload.md"
                         }

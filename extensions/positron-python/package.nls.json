@@ -112,7 +112,7 @@
     "python.enableAutoReload.description": "Whether to enable module hot-reloading in Python console sessions. When enabled, modules that are imported in the console will be automatically reloaded when they are modified on disk. This automatically invokes [IPython's `autoreload` extension](https://ipython.readthedocs.io/en/stable/config/extensions/autoreload.html).\n\nOnly applies to new console sessions.",
     
     
-    "walkthrough.positron.pythonWelcome.title": "Getting Started with Python",
+    "walkthrough.positron.pythonWelcome.title": "Getting Started with Python in Positron",
     "walkthrough.positron.pythonWelcome.description": "Learn more about the Python experience in Positron.",
     
     "walkthrough.positron.step.python.autoReload.title": "Autoreloaded modules",
