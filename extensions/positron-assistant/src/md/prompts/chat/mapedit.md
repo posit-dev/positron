@@ -5,6 +5,11 @@ You will be given a document and a block. Output a JSON array containing objects
 <response>[{ "delete": "b\nc\nd\ne", "replace": "b\n123\ne" }]</response>
 <example>
 
-If it is not clear where the block should go, output an { "append": string } object in the array to add it to the end of the document.
+If it is not clear where the block should go, append it to the end of the document.
+
+<example>
+<user>{ "document": "a\nb\nc\nd\ne", "block": "f\ng" }</user>
+<response>[{ "append": "f\ng" }]</response>
+<example>
 Return ONLY the JSON string, nothing else. Do NOT use a code fence, return the JSON as plain output.
 
