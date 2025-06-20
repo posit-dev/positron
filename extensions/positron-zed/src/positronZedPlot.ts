@@ -12,8 +12,11 @@ import * as vscode from 'vscode';
  * The request from the front end to render the plot at a specific size.
  */
 interface IPlotRenderRequest {
-	height: number;
-	width: number;
+	format: string;
+	size: {
+		height: number;
+		width: number;
+	};
 	pixel_ratio: number;
 }
 
@@ -31,7 +34,9 @@ export class ZedPlot {
 	public readonly id: string;
 
 	constructor(private readonly context: vscode.ExtensionContext,
-		private readonly letter: string) {
+		private readonly letter: string,
+		private readonly renderMs = 0,
+	) {
 		this.id = randomUUID();
 	}
 
@@ -42,11 +47,17 @@ export class ZedPlot {
 	 */
 	public handleMessage(message: any): void {
 		switch (message.method) {
+			case 'get_intrinsic_size':
+				this._onDidEmitData.fire({
+					jsonrpc: '2.0',
+					result: null,
+				});
+				break;
 			case 'render':
 				this.emitImage(message.params as IPlotRenderRequest);
 				break;
 			default:
-				console.error(`ZedPlot ${this.id} got unknown message type: ${message.msg_type}`);
+				console.error(`ZedPlot ${this.id} got unknown message type: ${message.method}`);
 				break;
 		}
 	}
@@ -67,19 +78,22 @@ export class ZedPlot {
 		const plotSvgContents = plotSvg.toString();
 		const finalSvg = plotSvgContents
 			.replace('$title', this.letter)
-			.replace('$width', request.width.toString())
-			.replace('$height', request.height.toString());
+			.replace('$width', request.size.width.toString())
+			.replace('$height', request.size.height.toString());
 
 		// Encode the data to base64.
 		const plotSvgBase64 = Buffer.from(finalSvg).toString('base64');
 
-		// Emit to the front end.
-		this._onDidEmitData.fire({
-			jsonrpc: '2.0',
-			result: {
-				data: plotSvgBase64,
-				mime_type: 'image/svg+xml',
-			}
-		});
+		// Simulate a delay in rendering the plot.
+		setTimeout(() => {
+			// Emit to the front end.
+			this._onDidEmitData.fire({
+				jsonrpc: '2.0',
+				result: {
+					data: plotSvgBase64,
+					mime_type: 'image/svg+xml',
+				}
+			});
+		}, this.renderMs);
 	}
 }

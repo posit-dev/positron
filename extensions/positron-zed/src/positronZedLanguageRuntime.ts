@@ -71,7 +71,7 @@ const HelpLines = [
 	'html             - Simulates HTML output',
 	'modal            - Simulates a simple modal dialog',
 	'offline          - Simulates going offline for two seconds',
-	'plot X           - Renders a dynamic (auto-sizing) plot of the letter X',
+	'plot X Y         - Renders a dynamic (auto-sizing) plot of the letter X that takes Y seconds to render (default X = "Z", Y = 0)',
 	'preview          - Opens or gets the status of a preview pane',
 	'preview open     - Opens a new preview pane',
 	'preview close    - Closes the preview pane, if it is open',
@@ -365,12 +365,13 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 			}
 			return this.simulateSuccessfulCodeExecution(id, code,
 				`Now displaying a maximum of ${max} variables.`);
-		} else if (match = code.match(/^plot( [a-zA-Z])?/)) {
+		} else if (match = code.match(/^plot( [a-zA-Z])?( [0-9]+)?/)) {
 			// Create a plot. This takes a single-character argument that is
 			// drawn in the middle of the plot. If no argument is given, the
 			// letter "Z" is used.
 			const letter = (match.length > 1 && match[1]) ? match[1].trim().toUpperCase() : 'Z';
-			this.simulateDynamicPlot(id, letter, code);
+			const renderMs = (match.length > 2 && match[2]) ? parseInt(match[2].trim(), 10) : 0;
+			this.simulateDynamicPlot(id, letter, code, renderMs);
 			return;
 		} else if (match = code.match(/^busy( [0-9]+)?( [0-9]+)?/)) {
 			// Simulate a busy state.
@@ -1689,13 +1690,13 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 * @param letter The plot letter.
 	 * @param code The code.
 	 */
-	private simulateDynamicPlot(parentId: string, letter: string, code: string) {
+	private simulateDynamicPlot(parentId: string, letter: string, code: string, renderMs: number) {
 		// Enter busy state and output the code.
 		this.simulateBusyState(parentId);
 		this.simulateInputMessage(parentId, code);
 
 		// Create the plot client comm.
-		const plot = new ZedPlot(this.context, letter);
+		const plot = new ZedPlot(this.context, letter, renderMs);
 		this.connectClientEmitter(plot);
 		this._plots.set(plot.id, plot);
 
