@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR } from './constants';
-import { isChatImageMimeType, isTextEditRequest, toLanguageModelChatMessage } from './utils';
+import { isChatImageMimeType, isTextEditRequest, toLanguageModelChatMessage, uriToString } from './utils';
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
@@ -288,7 +288,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// usually the automatically attached visible region of the active file.
 
 					const document = await vscode.workspace.openTextDocument(value.uri);
-					const path = vscode.workspace.asRelativePath(value.uri);
+					const path = uriToString(value.uri);
 					const documentText = document.getText();
 					const visibleText = document.getText(value.range);
 
@@ -325,7 +325,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 							}
 							return name;
 						}).join('\n');
-						const path = vscode.workspace.asRelativePath(value);
+						const path = uriToString(value);
 
 						// TODO: Adding a URI as a response reference shows it in the "Used N references" block.
 						//       Files render with the correct icons and when clicked open in the editor.
@@ -341,7 +341,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					} else {
 						// The user attached a file - usually a manually attached file in the workspace.
 						const document = await vscode.workspace.openTextDocument(value);
-						const path = vscode.workspace.asRelativePath(value);
+						const path = uriToString(value);
 						const documentText = document.getText();
 
 						// Add the file as a reference in the response.
@@ -701,7 +701,7 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		const selection = request.location2.selection;
 		const selectedText = document.getText(selection);
 		const documentText = document.getText();
-		const filePath = vscode.workspace.asRelativePath(document.uri);
+		const filePath = uriToString(document.uri);
 		return xml.node('editor',
 			[
 				xml.node('document', documentText, {

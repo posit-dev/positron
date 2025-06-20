@@ -20,7 +20,13 @@ import { MarkdownString } from '../../../../../base/common/htmlContent.js';
 import { IDisposable } from '../../../../../base/common/lifecycle.js';
 import { autorun } from '../../../../../base/common/observable.js';
 import { isEqual } from '../../../../../base/common/resources.js';
+// --- Start Positron ---
+// Remove unused import.
+/*
 import { URI, UriComponents } from '../../../../../base/common/uri.js';
+*/
+import { URI } from '../../../../../base/common/uri.js';
+// --- End Positron ---
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { localize } from '../../../../../nls.js';
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
@@ -121,21 +127,25 @@ export class EditTool implements IToolImpl {
 			throw new Error('filePath is required for this tool');
 		}
 		const filePath = input.filePath;
-		const updatedParams = {
+		// const parameters = invocation.parameters as EditToolParams;
+		const parameters: EditToolParams = {
 			file: filePath.startsWith('untitled:') ? URI.parse(filePath) : URI.file(filePath),
 			explanation: input.explanation,
 			code: input.code,
 		};
-		// const parameters = invocation.parameters as EditToolParams;
-		const parameters = updatedParams as EditToolParams;
 
 		// const fileUri = URI.revive(parameters.file); // TODO@roblourens do revive in MainThreadLanguageModelTools
-		// Use the same logic as the fileContentsTool to get the URI for the file.
+		// For untitled files, use the URI directly.
+		// Otherwise, use the same logic as the fileContentsTool to get the URI for the file.
 		let fileUri: URI | undefined = undefined;
-		try {
-			fileUri = getUriForFileOpenOrInsideWorkspace(filePath, this.workspaceContextService, this.editorGroupsService);
-		} catch (error) {
-			throw new Error(`Can't edit file: ${error.message}`);
+		if (parameters.file.scheme === 'untitled') {
+			fileUri = parameters.file;
+		} else {
+			try {
+				fileUri = getUriForFileOpenOrInsideWorkspace(filePath, this.workspaceContextService, this.editorGroupsService);
+			} catch (error) {
+				throw new Error(`Can't edit file: ${error.message}`);
+			}
 		}
 		// --- End Positron ---
 
@@ -268,7 +278,13 @@ export class EditTool implements IToolImpl {
 }
 
 export interface EditToolParams {
+	// --- Start Positron ---
+	// Since this is constructed via URI.parse or URI.file, it is a URI.
+	/*
 	file: UriComponents;
+	*/
+	file: URI;
+	// --- End Positron ---
 	explanation: string;
 	code: string;
 }
