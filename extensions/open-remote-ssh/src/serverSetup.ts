@@ -149,8 +149,13 @@ export async function installCodeServer(conn: SSHConnection, serverDownloadUrlTe
     }
 
     const exitCode = parseInt(resultMap.exitCode, 10);
-    if (exitCode !== 0) {
-        throw new ServerInstallError(`Couldn't install vscode server on remote server, install script returned non-zero exit status`);
+    if (exitCode === 66) {
+        throw new ServerInstallError(
+            `There is no available Positron server with version ${installOptions.version} for ${resultMap.platform} ${resultMap.arch}.`
+            + `\nPlease check the [system requirements](https://positron.posit.co/remote-ssh.html#system-requirements) and [troubleshooting guides](https://positron.posit.co/remote-ssh.html#how-it-works-troubleshooting).`
+        );
+    } else if (exitCode !== 0) {
+        throw new ServerInstallError(`Couldn't install Positron server on remote server, install script returned non-zero exit status`);
     }
 
     const listeningOn = resultMap.listeningOn.match(/^\d+$/)
@@ -334,7 +339,7 @@ if [[ ! -f $SERVER_SCRIPT ]]; then
 
     if (( $? > 0 )); then
         echo "Error downloading server from $SERVER_DOWNLOAD_URL"
-        print_install_results_and_exit 1
+        print_install_results_and_exit 66
     fi
 
     tar -xf vscode-server.tar.gz --strip-components 1
@@ -517,7 +522,7 @@ if(!(Test-Path $SERVER_SCRIPT)) {
 
     if(!(Test-Path $SERVER_SCRIPT)) {
         "Error while installing the server binary"
-        exit 1
+        exit 66
     }
 }
 else {

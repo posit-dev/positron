@@ -415,7 +415,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		// Whether to run the kernel in a login shell. Kallichore ignores this
 		// on Windows.
-		const runInShell = config.get('runInShell', true);
+		const runInShell = config.get('runInShell', false);
 
 		// Create the session in the underlying API
 		const session: NewSession = {

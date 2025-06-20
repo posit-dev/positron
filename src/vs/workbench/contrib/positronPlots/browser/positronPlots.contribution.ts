@@ -84,7 +84,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 		properties: {
 			'positron.plots.darkFilter': {
 				type: 'string',
-				default: 'auto',
+				default: 'off',
 				enum: [
 					'on',
 					'off',
@@ -96,6 +96,17 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 					localize('positron.plots.darkFilterAuto', 'Apply the dark filter when Positron is using a dark theme')
 				],
 				description: localize('positron.plots.darkFilterSetting', "Use a color filter to make light plots appear dark."),
+			}
+		}
+	});
+
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
+	.registerConfiguration({
+		properties: {
+			'positron.plots.frozenSlowPlots': {
+				type: 'boolean',
+				default: true,
+				description: localize('positron.plots.frozenSlowPlotsSetting', "Freeze slow to generate plots at a fixed size to avoid re-rendering on viewport changes, improving responsiveness of the IDE when working with complex charts."),
 			}
 		}
 	});

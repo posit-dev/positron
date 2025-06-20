@@ -1470,54 +1470,58 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 		}
 
 		// Code should be executed if the caller skips checks, or if the runtime says the code is complete.
-		const shouldExecuteCode = async (code: string) => {
-			if (allowIncomplete) {
-				return true;
-			}
+		const shouldExecuteCode = async (codeToCheck: string) => {
+			// If there is no session, we cannot check if the code is complete or execute it,
+			// so return false.
 			if (!this.session) {
 				return false;
 			}
-			const codeStatus = await this.session.isCodeFragmentComplete(code);
-			return codeStatus === RuntimeCodeFragmentStatus.Complete;
+
+			// If allow incomplete is true, skip the code completeness check and return true.
+			if (allowIncomplete) {
+				return true;
+			}
+
+			// Return true if the code fragment is complete, false otherwise.
+			return await this.session.isCodeFragmentComplete(codeToCheck) === RuntimeCodeFragmentStatus.Complete;
 		};
 
-		// Get the pending code from the code editor. If there is pending code in the code editor,
-		// see if adding this code to it creates code that can be executed.
-		let pendingCode = this.codeEditor?.getValue();
-		if (pendingCode) {
-
-			// No ID supplied; check if there's a stored execution ID for this
-			// code.
-			if (!executionId) {
-				const storedExecutionId = this._pendingExecutionIds.get(code);
-				if (storedExecutionId) {
-					executionId = storedExecutionId;
+		// Handle interactive mode first.
+		if (mode === RuntimeCodeExecutionMode.Interactive) {
+			// If there is pending code in the code editor, see if adding this code to it creates
+			// code that can be executed.
+			let pendingCode = this.codeEditor?.getValue();
+			if (pendingCode) {
+				// No ID supplied; check if there's a stored execution ID for this code.
+				if (!executionId) {
+					const storedExecutionId = this._pendingExecutionIds.get(code);
+					if (storedExecutionId) {
+						executionId = storedExecutionId;
+					}
 				}
-			}
 
-			// Figure out whether adding this code to the pending code results in code that can be
-			// executed. If so, execute it.
-			pendingCode += '\n' + code;
-			if (await shouldExecuteCode(pendingCode)) {
-				this.setPendingCode();
-				this.doExecuteCode(pendingCode, attribution, mode, errorBehavior, executionId);
-			} else {
-				// Update the pending code. More will be revealed.
-				this.setPendingCode(pendingCode, executionId);
-			}
+				// Figure out whether adding this code to the pending code results in code that can
+				// be executed. If so, execute it.
+				pendingCode += '\n' + code;
+				if (await shouldExecuteCode(pendingCode)) {
+					this.setPendingCode();
+					this.doExecuteCode(pendingCode, attribution, mode, errorBehavior, executionId);
+				} else {
+					// Update the pending code. More will be revealed.
+					this.setPendingCode(pendingCode, executionId);
+				}
 
-			// In either case, return.
-			return;
+				// In either case, return.
+				return;
+			}
 		}
 
-		// Figure out whether this code can be executed. If it can be, execute it immediately.
+		// Execute the code if it is complete, or set it as pending if it is not.
 		if (await shouldExecuteCode(code)) {
 			this.doExecuteCode(code, attribution, mode, errorBehavior, executionId);
-			return;
+		} else {
+			this.setPendingCode(code, executionId);
 		}
-
-		// The code cannot be executed. Set the pending code.
-		this.setPendingCode(code, executionId);
 	}
 
 	/**
@@ -2219,6 +2223,9 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 			if (exit.reason === RuntimeExitReason.ExtensionHost) {
 				this.setState(PositronConsoleState.Disconnected);
+				// The runtime must be detached, so that when it is reconnected, it is reattached
+				// to the new extension host.
+				this.detachRuntime();
 				return;
 			}
 

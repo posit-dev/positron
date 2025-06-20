@@ -14,8 +14,8 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IAction, Separator, SubmenuAction } from '../../../../base/common/actions.js';
 import { actionTooltip } from '../../../../platform/positronActionBar/common/helpers.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronActionBar } from '../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { ActionBarRegion } from '../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarSeparator } from '../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
@@ -34,21 +34,21 @@ const PADDING_RIGHT = 8;
 /**
  * Localized strings.
  */
-const positronMoreActionsTooltip = localize(
-	'positronMoreActionsTooltip',
-	"More Actions..."
-);
-const positronMoreActionsAriaLabel = localize(
-	'positronMoreActionsAriaLabel',
-	"More actions"
+const positronMoveIntoNewWindowAriaLabel = localize(
+	'positronMoveIntoNewWindowAriaLabel',
+	"Move into new window"
 );
 const positronMoveIntoNewWindowTooltip = localize(
 	'positronMoveIntoNewWindowTooltip',
 	"Move into New Window"
 );
-const positronMoveIntoNewWindowAriaLabel = localize(
-	'positronMoveIntoNewWindowAriaLabel',
-	"Move into new window"
+const positronMoreActionsAriaLabel = localize(
+	'positronMoreActionsAriaLabel',
+	"More actions"
+);
+const positronMoreActionsTooltip = localize(
+	'positronMoreActionsTooltip',
+	"More Actions..."
 );
 
 /**
@@ -159,27 +159,38 @@ export class EditorActionBarFactory extends Disposable {
 		// Create the set of processed actions.
 		const processedActions = new Set<string>();
 
-		// Build the left action bar elements from the editor actions left menu.
-		const leftActionBarElements = this.buildActionBarElements(
-			processedActions,
-			MenuId.EditorActionsLeft,
-			false
-		);
-
-		// Build the right action bar elements from the editor actions right menu and the editor
-		// title menu.
-		const rightActionBarElements = [
-			// Build the right action bar elements from the editor actions right menu.
+		// Create the left action bar elements from the editor title menu's editor title run submenu
+		// item and the editor actions left menu.
+		const leftActionBarElements = [
+			// Build action bar elements from the editor title run submenu item.
 			...this.buildActionBarElements(
 				processedActions,
-				MenuId.EditorActionsRight,
-				false
-			),
-			// Build the right action bar elements from the editor title menu.
-			...this.buildActionBarElements(
-				processedActions,
+				false,
 				MenuId.EditorTitle,
-				true
+				new Set(['submenuitem.EditorTitleRun']),
+			),
+			// Build action bar elements from the editor actions left menu.
+			...this.buildActionBarElements(
+				processedActions,
+				false,
+				MenuId.EditorActionsLeft,
+			)
+		];
+
+		// Build the right action bar elements from the editor actions right menu and the remaining
+		// actions on the editor title menu.
+		const rightActionBarElements = [
+			// Build action bar elements from the editor actions right menu.
+			...this.buildActionBarElements(
+				processedActions,
+				false,
+				MenuId.EditorActionsRight,
+			),
+			// Build action bar elements from the remaining actions on the editor title menu.
+			...this.buildActionBarElements(
+				processedActions,
+				true,
+				MenuId.EditorTitle,
 			)
 		];
 
@@ -257,16 +268,19 @@ export class EditorActionBarFactory extends Disposable {
 
 	/**
 	 * Builds action bar elements for a menu.
-	 * @param processedActions The processed actions.
-	 * @param menuId The menu ID.
-	 * @param buildSecondaryActions A value which indicates whether to build secondary actions.
+	 * @param processedActions The set of action IDs that have already been processed (used to prevent duplicates).
+	 * @param buildSecondaryActions A value which indicates whether to build the secondary actions.
+	 * @param menuId The menu ID of the menu to build action bar elements from.
+	 * @param actionIds An optional set of specific action IDs to filter by; if provided, only actions with these IDs will be processed.
+	 * @returns An array of JSX elements representing the action bar components.
 	 */
 	private buildActionBarElements(
 		processedActions: Set<string>,
+		buildSecondaryActions: boolean,
 		menuId: MenuId,
-		buildSecondaryActions: boolean
+		actionIds: Set<string> | undefined = undefined,
 	) {
-		// Get the menu.
+		// Get the menu. If it does not exist, return an empty array.
 		const menu = this._menus.get(menuId);
 		if (!menu) {
 			return [];
@@ -413,6 +427,11 @@ export class EditorActionBarFactory extends Disposable {
 
 		// Build the action bar elements from the primary actions.
 		for (const action of primaryActions) {
+			// If action IDs were specified, filter the actions by their IDs.
+			if (actionIds && !actionIds.has(action.id)) {
+				continue;
+			}
+
 			// Process separators.
 			if (action instanceof Separator) {
 				actionBarElements.push(<ActionBarSeparator />);

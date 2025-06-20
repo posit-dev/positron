@@ -91,7 +91,7 @@ class QueuedRuntimeStateEvent extends QueuedRuntimeEvent {
 
 // Adapter class; presents an ILanguageRuntime interface that connects to the
 // extension host proxy to supply language features.
-class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
+class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILanguageRuntimeSession {
 
 	private readonly _stateEmitter = new Emitter<RuntimeState>();
 	private readonly _startupEmitter = new Emitter<ILanguageRuntimeInfo>();
@@ -144,6 +144,8 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		private readonly _editorService: IEditorService,
 		private readonly _proxy: ExtHostLanguageRuntimeShape) {
 
+		super();
+
 		// Save handle
 		this.handle = initialState.handle;
 		this.dynState = {
@@ -162,7 +164,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 		this.onDidEndSession = this._exitEmitter.event;
 
 		// Listen to state changes and track the current state
-		this.onDidChangeRuntimeState((state) => {
+		this._register(this.onDidChangeRuntimeState((state) => {
 			this._currentState = state;
 
 			if (state === RuntimeState.Exited) {
@@ -181,14 +183,14 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 				// Remove all clients; none can send or receive data any more
 				this._clients.clear();
 			}
-		});
+		}));
 
 		// Listen for changes to the foreground session and notify the extension host
-		this._runtimeSessionService.onDidChangeForegroundSession((session) => {
+		this._register(this._runtimeSessionService.onDidChangeForegroundSession((session) => {
 			this._proxy.$notifyForegroundSessionChanged(session?.sessionId);
-		});
+		}));
 
-		this._runtimeSessionService.onDidReceiveRuntimeEvent(globalEvent => {
+		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(globalEvent => {
 			// Ignore events for other sessions.
 			if (globalEvent.session_id !== this.sessionId) {
 				return;
@@ -250,7 +252,7 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 
 			// Propagate event
 			this._onDidReceiveRuntimeMessageClientEventEmitter.fire(ev);
-		});
+		}));
 	}
 
 	onDidChangeRuntimeState: Event<RuntimeState>;
@@ -988,7 +990,8 @@ class ExtHostLanguageRuntimeSessionAdapter implements ILanguageRuntimeSession {
 	}
 	static clientCounter = 0;
 
-	dispose(): void {
+	override dispose(): void {
+		super.dispose();
 		// Cleanup (dispose) the ExtHost side of the session.
 		this._proxy.$disposeLanguageRuntime(this.handle);
 	}
@@ -1352,7 +1355,7 @@ export class MainThreadLanguageRuntime
 
 	private readonly _sessions: Map<number, ExtHostLanguageRuntimeSessionAdapter> = new Map();
 
-	private readonly _registeredRuntimes: Map<number, ILanguageRuntimeMetadata> = new Map();
+	private readonly _registeredRuntimes: Map<string, ILanguageRuntimeMetadata> = new Map();
 
 	/**
 	 * Instance counter
@@ -1469,8 +1472,8 @@ export class MainThreadLanguageRuntime
 	}
 
 	// Called by the extension host to register a language runtime
-	$registerLanguageRuntime(handle: number, metadata: ILanguageRuntimeMetadata): void {
-		this._registeredRuntimes.set(handle, metadata);
+	$registerLanguageRuntime(metadata: ILanguageRuntimeMetadata): void {
+		this._registeredRuntimes.set(metadata.runtimeId, metadata);
 		this._languageRuntimeService.registerRuntime(metadata);
 	}
 
@@ -1503,6 +1506,11 @@ export class MainThreadLanguageRuntime
 		return this._runtimeSessionService.selectRuntime(
 			runtimeId,
 			'Extension-requested runtime selection via Positron API');
+	}
+
+	// Called by the extension host to get a list of all registered runtimes
+	$getRegisteredRuntimes(): Promise<ILanguageRuntimeMetadata[]> {
+		return Promise.resolve(Array.from(this._registeredRuntimes.values()));
 	}
 
 	// Called by the extension host to start a previously registered language runtime
@@ -1580,11 +1588,12 @@ export class MainThreadLanguageRuntime
 		this._runtimeStartupService.completeDiscovery(this._id);
 	}
 
-	$unregisterLanguageRuntime(handle: number): void {
-		const runtime = this._registeredRuntimes.get(handle);
+	// Called by the extension host to unregister a language runtime
+	$unregisterLanguageRuntime(runtimeId: string): void {
+		const runtime = this._registeredRuntimes.get(runtimeId);
 		if (runtime) {
-			this._languageRuntimeService.unregisterRuntime(runtime.runtimeId);
-			this._registeredRuntimes.delete(handle);
+			this._languageRuntimeService.unregisterRuntime(runtimeId);
+			this._registeredRuntimes.delete(runtimeId);
 		}
 	}
 

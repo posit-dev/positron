@@ -20,13 +20,15 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
 import { DataExplorerClientInstance, DataExplorerUiEvent } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { PositronDataExplorerInstance } from './positronDataExplorerInstance.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
+import { ILanguageRuntimeSession, IRuntimeClientInstance, IRuntimeSessionService, RuntimeClientType } from '../../runtimeSession/common/runtimeSessionService.js';
 import { IPositronDataExplorerService } from './interfaces/positronDataExplorerService.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { PositronDataExplorerComm } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { PositronDataExplorerDuckDBBackend } from '../common/positronDataExplorerDuckDBBackend.js';
 import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js';
 import { URI } from '../../../../base/common/uri.js';
+import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
+import { ILogService } from '../../../../platform/log/common/log.js';
 
 /**
  * DataExplorerRuntime class.
@@ -155,6 +157,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * @param _hoverService The hover service.
 	 * @param _keybindingService The keybinding service.
 	 * @param _layoutService The layout service.
+	 * @pararm _logService The log service.
 	 * @param _notificationService The notification service.
 	 * @param _runtimeSessionService The language runtime session service.
 	 */
@@ -167,6 +170,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		@IHoverService private readonly _hoverService: IHoverService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
+		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService
 	) {
@@ -180,12 +184,12 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 		// Add a data explorer runtime for each running runtime.
 		this._runtimeSessionService.activeSessions.forEach(async session => {
-			await this.addDataExplorerSession(session);
+			await this.attachSession(session);
 		});
 
 		// Register the onWillStartSession event handler.
 		this._register(this._runtimeSessionService.onWillStartSession(async e => {
-			await this.addDataExplorerSession(e.session);
+			await this.attachSession(e.session);
 		}));
 
 		// Register the onDidStartRuntime event handler.
@@ -335,6 +339,31 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	//#region Private Methods
 
 	/**
+	 * Attach a session to the Positron data explorer service.
+	 *
+	 * If the session is being reattached, we wait for it to become idle before
+	 * adding it.
+	 *
+	 * @param session
+	 */
+	private async attachSession(session: ILanguageRuntimeSession) {
+		if (this._dataExplorerRuntimes.has(session.sessionId) &&
+			session.getRuntimeState() !== RuntimeState.Idle) {
+			const disposable = this._register(
+				session.onDidChangeRuntimeState(async newState => {
+					if (newState === RuntimeState.Idle) {
+						// If the runtime is idle, we can add the data explorer session.
+						disposable.dispose();
+						await this.addDataExplorerSession(session);
+					}
+				}));
+		} else {
+			// If the runtime is already idle, we can add the data explorer session.
+			await this.addDataExplorerSession(session);
+		}
+	}
+
+	/**
 	 * Adds a data explorer runtime.
 	 *
 	 * @param session The runtime session.
@@ -343,7 +372,12 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		// If the runtime has already been added, check if we need to open a Data Explorer client.
 		if (this._dataExplorerRuntimes.has(session.sessionId)) {
 			// Get the Data Explorer clients for the session.
-			const sessionClients = await session.listClients(RuntimeClientType.DataExplorer);
+			const sessionClients: Array<IRuntimeClientInstance<any, any>> = [];
+			try {
+				sessionClients.push(...await session.listClients(RuntimeClientType.DataExplorer));
+			} catch (err) {
+				this._logService.error('Error listing Data Explorer clients:', err);
+			}
 
 			// For each client, check if we already have a Data Explorer client instance.
 			for (const client of sessionClients) {
@@ -355,7 +389,14 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 					this.openEditor(session.runtimeMetadata.languageName, dataExplorerClientInstance);
 				}
 			}
-			return;
+
+			// Dispose the old DataExplorerRuntime if it exists and create a new
+			// one below; even if the session IDs match, the session's event
+			// handlers may need to be reattached (e.g. if the extension host
+			// restarted)
+			const dataExplorerRuntime = this._dataExplorerRuntimes.get(session.sessionId);
+			dataExplorerRuntime?.dispose();
+			this._dataExplorerRuntimes.delete(session.sessionId);
 		}
 
 		// Create and add the data explorer runtime.
