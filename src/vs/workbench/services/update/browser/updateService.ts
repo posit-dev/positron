@@ -9,6 +9,7 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { IBrowserWorkbenchEnvironmentService } from '../../environment/browser/environmentService.js';
 import { IHostService } from '../../host/browser/host.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
+// import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 export interface IUpdate {
 	version: string;
@@ -101,6 +102,9 @@ export class BrowserUpdateService extends Disposable implements IUpdateService {
 	// --- Start Positron ---
 	updateActiveLanguages(languages: string[]): void {
 		// no-op
+	}
+	getReleaseNotes(): Promise<string> {
+		return Promise.resolve('No release notes available');
 	}
 	// --- End Positron ---
 }

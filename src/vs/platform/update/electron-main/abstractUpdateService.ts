@@ -11,7 +11,7 @@ import { IEnvironmentMainService } from '../../environment/electron-main/environ
 import { ILifecycleMainService, LifecycleMainPhase } from '../../lifecycle/electron-main/lifecycleMainService.js';
 import { ILogService } from '../../log/common/log.js';
 import { IProductService } from '../../product/common/productService.js';
-import { IRequestService } from '../../request/common/request.js';
+import { asText, IRequestService } from '../../request/common/request.js';
 import { AvailableForDownload, DisablementReason, IUpdateService, State, StateType, UpdateType } from '../common/update.js';
 
 //--- Start Positron ---
@@ -221,6 +221,27 @@ export abstract class AbstractUpdateService implements IUpdateService {
 				const message: string | undefined = !!explicit ? (err.message || err) : undefined;
 				this.setState(State.Idle(this.getUpdateType(), message));
 			});
+	}
+
+	/**
+	 * Fetches the release notes for the current version of Positron.
+	 *
+	 * This is done in the update service because the ReleaseNotesManager is at the workbench level,
+	 * which would encounter a CORS error when trying to fetch the release notes.
+	 *
+	 * @returns the release notes as a string
+	 */
+	async getReleaseNotes(): Promise<string> {
+		const url = `${this.productService.releaseNotesUrl}/releases/release-notes/release.md`;
+		const releaseNotesResponse = await this.requestService.request({ url }, CancellationToken.None);
+		if (releaseNotesResponse.res.statusCode !== 200) {
+			throw new Error(`Failed to fetch release notes: ${releaseNotesResponse.res.statusCode}`);
+		}
+		const releaseNotesText = await asText(releaseNotesResponse);
+		if (!releaseNotesText) {
+			throw new Error('Release notes are empty');
+		}
+		return releaseNotesText;
 	}
 	// --- End Positron ---
 
