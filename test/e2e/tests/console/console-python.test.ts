@@ -27,7 +27,7 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 
 // This nesting is necessary because the settings fixture must be used in a
 // beforeAll hook to ensure app instances pass to test correctly
-test.describe('Console Pane: Alternate Python', () => {
+test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
 	test.beforeAll(async ({ settings }) => {
 		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true });
