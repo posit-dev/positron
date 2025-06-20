@@ -1,8 +1,8 @@
 Many of the keybindings you are familiar with from RStudio are available by default in Positron. For example, you can:
 
 - Use <kbd>Cmd/Ctrl</kbd>+<kbd>Enter</kbd> to run the current R statement (or selection) in the Console.
-- Run R package tests with <kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>T</kbd>.
-- Install your R package and restart R with <kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd>.
+- Restart R with <kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>0</kbd>.
+- Insert a pipe with <kbd>Cmd/Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>.
 
 Some RStudio keybindings are not available by default, but you can [opt in to them using a setting](command:r.walkthrough.updateRStudioKeybindings). If you opt in, you can then:
 
