@@ -20,6 +20,7 @@ type LMTextEdit = { append: string } | { delete: string; replace: string };
 export function registerMappedEditsProvider(
 	context: vscode.ExtensionContext,
 	participantService: ParticipantService,
+	log: vscode.LogOutputChannel
 ) {
 	const editsProvider: vscode.MappedEditsProvider2 = {
 		provideMappedEdits: async function (
@@ -31,6 +32,7 @@ export function registerMappedEditsProvider(
 
 			for (const block of request.codeBlocks) {
 				const document = await vscode.workspace.openTextDocument(block.resource);
+				log.info(`Mapping edits for block in ${block.resource.toString()}`);
 				const text = document.getText();
 				const json = await mapEdit(model, text, block.code, token);
 				if (!json) {
@@ -65,7 +67,7 @@ export function registerMappedEditsProvider(
 						// If the edit is neither an append nor a delete/replace,
 						// we skip it. This should not happen with the current
 						// model prompt, but we handle it gracefully.
-						console.warn('Unable to apply edit from model: ', JSON.stringify(edit));
+						log.warn('Unable to apply edit from model: ', JSON.stringify(edit));
 					}
 				}
 			}
