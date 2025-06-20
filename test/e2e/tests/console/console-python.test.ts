@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -29,17 +28,16 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 // beforeAll hook to ensure app instances pass to test correctly
 test.describe('Console Pane: Alternate Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] }, () => {
 
-	test.beforeAll(async ({ settings }) => {
-		await settings.set({ 'python.useBundledIpykernel': false }, { reload: true });
+	test.beforeAll(async ({ settings, app }) => {
+		await settings.set({ 'python.useBundledIpykernel': false });
+		await app.restart();
 	});
 
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
-		await expect(async () => {
-			await sessions.start('pythonAlt');
-			await app.workbench.console.clearButton.click();
-			await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
-			await app.workbench.console.waitForConsoleContents('site-packages');
-		}).toPass({ timeout: 60000 });
+		await sessions.start('pythonAlt');
+		await app.workbench.console.clearButton.click();
+		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
+		await app.workbench.console.waitForConsoleContents('site-packages');
 	});
 
 });
