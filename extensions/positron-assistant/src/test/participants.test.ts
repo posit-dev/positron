@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { getDefaultContextItems, PositronAssistantChatParticipant, PositronAssistantEditorParticipant } from '../participants.js';
+import { getDefaultContextItems, PositronAssistantChatParticipant, PositronAssistantEditorParticipant, ParticipantService } from '../participants.js';
 import { mock } from './utils.js';
 import { readFile } from 'fs/promises';
 import { MARKDOWN_DIR } from '../constants.js';
@@ -107,8 +107,10 @@ suite('PositronAssistantParticipant', () => {
 		llmsTxtUri = vscode.Uri.joinPath(workspaceFolder.uri, 'llms.txt');
 
 		const extensionContext = mock<vscode.ExtensionContext>({});
-		chatParticipant = new PositronAssistantChatParticipant(extensionContext);
-		editorParticipant = new PositronAssistantEditorParticipant(extensionContext);
+		const participantService = new ParticipantService();
+		disposables.push(participantService);
+		chatParticipant = new PositronAssistantChatParticipant(extensionContext, participantService);
+		editorParticipant = new PositronAssistantEditorParticipant(extensionContext, participantService);
 	});
 
 	teardown(() => {

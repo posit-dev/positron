@@ -73,7 +73,7 @@ jobs:
 
       - name: Lint and Check Formatting with Ruff
         run: |
-          uv pip install ruff==0.11.13
+          uv pip install ruff
           ruff check .
           ruff format --check
         working-directory: ${{ env.PYTHON_SRC_DIR }}

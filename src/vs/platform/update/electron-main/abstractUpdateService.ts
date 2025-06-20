@@ -196,6 +196,9 @@ export abstract class AbstractUpdateService implements IUpdateService {
 
 		this.requestService.request({ url: releaseMetadataUrl }, CancellationToken.None)
 			.then<IUpdate | null>(asJson)
+			.catch(err => {
+				this.logService.trace('update#checkForUpdates, update request did not return valid update metadata:', err.message);
+			})
 			.then(update => {
 				if (!update || !update.url || !update.version) {
 					this.setState(State.Idle(this.getUpdateType()));

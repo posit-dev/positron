@@ -51,11 +51,12 @@ configurationRegistry.registerConfiguration({
 		},
 		'update.positron.channel': {
 			type: 'string',
-			default: 'prereleases',
-			enum: ['dailies', 'prereleases'],
+			default: 'releases',
+			enum: ['dailies', 'prereleases', 'releases'],
 			enumDescriptions: [
 				localize('dailies', "The latest daily build. This is the most up-to-date version of Positron."),
-				localize('prereleases', "Receive pre-release updates.")
+				localize('prereleases', "Receive pre-release updates."),
+				localize('releases', "Receive stable releases only."),
 			],
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('update.positron.channel', "Configure the release stream for receiving updates. Requires a restart after change to take effect."),

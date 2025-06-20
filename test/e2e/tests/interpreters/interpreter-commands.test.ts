@@ -53,8 +53,8 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, Shutdown, Clear Inte
 		await page.keyboard.press('Enter');
 		await app.workbench.quickInput.waitForQuickInputClosed();
 		await app.workbench.popups.toastLocator
-			.locator('span', { hasText: /(Python|interpreter has been cleared)/ })
-			.waitFor({ state: 'visible', timeout: 2000 });
+			.locator('span', { hasText: /Python .* interpreter has been cleared/ })
+			.waitFor({ state: 'visible', timeout: 10000 });
 	});
 
 	test('Verify Clear Saved Interpreter command works (→ interpreter has been cleared) - R', { tag: [tags.WIN] }, async function ({ app, r, page }) {
@@ -65,8 +65,8 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, Shutdown, Clear Inte
 		await page.keyboard.press('Enter');
 		await app.workbench.quickInput.waitForQuickInputClosed();
 		await app.workbench.popups.toastLocator
-			.locator('span', { hasText: /(R|interpreter has been cleared)/ })
-			.waitFor({ state: 'visible', timeout: 2000 });
+			.locator('span', { hasText: /R .* interpreter has been cleared/ })
+			.waitFor({ state: 'visible', timeout: 10000 });
 	});
 
 });

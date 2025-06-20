@@ -10,24 +10,20 @@ test.use({
 });
 
 test.describe('Console Pane: R', {
-	tag: [tags.WEB, tags.CONSOLE]
+	tag: [tags.WEB, tags.CONSOLE, tags.WIN]
 }, () => {
 	test.beforeAll(async function ({ app }) {
 		// Need to make console bigger to see all bar buttons
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
 	});
 
-	test('R - Verify cat from .Rprofile', {
-		tag: [tags.WIN]
-	}, async function ({ app, r }) {
+	test('R - Verify cat from .Rprofile', async function ({ app, r }) {
 		await expect(async () => {
 			await app.workbench.console.waitForConsoleContents('cat from .Rprofile');
 		}).toPass();
 	});
 
-	test('R - Verify cancel button on console bar', {
-		tag: [tags.WIN]
-	}, async function ({ app, r }) {
+	test('R - Verify cancel button on console bar', async function ({ app, r }) {
 
 		await app.workbench.console.pasteCodeToConsole('Sys.sleep(10)');
 		await app.workbench.console.sendEnterKey();
@@ -35,9 +31,7 @@ test.describe('Console Pane: R', {
 		// nothing appears in console after interrupting execution
 	});
 
-	test('R - Verify password prompt', {
-		tag: [tags.WIN]
-	}, async function ({ app, r }) {
+	test('R - Verify password prompt', async function ({ app, r }) {
 
 		await app.workbench.console.pasteCodeToConsole('out <- rstudioapi::askForPassword("enter password")', true);
 
@@ -53,6 +47,16 @@ test.describe('Console Pane: R', {
 		}).toPass({ timeout: 20000 });
 
 		await app.workbench.layouts.enterLayout('stacked');
+	});
+
+	test('R - Verify console commands are queued during execution', async function ({ app, r }) {
+		await app.workbench.console.pasteCodeToConsole('123 + 123');
+		await app.workbench.console.executeCode('R', '456 + 456');
+
+		await app.workbench.console.waitForConsoleContents('912', { expectedCount: 1, timeout: 10000 });
+		await app.workbench.console.waitForConsoleContents('123 + 123', { expectedCount: 1, timeout: 10000 });
+		await app.workbench.console.waitForConsoleContents('246', { expectedCount: 0, timeout: 5000 });
+
 	});
 });
 

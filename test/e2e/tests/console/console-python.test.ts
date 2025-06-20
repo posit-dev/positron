@@ -22,6 +22,17 @@ test.describe('Console Pane: Python', { tag: [tags.WEB, tags.CONSOLE, tags.WIN] 
 		await app.workbench.console.executeCode('Python', 'time.sleep(10)', { waitForReady: false });
 		await app.workbench.console.interruptExecution();
 	});
+
+	test('Python - Verify console commands are queued during execution', async function ({ app, python }) {
+		await app.workbench.console.pasteCodeToConsole('123 + 123');
+		await app.workbench.console.executeCode('Python', '456 + 456');
+
+		await app.workbench.console.waitForConsoleContents('912', { expectedCount: 1, timeout: 10000 });
+		await app.workbench.console.waitForConsoleContents('123 + 123', { expectedCount: 1, timeout: 10000 });
+		await app.workbench.console.waitForConsoleContents('246', { expectedCount: 0, timeout: 5000 });
+
+	});
+
 });
 
 // This nesting is necessary because the settings fixture must be used in a

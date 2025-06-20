@@ -155,6 +155,7 @@ export interface MainThreadAiFeaturesShape {
 	$getSupportedProviders(): Thenable<string[]>;
 	$addLanguageModelConfig(source: IPositronLanguageModelSource): void;
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
+	$areCompletionsEnabled(file: UriComponents): Thenable<boolean>;
 }
 
 export interface ExtHostAiFeaturesShape {

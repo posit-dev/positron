@@ -2113,5 +2113,12 @@ declare module 'positron' {
 			variables?: RuntimeVariable[];
 			shell?: string;
 		}
+
+		/**
+		 * Checks the file for exclusion from AI completion.
+		 * @param file The file to check for exclusion.
+		 * @returns A Thenable that resolves to true if the file should be excluded, false otherwise.
+		 */
+		export function areCompletionsEnabled(file: vscode.Uri): Thenable<boolean>;
 	}
 }
