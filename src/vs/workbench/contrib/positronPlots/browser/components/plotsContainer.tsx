@@ -39,7 +39,6 @@ interface PlotContainerProps {
 	visible: boolean;
 	showHistory: boolean;
 	darkFilterMode: DarkFilter;
-	zoom: number;
 }
 
 /**
