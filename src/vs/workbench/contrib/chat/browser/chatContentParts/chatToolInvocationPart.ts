@@ -447,7 +447,9 @@ class ChatToolInvocationSubPart extends Disposable {
 		// --- Start Positron ---
 		// Pass a resource with a custom scheme so that language packs can ignore these code blocks.
 		// See: https://github.com/posit-dev/positron/issues/7750.
-		// const model = this.modelService.createModel(terminalData.command, this.languageService.createById(langId));
+		/*
+		const model = this.modelService.createModel(terminalData.command, this.languageService.createById(langId));
+		*/
 		const resource = URI.from({
 			scheme: 'assistant-code-confirmation-widget',
 			path: generateUuid(),
