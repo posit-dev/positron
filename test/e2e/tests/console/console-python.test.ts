@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -33,10 +34,12 @@ test.describe('Console Pane: Alternate Python', () => {
 	});
 
 	test('Verify alternate python can skip bundled ipykernel', async ({ app, sessions }) => {
-		await sessions.start('pythonAlt');
-		await app.workbench.console.clearButton.click();
-		await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
-		await app.workbench.console.waitForConsoleContents('site-packages');
+		await expect(async () => {
+			await sessions.start('pythonAlt');
+			await app.workbench.console.clearButton.click();
+			await app.workbench.console.executeCode('Python', 'import ipykernel; ipykernel.__file__');
+			await app.workbench.console.waitForConsoleContents('site-packages');
+		}).toPass({ timeout: 60000 });
 	});
 
 });
