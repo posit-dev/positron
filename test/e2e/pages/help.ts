@@ -23,6 +23,16 @@ export class Help {
 
 	constructor(private code: Code) { }
 
+	async openHelpPanel(): Promise<void> {
+		await this.code.driver.page.locator('.action-label[aria-label="Help"]').click();
+	}
+
+	async getHelpWelcomePageFrame() {
+		const outerFrame = this.code.driver.page.locator(OUTER_FRAME).first().contentFrame();
+		const innerInnerFrame = outerFrame.frameLocator(MIDDLE_FRAME);
+		return innerInnerFrame;
+	}
+
 	async getHelpFrame(nth: number): Promise<FrameLocator> {
 		const outerFrame = this.code.driver.page.locator(OUTER_FRAME).nth(nth).contentFrame();
 		const innerFrame = outerFrame.frameLocator(MIDDLE_FRAME);
