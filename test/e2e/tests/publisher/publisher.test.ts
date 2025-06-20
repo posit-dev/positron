@@ -46,7 +46,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await app.workbench.quickInput.type(`${process.env.E2E_CONNECT_SERVER}`);
 			await page.keyboard.press('Enter');
 			await app.workbench.quickInput.waitForQuickInputClosed();
-			await app.code.wait(5000);
+			await app.code.wait(20000);
 			const screenshot = await page.screenshot();
 			await testInfo.attach('API check failed screenshot', {
 				body: screenshot,
