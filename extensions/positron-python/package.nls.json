@@ -110,27 +110,18 @@
     "python.installModulesInTerminal.description": "Whether to install Python modules (such as `ipykernel`) in the Terminal, instead of in a background process. Installing modules in the Terminal allows you to see the output of the installation command.",
     "python.useBundledIpykernel.description": "Whether to prepend the bundled `ipykernel` (and its dependencies) to the Python search path for supported interpreters. When enabled, a bundled ipykernel installation will be used instead of any existing version in the active environment.\n\nRestart Positron for this setting to take effect.",
     "python.enableAutoReload.description": "Whether to enable module hot-reloading in Python console sessions. When enabled, modules that are imported in the console will be automatically reloaded when they are modified on disk. This automatically invokes [IPython's `autoreload` extension](https://ipython.readthedocs.io/en/stable/config/extensions/autoreload.html).\n\nOnly applies to new console sessions.",
-    
-    
     "walkthrough.positron.pythonWelcome.title": "Getting Started with Python in Positron",
     "walkthrough.positron.pythonWelcome.description": "Learn more about the Python experience in Positron.",
-    
-    "walkthrough.positron.step.python.autoReload.title": "Autoreloaded modules",
-    "walkthrough.positron.step.python.autoReload.description": "Enable or disable automatic reloading of Python modules in console sessions.",
-    
-    "walkthrough.positron.step.python.bundledExtensions.title": "Search Built-in extensions",
-    "walkthrough.positron.step.python.bundledExtensions.description": "Search for the built-in Python extension in the [Extensions view](command:workbench.view.extensions) and install it.",
-    
-    "walkthrough.positron.step.python.bundleIpykernel.title": "IPykernel Usage",
-    "walkthrough.positron.step.python.bundleIpykernel.description": "Learn how to configure Positron to use a custom ipykernel installation for advanced usage.",
-    
-    "walkthrough.positron.step.python.interpreterManagement.title": "Using Python interpreters",
-    "walkthrough.positron.step.python.interpreterManagement.description": "Discover, select, and manage Python interpreters in Positron.",
-    
+    "walkthrough.positron.step.python.autoReload.title": "Configure your console with autoreload",
+    "walkthrough.positron.step.python.autoReload.description": "Enable or disable automatic reloading of Python modules in console sessions.\n[Enable module autoreloading](command:python.walkthrough.autoreload)",
+    "walkthrough.positron.step.python.bundledExtensions.title": "Search built-in extensions",
+    "walkthrough.positron.step.python.bundledExtensions.description": "Understand the extensions already included in Positron.\n[Search for extensions](command:workbench.extensions.action.focusExtensionsView)",
+    "walkthrough.positron.step.python.bundleIpykernel.title": "Customize your console kernel",
+    "walkthrough.positron.step.python.bundleIpykernel.description": "Use a custom `ipykernel` installation in your Console session.\n[Choose your ipykernel usage](command:python.walkthrough.bundledIpykernel)",
+    "walkthrough.positron.step.python.interpreterManagement.title": "Select a Python interpreter",
+    "walkthrough.positron.step.python.interpreterManagement.description": "Discover, select, and manage Python interpreters in Positron.\n[Select an interpreter](command:workbench.action.language.runtime.selectSession)",
     "walkthrough.positron.step.python.panes.title": "Get to know the Positron UI",
     "walkthrough.positron.step.python.panes.description": "Find your way around the panes and layout of Positron\n[Customize your layout](command:workbench.action.customizeLayout)",
-    
-    
     "walkthrough.pythonWelcome.title": "Get Started with Python Development",
     "walkthrough.pythonWelcome.description": "Your first steps to set up a Python project with all the powerful tools and features that the Python extension has to offer!",
      "walkthrough.step.python.createPythonFile.title": "Create a Python file",

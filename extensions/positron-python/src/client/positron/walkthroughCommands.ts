@@ -4,11 +4,20 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 
-export async function registerWalkthroughCommands(context: vscode.ExtensionContext, runtimeManager: RRuntimeManager) {
-    context.subscriptions.push(
+export async function activateWalkthroughCommands(disposables: vscode.Disposable[]) {
+    disposables.push(
         // Commands used in walkthrough
         vscode.commands.registerCommand('python.walkthrough.autoreload', async () => {
             vscode.commands.executeCommand('workbench.action.openSettings', 'python.enableAutoReload');
+        }),
+        vscode.commands.registerCommand('python.walkthrough.bundledIpykernel', async () => {
+            vscode.commands.executeCommand('workbench.action.openSettings', 'python.useBundledIpykernel');
+        }),
+        vscode.commands.registerCommand('python.walkthrough.interpreterInclude', async () => {
+            vscode.commands.executeCommand('workbench.action.openSettings', 'python.interpreters.include');
+        }),
+        vscode.commands.registerCommand('python.walkthrough.interpreterExclude', async () => {
+            vscode.commands.executeCommand('workbench.action.openSettings', 'python.interpreters.exclude');
         }),
     );
 }
