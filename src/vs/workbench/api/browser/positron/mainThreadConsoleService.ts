@@ -7,29 +7,11 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ExtHostConsoleServiceShape, ExtHostPositronContext, MainPositronContext, MainThreadConsoleServiceShape } from '../../common/positron/extHost.positron.protocol.js';
 import { extHostNamedCustomer, IExtHostContext } from '../../../services/extensions/common/extHostCustomers.js';
 import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { MainThreadConsole } from './mainThreadConsole.js';
-import { dispose } from '../../../../base/common/lifecycle.js';
 
 @extHostNamedCustomer(MainPositronContext.MainThreadConsoleService)
 export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 
 	private readonly _disposables = new DisposableStore();
-
-	/**
-	 * A Map from session id to the respective console.
-	 * Each session id maps to a single console.
-	 * Multiple sessions could map to the same console, this happens
-	 * when a user power-cycles the session for a console instance
-	 * (i.e. shutdown session for console instance, then start a session for console instance)
-	 *
-	 * Kept in sync with consoles in `ExtHostConsoleService`
-	 */
-	private readonly _mainThreadConsolesBySessionId = new Map<string, MainThreadConsole>();
-
-	/**
-	 * A Map from language id to the active console session id for that language.
-	 */
-	private readonly _activeSessionIdsByLanguage = new Map<string, string>();
 
 	private readonly _proxy: ExtHostConsoleServiceShape;
 
@@ -48,44 +30,17 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 				this._proxy.$onDidChangeConsoleWidth(newWidth);
 			}));
 
-		// Forward new positron console session id to the extension host, and then register it
-		// in the main thread too
+		// Forward new positron console session id to the extension host
 		this._disposables.add(
 			this._positronConsoleService.onDidStartPositronConsoleInstance((console) => {
-				const sessionId = console.sessionMetadata.sessionId;
-
-				// First update ext host
-				this._proxy.$addConsole(sessionId);
-
-				// Then update main thread
-				this.addConsole(sessionId, console);
+				this._proxy.$onDidStartPositronConsoleInstance(console.sessionMetadata.sessionId);
 			})
 		);
 
+		// Forward deleted positron console session id to the extension host
 		this._disposables.add(
 			this._positronConsoleService.onDidDeletePositronConsoleInstance((console) => {
-				const sessionId = console.sessionMetadata.sessionId;
-
-				// First update ext host
-				this._proxy.$deleteConsole(sessionId);
-
-				// Then update main thread
-				this.deleteConsole(sessionId);
-			})
-		)
-
-		this._disposables.add(
-			this._positronConsoleService.onDidChangeActivePositronConsoleInstance((console) => {
-				if (!console) {
-					// No console is active currently. Nothing for us to update.
-					// We only remove active session ids on console deletion.
-					return;
-				}
-
-				const languageId = console.runtimeMetadata.languageId;
-				const sessionId = console.sessionMetadata.sessionId;
-
-				this._activeSessionIdsByLanguage.set(languageId, sessionId);
+				this._proxy.$onDidDeletePositronConsoleInstance(console.sessionMetadata.sessionId);
 			})
 		)
 	}
@@ -94,24 +49,8 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		this._disposables.dispose();
 	}
 
-	private addConsole(sessionId: string, console: IPositronConsoleInstance) {
-		const mainThreadConsole = new MainThreadConsole(console);
-		this._mainThreadConsolesBySessionId.set(sessionId, mainThreadConsole);
-	}
-
-	private deleteConsole(sessionId: string) {
-		const mainThreadConsole = this._mainThreadConsolesBySessionId.get(sessionId);
-		this._mainThreadConsolesBySessionId.delete(sessionId);
-		dispose(mainThreadConsole);
-
-		// Removing the console implies it is no longer active for that language, so remove it from
-		// `this._activeSessionIdsByLanguage` as well.
-		for (const [entryLanguageId, entrySessionId] of this._activeSessionIdsByLanguage.entries()) {
-			if (sessionId === entrySessionId) {
-				this._activeSessionIdsByLanguage.delete(entryLanguageId);
-				break;
-			}
-		}
+	private getConsoleForSessionId(sessionId: string): IPositronConsoleInstance | undefined {
+		return this._positronConsoleService.positronConsoleInstances.find((console) => console.sessionMetadata.sessionId === sessionId);
 	}
 
 	// --- from extension host process
@@ -120,34 +59,13 @@ export class MainThreadConsoleService implements MainThreadConsoleServiceShape {
 		return Promise.resolve(this._positronConsoleService.getConsoleWidth());
 	}
 
-	/**
-	 * Get the session id of the active console for a particular language id
-	 *
-	 * @param languageId The language id to find a session id for.
-	 */
-	$getActiveSessionIdForLanguage(languageId: string): Promise<string | undefined> {
-		const sessionId = this._activeSessionIdsByLanguage.get(languageId);
+	$pasteText(sessionId: string, text: string): void {
+		const console = this.getConsoleForSessionId(sessionId);
 
-		if (!sessionId) {
-			return Promise.resolve(undefined);
-		}
-
-		// Double check that we know about this console on the main thread side, for added safety.
-		// If we don't, something is probably out of sync.
-		if (!this._mainThreadConsolesBySessionId.get(sessionId)) {
-			return Promise.resolve(undefined);
-		}
-
-		return Promise.resolve(sessionId);
-	}
-
-	$tryPasteText(sessionId: string, text: string): void {
-		const mainThreadConsole = this._mainThreadConsolesBySessionId.get(sessionId);
-
-		if (!mainThreadConsole) {
+		if (!console) {
 			return;
 		}
 
-		mainThreadConsole.pasteText(text);
+		console.pasteText(text);
 	}
 }

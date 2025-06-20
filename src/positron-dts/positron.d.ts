@@ -1529,14 +1529,14 @@ declare module 'positron' {
 			okButtonTitle?: string): Thenable<null>;
 
 		/**
-		 * Get the active `Console` for a runtime `languageId`
+		 * Get the `positron.Console` that is tied to this `sessionId`
 		 *
-		 * @param languageId The runtime language id to retrieve a `Console` for, i.e. 'r' or 'python'.
+		 * @param sessionId The session id to retrieve a `positron.Console` for.
 		 *
 		 * @returns A Thenable that resolves to a `Console` or `undefined` if no `Console` for
-		 *   that `languageId` exists.
+		 *   that `sessionId` exists.
 		 */
-		export function getActiveConsoleForLanguage(languageId: string): Thenable<Console | undefined>;
+		export function getConsoleForSessionId(sessionId: string): Thenable<Console | undefined>;
 
 		/**
 		 * Fires when the width of the console input changes. The new width is passed as

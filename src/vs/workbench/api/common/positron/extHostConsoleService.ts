@@ -18,8 +18,6 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	 * Multiple sessions could map to the same console, this happens
 	 * when a user power-cycles the session for a console instance
 	 * (i.e. shutdown session for console instance, then start a session for console instance)
-	 *
-	 * Kept in sync with consoles in `MainThreadConsoleService`
 	 */
 	private readonly _extHostConsolesBySessionId = new Map<string, ExtHostConsole>();
 
@@ -46,28 +44,17 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	}
 
 	/**
-	 * Queries the main thread for the active console that aligns with this
-	 * `languageId`.
+	 * Get the `positron.Console` that is tied to this `sessionId`
 	 *
-	 * @param languageId The language id to find a console for.
+	 * @param sessionId The session id to retrieve a `positron.Console` for.
 	 * @returns A promise that resolves to a `positron.Console` or `undefined`
 	 * if no console can be found.
 	 */
-	async getActiveConsoleForLanguage(languageId: string): Promise<positron.Console | undefined> {
-		const sessionId = await this._proxy.$getActiveSessionIdForLanguage(languageId);
-
-		if (!sessionId) {
-			// Main thread says there is no active `sessionId` for this `languageId`
-			return undefined;
-		}
-
-		// Now find the console on the extension host side
+	async getConsoleForSessionId(sessionId: string): Promise<positron.Console | undefined> {
 		const extHostConsole = this._extHostConsolesBySessionId.get(sessionId);
 
 		if (!extHostConsole) {
 			// Extension host says there is no console for this `sessionId`
-			// (Should be extremely rare, if not impossible, for main thread and extension host to
-			// be out of sync here)
 			return undefined;
 		}
 
@@ -83,13 +70,13 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	}
 
 	// Called when a new console instance is started
-	$addConsole(sessionId: string): void {
+	$onDidStartPositronConsoleInstance(sessionId: string): void {
 		const extHostConsole = new ExtHostConsole(sessionId, this._proxy, this._logService);
 		this._extHostConsolesBySessionId.set(sessionId, extHostConsole);
 	}
 
 	// Called when a console instance is deleted
-	$deleteConsole(sessionId: string): void {
+	$onDidDeletePositronConsoleInstance(sessionId: string): void {
 		const extHostConsole = this._extHostConsolesBySessionId.get(sessionId);
 		this._extHostConsolesBySessionId.delete(sessionId);
 		// "Dispose" of an `ExtHostConsole`, ensuring that future API calls warn / error
