@@ -16,7 +16,7 @@ import { AvailableForDownload, DisablementReason, IUpdateService, State, StateTy
 
 //--- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { asJson } from '../../request/common/request.js';
+import { asJson, asText } from '../../request/common/request.js';
 // eslint-disable-next-line no-duplicate-imports
 import { IUpdate } from '../common/update.js';
 import { hasUpdate } from '../electron-main/positronVersion.js';
@@ -221,6 +221,27 @@ export abstract class AbstractUpdateService implements IUpdateService {
 				const message: string | undefined = !!explicit ? (err.message || err) : undefined;
 				this.setState(State.Idle(this.getUpdateType(), message));
 			});
+	}
+
+	/**
+	 * Fetches the release notes for the current version of Positron.
+	 *
+	 * This is done in the update service because the ReleaseNotesManager is at the workbench level,
+	 * which would encounter a CORS error when trying to fetch the release notes.
+	 *
+	 * @returns the release notes as a string
+	 */
+	async getReleaseNotes(): Promise<string> {
+		const url = `${this.productService.releaseNotesUrl}/releases/release-notes/release.md`;
+		const releaseNotesResponse = await this.requestService.request({ url }, CancellationToken.None);
+		if (releaseNotesResponse.res.statusCode !== 200) {
+			throw new Error(`Failed to fetch release notes: ${releaseNotesResponse.res.statusCode}`);
+		}
+		const releaseNotesText = await asText(releaseNotesResponse);
+		if (!releaseNotesText) {
+			throw new Error('Release notes are empty');
+		}
+		return releaseNotesText;
 	}
 	// --- End Positron ---
 
