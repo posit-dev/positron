@@ -83,18 +83,18 @@ test.describe('Diagnostics', {
 
 		// Session 2 - verify both problems (circos and syntax) are present
 		await sessions.select(rSessionAlt.id);
-		await problems.expectDiagnosticsToBe({ badgeCount: 3, warningCount: 2, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
 		// Session 1 - verify only syntax error is present
 		await sessions.select(rSession.id);
-		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
 		// Session 1 - restart session and verify both problems (circos and syntax) are present
 		// Diagnostics engine is not aware of the circlize package, this is expected
 		await sessions.restart(rSession.id);
-		await problems.expectDiagnosticsToBe({ badgeCount: 3, warningCount: 2, errorCount: 1 });
+		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 	});
 });

@@ -2551,8 +2551,8 @@ def test_pandas_profile_summary_stats(dxf: DataExplorerFixture):
             # decimal
             "f12": [
                 Decimal("1.5"),
-                Decimal("2"),
-                Decimal("2"),
+                Decimal(2),
+                Decimal(2),
                 None,
                 Decimal("3.5"),
             ]

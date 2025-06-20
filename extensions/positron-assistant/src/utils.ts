@@ -339,3 +339,16 @@ export function isTextEditRequest(request: vscode.ChatRequest):
 	request is vscode.ChatRequest & { location2: vscode.ChatRequestEditorData } {
 	return request.location2 instanceof vscode.ChatRequestEditorData;
 }
+
+/**
+ * Convert a URI to a string suitable for language models.
+ *
+ * Currently, file URIs are converted to workspace-relative paths and
+ * other URIs are converted to their string representation.
+ */
+export function uriToString(uri: vscode.Uri): string {
+	if (uri.scheme === 'file') {
+		return vscode.workspace.asRelativePath(uri);
+	}
+	return uri.toString();
+}
