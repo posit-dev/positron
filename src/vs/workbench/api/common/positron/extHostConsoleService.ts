@@ -19,6 +19,15 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	 * when a user power-cycles the session for a console instance
 	 * (i.e. shutdown session for console instance, then start a session for console instance)
 	 */
+	// TODO!: This doesn't survive a browser reload, and we don't really have a good way
+	// to revive it. We want to make sure of two things:
+	// - If a console is deleted, we update any existing handles to a `positron.Console` to
+	//   ensure that it looks disposed and warns on any API usage
+	// - If the window is reloaded, we need to be able to still look up the console for
+	//   a valid sessionId. The positron console service seems to maintain an up to date
+	//   set of consoles, and is probably our source of truth.
+	// Is it even possible to hand out a `positron.Console` that survives a browser reload?
+	// Or should this be more of an `executeCode()`-like API that works off a `sessionId`?
 	private readonly _extHostConsolesBySessionId = new Map<string, ExtHostConsole>();
 
 	private readonly _onDidChangeConsoleWidth = new Emitter<number>();
