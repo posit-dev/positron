@@ -734,10 +734,11 @@ class VariablesService:
         if not _value_type_is_supported(value):
             raise ValueError(f"Variable at '{path}' is not supported for summary")
 
-        # Create a temporary table view without a comm
-        temp_state = DataExplorerState("temp_summary")
         try:
-            table_view = _get_table_view(value, None, temp_state, self.kernel.job_queue)
+            # Create a temporary table view with a temporary comm
+            temp_state = DataExplorerState("temp_summary")
+            temp_comm = PositronComm.create(target_name="temp_summary", comm_id="temp_summary_comm")
+            table_view = _get_table_view(value, temp_comm, temp_state, self.kernel.job_queue)
         except Exception as e:
             raise ValueError(f"Failed to create table view: {e}") from e
 
