@@ -1,5 +1,5 @@
-Interpreters are the Python environments that Positron uses to run your code.
-You can select a specific interpreter for your project, which allows you to use different versions of Python or different sets of installed packages.
+Interpreters are the Python runtimes that Positron uses to run your code.
+Your interpreter can be a virtual environment such as `venv`, `conda`, or `pyenv`, or another Python installation.
 
 A few common tasks you might want to do with interpreters include:
 - **Select an interpreter**: You can select a specific interpreter for your project by using the command [Python: Select Interpreter](command:workbench.action.language.runtime.selectSession). This will show you a list of available interpreters, and you can choose the one you want to use.
