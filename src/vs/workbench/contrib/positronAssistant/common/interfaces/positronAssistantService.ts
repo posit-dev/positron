@@ -7,7 +7,7 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { Event } from '../../../../../base/common/event.js';
 import { ChatAgentLocation } from '../../../chat/common/constants.js';
 import { Variable } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
-import { UriComponents } from '../../../../../base/common/uri.js';
+import { URI, UriComponents } from '../../../../../base/common/uri.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
@@ -130,6 +130,13 @@ export interface IPositronAssistantService {
 	 * Remove a language model configuration.
 	 */
 	removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
+
+	/**
+	 * Check if a file should be excluded from AI completions.
+	 * @param uri The URI of the file to check.
+	 * @returns True if the file should be excluded from the Positron Assistant, false otherwise.
+	 */
+	areCompletionsEnabled(uri: URI): boolean;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronAssistantService.

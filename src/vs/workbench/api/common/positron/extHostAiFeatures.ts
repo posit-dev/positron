@@ -100,4 +100,8 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
 		this._proxy.$removeLanguageModelConfig(source);
 	}
+
+	async areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
+		return this._proxy.$areCompletionsEnabled(file);
+	}
 }

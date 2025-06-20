@@ -137,6 +137,14 @@
             "type": "boolean",
             "default": true,
             "description": "%configuration.streamingEdits.enable%"
+          },
+          "positron.assistant.inlineCompletionExcludes": {
+            "type": "array",
+            "default": ["**/.*"],
+            "markdownDescription": "%configuration.inlineCompletionExcludes.description%",
+            "items": {
+              "type": "string"
+            }
           }
         }
       }
