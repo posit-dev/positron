@@ -473,7 +473,6 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 
 	set zoomLevel(level: ZoomLevel) {
 		if (this.metadata.zoom_level !== level) {
-			this.metadata.zoom_level = level;
 			this._zoomLevelEmitter.fire(level);
 		}
 	}

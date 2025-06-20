@@ -62,7 +62,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 	private readonly _onFocusedEmitter = this._register(new Emitter<void>());
 	private _plotClient: IPositronPlotClient | undefined;
-	_zoomContextKey: IContextKey<string>;
+	private _zoomContextKey: IContextKey<string>;
 
 	get identifier(): string | undefined {
 		return this._identifier;
@@ -191,14 +191,14 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		}
 
 		this.renderContainer(this._plotClient);
-		this.onSizeChanged((event: ISize) => {
+		this._register(this.onSizeChanged((event: ISize) => {
 			this._height = event.height;
 			this._width = event.width;
 
 			if (this._plotClient) {
 				this.renderContainer(this._plotClient);
 			}
-		});
+		}));
 	}
 
 	override layout(dimension: DOM.Dimension): void {

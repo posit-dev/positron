@@ -181,7 +181,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 				width={width}
 				x={posX}
 				y={posY}
-				zoom={zoom} />
+			/>
 		</PositronPlotsContextProvider>
 	);
 

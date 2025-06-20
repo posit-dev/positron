@@ -915,7 +915,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 				StorageScope.WORKSPACE);
 		}));
 		this._register(plot.onDidChangeZoomLevel((zoomLevel) => {
-			// Store the zoom level in the plot metadata
+			// Update the stored metadata with the new zoom level
+			plot.metadata.zoom_level = zoomLevel;
 			this.storePlotMetadata(plot.metadata);
 		}));
 		this._editorPlots.set(metadata.id, plot);
