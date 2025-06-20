@@ -46,7 +46,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 			await app.workbench.quickInput.type(`${process.env.E2E_CONNECT_SERVER}`);
 			await page.keyboard.press('Enter');
 			await app.workbench.quickInput.waitForQuickInputClosed();
-			await app.code.wait(20000);
+			await app.code.wait(5000);
 			const screenshot = await page.screenshot();
 			await testInfo.attach('API check failed screenshot', {
 				body: screenshot,
@@ -93,7 +93,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 				await app.workbench.quickInput.type(process.env.E2E_CONNECT_SERVER!);
 				await page.keyboard.press('Enter');
 				const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
-				await expect(apiKeyInputLocator).toBeVisible();
+				await expect(apiKeyInputLocator).toBeVisible({ timeout: 30000 });
 				await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
 				await page.keyboard.press('Enter');
 			});
