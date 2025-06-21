@@ -1610,6 +1610,12 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				const query = `CREATE OR REPLACE TABLE ${catalogName} AS
 				SELECT * FROM parquet_scan('${virtualPath}');`;
 				await this.db.runQuery(query);
+			} else if (baseExt === '.xlsx') {
+				await this.db.runQuery('INSTALL excel FROM core_nightly;');
+				await this.db.runQuery('LOAD excel;');
+				await this.db.runQuery(
+					`CREATE OR REPLACE TABLE ${catalogName} AS SELECT * FROM read_xlsx('${virtualPath}');`
+				);
 			} else {
 				await importDelimited(virtualPath);
 			}
