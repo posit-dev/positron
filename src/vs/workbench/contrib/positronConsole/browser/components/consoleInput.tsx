@@ -1032,8 +1032,8 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// Trim the code
 			const trimmedCode = code.trim();
 
-			// If the code isn't empty and run interactively, add it to the history.
-			if (trimmedCode.length && mode === RuntimeCodeExecutionMode.Interactive) {
+			// If the code isn't empty and run interactively or non-interactively, add it to the history.
+			if (trimmedCode.length && (mode === RuntimeCodeExecutionMode.Interactive || mode === RuntimeCodeExecutionMode.NonInteractive)) {
 				// Creates an IInputHistoryEntry.
 				const createInputHistoryEntry = (): IInputHistoryEntry => ({
 					when: new Date().getTime(),
