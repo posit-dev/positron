@@ -13,6 +13,7 @@ import { getIpykernelBundle } from './ipykernel';
 import { InstallOptions } from '../common/installer/types';
 import { activateAppDetection as activateWebAppDetection } from './webAppContexts';
 import { activateWebAppCommands } from './webAppCommands';
+import { activateWalkthroughCommands } from './walkthroughCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
 import { registerLanguageServerManager } from './languageServerManager';
 
@@ -89,6 +90,9 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
 
         // Activate web application commands.
         activateWebAppCommands(serviceContainer, disposables);
+
+        // Activate walkthrough commands.
+        activateWalkthroughCommands(disposables);
 
         // Register the language server manager to support multiple console sessions.
         registerLanguageServerManager(serviceContainer, disposables);
