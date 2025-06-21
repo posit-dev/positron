@@ -5,7 +5,7 @@
 
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
-import { IPositronPlotClient } from '../../common/positronPlots.js';
+import { IPositronPlotClient, ZoomLevel } from '../../common/positronPlots.js';
 import { IPositronPlotMetadata } from '../../../languageRuntime/common/languageRuntimePlotClient.js';
 
 /**
@@ -24,7 +24,8 @@ export class TestPositronPlotClient extends Disposable implements IPositronPlotC
 			session_id: 'test-session',
 			created: Date.now(),
 			parent_id: '',
-			code: 'test code'
+			code: 'test code',
+			zoom_level: ZoomLevel.Fit,
 		}
 	) {
 		super();

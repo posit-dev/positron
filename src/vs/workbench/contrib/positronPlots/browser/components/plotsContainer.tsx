@@ -39,7 +39,6 @@ interface PlotContainerProps {
 	visible: boolean;
 	showHistory: boolean;
 	darkFilterMode: DarkFilter;
-	zoom: number;
 }
 
 /**
@@ -180,12 +179,12 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				height={plotHeight}
 				plotClient={plotInstance}
 				width={plotWidth}
-				zoom={props.zoom} />;
+				zoom={plotInstance.zoomLevel} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={plotInstance.id}
 				plotClient={plotInstance}
-				zoom={props.zoom} />;
+				zoom={plotInstance.zoomLevel} />;
 		} else if (plotInstance instanceof WebviewPlotClient) {
 			return <WebviewPlotInstance
 				key={plotInstance.id}

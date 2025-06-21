@@ -9,18 +9,18 @@ import { localize, localize2 } from '../../../../nls.js';
 import { ILocalizedString } from '../../../../platform/action/common/action.js';
 import { Action2, IAction2Options, MenuId } from '../../../../platform/actions/common/actions.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IQuickInputService, IQuickPick, IQuickPickItem } from '../../../../platform/quickinput/common/quickInput.js';
-import { PLOT_IS_ACTIVE_EDITOR, POSITRON_EDITOR_PLOTS } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
+import { PLOT_IS_ACTIVE_EDITOR } from '../../positronPlotsEditor/browser/positronPlotsEditor.contribution.js';
 import { PositronPlotsEditorInput } from '../../positronPlotsEditor/browser/positronPlotsEditorInput.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
+import { URI } from '../../../../base/common/uri.js';
+import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextkey.js';
 
 export enum PlotActionTarget {
 	VIEW = 'view',
@@ -67,14 +67,11 @@ abstract class AbstractPlotsAction extends Action2 {
 		const plotsService = accessor.get(IPositronPlotsService);
 		const notificationService = accessor.get(INotificationService);
 		const editorService = accessor.get(IEditorService);
-		const configurationService = accessor.get(IConfigurationService);
 		this.quickPickService = accessor.get(IQuickInputService);
-
-		const editorPlotsEnabled = Boolean(configurationService.getValue(POSITRON_EDITOR_PLOTS));
 
 		const quickPickItems = this.getItems(plotsService, editorService);
 		// no need to show the quick pick if there is only one option or editor plots are disabled
-		if (quickPickItems.length === 1 || !editorPlotsEnabled) {
+		if (quickPickItems.length === 1) {
 			this.executeQuickPick(quickPickItems[0], plotsService, editorService, notificationService);
 			return;
 		}
@@ -422,7 +419,6 @@ export class PlotsEditorAction extends Action2 {
 			title: localize2('positronPlots.openEditor', 'Open Plot in Editor Tab'),
 			category,
 			f1: true,
-			precondition: ContextKeyExpr.equals(`config.${POSITRON_EDITOR_PLOTS}`, true),
 		});
 	}
 
@@ -458,12 +454,12 @@ export class PlotsActiveEditorCopyAction extends Action2 {
 			precondition: PLOT_IS_ACTIVE_EDITOR,
 			menu: [
 				{
-					id: MenuId.EditorTitle,
+					id: MenuId.EditorActionsLeft,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 2,
 				}
-			]
+			],
 		});
 	}
 
@@ -495,7 +491,7 @@ export class PlotsActiveEditorSaveAction extends Action2 {
 			precondition: PLOT_IS_ACTIVE_EDITOR,
 			menu: [
 				{
-					id: MenuId.EditorTitle,
+					id: MenuId.EditorActionsLeft,
 					when: PLOT_IS_ACTIVE_EDITOR,
 					group: 'navigation',
 					order: 1,
@@ -629,5 +625,160 @@ export class PlotsSizingPolicyAction extends AbstractPlotsAction {
 
 	protected override plotActionFilter(plotClient: IPositronPlotClient): boolean {
 		return plotClient instanceof PlotClientInstance;
+	}
+}
+
+export abstract class PlotsEditorZoomAction extends Action2 {
+	static readonly SUBMENU_ID = MenuId.for('positronPlots.zoomSubmenu');
+	static readonly ZOOM_LEVEL_CONTEXT_KEY = 'positronPlotsEditorZoomLevel';
+
+	abstract zoomLevel: ZoomLevel;
+
+	constructor(descriptor: IAction2Options) {
+		super(descriptor);
+	}
+
+	/**
+	 * Runs the action and zooms the plot to fit the editor.
+	 *
+	 * @param accessor The service accessor.
+	 * @param plotId The plot ID to zoom.
+	 */
+	async run(accessor: ServicesAccessor, plotId: URI): Promise<void> {
+		const plotsService = accessor.get(IPositronPlotsService);
+		const plotInstance = plotsService.getEditorInstance(plotId.path);
+		if (isZoomablePlotClient(plotInstance)) {
+			plotInstance.zoomLevel = this.zoomLevel;
+		}
+	}
+}
+
+export class ZoomToFitAction extends PlotsEditorZoomAction {
+	override zoomLevel = ZoomLevel.Fit;
+	static ID = 'workbench.action.positronPlots.zoomToFit';
+
+	constructor() {
+		super({
+			id: ZoomToFitAction.ID,
+			title: localize2('positronPlots.zoomToFit', 'Fit'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.Fit.toString()),
+			},
+			menu: [
+				{
+					id: PlotsEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 1,
+				}
+			],
+		});
+	}
+}
+
+export class ZoomFiftyAction extends PlotsEditorZoomAction {
+	override zoomLevel = ZoomLevel.Fifty;
+	static ID = 'workbench.action.positronPlots.zoomFifty';
+
+	constructor() {
+		super({
+			id: ZoomFiftyAction.ID,
+			title: localize2('positronPlots.zoomFifty', '50%'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.Fifty.toString()),
+			},
+			menu: [
+				{
+					id: PlotsEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 2,
+				}
+			],
+		});
+	}
+}
+
+export class ZoomSeventyFiveAction extends PlotsEditorZoomAction {
+	override zoomLevel = ZoomLevel.SeventyFive;
+	static ID = 'workbench.action.positronPlots.zoomSeventyFive';
+
+	constructor() {
+		super({
+			id: ZoomSeventyFiveAction.ID,
+			title: localize2('positronPlots.zoomSeventyFive', '75%'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.SeventyFive.toString()),
+			},
+			menu: [
+				{
+					id: PlotsEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 3,
+				}
+			],
+		});
+	}
+}
+
+export class ZoomOneHundredAction extends PlotsEditorZoomAction {
+	override zoomLevel = ZoomLevel.OneHundred;
+	static ID = 'workbench.action.positronPlots.zoomOneHundred';
+
+	constructor() {
+		super({
+			id: ZoomOneHundredAction.ID,
+			title: localize2('positronPlots.zoomOneHundred', '100%'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.OneHundred.toString()),
+			},
+			menu: [
+				{
+					id: PlotsEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 4,
+				}
+			],
+		});
+	}
+}
+
+export class ZoomTwoHundredAction extends PlotsEditorZoomAction {
+	override zoomLevel = ZoomLevel.TwoHundred;
+	static ID = 'workbench.action.positronPlots.zoomTwoHundred';
+
+	constructor() {
+		super({
+			id: ZoomTwoHundredAction.ID,
+			title: localize2('positronPlots.zoomTwoHundred', '200%'),
+			category,
+			f1: false, // Not in command palette by default
+			precondition: PLOT_IS_ACTIVE_EDITOR,
+			toggled: {
+				condition: ContextKeyExpr.equals('positronPlotsEditorZoomLevel', ZoomLevel.TwoHundred.toString()),
+			},
+			menu: [
+				{
+					id: PlotsEditorZoomAction.SUBMENU_ID,
+					when: PLOT_IS_ACTIVE_EDITOR,
+					group: 'navigation',
+					order: 5,
+				}
+			],
+		});
 	}
 }

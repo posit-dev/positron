@@ -14,7 +14,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { EditorActivation, IEditorOptions } from '../../../../platform/editor/common/editor.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
@@ -30,7 +30,7 @@ import { EditorPlotsContainer } from './editorPlotsContainer.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { createSuggestedFileNameForPlot, IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { createSuggestedFileNameForPlot, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
@@ -62,6 +62,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 	private readonly _onFocusedEmitter = this._register(new Emitter<void>());
 	private _plotClient: IPositronPlotClient | undefined;
+	private _zoomContextKey: IContextKey<string>;
 
 	get identifier(): string | undefined {
 		return this._identifier;
@@ -124,6 +125,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 		this._container = DOM.$('.positron-plots-editor-container');
 		this._container.onclick = () => this.takeFocus();
+		this._zoomContextKey = this._contextKeyService.createKey('positronPlotsEditorZoomLevel', '');
 	}
 
 	private renderContainer(plotClient: IPositronPlotClient): void {
@@ -177,19 +179,26 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 			throw new Error('Plot client not found');
 		}
 
+		await super.setInput(input, options, context, token);
+
 		input.setName(this._plotClient.metadata.suggested_file_name ?? createSuggestedFileNameForPlot(this.storageService));
 
+		if (isZoomablePlotClient(this._plotClient)) {
+			this._register(this._plotClient.onDidChangeZoomLevel((zoomLevel: ZoomLevel) => {
+				this._zoomContextKey.set(zoomLevel.toString());
+			}));
+			this._zoomContextKey.set(this._plotClient.metadata.zoom_level?.toString() ?? '');
+		}
+
 		this.renderContainer(this._plotClient);
-		this.onSizeChanged((event: ISize) => {
+		this._register(this.onSizeChanged((event: ISize) => {
 			this._height = event.height;
 			this._width = event.width;
 
 			if (this._plotClient) {
 				this.renderContainer(this._plotClient);
 			}
-		});
-
-		await super.setInput(input, options, context, token);
+		}));
 	}
 
 	override layout(dimension: DOM.Dimension): void {
