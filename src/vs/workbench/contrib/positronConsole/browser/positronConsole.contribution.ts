@@ -14,6 +14,7 @@ import { ViewPaneContainer } from '../../../browser/parts/views/viewPaneContaine
 import { PositronConsoleViewPane } from './positronConsoleView.js';
 import { registerPositronConsoleActions } from './positronConsoleActions.js';
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { registerConsoleConfiguration } from '../../../services/positronConsole/browser/positronConsoleService.js';
 import { ICommandAndKeybindingRule, KeybindingWeight, KeybindingsRegistry } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { ViewContainer, IViewContainersRegistry, ViewContainerLocation, Extensions as ViewContainerExtensions, IViewsRegistry } from '../../../common/views.js';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from './positronConsoleIdentifiers.js';
@@ -110,3 +111,6 @@ KeybindingsRegistry.registerCommandAndKeybindingRule({
 
 // Register all the Positron console actions.
 registerPositronConsoleActions();
+
+// Register console configuration
+registerConsoleConfiguration();

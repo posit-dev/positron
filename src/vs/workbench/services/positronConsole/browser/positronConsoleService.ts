@@ -179,18 +179,100 @@ const consoleServiceConfigurationBaseNode = Object.freeze<IConfigurationNode>({
  * The scrollback size setting.
  */
 export const scrollbackSizeSettingId = 'console.scrollbackSize';
-configurationRegistry.registerConfiguration({
+export const consoleFontSizeSettingId = 'console.fontSize';
+export const consoleFontFamilySettingId = 'console.fontFamily';
+export const consoleFontWeightSettingId = 'console.fontWeight';
+export const consoleLineHeightSettingId = 'console.lineHeight';
+export const consoleLetterSpacingSettingId = 'console.letterSpacing';
+export const consoleFontLigaturesEnabledSettingId = 'console.fontLigatures';
+
+const consoleConfiguration = {
 	...consoleServiceConfigurationBaseNode,
 	properties: {
 		'console.scrollbackSize': {
-			type: 'number',
+			type: 'number' as const,
 			'minimum': 500,
 			'maximum': 5000,
 			'default': 1000,
 			markdownDescription: localize('console.scrollbackSize', "The number of console output items to display."),
+		},
+		'console.fontFamily': {
+			type: 'string' as const,
+			markdownDescription: localize('console.fontFamily', "Controls the font family of the console. Defaults to {0}'s value.", '`#editor.fontFamily#`'),
+			default: ''
+		},
+		'console.fontSize': {
+			type: 'number' as const,
+			minimum: 6,
+			maximum: 100,
+			markdownDescription: localize('console.fontSize', "Controls the font size in pixels of the console."),
+			default: 12
+		},
+		'console.lineHeight': {
+			type: 'number' as const,
+			minimum: 1,
+			maximum: 8,
+			markdownDescription: localize('console.lineHeight', "Controls the line height of the console. This number is multiplied by the terminal font size to get the actual line-height in pixels."),
+			default: 1
+		},
+		'console.letterSpacing': {
+			type: 'number' as const,
+			markdownDescription: localize('console.letterSpacing', "Controls the letter spacing of the console. This is an integer value which represents the number of additional pixels to add between characters."),
+			default: 0
+		},
+		'console.fontWeight': {
+			anyOf: [
+				{
+					type: 'number' as const,
+					minimum: 1,
+					maximum: 1000,
+					errorMessage: localize('console.fontWeightError', "Only \"normal\" and \"bold\" keywords or numbers between 1 and 1000 are allowed.")
+				},
+				{
+					type: 'string' as const,
+					pattern: '^(normal|bold|1000|[1-9][0-9]{0,2})$'
+				},
+				{
+					enum: ['normal', 'bold', '100', '200', '300', '400', '500', '600', '700', '800', '900']
+				}
+			],
+			markdownDescription: localize('console.fontWeight', "Controls the font weight of the console. Accepts \"normal\" and \"bold\" keywords or numbers between 1 and 1000."),
+			default: 'normal'
+		},
+		'console.fontLigatures': {
+			anyOf: [
+				{
+					type: 'boolean' as const,
+					description: localize('console.fontLigatures.boolean', "Enables/Disables font ligatures ('calt' and 'liga' font features) in the console. Change this to a string for fine-grained control of the 'font-feature-settings' CSS property."),
+				},
+				{
+					type: 'string' as const,
+					description: localize('console.fontLigatures.string', "Explicit 'font-feature-settings' CSS property for the console. A boolean can be passed instead if one only needs to turn on/off ligatures.")
+				}
+			],
+			markdownDescription: localize('console.fontLigatures', "Configures font ligatures or font features in the console. Can be either a boolean to enable/disable ligatures or a string for the value of the CSS 'font-feature-settings' property."),
+			default: false
+		},
+		'console.fontVariations': {
+			anyOf: [
+				{
+					type: 'boolean' as const,
+					description: localize('console.fontVariations.boolean', "Enables/Disables the translation from font-weight to font-variation-settings. Change this to a string for fine-grained control of the 'font-variation-settings' CSS property."),
+				},
+				{
+					type: 'string' as const,
+					description: localize('console.fontVariations.string', "Explicit 'font-variation-settings' CSS property. A boolean can be passed instead if one only needs to translate font-weight to font-variation-settings.")
+				}
+			],
+			markdownDescription: localize('console.fontVariations', "Configures font variations. Can be either a boolean to enable/disable the translation from font-weight to font-variation-settings or a string for the value of the CSS 'font-variation-settings' property."),
+			default: false
 		}
 	}
-});
+};
+
+export function registerConsoleConfiguration(): void {
+	configurationRegistry.registerConfiguration(consoleConfiguration);
+}
 
 /**
  * PositronConsoleService class.
