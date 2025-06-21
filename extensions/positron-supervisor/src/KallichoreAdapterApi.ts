@@ -9,7 +9,6 @@ import * as os from 'os';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ClientHeartbeat, DefaultApi, HttpBearerAuth, HttpError, ServerStatus, Status } from './kcclient/api';
-import { findAvailablePort } from './PortFinder';
 import { PositronSupervisorApi, JupyterKernelExtra, JupyterKernelSpec, JupyterLanguageRuntimeSession } from './positron-supervisor';
 import { DisconnectedEvent, DisconnectReason, KallichoreSession } from './KallichoreSession';
 import { Barrier, PromiseHandles, withTimeout } from './async';
@@ -183,7 +182,7 @@ export class KCApi implements PositronSupervisorApi {
 		// In web/server mode, the server is started concurrently with the node
 		// server, and its connection details are passed to Positron via an
 		// environment variable that points to a connection file.
-		const connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
+		let connectionFile = process.env['POSITRON_SUPERVISOR_CONNECTION_FILE'];
 		if (connectionFile) {
 			if (fs.existsSync(connectionFile)) {
 				this.log(`Using connection file from ` +
@@ -247,32 +246,13 @@ export class KCApi implements PositronSupervisorApi {
 		};
 
 		// Create a server session ID (8 characters)
-		const sessionId = createUniqueId();
+		const sessionId = `${createUniqueId()}-${process.pid}`;
 
-		// Create unique bearer token for this session
-		const bearerToken = createUniqueId() + createUniqueId();
-
-		// Write it to a temporary file. Kallichore will delete it after reading
-		// the secret.
-		const tokenPath = path.join(os.tmpdir(), `kallichore-${sessionId}.token`);
-		fs.writeFileSync(tokenPath, bearerToken, 'utf8');
-
-		// Change the permissions on the file so only the current user can read it
-		fs.chmodSync(tokenPath, 0o600);
-
-		// Create a bearer auth object with the token
-		const bearer = new HttpBearerAuth();
-		bearer.accessToken = bearerToken;
-
-		// Find a port for the server to listen on
-		// TODO: There is a race condition here because we picked a port but did
-		// not bind to it. In the time between when we pick the port and when
-		// the kallichore server binds to it, someone else could have bound to
-		// that port! Instead, we should do something similar to JEP 66 for
-		// kallichore's main port handling too
-		// (https://github.com/posit-dev/kallichore/issues/2).
-		// After we do that, remove `findAvailablePort()` entirely.
-		const port = await findAvailablePort([], 10);
+		// If no connection file was provided, generate one using the process PID
+		if (!connectionFile) {
+			connectionFile = path.join(os.tmpdir(), `kallichore-${sessionId}.json`);
+			this.log(`Generated connection file path: ${connectionFile}`);
+		}
 
 		// Start a timer so we can track server startup time
 		const startTime = Date.now();
@@ -316,17 +296,10 @@ export class KCApi implements PositronSupervisorApi {
 		// Add the path to Kallichore itself
 		shellArgs.push(shellPath);
 		shellArgs.push(...[
-			'--port', port.toString(),
-			'--token', tokenPath,
 			'--log-level', logLevel,
 			'--log-file', logFile,
+			'--connection-file', connectionFile,
 		]);
-
-		// If we have a connection file, add it to the arguments so that
-		// Kallichore will save connection information there.
-		if (connectionFile) {
-			shellArgs.push('--connection-file', connectionFile);
-		}
 
 		// Set the idle shutdown hours from the configuration. This is used to
 		// determine how long to wait before shutting down the server when
@@ -337,7 +310,7 @@ export class KCApi implements PositronSupervisorApi {
 		}
 
 		// Start the server in a new terminal
-		this.log(`Starting Kallichore server ${shellPath} on port ${port}`);
+		this.log(`Starting Kallichore server ${shellPath} with connection file ${connectionFile}`);
 		const terminal = vscode.window.createTerminal({
 			name: 'Kallichore',
 			shellPath: wrapperPath,
@@ -405,18 +378,96 @@ export class KCApi implements PositronSupervisorApi {
 		// Wait for the terminal to start and get the PID
 		let processId = await terminal.processId;
 
+		// Wait for the connection file to be written by the server
+		let connectionData: KallichoreServerState | undefined = undefined;
+		let basePath: string = '';
+		let serverPort: number = 0;
+
+		// Wait for the connection file to exist and be readable
+		for (let retry = 0; retry < 100; retry++) {
+			try {
+				if (fs.existsSync(connectionFile)) {
+					connectionData = JSON.parse(fs.readFileSync(connectionFile, 'utf8'));
+					if (!connectionData) {
+						this.log(`Connection file ${connectionFile} is empty or invalid`);
+						throw new Error(`Connection file ${connectionFile} is empty or invalid`);
+					}
+					basePath = connectionData.base_path;
+					serverPort = connectionData.port;
+					this.log(`Read connection information from ${connectionFile}: ${basePath}`);
+					break;
+				}
+			} catch (err) {
+				// Connection file might not be ready yet or might be invalid
+				this.log(`Error reading connection file (attempt ${retry}): ${err}`);
+			}
+
+			// Has the terminal exited? if it has, there's no point in continuing to retry.
+			if (exited) {
+				let message = `The supervisor process exited unexpectedly during startup`;
+
+				// Include any output from the server process to help diagnose the problem
+				if (fs.existsSync(outFile)) {
+					const contents = fs.readFileSync(outFile, 'utf8');
+					if (contents) {
+						message += `; output:\n\n${contents}`;
+					}
+				}
+				this.log(message);
+				throw new Error(message);
+			}
+
+			const elapsed = Date.now() - startTime;
+			if (elapsed > 10000) {
+				let message = `Connection file was not created after ${elapsed}ms`;
+
+				// Include any output from the server process to help diagnose the problem
+				if (fs.existsSync(outFile)) {
+					const contents = fs.readFileSync(outFile, 'utf8');
+					if (contents) {
+						message += `; output:\n\n${contents}`;
+					}
+				}
+				this.log(message);
+				throw new Error(message);
+			}
+
+			// Wait a bit and try again
+			await new Promise((resolve) => setTimeout(resolve, 100));
+		}
+
+		if (!connectionData) {
+			let message = `Timed out waiting for connection file to be ` +
+				`created at ${connectionFile} after 10 seconds`;
+
+			// Include any output from the server process to help diagnose the problem
+			if (fs.existsSync(outFile)) {
+				const contents = fs.readFileSync(outFile, 'utf8');
+				if (contents) {
+					message += `; output:\n\n${contents}`;
+				}
+			}
+			this.log(message);
+			throw new Error(message);
+		}
+
 		// If an HTTP proxy is set, exempt the supervisor from it; since this
 		// is a local server, we generally don't want to route it through a
 		// proxy
 		if (process.env.http_proxy) {
 			// Add the server's port to the no_proxy list, amending it if it
 			// already exists
-			process.env.no_proxy = (process.env.no_proxy ? process.env.no_proxy + ',' : '') + `localhost:${port}`;
+			process.env.no_proxy = (process.env.no_proxy ? process.env.no_proxy + ',' : '') + `localhost:${serverPort}`;
 			this.log(`HTTP proxy set to ${process.env.http_proxy}; setting no_proxy to ${process.env.no_proxy} to exempt supervisor`);
 		}
 
+		// Create a bearer auth object with the token
+		const bearerToken = connectionData.bearer_token;
+		const bearer = new HttpBearerAuth();
+		bearer.accessToken = bearerToken;
+
 		// Establish the API
-		this._api.basePath = `http://localhost:${port}`;
+		this._api.basePath = basePath;
 		this._api.setDefaultAuthentication(bearer);
 
 		// List the sessions to verify that the server is up. The process is
@@ -523,7 +574,7 @@ export class KCApi implements PositronSupervisorApi {
 		this._started.open();
 		const state: KallichoreServerState = {
 			base_path: this._api.basePath,
-			port,
+			port: serverPort,
 			server_path: shellPath,
 			server_pid: processId || 0,
 			bearer_token: bearerToken,
