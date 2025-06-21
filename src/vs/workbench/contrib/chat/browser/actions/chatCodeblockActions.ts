@@ -371,6 +371,12 @@ export function registerChatCodeBlockActions() {
 						ChatContextKeys.inChatSession,
 						ContextKeyExpr.or(...shellLangIds.map(e => ContextKeyExpr.equals(EditorContextKeys.languageId.key, e)))
 					),
+				}],
+				// --- Start Positron ---
+				// In code blocks with non-shell languages, don't show this action at all.
+				// We already have a separate action for running code in the console.
+				// See: https://github.com/posit-dev/positron/issues/7751.
+				/*
 				},
 				{
 					id: MenuId.ChatCodeBlock,
@@ -381,6 +387,8 @@ export function registerChatCodeBlockActions() {
 						...shellLangIds.map(e => ContextKeyExpr.notEquals(EditorContextKeys.languageId.key, e))
 					)
 				}],
+				*/
+				// --- End Positron ---
 				keybinding: [{
 					primary: KeyMod.CtrlCmd | KeyMod.Alt | KeyCode.Enter,
 					mac: {
