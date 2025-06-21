@@ -31,6 +31,7 @@ from .variables_comm import (
     InspectRequest,
     ListRequest,
     RefreshParams,
+    SummarizeDataRequest,
     UpdateParams,
     Variable,
     VariableKind,
@@ -136,6 +137,10 @@ class VariablesService:
 
         elif isinstance(request, ViewRequest):
             self._perform_view_action(request.params.path)
+
+        elif isinstance(request, SummarizeDataRequest):
+            for path in request.params.paths:
+                self._perform_get_variable_summary(path)
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -706,6 +711,96 @@ class VariablesService:
 
         msg = InspectedVariable(children=children, length=len(children))
         self._send_result(msg.dict())
+
+    def _perform_get_variable_summary(self, path: list[str]) -> None:
+        """RPC handler for getting variable data summary."""
+        try:
+            self._summarize_data(path)
+        except Exception as err:
+            self._send_error(
+                JsonRpcErrorCode.INTERNAL_ERROR,
+                f"Error summarizing variable at '{path}': {err}",
+            )
+
+    def _summarize_data(self, path: list[str]):
+        """Compute statistical summary for a variable without opening a data explorer."""
+        from .data_explorer import DataExplorerState, _get_table_view, _value_type_is_supported
+        from .data_explorer_comm import FormatOptions
+
+        is_found, value = self._find_var(path)
+        if not is_found:
+            raise ValueError(f"Cannot find variable at '{path}' to summarize")
+
+        if not _value_type_is_supported(value):
+            raise ValueError(f"Variable at '{path}' is not supported for summary")
+
+        try:
+            # Create a temporary table view with a temporary comm
+            temp_state = DataExplorerState("temp_summary")
+            temp_comm = PositronComm.create(target_name="temp_summary", comm_id="temp_summary_comm")
+            table_view = _get_table_view(value, temp_comm, temp_state, self.kernel.job_queue)
+        except Exception as e:
+            raise ValueError(f"Failed to create table view: {e}") from e
+
+        # Get the number of columns and build schema manually
+        try:
+            num_columns = table_view.table.shape[1]
+            num_rows = table_view.table.shape[0]
+
+            # Get column schemas directly using the internal method
+            column_schemas = []
+            for i in range(num_columns):
+                column_schema = table_view._get_single_column_schema(i)  # noqa: SLF001
+                column_schemas.append(column_schema)
+
+            # Create schema object manually
+            from .data_explorer_comm import TableSchema
+
+            schema = TableSchema(columns=column_schemas)
+        except Exception as e:
+            raise ValueError(f"Failed to get schema: {e}") from e
+
+        # Create default format options
+        format_options = FormatOptions(
+            large_num_digits=4,
+            small_num_digits=6,
+            max_integral_digits=7,
+            max_value_length=1000,
+            thousands_sep=None,
+        )
+
+        profiles = []
+        skipped_columns = []
+        for i, column in enumerate(schema.columns):
+            summary_stats = None
+            try:
+                summary_stats = table_view._prof_summary_stats(i, format_options)  # noqa: SLF001
+            except Exception as e:
+                # Collect failed columns for later logging
+                skipped_columns.append((i, column.column_name, e))
+                continue
+
+            profiles.append(
+                {
+                    "column_name": column.column_name,
+                    "type_display": column.type_display,
+                    "summary_stats": summary_stats,
+                }
+            )
+
+        # Log all skipped columns at once
+        for i, column_name, error in skipped_columns:
+            logger.warning(f"Skipping summary stats for column {i} ({column_name}): {error}")
+
+        self._send_result(
+            {
+                "schema": {
+                    "num_rows": num_rows,
+                    "num_columns": num_columns,
+                },
+                "column_profiles": profiles,
+            }
+        )
 
 
 def _summarize_variable(key: Any, value: Any, display_name: str | None = None) -> Variable | None:
