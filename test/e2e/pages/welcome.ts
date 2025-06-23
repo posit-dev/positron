@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect } from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const LOGO = '.product-logo';
@@ -39,45 +39,69 @@ export class Welcome {
 	constructor(private code: Code) { }
 
 	async expectLogoToBeVisible() {
-		await expect(this.logo).toBeVisible();
+		await test.step('Verify logo is visible', async () => {
+			await expect(this.logo).toBeVisible();
+		});
 	}
 
 	async expectFooterToBeVisible() {
-		await expect(this.footer).toBeVisible();
-		await expect(this.footer).toHaveText('Show welcome page on startup');
+		await test.step('Verify footer is visible', async () => {
+			await expect(this.footer).toBeVisible();
+			await expect(this.footer).toHaveText('Show welcome page on startup');
+		});
 	}
 
 	async expectTabTitleToBe(title: string) {
-		await expect(this.code.driver.page.getByRole('tab', { name: title })).toBeVisible();
+		await test.step(`Verify tab title: ${title}`, async () => {
+			await expect(this.code.driver.page.getByRole('tab', { name: title })).toBeVisible();
+		});
+	}
+
+	async expectConnectToBeVisible(visible: boolean) {
+		await test.step(`Verify "Connect to..." is ${visible ? '' : 'NOT'} visible`, async () => {
+			const connectButton = this.code.driver.page.getByRole(BUTTON_ROLE, { name: 'Connect to...' });
+			if (visible) {
+				await expect(connectButton).toBeVisible();
+			}
+			else {
+				await expect(connectButton).not.toBeVisible();
+			}
+		});
 	}
 
 	async expectStartToContain(startButtons: string[]) {
-		await expect(this.startSection).toBeVisible();
+		await test.step(`Verify start section contains expected buttons: ${startButtons}`, async () => {
+			await expect(this.startSection).toBeVisible();
 
-		for (const button of startButtons) {
-			await expect(this.startButtons.filter({ hasText: button })).toBeVisible();
-		}
+			for (const button of startButtons) {
+				await expect(this.startButtons.filter({ hasText: button })).toBeVisible();
+			}
+		});
 	}
 
 	async expectHelpToContain(helpButtons: string[]) {
-		await expect(this.helpTitle).toBeVisible();
-		await expect(this.helpTitle).toHaveText('Help');
+		await test.step(`Verify help section contains expected links: ${helpButtons}`, async () => {
+			await expect(this.helpTitle).toBeVisible();
+			await expect(this.helpTitle).toHaveText('Help');
 
-		for (const link of helpButtons) {
-			await expect(this.helpLinks.filter({ hasText: link })).toBeVisible();
-		}
+			for (const link of helpButtons) {
+				await expect(this.helpLinks.filter({ hasText: link })).toBeVisible();
+			}
+		});
 	}
 
 	async expectRecentToContain(recentItems: string[]) {
-		if (recentItems.length === 0) {
-			await expect(this.recentSection).toContainText('You have no recent folders,open a folderto start');
-			return;
-		}
+		await test.step(`Verify recent section contains expected items: ${recentItems}`, async () => {
+			if (recentItems.length === 0) {
+				await expect(this.recentSection).toContainText('You have no recent folders,open a folderto start');
+				return;
+			}
 
-		await expect(this.recentSection).toBeVisible();
-		await expect(this.recentTitle).toHaveText('Recent');
-		for (const item of recentItems) {
-			await expect(this.recentSection.getByRole(BUTTON_ROLE, { name: item })).toBeVisible();
-		}
+			await expect(this.recentSection).toBeVisible();
+			await expect(this.recentTitle).toHaveText('Recent');
+			for (const item of recentItems) {
+				await expect(this.recentSection.getByRole(BUTTON_ROLE, { name: item })).toBeVisible();
+			}
+		});
 	}
 }
