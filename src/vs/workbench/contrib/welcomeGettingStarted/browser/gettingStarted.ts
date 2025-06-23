@@ -63,7 +63,7 @@ import { gettingStartedCheckedCodicon, gettingStartedUncheckedCodicon } from './
 import { GettingStartedEditorOptions, GettingStartedInput } from './gettingStartedInput.js';
 import { IResolvedWalkthrough, IResolvedWalkthroughStep, IWalkthroughsService, hiddenEntriesConfigurationKey, parseDescription } from './gettingStartedService.js';
 import { RestoreWalkthroughsConfigurationValue, restoreWalkthroughsConfigurationKey } from './startupPage.js';
-import { NEW_WELCOME_EXPERIENCE, startEntries, walkthroughs } from '../common/gettingStartedContent.js';
+import { NEW_WELCOME_EXPERIENCE, startEntries } from '../common/gettingStartedContent.js';
 import { GroupDirection, GroupsOrder, IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IHostService } from '../../../services/host/browser/host.js';
@@ -1257,12 +1257,18 @@ export class GettingStartedPage extends EditorPane {
 			// --- Start Positron ---
 			/**
 			 * The walkthrough experience on the welcome page is customized to
-			 * not show VS Code's built-in walkthroughs. The built-in walkthroughs
+			 * only show specific Positron-approved walkthroughs. The walkthroughs
 			 * we want to hide are filtered out by not providing a rank for them.
 			 * Walkthroughs without a rank are hidden on the welcome page but still
-			 * accessible via the command palette
+			 * accessible via the command palette.
+			 *
+			 * These walkthroughs we want to display are provided by Positron extensions
+			 * and the IDs are hardcoded here and need to be kept in sync with the Id
+			 * of the walkthroughs in the Positron extensions.
 			 */
-			if (walkthroughs.some(w => w.id === e.id)) {
+			const allowedWalkthroughIds = ['ms-python.python#positron.migrateFromVSCode', 'positron.positron-r#positron.r.migrateFromRStudio'];
+
+			if (allowedWalkthroughIds.every(walkthroughId => walkthroughId !== e.id)) {
 				return null;
 			}
 			// --- End Positron ---
