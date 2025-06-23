@@ -21,7 +21,7 @@ import { DisposableStore, toDisposable } from '../../../../base/common/lifecycle
 import { ILink, LinkedText } from '../../../../base/common/linkedText.js';
 import { parse } from '../../../../base/common/marshalling.js';
 import { Schemas, matchesScheme } from '../../../../base/common/network.js';
-import { isMacintosh, OS } from '../../../../base/common/platform.js';
+import { isMacintosh, isWeb, OS } from '../../../../base/common/platform.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { assertIsDefined } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -170,6 +170,8 @@ export class GettingStartedPage extends EditorPane {
 	private container: HTMLElement;
 
 	private contextService: IContextKeyService;
+
+	private hasScrolledToFirstCategory = false;
 	// --- Start Positron ---
 	private helpList?: GettingStartedIndexList<IWelcomePageHelpEntry>;
 	private recentlyOpenedList?: GettingStartedIndexList<RecentEntry>;
@@ -187,6 +189,7 @@ export class GettingStartedPage extends EditorPane {
 	private detailsRenderer: GettingStartedDetailsRenderer;
 
 	private readonly categoriesSlideDisposables: DisposableStore;
+	private showFeaturedWalkthrough = true;
 
 	private positronReactRenderer!: PositronReactRenderer;
 
@@ -904,16 +907,10 @@ export class GettingStartedPage extends EditorPane {
 		}));
 
 		// --- Start Positron ---
-		// Diverged from upstream by removing Walkthroughs from the Welcome Page
+		// Diverged from upstream by changing the contents of the welcome page
 		const header = $('.header', {},
 			$('div.product-logo.welcome-positron-logo'),
 		);
-
-		if (!header) {
-			// Never happens, exists to avoid TS compiler errors about unused
-			// upstream method
-			this.buildNewCategorySlide('');
-		}
 
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);
@@ -921,7 +918,7 @@ export class GettingStartedPage extends EditorPane {
 		const helpList = this.buildHelpList();
 		//const startList = this.buildStartList();
 		const recentList = this.buildRecentlyOpenedList();
-		// const gettingStartedList = this.buildGettingStartedWalkthroughsList();
+		const gettingStartedList = this.buildGettingStartedWalkthroughsList();
 
 		// The "Connect to..." button is normally a part of the start list
 		// which is not used in Positron. We show the action underneath the
@@ -932,7 +929,7 @@ export class GettingStartedPage extends EditorPane {
 				{
 					'x-dispatch': 'selectStartEntry:topLevelRemoteOpen',
 					title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
-					when: '!isWeb',
+					when: !isWeb,
 				},
 				this.iconWidgetFor({ icon: { type: 'icon', icon: Codicon.remote } }),
 				localize('gettingStarted.topLevelRemoteOpen.title', "Connect to...")
@@ -955,8 +952,14 @@ export class GettingStartedPage extends EditorPane {
 				this.layoutService,
 				this.workspaceContextService
 			);
-			reset(leftColumn, leftContent, recentList.getDomElement(), otherList);
-			reset(rightColumn, helpList.getDomElement());
+
+			// Hide the "Connect to..." button if we are on a web platform
+			if (!isWeb) {
+				reset(leftColumn, leftContent, recentList.getDomElement(), otherList);
+			} else {
+				reset(leftColumn, leftContent, recentList.getDomElement());
+			}
+			reset(rightColumn, gettingStartedList.getDomElement(), helpList.getDomElement());
 		};
 		layoutRecentList();
 
@@ -967,9 +970,7 @@ export class GettingStartedPage extends EditorPane {
 
 		this.updateCategoryProgress();
 		this.registerDispatchListeners();
-		// --- Start Positron ---
-		// removed showing the first featured walkthrough "Get Started with Positron" on first startup
-		/*
+
 		if (this.editorInput.selectedCategory) {
 			const showNewExperience = this.editorInput.selectedCategory === NEW_WELCOME_EXPERIENCE;
 			this.currentWalkthrough = this.gettingStartedCategories.find(category => category.id === this.editorInput.selectedCategory);
@@ -999,13 +1000,32 @@ export class GettingStartedPage extends EditorPane {
 		}
 
 		const someStepsComplete = this.gettingStartedCategories.some(category => category.steps.find(s => s.done));
-		*/
 		if (this.editorInput.showTelemetryNotice && this.productService.openToWelcomeMainPage) {
 			const telemetryNotice = $('p.telemetry-notice');
 			this.buildTelemetryFooter(telemetryNotice);
 			footer.appendChild(telemetryNotice);
+		} else if (!this.productService.openToWelcomeMainPage && !someStepsComplete && !this.hasScrolledToFirstCategory && this.showFeaturedWalkthrough) {
+			// Always show index page instead of automatically opening the first walkthrough category
+			// --- Start Positron ---
+			/*
+			const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
+			const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
+			const fistContentBehaviour = daysSinceFirstSession < 1 ? 'openToFirstCategory' : 'index';
+
+			if (fistContentBehaviour === 'openToFirstCategory') {
+				const first = this.gettingStartedCategories.filter(c => !c.when || this.contextService.contextMatchesRules(c.when))[0];
+				if (first) {
+					this.hasScrolledToFirstCategory = true;
+					this.currentWalkthrough = first;
+					this.editorInput.selectedCategory = this.currentWalkthrough?.id;
+					this.buildCategorySlide(this.editorInput.selectedCategory, undefined);
+					this.setSlide('details');
+					return;
+				}
+			}
+			*/
+			// --- End Positron ---
 		}
-		// --- End Positron ---
 
 		this.setSlide('categories');
 	}
@@ -1184,11 +1204,6 @@ export class GettingStartedPage extends EditorPane {
 	*/
 	// --- End Positron ---
 
-	// --- Start Positron ---
-	//
-	// This function is not used in Positron. It is commented out rather than
-	// being deleted to minimize merge conflicts.
-	/*
 	private buildGettingStartedWalkthroughsList(): GettingStartedIndexList<IResolvedWalkthrough> {
 
 		const renderGetttingStaredWalkthrough = (category: IResolvedWalkthrough): HTMLElement => {
@@ -1239,6 +1254,25 @@ export class GettingStartedPage extends EditorPane {
 		if (this.gettingStartedList) { this.gettingStartedList.dispose(); }
 
 		const rankWalkthrough = (e: IResolvedWalkthrough) => {
+			// --- Start Positron ---
+			/**
+			 * The walkthrough experience on the welcome page is customized to
+			 * only show specific Positron-approved walkthroughs. The walkthroughs
+			 * we want to hide are filtered out by not providing a rank for them.
+			 * Walkthroughs without a rank are hidden on the welcome page but still
+			 * accessible via the command palette.
+			 *
+			 * These walkthroughs we want to display are provided by Positron extensions
+			 * and the IDs are hardcoded here and need to be kept in sync with the Id
+			 * of the walkthroughs in the Positron extensions.
+			 */
+			const allowedWalkthroughIds = ['ms-python.python#positron.migrateFromVSCode', 'positron.positron-r#positron.r.migrateFromRStudio'];
+
+			if (allowedWalkthroughIds.every(walkthroughId => walkthroughId !== e.id)) {
+				return null;
+			}
+			// --- End Positron ---
+
 			let rank: number | null = e.order;
 
 			if (e.isFeatured) { rank += 7; }
@@ -1275,9 +1309,6 @@ export class GettingStartedPage extends EditorPane {
 
 		return gettingStartedList;
 	}
-
-	*/
-	// --- End Positron ---
 
 	layout(size: Dimension) {
 		this.detailsScrollbar?.scanDomNode();

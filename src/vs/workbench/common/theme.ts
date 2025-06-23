@@ -471,6 +471,13 @@ export const ACTIVITY_BAR_BADGE_BACKGROUND = registerColor('activityBarBadge.bac
 	hcLight: '#0F4A85'
 }, localize('activityBarBadgeBackground', "Activity notification badge background color. The activity bar is showing on the far left or right and allows to switch between views of the side bar."));
 
+export const WALKTHROUGH_ACTIVITY_BAR_BADGE_BACKGROUND = registerColor('walkthroughActivityBarBadge.background', {
+	dark: '#007ACC',
+	light: '#007ACC',
+	hcDark: '#000000',
+	hcLight: '#0F4A85'
+}, localize('walkthroughActivityBarBadge', "Activity notification badge background color for walkthroughs."));
+
 export const ACTIVITY_BAR_BADGE_FOREGROUND = registerColor('activityBarBadge.foreground', Color.white, localize('activityBarBadgeForeground', "Activity notification badge foreground color. The activity bar is showing on the far left or right and allows to switch between views of the side bar."));
 
 export const ACTIVITY_BAR_TOP_FOREGROUND = registerColor('activityBarTop.foreground', {
