@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { PromiseHandles } from './util';
+import { interactiveDirectCodeInjectionID, PromiseHandles } from './util';
 import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
@@ -110,8 +110,9 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 							return;
 						}
 
+						// Specify an interactive direct code execution ID so that the code will be added to the console history.
 						session.execute(`library(${packageName})`,
-							randomUUID(),
+							interactiveDirectCodeInjectionID(),
 							positron.RuntimeCodeExecutionMode.Interactive,
 							positron.RuntimeErrorBehavior.Continue);
 					}

@@ -2038,6 +2038,28 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					languageRuntimeMessageInput.code
 				)
 			);
+
+			// Detect interactive direct code injection and fire the onDidExecuteCode event when it occurs.
+			if (languageRuntimeMessageInput.parent_id.startsWith('interactive-direct-code-injection-')) {
+				// Get the session's language ID.
+				const languageId = this.session?.runtimeMetadata?.languageId;
+				if (!languageId) {
+					return;
+				}
+
+				// Fire the onDidExecuteCode event so the code is added to the console history.
+				this._onDidExecuteCodeEmitter.fire({
+					sessionId: this.sessionId,
+					languageId,
+					code: languageRuntimeMessageInput.code,
+					attribution: {
+						source: CodeAttributionSource.Interactive,
+					},
+					runtimeName: this._runtimeMetadata.runtimeName,
+					mode: RuntimeCodeExecutionMode.Interactive,
+					errorBehavior: RuntimeErrorBehavior.Continue
+				});
+			}
 		}));
 
 		// Add the onDidReceiveRuntimeMessagePrompt event handler.
@@ -2820,7 +2842,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			id,
 			mode,
 			errorBehavior);
-
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {

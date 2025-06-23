@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
+import { randomUUID } from 'crypto';
 import { LOGGER } from './extension';
 
 export class PromiseHandles<T> {
@@ -89,4 +90,12 @@ export function removeSurroundingQuotes(x: string): string {
 	}
 
 	return x;
+}
+
+/**
+ * Creates a unique ID for interactive direct code injection.
+ * @returns A string that is a unique ID for interactive direct code injection.
+ */
+export function interactiveDirectCodeInjectionID(): string {
+	return `interactive-direct-code-injection-${randomUUID()}`;
 }

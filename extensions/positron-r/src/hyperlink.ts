@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,6 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { RSession } from './session';
+import { interactiveDirectCodeInjectionID } from './util.js';
 
 export async function handleRCode(runtime: RSession, code: string): Promise<void> {
 	const match = matchRunnable(code);
@@ -64,14 +65,11 @@ async function handleManuallyRunnable(_runtime: RSession, code: string) {
 }
 
 function handleAutomaticallyRunnable(runtime: RSession, code: string) {
-	positron.runtime.executeCode(
-		'r',	// R code
-		code,	// The code to execute.
-		true,	// Focus the console after executing the code.
-		true,	// Do not check the code for completeness before executing.
-		// Specify the runtime execution mode as NonInteractive so that the
-		// code is not combined with pending code before being executed.
-		positron.RuntimeCodeExecutionMode.NonInteractive,
+	// Specify an interactive direct code execution ID so that the code will be added to the console history.
+	runtime.execute(
+		code,
+		interactiveDirectCodeInjectionID(),
+		positron.RuntimeCodeExecutionMode.Interactive,
 		positron.RuntimeErrorBehavior.Continue
 	);
 }
