@@ -234,6 +234,11 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	async getReleaseNotes(): Promise<string> {
 		const url = `${this.productService.releaseNotesUrl}/releases/release-notes/release.md`;
 		const releaseNotesResponse = await this.requestService.request({ url }, CancellationToken.None);
+
+		if (process.env.POSITRON_RELEASE_NOTES_CHANNEL) {
+			this.logService.info('update#getReleaseNotes - using release notes channel from environment variable:', process.env.POSITRON_RELEASE_NOTES_CHANNEL);
+		}
+
 		if (releaseNotesResponse.res.statusCode !== 200) {
 			throw new Error(`Failed to fetch release notes: ${releaseNotesResponse.res.statusCode}`);
 		}
