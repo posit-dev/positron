@@ -93,7 +93,7 @@ test.describe('Publisher - Positron', { tag: [tags.WEB, tags.WIN, tags.PUBLISHER
 				await app.workbench.quickInput.type(process.env.E2E_CONNECT_SERVER!);
 				await page.keyboard.press('Enter');
 				const apiKeyInputLocator = page.locator('div.monaco-inputbox input[type="password"]');
-				await expect(apiKeyInputLocator).toBeVisible();
+				await expect(apiKeyInputLocator).toBeVisible({ timeout: 30000 });
 				await app.workbench.quickInput.type(process.env.E2E_CONNECT_APIKEY!);
 				await page.keyboard.press('Enter');
 			});

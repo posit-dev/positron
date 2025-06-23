@@ -233,6 +233,14 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			LOGGER.show();
 			printInterpreterSettingsInfo();
 		}),
+
+		// Commands used in RStudio migration walkthrough
+		vscode.commands.registerCommand('r.walkthrough.updateRStudioKeybindings', async () => {
+			vscode.commands.executeCommand('workbench.action.openSettings', 'workbench.keybindings.rstudioKeybindings');
+		}),
+		vscode.commands.registerCommand('r.walkthrough.formatOnSave', async () => {
+			vscode.commands.executeCommand('workbench.action.openSettings', '@lang:r editor.formatOnSave');
+		}),
 	);
 }
 
@@ -330,7 +338,15 @@ function insertSection() {
 async function executeCodeForCommand(pkg: string, code: string) {
 	const isInstalled = await checkInstalled(pkg);
 	if (isInstalled) {
-		positron.runtime.executeCode('r', code, true);
+		positron.runtime.executeCode(
+			'r',	// R code
+			code,	// The code to execute.
+			true,	// Focus the console after executing the code.
+			true,	// Do not check the code for completeness before executing.
+			// Specify the runtime execution mode as NonInteractive so that the
+			// code is not combined with pending code before being executed.
+			positron.RuntimeCodeExecutionMode.NonInteractive
+		);
 	}
 }
 

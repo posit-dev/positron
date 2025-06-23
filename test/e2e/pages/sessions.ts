@@ -424,8 +424,7 @@ export class Sessions {
 			await this.code.driver.page.mouse.move(0, 0);
 
 			if (waitForReady) {
-				await expect(this.page.getByText(/starting/)).toBeVisible();
-				await expect(this.page.getByText(/starting/)).not.toBeVisible({ timeout: 90000 });
+				await expect(this.console.activeConsole.getByText(/started/)).toBeVisible({ timeout: 90000 });
 			}
 			return this.getCurrentSessionId();
 		});
@@ -910,26 +909,65 @@ export class Sessions {
 	}
 
 	/**
-	 * Verify: the session quick pick contains the expected session data at the specified indices
+	 * Verify: the session quick pick contains the given session entries in the specified order,
+	 * even when the list is virtualized (i.e., rows load only when paged down).
 	 *
-	 * @param sessionList - An array of objects containing the index and session data to verify
-	 * @param sessionList.index - The index of the session in the quick pick menu
-	 * @param sessionList.session - The session data to verify
+	 * Uses PageDown key presses to trigger loading of more rows.
+	 *
+	 * @param sessionList - An array of expected session metadata in order of expected appearance
 	 */
-	async expectSessionQuickPickToContainAtIndices(sessionList: { index: number; session: SessionMetaData }[]) {
+	async expectSessionQuickPickToContainInRelativeOrder(sessionList: { session: SessionMetaData }[]) {
 		await this.quickPick.openSessionQuickPickMenu(true);
 
-		// verify the session data at the specified index
-		for (const { index, session } of sessionList) {
-			const quickPickEntryRuntime = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(0);
-			const quickPickEntryPath = this.page.locator('.quick-input-list-entry').nth(index).locator('.quick-input-list-row').nth(1);
+		const seen = new Set<string>();
+		const actualEntries: { name: string; path: string }[] = [];
 
-			await expect(quickPickEntryRuntime).toContainText(session.name);
-			await expect(quickPickEntryPath).toHaveText(session.path);
+		let stable = false;
+		while (!stable) {
+			const entries = this.page.locator('.quick-input-list-entry');
+			const entryCount = await entries.count();
+
+			let newEntriesFound = false;
+			for (let i = 0; i < entryCount; i++) {
+				const entry = entries.nth(i);
+
+				const rows = entry.locator('.quick-input-list-row');
+				const name = await rows.nth(0).innerText();
+				const path = await rows.nth(1).innerText();
+
+				const key = `${name}||${path}`;
+				if (!seen.has(key)) {
+					seen.add(key);
+					actualEntries.push({ name, path });
+					newEntriesFound = true;
+				}
+			}
+
+			if (newEntriesFound) {
+				await this.page.keyboard.press('PageDown'); // first one just scoots the scroll bar down
+				await this.page.keyboard.press('PageDown');
+				await this.page.waitForTimeout(50); // allow more items to render
+			} else {
+				stable = true; // no new items found after a PageDown
+			}
+		}
+
+		// Verify expected sessions appear in the given order
+		let currentIndex = 0;
+		for (const { session } of sessionList) {
+			const nextIndex = actualEntries.findIndex((entry, i) =>
+				i >= currentIndex &&
+				entry.name === session.name &&
+				entry.path === session.path
+			);
+
+			expect(nextIndex).not.toBe(-1);
+			currentIndex = nextIndex + 1;
 		}
 
 		await this.quickPick.closeSessionQuickPickMenu();
 	}
+
 }
 
 /**

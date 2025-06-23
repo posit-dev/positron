@@ -17,6 +17,17 @@ test.describe('Help', { tag: [tags.HELP, tags.WEB] }, () => {
 		await settings.set({ 'workbench.reduceMotion': 'on' }, { reload: 'web' });
 	});
 
+	test('Python - Verify halp landing page', { tag: [tags.WIN] }, async function ({ app }) {
+
+		await app.workbench.help.openHelpPanel();
+
+		const helpFrame = await app.workbench.help.getHelpWelcomePageFrame();
+		const docLink = helpFrame.getByRole('link', { name: 'Positron Documentation' });
+		await expect(docLink).toBeVisible();
+		await expect(docLink).toHaveAttribute('href', 'https://positron.posit.co/');
+
+	});
+
 	test('Python - Verify basic help functionality', { tag: [tags.WIN] }, async function ({ app, python }) {
 		await app.workbench.console.executeCode('Python', `?load`);
 

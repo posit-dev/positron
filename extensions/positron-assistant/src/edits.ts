@@ -20,6 +20,7 @@ type LMTextEdit = { append: string } | { delete: string; replace: string };
 export function registerMappedEditsProvider(
 	context: vscode.ExtensionContext,
 	participantService: ParticipantService,
+	log: vscode.LogOutputChannel
 ) {
 	const editsProvider: vscode.MappedEditsProvider2 = {
 		provideMappedEdits: async function (
@@ -27,17 +28,26 @@ export function registerMappedEditsProvider(
 			result: vscode.MappedEditsResponseStream,
 			token: vscode.CancellationToken
 		): Promise<vscode.MappedEditsResult> {
-			const model = await getModel(request.chatRequestId, participantService);
+			const model = await getModel(request, participantService);
 
 			for (const block of request.codeBlocks) {
 				const document = await vscode.workspace.openTextDocument(block.resource);
+				log.info(`Mapping edits for block in ${block.resource.toString()}`);
 				const text = document.getText();
 				const json = await mapEdit(model, text, block.code, token);
 				if (!json) {
 					return {};
 				}
 
-				const edits = JSON.parse(json) as LMTextEdit[];
+				let edits = JSON.parse(json) as LMTextEdit[];
+
+				// When the model returns a single edit, it may forget to wrap
+				// it in an array. Tolerate this by ensuring edits is always an
+				// array.
+				if (!Array.isArray(edits)) {
+					edits = [edits];
+				}
+
 				for (const edit of edits) {
 					if ('append' in edit) {
 						const lastLine = document.lineAt(document.lineCount - 1);
@@ -45,7 +55,7 @@ export function registerMappedEditsProvider(
 						const append = lastLine.isEmptyOrWhitespace ? edit.append : `\n${edit.append}`;
 						const textEdit = vscode.TextEdit.insert(endPosition, append);
 						result.textEdit(block.resource, textEdit);
-					} else {
+					} else if ('delete' in edit && 'replace' in edit) {
 						const deleteText = edit.delete;
 						const startPos = text.indexOf(deleteText);
 						const startPosition = document.positionAt(startPos);
@@ -53,6 +63,11 @@ export function registerMappedEditsProvider(
 						const range = new vscode.Range(startPosition, endPosition);
 						const textEdit = vscode.TextEdit.replace(range, edit.replace);
 						result.textEdit(block.resource, textEdit);
+					} else {
+						// If the edit is neither an append nor a delete/replace,
+						// we skip it. This should not happen with the current
+						// model prompt, but we handle it gracefully.
+						log.warn('Unable to apply edit from model: ', JSON.stringify(edit));
 					}
 				}
 			}
@@ -66,12 +81,31 @@ export function registerMappedEditsProvider(
 }
 
 async function getModel(
-	chatRequestId: string | undefined,
+	request: vscode.MappedEditsRequest,
 	participantService: ParticipantService,
 ): Promise<vscode.LanguageModelChat> {
+	// Check for a specific model ID in the request.
+	if (request.chatRequestModel) {
+		const models = await vscode.lm.selectChatModels({ 'id': request.chatRequestModel });
+		if (models && models.length > 0) {
+			return models[0];
+		}
+	}
+
+	// Check if there is a current chat session and use its model.
+	if (request.chatSessionId) {
+		const sessionModelId = participantService.getSessionModel(request.chatSessionId);
+		if (sessionModelId) {
+			const models = await vscode.lm.selectChatModels({ 'id': sessionModelId });
+			if (models && models.length > 0) {
+				return models[0];
+			}
+		}
+	}
+
 	// Check if there is an open chat request and use its model.
-	if (chatRequestId) {
-		const data = participantService.getRequestData(chatRequestId);
+	if (request.chatRequestId) {
+		const data = participantService.getRequestData(request.chatRequestId);
 		if (data?.request?.model) {
 			return data.request.model;
 		}

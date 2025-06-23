@@ -20,6 +20,9 @@ import { ILogService } from '../../../../platform/log/common/log.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { ChatAgentLocation } from '../../chat/common/constants.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { EditorContextKeys } from '../../../../editor/common/editorContextKeys.js';
+
+const consoleLanguageIds = ['r', 'python'];
 
 class PositronAssistantContribution extends Disposable implements IWorkbenchContribution {
 	constructor(
@@ -44,7 +47,12 @@ class PositronAssistantContribution extends Disposable implements IWorkbenchCont
 						order: 5,
 						when: ContextKeyExpr.and(
 							ContextKeyExpr.equals(ChatContextKeys.location.key, ChatAgentLocation.Panel),
-							ChatContextKeys.Editing.hasToolConfirmation.toNegated())
+							ChatContextKeys.Editing.hasToolConfirmation.toNegated(),
+							// TODO: We should use a context key so that we can dynamically include languages
+							//       that can execute code in the console i.e. with registered interpreters.
+							//       See: https://github.com/posit-dev/positron/issues/8219.
+							ContextKeyExpr.or(...consoleLanguageIds.map(e => ContextKeyExpr.equals(EditorContextKeys.languageId.key, e))),
+						),
 					},
 				});
 			}

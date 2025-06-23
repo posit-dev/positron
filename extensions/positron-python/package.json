@@ -251,6 +251,53 @@
                         }
                     }
                 ]
+            },
+            {
+                "id": "positron.migrateFromVSCode",
+                "title": "%walkthrough.positron.migrateFromVSCode.title%",
+                "description": "%walkthrough.positron.migrateFromVSCode.description%",
+                "steps": [
+                    {
+                        "id": "migrateFromVSCode.panes",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.panes.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.panes.description%",
+                        "media": {
+                            "markdown": "resources/walkthrough/panes.md"
+                        }
+                    },
+                    {
+                        "id": "migrateFromVSCode.interpreterManagement",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.interpreterManagement.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.interpreterManagement.description%",
+                        "media": {
+                            "markdown": "resources/walkthrough/interpreterManagement.md"
+                        }
+                    },
+                    {
+                        "id": "migrateFromVSCode.bundledExtensions",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.bundledExtensions.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.bundledExtensions.description%",
+                        "media": {
+                            "markdown": "resources/walkthrough/bundledExtensions.md"
+                        }
+                    },
+                    {
+                        "id": "migrateFromVSCode.bundleIpykernel",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.bundleIpykernel.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.bundleIpykernel.description%",
+                        "media": {
+                            "markdown": "resources/walkthrough/bundleIpykernel.md"
+                        }
+                    },
+                    {
+                        "id": "migrateFromVSCode.autoReload",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.autoReload.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.autoReload.description%",
+                        "media": {
+                            "markdown": "resources/walkthrough/autoReload.md"
+                        }
+                    }
+                ]
             }
         ],
         "breakpoints": [

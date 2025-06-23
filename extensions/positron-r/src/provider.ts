@@ -24,6 +24,8 @@ import { discoverCondaBinaries } from './provider-conda.js';
 export const R_DOCUMENT_SELECTORS = [
 	{ language: 'r', scheme: 'untitled' },
 	{ language: 'r', scheme: 'inmemory' },  // Console
+	// Assistant code confirmation widget: https://github.com/posit-dev/positron/issues/7750
+	{ language: 'r', scheme: 'assistant-code-confirmation-widget' },
 	{ language: 'r', pattern: '**/*.{r,R}' },
 	{ language: 'r', pattern: '**/*.{rprofile,Rprofile}' },
 ];

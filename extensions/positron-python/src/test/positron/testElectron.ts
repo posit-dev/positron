@@ -275,7 +275,7 @@ export async function downloadAndUnzipPositron(): Promise<{ version: string; exe
     let url: URL | undefined;
     switch (platform) {
         case 'darwin':
-            fileName = `Positron-${version}${suffix}`;
+            fileName = `Positron-${version}-universal${suffix}`;
             url = new URL(`https://cdn.posit.co/positron/dailies/mac/universal/${fileName}`);
             break;
         default:

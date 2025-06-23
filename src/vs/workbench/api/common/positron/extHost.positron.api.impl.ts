@@ -287,6 +287,9 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
 				return extHostAiFeatures.removeLanguageModelConfig(source);
 			},
+			areCompletionsEnabled(file: vscode.Uri): Promise<boolean> {
+				return extHostAiFeatures.areCompletionsEnabled(file);
+			},
 		};
 
 		// --- End Positron ---

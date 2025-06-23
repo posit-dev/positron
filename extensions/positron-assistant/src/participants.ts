@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR } from './constants';
-import { isChatImageMimeType, isTextEditRequest, toLanguageModelChatMessage } from './utils';
+import { isChatImageMimeType, isTextEditRequest, toLanguageModelChatMessage, uriToString } from './utils';
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
@@ -50,6 +50,7 @@ export interface IPositronAssistantParticipant extends vscode.ChatParticipant {
 
 export class ParticipantService implements vscode.Disposable {
 	private readonly _participants = new Map<ParticipantID, IPositronAssistantParticipant>();
+	private readonly _sessionModels = new Map<string, string>(); // sessionId -> modelId
 
 	registerParticipant(participant: IPositronAssistantParticipant): void {
 		this._participants.set(participant.id, participant);
@@ -74,8 +75,29 @@ export class ParticipantService implements vscode.Disposable {
 		return undefined;
 	}
 
+	/**
+	 * Track the model used for a chat session.
+	 *
+	 * @param sessionId The chat session ID
+	 * @param modelId The language model ID used for this session
+	 */
+	trackSessionModel(sessionId: string, modelId: string): void {
+		this._sessionModels.set(sessionId, modelId);
+	}
+
+	/**
+	 * Get the model ID for a chat session.
+	 *
+	 * @param sessionId The chat session ID
+	 * @returns The model ID if found, undefined otherwise
+	 */
+	getSessionModel(sessionId: string): string | undefined {
+		return this._sessionModels.get(sessionId);
+	}
+
 	dispose() {
 		this._participants.forEach((participant) => participant.dispose());
+		this._sessionModels.clear();
 	}
 }
 
@@ -86,6 +108,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
+		private readonly _participantService: ParticipantService,
 	) { }
 	readonly iconPath = new vscode.ThemeIcon('positron-assistant');
 
@@ -288,7 +311,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// usually the automatically attached visible region of the active file.
 
 					const document = await vscode.workspace.openTextDocument(value.uri);
-					const path = vscode.workspace.asRelativePath(value.uri);
+					const path = uriToString(value.uri);
 					const documentText = document.getText();
 					const visibleText = document.getText(value.range);
 
@@ -314,20 +337,46 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						language: document.languageId,
 					}));
 				} else if (value instanceof vscode.Uri) {
-					// The user attached a file - usually a manually attached file in the workspace.
-					const document = await vscode.workspace.openTextDocument(value);
-					const path = vscode.workspace.asRelativePath(value);
-					const documentText = document.getText();
+					const fileStat = await vscode.workspace.fs.stat(value);
+					if (fileStat.type === vscode.FileType.Directory) {
+						// The user attached a directory - usually a manually attached directory in the workspace.
+						// Format the directory contents for the prompt.
+						const entries = await vscode.workspace.fs.readDirectory(value);
+						const entriesText = entries.map(([name, type]) => {
+							if (type === vscode.FileType.Directory) {
+								return `${name}/`;
+							}
+							return name;
+						}).join('\n');
+						const path = uriToString(value);
 
-					// Add the file as a reference in the response.
-					response.reference(value);
+						// TODO: Adding a URI as a response reference shows it in the "Used N references" block.
+						//       Files render with the correct icons and when clicked open in the editor.
+						//       Folders currently render with the wrong icon and when clicked try to open in the editor,
+						//       and opening folders in the editor displays a warning message.
+						// response.reference(value);
 
-					// Attach the full document text.
-					attachmentPrompts.push(xml.node('attachment', documentText, {
-						filePath: path,
-						description: 'Full contents of the file',
-						language: document.languageId,
-					}));
+						// Attach the folder's contents.
+						attachmentPrompts.push(xml.node('attachment', entriesText, {
+							filePath: path,
+							description: 'Contents of the directory',
+						}));
+					} else {
+						// The user attached a file - usually a manually attached file in the workspace.
+						const document = await vscode.workspace.openTextDocument(value);
+						const path = uriToString(value);
+						const documentText = document.getText();
+
+						// Add the file as a reference in the response.
+						response.reference(value);
+
+						// Attach the full document text.
+						attachmentPrompts.push(xml.node('attachment', documentText, {
+							filePath: path,
+							description: 'Full contents of the file',
+							language: document.languageId,
+						}));
+					}
 				} else if (value instanceof vscode.ChatReferenceBinaryData) {
 					if (isChatImageMimeType(value.mimeType)) {
 						// The user attached an image - usually a pasted image or screenshot of the IDE.
@@ -461,6 +510,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			return;
 		}
 
+		// Track the model being used for this session
+		const toolContext = request.toolInvocationToken as any;
+		if (toolContext?.sessionId && request.model?.id) {
+			this._participantService.trackSessionModel(toolContext.sessionId, request.model.id);
+		}
+
 		const modelResponse = await request.model.sendRequest(messages, {
 			tools,
 			modelOptions: {
@@ -486,7 +541,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			if (chunk instanceof vscode.LanguageModelTextPart) {
 				textResponses.push(chunk);
 
-				console.log(chunk.value);
 				if (textProcessor) {
 					// If there is a text processor, let it process the chunk
 					// and write to the chat response stream.
@@ -676,7 +730,7 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		const selection = request.location2.selection;
 		const selectedText = document.getText(selection);
 		const documentText = document.getText();
-		const filePath = vscode.workspace.asRelativePath(document.uri);
+		const filePath = uriToString(document.uri);
 		return xml.node('editor',
 			[
 				xml.node('document', documentText, {
@@ -725,12 +779,12 @@ export function registerParticipants(context: vscode.ExtensionContext) {
 	context.subscriptions.push(participantService);
 
 	// Register the Positron Assistant chat participants.
-	participantService.registerParticipant(new PositronAssistantChatParticipant(context));
-	participantService.registerParticipant(new PositronAssistantAgentParticipant(context));
-	participantService.registerParticipant(new PositronAssistantTerminalParticipant(context));
-	participantService.registerParticipant(new PositronAssistantEditorParticipant(context));
-	participantService.registerParticipant(new PositronAssistantNotebookParticipant(context));
-	participantService.registerParticipant(new PositronAssistantEditParticipant(context));
+	participantService.registerParticipant(new PositronAssistantChatParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantAgentParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantTerminalParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantEditorParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantNotebookParticipant(context, participantService));
+	participantService.registerParticipant(new PositronAssistantEditParticipant(context, participantService));
 
 	return participantService;
 }
@@ -769,7 +823,7 @@ export function getDefaultContextItems(): string[] {
  * Whether the experimental streaming edit mode is enabled.
  */
 function isStreamingEditsEnabled(): boolean {
-	return vscode.workspace.getConfiguration('positron.assistant.streamingEdits').get('enable', false);
+	return vscode.workspace.getConfiguration('positron.assistant.streamingEdits').get('enable', true);
 }
 
 /** Processes streaming text. */

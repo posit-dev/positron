@@ -5,6 +5,7 @@
 
 import { Disposable, DisposableMap } from '../../../../base/common/lifecycle.js';
 import { revive } from '../../../../base/common/marshalling.js';
+import { URI, UriComponents } from '../../../../base/common/uri.js';
 import { IChatAgentData, IChatAgentService } from '../../../contrib/chat/common/chatAgents.js';
 import { ChatModel } from '../../../contrib/chat/common/chatModel.js';
 import { IChatProgress, IChatService } from '../../../contrib/chat/common/chatService.js';
@@ -57,7 +58,6 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 					await this._proxy.$responseLanguageModelConfig(id, config, action);
 					resolve();
 				},
-				() => reject('User cancelled language model configuration.'),
 				() => this._proxy.$onCompleteLanguageModelConfig(id),
 			);
 		});
@@ -106,5 +106,18 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	$removeLanguageModelConfig(source: IPositronLanguageModelSource): void {
 		source.signedIn = false;
 		this._positronAssistantService.removeLanguageModelConfig(source);
+	}
+
+	/**
+	 * Check if a file should be excluded from AI completions based on configuration settings.
+	 */
+	async $areCompletionsEnabled(file: UriComponents): Promise<boolean> {
+		const uri = URI.revive(file);
+		if (!uri) {
+			return true; // If URI is invalid, consider it excluded
+		}
+
+		// Use the language model ignored files service to check if the file should be excluded
+		return this._positronAssistantService.areCompletionsEnabled(uri);
 	}
 }

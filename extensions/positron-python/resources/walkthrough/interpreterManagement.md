@@ -1,0 +1,7 @@
+Interpreters are the Python runtimes that Positron uses to run your code.
+Your interpreter can be a virtual environment created via `venv`, `uv`, `pyenv`, `conda`, another Python installation.
+
+A few common tasks you might want to do with interpreters include:
+- **Select an interpreter**: You can select a specific interpreter for your project by using the command ["Select Interpreter Session"](command:workbench.action.language.runtime.selectSession). This will show you a list of available interpreters, and you can choose the one you want to use.
+- **Discover new interpreters**: Positron will attempt to find all interpreters available on startup. If you create a new interpreter that Positron does not detect automatically, you can use the command ["Discover All Interpreters"](command:workbench.action.language.runtime.discoverAllRuntimes). This will re-search for available interpreters in your system and add them to the list of usable interpreters.
+- **Configure custom interpreter discovery**: If you have a non-standard location where interpreters are located that is not being discovered automatically, you can add the directory to the [`python.interpreters.include` setting](command:python.walkthrough.interpreterInclude) to always search for interpreters in that folder. Likewise, if you want to exclude certain directories from being searched, you can add them to the [`python.interpreters.exclude` setting](command:python.walkthrough.interpreterExclude).

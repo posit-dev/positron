@@ -7,7 +7,7 @@ import { createDecorator } from '../../../../../platform/instantiation/common/in
 import { Event } from '../../../../../base/common/event.js';
 import { ChatAgentLocation } from '../../../chat/common/constants.js';
 import { Variable } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
-import { UriComponents } from '../../../../../base/common/uri.js';
+import { URI, UriComponents } from '../../../../../base/common/uri.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
@@ -53,6 +53,7 @@ export type PositronLanguageModelOptions = Exclude<{
 	[K in keyof IPositronLanguageModelConfig]: undefined extends IPositronLanguageModelConfig[K] ? K : never
 }[keyof IPositronLanguageModelConfig], undefined>;
 
+// Equivalent in positron.d.ts API: LanguageModelSource
 export interface IPositronLanguageModelSource {
 	type: PositronLanguageModelType;
 	provider: { id: string; displayName: string };
@@ -62,6 +63,7 @@ export interface IPositronLanguageModelSource {
 	authMethods?: string[];
 }
 
+// Equivalent in positron.d.ts API: LanguageModelConfig
 export interface IPositronLanguageModelConfig {
 	type: PositronLanguageModelType;
 	provider: string;
@@ -76,6 +78,7 @@ export interface IPositronLanguageModelConfig {
 	location?: string;
 	numCtx?: number;
 	maxOutputTokens?: number;
+	completions?: boolean;
 }
 
 //#endregion
@@ -111,7 +114,6 @@ export interface IPositronAssistantService {
 	showLanguageModelModalDialog(
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
-		onCancel: () => void,
 		onClose: () => void,
 	): void;
 
@@ -129,6 +131,13 @@ export interface IPositronAssistantService {
 	 * Remove a language model configuration.
 	 */
 	removeLanguageModelConfig(source: IPositronLanguageModelSource): void;
+
+	/**
+	 * Check if a file should be excluded from AI completions.
+	 * @param uri The URI of the file to check.
+	 * @returns True if the file should be excluded from the Positron Assistant, false otherwise.
+	 */
+	areCompletionsEnabled(uri: URI): boolean;
 
 	/**
 	 * Placeholder that gets called to "initialize" the PositronAssistantService.

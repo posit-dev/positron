@@ -1,8 +1,8 @@
 {
 	"displayName": "Positron Assistant",
 	"description": "Provides default assistant and language models for Positron.",
-	"commands.addModelConfiguration.title": "Add Language Model Provider",
 	"commands.configureModels.title": "Configure Language Model Providers",
+	"commands.logStoredModels.title": "Log the stored language models",
 	"commands.copilot.signin.title": "Copilot Sign In",
 	"commands.copilot.signout.title": "Copilot Sign Out",
 	"commands.category": "Positron Assistant",
@@ -12,7 +12,8 @@
 	"chatParticipants.edit.description": "Edit files in your workspace",
 	"chatParticipants.commands.quarto.description": "Convert the conversation so far into a new Quarto document.",
 	"configuration.title": "Positron Assistant",
-	"configuration.enable.description": "Enable Positron Assistant, an experimental AI assistant for Positron.",
+	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.",
 	"configuration.useAnthropicSdk.description": "Use the Anthropic SDK for Anthropic models rather than the generic AI SDK.",
-	"configuration.streamingEdits.enable": "Enable streaming edits in inline editor chats."
+	"configuration.streamingEdits.enable": "Enable streaming edits in inline editor chats.",
+	"configuration.inlineCompletionExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from inline completions."
 }

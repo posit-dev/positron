@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, ModelConfig, SecretStorage, showConfigurationDialog, showModelList, StoredModelConfig } from './config';
+import { EncryptedSecretStorage, expandConfigToSource, getEnabledProviders, getModelConfiguration, getModelConfigurations, getStoredModels, GlobalSecretStorage, logStoredModels, ModelConfig, SecretStorage, showConfigurationDialog, StoredModelConfig } from './config';
 import { availableModels, newLanguageModel } from './models';
 import { registerMappedEditsProvider } from './edits';
 import { registerParticipants } from './participants';
@@ -196,25 +196,15 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 	}
 }
 
-function registerAddModelConfigurationCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
-	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.addModelConfiguration', async () => {
-			await showConfigurationDialog(context, storage);
-		})
-	);
-}
-
 function registerConfigureModelsCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand('positron-assistant.configureModels', async () => {
-			if (vscode.workspace.getConfiguration('positron.assistant').get('newModelConfiguration', true)) {
-				// The new model configuration UI lets users sign out of providers as well,
-				// so there's no need to show the model list.
-				await showConfigurationDialog(context, storage);
-			} else {
-				await showModelList(context, storage);
-			}
-		})
+			await showConfigurationDialog(context, storage);
+		}),
+		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
+			logStoredModels(context);
+			log.show();
+		}),
 	);
 }
 
@@ -239,11 +229,10 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	registerHistoryTracking(context);
 
 	// Commands
-	registerAddModelConfigurationCommand(context, storage);
 	registerConfigureModelsCommand(context, storage);
 
 	// Register mapped edits provider
-	registerMappedEditsProvider(context, participantService);
+	registerMappedEditsProvider(context, participantService, log);
 
 	// Register code action provider
 	registerCodeActionProvider(context);
