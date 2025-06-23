@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as fs from 'fs';
-import { randomUUID } from 'crypto';
 import { LOGGER } from './extension';
 
 export class PromiseHandles<T> {
