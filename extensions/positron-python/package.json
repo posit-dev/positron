@@ -253,46 +253,46 @@
                 ]
             },
             {
-                "id": "positron.pythonWelcome",
-                "title": "%walkthrough.positron.pythonWelcome.title%",
-                "description": "%walkthrough.positron.pythonWelcome.description%",
+                "id": "positron.migrateFromVSCode",
+                "title": "%walkthrough.positron.migrateFromVSCode.title%",
+                "description": "%walkthrough.positron.migrateFromVSCode.description%",
                 "steps": [
                     {
-                        "id": "python.panes",
-                        "title": "%walkthrough.positron.step.python.panes.title%",
-                        "description": "%walkthrough.positron.step.python.panes.description%",
+                        "id": "migrateFromVSCode.panes",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.panes.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.panes.description%",
                         "media": {
                             "markdown": "resources/walkthrough/panes.md"
                         }
                     },
                     {
-                        "id": "python.interpreterManagement",
-                        "title": "%walkthrough.positron.step.python.interpreterManagement.title%",
-                        "description": "%walkthrough.positron.step.python.interpreterManagement.description%",
+                        "id": "migrateFromVSCode.interpreterManagement",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.interpreterManagement.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.interpreterManagement.description%",
                         "media": {
                             "markdown": "resources/walkthrough/interpreterManagement.md"
                         }
                     },
                     {
-                        "id": "python.bundledExtensions",
-                        "title": "%walkthrough.positron.step.python.bundledExtensions.title%",
-                        "description": "%walkthrough.positron.step.python.bundledExtensions.description%",
+                        "id": "migrateFromVSCode.bundledExtensions",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.bundledExtensions.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.bundledExtensions.description%",
                         "media": {
                             "markdown": "resources/walkthrough/bundledExtensions.md"
                         }
                     },
                     {
-                        "id": "python.bundleIpykernel",
-                        "title": "%walkthrough.positron.step.python.bundleIpykernel.title%",
-                        "description": "%walkthrough.positron.step.python.bundleIpykernel.description%",
+                        "id": "migrateFromVSCode.bundleIpykernel",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.bundleIpykernel.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.bundleIpykernel.description%",
                         "media": {
                             "markdown": "resources/walkthrough/bundleIpykernel.md"
                         }
                     },
                     {
-                        "id": "python.autoReload",
-                        "title": "%walkthrough.positron.step.python.autoReload.title%",
-                        "description": "%walkthrough.positron.step.python.autoReload.description%",
+                        "id": "migrateFromVSCode.autoReload",
+                        "title": "%walkthrough.positron.step.migrateFromVSCode.autoReload.title%",
+                        "description": "%walkthrough.positron.step.migrateFromVSCode.autoReload.description%",
                         "media": {
                             "markdown": "resources/walkthrough/autoReload.md"
                         }
