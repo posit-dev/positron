@@ -20,6 +20,7 @@ import { AbstractUpdateService, createUpdateURL, UpdateErrorClassification } fro
 
 // --- Start Positron ---
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
+import { arch } from 'os';
 // --- End Positron ---
 
 export class DarwinUpdateService extends AbstractUpdateService implements IRelaunchHandler {
@@ -82,7 +83,9 @@ export class DarwinUpdateService extends AbstractUpdateService implements IRelau
 
 	//--- Start Positron ---
 	protected buildUpdateFeedUrl(channel: string): string | undefined {
-		const platform = 'mac/universal';
+		// Get the system architecture preference for macOS updates.
+		const systemArchitecture = this.configurationService.getValue<string>('update.systemArchitecture');
+		const platform = 'mac/' + (systemArchitecture === 'auto' ? arch() : systemArchitecture);
 		const url = createUpdateURL(platform, channel, this.productService) + '/releases.json';
 		try {
 			electron.autoUpdater.setFeedURL({ url: url });
