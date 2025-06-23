@@ -21,7 +21,7 @@ import { DisposableStore, toDisposable } from '../../../../base/common/lifecycle
 import { ILink, LinkedText } from '../../../../base/common/linkedText.js';
 import { parse } from '../../../../base/common/marshalling.js';
 import { Schemas, matchesScheme } from '../../../../base/common/network.js';
-import { isMacintosh, OS } from '../../../../base/common/platform.js';
+import { isMacintosh, isWeb, OS } from '../../../../base/common/platform.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { assertIsDefined } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -935,7 +935,7 @@ export class GettingStartedPage extends EditorPane {
 				{
 					'x-dispatch': 'selectStartEntry:topLevelRemoteOpen',
 					title: localize('gettingStarted.topLevelRemoteOpen.title', "Connect to..."),
-					when: '!isWeb',
+					when: !isWeb,
 				},
 				this.iconWidgetFor({ icon: { type: 'icon', icon: Codicon.remote } }),
 				localize('gettingStarted.topLevelRemoteOpen.title', "Connect to...")
@@ -958,7 +958,13 @@ export class GettingStartedPage extends EditorPane {
 				this.layoutService,
 				this.workspaceContextService
 			);
-			reset(leftColumn, leftContent, recentList.getDomElement(), otherList);
+
+			// Hide the "Connect to..." button if we are on a web platform
+			if (!isWeb) {
+				reset(leftColumn, leftContent, recentList.getDomElement(), otherList);
+			} else {
+				reset(leftColumn, leftContent, recentList.getDomElement());
+			}
 			reset(rightColumn, gettingStartedList.getDomElement(), helpList.getDomElement());
 		};
 		layoutRecentList();
