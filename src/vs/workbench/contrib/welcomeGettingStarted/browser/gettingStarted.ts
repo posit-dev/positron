@@ -912,12 +912,6 @@ export class GettingStartedPage extends EditorPane {
 			$('div.product-logo.welcome-positron-logo'),
 		);
 
-		if (!header) {
-			// Never happens, exists to avoid TS compiler errors about unused
-			// upstream method
-			this.buildNewCategorySlide('');
-		}
-
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);
 
