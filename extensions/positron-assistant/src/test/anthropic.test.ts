@@ -11,6 +11,11 @@ import { AnthropicLanguageModel } from '../anthropic';
 import { ModelConfig } from '../config';
 import { EMPTY_TOOL_RESULT_PLACEHOLDER } from '../utils.js';
 
+type ChatMessageValidateInfo = {
+	message: vscode.LanguageModelChatMessage2;
+	validate: (content: any[]) => void;
+};
+
 suite('AnthropicLanguageModel', () => {
 	let model: AnthropicLanguageModel;
 	let mockClient: any;
@@ -129,37 +134,88 @@ suite('AnthropicLanguageModel', () => {
 	test('provideLanguageModelResponse processes LanguageModelToolCallPart and LanguageModelToolResultPart contents correctly', async () => {
 		// 1st tool call with empty result
 		const toolCallId1 = 'test-tool-callId-1';
-		const toolCallEmptyPart = new vscode.LanguageModelToolCallPart(toolCallId1, `${toolCallId1}-tool`, {});
-		const emptyToolResultPartOriginal = new vscode.LanguageModelToolResultPart(toolCallId1, []);
+		const toolCallName1 = `${toolCallId1}-tool`;
+		const toolCallInput1 = {};
+		const toolCallEmptyPart = new vscode.LanguageModelToolCallPart(toolCallId1, toolCallName1, toolCallInput1);
+		const emptyToolResultPart = new vscode.LanguageModelToolResultPart(toolCallId1, []);
 
 		// 2nd tool call with non-empty result
 		const toolCallId2 = 'test-tool-callId-2';
-		const toolCallNonEmptyPart = new vscode.LanguageModelToolCallPart(toolCallId2, `${toolCallId2}-tool`, {});
+		const toolCallName2 = `${toolCallId2}-tool`;
+		const toolCallInput2 = { goodDogs: 'infinite' };
+		const nonEmptyText = 'good cats and turtles -- also infinite';
+		const toolCallNonEmptyPart = new vscode.LanguageModelToolCallPart(toolCallId2, toolCallName2, toolCallInput2);
 		const nonEmptyToolResultPart = new vscode.LanguageModelToolResultPart(toolCallId2, [
-			new vscode.LanguageModelTextPart('This is a non-empty tool result'),
+			new vscode.LanguageModelTextPart(nonEmptyText),
 		]);
 
-		const messagesWithToolContent = [
-			// Tool call - should be passed
+		const messagesWithToolContent: ChatMessageValidateInfo[] = [
+		// Tool call, empty - should be passed
 			{
 				message: vscode.LanguageModelChatMessage.Assistant([toolCallEmptyPart]),
+				validate: (content) => {
+					assert.strictEqual(content.length, 1, 'Tool call with empty result should be passed as a single part');
+					const result = content[0];
+					// result example: { type: 'tool_use', id: 'test-tool-callId-1', name: 'test-tool-callId-1-tool', input: { }}
+					assert.strictEqual(result.id, toolCallId1, 'Tool call ID should match the expected ID');
+					assert.strictEqual(result.name, toolCallName1, 'Tool call name should match the expected name');
+					assert.strictEqual(result.input, toolCallInput1, 'Tool call input should match the expected input');
 			},
-			// Tool result with empty content - should be passed, but replaced with a placeholder
+			},
+			// Tool result, empty content - should be passed, but replaced with a placeholder text part
 			{
-				message: vscode.LanguageModelChatMessage.User([emptyToolResultPartOriginal]),
-				expectedText: EMPTY_TOOL_RESULT_PLACEHOLDER
+				message: vscode.LanguageModelChatMessage.User([emptyToolResultPart]),
+				validate: (content) => {
+					assert.strictEqual(content.length, 1, 'Tool result with empty content should be replaced with a single placeholder part');
+					const result = content[0];
+					// result example: { type: 'tool_result', tool_use_id: 'test-tool-callId-1', content: [{ type: 'text', text: '' }] }
+					assert.strictEqual(result.tool_use_id, toolCallId1, 'Tool result call ID should match the expected ID');
+					assert.strictEqual(result.content.length, 1, 'Tool result content should contain a single text part');
+					assert.strictEqual(result.content[0].type, 'text', 'Tool result content should be a text part');
+					assert.strictEqual(result.content[0].text, EMPTY_TOOL_RESULT_PLACEHOLDER, 'Tool result content should be replaced with the empty tool result placeholder');
+				},
 			},
-			// Tool call - should be passed
+			// Tool call, non-empty - should be passed as is
 			{
 				message: vscode.LanguageModelChatMessage.Assistant([toolCallNonEmptyPart]),
+				validate: (content) => {
+					assert.strictEqual(content.length, 1, 'Tool call with non-empty result should be passed as a single part');
+					const result = content[0];
+					// result example: { type: 'tool_use', id: 'test-tool-callId-2', name: 'test-tool-callId-2-tool', input: { goodDogs: 'infinite' } }
+					assert.strictEqual(result.id, toolCallId2, 'Tool call ID should match the expected ID');
+					assert.strictEqual(result.name, toolCallName2, 'Tool call name should match the expected name');
+					assert.deepStrictEqual(result.input, toolCallInput2, 'Tool call input should match the expected input');
+				}
 			},
 			// Tool result with non-empty content - should be passed as is
 			{
 				message: vscode.LanguageModelChatMessage.User([nonEmptyToolResultPart]),
+				validate: (content) => {
+					assert.strictEqual(content.length, 1, 'Tool result with non-empty content should be passed as a single part');
+					const result = content[0];
+					// result example: { type: 'tool_result', tool_use_id: 'test-tool-callId-2', content: [{ type: 'text', text: 'good cats and turtles -- also infinite' }] }
+					assert.strictEqual(result.tool_use_id, toolCallId2, 'Tool result call ID should match the expected ID');
+					assert.strictEqual(result.content.length, 1, 'Tool result content should contain a single text part');
+					assert.strictEqual(result.content[0].type, 'text', 'Tool result content should be a text part');
+					assert.strictEqual(result.content[0].text, nonEmptyText, 'Tool result content should match the expected text');
+				}
+			},
+			// Tool call and empty text content - should be passed, but empty text content should be removed
+			{
+				message: vscode.LanguageModelChatMessage.Assistant([toolCallNonEmptyPart, new vscode.LanguageModelTextPart('')]),
+				validate: (content) => {
+					assert.strictEqual(content.length, 1, 'Tool call with empty text content should only include the tool call part');
+					const result = content[0];
+					// result example: { type: 'tool_use', id: 'test-tool-callId-2', name: 'test-tool-callId-2-tool', input: { goodDogs: 'infinite' } }
+					assert.strictEqual(result.id, toolCallId2, 'Tool call ID should match the expected ID');
+					assert.strictEqual(result.name, toolCallName2, 'Tool call name should match the expected name');
+					assert.deepStrictEqual(result.input, toolCallInput2, 'Tool call input should match the expected input');
+				}
 			},
 		];
 
 		const messages = messagesWithToolContent.map(m => m.message);
+		// All messages should be kept
 		const numOfMessagesToKeep = messagesWithToolContent.length;
 
 		// Call the method under test
@@ -175,17 +231,11 @@ suite('AnthropicLanguageModel', () => {
 		const streamCall = mockClient.messages.stream.getCall(0);
 		assert.ok(streamCall, 'Stream method was not called');
 
-		const messagesPassedToAnthropicClient = streamCall.args[0].messages;
+		const messagesPassedToAnthropicClient: vscode.LanguageModelChatMessage2[] = streamCall.args[0].messages;
 		assert.strictEqual(messagesPassedToAnthropicClient.length, numOfMessagesToKeep, 'All messages should be passed to the Anthropic client');
 
 		messagesWithToolContent.forEach((msg, index) => {
-			const expectedText = msg.expectedText;
-			if (!expectedText) {
-				return;
-			}
-			// sample actualContent: [{"type":"tool_result","tool_use_id":"test-tool-callId-1","content":[{"type":"text","text":"tool result is empty"}]}]
-			const actualText = messagesPassedToAnthropicClient[index].content[0].content[0].text;
-			assert.deepStrictEqual(actualText, expectedText, `Message text at index ${index} should match the expected text`);
+			msg.validate(messagesPassedToAnthropicClient[index].content);
 		});
 	});
 });
