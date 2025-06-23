@@ -85,7 +85,7 @@ configurationRegistry.registerConfiguration({
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('showReleaseNotes', "Show Release Notes after an update."),
 			tags: ['usesOnlineServices'],
-			included: false
+			included: true
 		},
 		'update.systemArchitecture': {
 			type: 'string',
