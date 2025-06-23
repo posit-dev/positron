@@ -32,6 +32,9 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await welcome.expectStartToContain(['New Notebook', 'New File']);
 			await welcome.expectHelpToContain(['Positron Documentation', 'Positron Community Forum', 'Report a bug']);
 			await welcome.expectRecentToContain([]);
+			app.web
+				? await welcome.expectConnectToBeVisible(false)
+				: await welcome.expectConnectToBeVisible(true);
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
