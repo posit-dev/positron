@@ -21,6 +21,15 @@
 	display: block;
 }
 
+.gettingStartedContainer .product-logo.welcome-positron-logo-dark::before {
+	content: ' ';
+	background-image: url('../../../../browser/media/positron-header-dark.svg');
+	height: 6em;
+	/* Maintains the 4.14:1 aspect ratio with 6em height */
+	width: 24.84em;
+	display: block;
+}
+
 .welcome-help-links {
 	display: inline-grid;
 }
