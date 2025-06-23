@@ -333,14 +333,17 @@
 	left: -8px;
 }
 
+/*--- Start Positron ---*/
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlide .getting-started-category .featured {
-	border-top: 30px solid var(--vscode-activityBarBadge-background);
+	border-top: 30px solid var(--vscode-walkthroughActivityBarBadge-background);
 	width: 30px;
 	box-sizing: border-box;
 	height: 20px;
 	border-right: 40px solid transparent;
 	position: absolute;
 }
+
+/*--- End Positron ---*/
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlide .getting-started-category .featured .featured-icon {
 	top: -30px;
@@ -1038,9 +1041,12 @@
 	color: var(--vscode-activityBarBadge-foreground);
 }
 
+/*--- Start Positron ---*/
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlide .getting-started-category .new-badge {
-	background-color: var(--vscode-activityBarBadge-background);
+	background-color: var(--vscode-walkthroughActivityBarBadge-background);
 }
+
+/*--- End Positron ---*/
 
 .monaco-workbench .part.editor > .content .gettingStartedContainer .gettingStartedSlide .getting-started-checkbox {
 	background-color: var(--vscode-checkbox-background) !important;
