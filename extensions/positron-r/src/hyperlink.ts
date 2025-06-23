@@ -7,7 +7,6 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { RSession } from './session';
-import { interactiveDirectCodeInjectionID } from './util.js';
 
 export async function handleRCode(runtime: RSession, code: string): Promise<void> {
 	const match = matchRunnable(code);
@@ -65,11 +64,10 @@ async function handleManuallyRunnable(_runtime: RSession, code: string) {
 }
 
 function handleAutomaticallyRunnable(runtime: RSession, code: string) {
-	// Specify an interactive direct code execution ID so that the code will be added to the console history.
 	runtime.execute(
 		code,
-		interactiveDirectCodeInjectionID(),
-		positron.RuntimeCodeExecutionMode.Interactive,
+		randomUUID(),
+		positron.RuntimeCodeExecutionMode.Transient,
 		positron.RuntimeErrorBehavior.Continue
 	);
 }

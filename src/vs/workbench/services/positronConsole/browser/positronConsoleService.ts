@@ -2039,15 +2039,18 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				)
 			);
 
-			// Detect interactive direct code injection and fire the onDidExecuteCode event when it occurs.
-			if (languageRuntimeMessageInput.parent_id.startsWith('interactive-direct-code-injection-')) {
-				// Get the session's language ID.
+			// Detect incoming code that was not sent by the console input (that is not prefixed
+			// by 'fragment-'). When this happens, fire the onDidExecuteCode event so the code gets
+			// added to the console history. In the fullness of time, it would be ideal for the
+			// runtime to emit an event for this, but for now we can detect it.
+			if (!languageRuntimeMessageInput.parent_id.startsWith('fragment-')) {
+				// Get the session's language ID. It will always be defined for a runtime session.
 				const languageId = this.session?.runtimeMetadata?.languageId;
 				if (!languageId) {
 					return;
 				}
 
-				// Fire the onDidExecuteCode event so the code is added to the console history.
+				// Fire the onDidExecuteCode event so the code gets added to the console history.
 				this._onDidExecuteCodeEmitter.fire({
 					sessionId: this.sessionId,
 					languageId,

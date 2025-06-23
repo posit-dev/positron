@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { interactiveDirectCodeInjectionID, PromiseHandles } from './util';
+import { PromiseHandles } from './util';
 import { checkInstalled } from './session';
 import { getRPackageName } from './contexts';
 import { getRPackageTasks } from './tasks';
@@ -110,9 +110,8 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 							return;
 						}
 
-						// Specify an interactive direct code execution ID so that the code will be added to the console history.
 						session.execute(`library(${packageName})`,
-							interactiveDirectCodeInjectionID(),
+							randomUUID(),
 							positron.RuntimeCodeExecutionMode.Interactive,
 							positron.RuntimeErrorBehavior.Continue);
 					}
@@ -219,7 +218,7 @@ export async function registerCommands(context: vscode.ExtensionContext, runtime
 			if (isInstalled) {
 				const session = await positron.runtime.getForegroundSession();
 				if (session) {
-					session.execute(`renv::init()`, randomUUID(), positron.RuntimeCodeExecutionMode.Transient, positron.RuntimeErrorBehavior.Stop);
+					session.execute(`renv::init()`, randomUUID(), positron.RuntimeCodeExecutionMode.Interactive, positron.RuntimeErrorBehavior.Continue);
 				} else {
 					console.debug('[r.renvInit] no session available');
 				}
