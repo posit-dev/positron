@@ -20,7 +20,8 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 	test.describe('Workspace', () => {
 		test.beforeEach(async function ({ hotKeys }) {
-			await hotKeys.welcomeWalkthrough();
+			await hotKeys.resetWelcomeWalkthrough();
+			await hotKeys.openWelcomeWalkthrough();
 		});
 
 		test('Verify page header, footer, content', async function ({ app }) {
@@ -69,20 +70,37 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 			await welcome.newFileButton.click();
 			await quickInput.selectQuickInputElementContaining('R File');
-
 			await editors.expectActiveEditorIconClassToMatch(/r-lang-file-icon/);
+		});
+
+		test('Verify limited walkthroughs on Welcome page and full list in `More...`', async function ({ app }) {
+			const { welcome, quickInput } = app.workbench;
+
+			await welcome.expectWalkthroughsToHaveCount(2);
+			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron']);
+
+			await welcome.walkthroughSection.getByText('More...').click();
+			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
+			await quickInput.expectQuickInputResultsToContain([
+				'Get Started with Python Development',
+				'Migrating from VSCode to Positron',
+				'Migrating from RStudio to Positron',
+				'Get Started with Jupyter Notebooks',
+				'Get Started with Posit Publisher',
+				'Get started with Quarto']);
 		});
 	});
 
 	test.describe('No Workspace', () => {
 		test.beforeAll(async function ({ hotKeys, sessions }) {
 			await hotKeys.closeWorkspace();
-			await sessions.expectSessionPickerToBe('Start Session');
-			await sessions.expectNoStartUpMessaging();
+
 		});
 
-		test.beforeEach(async function ({ hotKeys }) {
-			await hotKeys.welcomeWalkthrough();
+		test.beforeEach(async function ({ hotKeys, sessions }) {
+			await sessions.expectSessionPickerToBe('Start Session');
+			await sessions.expectNoStartUpMessaging();
+			await hotKeys.openWelcomeWalkthrough();
 		});
 
 		test('Verify page header, footer, content', async function ({ app }) {

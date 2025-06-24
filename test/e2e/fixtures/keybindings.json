@@ -37,5 +37,9 @@
     {
         "key": "cmd+r r",
         "command": "workbench.action.reloadWindow"
+    },
+    {
+        "key": "cmd+j x",
+        "command": "resetGettingStartedProgress" // Reset Welcome Walkthrough Progress
     }
 ]
