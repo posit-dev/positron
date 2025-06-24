@@ -300,7 +300,7 @@ function processEmptyToolResults(message: vscode.LanguageModelChatMessage2) {
  * This should only be used if the message has other non-empty content,
  * as it will remove all text parts that are empty or contain only whitespace.
  * @param message The message to process
- * @returns
+ * @returns The message with empty text parts removed or the original message if no empty text parts were found.
  */
 function removeEmptyTextParts(message: vscode.LanguageModelChatMessage2) {
 	const updatedContent = message.content.filter(part => {
