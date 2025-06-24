@@ -15,7 +15,7 @@ import { log } from './extension.js';
 /**
  * Options for controlling cache behavior in the Anthropic language model.
  */
-interface CacheControlOptions {
+export interface CacheControlOptions {
 	/** Add a cache control point to the last tool description (default: true). */
 	lastTool?: boolean;
 
@@ -55,11 +55,14 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		},
 	};
 
-	constructor(private readonly _config: ModelConfig) {
+	constructor(
+		private readonly _config: ModelConfig,
+		client?: Anthropic,
+	) {
 		this.name = _config.name;
 		this.provider = _config.provider;
 		this.identifier = _config.id;
-		this._client = new Anthropic({
+		this._client = client ?? new Anthropic({
 			apiKey: _config.apiKey,
 		});
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;

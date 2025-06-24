@@ -7,9 +7,26 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import { AnthropicLanguageModel } from '../anthropic';
+import { AnthropicLanguageModel, CacheControlOptions } from '../anthropic';
 import { ModelConfig } from '../config';
 import { EMPTY_TOOL_RESULT_PLACEHOLDER } from '../utils.js';
+import Anthropic from '@anthropic-ai/sdk';
+import { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream.js';
+import { mock } from './utils.js';
+
+class MockAnthropicClient {
+	messages = {
+		stream: sinon.stub<
+			Parameters<Anthropic['messages']['stream']>,
+			ReturnType<Anthropic['messages']['stream']>
+		>().returns(mock<MessageStream>({
+			on: (event, listener) => mock<MessageStream>({}),
+			abort: () => { },
+			done: () => Promise.resolve(),
+			finalMessage: () => Promise.resolve(mock<Anthropic.Message>({})),
+		}))
+	};
+}
 
 type ChatMessageValidateInfo = {
 	testName: string;
@@ -19,22 +36,13 @@ type ChatMessageValidateInfo = {
 
 suite('AnthropicLanguageModel', () => {
 	let model: AnthropicLanguageModel;
-	let mockClient: any;
+	let mockClient: MockAnthropicClient;
 	let mockProgress: vscode.Progress<vscode.ChatResponseFragment2>;
 	let mockCancellationToken: vscode.CancellationToken;
 
 	setup(() => {
 		// Create a mock Anthropic client
-		mockClient = {
-			messages: {
-				stream: sinon.stub().returns({
-					on: sinon.stub(),
-					abort: sinon.stub(),
-					done: sinon.stub().resolves(),
-					finalMessage: sinon.stub().resolves({}),
-				})
-			}
-		};
+		mockClient = new MockAnthropicClient();
 
 		// Create a mock configuration
 		const config: ModelConfig = {
@@ -47,10 +55,7 @@ suite('AnthropicLanguageModel', () => {
 		};
 
 		// Create an instance of the AnthropicLanguageModel
-		model = new AnthropicLanguageModel(config);
-
-		// Replace the client with our mock
-		(model as any)._client = mockClient;
+		model = new AnthropicLanguageModel(config, mockClient as unknown as Anthropic);
 
 		// Create mock progress
 		mockProgress = {
@@ -233,11 +238,165 @@ suite('AnthropicLanguageModel', () => {
 				const streamCall = mockClient.messages.stream.getCall(0);
 				assert.ok(streamCall, 'Stream method was not called');
 
-				const messagesPassedToAnthropicClient: vscode.LanguageModelChatMessage2[] = streamCall.args[0].messages;
+				const messagesPassedToAnthropicClient = streamCall.args[0].messages;
 				assert.strictEqual(messagesPassedToAnthropicClient.length, 1, 'Exactly one message should be passed to the Anthropic client');
 
+				assert.ok(typeof messagesPassedToAnthropicClient[0].content !== 'string', 'Expected a content block object, got a string');
 				testCase.validate(messagesPassedToAnthropicClient[0].content);
 			});
 		});
+	});
+
+	test('provideLanguageModelResponse cache_control default behavior', async () => {
+		const toolA = {
+			name: 'toolA',
+			description: 'Tool A',
+			inputSchema: { type: 'object' as const, properties: {} }
+		} satisfies vscode.LanguageModelChatTool;
+		const toolB = {
+			name: 'toolB',
+			description: 'Tool B',
+			inputSchema: { type: 'object' as const, properties: {} }
+		} satisfies vscode.LanguageModelChatTool;
+		const system = 'System prompt';
+
+		// Call the method under test.
+		await model.provideLanguageModelResponse(
+			[
+				vscode.LanguageModelChatMessage.User('Hi'),
+				vscode.LanguageModelChatMessage.User('Bye'),
+			],
+			{
+				// Define the request tools, not sorted by name, so we can test sorting behavior.
+				tools: [toolB, toolA],
+				modelOptions: { system },
+			},
+			'test-extension',
+			mockProgress,
+			mockCancellationToken
+		);
+
+		sinon.assert.calledOnce(mockClient.messages.stream);
+		const body = mockClient.messages.stream.getCall(0).args[0];
+
+		assert.deepStrictEqual(body.tools, [
+			{
+				name: toolA.name,
+				description: toolA.description,
+				input_schema: toolA.inputSchema,
+			},
+			{
+				name: toolB.name,
+				description: toolB.description,
+				input_schema: toolB.inputSchema,
+				cache_control: { type: 'ephemeral' },
+			},
+		] satisfies Anthropic.ToolUnion[], 'Unexpected tools in request body');
+
+		assert.deepStrictEqual(body.system, [
+			{
+				type: 'text',
+				text: system,
+				cache_control: { type: 'ephemeral' },
+			},
+		] satisfies Anthropic.TextBlockParam[], 'Unexpected system prompt in request body');
+
+		assert.deepStrictEqual(body.messages, [
+			{ role: 'user', content: [{ type: 'text', text: 'Hi' }] },
+			{ role: 'user', content: [{ type: 'text', text: 'Bye' }] },
+		] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
+	});
+
+	test('provideLanguageModelResponse cache_control last user message enabled', async () => {
+		// Call the method under test.
+		await model.provideLanguageModelResponse(
+			[
+				vscode.LanguageModelChatMessage.User('Hi'),
+				vscode.LanguageModelChatMessage.User('Bye'),
+			],
+			{
+				modelOptions: {
+					cacheControl: {
+						lastUserMessage: true,
+					} satisfies CacheControlOptions,
+				},
+			},
+			'test-extension',
+			mockProgress,
+			mockCancellationToken
+		);
+
+		sinon.assert.calledOnce(mockClient.messages.stream);
+		const body = mockClient.messages.stream.getCall(0).args[0];
+
+		assert.deepStrictEqual(body.messages, [
+			{ role: 'user', content: [{ type: 'text', text: 'Hi' }] },
+			{ role: 'user', content: [{ type: 'text', text: 'Bye', cache_control: { type: 'ephemeral' } }] },
+		] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
+	});
+
+	test('provideLanguageModelResponse cache_control all disabled', async () => {
+		const toolA = {
+			name: 'toolA',
+			description: 'Tool A',
+			inputSchema: { type: 'object' as const, properties: {} }
+		} satisfies vscode.LanguageModelChatTool;
+		const toolB = {
+			name: 'toolB',
+			description: 'Tool B',
+			inputSchema: { type: 'object' as const, properties: {} }
+		} satisfies vscode.LanguageModelChatTool;
+		const system = 'System prompt';
+
+		// Call the method under test with no cacheControl options to test default behavior.
+		await model.provideLanguageModelResponse(
+			[
+				vscode.LanguageModelChatMessage.User('Hi'),
+				vscode.LanguageModelChatMessage.User('Bye'),
+			],
+			{
+				// Define the request tools, not sorted by name, so we can test sorting behavior.
+				tools: [toolB, toolA],
+				modelOptions: {
+					system,
+					cacheControl: {
+						lastTool: false,
+						system: false,
+						lastUserMessage: false,
+					} satisfies CacheControlOptions,
+				},
+			},
+			'test-extension',
+			mockProgress,
+			mockCancellationToken
+		);
+
+		sinon.assert.calledOnce(mockClient.messages.stream);
+		const body = mockClient.messages.stream.getCall(0).args[0];
+
+		assert.deepStrictEqual(body.tools, [
+			{
+				name: toolA.name,
+				description: toolA.description,
+				input_schema: toolA.inputSchema,
+			},
+			{
+				name: toolB.name,
+				description: toolB.description,
+				input_schema: toolB.inputSchema,
+			},
+		] satisfies Anthropic.ToolUnion[], 'Unexpected tools in request body');
+
+		assert.deepStrictEqual(body.system, [
+			{
+				type: 'text',
+				text: system,
+			},
+		] satisfies Anthropic.TextBlockParam[], 'Unexpected system prompt in request body');
+
+		assert.deepStrictEqual(body.messages, [
+			{ role: 'user', content: [{ type: 'text', text: 'Hi' }] },
+			{ role: 'user', content: [{ type: 'text', text: 'Bye' }] },
+		] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
 	});
 });
