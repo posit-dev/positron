@@ -189,10 +189,11 @@
       {
         "name": "documentCreate",
         "displayName": "Create Document",
-        "modelDescription": "Create a new document in the workspace. Do not use this tool when no workspace folders are open.",
+        "modelDescription": "Create a new document in the workspace.",
         "canBeReferencedInPrompt": false,
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-workspace"
         ],
         "inputSchema": {
           "type": "object",
@@ -303,10 +304,11 @@
       {
         "name": "getProjectTree",
         "displayName": "Get Project Tree",
-        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders. Empty folders are not included in the tree. Do not use this tool when no workspace folders are open.",
+        "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders. Empty folders are not included in the tree.",
         "canBeReferencedInPrompt": false,
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-workspace"
         ],
         "inputSchema": {
           "type": "object",
