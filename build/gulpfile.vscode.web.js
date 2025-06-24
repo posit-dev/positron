@@ -42,9 +42,8 @@ const positronVersion = (quality && quality !== 'stable') ? `${product.positronV
 const vscodeWebResourceIncludes = [
 	// --- Start Positron ---
 	// Positron Help
-	'out-build/vs/workbench/contrib/positronHelp/browser/resources/help.html',
-	'out-build/vs/workbench/contrib/positronHelp/browser/resources/welcome.html',
-	'out-build/vs/workbench/browser/media/positron-header.svg',
+	'out-build/vs/workbench/contrib/positronHelp/browser/resources/*.html',
+	'out-build/vs/workbench/browser/media/*.svg',
 	// --- End Positron ---
 
 	// NLS
