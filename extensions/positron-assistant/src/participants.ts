@@ -209,6 +209,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				const inChatPane = request.location2 === undefined;
 				const inEditor = request.location2 instanceof vscode.ChatRequestEditorData;
 				const hasSelection = inEditor && request.location2.selection?.isEmpty === false;
+				const isAgentMode = this.id === ParticipantID.Agent;
 
 				// If streaming edits are enabled, don't allow any tools in inline editor chats.
 				if (isStreamingEditsEnabled() && this.id === ParticipantID.Editor) {
@@ -226,7 +227,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						return inChatPane &&
 							// The execute code tool does not yet support notebook sessions.
 							positronContext.activeSession?.mode !== positron.LanguageRuntimeSessionMode.Notebook &&
-							this.id === ParticipantID.Agent;
+							isAgentMode;
 					// Only include the documentEdit tool in an editor and if there is
 					// no selection.
 					case PositronAssistantToolName.DocumentEdit:
@@ -237,11 +238,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						return inEditor && hasSelection;
 					// Only include the edit file tool in edit or agent mode i.e. for the edit participant.
 					case PositronAssistantToolName.EditFile:
-						return this.id === ParticipantID.Edit || this.id === ParticipantID.Agent;
+						return this.id === ParticipantID.Edit || isAgentMode;
+					// Only include the documentCreate tool in the chat pane and if the user is an agent.
+					case PositronAssistantToolName.DocumentCreate:
+						return inChatPane && isAgentMode;
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
 					// Allow all tools in Agent mode.
 					default:
-						return this.id === ParticipantID.Agent ||
+						return isAgentMode ||
 							tool.tags.includes('positron-assistant');
 				}
 			}
