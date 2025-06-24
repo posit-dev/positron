@@ -109,12 +109,12 @@
         {
           "command": "positron-assistant.generateCommitMessage",
           "group": "navigation",
-          "when": "!positron-assistant.generatingCommitMessage"
+          "when": "!positron-assistant.generatingCommitMessage && config.positron.assistant.gitIntegration.enable"
         },
         {
           "command": "positron-assistant.cancelGenerateCommitMessage",
           "group": "navigation",
-          "when": "positron-assistant.generatingCommitMessage"
+          "when": "positron-assistant.generatingCommitMessage && config.positron.assistant.gitIntegration.enable"
         }
       ]
     },
@@ -135,14 +135,14 @@
         "command": "positron-assistant.generateCommitMessage",
         "title": "%commands.generateCommitMessage.title%",
         "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable",
+        "enablement": "config.positron.assistant.enable && config.positron.assistant.gitIntegration.enable",
         "icon": "$(sparkle)"
       },
       {
         "command": "positron-assistant.cancelGenerateCommitMessage",
         "title": "%commands.cancelGenerateCommitMessage.title%",
         "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable",
+        "enablement": "config.positron.assistant.enable && config.positron.assistant.gitIntegration.enable",
         "icon": "$(stop)"
       }
     ],
@@ -173,6 +173,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "positron.assistant.gitIntegration.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.gitIntegration.description%",
+            "tags": ["experimental"]
           }
         }
       }
@@ -362,6 +368,7 @@
         "canBeReferencedInPrompt": true,
         "userDescription": "Get changed files",
         "toolReferenceName": "changes",
+        "when": "config.positron.assistant.gitIntegration.enable",
         "icon": "$(diff)",
         "tags": [
           "positron-assistant"
