@@ -326,6 +326,22 @@
             }
           }
         }
+      },
+      {
+        "name": "getChangedFiles",
+        "displayName": "Get changed files",
+        "modelDescription": "Get summaries and git diffs for current changes to files in this workspace.",
+        "canBeReferencedInPrompt": true,
+        "userDescription": "Get changed files",
+        "toolReferenceName": "changes",
+        "icon": "$(diff)",
+        "tags": [
+          "positron-assistant"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {}
+        }
       }
     ]
   },

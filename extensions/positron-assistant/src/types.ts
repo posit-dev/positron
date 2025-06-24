@@ -11,4 +11,5 @@ export enum PositronAssistantToolName {
 	InspectVariables = 'inspectVariables',
 	SelectionEdit = 'selectionEdit',
 	ProjectTree = 'getProjectTree',
+	GetChangedFiles = 'getChangedFiles',
 }
