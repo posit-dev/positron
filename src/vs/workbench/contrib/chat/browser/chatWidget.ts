@@ -528,7 +528,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 
 		// --- Start Positron ---
 		// Don't show the input part if the assistant is disabled
-		if (!this.configurationService.getValue('positron.assistant.enable')) {
+		if (!this.configurationService.getValue('positron.assistant.enable') || !this.chatProvidersAuthenticated()) {
 			const input = this.container.querySelector('.interactive-input-part') as HTMLElement;
 			if (input) {
 				dom.hide(input);
@@ -723,6 +723,10 @@ export class ChatWidget extends Disposable implements IChatWidget {
 	}
 
 	// --- Start Positron ---
+	private chatProvidersAuthenticated(): boolean {
+		return this.languageModelsService.getLanguageModelIds().length > 0 && !!this.languageModelsService.currentProvider;
+	}
+
 	private renderWelcomeViewContentIfNeeded() {
 		if (this.viewOptions.renderStyle === 'compact' || this.viewOptions.renderStyle === 'minimal') {
 			// Pull but discard the welcome view content (to allow code from
@@ -741,12 +745,12 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (!this.configurationService.getValue('positron.assistant.enable')) {
 			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Coming Soon");
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and will be available in a future version of Positron.\n");
-		} else if (this.languageModelsService.getLanguageModelIds().length === 0) {
+		} else if (!this.chatProvidersAuthenticated()) {
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
 			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
 			firstLinkToButton = true;
 			// create a multi-line message
-			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n");
+			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider that supports Chat.\n");
 			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureModels)`;
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
