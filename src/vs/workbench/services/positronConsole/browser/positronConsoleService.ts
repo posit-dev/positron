@@ -2038,6 +2038,31 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 					languageRuntimeMessageInput.code
 				)
 			);
+
+			// Detect incoming code that was not sent by the console input (that is not prefixed
+			// by 'fragment-'). When this happens, fire the onDidExecuteCode event so the code gets
+			// added to the console history. In the fullness of time, it would be ideal for the
+			// runtime to emit an event for this, but for now we can detect it.
+			if (!languageRuntimeMessageInput.parent_id.startsWith('fragment-')) {
+				// Get the session's language ID. It will always be defined for a runtime session.
+				const languageId = this.session?.runtimeMetadata?.languageId;
+				if (!languageId) {
+					return;
+				}
+
+				// Fire the onDidExecuteCode event so the code gets added to the console history.
+				this._onDidExecuteCodeEmitter.fire({
+					sessionId: this.sessionId,
+					languageId,
+					code: languageRuntimeMessageInput.code,
+					attribution: {
+						source: CodeAttributionSource.Interactive,
+					},
+					runtimeName: this._runtimeMetadata.runtimeName,
+					mode: RuntimeCodeExecutionMode.Interactive,
+					errorBehavior: RuntimeErrorBehavior.Continue
+				});
+			}
 		}));
 
 		// Add the onDidReceiveRuntimeMessagePrompt event handler.
@@ -2820,7 +2845,6 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 			id,
 			mode,
 			errorBehavior);
-
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {

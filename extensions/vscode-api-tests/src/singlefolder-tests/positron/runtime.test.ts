@@ -753,13 +753,15 @@ suite('positron API - executeCode', () => {
 			'print("event")',  // code
 			false,             // focus
 			false,             // allowIncomplete
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Stop
 		);
 
 		// Assert that the event matches the expected values
 		assert.ok(event, 'Event should be fired');
 		assert.strictEqual(event.languageId, 'test', 'Language ID should match');
 		assert.strictEqual(event.code, 'print("event")', 'Code should match');
-		assert.strictEqual(event.attribution.source, positron.CodeAttributionSource.Extension,
+		assert.strictEqual(event.attribution.source, positron.CodeAttributionSource.Interactive,
 			'Correctly attributed to execution via an extension');
 	});
 

@@ -997,7 +997,7 @@ declare module 'positron' {
 		 * Execute code in the runtime
 		 *
 		 * @param code The code to execute
-		 * @param id The language ID of the code
+		 * @param id The ID of the code
 		 * @param mode The code execution mode
 		 * @param errorBehavior The code execution error behavior
 		 * Note: The errorBehavior parameter is currently ignored by kernels
