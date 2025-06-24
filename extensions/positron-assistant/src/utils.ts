@@ -283,15 +283,42 @@ function processEmptyToolResults(message: vscode.LanguageModelChatMessage2) {
 		return part;
 	});
 
-	if (replacedEmptyToolResult) {
-		return new vscode.LanguageModelChatMessage2(
-			message.role,
-			updatedContent,
-			message.name,
-		);
+	if (!replacedEmptyToolResult) {
+		// If no empty tool result parts were found, we can return the message as is.
+		return message;
 	}
 
-	return message;
+	return new vscode.LanguageModelChatMessage2(
+		message.role,
+		updatedContent,
+		message.name,
+	);
+}
+
+/**
+ * Removes empty text parts from a message.
+ * This should only be used if the message has other non-empty content,
+ * as it will remove all text parts that are empty or contain only whitespace.
+ * @param message The message to process
+ * @returns The message with empty text parts removed or the original message if no empty text parts were found.
+ */
+function removeEmptyTextParts(message: vscode.LanguageModelChatMessage2) {
+	const updatedContent = message.content.filter(part => {
+		if (part instanceof vscode.LanguageModelTextPart) {
+			return part.value.trim() !== '';
+		}
+		return true;
+	});
+
+	if (updatedContent.length === message.content.length) {
+		return message;
+	}
+
+	return new vscode.LanguageModelChatMessage2(
+		message.role,
+		updatedContent,
+		message.name,
+	);
 }
 
 /**
@@ -317,7 +344,11 @@ function hasContent(message: vscode.LanguageModelChatMessage2) {
  */
 export function processMessages(messages: vscode.LanguageModelChatMessage2[]) {
 	return messages
+		// Remove messages that have no content
 		.filter(hasContent)
+		// Remove empty text parts from messages that have other non-empty content
+		.map(removeEmptyTextParts)
+		// Process empty tool results, replacing them with a placeholder
 		.map(processEmptyToolResults);
 }
 
