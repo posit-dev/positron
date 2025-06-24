@@ -5,7 +5,7 @@
 
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
+import { ISettableObservable } from '../../../../base/common/observable.js';
 import { IRuntimeClientInstance, RuntimeClientState, RuntimeClientStatus } from './languageRuntimeClientInstance.js';
 import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent, Variable } from './positronVariablesComm.js';
 
@@ -14,6 +14,11 @@ import { ClipboardFormatFormat, PositronVariablesComm, RefreshEvent, UpdateEvent
  * and methods.
  */
 export class PositronVariable {
+	/**
+	 * The current pending view request.
+	 */
+	private _pendingViewPromise?: Promise<string | undefined>;
+
 	/**
 	 * Creates a new PositronVariable instance.
 	 *
@@ -79,8 +84,18 @@ export class PositronVariable {
 	 * @returns The ID of the viewer that was opened, if any.
 	 */
 	async view(): Promise<string | undefined> {
+		if (this._pendingViewPromise) {
+			// If a view is already pending, return the existing promise.
+			return this._pendingViewPromise;
+		}
+
 		const path = this.parentKeys.concat(this.data.access_key);
-		return this._comm.view(path);
+		try {
+			this._pendingViewPromise = this._comm.view(path);
+			return await this._pendingViewPromise;
+		} finally {
+			this._pendingViewPromise = undefined;
+		}
 	}
 }
 
@@ -227,15 +242,6 @@ export class VariablesClientInstance extends Disposable {
 	public async requestClipboardFormat(format: ClipboardFormatFormat, path: string[]): Promise<string> {
 		const formatted = await this._comm.clipboardFormat(path, format);
 		return formatted.content;
-	}
-
-	/**
-	 * Requests that the variables client open a viewer for the specified variable.
-	 *
-	 * @param path The path to the variable to view
-	 */
-	public async requestView(path: string[]) {
-		await this._comm.view(path);
 	}
 
 	/**
