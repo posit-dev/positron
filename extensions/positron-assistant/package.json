@@ -125,8 +125,9 @@
         "properties": {
           "positron.assistant.enable": {
             "type": "boolean",
-            "default": true,
-            "markdownDescription": "%configuration.enable.markdownDescription%"
+            "default": false,
+            "markdownDescription": "%configuration.enable.markdownDescription%",
+            "tags": ["preview"]
           },
           "positron.assistant.useAnthropicSdk": {
             "type": "boolean",
