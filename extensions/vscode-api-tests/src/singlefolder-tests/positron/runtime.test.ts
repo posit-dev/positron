@@ -753,6 +753,8 @@ suite('positron API - executeCode', () => {
 			'print("event")',  // code
 			false,             // focus
 			false,             // allowIncomplete
+			positron.RuntimeCodeExecutionMode.Interactive,
+			positron.RuntimeErrorBehavior.Stop
 		);
 
 		// Assert that the event matches the expected values
