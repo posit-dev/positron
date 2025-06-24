@@ -108,8 +108,31 @@
           "default": 10,
           "minimum": 1,
           "maximum": 2000,
-          "description": "Maximum size in megabytes for binary buffers passed between IPyWidgets and the kernel"
-        }
+          "description": "%configuration.maxBufferSizeMB.description%"
+        },
+        "kernelSupervisor.transport": {
+          "scope": "machine",
+          "type": "string",
+          "description": "%configuration.transport.description%",
+          "enum": [
+            "auto",
+            "tcp",
+            "sockets",
+            "pipes"
+          ],
+          "enumDescriptions": [
+            "%configuration.transport.auto.description%",
+            "%configuration.transport.tcp.description%",
+            "%configuration.transport.sockets.description%",
+            "%configuration.transport.pipes.description%"
+          ],
+          "enumItemLabels": [
+            "%configuration.transport.auto.label%",
+            "%configuration.transport.tcp.label%",
+            "%configuration.transport.sockets.label%",
+            "%configuration.transport.pipes.label%"
+          ],
+        },
       }
     },
     "commands": [
