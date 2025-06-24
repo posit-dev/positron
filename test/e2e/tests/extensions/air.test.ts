@@ -14,9 +14,7 @@ test.describe('Extensions', {
 	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
 }, () => {
 
-	test('Verify AIR extension basic functionality', {
-		tag: [tags.EXTENSIONS, tags.WEB, tags.WIN]
-	}, async function ({ app, openFile, runCommand }) {
+	test('Verify AIR extension basic functionality', async function ({ app, openFile, runCommand }) {
 
 		await openFile('workspaces/r-formatting/bad-formatting.r');
 
@@ -32,6 +30,17 @@ test.describe('Extensions', {
 		});
 
 	});
+
+	test('Verify Restart Extension Host command works - R', async function ({ app, r }) {
+		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
+		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
+	});
+
+	test('Verify Restart Extension Host command works - Python', async function ({ app, python }) {
+		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
+		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
+	});
+
 });
 
 // note that waitForEditorContents removes line breaks
