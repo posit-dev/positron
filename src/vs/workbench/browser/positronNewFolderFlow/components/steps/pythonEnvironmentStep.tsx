@@ -452,7 +452,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						<FlowFormattedText type={FlowFormattedTextType.Info}>
 							{(() => localize(
 								'pythonEnvironmentSubStep.description',
-								"Select a way to create a new Python environment"
+								"Select a way to create a new virtual environment"
 							))()}
 						</FlowFormattedText>
 					}
@@ -484,7 +484,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 			{/* Show the Python interpreter dropdown */}
 			<PositronFlowSubStep
 				description={(() => {
-					const whatToSelect = (context.usesCondaEnv || context.usesUvEnv) ? 'a Python version to install' : 'an existing interpreter';
+					const whatToSelect = (context.usesCondaEnv || context.usesUvEnv) ? 'a Python version' : 'an existing interpreter';
 					return localize(
 						'pythonInterpreterSubStep.description',
 						"Select {0}",
@@ -500,6 +500,7 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						interpreterOrVersion
 					)
 				})()}
+				titleId='pythonEnvironment-interpreterOrVersion'
 			>
 				<DropDownListBox
 					createItem={(item) => (
