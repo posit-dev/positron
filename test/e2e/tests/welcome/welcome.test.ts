@@ -19,8 +19,8 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	});
 
 	test.describe('Workspace', () => {
-		test.beforeEach(async function ({ hotKeys }) {
-			await hotKeys.resetWelcomeWalkthrough();
+		test.beforeEach(async function ({ hotKeys, sessions, app }) {
+			await sessions.expectNoStartUpMessaging();
 			await hotKeys.openWelcomeWalkthrough();
 		});
 
@@ -36,6 +36,32 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			app.web
 				? await welcome.expectConnectToBeVisible(false)
 				: await welcome.expectConnectToBeVisible(true);
+		});
+
+		test('Verify limited walkthroughs on Welcome page and full list in `More...`', async function ({ app, hotKeys }) {
+			const { welcome, quickInput } = app.workbench;
+			await hotKeys.resetWelcomeWalkthrough();
+			await hotKeys.reloadWindow();
+
+			await welcome.expectWalkthroughsToHaveCount(2);
+			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron']);
+
+			await welcome.walkthroughSection.getByText('More...').click();
+			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
+
+			const expectedWalkthroughs = [
+				'Get Started with Python Development',
+				'Migrating from VSCode to Positron',
+				'Migrating from RStudio to Positron',
+				'Get Started with Jupyter Notebooks',
+				'Get Started with Posit Publisher'
+			];
+
+			if (!app.web) {
+				expectedWalkthroughs.push('Get started with Quarto');
+			}
+
+			await quickInput.expectQuickInputResultsToContain(expectedWalkthroughs);
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
@@ -72,29 +98,11 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			await quickInput.selectQuickInputElementContaining('R File');
 			await editors.expectActiveEditorIconClassToMatch(/r-lang-file-icon/);
 		});
-
-		test('Verify limited walkthroughs on Welcome page and full list in `More...`', async function ({ app }) {
-			const { welcome, quickInput } = app.workbench;
-
-			await welcome.expectWalkthroughsToHaveCount(2);
-			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron']);
-
-			await welcome.walkthroughSection.getByText('More...').click();
-			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
-			await quickInput.expectQuickInputResultsToContain([
-				'Get Started with Python Development',
-				'Migrating from VSCode to Positron',
-				'Migrating from RStudio to Positron',
-				'Get Started with Jupyter Notebooks',
-				'Get Started with Posit Publisher',
-				'Get started with Quarto']);
-		});
 	});
 
 	test.describe('No Workspace', () => {
-		test.beforeAll(async function ({ hotKeys, sessions }) {
+		test.beforeAll(async function ({ hotKeys }) {
 			await hotKeys.closeWorkspace();
-
 		});
 
 		test.beforeEach(async function ({ hotKeys, sessions }) {
