@@ -1492,6 +1492,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 	}
 
 	private createRuntimePlotClient(comm: PositronPlotCommProxy, metadata: IPositronPlotMetadata, location: PlotClientLocation = PlotClientLocation.View) {
+		// for Python plots, use intrinsic sizing policy default
+		this._selectedSizingPolicy = metadata.session_id.startsWith('python') ? this._intrinsicSizingPolicy : this._selectedSizingPolicy;
 		const sizingPolicy = this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
 			?? this._selectedSizingPolicy;
 		metadata.sizing_policy = {
