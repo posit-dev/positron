@@ -32,10 +32,10 @@ export class QuickInput {
 		await expect(this.quickInputTitleBar).toHaveText(text);
 	}
 
-	async expectQuickInputResultsToContain(text: string[]): Promise<void> {
-		await test.step('Verify Quick Input results contain expected text', async () => {
-			for (let i = 0; i < text.length; i++) {
-				await expect(this.quickInputResult.filter({ hasText: text[i] })).toBeVisible();
+	async expectQuickInputResultsToContain(titles: string[]): Promise<void> {
+		await test.step('Verify Quick Input results contain expected title', async () => {
+			for (let i = 0; i < titles.length; i++) {
+				await expect(this.quickInputResult.filter({ hasText: titles[i] })).toBeVisible();
 			}
 		});
 	}
