@@ -80,6 +80,7 @@ import { PositronReactRenderer } from '../../../../base/browser/positronReactRen
 import { createWelcomePageLeft } from './positronWelcomePageLeft.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
+import { isDark } from '../../../../platform/theme/common/theme.js';
 // --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -905,12 +906,26 @@ export class GettingStartedPage extends EditorPane {
 			showOnStartupCheckbox.checked = !showOnStartupCheckbox.checked;
 			onShowOnStartupChanged();
 		}));
-
 		// --- Start Positron ---
 		// Diverged from upstream by changing the contents of the welcome page
-		const header = $('.header', {},
-			$('div.product-logo.welcome-positron-logo'),
+
+		// Create a function to get the header logo based on theme type
+		const getHeaderLogoClass = () => {
+			return isDark(this.themeService.getColorTheme().type)
+				? 'product-logo welcome-positron-logo-dark'
+				: 'product-logo welcome-positron-logo';
+		};
+		// Create element for the theme-aware logo
+		const logoElement = $('div', { class: getHeaderLogoClass() });
+		// Add a listener to update the logo when the theme changes
+		this.categoriesSlideDisposables.add(
+			this.themeService.onDidColorThemeChange(() => {
+				logoElement.className = getHeaderLogoClass();
+			})
 		);
+
+		// Display the theme-aware logo in the header
+		const header = $('.header', {}, logoElement);
 
 		const leftColumn = $('.categories-column.categories-column-left', {},);
 		const rightColumn = $('.categories-column.categories-column-right', {},);

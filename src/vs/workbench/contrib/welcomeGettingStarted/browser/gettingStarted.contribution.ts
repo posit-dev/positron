@@ -34,9 +34,6 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { AccessibleViewRegistry } from '../../../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { GettingStartedAccessibleView } from './gettingStartedAccessibleView.js';
 
-// --- Start Positron ---
-import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
-// --- End Positron ---
 //
 export * as icons from './gettingStartedIcons.js';
 
@@ -244,9 +241,6 @@ registerAction2(class extends Action2 {
 			title: localize2('welcome.showAllWalkthroughs', 'Open Walkthrough...'),
 			category,
 			f1: true,
-			// --- Start Positron ---
-			precondition: IsDevelopmentContext,
-			// --- End Positron ---
 			menu: {
 				id: MenuId.MenubarHelpMenu,
 				group: '1_welcome',
