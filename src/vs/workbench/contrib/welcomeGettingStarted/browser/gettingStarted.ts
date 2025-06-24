@@ -909,16 +909,14 @@ export class GettingStartedPage extends EditorPane {
 		// --- Start Positron ---
 		// Diverged from upstream by changing the contents of the welcome page
 
-		// Create a function to get the header logo based on theme mode
+		// Create a function to get the header logo based on theme type
 		const getHeaderLogoClass = () => {
 			return isDark(this.themeService.getColorTheme().type)
 				? 'product-logo welcome-positron-logo-dark'
 				: 'product-logo welcome-positron-logo';
 		};
-
-		// Create the logo element with current theme
+		// Create element for the theme-aware logo
 		const logoElement = $('div', { class: getHeaderLogoClass() });
-
 		// Add a listener to update the logo when the theme changes
 		this.categoriesSlideDisposables.add(
 			this.themeService.onDidColorThemeChange(() => {
@@ -926,7 +924,7 @@ export class GettingStartedPage extends EditorPane {
 			})
 		);
 
-		// Use the theme-aware logo in the header
+		// Display the theme-aware logo in the header
 		const header = $('.header', {}, logoElement);
 
 		const leftColumn = $('.categories-column.categories-column-left', {},);
