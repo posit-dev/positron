@@ -428,15 +428,13 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				.map((e) => xml.node('execution', JSON.stringify(e)))
 				.join('\n');
 			const sessionNode = xml.node('session',
-				xml.node('session',
-					xml.node('executions', executions ?? ''), {
-					description: 'Current active session',
-					language: positronContext.activeSession.language,
-					version: positronContext.activeSession.version,
-					mode: positronContext.activeSession.mode,
-					identifier: positronContext.activeSession.identifier,
-				})
-			);
+				xml.node('executions', executions ?? ''), {
+				description: 'Current active session',
+				language: positronContext.activeSession.language,
+				version: positronContext.activeSession.version,
+				mode: positronContext.activeSession.mode,
+				identifier: positronContext.activeSession.identifier,
+			});
 			positronContextPrompts.push(sessionNode);
 			log.debug(
 				`[context] adding active ${positronContext.activeSession.mode} ${positronContext.activeSession.language} session context: ` +

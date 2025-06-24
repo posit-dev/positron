@@ -30,7 +30,8 @@ suite('AnthropicLanguageModel', () => {
 				stream: sinon.stub().returns({
 					on: sinon.stub(),
 					abort: sinon.stub(),
-					done: sinon.stub().resolves()
+					done: sinon.stub().resolves(),
+					finalMessage: sinon.stub().resolves({}),
 				})
 			}
 		};
