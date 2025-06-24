@@ -76,6 +76,9 @@ export interface IPositronPlotMetadata {
 
 	/** The optional output identifier of the plot. */
 	output_id?: string;
+
+	/** The language of the session */
+	language?: string;
 }
 
 /**

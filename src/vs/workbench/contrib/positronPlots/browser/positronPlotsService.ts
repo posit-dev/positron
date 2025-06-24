@@ -664,6 +664,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							if (!metadata.suggested_file_name) {
 								metadata.suggested_file_name = createSuggestedFileNameForPlot(this._storageService);
 							}
+							metadata.language = session.runtimeMetadata.languageId;
 
 							const commProxy = this.createCommProxy(client, metadata);
 							plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
@@ -684,6 +685,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 							code: '',
 							location: PlotClientLocation.View,
 							suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
+							language: session.runtimeMetadata.languageId,
 						};
 						const commProxy = this.createCommProxy(client, metadata);
 						plotClients.push(this.createRuntimePlotClient(commProxy, metadata));
@@ -765,6 +767,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					code,
 					pre_render: data?.pre_render,
 					suggested_file_name: createSuggestedFileNameForPlot(this._storageService),
+					language: session.runtimeMetadata.languageId,
 				};
 
 				// Register the plot client
@@ -1493,7 +1496,7 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	private createRuntimePlotClient(comm: PositronPlotCommProxy, metadata: IPositronPlotMetadata, location: PlotClientLocation = PlotClientLocation.View) {
 		// for Python plots, use intrinsic sizing policy as default
-		this._selectedSizingPolicy = metadata.session_id.startsWith('python') ? this._intrinsicSizingPolicy : this._selectedSizingPolicy;
+		this._selectedSizingPolicy = metadata.language === 'python' ? this._intrinsicSizingPolicy : this._selectedSizingPolicy;
 		const sizingPolicy = this._sizingPolicies.find((policy) => policy.id === metadata.sizing_policy?.id)
 			?? this._selectedSizingPolicy;
 		metadata.sizing_policy = {
