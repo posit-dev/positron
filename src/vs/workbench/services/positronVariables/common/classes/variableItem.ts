@@ -42,6 +42,11 @@ export class VariableItem implements IVariableItem {
 	 */
 	private readonly _isRecent: ISettableObservable<boolean>;
 
+	/**
+	 * Whether a viewer is currently loading for the variable item.
+	 */
+	private readonly _isViewLoading: ISettableObservable<boolean>;
+
 	//#endregion Private Properties
 
 	//#region Public Properties
@@ -182,6 +187,13 @@ export class VariableItem implements IVariableItem {
 	}
 
 	/**
+	 * Whether a viewer is currently loading for the variable item.
+	 */
+	get isViewLoading() {
+		return this._isViewLoading;
+	}
+
+	/**
 	 * Get the raw data of the variable from the language runtime.
 	 */
 	get variable(): Variable {
@@ -200,6 +212,7 @@ export class VariableItem implements IVariableItem {
 	constructor(variable: PositronVariable, isRecent: boolean) {
 		this._variable = variable;
 		this._isRecent = observableValue(variable.data.access_key, isRecent);
+		this._isViewLoading = observableValue(this, false);
 
 		// Clear recent flag after 2 seconds.
 		setTimeout(() => this._isRecent.set(false, undefined), 2000);
@@ -325,7 +338,12 @@ export class VariableItem implements IVariableItem {
 	 * Requests that a viewer be opened for this variable.
 	 */
 	async view(): Promise<string | undefined> {
-		return this._variable.view();
+		this._isViewLoading.set(true, undefined);
+		try {
+			return await this._variable.view();
+		} finally {
+			this._isViewLoading.set(false, undefined);
+		}
 	}
 
 	//#endregion Public Methods

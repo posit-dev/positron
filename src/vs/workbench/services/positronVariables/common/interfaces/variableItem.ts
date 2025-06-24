@@ -76,6 +76,11 @@ export interface IVariableItem {
 	readonly isRecent: IObservable<boolean>;
 
 	/**
+	 * Whether a viewer is currently loading for the variable item.
+	 */
+	readonly isViewLoading: IObservable<boolean>;
+
+	/**
 	 * Formats the value of this variable item in a format suitable for placing on the clipboard.
 	 * @param mime The desired MIME type of the format, such as 'text/plain' or 'text/html'.
 	 * @returns A promise that resolves to the formatted value of this variable.
