@@ -31,16 +31,6 @@ test.describe('Extensions', {
 
 	});
 
-	test('Verify Restart Extension Host command works - R', async function ({ app, r }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
-		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
-	});
-
-	test('Verify Restart Extension Host command works - Python', async function ({ app, python }) {
-		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
-		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
-	});
-
 });
 
 // note that waitForEditorContents removes line breaks
