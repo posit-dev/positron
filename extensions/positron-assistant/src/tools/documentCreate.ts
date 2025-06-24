@@ -10,6 +10,7 @@ import { log } from '../extension.js';
 interface CreateDocumentInput {
 	filePath: string;
 	workspaceFolder?: string;
+	content?: string;
 	errorIfExists?: boolean;
 }
 
@@ -25,7 +26,7 @@ export const DocumentCreateTool = vscode.lm.registerTool<CreateDocumentInput>(Po
 	invoke: async (options, _token) => {
 		log.trace(`[${PositronAssistantToolName.DocumentCreate}] Invoked with options: ${JSON.stringify(options.input, null, 2)}`);
 
-		const { filePath, workspaceFolder, errorIfExists } = options.input;
+		const { filePath, workspaceFolder, content, errorIfExists } = options.input;
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (!workspaceFolders || workspaceFolders.length === 0) {
 			throw new Error(vscode.l10n.t(`Can't create document ${filePath} because no workspace folders are open. Open a workspace folder before using this tool.`));
@@ -44,7 +45,8 @@ export const DocumentCreateTool = vscode.lm.registerTool<CreateDocumentInput>(Po
 		if (!documentExists) {
 			try {
 				log.trace(`[${PositronAssistantToolName.DocumentCreate}] File does not exist at ${fileUri.fsPath}, creating new document.`);
-				await vscode.workspace.fs.writeFile(fileUri, new Uint8Array());
+				const fileContent = content ? Buffer.from(content, 'utf8') : Buffer.from('', 'utf8');
+				await vscode.workspace.fs.writeFile(fileUri, fileContent);
 				log.info(`[${PositronAssistantToolName.DocumentCreate}] Created document at ${fileUri.fsPath}`);
 			} catch (error) {
 				if ((error as vscode.FileSystemError).code !== 'FileNotFound') {
@@ -52,6 +54,9 @@ export const DocumentCreateTool = vscode.lm.registerTool<CreateDocumentInput>(Po
 				}
 			}
 		}
+
+		// Open the document in the editor
+		await vscode.window.showTextDocument(fileUri);
 
 		return new vscode.LanguageModelToolResult([
 			new vscode.LanguageModelTextPart(`Document ${documentExists ? 'already exists ' : 'created '} at: ${fileUri}`)
