@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import test from '@playwright/test';
+import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code.js';
 
 /**
@@ -19,44 +19,27 @@ export class HotKeys {
 	// ----------------------
 	// --- Editing Actions ---
 	// ----------------------
-	/**
-	 * Copy selected content to clipboard
-	 */
+
 	public async copy() {
 		await this.pressHotKeys(`Cmd+C`);
 	}
 
-	/**
-	 * Cut selected content to clipboard
-	 */
 	public async cut() {
 		await this.pressHotKeys(`Cmd+X`);
 	}
 
-	/**
-	 * Paste content from clipboard
-	 */
 	public async paste() {
 		await this.pressHotKeys(`Cmd+V`);
 	}
 
-	/**
-	 * Redo the last undone action
-	 */
 	public async redo() {
 		await this.pressHotKeys(`Cmd+Shift+Z`);
 	}
 
-	/**
-	 * Select all content
-	 */
 	public async selectAll() {
 		await this.pressHotKeys(`Cmd+A`);
 	}
 
-	/**
-	 * Undo the last action
-	 */
 	public async undo() {
 		await this.pressHotKeys(`Cmd+Z`);
 	}
@@ -64,16 +47,11 @@ export class HotKeys {
 	// --------------------
 	// --- File Actions ---
 	// --------------------
-	/**
-	 * Open a file
-	 */
+
 	public async openFile() {
 		await this.pressHotKeys(`Cmd+O`);
 	}
 
-	/**
-	 * Save the current file
-	 */
 	public async save() {
 		await this.pressHotKeys(`Cmd+S`);
 	}
@@ -81,37 +59,23 @@ export class HotKeys {
 	// -------------------------
 	// --- Find & Navigation ---
 	// -------------------------
-	/**
-	 * Close all editor tabs
-	 */
+
 	public async closeAllEditors() {
 		await this.pressHotKeys(`Cmd+K Cmd+W`);
 	}
 
-	/**
-	 * Close the current tab
-	 */
 	public async closeTab() {
 		await this.pressHotKeys(`Cmd+W`);
 	}
 
-	/**
-	 * Open the find dialog
-	 */
 	public async find() {
 		await this.pressHotKeys(`Cmd+F`);
 	}
 
-	/**
-	 * Switch to the first tab
-	 */
 	public async firstTab() {
 		await this.pressHotKeys(`Cmd+1`);
 	}
 
-	/**
-	 * Scroll to the top of the document
-	 */
 	public async scrollToTop() {
 		const platform = process.platform;
 
@@ -122,16 +86,10 @@ export class HotKeys {
 		}
 	}
 
-	/**
-	 * Switch to the tab on the left
-	 */
 	public async switchTabLeft() {
 		await this.pressHotKeys(`Cmd+Shift+[`);
 	}
 
-	/**
-	 * Switch to the tab on the right
-	 */
 	public async switchTabRight() {
 		await this.pressHotKeys(`Cmd+Shift+]`);
 	}
@@ -139,16 +97,11 @@ export class HotKeys {
 	// ------------------------
 	// --- Console & Visuals ---
 	// ------------------------
-	/**
-	 * Focus the console
-	 */
+
 	public async focusConsole() {
 		await this.pressHotKeys(`Cmd+K F`);
 	}
 
-	/**
-	 * Switch to visual mode
-	 */
 	public async visualMode() {
 		await this.pressHotKeys(`Cmd+Shift+F4`);
 	}
@@ -170,60 +123,42 @@ export class HotKeys {
 	// ----------------------
 	// --- Workspace Actions ---
 	// ----------------------
-	/**
-	 * Close the current workspace
-	 */
+
 	public async closeWorkspace() {
 		await this.pressHotKeys(`Cmd+J W`);
+		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
 	}
 
-	/**
-	 * Import settings
-	 */
 	public async importSettings() {
 		await this.pressHotKeys(`Cmd+J I`);
 	}
 
-	/**
-	 * Add a tag to a Jupyter cell
-	 */
 	public async jupyterCellAddTag() {
 		await this.pressHotKeys(`Cmd+J J`);
 	}
 
-	/**
-	 * Create a new folder from template
-	 */
 	public async newFolderFromTemplate() {
 		await this.pressHotKeys(`Cmd+J F`);
 	}
 
-	/**
-	 * Open user settings JSON
-	 */
 	public async openUserSettingsJSON() {
 		await this.pressHotKeys(`Cmd+J U`);
 	}
 
-	/**
-	 * Open workspace settings JSON
-	 */
 	public async openWorkspaceSettingsJSON() {
 		await this.pressHotKeys(`Cmd+J K`);
 	}
 
-	/**
-	 * Reload the window
-	 */
 	public async reloadWindow() {
 		await this.pressHotKeys(`Cmd+R R`);
 	}
 
-	/**
-	 * Open the welcome walkthrough
-	 */
-	public async welcomeWalkthrough() {
+	public async openWelcomeWalkthrough() {
 		await this.pressHotKeys(`Cmd+J L`);
+	}
+
+	public async resetWelcomeWalkthrough() {
+		await this.pressHotKeys(`Cmd+J X`);
 	}
 
 	/**

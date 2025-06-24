@@ -19,8 +19,9 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	});
 
 	test.describe('Workspace', () => {
-		test.beforeEach(async function ({ hotKeys }) {
-			await hotKeys.welcomeWalkthrough();
+		test.beforeEach(async function ({ hotKeys, sessions, app }) {
+			await sessions.expectNoStartUpMessaging();
+			await hotKeys.openWelcomeWalkthrough();
 		});
 
 		test('Verify page header, footer, content', async function ({ app }) {
@@ -35,6 +36,25 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			app.web
 				? await welcome.expectConnectToBeVisible(false)
 				: await welcome.expectConnectToBeVisible(true);
+		});
+
+		test('Verify limited walkthroughs on Welcome page and full list in `More...`', async function ({ app, hotKeys }) {
+			const { welcome, quickInput } = app.workbench;
+			await hotKeys.resetWelcomeWalkthrough();
+			await hotKeys.reloadWindow();
+
+			await welcome.expectWalkthroughsToHaveCount(2);
+			await welcome.expectWalkthroughsToContain(['Migrating from VSCode to Positron', 'Migrating from RStudio to Positron']);
+
+			await welcome.walkthroughSection.getByText('More...').click();
+			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
+			await quickInput.expectQuickInputResultsToContain([
+				'Get Started with Python Development',
+				'Migrating from VSCode to Positron',
+				'Migrating from RStudio to Positron',
+				'Get Started with Jupyter Notebooks',
+				'Get Started with Posit Publisher'
+			]);
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
@@ -69,20 +89,19 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 			await welcome.newFileButton.click();
 			await quickInput.selectQuickInputElementContaining('R File');
-
 			await editors.expectActiveEditorIconClassToMatch(/r-lang-file-icon/);
 		});
 	});
 
 	test.describe('No Workspace', () => {
-		test.beforeAll(async function ({ hotKeys, sessions }) {
+		test.beforeAll(async function ({ hotKeys }) {
 			await hotKeys.closeWorkspace();
-			await sessions.expectSessionPickerToBe('Start Session');
-			await sessions.expectNoStartUpMessaging();
 		});
 
-		test.beforeEach(async function ({ hotKeys }) {
-			await hotKeys.welcomeWalkthrough();
+		test.beforeEach(async function ({ hotKeys, sessions }) {
+			await sessions.expectSessionPickerToBe('Start Session');
+			await sessions.expectNoStartUpMessaging();
+			await hotKeys.openWelcomeWalkthrough();
 		});
 
 		test('Verify page header, footer, content', async function ({ app }) {
