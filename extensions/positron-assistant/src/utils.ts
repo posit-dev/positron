@@ -383,3 +383,13 @@ export function uriToString(uri: vscode.Uri): string {
 	}
 	return uri.toString();
 }
+
+/**
+ * Checks if there is an open workspace folder.
+ * This is useful to determine if certain tools can be used, as they require an open workspace folder.
+ * @returns Whether there is an open workspace folder.
+ */
+export function isWorkspaceOpen(): boolean {
+	const workspaceFolders = vscode.workspace.workspaceFolders;
+	return !!workspaceFolders && workspaceFolders.length > 0;
+}
