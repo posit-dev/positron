@@ -3,6 +3,8 @@
 	"description": "Provides default assistant and language models for Positron.",
 	"commands.configureModels.title": "Configure Language Model Providers",
 	"commands.logStoredModels.title": "Log the stored language models",
+	"commands.generateCommitMessage.title": "Generate Commit Message",
+	"commands.cancelGenerateCommitMessage.title": "Cancel Generate Commit Message",
 	"commands.copilot.signin.title": "Copilot Sign In",
 	"commands.copilot.signout.title": "Copilot Sign Out",
 	"commands.category": "Positron Assistant",

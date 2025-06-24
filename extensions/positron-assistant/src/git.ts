@@ -4,8 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as fs from 'fs';
 
 import { GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
+import { EXTENSION_ROOT_DIR } from './constants';
+
+const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
+const generatingGitCommitKey = 'positron-assistant.generatingCommitMessage';
 
 export enum GitRepoChangeKind {
 	Staged = 'staged',
@@ -77,7 +82,7 @@ export async function getWorkspaceGitChanges(kind: GitRepoChangeKind): Promise<G
 	const repos = currentGitRepositories();
 
 	// Combine and summarise each kind of git repo change
-	return Promise.all(repos.map(async (repo) => {
+	const repoChanges = await Promise.all(repos.map(async (repo) => {
 		const stateChanges: { change: Change; kind: GitRepoChangeKind }[] = [];
 
 		if (kind === GitRepoChangeKind.Staged || kind === GitRepoChangeKind.All) {
@@ -106,4 +111,53 @@ export async function getWorkspaceGitChanges(kind: GitRepoChangeKind): Promise<G
 		}));
 		return { repo, changes };
 	}));
+
+	return repoChanges.filter((repoChange) => repoChange.changes.length > 0);
+}
+
+/** Generate a commit message for git repositories with staged changes */
+export async function generateCommitMessage(context: vscode.ExtensionContext) {
+	await vscode.commands.executeCommand('setContext', generatingGitCommitKey, true);
+
+	const models = (await vscode.lm.selectChatModels()).filter((model) => {
+		return model.family !== 'echo' && model.family !== 'error';
+	});
+	if (models.length === 0) {
+		vscode.commands.executeCommand('setContext', generatingGitCommitKey, false);
+		throw new Error('No language models available for commit message generation.');
+	}
+	const model = models[0];
+
+	const tokenSource: vscode.CancellationTokenSource = new vscode.CancellationTokenSource();
+	const cancelDisposable = vscode.commands.registerCommand('positron-assistant.cancelGenerateCommitMessage', () => {
+		tokenSource.cancel();
+		vscode.commands.executeCommand('setContext', generatingGitCommitKey, false);
+	});
+
+	// Send repo changes to the LLM and update the commit message input boxes
+	const allChanges = await getWorkspaceGitChanges(GitRepoChangeKind.All);
+	const stagedChanges = await getWorkspaceGitChanges(GitRepoChangeKind.Staged);
+	const gitChanges = stagedChanges.length > 0 ? stagedChanges : allChanges;
+
+	const system: string = await fs.promises.readFile(`${mdDir}/prompts/git/commit.md`, 'utf8');
+	try {
+		await Promise.all(gitChanges.map(async ({ repo, changes }) => {
+			if (changes.length > 0) {
+				const response = await model.sendRequest([
+					vscode.LanguageModelChatMessage.User(changes.map(change => change.summary).join('\n')),
+				], { modelOptions: { system } }, tokenSource.token);
+
+				repo.inputBox.value = '';
+				for await (const delta of response.text) {
+					if (tokenSource.token.isCancellationRequested) {
+						return null;
+					}
+					repo.inputBox.value += delta;
+				}
+			}
+		}));
+	} finally {
+		cancelDisposable.dispose();
+		vscode.commands.executeCommand('setContext', generatingGitCommitKey, false);
+	}
 }

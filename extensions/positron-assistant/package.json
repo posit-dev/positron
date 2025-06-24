@@ -104,6 +104,20 @@
         ]
       }
     ],
+    "menus": {
+      "scm/inputBox": [
+        {
+          "command": "positron-assistant.generateCommitMessage",
+          "group": "navigation",
+          "when": "!positron-assistant.generatingCommitMessage"
+        },
+        {
+          "command": "positron-assistant.cancelGenerateCommitMessage",
+          "group": "navigation",
+          "when": "positron-assistant.generatingCommitMessage"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "positron-assistant.configureModels",
@@ -116,6 +130,20 @@
         "title": "%commands.logStoredModels.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.generateCommitMessage",
+        "title": "%commands.generateCommitMessage.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "positron-assistant.cancelGenerateCommitMessage",
+        "title": "%commands.cancelGenerateCommitMessage.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable",
+        "icon": "$(stop)"
       }
     ],
     "configuration": [
