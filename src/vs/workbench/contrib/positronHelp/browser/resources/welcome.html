@@ -20,9 +20,18 @@
 		}
 
 		.logo {
-			width: min(75vw, 25em);
+			min-width: min(75vw, 25em);
 			height: auto;
 			margin-bottom: 2em;
+		}
+
+		body.vscode-light .logo {
+			content: url("__logoSrcLight__");
+
+		}
+
+		body.vscode-dark .logo {
+			content: url("__logoSrcDark__");
 		}
 
 		ul {
@@ -36,7 +45,7 @@
 <body>
 	<div class="container">
 		<div>
-			<img src="__logoSrc__" alt="Positron Logo" class="logo">
+			<img alt="Positron Logo" class="logo" />
 
 			<div>
 				<ul>
