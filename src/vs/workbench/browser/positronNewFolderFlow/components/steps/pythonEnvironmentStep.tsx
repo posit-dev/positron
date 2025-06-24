@@ -120,14 +120,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 			identifier: EnvironmentSetupType.NewEnvironment,
 			title: localize(
 				'pythonEnvironmentStep.newEnvironment.radioLabel',
-				"Create a new Python environment (Recommended)"
+				"Create a new virtual environment (Recommended)"
 			)
 		}),
 		new RadioButtonItem({
 			identifier: EnvironmentSetupType.ExistingEnvironment,
 			title: localize(
 				'pythonEnvironmentStep.existingEnvironment.radioLabel',
-				"Use an existing Python installation"
+				"Use an existing environment"
 			)
 		})
 	];
@@ -335,11 +335,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 
 	// Construct the interpreter dropdown title.
 	const interpreterDropdownTitle = () => {
+		const interpreterOrVersion = (context.usesCondaEnv || context.usesUvEnv) ? 'version' : 'interpreter';
+
 		// If interpreters is undefined, show a loading message.
 		if (interpretersLoading()) {
 			return localize(
 				'pythonInterpreterSubStep.dropDown.title.loading',
-				"Loading interpreters..."
+				"Loading {0}s...",
+				interpreterOrVersion
 			);
 		}
 
@@ -347,14 +350,16 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		if (!interpretersAvailable()) {
 			return localize(
 				'pythonInterpreterSubStep.dropDown.title.noInterpreters',
-				"No interpreters found."
+				"No {0}s found.",
+				interpreterOrVersion
 			);
 		}
 
 		// Otherwise, show the default title.
 		return localize(
 			'pythonInterpreterSubStep.dropDown.title',
-			"Select a Python interpreter"
+			"Select a Python {0}",
+			interpreterOrVersion
 		);
 	};
 
@@ -447,14 +452,14 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						<FlowFormattedText type={FlowFormattedTextType.Info}>
 							{(() => localize(
 								'pythonEnvironmentSubStep.description',
-								"Select a Python environment"
+								"Select a way to create a new virtual environment"
 							))()}
 						</FlowFormattedText>
 					}
 					feedback={envProviderStepFeedback()}
 					title={(() => localize(
 						'pythonEnvironmentSubStep.label',
-						"Python Environment"
+						"Environment Creation"
 					))()}
 				>
 					<DropDownListBox
@@ -478,17 +483,24 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 			}
 			{/* Show the Python interpreter dropdown */}
 			<PositronFlowSubStep
-				description={(() =>
-					localize(
+				description={(() => {
+					const whatToSelect = (context.usesCondaEnv || context.usesUvEnv) ? 'a Python version' : 'an existing interpreter';
+					return localize(
 						'pythonInterpreterSubStep.description',
-						"Select a Python interpreter"
-					))()}
+						"Select {0}",
+						whatToSelect
+					)
+				})()}
 				feedback={interpreterStepFeedback()}
-				title={(() =>
-					localize(
+				title={(() => {
+					const interpreterOrVersion = (context.usesCondaEnv || context.usesUvEnv) ? 'Version' : 'Interpreter';
+					return localize(
 						'pythonInterpreterSubStep.title',
-						"Python Interpreter"
-					))()}
+						"Python {0}",
+						interpreterOrVersion
+					)
+				})()}
+				titleId='pythonEnvironment-interpreterOrVersion'
 			>
 				<DropDownListBox
 					createItem={(item) => (
