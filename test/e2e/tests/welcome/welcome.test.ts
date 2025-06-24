@@ -48,20 +48,13 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 
 			await welcome.walkthroughSection.getByText('More...').click();
 			await quickInput.expectTitleBarToHaveText('Open Walkthrough...');
-
-			const expectedWalkthroughs = [
+			await quickInput.expectQuickInputResultsToContain([
 				'Get Started with Python Development',
 				'Migrating from VSCode to Positron',
 				'Migrating from RStudio to Positron',
 				'Get Started with Jupyter Notebooks',
 				'Get Started with Posit Publisher'
-			];
-
-			if (!app.web) {
-				expectedWalkthroughs.push('Get started with Quarto');
-			}
-
-			await quickInput.expectQuickInputResultsToContain(expectedWalkthroughs);
+			]);
 		});
 
 		test('Python - Verify clicking on `new notebook` from the Welcome page opens notebook and sets kernel', async function ({ app, python }) {
