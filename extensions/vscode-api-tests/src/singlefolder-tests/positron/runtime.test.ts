@@ -759,7 +759,7 @@ suite('positron API - executeCode', () => {
 		assert.ok(event, 'Event should be fired');
 		assert.strictEqual(event.languageId, 'test', 'Language ID should match');
 		assert.strictEqual(event.code, 'print("event")', 'Code should match');
-		assert.strictEqual(event.attribution.source, positron.CodeAttributionSource.Extension,
+		assert.strictEqual(event.attribution.source, positron.CodeAttributionSource.Interactive,
 			'Correctly attributed to execution via an extension');
 	});
 
