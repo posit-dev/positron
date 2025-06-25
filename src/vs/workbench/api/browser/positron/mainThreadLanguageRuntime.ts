@@ -230,8 +230,15 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			} else if (ev.name === UiFrontendEvent.OpenEditor) {
 				// Open an editor
 				const ed = ev.data as OpenEditorEvent;
+
+				let file = URI.parse(ed.file);
+				if (!file.scheme) {
+					// If the URI doesn't have a scheme, assume it's a file URI
+					file = URI.file(ed.file);
+				}
+
 				const editor: ITextResourceEditorInput = {
-					resource: URI.file(ed.file),
+					resource: file,
 					options: { selection: { startLineNumber: ed.line, startColumn: ed.column } }
 				};
 				this._editorService.openEditor(editor);

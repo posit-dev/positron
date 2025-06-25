@@ -12,4 +12,7 @@ export enum PositronAssistantToolName {
 	SelectionEdit = 'selectionEdit',
 	ProjectTree = 'getProjectTree',
 	GetChangedFiles = 'getChangedFiles',
+	DocumentCreate = 'documentCreate',
+	TextSearch = 'positron_findTextInProject_internal',
+	FileContents = 'positron_getFileContents_internal',
 }

@@ -84,6 +84,7 @@ interface LanguageModelConfigurationProps {
 
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
 	// Construct the list of providers from the sources, which are defined in the extension. See extensions/positron-assistant/src/models.ts
+	const allProviders = props.sources;
 	const providers = props.sources
 		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot'))
 		.sort((a, b) => {
@@ -270,7 +271,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		if (providerConfig.completions) {
 			setShowProgress(true);
 			// Assume a completion source exists with the same provider ID and compatible auth details
-			const completionSource = providerSources.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
+			const completionSource = allProviders.find((source) => source.provider.id === providerConfig.provider && source.type === 'completion')!;
 			const completionConfig = {
 				provider: providerConfig.provider,
 				type: PositronLanguageModelType.Completion,

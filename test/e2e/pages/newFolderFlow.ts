@@ -15,10 +15,10 @@ export class NewFolderFlow {
 	private folderTemplateButton = (label: string) => this.code.driver.page.locator('label').filter({ hasText: label });
 	private folderNameInput = this.code.driver.page.getByLabel(/Enter the name of your new/);
 	private existingEnvRadioButton = this.code.driver.page.getByText(/Use an existing/);
-	private envProviderDropdown = this.code.driver.page.locator('#flow-sub-step-python-environment').locator('button');
+	private envProviderDropdown = this.code.driver.page.locator('#flow-sub-step-environment-creation').locator('button');
 	private envProviderDropdownTitle = this.envProviderDropdown.locator('.dropdown-entry-title');
 	private dropDropdownOptions = this.code.driver.page.locator('.positron-modal-popup-children').getByRole('button');
-	private interpreterDropdown = this.code.driver.page.locator('#flow-sub-step-python-interpreter').locator('button');
+	private interpreterDropdown = this.code.driver.page.locator('#flow-sub-step-pythonenvironment-interpreterorversion').locator('button');
 	private interpreterDropdownSubtitle = this.interpreterDropdown.locator('.dropdown-entry-subtitle');
 
 	constructor(private code: Code, private quickaccess: QuickAccess) { }

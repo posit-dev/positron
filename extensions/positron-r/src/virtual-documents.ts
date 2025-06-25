@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { RequestType } from 'vscode-languageclient';
 import { LanguageClient } from 'vscode-languageclient/node';
+import { LOGGER } from './extension';
 
 interface VirtualDocumentParams {
 	path: string;
@@ -27,6 +28,11 @@ export class VirtualDocumentProvider implements vscode.TextDocumentContentProvid
 			path: uri.path,
 		};
 
-		return await this._client.sendRequest(VIRTUAL_DOCUMENT_REQUEST_TYPE, params, token);
+		try {
+		  return await this._client.sendRequest(VIRTUAL_DOCUMENT_REQUEST_TYPE, params, token);
+		} catch (err) {
+      LOGGER.warn(`Failed to provide document for URI '${uri}': ${err}`);
+      return 'Error: This document does not exist';
+		}
 	}
 }

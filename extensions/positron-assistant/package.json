@@ -153,8 +153,9 @@
         "properties": {
           "positron.assistant.enable": {
             "type": "boolean",
-            "default": true,
-            "markdownDescription": "%configuration.enable.markdownDescription%"
+            "default": false,
+            "markdownDescription": "%configuration.enable.markdownDescription%",
+            "tags": ["preview"]
           },
           "positron.assistant.useAnthropicSdk": {
             "type": "boolean",
@@ -216,6 +217,38 @@
                   }
                 }
               }
+            }
+          }
+        }
+      },
+      {
+        "name": "documentCreate",
+        "displayName": "Create Document",
+        "modelDescription": "Create a new document in the workspace.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant",
+          "requires-workspace"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "filePath": {
+              "type": "string",
+              "description": "The path to the document to create, including the file name and extension. This path must be relative to the workspace folder."
+            },
+            "workspaceFolder": {
+              "type": "string",
+              "description": "The workspace folder to create the document in. If not specified, the document will be created in the first workspace folder."
+            },
+            "content": {
+              "type": "string",
+              "description": "The initial content of the document. If not specified, the document will be created empty."
+            },
+            "errorIfExists": {
+              "type": "boolean",
+              "description": "Whether to throw an error if the document already exists. If false, the existing document will be opened instead.",
+              "default": true
             }
           }
         }
@@ -309,7 +342,8 @@
         "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders. Empty folders are not included in the tree.",
         "canBeReferencedInPrompt": false,
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-workspace"
         ],
         "inputSchema": {
           "type": "object",

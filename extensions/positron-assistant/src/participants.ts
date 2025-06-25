@@ -9,13 +9,14 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as xml from './xml.js';
 
-import { MARKDOWN_DIR } from './constants';
-import { isChatImageMimeType, isTextEditRequest, toLanguageModelChatMessage, uriToString } from './utils';
+import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
+import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, toLanguageModelChatMessage, uriToString } from './utils';
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
+import { log } from './extension.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -209,9 +210,15 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				const inChatPane = request.location2 === undefined;
 				const inEditor = request.location2 instanceof vscode.ChatRequestEditorData;
 				const hasSelection = inEditor && request.location2.selection?.isEmpty === false;
+				const isAgentMode = this.id === ParticipantID.Agent;
 
 				// If streaming edits are enabled, don't allow any tools in inline editor chats.
 				if (isStreamingEditsEnabled() && this.id === ParticipantID.Editor) {
+					return false;
+				}
+
+				// If the tool requires a workspace, but no workspace is open, don't allow the tool.
+				if (tool.tags.includes(TOOL_TAG_REQUIRES_WORKSPACE) && !isWorkspaceOpen()) {
 					return false;
 				}
 
@@ -226,7 +233,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						return inChatPane &&
 							// The execute code tool does not yet support notebook sessions.
 							positronContext.activeSession?.mode !== positron.LanguageRuntimeSessionMode.Notebook &&
-							this.id === ParticipantID.Agent;
+							isAgentMode;
 					// Only include the documentEdit tool in an editor and if there is
 					// no selection.
 					case PositronAssistantToolName.DocumentEdit:
@@ -237,15 +244,20 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						return inEditor && hasSelection;
 					// Only include the edit file tool in edit or agent mode i.e. for the edit participant.
 					case PositronAssistantToolName.EditFile:
-						return this.id === ParticipantID.Edit || this.id === ParticipantID.Agent;
+						return this.id === ParticipantID.Edit || isAgentMode;
+					// Only include the documentCreate tool in the chat pane and if the user is an agent.
+					case PositronAssistantToolName.DocumentCreate:
+						return inChatPane && isAgentMode;
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
 					// Allow all tools in Agent mode.
 					default:
-						return this.id === ParticipantID.Agent ||
+						return isAgentMode ||
 							tool.tags.includes('positron-assistant');
 				}
 			}
 		);
+
+		log.trace(`Available tools for participant ${this.id}:\n${tools.map(t => `- ${t.name}`).join('\n')}`);
 
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
@@ -472,11 +484,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		if (customPrompt.length > 0) {
 			prompts.push(customPrompt);
 		}
-
-		// Add default context items to the prompt just before the prompts are joined.
-		// This ordering helps with verifying the context items in tests, as we can expect
-		// them to be at the end of the prompt.
-		prompts.push(...getDefaultContextItems());
 
 		const parts: (vscode.LanguageModelTextPart | vscode.LanguageModelDataPart)[] = [];
 		if (prompts.length > 0) {
@@ -803,20 +810,6 @@ async function openLlmsTextDocument(): Promise<vscode.TextDocument | undefined> 
 
 	const llmsDocument = await vscode.workspace.openTextDocument(fileUri);
 	return llmsDocument;
-}
-
-/**
- * Retrieve the default context items to include in the prompt.
- * @returns A list of default context items to include in the prompt.
- */
-export function getDefaultContextItems(): string[] {
-	const defaultPrompts = [];
-
-	// Note if any folders are open in the workspace.
-	const areFoldersOpen = !!vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0;
-	defaultPrompts.push(xml.node('workspace', `Workspace folders are open: ${areFoldersOpen}`));
-
-	return defaultPrompts;
 }
 
 /**

@@ -137,7 +137,11 @@ export const VariableItem = (props: VariableItemProps) => {
 				));
 			}
 
-			// If a binding was returned, save the binding between the viewer and the variable item.
+			// If a binding was returned, save the binding between the viewer and the
+			// variable item. Note that it's valid for backends to not return any ID
+			// if no comm was open. This happens with Ark when the user views a
+			// function object: a virtual document is opened in an editor but is not
+			// managed by a comm.
 			if (viewerId) {
 				explorerService.setInstanceForVar(viewerId, item.id);
 			}

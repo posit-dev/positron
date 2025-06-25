@@ -10,6 +10,7 @@ import { ParticipantService } from './participants.js';
 import { PositronAssistantToolName } from './types.js';
 import { ProjectTreeTool } from './tools/projectTreeTool.js';
 import { getWorkspaceGitChanges, GitRepoChangeKind } from './git.js';
+import { DocumentCreateTool } from './tools/documentCreate.js';
 
 
 /**
@@ -281,10 +282,6 @@ export function registerAssistantTools(
 		}
 	});
 
-	context.subscriptions.push(inspectVariablesTool);
-
-	context.subscriptions.push(ProjectTreeTool);
-
 	const getChangedFilesTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.GetChangedFiles, {
 		invoke: async (options, token) => {
 			const repoChanges = await getWorkspaceGitChanges(GitRepoChangeKind.All);
@@ -299,6 +296,12 @@ export function registerAssistantTools(
 	});
 
 	context.subscriptions.push(getChangedFilesTool);
+
+	context.subscriptions.push(inspectVariablesTool);
+
+	context.subscriptions.push(ProjectTreeTool);
+
+	context.subscriptions.push(DocumentCreateTool);
 }
 
 /**

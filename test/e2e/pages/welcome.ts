@@ -13,7 +13,7 @@ const START_SECTION = '.positron-welcome-page-start';
 const HELP_TITLE = '.welcome-help-links';
 const OPEN_SECTION = '.start-container';
 const RECENT_SECTION = '.recently-opened';
-
+const WALKTHROUGH_SECTION = '.getting-started';
 const HEADING_ROLE = 'heading';
 const BUTTON_ROLE = 'button';
 
@@ -35,6 +35,8 @@ export class Welcome {
 	newFileButton = this.startButtons.getByText('New File');
 	newFolderFromTemplateButton = this.startButtons.getByText('New Folder');
 	openFolderButton = this.startButtons.getByText('Open Folder');
+	walkthroughSection = this.code.driver.page.locator(WALKTHROUGH_SECTION);
+	walkthroughButtons = this.walkthroughSection.getByRole(BUTTON_ROLE);
 
 	constructor(private code: Code) { }
 
@@ -102,6 +104,24 @@ export class Welcome {
 			for (const item of recentItems) {
 				await expect(this.recentSection.getByRole(BUTTON_ROLE, { name: item })).toBeVisible();
 			}
+		});
+	}
+
+	async expectWalkthroughsToContain(walkthroughs: string[]) {
+		await test.step(`Verify walkthrough section contains expected items: ${walkthroughs}`, async () => {
+			await expect(this.walkthroughSection).toBeVisible();
+			await expect(this.walkthroughSection).toContainText('Walkthroughs');
+
+			for (const item of walkthroughs) {
+				await expect(this.walkthroughButtons.filter({ hasText: item })).toBeVisible();
+			}
+		});
+	}
+
+	async expectWalkthroughsToHaveCount(count: number) {
+		await test.step(`Verify walkthroughs count is ${count}`, async () => {
+			const walkthroughs = this.walkthroughSection.getByRole(BUTTON_ROLE);
+			await expect(walkthroughs).toHaveCount(count);
 		});
 	}
 }

@@ -480,7 +480,10 @@ export namespace CreateEnv {
         export const installingPackages = l10n.t('Installing packages...');
         export const errorCreatingEnvironment = l10n.t('Error while creating virtual environment.');
         export const selectPythonPlaceHolder = l10n.t('Select a Python installation to create the virtual environment');
-        export const providerDescription = l10n.t('Creates a `.venv` virtual environment in the current workspace');
+        // --- Start Positron ---
+        // export const providerDescription = l10n.t('Creates a `.venv` virtual environment in the current workspace');
+        export const providerDescription = l10n.t('Select an existing interpreter for the new environment');
+        // --- End Positron ---
         export const error = l10n.t('Creating virtual environment failed with error.');
         export const tomlExtrasQuickPickTitle = l10n.t('Select optional dependencies to install from pyproject.toml');
         export const requirementsQuickPickTitle = l10n.t('Select dependencies to install');
@@ -507,7 +510,10 @@ export namespace CreateEnv {
             'Select the version of Python to install in the environment',
         );
         export const creating = l10n.t('Creating conda environment...');
-        export const providerDescription = l10n.t('Creates a `.conda` Conda environment in the current workspace');
+        // --- Start Positron ---
+        // export const providerDescription = l10n.t('Creates a `.conda` Conda environment in the current workspace');
+        export const providerDescription = l10n.t('Use conda to install a Python version for the new environment');
+        // --- End Positron ---
 
         export const recreate = l10n.t('Delete and Recreate');
         export const recreateDescription = l10n.t('Delete existing ".conda" environment and create a new one');
@@ -522,7 +528,9 @@ export namespace CreateEnv {
 
     // --- Start Positron ---
     export namespace Uv {
-        export const providerDescription = l10n.t('Creates a `uv` virtual environment in the current workspace');
+        export const providerDescription = l10n.t(
+            'Use uv to find a Python version locally (or install it if needed) for the new environment',
+        );
     }
     // --- End Positron ---
 
