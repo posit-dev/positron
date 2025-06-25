@@ -289,8 +289,11 @@ export function registerAssistantTools(
 		prepareInvocation2: async (options, _token) => {
 			const packageNames = options.input.packages.join(', ');
 			const result: vscode.PreparedTerminalToolInvocation = {
-				command: `pip install ${options.input.packages.join(' ')}`,
-				language: 'bash',
+				// Display a generic command description rather than a specific pip command
+				// The actual implementation uses environment-aware package management (pip, conda, poetry, etc.)
+				// via the Python extension's installPackages command, not direct pip execution
+				command: `Install Python packages: ${packageNames}`,
+				language: 'text', // Not actually a bash command
 				confirmationMessages: {
 					title: vscode.l10n.t('Install Python Packages'),
 					message: vscode.l10n.t('Positron Assistant wants to install {0}, is this okay?', packageNames)
