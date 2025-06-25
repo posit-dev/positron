@@ -131,8 +131,8 @@
             "%configuration.transport.tcp.label%",
             "%configuration.transport.sockets.label%",
             "%configuration.transport.pipes.label%"
-          ],
-        },
+          ]
+        }
       }
     },
     "commands": [

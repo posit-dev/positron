@@ -1086,6 +1086,53 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Constructs the appropriate WebSocket URI based on the API base path
+	 * @param apiBasePath The HTTP API base path
+	 * @param sessionId The session ID for the WebSocket connection
+	 * @returns The WebSocket URI to connect to
+	 */
+	private constructWebSocketUri(apiBasePath: string, sessionId: string): string {
+		const uri = vscode.Uri.parse(apiBasePath);
+
+		if (this.isDomainSocketPath(apiBasePath)) {
+			// For domain sockets, we need to use ws+unix format
+			const socketPath = this.extractSocketPath(apiBasePath);
+			if (socketPath) {
+				const wsUri = `ws+unix://${socketPath}:/sessions/${sessionId}/channels`;
+				this.log(`Constructed domain socket WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
+				return wsUri;
+			} else {
+				this.log(`Failed to extract socket path from: ${apiBasePath}`, vscode.LogLevel.Warning);
+				// Fall back to TCP parsing
+			}
+		}
+
+		// For TCP connections, use the standard ws:// format
+		const wsUri = `ws://${uri.authority}/sessions/${sessionId}/channels`;
+		this.log(`Constructed TCP WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
+		return wsUri;
+	}
+
+	/**
+	 * Determines if a base path is using a domain socket transport
+	 * @param basePath The base path to check
+	 * @returns True if the base path uses a domain socket
+	 */
+	private isDomainSocketPath(basePath: string): boolean {
+		return basePath.includes('unix:');
+	}
+
+	/**
+	 * Extracts the socket path from a domain socket base path
+	 * @param basePath The base path containing the socket reference
+	 * @returns The socket file path, or null if not a domain socket path
+	 */
+	private extractSocketPath(basePath: string): string | null {
+		const match = basePath.match(/unix:([^:]+)/);
+		return match ? match[1] : null;
+	}
+
+	/**
 	 * Attempts to start the session; returns a promise that resolves when the
 	 * session is ready to use.
 	 */
@@ -1220,8 +1267,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			// Connect to the session's websocket. The websocket URL is based on
 			// the base path of the API.
-			const uri = vscode.Uri.parse(this._api.basePath);
-			const wsUri = `ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`;
+			const wsUri = this.constructWebSocketUri(this._api.basePath, this.metadata.sessionId);
 			this.log(`Connecting to websocket: ${wsUri}`, vscode.LogLevel.Debug);
 			this._socket = new SocketSession(wsUri, this.metadata.sessionId, this._consoleChannel);
 			this._disposables.push(this._socket);
