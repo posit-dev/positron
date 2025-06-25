@@ -741,7 +741,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (!this.configurationService.getValue('positron.assistant.enable')) {
 			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Coming Soon");
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and will be available in a future version of Positron.\n");
-		} else if (!!this.languageModelsService.currentProvider) {
+		} else if (!this.languageModelsService.currentProvider) {
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
 			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
 			firstLinkToButton = true;

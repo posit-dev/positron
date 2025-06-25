@@ -368,7 +368,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	})();
 
 	return <OKModalDialog
-		height={420}
+		height={405}
 		okButtonTitle={(() => localize('positron.languageModelModalDialog.close', "Close"))()}
 		renderer={props.renderer}
 		title={modalTitle}
