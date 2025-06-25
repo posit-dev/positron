@@ -12,9 +12,8 @@ import React, { useEffect, useState } from 'react';
 // Other dependencies.
 import { DynamicPlotInstance } from '../../positronPlots/browser/components/dynamicPlotInstance.js';
 import { StaticPlotInstance } from '../../positronPlots/browser/components/staticPlotInstance.js';
-import { ZoomLevel } from '../../positronPlots/browser/components/zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
+import { IPositronPlotClient, IPositronPlotsService, ZoomLevel, isZoomablePlotClient } from '../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../services/positronPlots/common/staticPlotClient.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 
@@ -27,7 +26,7 @@ interface EditorPlotsContainerProps {
 
 export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 
-
+	const [zoom, setZoom] = useState<ZoomLevel>(ZoomLevel.Fit);
 	const [darkFilterMode, setDarkFilterMode] = useState(props.positronPlotsService.darkFilterMode);
 
 	const render = () => {
@@ -37,13 +36,14 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 				height={props.height}
 				plotClient={props.plotClient}
 				width={props.width}
-				zoom={ZoomLevel.Fit} />;
+				zoom={zoom} />;
 		}
+		// add something to listen to static plot zoom level changes
 		if (props.plotClient instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={props.plotClient.id}
 				plotClient={props.plotClient}
-				zoom={ZoomLevel.OneHundred} />;
+				zoom={zoom} />;
 		}
 		return null;
 	};
@@ -60,6 +60,23 @@ export const EditorPlotsContainer = (props: EditorPlotsContainerProps) => {
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
 	}, [props.positronPlotsService]);
+
+	// Monitor zoom level changes
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		if (isZoomablePlotClient(props.plotClient)) {
+			// listen to the plots service for zoom level changes
+			disposableStore.add(props.plotClient.onDidChangeZoomLevel((zoomLevel) => {
+				setZoom(zoomLevel);
+			}));
+			setZoom(props.plotClient.zoomLevel);
+		}
+
+		// Return the cleanup function that will dispose of the event handlers.
+		return () => disposableStore.dispose();
+	}, [props.plotClient]);
 
 	return (
 		<div className={'dark-filter-' + darkFilterMode} style={
