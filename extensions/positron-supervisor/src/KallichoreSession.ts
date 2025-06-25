@@ -1086,53 +1086,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
-	 * Constructs the appropriate WebSocket URI based on the API base path
-	 * @param apiBasePath The HTTP API base path
-	 * @param sessionId The session ID for the WebSocket connection
-	 * @returns The WebSocket URI to connect to
-	 */
-	private constructWebSocketUri(apiBasePath: string, sessionId: string): string {
-		const uri = vscode.Uri.parse(apiBasePath);
-
-		if (this.isDomainSocketPath(apiBasePath)) {
-			// For domain sockets, we need to use ws+unix format
-			const socketPath = this.extractSocketPath(apiBasePath);
-			if (socketPath) {
-				const wsUri = `ws+unix://${socketPath}:/sessions/${sessionId}/channels`;
-				this.log(`Constructed domain socket WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
-				return wsUri;
-			} else {
-				this.log(`Failed to extract socket path from: ${apiBasePath}`, vscode.LogLevel.Warning);
-				// Fall back to TCP parsing
-			}
-		}
-
-		// For TCP connections, use the standard ws:// format
-		const wsUri = `ws://${uri.authority}/sessions/${sessionId}/channels`;
-		this.log(`Constructed TCP WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
-		return wsUri;
-	}
-
-	/**
-	 * Determines if a base path is using a domain socket transport
-	 * @param basePath The base path to check
-	 * @returns True if the base path uses a domain socket
-	 */
-	private isDomainSocketPath(basePath: string): boolean {
-		return basePath.includes('unix:');
-	}
-
-	/**
-	 * Extracts the socket path from a domain socket base path
-	 * @param basePath The base path containing the socket reference
-	 * @returns The socket file path, or null if not a domain socket path
-	 */
-	private extractSocketPath(basePath: string): string | null {
-		const match = basePath.match(/unix:([^:]+)/);
-		return match ? match[1] : null;
-	}
-
-	/**
 	 * Attempts to start the session; returns a promise that resolves when the
 	 * session is ready to use.
 	 */
@@ -1259,71 +1212,130 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			return Promise.reject(new Error('This session cannot be reconnected.'));
 		}
 
-		return new Promise((resolve, reject) => {
+		return new Promise(async (resolve, reject) => {
 			// Ensure websocket is closed if it's open
 			if (this._socket) {
 				this._socket.close();
 			}
 
-			// Connect to the session's websocket. The websocket URL is based on
-			// the base path of the API.
-			const wsUri = this.constructWebSocketUri(this._api.basePath, this.metadata.sessionId);
-			this.log(`Connecting to websocket: ${wsUri}`, vscode.LogLevel.Debug);
-			this._socket = new SocketSession(wsUri, this.metadata.sessionId, this._consoleChannel);
-			this._disposables.push(this._socket);
+			try {
+				// Determine transport type and construct WebSocket URI accordingly
+				const basePath = this._api.basePath;
+				let wsUri: string;
 
-			// Handle websocket events
-			this._socket.ws.onopen = () => {
-				this.log(`Connected to websocket ${wsUri}.`, vscode.LogLevel.Debug);
-				// Open the connected barrier so that we can start sending messages
-				this._connected.open();
-				resolve();
-			};
+				if (basePath && basePath.includes('unix:')) {
+					// Unix domain socket transport - get socket path from channelsUpgrade API
+					this.log(`Using Unix domain socket transport, getting socket path for session ${this.metadata.sessionId}`, vscode.LogLevel.Debug);
+					const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
+					const socketPath = channelsResponse.body;
+					this.log(`Got socket path from channelsUpgrade: ${socketPath}`, vscode.LogLevel.Debug);
 
-			this._socket.ws.onerror = (err: any) => {
-				this.log(`Websocket error: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
-				if (this._connected.isOpen()) {
-					// If the error happened after the connection was established,
-					// something bad happened. Close the connected barrier and
-					// show an error.
-					this._connected = new Barrier();
-					vscode.window.showErrorMessage(`Error connecting to ${this.dynState.sessionName} (${this.metadata.sessionId}): ${JSON.stringify(err)}`);
+					// The socket path might be returned with or without the ws+unix:// prefix
+					if (socketPath.startsWith('ws+unix://')) {
+						// Already a complete WebSocket URI
+						wsUri = socketPath;
+					} else if (socketPath.startsWith('/')) {
+						// Raw socket path, construct WebSocket URI
+						wsUri = `ws+unix://${socketPath}:/api/channels/${this.metadata.sessionId}`;
+					} else {
+						// Fallback: assume it's a relative path from the Unix socket
+						const socketMatch = basePath.match(/unix:([^:]+):/);
+						if (socketMatch) {
+							const baseSocketPath = socketMatch[1];
+							wsUri = `ws+unix://${baseSocketPath}:/api/channels/${this.metadata.sessionId}`;
+						} else {
+							throw new Error(`Cannot extract socket path from base path: ${basePath}`);
+						}
+					}
+					this.log(`Constructed Unix domain WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
 				} else {
-					// The connection never established; reject the promise and
-					// let the caller handle it.
-					reject(err);
-				}
-			};
+					// TCP transport - construct WebSocket URI directly from base path
+					this.log(`Using TCP transport, constructing WebSocket URI from base path: ${basePath}`, vscode.LogLevel.Debug);
+					if (!basePath) {
+						throw new Error('API base path is not set for TCP transport');
+					}
 
-			this._socket.ws.onclose = (evt: any) => {
-				this.log(`Websocket closed with kernel in status ${this._runtimeState}: ${JSON.stringify(evt)}`, vscode.LogLevel.Info);
-
-				// Only fire the disconnected event if we are eligible to
-				// reconnect
-				if (this._canConnect) {
-					const disconnectEvent: DisconnectedEvent = {
-						reason: this._runtimeState === positron.RuntimeState.Exited ?
-							DisconnectReason.Exit : DisconnectReason.Unknown,
-						state: this._runtimeState,
-					};
-					this.disconnected.fire(disconnectEvent);
+					// Convert HTTP base path to WebSocket URI
+					const wsScheme = basePath.startsWith('https://') ? 'wss://' : 'ws://';
+					const baseUrl = basePath.replace(/^https?:\/\//, '').replace(/\/$/, '');
+					wsUri = `${wsScheme}${baseUrl}/api/channels/${this.metadata.sessionId}`;
+					this.log(`Constructed TCP WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
 				}
 
-				// When the socket is closed, reset the connected barrier and
-				// clear the websocket instance.
-				this._connected = new Barrier();
-				this._socket = undefined;
-			};
+				this.log(`Final WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
 
-			// Main handler for incoming messages
-			this._socket.ws.onmessage = (msg: any) => {
-				try {
-					const data = JSON.parse(msg.data.toString());
-					this.handleMessage(data);
-				} catch (err) {
-					this.log(`Could not parse message: ${err}`, vscode.LogLevel.Error);
+				// Get the Bearer token from the API for WebSocket authentication
+				const defaultAuth = (this._api as any).authentications?.default;
+				let accessToken: string | undefined;
+				const headers: { [key: string]: string } = {};
+
+				if (defaultAuth && typeof defaultAuth.accessToken !== 'undefined') {
+					accessToken = typeof defaultAuth.accessToken === 'function' ? defaultAuth.accessToken() : defaultAuth.accessToken;
+					headers['Authorization'] = `Bearer ${accessToken}`;
+					this.log(`Adding Bearer authentication to WebSocket connection`, vscode.LogLevel.Debug);
+				} else {
+					this.log(`Warning: No Bearer token found for WebSocket authentication`, vscode.LogLevel.Warning);
 				}
-			};
+
+				this._socket = new SocketSession(wsUri, this.metadata.sessionId, this._consoleChannel, headers);
+				this._disposables.push(this._socket);
+
+				// Handle websocket events
+				this._socket.ws.onopen = () => {
+					this.log(`Connected to websocket ${wsUri}.`, vscode.LogLevel.Debug);
+					// Open the connected barrier so that we can start sending messages
+					this._connected.open();
+					resolve();
+				};
+
+				this._socket.ws.onerror = (err: any) => {
+					this.log(`Websocket error: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
+					if (this._connected.isOpen()) {
+						// If the error happened after the connection was established,
+						// something bad happened. Close the connected barrier and
+						// show an error.
+						this._connected = new Barrier();
+						vscode.window.showErrorMessage(`Error connecting to ${this.dynState.sessionName} (${this.metadata.sessionId}): ${JSON.stringify(err)}`);
+					} else {
+						// The connection never established; reject the promise and
+						// let the caller handle it.
+						reject(err);
+					}
+				};
+
+				this._socket.ws.onclose = (evt: any) => {
+					this.log(`Websocket closed with kernel in status ${this._runtimeState}: ${JSON.stringify(evt)}`, vscode.LogLevel.Info);
+
+					// Only fire the disconnected event if we are eligible to
+					// reconnect
+					if (this._canConnect) {
+						const disconnectEvent: DisconnectedEvent = {
+							reason: this._runtimeState === positron.RuntimeState.Exited ?
+								DisconnectReason.Exit : DisconnectReason.Unknown,
+							state: this._runtimeState,
+						};
+						this.disconnected.fire(disconnectEvent);
+					}
+
+					// When the socket is closed, reset the connected barrier and
+					// clear the websocket instance.
+					this._connected = new Barrier();
+					this._socket = undefined;
+				};
+
+				// Main handler for incoming messages
+				this._socket.ws.onmessage = (msg: any) => {
+					try {
+						const data = JSON.parse(msg.data.toString());
+						this.handleMessage(data);
+					} catch (err) {
+						this.log(`Could not parse message: ${err}`, vscode.LogLevel.Error);
+					}
+				};
+			} catch (err) {
+				this.log(`Failed to get WebSocket URI: ${JSON.stringify(err)}`, vscode.LogLevel.Error);
+				reject(err);
+			}
 		});
 	}
 
