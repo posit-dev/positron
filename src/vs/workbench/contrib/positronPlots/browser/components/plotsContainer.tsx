@@ -21,7 +21,7 @@ import { WebviewPlotThumbnail } from './webviewPlotThumbnail.js';
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { DarkFilter, IPositronPlotClient, IPositronPlotsService, PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, PlotRenderFormat, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
@@ -58,6 +58,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const positronPlotsContext = usePositronPlotsContext();
 	const plotHistoryRef = React.createRef<HTMLDivElement>();
 	const containerRef = useRef<HTMLDivElement>(undefined!);
+	const [zoom, setZoom] = React.useState<ZoomLevel>(ZoomLevel.Fit);
 
 	// We generally prefer showing the plot history on the bottom (making the
 	// plot wider), but if the plot container is too wide, we show it on the
@@ -164,6 +165,29 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		};
 	}, [plotWidth, plotHeight, props.positronPlotsService]);
 
+	useEffect(() => {
+		// Create the disposable store for cleanup.
+		const disposableStore = new DisposableStore();
+
+		// Get the current plot instance using the selected instance ID from the
+		// PositronPlotsContext.
+		const currentPlotInstance = positronPlotsContext.positronPlotInstances.find(
+			(plotInstance) => plotInstance.id === positronPlotsContext.selectedInstanceId
+		);
+		if (currentPlotInstance && isZoomablePlotClient(currentPlotInstance)) {
+			// Listen to the plot instance for zoom level changes.
+			disposableStore.add(currentPlotInstance.onDidChangeZoomLevel((zoomLevel) => {
+				setZoom(zoomLevel);
+			}));
+			// Set the initial zoom level.
+			setZoom(currentPlotInstance.zoomLevel);
+		}
+		return () => {
+			// Dispose of the disposable store when the component unmounts.
+			disposableStore.dispose();
+		}
+	}, [positronPlotsContext.positronPlotInstances, positronPlotsContext.selectedInstanceId]);
+
 	/**
 	 * Renders either a DynamicPlotInstance (resizable plot), a
 	 * StaticPlotInstance (static plot image), or a WebviewPlotInstance
@@ -179,12 +203,12 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 				height={plotHeight}
 				plotClient={plotInstance}
 				width={plotWidth}
-				zoom={plotInstance.zoomLevel} />;
+				zoom={zoom} />;
 		} else if (plotInstance instanceof StaticPlotClient) {
 			return <StaticPlotInstance
 				key={plotInstance.id}
 				plotClient={plotInstance}
-				zoom={plotInstance.zoomLevel} />;
+				zoom={zoom} />;
 		} else if (plotInstance instanceof WebviewPlotClient) {
 			return <WebviewPlotInstance
 				key={plotInstance.id}
