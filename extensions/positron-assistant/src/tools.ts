@@ -283,6 +283,59 @@ export function registerAssistantTools(
 
 	context.subscriptions.push(inspectVariablesTool);
 
+	const installPythonPackageTool = vscode.lm.registerTool<{
+		packages: string[];
+	}>(PositronAssistantToolName.InstallPythonPackage, {
+		prepareInvocation2: async (options, _token) => {
+			const packageNames = options.input.packages.join(', ');
+			const result: vscode.PreparedTerminalToolInvocation = {
+				command: `pip install ${options.input.packages.join(' ')}`,
+				language: 'bash',
+				confirmationMessages: {
+					title: vscode.l10n.t('Install Python Packages'),
+					message: vscode.l10n.t('Positron Assistant wants to install {0}, is this okay?', packageNames)
+				},
+			};
+			return result;
+		},
+		invoke: async (options, _token) => {
+			try {
+				// Use command-based communication - no API leakage
+				const results = await vscode.commands.executeCommand(
+					'python.installPackages',
+					options.input.packages,
+					{ requireConfirmation: false } // Chat handles confirmations
+				);
+
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(Array.isArray(results) ? results.join('\n') : String(results))
+				]);
+			} catch (error) {
+				const errorMessage = error instanceof Error ? error.message : String(error);
+
+				// Parse error code prefixes from Python extension's installPackages command
+				// Expected prefixes: [NO_INSTALLER], [VALIDATION_ERROR]
+				// See: installPackages.ts JSDoc for complete error code documentation
+				let assistantGuidance = '';
+
+				if (errorMessage.startsWith('[NO_INSTALLER]')) {
+					assistantGuidance = '\n\nSuggestion: The Python environment may not be properly configured. Ask the user to check their Python interpreter selection or create a new environment.';
+				} else if (errorMessage.startsWith('[VALIDATION_ERROR]')) {
+					assistantGuidance = '\n\nSuggestion: Check that the package names are correct and properly formatted.';
+				} else {
+					// Fallback for unexpected errors (network issues, permissions, etc.)
+					assistantGuidance = '\n\nSuggestion: This may be a network, permissions, or environment issue. You can suggest the user retry the installation or try manual installation via terminal.';
+				}
+
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart(`Package installation encountered an issue: ${errorMessage}${assistantGuidance}`)
+				]);
+			}
+		}
+	});
+
+	context.subscriptions.push(installPythonPackageTool);
+
 	context.subscriptions.push(ProjectTreeTool);
 
 	context.subscriptions.push(DocumentCreateTool);
