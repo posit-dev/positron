@@ -81,11 +81,10 @@ configurationRegistry.registerConfiguration({
 		},
 		'update.showReleaseNotes': {
 			type: 'boolean',
-			default: false,
+			default: true,
 			scope: ConfigurationScope.APPLICATION,
 			description: localize('showReleaseNotes', "Show Release Notes after an update."),
 			tags: ['usesOnlineServices'],
-			included: false
 		},
 		'update.systemArchitecture': {
 			type: 'string',
