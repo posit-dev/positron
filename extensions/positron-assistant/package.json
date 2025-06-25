@@ -360,6 +360,28 @@
             }
           }
         }
+      },
+      {
+        "name": "installPythonPackage",
+        "displayName": "Install Python Package",
+        "modelDescription": "Install Python packages using pip. Provide an array of package names to install.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packages": {
+              "type": "array",
+              "description": "Array of Python package names to install.",
+              "items": {
+                "type": "string",
+                "description": "Name of the Python package to install."
+              }
+            }
+          }
+        }
       }
     ]
   },
