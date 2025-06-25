@@ -152,8 +152,13 @@ export class ProductContribution implements IWorkbenchContribution {
 							[{
 								label: nls.localize('releaseNotes', "Release Notes"),
 								run: () => {
-									const uri = URI.parse(releaseNotesUrl);
-									openerService.open(uri);
+									// --- Start Positron ---
+									// view release notes from the downloads page
+									if (productService.downloadUrl) {
+										const uri = URI.parse(productService.downloadUrl);
+										openerService.open(uri);
+									}
+									// --- End Positron ---
 								}
 							}],
 							{ priority: NotificationPriority.OPTIONAL }
