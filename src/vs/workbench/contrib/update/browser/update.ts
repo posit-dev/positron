@@ -136,14 +136,14 @@ export class ProductContribution implements IWorkbenchContribution {
 				return;
 			}
 
+			// --- Start Positron ---
 			const lastVersion = parseVersion(storageService.get(ProductContribution.KEY, StorageScope.APPLICATION, ''));
 			const currentVersion = parseVersion(productService.positronVersion);
 			const shouldShowReleaseNotes = configurationService.getValue<boolean>('update.showReleaseNotes');
-			const releaseNotesUrl = productService.releaseNotesUrl;
+			const downloadUrl = productService.downloadUrl;
 
 			// was there a major/minor update? if so, open release notes
-			if (shouldShowReleaseNotes && !environmentService.skipReleaseNotes && releaseNotesUrl && lastVersion && currentVersion && isMajorMinorUpdate(lastVersion, currentVersion)) {
-				// --- Start Positron ---
+			if (shouldShowReleaseNotes && !environmentService.skipReleaseNotes && downloadUrl && lastVersion && currentVersion && isMajorMinorUpdate(lastVersion, currentVersion)) {
 				showReleaseNotesInEditor(instantiationService, productService.positronVersion, false)
 					.then(undefined, () => {
 						notificationService.prompt(
@@ -152,22 +152,18 @@ export class ProductContribution implements IWorkbenchContribution {
 							[{
 								label: nls.localize('releaseNotes', "Release Notes"),
 								run: () => {
-									// --- Start Positron ---
 									// view release notes from the downloads page
-									if (productService.downloadUrl) {
-										const uri = URI.parse(productService.downloadUrl);
-										openerService.open(uri);
-									}
-									// --- End Positron ---
+									const uri = URI.parse(downloadUrl);
+									openerService.open(uri);
 								}
 							}],
 							{ priority: NotificationPriority.OPTIONAL }
 						);
 					});
-				// --- End Positron ---
 			}
 
 			storageService.store(ProductContribution.KEY, productService.positronVersion, StorageScope.APPLICATION, StorageTarget.MACHINE);
+			// --- End Positron ---
 		});
 	}
 }

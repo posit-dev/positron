@@ -4,7 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import './media/releasenoteseditor.css';
+// --- Start Positron ---
 // import { CancellationToken } from '../../../../base/common/cancellation.js';
+// --- End Positron ---
 import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { escapeMarkdownSyntaxTokens } from '../../../../base/common/htmlContent.js';
 import { KeybindingParser } from '../../../../base/common/keybindingParser.js';
@@ -19,7 +21,9 @@ import { IEnvironmentService } from '../../../../platform/environment/common/env
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
+// --- Start Positron ---
 // import { asTextOrError, IRequestService } from '../../../../platform/request/common/request.js';
+// --- End Positron ---
 import { DEFAULT_MARKDOWN_STYLES, renderMarkdownDocument } from '../../markdown/browser/markdownDocumentRenderer.js';
 import { WebviewInput } from '../../webviewPanel/browser/webviewEditorInput.js';
 import { IWebviewWorkbenchService } from '../../webviewPanel/browser/webviewWorkbenchService.js';
@@ -36,7 +40,9 @@ import { Schemas } from '../../../../base/common/network.js';
 import { ICodeEditorService } from '../../../../editor/browser/services/codeEditorService.js';
 import { dirname } from '../../../../base/common/resources.js';
 import { asWebviewUri } from '../../webview/common/webview.js';
+// --- Start Positron ---
 import { IUpdateService } from '../../../../platform/update/common/update.js';
+// --- End Positron ---
 
 export class ReleaseNotesManager {
 	private readonly _simpleSettingRenderer: SimpleSettingRenderer;
@@ -51,7 +57,9 @@ export class ReleaseNotesManager {
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@IOpenerService private readonly _openerService: IOpenerService,
+		// --- Start Positron ---
 		// @IRequestService private readonly _requestService: IRequestService,
+		// --- End Positron ---
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IEditorGroupsService private readonly _editorGroupService: IEditorGroupsService,
@@ -60,7 +68,9 @@ export class ReleaseNotesManager {
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IProductService private readonly _productService: IProductService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		// --- Start Positron ---
 		@IUpdateService private readonly _updateService: IUpdateService,
+		// --- End Positron ---
 	) {
 		TokenizationRegistry.onDidChange(() => {
 			return this.updateHtml();
@@ -104,7 +114,6 @@ export class ReleaseNotesManager {
 			this._currentReleaseNotes.webview.setHtml(html);
 			this._webviewWorkbenchService.revealWebview(this._currentReleaseNotes, activeEditorPane ? activeEditorPane.group : this._editorGroupService.activeGroup, false);
 		} else {
-			// error here?
 			this._currentReleaseNotes = this._webviewWorkbenchService.openWebview(
 				{
 					title,
@@ -217,17 +226,21 @@ export class ReleaseNotesManager {
 					const file = this._codeEditorService.getActiveCodeEditor()?.getModel()?.getValue();
 					text = file ? file.substring(file.indexOf('#')) : undefined;
 				} else {
-					// text = await asTextOrError(await this._requestService.request({ url }, CancellationToken.None));
+					// --- Start Positron ---
+					// Release notes need to be fetched from the main process
 					text = await this._updateService.getReleaseNotes();
+					// --- End Positron ---
 				}
-			} catch (err) {
+			} catch {
 				throw new Error('Failed to fetch release notes');
 			}
 
-			// if (!text || (!/^#\s/.test(text) && !useCurrentFile)) { // release notes always starts with `#` followed by whitespace, except when using the current file
+			// --- Start Positron ---
+			// Positron only cares that the release notes are available.
 			if (!text) {
 				throw new Error('Invalid release notes');
 			}
+			// --- End Positron ---
 
 			return patchKeybindings(text);
 		};
