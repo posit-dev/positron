@@ -5,7 +5,6 @@
 
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
-import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
 import { availableRuntimes, SessionRuntimes } from './sessions.js';
@@ -40,7 +39,7 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) {
+	constructor(private code: Code, private quickinput: QuickInput, private hotKeys: HotKeys) {
 		// Standard Console Button Locators
 		this.restartButton = this.code.driver.page.getByLabel('Restart console');
 		this.clearButton = this.code.driver.page.getByLabel('Clear console');
