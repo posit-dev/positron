@@ -86,6 +86,7 @@ import { IMultiStepInputFactory, MultiStepInputFactory } from './utils/multiStep
 import { Random } from './utils/random';
 import { ContextKeyManager } from './application/contextKeyManager';
 import { CreatePythonFileCommandHandler } from './application/commands/createPythonFile';
+import { InstallPackagesCommandHandler } from './application/commands/installPackages';
 import { RequireJupyterPrompt } from '../jupyter/requireJupyterPrompt';
 import { isWindows } from './utils/platform';
 import { PixiActivationCommandProvider } from './terminal/environmentActivationProviders/pixiActivationProvider';
@@ -119,6 +120,10 @@ export function registerTypes(serviceManager: IServiceManager): void {
     serviceManager.addSingleton<IExtensionSingleActivationService>(
         IExtensionSingleActivationService,
         CreatePythonFileCommandHandler,
+    );
+    serviceManager.addSingleton<IExtensionSingleActivationService>(
+        IExtensionSingleActivationService,
+        InstallPackagesCommandHandler,
     );
     serviceManager.addSingleton<ICommandManager>(ICommandManager, CommandManager);
     serviceManager.addSingleton<IContextKeyManager>(IContextKeyManager, ContextKeyManager);
