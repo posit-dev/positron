@@ -5,6 +5,7 @@
 
 import * as fs from 'fs';
 import { LOGGER } from './extension';
+import { randomUUID } from 'crypto';
 
 export class PromiseHandles<T> {
 	resolve!: (value: T | Promise<T>) => void;
@@ -89,4 +90,12 @@ export function removeSurroundingQuotes(x: string): string {
 	}
 
 	return x;
+}
+
+/**
+ * Generates a unique ID for direct injection of code into the runtime.
+ * @returns  A unique ID for direct injection of code into the runtime.
+ */
+export function generateDirectInjectionId(): string {
+	return `direct-injection-${randomUUID()}`;
 }
