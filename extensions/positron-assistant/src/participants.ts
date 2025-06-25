@@ -313,6 +313,16 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		}
 
+		// If the user has explicitly attached a tool reference, add it to the prompt.
+		if (request.toolReferences.length > 0) {
+			const referencePrompts: string[] = [];
+			for (const reference of request.toolReferences) {
+				referencePrompts.push(xml.node('tool', reference.name));
+			}
+			const toolReferencesText = 'Attached tool references:';
+			prompts.push(xml.node('tool-references', `${toolReferencesText}\n${referencePrompts.join('\n')}`));
+		}
+
 		// If the user has explicitly attached files as context, add them to the prompt.
 		if (request.references.length > 0) {
 			const attachmentPrompts: string[] = [];
