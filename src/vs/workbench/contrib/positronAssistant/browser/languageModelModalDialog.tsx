@@ -26,8 +26,6 @@ import { RadioGroup } from '../../../browser/positronComponents/positronModalDia
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { AuthMethod, AuthStatus } from './types.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
-// import { Checkbox } from '../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
-// import { HorizontalGroup } from '../../../browser/positronComponents/positronModalDialog/components/horizontalGroup.js';
 import { DropDownListBox } from '../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 
@@ -98,10 +96,7 @@ const providerTypeDropdownEntries = [
 ]
 
 const modalTitle = localize('positron.languageModelProviderModalDialog.providerTitle', "Configure Language Model Providers")
-// const providerFilterLabel = localize('positron.languageModelProviderModalDialog.providerFilter', "Provider Filter");
 const providerLabel = localize('positron.languageModelProviderModalDialog.provider', "Provider");
-// const supportsChatLabel = localize('positron.languageModelProviderModalDialog.supportsChat', "Supports Chat");
-// const supportsCompletionsLabel = localize('positron.languageModelProviderModalDialog.supportsCompletions', "Supports Completions");
 const providerFilterDropdownTitle = localize('positron.languageModelProviderModalDialog.providerFilterDropdownTitle', "Filter Providers");
 
 interface LanguageModelConfigurationProps {
@@ -155,31 +150,6 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	// Each provider source contains the info needed to populate the modal UI with provider details, such as
 	// the provider ID, auth methods and whether the user is signed in or not with the provider.
 	const [providerSources, setProviderSources] = useState<IPositronLanguageModelSource[]>(filteredProviders);
-
-	// // Add state for checkboxes
-	// const [showChatProviders, setShowChatProviders] = useState(!props.providerTypes || props.providerTypes.includes(PositronLanguageModelType.Chat));
-	// const [showCompletionProviders, setShowCompletionProviders] = useState(!props.providerTypes || props.providerTypes.includes(PositronLanguageModelType.Completion));
-
-	// // Update providerSources when checkboxes change
-	// useEffect(() => {
-	// 	const filtered = defaultProviders.filter(source => {
-	// 		if (!showChatProviders && !showCompletionProviders) {
-	// 			return true; // include all
-	// 		}
-	// 		if (showChatProviders && showCompletionProviders) {
-	// 			return source.type === PositronLanguageModelType.Chat &&
-	// 				defaultProviders.some(s => s.provider.id === source.provider.id && s.type === PositronLanguageModelType.Completion);
-	// 		}
-	// 		if (showChatProviders) {
-	// 			return source.type === PositronLanguageModelType.Chat;
-	// 		}
-	// 		if (showCompletionProviders) {
-	// 			return source.type === PositronLanguageModelType.Completion;
-	// 		}
-	// 		return false;
-	// 	});
-	// 	setProviderSources(filtered);
-	// }, [showChatProviders, showCompletionProviders, defaultProviders]);
 
 	// Update the provider sources when the service emits a change to the language model config.
 	// This occurs when a user signs in or out of a provider.
@@ -407,19 +377,6 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		onCancel={onClose}
 	>
 		<VerticalStack>
-			{/* <label className='language-model-section'>{providerFilterLabel}</label>
-			<HorizontalGroup>
-				<Checkbox
-					initialChecked={showChatProviders}
-					label={supportsChatLabel}
-					onChanged={checked => setShowChatProviders(checked)}
-				/>
-				<Checkbox
-					initialChecked={showCompletionProviders}
-					label={supportsCompletionsLabel}
-					onChanged={checked => setShowCompletionProviders(checked)}
-				/>
-			</HorizontalGroup> */}
 			<label className='language-model-section'>{providerLabel}</label>
 			<DropDownListBox
 				entries={providerTypeDropdownEntries}
