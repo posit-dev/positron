@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { localize } from '../../../../nls.js';
-import { FileAccess } from '../../../../base/common/network.js';
+import { AppResourcePath, FileAccess } from '../../../../base/common/network.js';
 import { join } from '../../../../base/common/path.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
@@ -229,16 +229,23 @@ class PositronHelpService extends Disposable implements IPositronHelpService {
 		// Load the welcome HTML file.
 		this._fileService.readFile(FileAccess.asFileUri(WELCOME_HTML_FILE_PATH))
 			.then(async fileContent => {
-				// Set the help HTML to the file's contents.
-				const wordmarkContent = await this._fileService.readFile(FileAccess.asFileUri('vs/workbench/browser/media/positron-header.svg'));
+				let html = fileContent.value.toString();
 
-				// Convert SVG buffer to base64 encoded data URL
-				const base64Svg = btoa(wordmarkContent.value.toString());
-				const dataUrl = `data:image/svg+xml;base64,${base64Svg}`;
+				await Promise.all([
+					['vs/workbench/browser/media/positron-header.svg', '__logoSrcLight__'],
+					['vs/workbench/browser/media/positron-header-dark.svg', '__logoSrcDark__'],
+				].map(async ([filePath, placeholder]) => {
+					// Set the help HTML to the file's contents.
+					const wordmarkContent = await this._fileService.readFile(FileAccess.asFileUri(filePath as AppResourcePath));
 
-				const html = fileContent.value.toString();
-				this._welcomeHTML = html
-					.replace('__logoSrc__', dataUrl);
+					// Convert SVG buffer to base64 encoded data URL
+					const base64Svg = btoa(wordmarkContent.value.toString());
+					const dataUrl = `data:image/svg+xml;base64,${base64Svg}`;
+
+					html = html
+						.replace(placeholder, dataUrl);
+				}));
+				this._welcomeHTML = html;
 				this.showWelcomePage();
 			}).catch(error => {
 				// Set the help HTML to an error message. This will be

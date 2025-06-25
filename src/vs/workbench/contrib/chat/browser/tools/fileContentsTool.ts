@@ -19,7 +19,6 @@ This tool returns the contents of the specified file in the project.
 The provided file path must be a path to a file in the workspace or a file that is currently open in the editor.
 The file path can be either absolute or relative to the workspace root.
 The tool will return the contents of the file as a string, along with its size and encoding.
-Do not use this tool when no workspace folders are open.
 `;
 
 export const ExtensionFileContentsToolId = 'positron_getFileContents';
@@ -29,7 +28,7 @@ export const FileContentsToolData: IToolData = {
 	displayName: localize('chat.tools.getFileContents', "Get File Contents"),
 	source: { type: 'internal' },
 	modelDescription: getFileContentsModelDescription,
-	tags: ['positron-assistant'],
+	tags: ['positron-assistant', 'requires-workspace'],
 	canBeReferencedInPrompt: false,
 	inputSchema: {
 		type: 'object',

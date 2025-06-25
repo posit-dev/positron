@@ -415,7 +415,7 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 *
 	 * @returns The ID of the viewer that was opened.
 	 */
-	view(path: Array<string>): Promise<string> {
+	view(path: Array<string>): Promise<string | undefined> {
 		return super.performRpc('view', ['path'], [path]);
 	}
 

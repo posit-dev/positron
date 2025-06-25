@@ -14,7 +14,7 @@ const CLEAR_PLOTS = '.positron-plots-container .positron-action-bar .codicon-cle
 const NEXT_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Show next plot"]';
 const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Show previous plot"]';
 const CLEAR_PLOTS_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Clear all plots"]';
-const PLOT_SIZE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Auto"]';
+const PLOT_SIZE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label^="Matplotlib"]';
 const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Fit"]';
