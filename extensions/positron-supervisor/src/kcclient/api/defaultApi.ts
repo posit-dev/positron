@@ -180,10 +180,10 @@ export class DefaultApi {
     }
     /**
      * 
-     * @summary Upgrade to a WebSocket for channel communication
+     * @summary Upgrade to a WebSocket or domain socket for channel communication
      * @param sessionId 
      */
-    public async channelsWebsocket (sessionId: string, options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body?: any;  }> {
+    public async channelsUpgrade (sessionId: string, options: {headers: {[name: string]: string}} = {headers: {}}) : Promise<{ response: http.IncomingMessage; body: string;  }> {
         const localVarPath = this.basePath + '/sessions/{session_id}/channels'
             .replace('{' + 'session_id' + '}', encodeURIComponent(String(sessionId)));
         let localVarQueryParameters: any = {};
@@ -199,7 +199,7 @@ export class DefaultApi {
 
         // verify required parameter 'sessionId' is not null or undefined
         if (sessionId === null || sessionId === undefined) {
-            throw new Error('Required parameter sessionId was null or undefined when calling channelsWebsocket.');
+            throw new Error('Required parameter sessionId was null or undefined when calling channelsUpgrade.');
         }
 
         (<any>Object).assign(localVarHeaderParams, options.headers);
@@ -231,12 +231,13 @@ export class DefaultApi {
                     localVarRequestOptions.form = localVarFormParams;
                 }
             }
-            return new Promise<{ response: http.IncomingMessage; body?: any;  }>((resolve, reject) => {
+            return new Promise<{ response: http.IncomingMessage; body: string;  }>((resolve, reject) => {
                 localVarRequest(localVarRequestOptions, (error, response, body) => {
                     if (error) {
                         reject(error);
                     } else {
                         if (response.statusCode && response.statusCode >= 200 && response.statusCode <= 299) {
+                            body = ObjectSerializer.deserialize(body, "string");
                             resolve({ response: response, body: body });
                         } else {
                             reject(new HttpError(response, body, response.statusCode));
