@@ -13,7 +13,7 @@ import { PlotSizingPolicyCustom } from '../../positronPlots/common/sizingPolicyC
 import { DeferredRender, IRenderedPlot, RenderRequest } from './positronPlotRenderQueue.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
-const FreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
+export const FreezeSlowPlotsConfigKey = 'positron.plots.freezeSlowPlots';
 
 export enum PlotClientLocation {
 	/** The plot is in the editor */

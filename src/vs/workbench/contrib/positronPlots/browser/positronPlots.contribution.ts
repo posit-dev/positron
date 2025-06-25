@@ -22,6 +22,7 @@ import { PlotsActiveEditorCopyAction, PlotsActiveEditorSaveAction, PlotsClearAct
 import { POSITRON_SESSION_CONTAINER } from '../../positronSession/browser/positronSessionContainer.js';
 import { Extensions as ConfigurationExtensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { localize } from '../../../../nls.js';
+import { FreezeSlowPlotsConfigKey } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 
 // Register the Positron plots service.
 registerSingleton(IPositronPlotsService, PositronPlotsService, InstantiationType.Delayed);
@@ -103,7 +104,7 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration)
 	.registerConfiguration({
 		properties: {
-			'positron.plots.frozenSlowPlots': {
+			[FreezeSlowPlotsConfigKey]: {
 				type: 'boolean',
 				default: true,
 				description: localize('positron.plots.frozenSlowPlotsSetting', "Freeze slow to generate plots at a fixed size to avoid re-rendering on viewport changes, improving responsiveness of the IDE when working with complex charts."),
