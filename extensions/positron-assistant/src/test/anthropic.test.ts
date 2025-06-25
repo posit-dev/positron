@@ -289,7 +289,6 @@ suite('AnthropicLanguageModel', () => {
 				name: toolB.name,
 				description: toolB.description,
 				input_schema: toolB.inputSchema,
-				cache_control: { type: 'ephemeral' },
 			},
 		] satisfies Anthropic.ToolUnion[], 'Unexpected tools in request body');
 
@@ -304,34 +303,6 @@ suite('AnthropicLanguageModel', () => {
 		assert.deepStrictEqual(body.messages, [
 			{ role: 'user', content: [{ type: 'text', text: 'Hi' }] },
 			{ role: 'user', content: [{ type: 'text', text: 'Bye' }] },
-		] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
-	});
-
-	test('provideLanguageModelResponse cache_control last user message enabled', async () => {
-		// Call the method under test.
-		await model.provideLanguageModelResponse(
-			[
-				vscode.LanguageModelChatMessage.User('Hi'),
-				vscode.LanguageModelChatMessage.User('Bye'),
-			],
-			{
-				modelOptions: {
-					cacheControl: {
-						lastUserMessage: true,
-					} satisfies CacheControlOptions,
-				},
-			},
-			'test-extension',
-			mockProgress,
-			mockCancellationToken
-		);
-
-		sinon.assert.calledOnce(mockClient.messages.stream);
-		const body = mockClient.messages.stream.getCall(0).args[0];
-
-		assert.deepStrictEqual(body.messages, [
-			{ role: 'user', content: [{ type: 'text', text: 'Hi' }] },
-			{ role: 'user', content: [{ type: 'text', text: 'Bye', cache_control: { type: 'ephemeral' } }] },
 		] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
 	});
 
@@ -360,9 +331,7 @@ suite('AnthropicLanguageModel', () => {
 				modelOptions: {
 					system,
 					cacheControl: {
-						lastTool: false,
 						system: false,
-						lastUserMessage: false,
 					} satisfies CacheControlOptions,
 				},
 			},

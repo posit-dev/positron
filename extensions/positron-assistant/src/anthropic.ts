@@ -16,14 +16,8 @@ import { log } from './extension.js';
  * Options for controlling cache behavior in the Anthropic language model.
  */
 export interface CacheControlOptions {
-	/** Add a cache control point to the last tool description (default: true). */
-	lastTool?: boolean;
-
 	/** Add a cache control point to the system prompt (default: true). */
 	system?: boolean;
-
-	/** Add a cache control point to the last user message (default: false). */
-	lastUserMessage?: boolean;
 }
 
 
@@ -78,11 +72,11 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		const cacheControlOptions = isCacheControlOptions(options.modelOptions?.cacheControl)
 			? options.modelOptions.cacheControl
 			: undefined;
-		const tools = options.tools && toAnthropicTools(options.tools, cacheControlOptions?.lastTool);
+		const tools = options.tools && toAnthropicTools(options.tools);
 		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
 		const system = options.modelOptions?.system &&
 			toAnthropicSystem(options.modelOptions.system, cacheControlOptions?.system);
-		const anthropicMessages = toAnthropicMessages(messages, cacheControlOptions?.lastUserMessage);
+		const anthropicMessages = toAnthropicMessages(messages);
 
 		const body: Anthropic.MessageStreamParams = {
 			model: this._config.model,
@@ -229,46 +223,8 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 }
 
-function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[], cacheLastUserMessage = false): Anthropic.MessageParam[] {
+function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anthropic.MessageParam[] {
 	const anthropicMessages = processMessages(messages).map(toAnthropicMessage);
-
-	if (cacheLastUserMessage) {
-		// Add a cache control point to the last valid user message.
-		for (let i = anthropicMessages.length - 1; i >= 0; i--) {
-			const message = anthropicMessages[i];
-
-			// Skip non-user messages.
-			if (message.role !== 'user') {
-				continue;
-			}
-
-			if (typeof message.content === 'string') {
-				// Content is a single string, make it a text block with a cache control point.
-				const text = message.content;
-				message.content = [{
-					type: 'text',
-					text,
-					cache_control: { type: 'ephemeral' },
-				}];
-				log.debug(`[anthropic] Adding cache control point to last user message block`);
-				break;
-			} else {
-				// Content is an array, try to add a cache control point to the last content block.
-				const lastContentBlock = message.content[message.content.length - 1];
-
-				// Thinking blocks cannot be cache control points.
-				if (lastContentBlock.type === 'thinking'
-					|| lastContentBlock.type === 'redacted_thinking') {
-					continue;
-				}
-
-				lastContentBlock.cache_control = { type: 'ephemeral' };
-				log.debug(`[anthropic] Adding cache control point to last user message block`);
-				break;
-			}
-		}
-	}
-
 	return anthropicMessages;
 }
 
@@ -383,7 +339,7 @@ function languageModelImagePartToAnthropicImageBlock(part: LanguageModelImagePar
 	};
 }
 
-function toAnthropicTools(tools: vscode.LanguageModelChatTool[], cacheLastTool = true): Anthropic.ToolUnion[] {
+function toAnthropicTools(tools: vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
 	if (tools.length === 0) {
 		return [];
 	}
@@ -391,13 +347,6 @@ function toAnthropicTools(tools: vscode.LanguageModelChatTool[], cacheLastTool =
 
 	// Ensure a stable sort order for prompt caching.
 	anthropicTools.sort((a, b) => a.name.localeCompare(b.name));
-
-	if (cacheLastTool) {
-		// Add a cache control point to the last tool description.
-		const lastTool = anthropicTools[anthropicTools.length - 1];
-		log.debug(`[anthropic] Adding cache control point to last tool: ${lastTool.name}`);
-		lastTool.cache_control = { type: 'ephemeral' };
-	}
 
 	return anthropicTools;
 }
@@ -456,9 +405,5 @@ function isCacheControlOptions(options: unknown): options is CacheControlOptions
 		return false;
 	}
 	const cacheControlOptions = options as CacheControlOptions;
-	return (
-		(cacheControlOptions.lastTool === undefined || typeof cacheControlOptions.lastTool === 'boolean') &&
-		(cacheControlOptions.system === undefined || typeof cacheControlOptions.system === 'boolean') &&
-		(cacheControlOptions.lastUserMessage === undefined || typeof cacheControlOptions.lastUserMessage === 'boolean')
-	);
+	return cacheControlOptions.system === undefined || typeof cacheControlOptions.system === 'boolean';
 }
