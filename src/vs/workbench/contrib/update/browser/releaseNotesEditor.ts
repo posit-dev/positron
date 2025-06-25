@@ -104,6 +104,7 @@ export class ReleaseNotesManager {
 			this._currentReleaseNotes.webview.setHtml(html);
 			this._webviewWorkbenchService.revealWebview(this._currentReleaseNotes, activeEditorPane ? activeEditorPane.group : this._editorGroupService.activeGroup, false);
 		} else {
+			// error here?
 			this._currentReleaseNotes = this._webviewWorkbenchService.openWebview(
 				{
 					title,
@@ -152,9 +153,13 @@ export class ReleaseNotesManager {
 			throw new Error('not found');
 		}
 
-		// const versionLabel = match[1].replace(/\./g, '_');
-		// const baseUrl = 'https://code.visualstudio.com/raw';
-		// const url = `${baseUrl}/v${versionLabel}.md`;
+		// --- Start Positron ---
+		/*
+		const versionLabel = match[1].replace(/\./g, '_');
+		const baseUrl = 'https://code.visualstudio.com/raw';
+		const url = `${baseUrl}/v${versionLabel}.md`;
+		*/
+		// --- End Positron ---
 		const unassigned = nls.localize('unassigned', "unassigned");
 
 		const escapeMdHtml = (text: string): string => {
@@ -231,7 +236,10 @@ export class ReleaseNotesManager {
 		if (useCurrentFile) {
 			return fetchReleaseNotes();
 		}
-		if (!this._releaseNotesCache.has(version)) {
+		// --- Start Positron ---
+		// In a dev build, we always fetch the latest release notes
+		if (!this._releaseNotesCache.has(version) || !this._environmentService.isBuilt) {
+			// --- End Positron ---
 			this._releaseNotesCache.set(version, (async () => {
 				try {
 					return await fetchReleaseNotes();
@@ -391,7 +399,9 @@ export class ReleaseNotesManager {
 					label.textContent = '${nls.localize('showOnUpdate', "Show release notes after an update")}';
 					container.appendChild(label);
 
-					const beforeElement = document.querySelector("body > h1")?.nextElementSibling;
+					<!-- Start Positron -->
+					const beforeElement = document.querySelector("div#checkbox")?.nextElementSibling;
+					<!-- End Positron -->
 					if (beforeElement) {
 						document.body.insertBefore(container, beforeElement);
 					} else {

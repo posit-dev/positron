@@ -19,7 +19,7 @@ import { AvailableForDownload, DisablementReason, IUpdateService, State, StateTy
 import { asJson, asText } from '../../request/common/request.js';
 // eslint-disable-next-line no-duplicate-imports
 import { IUpdate } from '../common/update.js';
-import { hasUpdate } from '../electron-main/positronVersion.js';
+import { hasUpdate } from '../common/positronVersion.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 
 export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
@@ -232,7 +232,8 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	 * @returns the release notes as a string
 	 */
 	async getReleaseNotes(): Promise<string> {
-		const url = `${this.productService.releaseNotesUrl}/releases/release-notes/release.md`;
+		const channel = process.env.POSITRON_RELEASE_NOTES_CHANNEL ?? 'releases';
+		const url = `${this.productService.releaseNotesUrl}/${channel}/release-notes/release-${this.productService.positronVersion}.md`;
 		const releaseNotesResponse = await this.requestService.request({ url }, CancellationToken.None);
 
 		if (process.env.POSITRON_RELEASE_NOTES_CHANNEL) {

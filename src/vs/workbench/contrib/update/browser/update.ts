@@ -31,6 +31,10 @@ import { IUserDataSyncWorkbenchService } from '../../../services/userDataSync/co
 import { Event } from '../../../../base/common/event.js';
 import { toAction } from '../../../../base/common/actions.js';
 
+// --- Start Positron ---
+import { IPositronVersion, parse } from '../../../../platform/update/common/positronVersion.js';
+// --- End Positron ---
+
 export const CONTEXT_UPDATE_STATE = new RawContextKey<string>('updateState', StateType.Uninitialized);
 export const MAJOR_MINOR_UPDATE_AVAILABLE = new RawContextKey<boolean>('majorMinorUpdateAvailable', false);
 export const RELEASE_NOTES_URL = new RawContextKey<string>('releaseNotesUrl', '');
@@ -71,33 +75,37 @@ async function showReleaseNotes(accessor: ServicesAccessor, version: string) {
 	}
 }
 
+// --- Start Positron ---
+export function storeLastUpdateVersion(accessor: ServicesAccessor, version: string): void {
+	const storageService = accessor.get(IStorageService);
+	storageService.store(ProductContribution.KEY, version, StorageScope.APPLICATION, StorageTarget.MACHINE);
+}
+
+/*
+
+Positron uses calver so we override the semver parsing and comparison logic to handle calendar versions.
+
 interface IVersion {
 	major: number;
 	minor: number;
 	patch: number;
 }
+*/
 
-function parseVersion(version: string): IVersion | undefined {
-	const match = /([0-9]+)\.([0-9]+)\.([0-9]+)/.exec(version);
-
-	if (!match) {
-		return undefined;
-	}
-
-	return {
-		major: parseInt(match[1]),
-		minor: parseInt(match[2]),
-		patch: parseInt(match[3])
-	};
+function parseVersion(version: string): IPositronVersion | undefined {
+	return parse(version);
 }
 
-function isMajorMinorUpdate(before: IVersion, after: IVersion): boolean {
-	return before.major < after.major || before.minor < after.minor;
+function isMajorMinorUpdate(before: IPositronVersion, after: IPositronVersion): boolean {
+	return before.year < after.year || before.month < after.month;
 }
+// --- End Positron ---
 
 export class ProductContribution implements IWorkbenchContribution {
 
-	private static readonly KEY = 'releaseNotes/lastVersion';
+	// --- Start Positron ---
+	public static readonly KEY = 'releaseNotes/lastVersion';
+	// --- End Positron ---
 
 	constructor(
 		@IStorageService storageService: IStorageService,
@@ -129,17 +137,18 @@ export class ProductContribution implements IWorkbenchContribution {
 			}
 
 			const lastVersion = parseVersion(storageService.get(ProductContribution.KEY, StorageScope.APPLICATION, ''));
-			const currentVersion = parseVersion(productService.version);
+			const currentVersion = parseVersion(productService.positronVersion);
 			const shouldShowReleaseNotes = configurationService.getValue<boolean>('update.showReleaseNotes');
 			const releaseNotesUrl = productService.releaseNotesUrl;
 
 			// was there a major/minor update? if so, open release notes
 			if (shouldShowReleaseNotes && !environmentService.skipReleaseNotes && releaseNotesUrl && lastVersion && currentVersion && isMajorMinorUpdate(lastVersion, currentVersion)) {
-				showReleaseNotesInEditor(instantiationService, productService.version, false)
+				// --- Start Positron ---
+				showReleaseNotesInEditor(instantiationService, productService.positronVersion, false)
 					.then(undefined, () => {
 						notificationService.prompt(
 							severity.Info,
-							nls.localize('read the release notes', "Welcome to {0} v{1}! Would you like to read the Release Notes?", productService.nameLong, productService.version),
+							nls.localize('read the release notes', "Welcome to {0} v{1}! Would you like to read the Release Notes?", productService.nameLong, productService.positronVersion),
 							[{
 								label: nls.localize('releaseNotes', "Release Notes"),
 								run: () => {
@@ -150,9 +159,10 @@ export class ProductContribution implements IWorkbenchContribution {
 							{ priority: NotificationPriority.OPTIONAL }
 						);
 					});
+				// --- End Positron ---
 			}
 
-			storageService.store(ProductContribution.KEY, productService.version, StorageScope.APPLICATION, StorageTarget.MACHINE);
+			storageService.store(ProductContribution.KEY, productService.positronVersion, StorageScope.APPLICATION, StorageTarget.MACHINE);
 		});
 	}
 }
