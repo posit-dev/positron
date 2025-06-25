@@ -10,6 +10,16 @@ import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
 import { isChatImagePart, processMessages } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { log } from './extension.js';
+
+/**
+ * Options for controlling cache behavior in the Anthropic language model.
+ */
+export interface CacheControlOptions {
+	/** Add a cache control point to the system prompt (default: true). */
+	system?: boolean;
+}
+
 
 export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
 	name: string;
@@ -39,11 +49,14 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		},
 	};
 
-	constructor(private readonly _config: ModelConfig) {
+	constructor(
+		private readonly _config: ModelConfig,
+		client?: Anthropic,
+	) {
 		this.name = _config.name;
 		this.provider = _config.provider;
 		this.identifier = _config.id;
-		this._client = new Anthropic({
+		this._client = client ?? new Anthropic({
 			apiKey: _config.apiKey,
 		});
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
@@ -56,16 +69,45 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
-		const anthropicMessages = processMessages(messages).map(toAnthropicMessage);
-		const tools = options.tools?.map(tool => toAnthropicTool(tool));
+		const cacheControlOptions = isCacheControlOptions(options.modelOptions?.cacheControl)
+			? options.modelOptions.cacheControl
+			: undefined;
+		const tools = options.tools && toAnthropicTools(options.tools);
 		const tool_choice = options.toolMode && toAnthropicToolChoice(options.toolMode);
-		const stream = this._client.messages.stream({
+		const system = options.modelOptions?.system &&
+			toAnthropicSystem(options.modelOptions.system, cacheControlOptions?.system);
+		const anthropicMessages = toAnthropicMessages(messages);
+
+		const body: Anthropic.MessageStreamParams = {
 			model: this._config.model,
 			max_tokens: options.modelOptions?.maxTokens ?? this.maxOutputTokens,
-			messages: anthropicMessages,
-			tool_choice,
 			tools,
-			system: options.modelOptions?.system,
+			tool_choice,
+			system,
+			messages: anthropicMessages,
+		};
+		const stream = this._client.messages.stream(body);
+
+		// Log request information - the request ID is only available upon connection.
+		stream.on('connect', () => {
+			if (log.logLevel <= vscode.LogLevel.Trace) {
+				log.trace(`[anthropic] SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body)}`);
+			} else {
+				const userMessages = body.messages.filter(m => m.role === 'user');
+				const assistantMessages = body.messages.filter(m => m.role === 'assistant');
+				log.debug(
+					`[anthropic] SEND messages.stream [${stream.request_id}]: ` +
+					`model: ${body.model}; ` +
+					`cache options: ${cacheControlOptions ? JSON.stringify(cacheControlOptions) : 'default'}; ` +
+					`tools: ${body.tools?.map(t => t.name).sort().join(', ') ?? 'none'}; ` +
+					`tool choice: ${body.tool_choice ? JSON.stringify(body.tool_choice) : 'default'}; ` +
+					`system chars: ${body.system ? JSON.stringify(body.system).length : 0}; ` +
+					`user messages: ${userMessages.length}; ` +
+					`user message characters: ${JSON.stringify(userMessages).length}; ` +
+					`assistant messages: ${assistantMessages.length}; ` +
+					`assistant message characters: ${JSON.stringify(assistantMessages).length}`
+				);
+			}
 		});
 
 		token.onCancellationRequested(() => {
@@ -102,20 +144,31 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			}
 			throw error;
 		}
+
+		// Log usage information.
+		const message = await stream.finalMessage();
+		if (log.logLevel <= vscode.LogLevel.Trace) {
+			log.trace(`[anthropic] RECV messages.stream [${stream.request_id}]: ${JSON.stringify(message)}`);
+		} else {
+			log.debug(
+				`[anthropic] RECV messages.stream [${stream.request_id}]: ` +
+				`usage: ${JSON.stringify(message.usage)}`
+			);
+		}
 	}
 
 	get providerName(): string {
 		return AnthropicLanguageModel.source.provider.displayName;
 	}
 
-	private onContentBlock(block: Anthropic.Messages.ContentBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
+	private onContentBlock(block: Anthropic.ContentBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
 		switch (block.type) {
 			case 'tool_use':
 				return this.onToolUseBlock(block, progress);
 		}
 	}
 
-	private onToolUseBlock(block: Anthropic.Messages.ToolUseBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
+	private onToolUseBlock(block: Anthropic.ToolUseBlock, progress: vscode.Progress<vscode.ChatResponseFragment2>): void {
 		progress.report({
 			index: 0,
 			part: new vscode.LanguageModelToolCallPart(block.id, block.name, block.input as any),
@@ -168,6 +221,11 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			return error as Error;
 		}
 	}
+}
+
+function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anthropic.MessageParam[] {
+	const anthropicMessages = processMessages(messages).map(toAnthropicMessage);
+	return anthropicMessages;
 }
 
 function toAnthropicMessage(message: vscode.LanguageModelChatMessage2): Anthropic.MessageParam {
@@ -281,6 +339,18 @@ function languageModelImagePartToAnthropicImageBlock(part: LanguageModelImagePar
 	};
 }
 
+function toAnthropicTools(tools: vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
+	if (tools.length === 0) {
+		return [];
+	}
+	const anthropicTools = tools.map(tool => toAnthropicTool(tool));
+
+	// Ensure a stable sort order for prompt caching.
+	anthropicTools.sort((a, b) => a.name.localeCompare(b.name));
+
+	return anthropicTools;
+}
+
 function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnion {
 	const input_schema = tool.inputSchema as Anthropic.Tool.InputSchema ?? {
 		type: 'object',
@@ -307,4 +377,33 @@ function toAnthropicToolChoice(toolMode: vscode.LanguageModelChatToolMode): Anth
 			// Should not happen.
 			throw new Error(`Unsupported tool mode: ${toolMode}`);
 	}
+}
+
+function toAnthropicSystem(system: unknown, cacheSystem = true): Anthropic.MessageCreateParams['system'] {
+	if (typeof system === 'string') {
+		const anthropicSystem: Anthropic.MessageCreateParams['system'] = [{
+			type: 'text',
+			text: system,
+		}];
+
+		if (cacheSystem) {
+			// Add a cache control point to the last system prompt block.
+			const lastSystemBlock = anthropicSystem[anthropicSystem.length - 1];
+			lastSystemBlock.cache_control = { type: 'ephemeral' };
+			log.debug(`[anthropic] Adding cache control point to system prompt`);
+		}
+
+		return anthropicSystem;
+	}
+	// Pass the system prompt through as-is.
+	// We may pass an invalid system prompt; let Anthropic throw the error.
+	return system as Anthropic.MessageCreateParams['system'];
+}
+
+function isCacheControlOptions(options: unknown): options is CacheControlOptions {
+	if (typeof options !== 'object' || options === null) {
+		return false;
+	}
+	const cacheControlOptions = options as CacheControlOptions;
+	return cacheControlOptions.system === undefined || typeof cacheControlOptions.system === 'boolean';
 }
