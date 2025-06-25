@@ -115,6 +115,7 @@ export interface IPositronAssistantService {
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onClose: () => void,
+		providerTypes?: PositronLanguageModelType[],
 	): void;
 
 	/**

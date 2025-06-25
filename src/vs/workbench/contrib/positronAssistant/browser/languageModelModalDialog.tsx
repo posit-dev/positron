@@ -36,6 +36,7 @@ export const showLanguageModelModalDialog = (
 	sources: IPositronLanguageModelSource[],
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onClose: () => void,
+	providerTypes?: PositronLanguageModelType[],
 ) => {
 	const renderer = new PositronModalReactRenderer({
 		keybindingService: keybindingService,
@@ -51,6 +52,7 @@ export const showLanguageModelModalDialog = (
 				layoutService={layoutService}
 				positronAssistantService={positronAssistantService}
 				positronModalDialogsService={positronModalDialogsService}
+				providerTypes={providerTypes}
 				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
@@ -75,6 +77,7 @@ interface LanguageModelConfigurationProps {
 	positronAssistantService: IPositronAssistantService;
 	positronModalDialogsService: IPositronModalDialogsService;
 	sources: IPositronLanguageModelSource[];
+	providerTypes?: PositronLanguageModelType[];
 	configurationService: IConfigurationService;
 	renderer: PositronModalReactRenderer;
 	// To find available actions, search for positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts

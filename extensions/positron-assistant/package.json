@@ -112,6 +112,18 @@
         "enablement": "config.positron.assistant.enable"
       },
       {
+        "command": "positron-assistant.configureChatModels",
+        "title": "%commands.configureChatModels.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.configureCompletionModels",
+        "title": "%commands.configureCompletionModels.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
+      },
+      {
         "command": "positron-assistant.logStoredModels",
         "title": "%commands.logStoredModels.title%",
         "category": "%commands.category%",

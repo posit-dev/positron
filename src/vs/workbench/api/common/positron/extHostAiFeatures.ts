@@ -16,6 +16,7 @@ import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, I
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { ChatAgentLocation, ChatMode } from '../../../contrib/chat/common/constants.js';
+import { PositronLanguageModelType } from './extHostTypes.positron.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
@@ -46,12 +47,12 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		});
 	}
 
-	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>): Promise<void> {
+	async showLanguageModelConfig(sources: positron.ai.LanguageModelSource[], onAction: (config: positron.ai.LanguageModelConfig, action: string) => Thenable<void>, providerTypes?: PositronLanguageModelType[]): Promise<void> {
 		const id = generateUuid();
 		this._languageModelRequestRegistry.set(id, onAction);
 
 		try {
-			await this._proxy.$languageModelConfig(id, sources);
+			await this._proxy.$languageModelConfig(id, sources, providerTypes);
 		} catch (err) {
 			throw err;
 		}
