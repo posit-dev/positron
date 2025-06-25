@@ -149,6 +149,10 @@ export class ChatViewWelcomePart extends Disposable {
 			title.textContent = content.title;
 
 			// Preview indicator
+			// --- Start Positron ---
+			// Added a Preview badge to the welcome chat view, with th same styling as the Preview badge in the Settings UI.
+			dom.append(this.element, $('.chat-welcome-view-preview-badge', undefined, localize('chatViewWelcomePreview', "Preview")));
+			// --- End Positron ---
 			if (typeof content.message !== 'function' && options?.isWidgetAgentWelcomeViewContent) {
 				const container = dom.append(this.element, $('.chat-welcome-view-indicator-container'));
 				dom.append(container, $('.chat-welcome-view-subtitle', undefined, localize('agentModeSubtitle', "Agent Mode")));
