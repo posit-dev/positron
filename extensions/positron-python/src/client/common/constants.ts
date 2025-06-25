@@ -88,6 +88,7 @@ export namespace Commands {
     export const Create_Pyproject_Toml = 'python.createPyprojectToml';
     // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';
+    export const InstallPackages = 'python.installPackages';
     export const InstallPython = 'python.installPython';
     export const InstallPythonOnLinux = 'python.installPythonOnLinux';
     export const InstallPythonOnMac = 'python.installPythonOnMac';
