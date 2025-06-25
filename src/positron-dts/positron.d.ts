@@ -2070,6 +2070,7 @@ declare module 'positron' {
 		export function showLanguageModelConfig(
 			sources: LanguageModelSource[],
 			onAction: (config: LanguageModelConfig, action: string) => Thenable<void>,
+			providerTypes?: PositronLanguageModelType[],
 		): Thenable<void>;
 
 		/**

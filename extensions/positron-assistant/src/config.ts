@@ -130,7 +130,7 @@ export async function getEnabledProviders(): Promise<string[]> {
 	return enabledProviders;
 }
 
-export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage) {
+export async function showConfigurationDialog(context: vscode.ExtensionContext, storage: SecretStorage, providerTypes?: positron.PositronLanguageModelType[]): Promise<void> {
 
 	// Gather model sources; ignore disabled providers
 	const enabledProviders = await getEnabledProviders();
@@ -147,28 +147,32 @@ export async function showConfigurationDialog(context: vscode.ExtensionContext, 
 		});
 
 	// Show a modal asking user for configuration details
-	return positron.ai.showLanguageModelConfig(sources, async (userConfig, action) => {
-		switch (action) {
-			case 'save':
-				await saveModel(userConfig, sources, storage, context);
-				break;
-			case 'delete':
-				await deleteConfigurationByProvider(context, storage, userConfig.provider);
-				break;
-			case 'oauth-signin':
-				await oauthSignin(userConfig, sources, storage, context);
-				break;
-			case 'oauth-signout':
-				await oauthSignout(userConfig, sources, storage, context);
-				break;
-			case 'cancel':
-				// User cancelled the dialog, clean up any pending operations
-				CopilotService.instance().cancelCurrentOperation();
-				break;
-			default:
-				throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
-		}
-	});
+	return positron.ai.showLanguageModelConfig(
+		sources,
+		async (userConfig, action) => {
+			switch (action) {
+				case 'save':
+					await saveModel(userConfig, sources, storage, context);
+					break;
+				case 'delete':
+					await deleteConfigurationByProvider(context, storage, userConfig.provider);
+					break;
+				case 'oauth-signin':
+					await oauthSignin(userConfig, sources, storage, context);
+					break;
+				case 'oauth-signout':
+					await oauthSignout(userConfig, sources, storage, context);
+					break;
+				case 'cancel':
+					// User cancelled the dialog, clean up any pending operations
+					CopilotService.instance().cancelCurrentOperation();
+					break;
+				default:
+					throw new Error(vscode.l10n.t('Invalid Language Model action: {0}', action));
+			}
+		},
+		providerTypes
+	);
 
 }
 

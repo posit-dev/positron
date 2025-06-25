@@ -741,13 +741,16 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (!this.configurationService.getValue('positron.assistant.enable')) {
 			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Coming Soon");
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and will be available in a future version of Positron.\n");
-		} else if (this.languageModelsService.getLanguageModelIds().length === 0) {
+		} else if (!this.languageModelsService.currentProvider) {
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
 			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
 			firstLinkToButton = true;
 			// create a multi-line message
-			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n");
-			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureModels)`;
+			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider that supports Chat.\n");
+			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureChatModels)`;
+
+			// Disable input for chat
+			this.toggleChatInputVisibility(false);
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");
 			welcomeTitle = localize('positronAssistant.welcomeMessageTitle', "Welcome to Positron Assistant");
@@ -765,6 +768,9 @@ Click on $(attach) or type \`#\` to add context, such as files to your chat.
 Type \`/\` to use predefined commands such as \`/help\` or \`/quarto\`.`,
 			), { supportThemeIcons: true, isTrusted: true });
 			welcomeText = welcomeText.replace('{guide-link}', `[${guideLinkMessage}](https://positron.posit.co/assistant)`);
+
+			// Enable input for chat
+			this.toggleChatInputVisibility(true);
 		}
 
 		dom.clearNode(this.welcomeMessageContainer);
@@ -805,6 +811,19 @@ Type \`/\` to use predefined commands such as \`/help\` or \`/quarto\`.`,
 		if (this.viewModel) {
 			dom.setVisibility(numItems === 0, this.welcomeMessageContainer);
 			dom.setVisibility(numItems !== 0, this.listContainer);
+		}
+	}
+
+	private toggleChatInputVisibility(visible: boolean): void {
+		const input = this.container.querySelector('.interactive-input-part') as HTMLElement;
+		if (!input) {
+			console.error('ChatWidget#toggleChatInputVisibility: no input part found');
+		}
+		if (visible) {
+			dom.show(input);
+			this.inputPart.focus();
+		} else {
+			dom.hide(input);
 		}
 	}
 	// --- End Positron ---

@@ -10,7 +10,7 @@ import { IPositronPlotsService } from '../../../services/positronPlots/common/po
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { PositronVariablesInstance } from '../../../services/positronVariables/common/positronVariablesInstance.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
-import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
+import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
@@ -233,8 +233,9 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		sources: IPositronLanguageModelSource[],
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onClose: () => void,
+		providerTypes?: PositronLanguageModelType[],
 	): void {
-		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, this, this._positronModalDialogsService, sources, onAction, onClose);
+		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, this, this._positronModalDialogsService, sources, onAction, onClose, providerTypes);
 	}
 
 	getSupportedProviders(): string[] {

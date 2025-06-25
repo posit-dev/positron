@@ -198,8 +198,14 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 
 function registerConfigureModelsCommand(context: vscode.ExtensionContext, storage: SecretStorage) {
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron-assistant.configureModels', async () => {
-			await showConfigurationDialog(context, storage);
+		vscode.commands.registerCommand('positron-assistant.configureModels', async (providerTypes?: positron.PositronLanguageModelType[]) => {
+			await showConfigurationDialog(context, storage, providerTypes);
+		}),
+		vscode.commands.registerCommand('positron-assistant.configureChatModels', async () => {
+			await showConfigurationDialog(context, storage, [positron.PositronLanguageModelType.Chat]);
+		}),
+		vscode.commands.registerCommand('positron-assistant.configureCompletionModels', async () => {
+			await showConfigurationDialog(context, storage, [positron.PositronLanguageModelType.Completion]);
 		}),
 		vscode.commands.registerCommand('positron-assistant.logStoredModels', async () => {
 			logStoredModels(context);
