@@ -112,13 +112,7 @@ export class Console {
 			const waitForReady = options?.waitForReady ?? true;
 			const maximizeConsole = options?.maximizeConsole ?? true;
 
-			await expect(async () => {
-				// Kind of hacky, but activate console in case focus was previously lost
-				await this.focus();
-				await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
-
-			}).toPass();
-
+			await this.hotKeys.executeCodeInConsole();
 			await this.quickinput.waitForQuickInputOpened();
 			await this.quickinput.type(languageName);
 			await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);
