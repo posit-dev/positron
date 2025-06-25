@@ -9,6 +9,7 @@ import { LanguageModelImage } from './languageModelParts.js';
 import { ParticipantService } from './participants.js';
 import { PositronAssistantToolName } from './types.js';
 import { ProjectTreeTool } from './tools/projectTreeTool.js';
+import { DocumentCreateTool } from './tools/documentCreate.js';
 
 
 /**
@@ -283,6 +284,8 @@ export function registerAssistantTools(
 	context.subscriptions.push(inspectVariablesTool);
 
 	context.subscriptions.push(ProjectTreeTool);
+
+	context.subscriptions.push(DocumentCreateTool);
 }
 
 /**

@@ -7,7 +7,7 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as sinon from 'sinon';
 import * as vscode from 'vscode';
-import { getDefaultContextItems, PositronAssistantChatParticipant, PositronAssistantEditorParticipant, ParticipantService } from '../participants.js';
+import { PositronAssistantChatParticipant, PositronAssistantEditorParticipant, ParticipantService } from '../participants.js';
 import { mock } from './utils.js';
 import { readFile } from 'fs/promises';
 import { MARKDOWN_DIR } from '../constants.js';
@@ -456,8 +456,7 @@ function assertContextMessage(
 	assertMessageRole(message, vscode.LanguageModelChatMessageRole.User);
 
 	// The first part should be a text part with the formatted context.
-	const fullPrompt = `${expectedPrompt}${expectedPrompt.length > 0 ? '\n\n' : ''}${getDefaultContextItems().join('\n')}`;
-	assertMessageTextPart(message.content[0], fullPrompt);
+	assertMessageTextPart(message.content[0], expectedPrompt);
 
 	if (expectedImage) {
 		// If an image is expected, the second part should be a data part with the image.

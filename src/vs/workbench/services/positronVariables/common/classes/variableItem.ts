@@ -324,7 +324,7 @@ export class VariableItem implements IVariableItem {
 	/**
 	 * Requests that a viewer be opened for this variable.
 	 */
-	async view(): Promise<string> {
+	async view(): Promise<string | undefined> {
 		return this._variable.view();
 	}
 

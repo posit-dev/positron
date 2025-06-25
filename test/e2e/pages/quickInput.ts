@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const QUICK_INPUT_LIST = '.quick-input-widget .quick-input-list';
@@ -19,15 +19,25 @@ export class QuickInput {
 	quickInputList: Locator;
 	quickInput: Locator;
 	quickInputTitleBar: Locator;
+	quickInputResult: Locator;
 
 	constructor(private code: Code) {
 		this.quickInputList = this.code.driver.page.locator(QUICK_INPUT_LIST);
 		this.quickInput = this.code.driver.page.locator(QuickInput.QUICK_INPUT_INPUT);
 		this.quickInputTitleBar = this.code.driver.page.locator(`.quick-input-title`);
+		this.quickInputResult = this.code.driver.page.locator(QuickInput.QUICK_INPUT_RESULT);
 	}
 
 	async expectTitleBarToHaveText(text: string): Promise<void> {
 		await expect(this.quickInputTitleBar).toHaveText(text);
+	}
+
+	async expectQuickInputResultsToContain(titles: string[]): Promise<void> {
+		await test.step('Verify Quick Input results contain expected title', async () => {
+			for (let i = 0; i < titles.length; i++) {
+				await expect(this.quickInputResult.filter({ hasText: titles[i] })).toBeVisible();
+			}
+		});
 	}
 
 	async waitForQuickInputOpened({ timeout = 10000 }: { timeout?: number } = {}): Promise<void> {

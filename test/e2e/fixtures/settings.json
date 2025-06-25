@@ -6,5 +6,6 @@
     "remote.autoForwardPortsFallback": 0,
     "files.simpleDialog.enable": true,
     "positron.importSettings.enable": false,
+    "positron.assistant.enable": true,
     "positron.assistant.testModels": true
 }

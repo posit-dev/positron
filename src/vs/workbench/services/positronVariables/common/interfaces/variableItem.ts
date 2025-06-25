@@ -85,5 +85,5 @@ export interface IVariableItem {
 	/**
 	 * Requests that a data viewer be opened for this variable.
 	 */
-	view(): Promise<string>;
+	view(): Promise<string | undefined>;
 }
