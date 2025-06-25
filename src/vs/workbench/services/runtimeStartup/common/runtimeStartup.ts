@@ -379,6 +379,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 				// before reloading the browser.
 				e.veto(this.saveWorkspaceSessions(),
 					'positron.runtimeStartup.saveWorkspaceSessions');
+			} else if (e.reason === ShutdownReason.QUIT && isWeb) {
+				// Native and web versions of Positron have different
+				// lifecycle behaviors when it comes to handling shutdowns.
+				//
+				// The `BrowserLifecycleService` always sends a`beforeShutdown`
+				// event with the reason as `ShutdownReason.QUIT`, even if the
+				// user is reloading the page.This is because the browser
+				// doesn't distinguish between a quit and a reload like the
+				// desktop version, so we need to handle the case where the
+				// user is reloading the page and we need to save the
+				// workspace sessions.
+				e.veto(this.saveWorkspaceSessions(),
+					'positron.runtimeStartup.saveWorkspaceSessions');
 			} else {
 				// Clear the workspace sessions. In most cases this is not
 				// necessary since the sessions are stored in ephemeral
