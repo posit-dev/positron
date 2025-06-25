@@ -369,6 +369,28 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}));
 
+		// This is required so session names persist across browser
+		// reloads. Normally, we save workspace sessions before a
+		// shutdown, but this isn't possible for web builds because
+		// the browser lifecycle so this case is handled differently.
+		//
+		// The `BrowserLifecycleService` always sends a`beforeShutdown`
+		// event with the reason as `ShutdownReason.QUIT`, even if the
+		// user is reloading the page. This is because the browser
+		// doesn't distinguish between a quit and a reload like the
+		// desktop version. Saving session data during an async shutdown
+		// in web trigger a browser warning when the user attempts to navigate
+		// away which we don't want.
+		//
+		// As a workaround, we save the workspace sessions
+		// whenever a session name is updated.
+		//
+		this._register(this._runtimeSessionService.onDidUpdateSessionName(() => {
+			// Update the set of workspace sessions
+			this.saveWorkspaceSessions();
+		}));
+
+
 		// Register a shutdown event handler so that we have a chance to save
 		// state before a reload.
 		this._register(this._lifecycleService.onBeforeShutdown((e) => {
@@ -377,19 +399,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			if (e.reason === ShutdownReason.RELOAD) {
 				// Attempt to save the current state of the workspace sessions
 				// before reloading the browser.
-				e.veto(this.saveWorkspaceSessions(),
-					'positron.runtimeStartup.saveWorkspaceSessions');
-			} else if (e.reason === ShutdownReason.QUIT && isWeb) {
-				// Native and web versions of Positron have different
-				// lifecycle behaviors when it comes to handling shutdowns.
-				//
-				// The `BrowserLifecycleService` always sends a`beforeShutdown`
-				// event with the reason as `ShutdownReason.QUIT`, even if the
-				// user is reloading the page.This is because the browser
-				// doesn't distinguish between a quit and a reload like the
-				// desktop version, so we need to handle the case where the
-				// user is reloading the page and we need to save the
-				// workspace sessions.
 				e.veto(this.saveWorkspaceSessions(),
 					'positron.runtimeStartup.saveWorkspaceSessions');
 			} else {
