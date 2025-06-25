@@ -24,7 +24,7 @@ import { LanguageModelConfigComponent } from './components/languageModelConfigCo
 import { RadioButtonItem } from '../../../browser/positronComponents/positronModalDialog/components/radioButton.js';
 import { RadioGroup } from '../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
-import { AuthMethod, AuthStatus } from './types.js';
+import { AuthMethod, AuthStatus, ProviderTypeFilterOptions } from './types.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { DropDownListBox } from '../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
@@ -79,17 +79,17 @@ const dropdownListBoxChatLabel = localize('positron.languageModelProviderModalDi
 const dropdownListBoxCompletionLabel = localize('positron.languageModelProviderModalDialog.completion', "Completion Providers");
 const providerTypeDropdownEntries = [
 	new DropDownListBoxItem({
-		identifier: 'all',
+		identifier: ProviderTypeFilterOptions.ALL,
 		title: dropdownListBoxAllLabel,
 		value: dropdownListBoxAllLabel,
 	}),
 	new DropDownListBoxItem({
-		identifier: 'chat',
+		identifier: ProviderTypeFilterOptions.CHAT,
 		title: dropdownListBoxChatLabel,
 		value: dropdownListBoxChatLabel,
 	}),
 	new DropDownListBoxItem({
-		identifier: 'completion',
+		identifier: ProviderTypeFilterOptions.COMPLETION,
 		title: dropdownListBoxCompletionLabel,
 		value: dropdownListBoxCompletionLabel,
 	}),
@@ -357,18 +357,18 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		if (!!props.providerTypes && props.providerTypes.length === 1) {
 			switch (props.providerTypes[0]) {
 				case PositronLanguageModelType.Chat:
-					return 'chat';
+					return ProviderTypeFilterOptions.CHAT;
 				case PositronLanguageModelType.Completion:
-					return 'completion';
+					return ProviderTypeFilterOptions.COMPLETION;
 				default:
-					return 'all';
+					return ProviderTypeFilterOptions.ALL;
 			}
 		}
-		return 'all';
+		return ProviderTypeFilterOptions.ALL;
 	})();
 
 	return <OKModalDialog
-		height={410}
+		height={420}
 		okButtonTitle={(() => localize('positron.languageModelModalDialog.close', "Close"))()}
 		renderer={props.renderer}
 		title={modalTitle}
@@ -384,13 +384,13 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 				layoutService={props.layoutService}
 				selectedIdentifier={initialProviderFilter}
 				title={providerFilterDropdownTitle}
-				onSelectionChanged={(item) => {
+				onSelectionChanged={item => {
 					const selectedType = item.options.identifier;
-					if (selectedType === 'all') {
+					if (selectedType === ProviderTypeFilterOptions.ALL) {
 						setProviderSources(defaultProviders);
-					} else if (selectedType === 'chat') {
+					} else if (selectedType === ProviderTypeFilterOptions.CHAT) {
 						setProviderSources(defaultProviders.filter(source => source.type === PositronLanguageModelType.Chat));
-					} else if (selectedType === 'completion') {
+					} else if (selectedType === ProviderTypeFilterOptions.COMPLETION) {
 						setProviderSources(defaultProviders.filter(source => source.type === PositronLanguageModelType.Completion));
 					}
 				}}

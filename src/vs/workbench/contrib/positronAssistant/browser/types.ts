@@ -19,3 +19,9 @@ export enum AuthStatus {
 	/** Currently signed out */
 	SIGNED_OUT = 'signedOut',
 }
+
+export enum ProviderTypeFilterOptions {
+	ALL = 'all',
+	CHAT = 'chat',
+	COMPLETION = 'completion',
+}
