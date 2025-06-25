@@ -76,9 +76,9 @@ export class PositronVariable {
 	/**
 	 * Requests that the language runtime open a viewer for this variable.
 	 *
-	 * @returns The ID of the viewer that was opened.
+	 * @returns The ID of the viewer that was opened, if any.
 	 */
-	async view(): Promise<string> {
+	async view(): Promise<string | undefined> {
 		const path = this.parentKeys.concat(this.data.access_key);
 		return this._comm.view(path);
 	}
@@ -268,4 +268,3 @@ export class VariablesClientInstance extends Disposable {
 		}));
 	}
 }
-
