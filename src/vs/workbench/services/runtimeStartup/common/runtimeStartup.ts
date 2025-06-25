@@ -369,19 +369,11 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}));
 
-		// This is required so session names persist across browser
-		// reloads. Normally, we save workspace sessions before a
-		// shutdown, but this isn't possible for web builds because
-		// the browser lifecycle so this case is handled differently.
-		//
-		// The `BrowserLifecycleService` always sends a`beforeShutdown`
-		// event with the reason as `ShutdownReason.QUIT`, even if the
-		// user is reloading the page. This is because the browser
-		// doesn't distinguish between a quit and a reload like the
-		// desktop version. Saving session data during an async shutdown
-		// in web trigger a browser warning when the user attempts to navigate
-		// away which we don't want.
-		//
+		// This handler is required so session names persist
+		// across browser reloads. Workspace session data is
+		// saved before a shutdown, but this solution doesn't
+		// work for web builds because async shutdown operations
+		// aren't supported and trigger browser warnings.
 		// As a workaround, we save the workspace sessions
 		// whenever a session name is updated.
 		//
@@ -389,7 +381,6 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			// Update the set of workspace sessions
 			this.saveWorkspaceSessions();
 		}));
-
 
 		// Register a shutdown event handler so that we have a chance to save
 		// state before a reload.
