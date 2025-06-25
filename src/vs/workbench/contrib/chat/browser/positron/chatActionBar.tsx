@@ -19,8 +19,10 @@ interface ChatActionBarProps {
 	onModelSelect: (newLanguageModel: IPositronChatProvider | undefined) => void;
 }
 
-const addModelProviderLabel = () => localize('positronChatSelector.addModelProvider', 'Add Model Provider...');
-const addModelProviderTooltip = () => localize('positronChatSelector.addModelProviderTooltip', 'Add a Language Model Provider');
+const addChatModelProviderLabel = () => localize('positronChatSelector.addChatModelProvider', 'Add Chat Model Provider...');
+const addCompletionsModelProviderLabel = () => localize('positronChatSelector.addCompletionsModelProvider', 'Add Completions Model Provider...');
+const configureModelProvidersLabel = () => localize('positronChatSelector.configureModelProviders', 'Configure All Model Providers...');
+const addModelProviderTooltip = () => localize('positronChatSelector.addModelProviderTooltip', 'Add a Chat Model Provider');
 
 export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	const positronActionBarContext = usePositronActionBarContext();
@@ -47,16 +49,38 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 			});
 		});
 
-		const otherActions = [{
-			id: 'add-model-provider',
-			label: addModelProviderLabel(),
-			enabled: true,
-			class: undefined,
-			tooltip: addModelProviderTooltip(),
-			run: async () => {
-				await positronActionBarContext.commandService.executeCommand('positron-assistant.configureModels');
-			}
-		}];
+		const otherActions = [
+			{
+				id: 'add-chat-model-provider',
+				label: addChatModelProviderLabel(),
+				enabled: true,
+				class: undefined,
+				tooltip: addModelProviderTooltip(),
+				run: async () => {
+					await positronActionBarContext.commandService.executeCommand('positron-assistant.configureChatModels');
+				}
+			},
+			{
+				id: 'add-completion-model-provider',
+				label: addCompletionsModelProviderLabel(),
+				enabled: true,
+				class: undefined,
+				tooltip: addModelProviderTooltip(),
+				run: async () => {
+					await positronActionBarContext.commandService.executeCommand('positron-assistant.configureCompletionModels');
+				}
+			},
+			{
+				id: 'configure-model-providers',
+				label: configureModelProvidersLabel(),
+				enabled: true,
+				class: undefined,
+				tooltip: addModelProviderTooltip(),
+				run: async () => {
+					await positronActionBarContext.commandService.executeCommand('positron-assistant.configureModels');
+				}
+			},
+		];
 
 		return Separator.join(providerActions, otherActions);
 	}, [props, providers, currentProvider, positronActionBarContext.commandService]);
@@ -64,10 +88,10 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 	const renderCurrentProvider = () => {
 		if (!currentProvider) {
 			return <ActionBarButton
-				label={addModelProviderLabel()}
+				label={addChatModelProviderLabel()}
 				tooltip={addModelProviderTooltip()}
 				onPressed={async () => {
-					await positronActionBarContext.commandService.executeCommand('positron-assistant.configureModels');
+					await positronActionBarContext.commandService.executeCommand('positron-assistant.configureChatModels');
 				}}
 			/>;
 		}

@@ -26,6 +26,10 @@ import { RadioGroup } from '../../../browser/positronComponents/positronModalDia
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { AuthMethod, AuthStatus } from './types.js';
 import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+// import { Checkbox } from '../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
+// import { HorizontalGroup } from '../../../browser/positronComponents/positronModalDialog/components/horizontalGroup.js';
+import { DropDownListBox } from '../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
+import { DropDownListBoxItem } from '../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 
 export const showLanguageModelModalDialog = (
 	keybindingService: IKeybindingService,
@@ -71,6 +75,35 @@ const providerSourceToConfig = (source: IPositronLanguageModelSource): IPositron
 	};
 }
 
+/** Dropdown entries for the provider type filter */
+const dropdownListBoxAllLabel = localize('positron.languageModelProviderModalDialog.all', "All Providers");
+const dropdownListBoxChatLabel = localize('positron.languageModelProviderModalDialog.chat', "Chat Providers");
+const dropdownListBoxCompletionLabel = localize('positron.languageModelProviderModalDialog.completion', "Completion Providers");
+const providerTypeDropdownEntries = [
+	new DropDownListBoxItem({
+		identifier: 'all',
+		title: dropdownListBoxAllLabel,
+		value: dropdownListBoxAllLabel,
+	}),
+	new DropDownListBoxItem({
+		identifier: 'chat',
+		title: dropdownListBoxChatLabel,
+		value: dropdownListBoxChatLabel,
+	}),
+	new DropDownListBoxItem({
+		identifier: 'completion',
+		title: dropdownListBoxCompletionLabel,
+		value: dropdownListBoxCompletionLabel,
+	}),
+]
+
+const modalTitle = localize('positron.languageModelProviderModalDialog.providerTitle', "Configure Language Model Providers")
+// const providerFilterLabel = localize('positron.languageModelProviderModalDialog.providerFilter', "Provider Filter");
+const providerLabel = localize('positron.languageModelProviderModalDialog.provider', "Provider");
+// const supportsChatLabel = localize('positron.languageModelProviderModalDialog.supportsChat', "Supports Chat");
+// const supportsCompletionsLabel = localize('positron.languageModelProviderModalDialog.supportsCompletions', "Supports Completions");
+const providerFilterDropdownTitle = localize('positron.languageModelProviderModalDialog.providerFilterDropdownTitle', "Filter Providers");
+
 interface LanguageModelConfigurationProps {
 	keybindingService: IKeybindingService;
 	layoutService: ILayoutService;
@@ -88,8 +121,8 @@ interface LanguageModelConfigurationProps {
 const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModelConfigurationProps>) => {
 	// Construct the list of providers from the sources, which are defined in the extension. See extensions/positron-assistant/src/models.ts
 	const allProviders = props.sources;
-	const providers = props.sources
-		.filter(source => source.type === 'chat' || (source.type === 'completion' && source.provider.id === 'copilot'))
+	const defaultProviders = props.sources
+		.filter(source => source.type === PositronLanguageModelType.Chat || (source.type === PositronLanguageModelType.Completion && source.provider.id === 'copilot'))
 		.sort((a, b) => {
 			if (a.provider.id === 'echo' || a.provider.id === 'error') {
 				return 1;
@@ -101,7 +134,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		});
 
 	// Default to the first provider in the list.
-	const defaultProvider = providers[0];
+	const defaultProvider = defaultProviders[0];
 
 	// The currently selected language model provider. The UI preselects this initial provider.
 	const [selectedProvider, setSelectedProvider] = useState<IPositronLanguageModelSource>(defaultProvider);
@@ -113,10 +146,40 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	const [showProgress, setShowProgress] = useState(false);
 	const [errorMessage, setErrorMessage] = useState<string>();
 
+	// Filter the sources based on the provider types, if provided.
+	const filteredProviders = defaultProviders.filter(source =>
+		(props.providerTypes ? props.providerTypes.includes(source.type) : true)
+	);
+
 	// List of provider sources, which is updated when the service emits a change to a language model config.
 	// Each provider source contains the info needed to populate the modal UI with provider details, such as
 	// the provider ID, auth methods and whether the user is signed in or not with the provider.
-	const [providerSources, setProviderSources] = useState<IPositronLanguageModelSource[]>(providers);
+	const [providerSources, setProviderSources] = useState<IPositronLanguageModelSource[]>(filteredProviders);
+
+	// // Add state for checkboxes
+	// const [showChatProviders, setShowChatProviders] = useState(!props.providerTypes || props.providerTypes.includes(PositronLanguageModelType.Chat));
+	// const [showCompletionProviders, setShowCompletionProviders] = useState(!props.providerTypes || props.providerTypes.includes(PositronLanguageModelType.Completion));
+
+	// // Update providerSources when checkboxes change
+	// useEffect(() => {
+	// 	const filtered = defaultProviders.filter(source => {
+	// 		if (!showChatProviders && !showCompletionProviders) {
+	// 			return true; // include all
+	// 		}
+	// 		if (showChatProviders && showCompletionProviders) {
+	// 			return source.type === PositronLanguageModelType.Chat &&
+	// 				defaultProviders.some(s => s.provider.id === source.provider.id && s.type === PositronLanguageModelType.Completion);
+	// 		}
+	// 		if (showChatProviders) {
+	// 			return source.type === PositronLanguageModelType.Chat;
+	// 		}
+	// 		if (showCompletionProviders) {
+	// 			return source.type === PositronLanguageModelType.Completion;
+	// 		}
+	// 		return false;
+	// 	});
+	// 	setProviderSources(filtered);
+	// }, [showChatProviders, showCompletionProviders, defaultProviders]);
 
 	// Update the provider sources when the service emits a change to the language model config.
 	// This occurs when a user signs in or out of a provider.
@@ -319,19 +382,62 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}),
 	];
 
+	/** Initial provider filter selection */
+	const initialProviderFilter = (() => {
+		if (!!props.providerTypes && props.providerTypes.length === 1) {
+			switch (props.providerTypes[0]) {
+				case PositronLanguageModelType.Chat:
+					return 'chat';
+				case PositronLanguageModelType.Completion:
+					return 'completion';
+				default:
+					return 'all';
+			}
+		}
+		return 'all';
+	})();
+
 	return <OKModalDialog
-		height={400}
+		height={410}
 		okButtonTitle={(() => localize('positron.languageModelModalDialog.close', "Close"))()}
 		renderer={props.renderer}
-		title={(() => localize('positron.languageModelModalDialog.title', "Configure Language Model Providers"))()}
+		title={modalTitle}
 		width={600}
 		onAccept={onClose}
 		onCancel={onClose}
 	>
 		<VerticalStack>
-			<label className='language-model-section'>
-				{(() => localize('positron.languageModelProviderModalDialog.provider', "Provider"))()}
-			</label>
+			{/* <label className='language-model-section'>{providerFilterLabel}</label>
+			<HorizontalGroup>
+				<Checkbox
+					initialChecked={showChatProviders}
+					label={supportsChatLabel}
+					onChanged={checked => setShowChatProviders(checked)}
+				/>
+				<Checkbox
+					initialChecked={showCompletionProviders}
+					label={supportsCompletionsLabel}
+					onChanged={checked => setShowCompletionProviders(checked)}
+				/>
+			</HorizontalGroup> */}
+			<label className='language-model-section'>{providerLabel}</label>
+			<DropDownListBox
+				entries={providerTypeDropdownEntries}
+				keybindingService={props.keybindingService}
+				layoutService={props.layoutService}
+				selectedIdentifier={initialProviderFilter}
+				title={providerFilterDropdownTitle}
+				onSelectionChanged={(item) => {
+					const selectedType = item.options.identifier;
+					if (selectedType === 'all') {
+						setProviderSources(defaultProviders);
+					} else if (selectedType === 'chat') {
+						setProviderSources(defaultProviders.filter(source => source.type === PositronLanguageModelType.Chat));
+					} else if (selectedType === 'completion') {
+						setProviderSources(defaultProviders.filter(source => source.type === PositronLanguageModelType.Completion));
+					}
+				}}
+			/>
 			<div className='language-model button-container'>
 				{
 					providerSources.map(source => {
