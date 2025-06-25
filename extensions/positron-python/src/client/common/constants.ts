@@ -86,9 +86,9 @@ export namespace Commands {
     export const Is_Global_Python = 'python.isGlobalPython';
     export const Show_Interpreter_Debug_Info = 'python.interpreters.debugInfo';
     export const Create_Pyproject_Toml = 'python.createPyprojectToml';
+    export const InstallPackages = 'python.installPackages';
     // --- End Positron ---
     export const InstallJupyter = 'python.installJupyter';
-    export const InstallPackages = 'python.installPackages';
     export const InstallPython = 'python.installPython';
     export const InstallPythonOnLinux = 'python.installPythonOnLinux';
     export const InstallPythonOnMac = 'python.installPythonOnMac';
