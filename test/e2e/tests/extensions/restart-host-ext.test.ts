@@ -20,7 +20,7 @@ test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS, tags.WIN] }, ()
 		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
 		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
 		await app.workbench.console.waitForReady('>');
-		await app.workbench.console.pasteCodeToConsole('x=1; y=x+100; y', true);
+		await app.workbench.console.pasteCodeToConsole('x<-1; y<-x+100; y', true);
 		await app.workbench.console.waitForConsoleContents('101');
 	});
 
