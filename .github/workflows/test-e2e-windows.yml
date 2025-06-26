@@ -191,10 +191,7 @@ jobs:
           POSITRON_PY_ALT_VER_SEL: 3.13.0
           POSITRON_R_ALT_VER_SEL: 4.4.2
           PWTEST_BLOB_DO_NOT_REMOVE: 1
-        run: |
-          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null || true
-          BOOTSTRAP_EXIT_CODE=$?
-          echo "BOOTSTRAP_EXIT_CODE=$BOOTSTRAP_EXIT_CODE" >> $GITHUB_OUTPUT
+        run: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project "e2e-windows" --reporter=null
 
       - name: Run Main Test Suite (Electron)
         shell: bash
@@ -214,12 +211,6 @@ jobs:
           export SKIP_BOOTSTRAP=true
           export SKIP_CLONE=true
           npx playwright test --project "e2e-windows" --grep "${PW_TAGS}" --workers 2 --repeat-each ${{ inputs.repeat_each }} --max-failures 10
-
-          BOOTSTRAP_EXIT_CODE=${{ steps.bootstrap.outputs.BOOTSTRAP_EXIT_CODE }}
-          if [[ "$BOOTSTRAP_EXIT_CODE" -ne 0 ]]; then
-            echo "Bootstrap extensions test failed earlier. Exiting with code $BOOTSTRAP_EXIT_CODE."
-            exit "$BOOTSTRAP_EXIT_CODE"
-          fi
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
