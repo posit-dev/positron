@@ -142,18 +142,15 @@ test.describe('R Debugging', {
 		await verifyVariableInConsole(app, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
 
 		// Step into the next line using 's'
-		await page.keyboard.type('s');
-		await page.keyboard.press('Enter');
+		await console.pasteCodeToConsole('s', true);
 		await console.waitForConsoleContents(/debug at .*#3: cols <- grep\(pattern, names\(dat\)\)/);
 
 		// Step over to next line using 'n'
-		await page.keyboard.type('n');
-		await page.keyboard.press('Enter');
+		await console.pasteCodeToConsole('n', true);
 		await console.waitForConsoleContents(/debug at .*#4: mini_dat <- dat\[, cols\]/);
 
 		// Continue execution with 'c'
-		await page.keyboard.type('c');
-		await page.keyboard.press('Enter');
+		await console.pasteCodeToConsole('c', true);
 		await console.waitForConsoleContents('Found 2 fruits!');
 	});
 
@@ -202,8 +199,7 @@ test.describe('R Debugging', {
 		await debug.expectBrowserModeFrame(frameNumber);
 
 		// Continue execution
-		await page.keyboard.type('c');
-		await page.keyboard.press('Enter');
+		await console.pasteCodeToConsole('c', true);
 		await console.waitForConsoleContents('Found 2 fruits!', { expectedCount: 1 });
 
 		// Call again — should not pause this time
@@ -229,8 +225,7 @@ test.describe('R Debugging', {
 
 		// Select the inner function frame
 		await console.waitForConsoleContents('Selection:');
-		await page.keyboard.type('1');
-		await page.keyboard.press('Enter');
+		await console.pasteCodeToConsole('1', true);
 
 		// Confirm error message appears in sidebar
 		await console.expectConsoleToContainError("'x' must be an array of at least two dimensions");
@@ -239,8 +234,7 @@ test.describe('R Debugging', {
 		await verifyVariableInConsole(app, 'mini_dat', '[1] 4 9 6');
 
 		// Quit the debugger
-		await page.keyboard.type('Q');
-		await page.keyboard.press('Enter');
+		await console.pasteCodeToConsole('Q', true);
 		await console.waitForReady('>');
 	});
 });
