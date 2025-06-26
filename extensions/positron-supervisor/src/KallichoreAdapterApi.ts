@@ -16,7 +16,7 @@ import { LogStreamer } from './LogStreamer';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { namedPipeInterceptor } from './NamedPipeHttpAgent';
 
-const KALLICHORE_STATE_KEY = 'positron-supervisor.v1';
+const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
 
 /**
  * The persisted state of the Kallichore server. This metadata is saved in
