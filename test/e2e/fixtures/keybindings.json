@@ -53,5 +53,9 @@
     {
         "key": "cmd+j o",
         "command": "workbench.action.executeCode.console" // Execute Code in Console
+    },
+    {
+        "key": "cmd+j c",
+        "command": "workbench.action.togglePanel"
     }
 ]

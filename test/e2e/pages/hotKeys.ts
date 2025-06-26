@@ -131,7 +131,7 @@ export class HotKeys {
 	}
 
 	public async toggleBottomPanel() {
-		await this.pressHotKeys('Cmd+J', 'Toggle bottom panel'); // workbench.action.togglePanel
+		await this.pressHotKeys('Cmd+J C', 'Toggle bottom panel');
 	}
 
 	// ----------------------
