@@ -1248,6 +1248,35 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 						}
 					}
 					this.log(`Constructed Unix domain WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
+				} else if (basePath && basePath.includes('pipe:')) {
+					// Named pipe transport - get pipe name from channelsUpgrade API
+					this.log(`Using named pipe transport, getting pipe name for session ${this.metadata.sessionId}`, vscode.LogLevel.Debug);
+					const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
+					const pipeName = channelsResponse.body;
+					this.log(`Got pipe name from channelsUpgrade: ${pipeName}`, vscode.LogLevel.Debug);
+
+					// The pipe name might be returned with or without the ws+npipe:// prefix
+					if (pipeName.startsWith('ws+npipe://')) {
+						// Already a complete WebSocket URI
+						wsUri = pipeName;
+					} else if (pipeName.startsWith('\\\\.\\pipe\\') || pipeName.includes('pipe\\')) {
+						// Raw pipe name with full path or partial path, construct WebSocket URI
+						wsUri = `ws+npipe://${pipeName}:/api/channels/${this.metadata.sessionId}`;
+					} else {
+						// Fallback: assume it's a relative pipe name from the base pipe
+						const pipeMatch = basePath.match(/pipe:([^:]+):/);
+						if (pipeMatch) {
+							const basePipeName = pipeMatch[1];
+							// If the base pipe name doesn't have the full path, construct it
+							const fullPipeName = basePipeName.startsWith('\\\\.\\pipe\\') ?
+								basePipeName :
+								(basePipeName.startsWith('pipe\\') ? `\\\\.\\${basePipeName}` : `\\\\.\\pipe\\${basePipeName}`);
+							wsUri = `ws+npipe://${fullPipeName}:/api/channels/${this.metadata.sessionId}`;
+						} else {
+							throw new Error(`Cannot extract pipe name from base path: ${basePath}`);
+						}
+					}
+					this.log(`Constructed named pipe WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
 				} else {
 					// TCP transport - construct WebSocket URI directly from base path
 					this.log(`Using TCP transport, constructing WebSocket URI from base path: ${basePath}`, vscode.LogLevel.Debug);

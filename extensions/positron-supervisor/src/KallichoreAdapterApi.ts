@@ -46,6 +46,9 @@ interface KallichoreServerState {
 
 	/** The path to the unix domain socket (when using socket transport) */
 	socket_path?: string;
+
+	/** The name of the named pipe (when using pipe transport) */
+	named_pipe?: string;
 }
 
 /**
@@ -58,12 +61,31 @@ function isDomainSocketPath(basePath: string): boolean {
 }
 
 /**
+ * Determines if a base path is using a named pipe transport
+ * @param basePath The base path to check
+ * @returns True if the base path uses a named pipe
+ */
+function isNamedPipePath(basePath: string): boolean {
+	return basePath.includes('pipe:');
+}
+
+/**
  * Extracts the socket path from a domain socket base path
  * @param basePath The base path containing the socket reference
  * @returns The socket file path, or null if not a domain socket path
  */
 function extractSocketPath(basePath: string): string | null {
 	const match = basePath.match(/unix:([^:]+)/);
+	return match ? match[1] : null;
+}
+
+/**
+ * Extracts the pipe name from a named pipe base path
+ * @param basePath The base path containing the pipe reference
+ * @returns The pipe name, or null if not a named pipe path
+ */
+function extractPipeName(basePath: string): string | null {
+	const match = basePath.match(/pipe:([^:]+)/);
 	return match ? match[1] : null;
 }
 
@@ -81,6 +103,14 @@ function constructWebSocketUri(apiBasePath: string, sessionId: string): string {
 		const socketPath = extractSocketPath(apiBasePath);
 		if (socketPath) {
 			return `ws+unix://${socketPath}:/sessions/${sessionId}/channels`;
+		}
+	}
+
+	if (isNamedPipePath(apiBasePath)) {
+		// For named pipes, we need to use ws+npipe format
+		const pipeName = extractPipeName(apiBasePath);
+		if (pipeName) {
+			return `ws+npipe://${pipeName}:/sessions/${sessionId}/channels`;
 		}
 	}
 
@@ -271,12 +301,16 @@ export class KCApi implements PositronSupervisorApi {
 					// reconnect to the server saved in the state, and it's
 					// normal for it to have exited if this is a new Positron
 					// session.
-					const connectionInfo = serverState.base_path || `socket:${serverState.socket_path}`;
+					const connectionInfo = serverState.base_path ||
+						(serverState.socket_path ? `socket:${serverState.socket_path}` : '') ||
+						(serverState.named_pipe ? `pipe:${serverState.named_pipe}` : '');
 					this.log(`Could not reconnect to Kallichore server ` +
 						`at ${connectionInfo}. Starting a new server`);
 				}
 			} catch (err) {
-				const connectionInfo = serverState.base_path || `socket:${serverState.socket_path}`;
+				const connectionInfo = serverState.base_path ||
+					(serverState.socket_path ? `socket:${serverState.socket_path}` : '') ||
+					(serverState.named_pipe ? `pipe:${serverState.named_pipe}` : '');
 				this.log(`Failed to reconnect to Kallichore server ` +
 					` at ${connectionInfo}: ${err}. Starting a new server.`);
 			}
@@ -459,7 +493,7 @@ export class KCApi implements PositronSupervisorApi {
 						throw new Error(`Connection file ${connectionFile} is empty or invalid`);
 					}
 
-					// Handle both base_path (TCP) and socket_path (domain socket) formats
+					// Handle base_path (TCP), socket_path (domain socket), and named_pipe (named pipe) formats
 					if (connectionData.base_path) {
 						// TCP connection with explicit base_path
 						basePath = connectionData.base_path;
@@ -470,9 +504,14 @@ export class KCApi implements PositronSupervisorApi {
 						basePath = `http://unix:${connectionData.socket_path}:`;
 						serverPort = 0; // No port for domain sockets
 						this.log(`Read domain socket connection information from ${connectionFile}: ${connectionData.socket_path}, constructed base path: ${basePath}`);
+					} else if (connectionData.named_pipe) {
+						// Named pipe connection - construct HTTP over named pipe URL
+						basePath = `http://pipe:${connectionData.named_pipe}:`;
+						serverPort = 0; // No port for named pipes
+						this.log(`Read named pipe connection information from ${connectionFile}: ${connectionData.named_pipe}, constructed base path: ${basePath}`);
 					} else {
-						this.log(`Connection file ${connectionFile} missing both base_path and socket_path`);
-						throw new Error(`Connection file ${connectionFile} missing both base_path and socket_path`);
+						this.log(`Connection file ${connectionFile} missing base_path, socket_path, and named_pipe`);
+						throw new Error(`Connection file ${connectionFile} missing base_path, socket_path, and named_pipe`);
 					}
 					break;
 				}
@@ -667,9 +706,12 @@ export class KCApi implements PositronSupervisorApi {
 			server_pid: processId || 0,
 			bearer_token: bearerToken,
 			log_path: logFile,
-			transport: isDomainSocketPath(basePath) ? 'sockets' : 'tcp',
+			transport: isDomainSocketPath(basePath) ? 'sockets' :
+				(isNamedPipePath(basePath) ? 'pipes' : 'tcp'),
 			// For domain sockets, also save the original socket_path from connection data
-			socket_path: connectionData?.socket_path || (isDomainSocketPath(basePath) ? extractSocketPath(basePath) || undefined : undefined)
+			socket_path: connectionData?.socket_path || (isDomainSocketPath(basePath) ? extractSocketPath(basePath) || undefined : undefined),
+			// For named pipes, also save the original named_pipe from connection data
+			named_pipe: connectionData?.named_pipe || (isNamedPipePath(basePath) ? extractPipeName(basePath) || undefined : undefined)
 		};
 		this._context.workspaceState.update(KALLICHORE_STATE_KEY, state);
 	}
@@ -759,7 +801,9 @@ export class KCApi implements PositronSupervisorApi {
 		// position in the log file, we'll wind up with duplicate logs after
 		// reconnecting.
 		this._log.clear();
-		const connectionInfo = serverState.base_path || `socket:${serverState.socket_path}`;
+		const connectionInfo = serverState.base_path ||
+			(serverState.socket_path ? `socket:${serverState.socket_path}` : '') ||
+			(serverState.named_pipe ? `pipe:${serverState.named_pipe}` : '');
 		this.log(`Reconnecting to Kallichore server at ${connectionInfo} (PID ${pid})`);
 
 		// Re-establish the bearer token
@@ -777,15 +821,18 @@ export class KCApi implements PositronSupervisorApi {
 		});
 
 		// Reconnect and get the session list
-		// Construct the base path from either base_path or socket_path
+		// Construct the base path from base_path, socket_path, or named_pipe
 		if (serverState.base_path) {
 			this._api.basePath = serverState.base_path;
 			this.log(`Reconnecting using saved base_path: ${serverState.base_path}`);
 		} else if (serverState.socket_path) {
 			this._api.basePath = `http://unix:${serverState.socket_path}:/`;
 			this.log(`Reconnecting using socket_path: ${serverState.socket_path}, constructed base_path: ${this._api.basePath}`);
+		} else if (serverState.named_pipe) {
+			this._api.basePath = `http://pipe:${serverState.named_pipe}:/`;
+			this.log(`Reconnecting using named_pipe: ${serverState.named_pipe}, constructed base_path: ${this._api.basePath}`);
 		} else {
-			throw new Error('Server state missing both base_path and socket_path');
+			throw new Error('Server state missing base_path, socket_path, and named_pipe');
 		}
 
 		const status = await this._api.serverStatus();
