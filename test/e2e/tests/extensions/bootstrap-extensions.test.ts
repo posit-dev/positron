@@ -66,6 +66,7 @@ function getInstalledExtensions(extensionsDir: string): Map<string, string> {
 
 async function waitForExtensions(extensions: { fullName: string; shortName: string; version: string }[], extensionsPath: string) {
 	const missing = new Set(extensions.map(ext => ext.fullName));
+	const mismatched = new Set<string>();
 
 	while (missing.size > 0) {
 		const installed = getInstalledExtensions(extensionsPath);
@@ -76,12 +77,12 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 			const installedVersion = installed.get(ext.shortName);
 			if (!installedVersion) {
 				console.log(`❌ ${ext.fullName} not yet installed`);
-			} else if (installedVersion === ext.version) {
-				console.log(`✅ ${ext.fullName} (${ext.version}) found and matches`);
-				missing.delete(ext.fullName);
-			}
-			else {
+			} else if (installedVersion !== ext.version) {
 				console.log(`⚠️ ${ext.fullName} installed with version ${installedVersion}, expected ${ext.version}`);
+				missing.delete(ext.fullName);
+				mismatched.add(ext.fullName);
+			} else {
+				console.log(`✅ ${ext.fullName} (${ext.version}) found and matches`);
 				missing.delete(ext.fullName);
 			}
 		}
@@ -92,6 +93,14 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 		}
 	}
 
-	console.log('🎉 All extensions installed.');
+	if (mismatched.size > 0) {
+		console.log('\n❌ Some extensions were installed with mismatched versions:');
+		for (const ext of mismatched) {
+			console.log(`  * ${ext}`);
+		}
+		throw new Error('Some extensions were installed with mismatched versions. Please check the logs above.');
+	}
+
+	console.log('\n🎉 All extensions installed with correct versions.');
 }
 
