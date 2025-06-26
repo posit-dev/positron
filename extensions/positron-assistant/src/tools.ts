@@ -296,7 +296,9 @@ export function registerAssistantTools(
 				language: 'text', // Not actually a bash command
 				confirmationMessages: {
 					title: vscode.l10n.t('Install Python Packages'),
-					message: vscode.l10n.t('Positron Assistant wants to install {0}, is this okay?', packageNames)
+					message: options.input.packages.length === 1
+						? vscode.l10n.t('Positron Assistant wants to install the package {0}. Is this okay?', packageNames)
+						: vscode.l10n.t('Positron Assistant wants to install the following packages: {0}. Is this okay?', packageNames)
 				},
 			};
 			return result;
