@@ -6,6 +6,7 @@
 import * as http from 'http';
 import * as net from 'net';
 import * as request from 'request';
+import WebSocket from 'ws';
 
 /**
  * Custom HTTP Agent that can handle Windows named pipes using the net module.
@@ -25,14 +26,58 @@ export class NamedPipeHttpAgent extends http.Agent {
 	createConnection(options: any, callback?: (err: Error | null, socket?: net.Socket) => void): net.Socket {
 		// Create a connection to the named pipe
 		const socket = net.connect(this.pipeName);
-		
+
 		if (callback) {
 			socket.on('connect', () => callback(null, socket));
 			socket.on('error', (err) => callback(err));
 		}
-		
+
 		return socket;
 	}
+}
+
+/**
+ * Custom WebSocket class that can connect over Windows named pipes
+ */
+export class NamedPipeWebSocket extends WebSocket {
+	constructor(address: string, protocols?: string | string[], options?: any) {
+		// Parse the ws+npipe:// URL to extract pipe name and path
+		// Format: ws+npipe://\\.\pipe\name:/path
+		const match = address.match(/^ws\+npipe:\/\/([^:]+):(.*)$/);
+		if (!match) {
+			throw new Error(`Invalid ws+npipe URL: ${address}`);
+		}
+
+		const pipeName = match[1];
+		const path = match[2] || '/';
+
+		// Convert to a regular ws:// URL for the WebSocket protocol
+		const wsUrl = `ws://localhost${path}`;
+
+		// Create WebSocket options with custom agent for named pipes
+		const wsOptions = {
+			...options,
+			agent: new NamedPipeHttpAgent(pipeName)
+		};
+
+		super(wsUrl, protocols, wsOptions);
+	}
+}
+
+/**
+ * Creates a WebSocket instance appropriate for the given URL
+ * @param url The WebSocket URL 
+ * @param protocols WebSocket protocols
+ * @param options WebSocket options
+ * @returns A WebSocket instance
+ */
+export function createWebSocket(url: string, protocols?: string | string[], options?: any): WebSocket {
+	if (url.startsWith('ws+npipe://')) {
+		return new NamedPipeWebSocket(url, protocols, options);
+	}
+	
+	// Return regular WebSocket for other protocols
+	return new WebSocket(url, protocols, options);
 }
 
 /**
@@ -49,7 +94,7 @@ export function createHttpAgent(basePath: string): http.Agent | undefined {
 			return new NamedPipeHttpAgent(pipeName);
 		}
 	}
-	
+
 	// Return undefined for TCP and Unix socket connections to use default behavior
 	return undefined;
 }
@@ -67,16 +112,16 @@ export function namedPipeInterceptor(requestOptions: request.Options): Promise<v
 			const match = uri.match(/npipe:([^:]+):/);
 			if (match) {
 				const pipeName = match[1];
-				
+
 				// Create custom agent for named pipes
 				const agent = new NamedPipeHttpAgent(pipeName);
-				
+
 				// Replace the URI to use localhost (since the agent handles the actual connection)
 				// but keep the path part
 				const pathMatch = uri.match(/npipe:[^:]+:(\/.*)/);
 				const path = pathMatch ? pathMatch[1] : '/';
 				(requestOptions as any).uri = `http://localhost${path}`;
-				
+
 				// Set the custom agent
 				(requestOptions as any).agent = agent;
 			}

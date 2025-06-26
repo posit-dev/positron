@@ -178,7 +178,7 @@ export class KCApi implements PositronSupervisorApi {
 		private readonly _log: vscode.OutputChannel) {
 
 		this._api = new DefaultApi();
-		
+
 		// Add interceptor for named pipe support
 		(this._api as any).interceptors.push(namedPipeInterceptor);
 
