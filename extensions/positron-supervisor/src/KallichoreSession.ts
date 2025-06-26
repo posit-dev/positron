@@ -1258,7 +1258,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					// Convert HTTP base path to WebSocket URI
 					const wsScheme = basePath.startsWith('https://') ? 'wss://' : 'ws://';
 					const baseUrl = basePath.replace(/^https?:\/\//, '').replace(/\/$/, '');
-					wsUri = `${wsScheme}${baseUrl}/api/channels/${this.metadata.sessionId}`;
+					wsUri = `${wsScheme}${baseUrl}/sessions/${this.metadata.sessionId}/channels`;
 					this.log(`Constructed TCP WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
 				}
 
