@@ -19,7 +19,6 @@
  * 5. Variables can be inspected in the console or in the Variables debugging pane
  */
 
-import { Page } from '@playwright/test';
 import { Application, SessionMetaData } from '../../infra/index.js';
 import { test, tags, expect } from '../_test.setup';
 
