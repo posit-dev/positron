@@ -225,7 +225,8 @@ test.describe('R Debugging', {
 
 		// Select the inner function frame
 		await console.waitForConsoleContents('Selection:');
-		await console.pasteCodeToConsole('1', true);
+		await page.keyboard.type('1');
+		await page.keyboard.press('Enter');
 
 		// Confirm error message appears in sidebar
 		await console.expectConsoleToContainError("'x' must be an array of at least two dimensions");
