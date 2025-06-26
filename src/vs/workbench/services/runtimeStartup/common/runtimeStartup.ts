@@ -369,6 +369,19 @@ export class RuntimeStartupService extends Disposable implements IRuntimeStartup
 			}
 		}));
 
+		// This handler is required so session names persist
+		// across browser reloads. Workspace session data is
+		// saved before a shutdown, but this solution doesn't
+		// work for web builds because async shutdown operations
+		// aren't supported and trigger browser warnings.
+		// As a workaround, we save the workspace sessions
+		// whenever a session name is updated.
+		//
+		this._register(this._runtimeSessionService.onDidUpdateSessionName(() => {
+			// Update the set of workspace sessions
+			this.saveWorkspaceSessions();
+		}));
+
 		// Register a shutdown event handler so that we have a chance to save
 		// state before a reload.
 		this._register(this._lifecycleService.onBeforeShutdown((e) => {
