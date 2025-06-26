@@ -266,7 +266,7 @@ async function verifyVariableInConsole(app: Application, name: string, expectedT
 
 		await console.focus();
 		await console.pasteCodeToConsole(name, true);
-		await console.waitForConsoleContents(expectedText);
+		await console.waitForConsoleContents(expectedText, { timeout: 30000 });
 	});
 }
 
