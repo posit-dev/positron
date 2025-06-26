@@ -81,8 +81,7 @@ test.describe('R Debugging', {
 
 		await console.focus();
 		await console.clearButton.click();
-		await page.keyboard.press('Q');
-		await page.keyboard.press('Enter');
+		await console.pasteCodeToConsole('Q', true);
 		await console.waitForReady('>');
 	});
 
