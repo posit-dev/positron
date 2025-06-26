@@ -92,6 +92,6 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 		}
 	}
 
-	console.log('🎉 All extensions installed with correct versions.');
+	console.log('🎉 All extensions installed.');
 }
 
