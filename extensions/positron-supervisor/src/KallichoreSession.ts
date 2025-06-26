@@ -1248,7 +1248,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 						}
 					}
 					this.log(`Constructed Unix domain WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
-				} else if (basePath && basePath.includes('pipe:')) {
+				} else if (basePath && basePath.includes('npipe:')) {
 					// Named pipe transport - get pipe name from channelsUpgrade API
 					this.log(`Using named pipe transport, getting pipe name for session ${this.metadata.sessionId}`, vscode.LogLevel.Debug);
 					const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
@@ -1264,7 +1264,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 						wsUri = `ws+npipe://${pipeName}:/api/channels/${this.metadata.sessionId}`;
 					} else {
 						// Fallback: assume it's a relative pipe name from the base pipe
-						const pipeMatch = basePath.match(/pipe:([^:]+):/);
+						const pipeMatch = basePath.match(/npipe:([^:]+):/);
 						if (pipeMatch) {
 							const basePipeName = pipeMatch[1];
 							// If the base pipe name doesn't have the full path, construct it

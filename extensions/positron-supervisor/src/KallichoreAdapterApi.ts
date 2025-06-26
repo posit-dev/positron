@@ -14,6 +14,7 @@ import { DisconnectedEvent, DisconnectReason, KallichoreSession } from './Kallic
 import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
+import { namedPipeInterceptor } from './NamedPipeHttpAgent';
 
 const KALLICHORE_STATE_KEY = 'positron-supervisor.v1';
 
@@ -47,7 +48,7 @@ interface KallichoreServerState {
 	/** The path to the unix domain socket (when using socket transport) */
 	socket_path?: string;
 
-	/** The name of the named pipe (when using pipe transport) */
+	/** The name of the named pipe (when using named pipe transport) */
 	named_pipe?: string;
 }
 
@@ -66,7 +67,7 @@ function isDomainSocketPath(basePath: string): boolean {
  * @returns True if the base path uses a named pipe
  */
 function isNamedPipePath(basePath: string): boolean {
-	return basePath.includes('pipe:');
+	return basePath.includes('npipe:');
 }
 
 /**
@@ -85,7 +86,7 @@ function extractSocketPath(basePath: string): string | null {
  * @returns The pipe name, or null if not a named pipe path
  */
 function extractPipeName(basePath: string): string | null {
-	const match = basePath.match(/pipe:([^:]+)/);
+	const match = basePath.match(/npipe:([^:]+)/);
 	return match ? match[1] : null;
 }
 
@@ -177,6 +178,9 @@ export class KCApi implements PositronSupervisorApi {
 		private readonly _log: vscode.OutputChannel) {
 
 		this._api = new DefaultApi();
+		
+		// Add interceptor for named pipe support
+		(this._api as any).interceptors.push(namedPipeInterceptor);
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
@@ -506,7 +510,7 @@ export class KCApi implements PositronSupervisorApi {
 						this.log(`Read domain socket connection information from ${connectionFile}: ${connectionData.socket_path}, constructed base path: ${basePath}`);
 					} else if (connectionData.named_pipe) {
 						// Named pipe connection - construct HTTP over named pipe URL
-						basePath = `http://pipe:${connectionData.named_pipe}:`;
+						basePath = `http://npipe:${connectionData.named_pipe}:`;
 						serverPort = 0; // No port for named pipes
 						this.log(`Read named pipe connection information from ${connectionFile}: ${connectionData.named_pipe}, constructed base path: ${basePath}`);
 					} else {
@@ -803,7 +807,7 @@ export class KCApi implements PositronSupervisorApi {
 		this._log.clear();
 		const connectionInfo = serverState.base_path ||
 			(serverState.socket_path ? `socket:${serverState.socket_path}` : '') ||
-			(serverState.named_pipe ? `pipe:${serverState.named_pipe}` : '');
+			(serverState.named_pipe ? `npipe:${serverState.named_pipe}` : '');
 		this.log(`Reconnecting to Kallichore server at ${connectionInfo} (PID ${pid})`);
 
 		// Re-establish the bearer token
@@ -829,7 +833,7 @@ export class KCApi implements PositronSupervisorApi {
 			this._api.basePath = `http://unix:${serverState.socket_path}:/`;
 			this.log(`Reconnecting using socket_path: ${serverState.socket_path}, constructed base_path: ${this._api.basePath}`);
 		} else if (serverState.named_pipe) {
-			this._api.basePath = `http://pipe:${serverState.named_pipe}:/`;
+			this._api.basePath = `http://npipe:${serverState.named_pipe}:/`;
 			this.log(`Reconnecting using named_pipe: ${serverState.named_pipe}, constructed base_path: ${this._api.basePath}`);
 		} else {
 			throw new Error('Server state missing base_path, socket_path, and named_pipe');
