@@ -8,7 +8,7 @@ import React from 'react';
 
 // Other dependencies.
 import { Scrollable } from '../../../../../base/browser/ui/positronComponents/scrollable/Scrollable.js';
-import { ZoomLevel } from './zoomPlotMenuButton.js';
+import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 
 interface PanZoomImageProps {
 	width: number;

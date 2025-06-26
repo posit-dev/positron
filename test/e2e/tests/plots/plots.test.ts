@@ -187,7 +187,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await runScriptAndValidatePlot(app, ipyleaflet, '.leaflet-container');
 		});
 
-		test('Python - Verify hvplot can load with plotly extension [C766660]', {
+		test('Python - Verify hvplot can load with plotly extension', {
 			tag: [tags.WEB, tags.WIN],
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5991' }],
 		}, async function ({ app }) {
@@ -475,15 +475,17 @@ const options: ComparisonOptions = {
 };
 
 async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false, runLineByLine = false) {
+	await app.workbench.hotKeys.fullSizeSecondarySidebar();
 	const lines: string[] = runLineByLine ? script.split('\n') : [script];
-	for (const line of lines) {
-		await app.workbench.console.pasteCodeToConsole(line);
-		await app.workbench.console.sendEnterKey();
-	}
-	await app.code.wait(3000); // give plot time to render before interacting with quick input
-	await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-	await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
-	await app.workbench.layouts.enterLayout('stacked');
+
+	await expect(async () => {
+		for (const line of lines) {
+			await app.workbench.console.pasteCodeToConsole(line);
+			await app.workbench.console.sendEnterKey();
+		}
+		await app.workbench.console.waitForConsoleExecution({ timeout: 15000 });
+		await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
+	}, 'Send code to console and verify plot renders').toPass({ timeout: 60000 });
 }
 
 async function compareImages({

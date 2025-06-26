@@ -5,7 +5,6 @@
 
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
-import { QuickAccess } from './quickaccess';
 import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
 import { availableRuntimes, SessionRuntimes } from './sessions.js';
@@ -40,7 +39,7 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private quickinput: QuickInput, private hotKeys: HotKeys) {
+	constructor(private code: Code, private quickinput: QuickInput, private hotKeys: HotKeys) {
 		// Standard Console Button Locators
 		this.restartButton = this.code.driver.page.getByLabel('Restart console');
 		this.clearButton = this.code.driver.page.getByLabel('Clear console');
@@ -112,13 +111,7 @@ export class Console {
 			const waitForReady = options?.waitForReady ?? true;
 			const maximizeConsole = options?.maximizeConsole ?? true;
 
-			await expect(async () => {
-				// Kind of hacky, but activate console in case focus was previously lost
-				await this.focus();
-				await this.quickaccess.runCommand('workbench.action.executeCode.console', { keepOpen: true });
-
-			}).toPass();
-
+			await this.hotKeys.executeCodeInConsole();
 			await this.quickinput.waitForQuickInputOpened();
 			await this.quickinput.type(languageName);
 			await this.quickinput.waitForQuickInputElements(e => e.length === 1 && e[0] === languageName);

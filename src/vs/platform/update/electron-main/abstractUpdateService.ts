@@ -16,10 +16,10 @@ import { AvailableForDownload, DisablementReason, IUpdateService, State, StateTy
 
 //--- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
-import { asJson } from '../../request/common/request.js';
+import { asJson, asText } from '../../request/common/request.js';
 // eslint-disable-next-line no-duplicate-imports
 import { IUpdate } from '../common/update.js';
-import { hasUpdate } from '../electron-main/positronVersion.js';
+import { hasUpdate } from '../common/positronVersion.js';
 import { INativeHostMainService } from '../../native/electron-main/nativeHostMainService.js';
 
 export function createUpdateURL(platform: string, channel: string, productService: IProductService): string {
@@ -221,6 +221,33 @@ export abstract class AbstractUpdateService implements IUpdateService {
 				const message: string | undefined = !!explicit ? (err.message || err) : undefined;
 				this.setState(State.Idle(this.getUpdateType(), message));
 			});
+	}
+
+	/**
+	 * Fetches the release notes for the current version of Positron.
+	 *
+	 * This is done in the update service because the ReleaseNotesManager is at the workbench level,
+	 * which would encounter a CORS error when trying to fetch the release notes.
+	 *
+	 * @returns the release notes as a string
+	 */
+	async getReleaseNotes(): Promise<string> {
+		const channel = process.env.POSITRON_RELEASE_NOTES_CHANNEL ?? 'releases';
+		const url = `${this.productService.releaseNotesUrl}/${channel}/release-notes/release-${this.productService.positronVersion}.md`;
+		const releaseNotesResponse = await this.requestService.request({ url }, CancellationToken.None);
+
+		if (process.env.POSITRON_RELEASE_NOTES_CHANNEL) {
+			this.logService.info('update#getReleaseNotes - using release notes channel from environment variable:', process.env.POSITRON_RELEASE_NOTES_CHANNEL);
+		}
+
+		if (releaseNotesResponse.res.statusCode !== 200) {
+			throw new Error(`Failed to fetch release notes: ${releaseNotesResponse.res.statusCode}`);
+		}
+		const releaseNotesText = await asText(releaseNotesResponse);
+		if (!releaseNotesText) {
+			throw new Error('Release notes are empty');
+		}
+		return releaseNotesText;
 	}
 	// --- End Positron ---
 

@@ -6,7 +6,7 @@
 import assert from 'assert';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../base/test/common/utils.js';
 import { IUpdate } from '../../common/update.js';
-import * as positronVersion from '../../electron-main/positronVersion.js';
+import * as positronVersion from '../../common/positronVersion.js';
 
 suite('Positron Version', function () {
 	ensureNoDisposablesAreLeakedInTestSuite();

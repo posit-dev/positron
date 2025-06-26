@@ -741,12 +741,20 @@ export class ChatWidget extends Disposable implements IChatWidget {
 		if (!this.configurationService.getValue('positron.assistant.enable')) {
 			welcomeTitle = localize('positronAssistant.comingSoonTitle', "Coming Soon");
 			welcomeText = localize('positronAssistant.comingSoonMessage', "Positron Assistant is under development and will be available in a future version of Positron.\n");
-		} else if (this.languageModelsService.getLanguageModelIds().length === 0) {
+		} else if (!this.languageModelsService.currentProvider) {
+			// When Anthropic is the only supported provider, we can use a more specific message.
+			// TODO: remove this custom handling https://github.com/posit-dev/positron/issues/8301
+			const hasAdditionalModels = this.configurationService.getValue<boolean>('positron.assistant.testModels') ||
+				this.configurationService.getValue<string[]>('positron.assistant.enabledProviders')?.length > 0;
+
 			welcomeTitle = localize('positronAssistant.gettingStartedTitle', "Set Up Positron Assistant");
-			const addLanguageModelMessage = localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider");
+			const addLanguageModelMessage = hasAdditionalModels
+				? localize('positronAssistant.addLanguageModelMessage', "Add Language Model Provider")
+				: localize('positronAssistant.addLanguageModelMessageAnthropic', "Add Anthropic as a Chat Provider");
 			firstLinkToButton = true;
-			// create a multi-line message
-			welcomeText = localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n");
+			welcomeText = hasAdditionalModels
+				? localize('positronAssistant.welcomeMessage', "To use Positron Assistant you must first select and authenticate with a language model provider.\n")
+				: localize('positronAssistant.welcomeMessageAnthropic', "To use Positron Assistant Chat, you must first authenticate with Anthropic.\n");
 			welcomeText += `\n\n[${addLanguageModelMessage}](command:positron-assistant.configureModels)`;
 		} else {
 			const guideLinkMessage = localize('positronAssistant.guideLinkMessage', "Positron Assistant User Guide");

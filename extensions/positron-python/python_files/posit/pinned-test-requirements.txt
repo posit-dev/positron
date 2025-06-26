@@ -37,6 +37,7 @@ pytest==8.3.5
 pytest-asyncio==0.26.0
 pytest-mock==3.14.0
 torch==2.7.0
+scipy<=1.15.3
 SQLAlchemy==2.0.41
 
 # putting this last like test-requirements.txt

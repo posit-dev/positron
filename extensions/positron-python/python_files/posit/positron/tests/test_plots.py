@@ -352,9 +352,6 @@ def test_mpl_shutdown(shell: PositronShell, plots_service: PlotsService) -> None
     assert all(comm._closed for comm in plot_comms)  # noqa: SLF001
 
 
-@pytest.mark.skip(
-    reason="Test is breaking, see https://github.com/posit-dev/positron/actions/runs/15813946095/"
-)
 def test_plotnine_close_then_show(shell: PositronShell, plots_service: PlotsService) -> None:
     """Test that a plotnine plot renders and then closes comm correctly."""
     shell.run_cell("""\

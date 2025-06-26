@@ -17,8 +17,6 @@ import { PositronPlotsEditor } from './positronPlotsEditor.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 
-export const POSITRON_EDITOR_PLOTS = 'application.experimental.positronPlotsInEditorTab';
-
 class PositronPlotsEditorContribution extends Disposable {
 	static readonly ID = 'workbench.contrib.positronPlotsEditor';
 

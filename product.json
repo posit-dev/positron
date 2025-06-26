@@ -2,7 +2,7 @@
 	"companyName": "Posit Software, PBC",
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2025.07.0",
+	"positronVersion": "2025.08.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -40,6 +40,7 @@
 	"urlProtocol": "positron",
 	"webviewContentExternalBaseUrlTemplate": "https://{{uuid}}.vscode-cdn.net/insider/ef65ac1ba57f57f2a3961bfe94aa20481caca4c6/out/vs/workbench/contrib/webview/browser/pre/",
 	"updateUrl": "https://cdn.posit.co/positron",
+	"releaseNotesUrl": "https://cdn.posit.co/positron",
 	"downloadUrl": "https://positron.posit.co/download",
 	"builtInExtensions": [
 		{
