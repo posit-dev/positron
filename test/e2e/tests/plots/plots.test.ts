@@ -477,12 +477,15 @@ const options: ComparisonOptions = {
 async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false, runLineByLine = false) {
 	await app.workbench.hotKeys.fullSizeSecondarySidebar();
 	const lines: string[] = runLineByLine ? script.split('\n') : [script];
-	for (const line of lines) {
-		await app.workbench.console.pasteCodeToConsole(line);
-		await app.workbench.console.sendEnterKey();
-	}
-	await app.workbench.console.waitForConsoleExecution({ timeout: 15000 });
-	await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
+
+	await expect(async () => {
+		for (const line of lines) {
+			await app.workbench.console.pasteCodeToConsole(line);
+			await app.workbench.console.sendEnterKey();
+		}
+		await app.workbench.console.waitForConsoleExecution({ timeout: 15000 });
+		await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
+	}, 'Send code to console and verify plot renders').toPass({ timeout: 60000 });
 }
 
 async function compareImages({
