@@ -115,23 +115,18 @@
           "type": "string",
           "description": "%configuration.transport.description%",
           "enum": [
-            "auto",
-            "tcp",
-            "sockets",
-            "pipes"
+            "ipc",
+            "tcp"
           ],
           "enumDescriptions": [
-            "%configuration.transport.auto.description%",
-            "%configuration.transport.tcp.description%",
-            "%configuration.transport.sockets.description%",
-            "%configuration.transport.pipes.description%"
+            "%configuration.transport.ipc.description%",
+            "%configuration.transport.tcp.description%"
           ],
           "enumItemLabels": [
-            "%configuration.transport.auto.label%",
-            "%configuration.transport.tcp.label%",
-            "%configuration.transport.sockets.label%",
-            "%configuration.transport.pipes.label%"
-          ]
+            "%configuration.transport.ipc.label%",
+            "%configuration.transport.tcp.label%"
+          ],
+          "default": "ipc"
         }
       }
     },

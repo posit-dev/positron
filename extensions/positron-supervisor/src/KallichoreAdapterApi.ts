@@ -42,7 +42,7 @@ interface KallichoreServerState {
 	/** The path to the log file */
 	log_path: string;
 
-	/** The transport protocol used (tcp, sockets, pipes) */
+	/** The transport protocol used (ipc, tcp) */
 	transport?: string;
 
 	/** The path to the unix domain socket (when using socket transport) */
@@ -387,22 +387,25 @@ export class KCApi implements PositronSupervisorApi {
 			'--connection-file', connectionFile,
 		]);
 
-		// Add transport option if not set to 'auto'
-		const transport = config.get<string>('transport', 'auto');
-		if (transport && transport !== 'auto') {
-			// Validate transport option for platform compatibility
-			if (transport === 'sockets' && os.platform() === 'win32') {
-				this.log(`Warning: Unix domain sockets are not supported on Windows, falling back to TCP`);
-				// Don't add --transport option, let kallichore use auto/tcp
-			} else if (transport === 'pipes' && os.platform() !== 'win32') {
-				this.log(`Warning: Named pipes are only supported on Windows, falling back to auto selection`);
-				// Don't add --transport option, let kallichore use auto/tcp
+		// Add transport option based on configuration
+		const transport = config.get<string>('transport', 'ipc');
+		if (transport === 'ipc') {
+			// Use native IPC: named pipes on Windows, unix sockets on other platforms
+			if (os.platform() === 'win32') {
+				shellArgs.push('--transport', 'named-pipe');
+				this.log(`Using native IPC transport: named pipes`);
 			} else {
-				shellArgs.push('--transport', transport);
-				this.log(`Using explicit transport: ${transport}`);
+				shellArgs.push('--transport', 'socket');
+				this.log(`Using native IPC transport: unix sockets`);
 			}
+		} else if (transport === 'tcp') {
+			// Use TCP transport
+			shellArgs.push('--transport', 'tcp');
+			this.log(`Using TCP transport`);
 		} else {
-			this.log(`Using automatic transport selection`);
+			// Fallback for unknown values; don't pass --transport option at all
+			// and let Kallichore decide
+			this.log(`Unknown transport option '${transport}', using default`);
 		}
 
 		// Set the idle shutdown hours from the configuration. This is used to
@@ -702,6 +705,18 @@ export class KCApi implements PositronSupervisorApi {
 
 		// Open the started barrier and save the server state since we're online
 		this._started.open();
+
+		// Determine transport type based on configuration and actual usage
+		const configTransport = config.get<string>('transport', 'ipc');
+		let actualTransport: string;
+		if (configTransport === 'tcp') {
+			actualTransport = 'tcp';
+		} else {
+			// For IPC, determine actual transport based on platform and connection type
+			actualTransport = isDomainSocketPath(basePath) ? 'sockets' :
+				(isNamedPipePath(basePath) ? 'pipes' : 'tcp');
+		}
+
 		const state: KallichoreServerState = {
 			// Save the constructed basePath for API usage
 			base_path: this._api.basePath,
@@ -710,8 +725,7 @@ export class KCApi implements PositronSupervisorApi {
 			server_pid: processId || 0,
 			bearer_token: bearerToken,
 			log_path: logFile,
-			transport: isDomainSocketPath(basePath) ? 'sockets' :
-				(isNamedPipePath(basePath) ? 'pipes' : 'tcp'),
+			transport: actualTransport,
 			// For domain sockets, also save the original socket_path from connection data
 			socket_path: connectionData?.socket_path || (isDomainSocketPath(basePath) ? extractSocketPath(basePath) || undefined : undefined),
 			// For named pipes, also save the original named_pipe from connection data
