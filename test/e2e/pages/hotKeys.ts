@@ -21,27 +21,27 @@ export class HotKeys {
 	// ----------------------
 
 	public async copy() {
-		await this.pressHotKeys(`Cmd+C`);
+		await this.pressHotKeys('Cmd+C');
 	}
 
 	public async cut() {
-		await this.pressHotKeys(`Cmd+X`);
+		await this.pressHotKeys('Cmd+X');
 	}
 
 	public async paste() {
-		await this.pressHotKeys(`Cmd+V`);
+		await this.pressHotKeys('Cmd+V');
 	}
 
 	public async redo() {
-		await this.pressHotKeys(`Cmd+Shift+Z`);
+		await this.pressHotKeys('Cmd+Shift+Z');
 	}
 
 	public async selectAll() {
-		await this.pressHotKeys(`Cmd+A`);
+		await this.pressHotKeys('Cmd+A');
 	}
 
 	public async undo() {
-		await this.pressHotKeys(`Cmd+Z`);
+		await this.pressHotKeys('Cmd+Z');
 	}
 
 	// --------------------
@@ -49,11 +49,11 @@ export class HotKeys {
 	// --------------------
 
 	public async openFile() {
-		await this.pressHotKeys(`Cmd+O`);
+		await this.pressHotKeys('Cmd+O');
 	}
 
 	public async save() {
-		await this.pressHotKeys(`Cmd+S`);
+		await this.pressHotKeys('Cmd+S');
 	}
 
 	// -------------------------
@@ -61,19 +61,19 @@ export class HotKeys {
 	// -------------------------
 
 	public async closeAllEditors() {
-		await this.pressHotKeys(`Cmd+K Cmd+W`);
+		await this.pressHotKeys('Cmd+K Cmd+W', 'Close all editors');
 	}
 
 	public async closeTab() {
-		await this.pressHotKeys(`Cmd+W`);
+		await this.pressHotKeys('Cmd+W', 'Close current tab');
 	}
 
 	public async find() {
-		await this.pressHotKeys(`Cmd+F`);
+		await this.pressHotKeys('Cmd+F', 'Find');
 	}
 
 	public async firstTab() {
-		await this.pressHotKeys(`Cmd+1`);
+		await this.pressHotKeys('Cmd+1', 'Switch to first tab');
 	}
 
 	public async scrollToTop() {
@@ -82,16 +82,16 @@ export class HotKeys {
 		if (platform === 'win32' || platform === 'linux') {
 			await this.code.driver.page.keyboard.press('Home');
 		} else {
-			await this.pressHotKeys(`Cmd+ArrowUp`);
+			await this.pressHotKeys('Cmd+ArrowUp', 'Scroll to top');
 		}
 	}
 
 	public async switchTabLeft() {
-		await this.pressHotKeys(`Cmd+Shift+[`);
+		await this.pressHotKeys('Cmd+Shift+[', 'Switch tab left');
 	}
 
 	public async switchTabRight() {
-		await this.pressHotKeys(`Cmd+Shift+]`);
+		await this.pressHotKeys('Cmd+Shift+]', 'Switch tab right');
 	}
 
 	// ------------------------
@@ -99,25 +99,39 @@ export class HotKeys {
 	// ------------------------
 
 	public async focusConsole() {
-		await this.pressHotKeys(`Cmd+K F`);
+		await this.pressHotKeys('Cmd+K F', 'Focus console');
 	}
 
 	public async visualMode() {
-		await this.pressHotKeys(`Cmd+Shift+F4`);
+		await this.pressHotKeys('Cmd+Shift+F4', 'Visual mode');
+	}
+
+	public executeCodeInConsole() {
+		return this.pressHotKeys('Cmd+J O', 'Execute code in console');
 	}
 
 	// ----------------------
 	// --- Layout Views ---
 	// ----------------------
-	/**
-	 * Toggle the sidebar visibility
-	 */
+
 	public async showSecondarySidebar() {
-		await this.pressHotKeys(`Cmd+J B`);
+		await this.pressHotKeys('Cmd+J B', 'Show secondary sidebar');
 	}
 
 	public async hideSecondarySidebar() {
-		await this.pressHotKeys(`Cmd+J A`);
+		await this.pressHotKeys('Cmd+J A', 'Hide secondary sidebar');
+	}
+
+	public async fullSizeSecondarySidebar() {
+		await this.pressHotKeys('Cmd+J G', 'Full size secondary sidebar');
+	}
+
+	public async stackedLayout() {
+		await this.pressHotKeys('Cmd+J H', 'Stacked layout');
+	}
+
+	public async toggleBottomPanel() {
+		await this.pressHotKeys('Cmd+J C', 'Toggle bottom panel');
 	}
 
 	// ----------------------
@@ -125,40 +139,40 @@ export class HotKeys {
 	// ----------------------
 
 	public async closeWorkspace() {
-		await this.pressHotKeys(`Cmd+J W`);
+		await this.pressHotKeys('Cmd+J W');
 		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
 	}
 
 	public async importSettings() {
-		await this.pressHotKeys(`Cmd+J I`);
+		await this.pressHotKeys('Cmd+J I', 'Import settings');
 	}
 
 	public async jupyterCellAddTag() {
-		await this.pressHotKeys(`Cmd+J J`);
+		await this.pressHotKeys('Cmd+J J', 'Add Jupyter cell tag');
 	}
 
 	public async newFolderFromTemplate() {
-		await this.pressHotKeys(`Cmd+J F`);
+		await this.pressHotKeys('Cmd+J F', 'New folder from template');
 	}
 
 	public async openUserSettingsJSON() {
-		await this.pressHotKeys(`Cmd+J U`);
+		await this.pressHotKeys('Cmd+J U', 'Open user settings JSON');
 	}
 
 	public async openWorkspaceSettingsJSON() {
-		await this.pressHotKeys(`Cmd+J K`);
+		await this.pressHotKeys('Cmd+J K', 'Open workspace settings JSON');
 	}
 
 	public async reloadWindow() {
-		await this.pressHotKeys(`Cmd+R R`);
+		await this.pressHotKeys('Cmd+R R', 'Reload window');
 	}
 
 	public async openWelcomeWalkthrough() {
-		await this.pressHotKeys(`Cmd+J L`);
+		await this.pressHotKeys('Cmd+J L', 'Open welcome walkthrough');
 	}
 
 	public async resetWelcomeWalkthrough() {
-		await this.pressHotKeys(`Cmd+J X`);
+		await this.pressHotKeys('Cmd+J X', 'Reset welcome walkthrough');
 	}
 
 	/**
@@ -166,7 +180,7 @@ export class HotKeys {
 	 * Note: Supports multiple key sequences separated by spaces.
 	 * @param keyCombo the hotkeys to press (e.g. "Cmd+Shift+P").
 	 */
-	private async pressHotKeys(keyCombo: string) {
+	private async pressHotKeys(keyCombo: string, description?: string): Promise<void> {
 		const stepWrapper = (label: string, fn: () => Promise<void>) => {
 			try {
 				// Check if running in a test context
@@ -180,8 +194,11 @@ export class HotKeys {
 		};
 
 		const modifierKey = this.getModifierKey();
+		const stepDescription = description
+			? `Shortcut: ${description}`
+			: `Press hotkeys: ${keyCombo}`;
 
-		await stepWrapper(`Press hotkeys: ${keyCombo}`, async () => {
+		await stepWrapper(stepDescription, async () => {
 			// Replace "Cmd" with the platform-appropriate modifier key
 			// and (for Windows and Ubuntu) replace "Option" with "Alt"
 			const keySequences = keyCombo.split(' ').map(keys => {

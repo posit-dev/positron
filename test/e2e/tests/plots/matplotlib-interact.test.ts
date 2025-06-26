@@ -15,35 +15,29 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () =
 
 	test('Python - Matplotlib Interact Test', {
 		tag: [tags.CRITICAL, tags.WEB, tags.WIN],
-	}, async function ({ app, python }) {
+	}, async function ({ app, runCommand, hotKeys, python }) {
+		const { notebooks, quickaccess } = app.workbench;
 
-		const notebooks = app.workbench.notebooks;
-
-		await app.workbench.quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'matplotlib', 'interact.ipynb'));
-
+		// open the Matplotlib Interact notebook and run all cells
+		await quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'matplotlib', 'interact.ipynb'));
 		await notebooks.selectInterpreter('Python');
-
 		await notebooks.runAllCells();
+		await hotKeys.toggleBottomPanel();
 
-		await app.workbench.quickaccess.runCommand('workbench.action.togglePanel');
-
-		const plotLocator = app.workbench.notebooks.frameLocator.locator('.widget-output');
-
+		// interact with the sliders and verify the plot updates
+		const plotLocator = notebooks.frameLocator.locator('.widget-output');
 		const plotImageLocator = plotLocator.locator('img');
 
 		const imgSrcBefore = await plotImageLocator.getAttribute('src');
 
-		const sliders = await app.workbench.notebooks.frameLocator.locator('.slider-container .slider').all();
-
+		const sliders = await notebooks.frameLocator.locator('.slider-container .slider').all();
 		for (const slider of sliders) {
 			await slider.hover();
 			await slider.click();
 		}
 
 		const imgSrcAfter = await plotImageLocator.getAttribute('src');
-
 		expect(imgSrcBefore).not.toBe(imgSrcAfter);
-
 	});
 
 });
