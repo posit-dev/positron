@@ -76,11 +76,12 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 			const installedVersion = installed.get(ext.shortName);
 			if (!installedVersion) {
 				console.log(`❌ ${ext.fullName} not yet installed`);
-			} else if (installedVersion > ext.version) {
-				console.log(`⚠️ ${ext.fullName} installed with version ${installedVersion}, expected ${ext.version}`);
-				missing.delete(ext.fullName);
-			} else {
+			} else if (installedVersion === ext.version) {
 				console.log(`✅ ${ext.fullName} (${ext.version}) found and matches`);
+				missing.delete(ext.fullName);
+			}
+			else {
+				console.log(`⚠️ ${ext.fullName} installed with version ${installedVersion}, expected ${ext.version}`);
 				missing.delete(ext.fullName);
 			}
 		}
