@@ -1225,10 +1225,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 				if (basePath && basePath.includes('unix:')) {
 					// Unix domain socket transport - get socket path from channelsUpgrade API
-					this.log(`Using Unix domain socket transport, getting socket path for session ${this.metadata.sessionId}`, vscode.LogLevel.Debug);
+					this.log(
+						`Using Unix domain socket transport, getting socket path for session ${this.metadata.sessionId}`,
+						vscode.LogLevel.Debug);
 					const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
 					const socketPath = channelsResponse.body;
-					this.log(`Got socket path from channelsUpgrade: ${socketPath}`, vscode.LogLevel.Debug);
 
 					// The socket path might be returned with or without the ws+unix:// prefix
 					if (socketPath.startsWith('ws+unix://')) {
@@ -1247,13 +1248,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 							throw new Error(`Cannot extract socket path from base path: ${basePath}`);
 						}
 					}
-					this.log(`Constructed Unix domain WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
 				} else if (basePath && basePath.includes('npipe:')) {
 					// Named pipe transport - get pipe name from channelsUpgrade API
-					this.log(`Using named pipe transport, getting pipe name for session ${this.metadata.sessionId}`, vscode.LogLevel.Debug);
+					this.log(
+						`Using named pipe transport, getting pipe name for session ${this.metadata.sessionId}`,
+						vscode.LogLevel.Debug
+					);
 					const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
 					const pipeName = channelsResponse.body;
-					this.log(`Got pipe name from channelsUpgrade: ${pipeName}`, vscode.LogLevel.Debug);
 
 					// The pipe name might be returned with or without the ws+npipe:// prefix
 					if (pipeName.startsWith('ws+npipe://')) {
@@ -1276,7 +1278,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 							throw new Error(`Cannot extract pipe name from base path: ${basePath}`);
 						}
 					}
-					this.log(`Constructed named pipe WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
 				} else {
 					// TCP transport - construct WebSocket URI directly from base path
 					this.log(`Using TCP transport, constructing WebSocket URI from base path: ${basePath}`, vscode.LogLevel.Debug);
@@ -1288,20 +1289,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					const wsScheme = basePath.startsWith('https://') ? 'wss://' : 'ws://';
 					const baseUrl = basePath.replace(/^https?:\/\//, '').replace(/\/$/, '');
 					wsUri = `${wsScheme}${baseUrl}/sessions/${this.metadata.sessionId}/channels`;
-					this.log(`Constructed TCP WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
 				}
 
-				this.log(`Final WebSocket URI: ${wsUri}`, vscode.LogLevel.Debug);
+				this.log(`Connecting to session WebSocket via ${wsUri}`, vscode.LogLevel.Info);
 
 				// Get the Bearer token from the API for WebSocket authentication
 				const defaultAuth = (this._api as any).authentications?.default;
 				let accessToken: string | undefined;
 				const headers: { [key: string]: string } = {};
-
 				if (defaultAuth && typeof defaultAuth.accessToken !== 'undefined') {
 					accessToken = typeof defaultAuth.accessToken === 'function' ? defaultAuth.accessToken() : defaultAuth.accessToken;
 					headers['Authorization'] = `Bearer ${accessToken}`;
-					this.log(`Adding Bearer authentication to WebSocket connection`, vscode.LogLevel.Debug);
 				} else {
 					this.log(`Warning: No Bearer token found for WebSocket authentication`, vscode.LogLevel.Warning);
 				}

@@ -23,7 +23,7 @@ export class NamedPipeHttpAgent extends http.Agent {
 	/**
 	 * Override the createConnection method to use named pipes instead of TCP sockets
 	 */
-	createConnection(options: any, callback?: (err: Error | null, socket?: net.Socket) => void): net.Socket {
+	createConnection(_options: any, callback?: (err: Error | null, socket?: net.Socket) => void): net.Socket {
 		// Create a connection to the named pipe
 		const socket = net.connect(this.pipeName);
 
@@ -37,7 +37,9 @@ export class NamedPipeHttpAgent extends http.Agent {
 }
 
 /**
- * Custom WebSocket class that can connect over Windows named pipes
+ * Custom WebSocket class that can connect over Windows named pipes. Handles the
+ * `ws+npipe://` protocol. This allows WebSocket connections to be made over
+ * named pipes instead of TCP sockets.
  */
 export class NamedPipeWebSocket extends WebSocket {
 	constructor(address: string, protocols?: string | string[], options?: any) {
@@ -66,7 +68,8 @@ export class NamedPipeWebSocket extends WebSocket {
 
 /**
  * Creates a WebSocket instance appropriate for the given URL
- * @param url The WebSocket URL 
+ *
+ * @param url The WebSocket URL
  * @param protocols WebSocket protocols
  * @param options WebSocket options
  * @returns A WebSocket instance
@@ -75,7 +78,7 @@ export function createWebSocket(url: string, protocols?: string | string[], opti
 	if (url.startsWith('ws+npipe://')) {
 		return new NamedPipeWebSocket(url, protocols, options);
 	}
-	
+
 	// Return regular WebSocket for other protocols
 	return new WebSocket(url, protocols, options);
 }

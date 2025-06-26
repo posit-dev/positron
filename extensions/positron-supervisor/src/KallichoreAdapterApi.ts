@@ -42,7 +42,7 @@ interface KallichoreServerState {
 	/** The path to the log file */
 	log_path: string;
 
-	/** The transport protocol used (ipc, tcp) */
+	/** The transport protocol used */
 	transport?: string;
 
 	/** The path to the unix domain socket (when using socket transport) */
@@ -179,8 +179,15 @@ export class KCApi implements PositronSupervisorApi {
 
 		this._api = new DefaultApi();
 
-		// Add interceptor for named pipe support
-		(this._api as any).interceptors.push(namedPipeInterceptor);
+		// Add interceptor for named pipe support on Windows. This interceptor
+		// allows us to perform HTTP over named pipes, which is not natively
+		// supported by the HTTP client in Node.js.
+		//
+		// Note that the interceptor doesn't always use named pipes; it just gives us
+		// the ability to do so.
+		if (os.platform() === 'win32') {
+			(this._api as any).interceptors.push(namedPipeInterceptor);
+		}
 
 		// Start Kallichore eagerly so it's warm when we start trying to create
 		// or restore sessions.
@@ -595,14 +602,6 @@ export class KCApi implements PositronSupervisorApi {
 		this._api.basePath = basePath;
 		this._api.setDefaultAuthentication(bearer);
 
-		// Log transport type for debugging
-		if (isDomainSocketPath(basePath)) {
-			const socketPath = extractSocketPath(basePath);
-			this.log(`Using domain socket transport: ${socketPath}`);
-		} else {
-			this.log(`Using TCP transport on port: ${serverPort}`);
-		}
-
 		// List the sessions to verify that the server is up. The process is
 		// alive for a few milliseconds (or more, on slower systems) before the
 		// HTTP server is ready, so we may need to retry a few times.
@@ -713,8 +712,8 @@ export class KCApi implements PositronSupervisorApi {
 			actualTransport = 'tcp';
 		} else {
 			// For IPC, determine actual transport based on platform and connection type
-			actualTransport = isDomainSocketPath(basePath) ? 'sockets' :
-				(isNamedPipePath(basePath) ? 'pipes' : 'tcp');
+			actualTransport = isDomainSocketPath(basePath) ? 'socket' :
+				(isNamedPipePath(basePath) ? 'named-pipe' : 'tcp');
 		}
 
 		const state: KallichoreServerState = {
@@ -842,13 +841,13 @@ export class KCApi implements PositronSupervisorApi {
 		// Construct the base path from base_path, socket_path, or named_pipe
 		if (serverState.base_path) {
 			this._api.basePath = serverState.base_path;
-			this.log(`Reconnecting using saved base_path: ${serverState.base_path}`);
+			this.log(`Reconnecting to TCP server at ${serverState.base_path}`);
 		} else if (serverState.socket_path) {
 			this._api.basePath = `http://unix:${serverState.socket_path}:/`;
-			this.log(`Reconnecting using socket_path: ${serverState.socket_path}, constructed base_path: ${this._api.basePath}`);
+			this.log(`Reconnecting to socket: ${serverState.socket_path}`);
 		} else if (serverState.named_pipe) {
 			this._api.basePath = `http://npipe:${serverState.named_pipe}:/`;
-			this.log(`Reconnecting using named_pipe: ${serverState.named_pipe}, constructed base_path: ${this._api.basePath}`);
+			this.log(`Reconnecting to named pipe: ${serverState.named_pipe}`);
 		} else {
 			throw new Error('Server state missing base_path, socket_path, and named_pipe');
 		}
