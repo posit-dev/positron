@@ -271,6 +271,28 @@ export class DataExplorer {
 		});
 	}
 
+	async verifyTableDataLength(expectedLength: number) {
+		await test.step('Verify data explorer table data length', async () => {
+			await expect(async () => {
+				const tableData = await this.getDataExplorerTableData();
+				expect(tableData.length).toBe(expectedLength);
+			}).toPass({ timeout: 60000 });
+		});
+	}
+
+	async verifyTableDataRowValue(rowIndex: number, expectedData: CellData) {
+		await test.step(`Verify data explorer row ${rowIndex} data`, async () => {
+			await expect(async () => {
+				const tableData = await this.getDataExplorerTableData();
+				const rowData = tableData[rowIndex];
+
+				for (const [key, value] of Object.entries(expectedData)) {
+					expect(rowData[key]).toBe(value);
+				}
+			}).toPass({ timeout: 60000 });
+		});
+	}
+
 	async verifyMissingPercent(expectedValues: Array<{ column: number; expected: string }>) {
 		await test.step('Verify missing percent values', async () => {
 			for (const { column, expected } of expectedValues) {

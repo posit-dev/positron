@@ -15,8 +15,10 @@ test.describe('Data Explorer - Python Pandas', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
 
-	test.afterEach(async function ({ app }) {
+	test.afterEach(async function ({ app, hotKeys }) {
 		await app.workbench.dataExplorer.clearAllFilters();
+		await hotKeys.closeAllEditors();
+		await hotKeys.showSecondarySidebar();
 	});
 
 	test('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app, executeCode, hotKeys, python }) {
@@ -41,21 +43,18 @@ test.describe('Data Explorer - Python Pandas', {
 	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python }) {
 		const { dataExplorer, console, variables, editors } = app.workbench;
 
-		await console.executeCode('Python', scriptWithEmptyFields);
-		await variables.doubleClickVariableRow('df2');
-		await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
+		await console.executeCode('Python', emptyFieldsScript);
+		await variables.doubleClickVariableRow('emptyFields');
+		await editors.verifyTab('Data: emptyFields', { isVisible: true, isSelected: true });
+
 		await dataExplorer.maximizeDataExplorer(true);
-
-		await expect(async () => {
-			const tableData = await dataExplorer.getDataExplorerTableData();
-
-			expect(tableData[0]).toStrictEqual({ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' });
-			expect(tableData[1]).toStrictEqual({ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' });
-			expect(tableData[2]).toStrictEqual({ 'A': 'NaN', 'B': 'bar', 'C': '3.10', 'D': '2023-01-01 00:00:00', 'E': 'more text' });
-			expect(tableData[3]).toStrictEqual({ 'A': '4.00', 'B': 'baz', 'C': 'NaN', 'D': 'NaT', 'E': 'NaN' });
-			expect(tableData[4]).toStrictEqual({ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' });
-			expect(tableData.length).toBe(5);
-		}).toPass({ timeout: 60000 });
+		await dataExplorer.verifyTableData([
+			{ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' },
+			{ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' },
+			{ 'A': 'NaN', 'B': 'bar', 'C': '3.10', 'D': '2023-01-01 00:00:00', 'E': 'more text' },
+			{ 'A': '4.00', 'B': 'baz', 'C': 'NaN', 'D': 'NaT', 'E': 'NaN' },
+			{ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' }
+		]);
 
 		await dataExplorer.expandSummary();
 		await dataExplorer.verifyMissingPercent([
@@ -77,12 +76,7 @@ test.describe('Data Explorer - Python Pandas', {
 
 
 	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, sessions, hotKeys, python }) {
-		const { dataExplorer, notebooks, variables, layouts, editors } = app.workbench;
-
-		// Restart python for clean environment & open the file
-		await hotKeys.closeAllEditors();
-		await hotKeys.showSecondarySidebar();
-		await sessions.restart('Python');
+		const { dataExplorer, notebooks, variables, editors } = app.workbench;
 
 		const filename = 'pandas-update-dataframe.ipynb';
 		await notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
@@ -93,39 +87,27 @@ test.describe('Data Explorer - Python Pandas', {
 		await editors.verifyTab('Data: df', { isVisible: true });
 
 		await hotKeys.notebookLayout();
-		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
-			expect(tableData.length).toBe(11);
-		}).toPass({ timeout: 60000 });
+		await dataExplorer.verifyTableDataLength(11);
 
 		await editors.clickTab(filename);
 		await notebooks.focusNextCell();
 		await notebooks.executeActiveCell();
 		await editors.clickTab('Data: df');
-
-		await expect(async () => {
-			const tableData = await dataExplorer.getDataExplorerTableData();
-			expect(tableData.length).toBe(12);
-		}).toPass({ timeout: 60000 });
+		await dataExplorer.verifyTableDataLength(12);
 
 		await editors.clickTab(filename);
 		await notebooks.focusNextCell();
 		await notebooks.executeActiveCell();
 		await app.code.driver.page.locator('.label-name:has-text("Data: df")').click();
 		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
-
-		await expect(async () => {
-			const tableData = await dataExplorer.getDataExplorerTableData();
-			expect(tableData[0]).toStrictEqual({ 'Year': '2025' });
-			expect(tableData.length).toBe(12);
-		}).toPass({ timeout: 60000 });
-
-		await layouts.enterLayout('stacked');
+		await dataExplorer.verifyTableDataLength(12);
+		await dataExplorer.verifyTableDataRowValue(0, { 'Year': '2025' });
 		await dataExplorer.closeDataExplorer();
 	});
 
 	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
 		const { dataExplorer, variables, console, editors } = app.workbench;
+
 		await console.executeCode('Python', mtcarsDf);
 		await variables.focusVariablesView();
 		await variables.doubleClickVariableRow('Data_Frame');
@@ -138,11 +120,11 @@ test.describe('Data Explorer - Python Pandas', {
 		await editors.verifyTab('Data: Data_Frame', { isVisible: true });
 
 		await dataExplorer.closeDataExplorer();
-		await variables.focusVariablesView();
 	});
 
-	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, runCommand, python }) {
+	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, sessions, hotKeys }) {
 		const { dataExplorer, console, variables, editors } = app.workbench;
+		const [session] = await sessions.start(['python']);
 
 		await console.executeCode('Python', blankSpacesScript);
 		await variables.doubleClickVariableRow('df');
@@ -156,8 +138,8 @@ test.describe('Data Explorer - Python Pandas', {
 		]);
 
 		await test.step('Verify disconnect dialog', async () => {
-			await runCommand('workbench.action.toggleAuxiliaryBar');
-			await console.trashButton.click();
+			await hotKeys.stackedLayout();
+			await sessions.delete(session.id);
 			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
 		});
 
@@ -202,7 +184,7 @@ Data_Frame = pd.DataFrame({
 const blankSpacesScript = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
 
-const scriptWithEmptyFields = `import numpy as np
+const emptyFieldsScript = `import numpy as np
 import pandas as pd
 
 data = {
@@ -212,4 +194,4 @@ data = {
 		'D': [np.nan, pd.NaT, pd.Timestamp('2023-01-01'), pd.NaT, pd.Timestamp('2023-02-01')],
 		'E': [None, 'text', 'more text', np.nan, 'even more text']
 }
-df2 = pd.DataFrame(data)`;
+emptyFields = pd.DataFrame(data)`;

@@ -86,20 +86,6 @@ export class Variables {
 		return await progressBar.isVisible();
 	}
 
-	// /**
-	//  * Action: Show or hide the secondary side bar (variables pane).
-	//  * @param action show or hide the secondary side bar
-	//  */
-	// async togglePane(action: 'show' | 'hide') {
-	// 	await test.step(`Toggle variables pane: ${action}`, async () => {
-	// 		const variablesSectionIsVisible = await this.code.driver.page.getByRole('button', { name: 'Variables Section' }).isVisible();
-
-	// 		if (action === 'show' && !variablesSectionIsVisible || action === 'hide' && variablesSectionIsVisible) {
-	// 			await this.code.driver.page.keyboard.press(os.platform() === 'darwin' ? 'Meta+Alt+B' : 'Control+Alt+B');
-	// 		}
-	// 	});
-	// }
-
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
 		await test.step(`${action} variable: ${variableName}`, async () => {
 			await this.waitForVariableRow(variableName);
