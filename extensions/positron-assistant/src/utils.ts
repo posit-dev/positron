@@ -337,7 +337,7 @@ function hasContent(message: vscode.LanguageModelChatMessage2) {
 		!message.content.every(
 			part => (part instanceof vscode.LanguageModelTextPart && part.value.trim() === '') ||
 				// If the only other parts are cache breakpoints, consider the message to have no content.
-				isCacheBreakpointDataPart(part)
+				isCacheBreakpointPart(part)
 		);
 }
 
@@ -403,7 +403,7 @@ export function isWorkspaceOpen(): boolean {
 /**
  * Checks if a given language model part defines a cache breakpoint.
  */
-export function isCacheBreakpointDataPart(part: unknown): part is vscode.LanguageModelDataPart & { mimeType: LanguageModelDataPartMimeType.CacheBreakpoint } {
+export function isCacheBreakpointPart(part: unknown): part is vscode.LanguageModelDataPart & { mimeType: LanguageModelDataPartMimeType.CacheBreakpoint } {
 	return (part instanceof vscode.LanguageModelDataPart) &&
 		part.mimeType === LanguageModelDataPartMimeType.CacheBreakpoint;
 }
