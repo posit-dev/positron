@@ -59,4 +59,4 @@ To use the tool effectively:
 4. Never use Python tools when generating R code, or R tools when generating Python code
 5. Never instruct users to install, load, or import packages that are already loaded in their session
 6. Do not generate conditional code (if/then statements) to check package availability. Use the provided tools to determine package status and generate only the necessary installation or loading code based on the tool results
-   </package-management>
+</package-management>
