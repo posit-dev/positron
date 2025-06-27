@@ -24,11 +24,13 @@ test.describe('Data Explorer - Python Pandas', {
 	test('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app, executeCode, hotKeys, python }) {
 		const { dataExplorer, variables, editors } = app.workbench;
 
+		// execute code to create a DataFrame
 		await executeCode('Python', df);
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 		await hotKeys.hideSecondarySidebar();
 
+		// verify table data, clipboard, sparkline hover, and null percentage hover
 		await dataExplorer.verifyTableData([
 			{ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' },
 			{ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' },
@@ -43,11 +45,13 @@ test.describe('Data Explorer - Python Pandas', {
 	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python }) {
 		const { dataExplorer, console, variables, editors } = app.workbench;
 
+		// execute code to create a DataFrame with empty fields
 		await console.executeCode('Python', emptyFieldsScript);
 		await variables.doubleClickVariableRow('emptyFields');
 		await editors.verifyTab('Data: emptyFields', { isVisible: true, isSelected: true });
-
 		await dataExplorer.maximizeDataExplorer(true);
+
+		// verify table data with empty fields
 		await dataExplorer.verifyTableData([
 			{ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' },
 			{ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' },
@@ -56,6 +60,7 @@ test.describe('Data Explorer - Python Pandas', {
 			{ 'A': '5.00', 'B': 'None', 'C': '4.80', 'D': '2023-02-01 00:00:00', 'E': 'even more text' }
 		]);
 
+		// verify missing percentages
 		await dataExplorer.expandSummary();
 		await dataExplorer.verifyMissingPercent([
 			{ column: 1, expected: '20%' },
@@ -65,6 +70,7 @@ test.describe('Data Explorer - Python Pandas', {
 			{ column: 5, expected: '40%' }
 		]);
 
+		// verify column profile data
 		await dataExplorer.verifyProfileData([
 			{ column: 1, expected: { 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' } },
 			{ column: 2, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } },
@@ -78,42 +84,48 @@ test.describe('Data Explorer - Python Pandas', {
 	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, sessions, hotKeys, python }) {
 		const { dataExplorer, notebooks, variables, editors } = app.workbench;
 
-		const filename = 'pandas-update-dataframe.ipynb';
-		await notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
+		// open a notebook and execute a cell to create a DataFrame
+		const pythonNotebook = 'pandas-update-dataframe.ipynb';
+		await notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', pythonNotebook));
 		await notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
 		await notebooks.focusFirstCell();
 		await notebooks.executeActiveCell();
+
+		// open the DataFrame in data explorer and verify data
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
-
 		await hotKeys.notebookLayout();
 		await dataExplorer.verifyTableDataLength(11);
 
-		await editors.clickTab(filename);
+		// execute the next cell and verify data in the data explorer
+		await editors.clickTab(pythonNotebook);
 		await notebooks.focusNextCell();
 		await notebooks.executeActiveCell();
 		await editors.clickTab('Data: df');
 		await dataExplorer.verifyTableDataLength(12);
 
-		await editors.clickTab(filename);
+		// execute the next cell to sort the DataFrame and verify sorted data
+		await editors.clickTab(pythonNotebook);
 		await notebooks.focusNextCell();
 		await notebooks.executeActiveCell();
-		await app.code.driver.page.locator('.label-name:has-text("Data: df")').click();
+		await editors.clickTab('Data: df');
 		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 		await dataExplorer.verifyTableDataLength(12);
 		await dataExplorer.verifyTableDataRowValue(0, { 'Year': '2025' });
+
 		await dataExplorer.closeDataExplorer();
 	});
 
 	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
 		const { dataExplorer, variables, console, editors } = app.workbench;
 
+		// execute code to create a DataFrame
 		await console.executeCode('Python', mtcarsDf);
 		await variables.focusVariablesView();
 		await variables.doubleClickVariableRow('Data_Frame');
 		await editors.verifyTab('Data: Data_Frame', { isVisible: true });
 
-		// Now move focus out of the the data explorer pane
+		// move focus out of the the data explorer pane and verify focus returns via variable double click
 		await editors.newUntitledFile();
 		await variables.focusVariablesView();
 		await variables.doubleClickVariableRow('Data_Frame');
@@ -126,10 +138,10 @@ test.describe('Data Explorer - Python Pandas', {
 		const { dataExplorer, console, variables, editors } = app.workbench;
 		const [session] = await sessions.start(['python']);
 
+		// execute code to create a DataFrame with blank spaces
 		await console.executeCode('Python', blankSpacesScript);
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
-
 		await dataExplorer.verifyTableData([
 			{ 'x': 'a·' },
 			{ 'x': 'a' },
