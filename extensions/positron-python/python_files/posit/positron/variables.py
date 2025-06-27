@@ -30,6 +30,7 @@ from .variables_comm import (
     InspectedVariable,
     InspectRequest,
     ListRequest,
+    QueryVariableDataRequest,
     RefreshParams,
     UpdateParams,
     Variable,
@@ -136,6 +137,9 @@ class VariablesService:
 
         elif isinstance(request, ViewRequest):
             self._perform_view_action(request.params.path)
+
+        elif isinstance(request, QueryVariableDataRequest):
+            self._perform_get_variable_summary(request.params.path, request.params.query_types)
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -706,6 +710,75 @@ class VariablesService:
 
         msg = InspectedVariable(children=children, length=len(children))
         self._send_result(msg.dict())
+
+    def _perform_get_variable_summary(self, path: list[str], query_types: list[str]) -> None:
+        """RPC handler for getting variable data summary."""
+        try:
+            self._get_variable_summary(path, query_types)
+        except Exception as err:
+            self._send_error(
+                JsonRpcErrorCode.INTERNAL_ERROR,
+                f"Error summarizing variable at '{path}': {err}",
+            )
+
+    def _get_variable_summary(self, path: list[str], query_types: list[str]) -> None:
+        """Compute statistical summary for a variable without opening a data explorer."""
+        from .data_explorer import (
+            DataExplorerState,
+            _get_column_profiles,
+            _get_table_schema_from_view,
+            _get_table_view,
+            _value_type_is_supported,
+        )
+        from .data_explorer_comm import FormatOptions
+
+        is_known, value = self._find_var(path)
+        if not is_known:
+            raise ValueError(f"Cannot find variable at '{path}' to summarize")
+
+        if not _value_type_is_supported(value):
+            raise ValueError(f"Variable at '{path}' is not supported for summary")
+
+        try:
+            # Create a temporary table view with a temporary comm
+            temp_state = DataExplorerState("temp_summary")
+            temp_comm = PositronComm.create(target_name="temp_summary", comm_id="temp_summary_comm")
+            table_view = _get_table_view(value, temp_comm, temp_state, self.kernel.job_queue)
+        except Exception as e:
+            raise ValueError(f"Failed to create table view: {e}") from e
+
+        # Get schema using the helper function
+        schema = _get_table_schema_from_view(table_view)
+        num_rows = table_view.table.shape[0]
+        num_columns = table_view.table.shape[1]
+
+        # Create default format options
+        format_options = FormatOptions(
+            large_num_digits=4,
+            small_num_digits=6,
+            max_integral_digits=7,
+            max_value_length=1000,
+            thousands_sep=None,
+        )
+
+        # Get column profiles using the helper function
+        profiles, skipped_columns = _get_column_profiles(
+            table_view, schema, query_types, format_options
+        )
+
+        # Log all skipped columns at once
+        for i, column_name, error in skipped_columns:
+            logger.warning(f"Skipping summary stats for column {i} ({column_name}): {error}")
+
+        self._send_result(
+            {
+                "schema": {
+                    "num_rows": num_rows,
+                    "num_columns": num_columns,
+                },
+                "column_profiles": profiles,
+            }
+        )
 
 
 def _summarize_variable(key: Any, value: Any, display_name: str | None = None) -> Variable | None:
