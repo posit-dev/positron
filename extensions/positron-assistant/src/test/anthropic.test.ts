@@ -376,15 +376,15 @@ suite('AnthropicLanguageModel', () => {
 						}
 					]
 				}
-			]);
+			] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
 		});
 
 		test('applies cache_control to previous tool call part in same message', async () => {
-			const toolCallPart = new vscode.LanguageModelToolCallPart('call-1', 'test-tool', { input: 'test' });
-			const cacheControlPart = languageModelCacheControlPart();
-
 			const { body } = await provideLanguageModelResponse([
-				vscode.LanguageModelChatMessage2.Assistant([toolCallPart, cacheControlPart])
+				vscode.LanguageModelChatMessage2.Assistant([
+					new vscode.LanguageModelToolCallPart('call-1', 'test-tool', { input: 'test' }),
+					languageModelCacheControlPart(),
+				])
 			]);
 
 			assert.deepStrictEqual(body.messages, [
@@ -400,15 +400,15 @@ suite('AnthropicLanguageModel', () => {
 						}
 					]
 				}
-			]);
+			] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
 		});
 
 		test('applies cache_control to previous tool result part in same message', async () => {
-			const toolResultPart = new vscode.LanguageModelToolResultPart('call-1', [new vscode.LanguageModelTextPart('result')]);
-			const cacheControlPart = languageModelCacheControlPart();
-
 			const { body } = await provideLanguageModelResponse([
-				vscode.LanguageModelChatMessage2.User([toolResultPart, cacheControlPart])
+				vscode.LanguageModelChatMessage2.User([
+					new vscode.LanguageModelToolResultPart('call-1', [new vscode.LanguageModelTextPart('result')]),
+					languageModelCacheControlPart()
+				])
 			]);
 
 			assert.deepStrictEqual(body.messages, [
@@ -423,27 +423,27 @@ suite('AnthropicLanguageModel', () => {
 						}
 					]
 				}
-			]);
+			] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
 		});
 
 		test('ignores cache_control when there is no previous part', async () => {
-			const cacheControlPart = languageModelCacheControlPart();
-
 			const { body } = await provideLanguageModelResponse([
-				vscode.LanguageModelChatMessage2.User([cacheControlPart])
+				vscode.LanguageModelChatMessage2.User([
+					(languageModelCacheControlPart()),
+				])
 			]);
 
-			assert.deepStrictEqual(body.messages, []);
+			assert.deepStrictEqual(body.messages, [] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
 		});
 
 		test('applies multiple cache_control parts to respective previous parts', async () => {
-			const textPart1 = new vscode.LanguageModelTextPart('First part');
-			const cacheControlPart1 = languageModelCacheControlPart();
-			const textPart2 = new vscode.LanguageModelTextPart('Second part');
-			const cacheControlPart2 = languageModelCacheControlPart();
-
 			const { body } = await provideLanguageModelResponse([
-				vscode.LanguageModelChatMessage2.User([textPart1, cacheControlPart1, textPart2, cacheControlPart2])
+				vscode.LanguageModelChatMessage2.User([
+					new vscode.LanguageModelTextPart('First part'),
+					languageModelCacheControlPart(),
+					new vscode.LanguageModelTextPart('Second part'),
+					languageModelCacheControlPart(),
+				])
 			]);
 
 			assert.deepStrictEqual(body.messages, [
@@ -462,15 +462,15 @@ suite('AnthropicLanguageModel', () => {
 						}
 					]
 				}
-			]);
+			] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
 		});
 
-		test('ignores non-cache_control LanguageModelExtraDataPart', async () => {
-			const textPart = new vscode.LanguageModelTextPart('Hello world');
-			const otherExtraDataPart = new vscode.LanguageModelExtraDataPart('other_kind', { data: 'value' });
-
+		test('ignores non-cache_control LanguageModelDataPart', async () => {
 			const { body } = await provideLanguageModelResponse([
-				vscode.LanguageModelChatMessage2.User([textPart, otherExtraDataPart])
+				vscode.LanguageModelChatMessage2.User([
+					new vscode.LanguageModelTextPart('Hello world'),
+					vscode.LanguageModelDataPart.json({ data: 'value' })
+				])
 			]);
 
 			assert.deepStrictEqual(body.messages, [
@@ -483,17 +483,16 @@ suite('AnthropicLanguageModel', () => {
 						}
 					]
 				}
-			]);
+			] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
 		});
 
-		// TODO: This may surprise users.
 		test('cache_control part applies to most recent valid content part', async () => {
-			const textPart = new vscode.LanguageModelTextPart('Hello world');
-			const emptyTextPart = new vscode.LanguageModelTextPart('');
-			const cacheControlPart = languageModelCacheControlPart();
-
 			const { body } = await provideLanguageModelResponse([
-				vscode.LanguageModelChatMessage2.User([textPart, emptyTextPart, cacheControlPart])
+				vscode.LanguageModelChatMessage2.User([
+					new vscode.LanguageModelTextPart('Hello world'),
+					new vscode.LanguageModelTextPart(''),
+					languageModelCacheControlPart(),
+				])
 			]);
 
 			assert.deepStrictEqual(body.messages, [
@@ -507,7 +506,7 @@ suite('AnthropicLanguageModel', () => {
 						}
 					]
 				}
-			]);
+			] satisfies Anthropic.MessageCreateParams['messages'], 'Unexpected user messages in request body');
 		});
 	});
 });
