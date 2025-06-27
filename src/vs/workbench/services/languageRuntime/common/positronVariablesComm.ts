@@ -63,6 +63,24 @@ export interface FormattedVariable {
 }
 
 /**
+ * Result of the summarize operation
+ */
+export interface SummarizedData {
+	/**
+	 * An array of summarized variables, each containing a summary of the
+	 * data.
+	 */
+	children: Array<Variable>;
+
+	/**
+	 * The total number of summarized variables. This may be greater than the
+	 * number of variables in the 'children' array if the array is truncated.
+	 */
+	length: number;
+
+}
+
+/**
  * A single variable in the runtime.
  */
 export interface Variable {
@@ -217,6 +235,21 @@ export interface ViewParams {
 }
 
 /**
+ * Parameters for the QueryVariableData method.
+ */
+export interface QueryVariableDataParams {
+	/**
+	 * The path to the variable to inspect, as an array of access keys.
+	 */
+	path: Array<string>;
+
+	/**
+	 * A list of types to summarize.
+	 */
+	query_types: Array<string>;
+}
+
+/**
  * Parameters for the Update method.
  */
 export interface UpdateParams {
@@ -323,7 +356,8 @@ export enum VariablesBackendRequest {
 	Delete = 'delete',
 	Inspect = 'inspect',
 	ClipboardFormat = 'clipboard_format',
-	View = 'view'
+	View = 'view',
+	QueryVariableData = 'query_variable_data'
 }
 
 export class PositronVariablesComm extends PositronBaseComm {
@@ -419,19 +453,21 @@ export class PositronVariablesComm extends PositronBaseComm {
 		return super.performRpc('view', ['path'], [path]);
 	}
 
-
 	/**
-	 * Request statistical summary for a variable's data
+	 * Query variable data
 	 *
-	 * Computes a statistical summary for the data in a variable without opening a data explorer.
+	 * Request a data summary for a variable or variables.
 	 *
-	 * @param path The path to the variable to summarize, as an array of access keys.
+	 * @param path The path to the variable to inspect, as an array of access
+	 * keys.
+	 * @param queryTypes A list of types to summarize.
 	 *
-	 * @return A statistical summary of the variable's data.
+	 * @returns Result of the summarize operation
 	 */
-	summarizeData(path: Array<string>): Promise<string> {
-		return super.performRpc('summarize_data', ['paths'], [[path]]);
+	queryVariableData(path: Array<string>, queryTypes: Array<string>): Promise<SummarizedData> {
+		return super.performRpc('query_variable_data', ['path', 'query_types'], [path, queryTypes]);
 	}
+
 
 	/**
 	 * Update variables

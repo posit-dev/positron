@@ -105,6 +105,20 @@ class FormattedVariable(BaseModel):
     )
 
 
+class SummarizedData(BaseModel):
+    """
+    Result of the summarize operation
+    """
+
+    children: List[Variable] = Field(
+        description="An array of summarized variables, each containing a summary of the data.",
+    )
+
+    length: StrictInt = Field(
+        description="The total number of summarized variables. This may be greater than the number of variables in the 'children' array if the array is truncated.",
+    )
+
+
 class Variable(BaseModel):
     """
     A single variable in the runtime.
@@ -183,8 +197,8 @@ class VariablesBackendRequest(str, enum.Enum):
     # Request a viewer for a variable
     View = "view"
 
-    # Summarize data
-    SummarizeData = "summarize_data"
+    # Query variable data
+    QueryVariableData = "query_variable_data"
 
 
 class ListRequest(BaseModel):
@@ -355,6 +369,39 @@ class ViewRequest(BaseModel):
     )
 
 
+class QueryVariableDataParams(BaseModel):
+    """
+    Request a data summary for a variable or variables.
+    """
+
+    path: List[StrictStr] = Field(
+        description="The path to the variable to inspect, as an array of access keys.",
+    )
+
+    query_types: List[StrictStr] = Field(
+        description="A list of types to summarize.",
+    )
+
+
+class QueryVariableDataRequest(BaseModel):
+    """
+    Request a data summary for a variable or variables.
+    """
+
+    params: QueryVariableDataParams = Field(
+        description="Parameters to the QueryVariableData method",
+    )
+
+    method: Literal[VariablesBackendRequest.QueryVariableData] = Field(
+        description="The JSON-RPC method name (query_variable_data)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class VariablesBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
@@ -364,7 +411,7 @@ class VariablesBackendMessageContent(BaseModel):
         InspectRequest,
         ClipboardFormatRequest,
         ViewRequest,
-        SummarizeDataRequest,
+        QueryVariableDataRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -421,36 +468,13 @@ class RefreshParams(BaseModel):
     )
 
 
-class SummarizeDataParams(BaseModel):
-    paths: List[List[StrictStr]] = Field(
-        description="Array of paths to variables to summarize, each path is an array of access keys.",
-    )
-
-
-class SummarizeDataRequest(BaseModel):
-    """
-    Request that the runtime summarize data in a variable.
-    """
-
-    params: SummarizeDataParams = Field(
-        description="Parameters to the SummarizeData method",
-    )
-
-    method: Literal[VariablesBackendRequest.SummarizeData] = Field(
-        description="The JSON-RPC method name (summarize_data)",
-    )
-
-    jsonrpc: str = Field(
-        default="2.0",
-        description="The JSON-RPC version specifier",
-    )
-
-
 VariableList.update_forward_refs()
 
 InspectedVariable.update_forward_refs()
 
 FormattedVariable.update_forward_refs()
+
+SummarizedData.update_forward_refs()
 
 Variable.update_forward_refs()
 
@@ -476,12 +500,10 @@ ViewParams.update_forward_refs()
 
 ViewRequest.update_forward_refs()
 
+QueryVariableDataParams.update_forward_refs()
+
+QueryVariableDataRequest.update_forward_refs()
+
 UpdateParams.update_forward_refs()
 
 RefreshParams.update_forward_refs()
-
-SummarizeDataParams.update_forward_refs()
-
-SummarizeDataRequest.update_forward_refs()
-
-VariablesBackendMessageContent.update_forward_refs()

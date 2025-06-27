@@ -1788,9 +1788,10 @@ declare module 'positron' {
 			accessKeys?: Array<Array<string>>):
 			Thenable<Array<Array<RuntimeVariable>>>;
 
-		export function getSessionVariableDataSummaries(
+		export function querySessionVariable(
 			sessionId: string,
-			accessKeys: Array<Array<string>>):
+			accessKeys: Array<Array<string>>,
+			queryTypes: Array<string>):
 			Thenable<Array<string>>;
 
 		/**

@@ -1590,18 +1590,19 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
-	$getSessionVariableDataSummaries(handle: number, accessKeys: Array<Array<string>>): Promise<Array<string>> {
+	$querySessionVariable(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<string>> {
 		const sessionId = this.findSession(handle).sessionId;
 		const instances = this._positronVariablesService.positronVariablesInstances;
 		for (const instance of instances) {
 			if (instance.session.sessionId === sessionId) {
-				return this.getSessionVariableDataSummaries(instance, accessKeys);
+				return this.querySessionVariable(instance, accessKeys, queryTypes);
 			}
 		}
 		throw new Error(`No variables provider found for session ${sessionId}`);
 	}
 
-	async getSessionVariableDataSummaries(instance: IPositronVariablesInstance, accessKeys: Array<Array<string>>): Promise<Array<string>> {
+	async querySessionVariable(instance: IPositronVariablesInstance, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
+		Promise<Array<string>> {
 		const client = instance.getClientInstance();
 		if (!client) {
 			throw new Error(`No variables provider available for session ${instance.session.sessionId}`);
@@ -1611,7 +1612,7 @@ export class MainThreadLanguageRuntime
 		}
 		const result = [];
 		for (const accessKey of accessKeys) {
-			result.push((await client.comm.summarizeData(accessKey)));
+			result.push(JSON.stringify(await client.comm.queryVariableData(accessKey, queryTypes)));
 		}
 		return result;
 	}

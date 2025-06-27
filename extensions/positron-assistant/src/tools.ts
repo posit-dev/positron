@@ -320,9 +320,10 @@ export function registerAssistantTools(
 			}
 
 			// Call the Positron API to get the session variable data summaries
-			const result = await positron.runtime.getSessionVariableDataSummaries(
+			const result = await positron.runtime.querySessionVariable(
 				options.input.sessionIdentifier,
-				options.input.accessKeys);
+				options.input.accessKeys,
+				['summary_stats']);
 
 			// Return the result as a JSON string to the model
 			return new vscode.LanguageModelToolResult([

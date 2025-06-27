@@ -30,8 +30,8 @@ from .variables_comm import (
     InspectedVariable,
     InspectRequest,
     ListRequest,
+    QueryVariableDataRequest,
     RefreshParams,
-    SummarizeDataRequest,
     UpdateParams,
     Variable,
     VariableKind,
@@ -138,9 +138,8 @@ class VariablesService:
         elif isinstance(request, ViewRequest):
             self._perform_view_action(request.params.path)
 
-        elif isinstance(request, SummarizeDataRequest):
-            for path in request.params.paths:
-                self._perform_get_variable_summary(path)
+        elif isinstance(request, QueryVariableDataRequest):
+            self._perform_get_variable_summary(request.params.path, request.params.query_types)
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -712,23 +711,23 @@ class VariablesService:
         msg = InspectedVariable(children=children, length=len(children))
         self._send_result(msg.dict())
 
-    def _perform_get_variable_summary(self, path: list[str]) -> None:
+    def _perform_get_variable_summary(self, path: list[str], query_types: list[str]) -> None:
         """RPC handler for getting variable data summary."""
         try:
-            self._summarize_data(path)
+            self._get_variable_summary(path, query_types)
         except Exception as err:
             self._send_error(
                 JsonRpcErrorCode.INTERNAL_ERROR,
                 f"Error summarizing variable at '{path}': {err}",
             )
 
-    def _summarize_data(self, path: list[str]):
+    def _get_variable_summary(self, path: list[str], query_types: list[str]) -> None:
         """Compute statistical summary for a variable without opening a data explorer."""
         from .data_explorer import DataExplorerState, _get_table_view, _value_type_is_supported
         from .data_explorer_comm import FormatOptions
 
-        is_found, value = self._find_var(path)
-        if not is_found:
+        is_known, value = self._find_var(path)
+        if not is_known:
             raise ValueError(f"Cannot find variable at '{path}' to summarize")
 
         if not _value_type_is_supported(value):
@@ -773,12 +772,13 @@ class VariablesService:
         skipped_columns = []
         for i, column in enumerate(schema.columns):
             summary_stats = None
-            try:
-                summary_stats = table_view._prof_summary_stats(i, format_options)  # noqa: SLF001
-            except Exception as e:
-                # Collect failed columns for later logging
-                skipped_columns.append((i, column.column_name, e))
-                continue
+            if "summary_stats" in query_types:
+                try:
+                    summary_stats = table_view._prof_summary_stats(i, format_options)  # noqa: SLF001
+                except Exception as e:
+                    # Collect failed columns for later logging
+                    skipped_columns.append((i, column.column_name, e))
+                    continue
 
             profiles.append(
                 {
