@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
-import { isChatImagePart, isLanguageModelJsonDataPart, parseJsonLanguageModelDataPart, processMessages } from './utils.js';
+import { isChatImagePart, isCacheBreakpointDataPart, parseCacheBreakpoint, processMessages } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log } from './extension.js';
 
@@ -16,9 +16,17 @@ import { log } from './extension.js';
  * Options for controlling cache behavior in the Anthropic language model.
  */
 export interface CacheControlOptions {
-	/** Add a cache control point to the system prompt (default: true). */
+	/** Add a cache breakpoint to the system prompt (default: true). */
 	system?: boolean;
 }
+
+/**
+ * Block params that set cache breakpoints.
+ */
+type CacheControllableBlockParam = Anthropic.TextBlockParam |
+	Anthropic.ImageBlockParam |
+	Anthropic.ToolUseBlockParam |
+	Anthropic.ToolResultBlockParam;
 
 export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
 	name: string;
@@ -200,11 +208,10 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			});
 		} else {
 			// For LanguageModelChatMessage, ensure it has non-empty message content
-			const processedMessages = processMessages([text]);
-			if (processedMessages.length === 0) {
+			messages.push(...toAnthropicMessages([text]));
+			if (messages.length === 0) {
 				return 0;
 			}
-			messages.push(...processedMessages.map(toAnthropicMessage));
 		}
 		const result = await this._client.messages.countTokens({
 			model: this._config.model,
@@ -223,30 +230,37 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 }
 
 function toAnthropicMessages(messages: vscode.LanguageModelChatMessage2[]): Anthropic.MessageParam[] {
-	const anthropicMessages = processMessages(messages).map(toAnthropicMessage);
+	let userMessageIndex = 0;
+	let assistantMessageIndex = 0;
+	const anthropicMessages = processMessages(messages).map((message) => {
+		const source = message.role === vscode.LanguageModelChatMessageRole.User ?
+			`User message ${userMessageIndex++}` :
+			`Assistant message ${assistantMessageIndex++}`;
+		return toAnthropicMessage(message, source);
+	});
 	return anthropicMessages;
 }
 
-function toAnthropicMessage(message: vscode.LanguageModelChatMessage2): Anthropic.MessageParam {
+function toAnthropicMessage(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.MessageParam {
 	switch (message.role) {
 		case vscode.LanguageModelChatMessageRole.Assistant:
-			return toAnthropicAssistantMessage(message);
+			return toAnthropicAssistantMessage(message, source);
 		case vscode.LanguageModelChatMessageRole.User:
-			return toAnthropicUserMessage(message);
+			return toAnthropicUserMessage(message, source);
 		default:
 			throw new Error(`Unsupported message role: ${message.role}`);
 	}
 }
 
-function toAnthropicAssistantMessage(message: vscode.LanguageModelChatMessage2): Anthropic.MessageParam {
+function toAnthropicAssistantMessage(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.MessageParam {
 	const content: Anthropic.ContentBlockParam[] = [];
 	for (let i = 0; i < message.content.length; i++) {
 		const [part, nextPart] = [message.content[i], message.content[i + 1]];
 		const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
 		if (part instanceof vscode.LanguageModelTextPart) {
-			content.push(toAnthropicTextBlock(part, dataPart));
+			content.push(toAnthropicTextBlock(part, source, dataPart));
 		} else if (part instanceof vscode.LanguageModelToolCallPart) {
-			content.push(toAnthropicToolUseBlock(part, dataPart));
+			content.push(toAnthropicToolUseBlock(part, source, dataPart));
 		} else if (part instanceof vscode.LanguageModelDataPart) {
 			// Skip extra data parts. They're handled in part conversion.
 		} else {
@@ -259,20 +273,20 @@ function toAnthropicAssistantMessage(message: vscode.LanguageModelChatMessage2):
 	};
 }
 
-function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2): Anthropic.MessageParam {
+function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2, source: string): Anthropic.MessageParam {
 	const content: Anthropic.ContentBlockParam[] = [];
 	for (let i = 0; i < message.content.length; i++) {
 		const [part, nextPart] = [message.content[i], message.content[i + 1]];
 		const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
 		if (part instanceof vscode.LanguageModelTextPart) {
-			content.push(toAnthropicTextBlock(part, dataPart));
+			content.push(toAnthropicTextBlock(part, source, dataPart));
 		} else if (part instanceof vscode.LanguageModelToolResultPart) {
-			content.push(toAnthropicToolResultBlock(part, dataPart));
+			content.push(toAnthropicToolResultBlock(part, source, dataPart));
 		} else if (part instanceof vscode.LanguageModelToolResultPart2) {
-			content.push(toAnthropicToolResultBlock(part, dataPart));
+			content.push(toAnthropicToolResultBlock(part, source, dataPart));
 		} else if (part instanceof vscode.LanguageModelDataPart) {
 			if (isChatImagePart(part)) {
-				content.push(chatImagePartToAnthropicImageBlock(part, dataPart));
+				content.push(chatImagePartToAnthropicImageBlock(part, source, dataPart));
 			} else {
 				// Skip other data parts.
 			}
@@ -286,66 +300,106 @@ function toAnthropicUserMessage(message: vscode.LanguageModelChatMessage2): Anth
 	};
 }
 
-function toAnthropicTextBlock(part: vscode.LanguageModelTextPart, dataPart?: vscode.LanguageModelDataPart): Anthropic.TextBlockParam {
-	return withCacheControl({
-		type: 'text',
-		text: part.value,
-	}, dataPart);
+function toAnthropicTextBlock(
+	part: vscode.LanguageModelTextPart,
+	source: string,
+	dataPart?: vscode.LanguageModelDataPart,
+): Anthropic.TextBlockParam {
+	return withCacheControl(
+		{
+			type: 'text',
+			text: part.value,
+		},
+		source,
+		dataPart,
+	);
 }
 
-function toAnthropicToolUseBlock(part: vscode.LanguageModelToolCallPart, dataPart?: vscode.LanguageModelDataPart): Anthropic.ToolUseBlockParam {
-	return withCacheControl({
-		type: 'tool_use',
-		id: part.callId,
-		name: part.name,
-		input: part.input,
-	}, dataPart);
+function toAnthropicToolUseBlock(
+	part: vscode.LanguageModelToolCallPart,
+	source: string,
+	dataPart?: vscode.LanguageModelDataPart,
+): Anthropic.ToolUseBlockParam {
+	return withCacheControl(
+		{
+			type: 'tool_use',
+			id: part.callId,
+			name: part.name,
+			input: part.input,
+		},
+		source,
+		dataPart,
+	);
 }
 
-function toAnthropicToolResultBlock(part: vscode.LanguageModelToolResultPart, dataPart?: vscode.LanguageModelDataPart): Anthropic.ToolResultBlockParam {
+function toAnthropicToolResultBlock(
+	part: vscode.LanguageModelToolResultPart,
+	source: string,
+	dataPart?: vscode.LanguageModelDataPart,
+): Anthropic.ToolResultBlockParam {
 	const content: Anthropic.ToolResultBlockParam['content'] = [];
 	for (let i = 0; i < part.content.length; i++) {
 		const [resultPart, resultNextPart] = [part.content[i], part.content[i + 1]];
 		const resultDataPart = resultNextPart instanceof vscode.LanguageModelDataPart ? resultNextPart : undefined;
 		if (resultPart instanceof vscode.LanguageModelTextPart) {
-			content.push(toAnthropicTextBlock(resultPart, resultDataPart));
+			content.push(toAnthropicTextBlock(resultPart, source, resultDataPart));
 		} else if (isLanguageModelImagePart(resultPart)) {
-			content.push(languageModelImagePartToAnthropicImageBlock(resultPart, resultDataPart));
+			content.push(languageModelImagePartToAnthropicImageBlock(resultPart, source, resultDataPart));
 		} else if (resultPart instanceof vscode.LanguageModelDataPart) {
 			// Skip data parts.
 		} else {
 			throw new Error('Unsupported part type on tool result part content');
 		}
 	}
-	return withCacheControl({
-		type: 'tool_result',
-		tool_use_id: part.callId,
-		content,
-	}, dataPart);
+	return withCacheControl(
+		{
+			type: 'tool_result',
+			tool_use_id: part.callId,
+			content,
+		},
+		source,
+		dataPart,
+	);
 }
 
-function chatImagePartToAnthropicImageBlock(part: vscode.LanguageModelDataPart, dataPart?: vscode.LanguageModelDataPart): Anthropic.ImageBlockParam {
-	return withCacheControl({
-		type: 'image',
-		source: {
-			type: 'base64',
-			// We may pass an unsupported mime type; let Anthropic throw the error.
-			media_type: part.mimeType as Anthropic.Base64ImageSource['media_type'],
-			data: Buffer.from(part.data).toString('base64'),
+function chatImagePartToAnthropicImageBlock(
+	part: vscode.LanguageModelDataPart,
+	source: string,
+	dataPart?: vscode.LanguageModelDataPart,
+): Anthropic.ImageBlockParam {
+	return withCacheControl(
+		{
+			type: 'image',
+			source: {
+				type: 'base64',
+				// We may pass an unsupported mime type; let Anthropic throw the error.
+				media_type: part.mimeType as Anthropic.Base64ImageSource['media_type'],
+				data: Buffer.from(part.data).toString('base64'),
+			},
 		},
-	}, dataPart);
+		source,
+		dataPart,
+	);
 }
 
-function languageModelImagePartToAnthropicImageBlock(part: LanguageModelImagePart, dataPart?: vscode.LanguageModelDataPart): Anthropic.ImageBlockParam {
-	return withCacheControl({
-		type: 'image',
-		source: {
-			type: 'base64',
-			// We may pass an unsupported mime type; let Anthropic throw the error.
-			media_type: part.value.mimeType as Anthropic.Base64ImageSource['media_type'],
-			data: part.value.base64,
+function languageModelImagePartToAnthropicImageBlock(
+	part: LanguageModelImagePart,
+	source: string,
+	dataPart?: vscode.LanguageModelDataPart,
+): Anthropic.ImageBlockParam {
+	return withCacheControl(
+		{
+			type: 'image',
+			source: {
+				type: 'base64',
+				// We may pass an unsupported mime type; let Anthropic throw the error.
+				media_type: part.value.mimeType as Anthropic.Base64ImageSource['media_type'],
+				data: part.value.base64,
+			},
 		},
-	}, dataPart);
+		source,
+		dataPart,
+	);
 }
 
 function toAnthropicTools(tools: vscode.LanguageModelChatTool[]): Anthropic.ToolUnion[] {
@@ -396,10 +450,10 @@ function toAnthropicSystem(system: unknown, cacheSystem = true): Anthropic.Messa
 		}];
 
 		if (cacheSystem) {
-			// Add a cache control point to the last system prompt block.
+			// Add a cache breakpoint to the last system prompt block.
 			const lastSystemBlock = anthropicSystem[anthropicSystem.length - 1];
 			lastSystemBlock.cache_control = { type: 'ephemeral' };
-			log.debug(`[anthropic] Adding cache control point to system prompt`);
+			log.debug(`[anthropic] Adding cache breakpoint to system prompt`);
 		}
 
 		return anthropicSystem;
@@ -413,7 +467,7 @@ function toAnthropicSystem(system: unknown, cacheSystem = true): Anthropic.Messa
 			const [part, nextPart] = [system[i], system[i + 1]];
 			const dataPart = nextPart instanceof vscode.LanguageModelDataPart ? nextPart : undefined;
 			if (part instanceof vscode.LanguageModelTextPart) {
-				anthropicSystem.push(toAnthropicTextBlock(part, dataPart));
+				anthropicSystem.push(toAnthropicTextBlock(part, 'System prompt', dataPart));
 			}
 		}
 		return anthropicSystem;
@@ -430,42 +484,27 @@ function isCacheControlOptions(options: unknown): options is CacheControlOptions
 	return cacheControlOptions.system === undefined || typeof cacheControlOptions.system === 'boolean';
 }
 
-function withCacheControl<T>(part: T, dataPart: vscode.LanguageModelDataPart | undefined): T {
-	if (!isLanguageModelJsonDataPart(dataPart)) {
+function withCacheControl<T extends CacheControllableBlockParam>(
+	part: T,
+	source: string,
+	dataPart: vscode.LanguageModelDataPart | undefined,
+): T {
+	if (!isCacheBreakpointDataPart(dataPart)) {
 		return part;
 	}
 
-	let data: unknown;
 	try {
-		data = parseJsonLanguageModelDataPart(dataPart);
+		const cachBreakpoint = parseCacheBreakpoint(dataPart);
+		log.debug(`[anthropic] Adding cache breakpoint to ${part.type} part. Source: ${source}`);
+		return {
+			...part,
+			// Pass the data through without validation, let the Anthropic API handle errors.
+			cache_control: {
+				type: cachBreakpoint.type,
+			},
+		};
 	} catch (error) {
-		log.error(`[anthropic] Failed to parse language model json data part: ${error}`);
+		log.error(`[anthropic] Failed to parse cache breakpoint: ${error}`);
 		return part;
 	}
-
-	if (!isCacheControlData(data)) {
-		return part;
-	}
-
-	log.debug(`[anthropic] Adding cache control point via LanguageModelDataPart: ${JSON.stringify(data.data)}`);
-	return {
-		...part,
-		// Pass the data through without validation, let the Anthropic API handle errors.
-		cache_control: data.data as Anthropic.CacheControlEphemeral,
-	};
-}
-
-function isCacheControlData(data: unknown): data is { kind: 'cacheControl'; data: unknown } {
-	return typeof data === 'object' && data !== null && 'kind' in data && data.kind === 'cacheControl' && 'data' in data;
-}
-
-/**
- * Create a language model part that represents a cache control point.
- * @returns A language model part representing the cache control point.
- */
-export function languageModelCacheControlPart(): vscode.LanguageModelDataPart {
-	return vscode.LanguageModelDataPart.json({
-		kind: 'cacheControl',
-		data: { type: 'ephemeral' } satisfies Anthropic.CacheControlEphemeral,
-	});
 }

@@ -7,9 +7,9 @@ import * as assert from 'assert';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import * as sinon from 'sinon';
-import { AnthropicLanguageModel, CacheControlOptions, languageModelCacheControlPart } from '../anthropic';
+import { AnthropicLanguageModel, CacheControlOptions } from '../anthropic';
 import { ModelConfig } from '../config';
-import { EMPTY_TOOL_RESULT_PLACEHOLDER } from '../utils.js';
+import { EMPTY_TOOL_RESULT_PLACEHOLDER, languageModelCacheBreakpointPart } from '../utils.js';
 import Anthropic from '@anthropic-ai/sdk';
 import { MessageStream } from '@anthropic-ai/sdk/lib/MessageStream.js';
 import { mock } from './utils.js';
@@ -361,7 +361,7 @@ suite('AnthropicLanguageModel', () => {
 			const { body } = await provideLanguageModelResponse([
 				vscode.LanguageModelChatMessage2.User([
 					new vscode.LanguageModelTextPart('Hello world'),
-					languageModelCacheControlPart(),
+					languageModelCacheBreakpointPart(),
 				])
 			]);
 
@@ -383,7 +383,7 @@ suite('AnthropicLanguageModel', () => {
 			const { body } = await provideLanguageModelResponse([
 				vscode.LanguageModelChatMessage2.Assistant([
 					new vscode.LanguageModelToolCallPart('call-1', 'test-tool', { input: 'test' }),
-					languageModelCacheControlPart(),
+					languageModelCacheBreakpointPart(),
 				])
 			]);
 
@@ -407,7 +407,7 @@ suite('AnthropicLanguageModel', () => {
 			const { body } = await provideLanguageModelResponse([
 				vscode.LanguageModelChatMessage2.User([
 					new vscode.LanguageModelToolResultPart('call-1', [new vscode.LanguageModelTextPart('result')]),
-					languageModelCacheControlPart()
+					languageModelCacheBreakpointPart()
 				])
 			]);
 
@@ -429,7 +429,7 @@ suite('AnthropicLanguageModel', () => {
 		test('ignores cache_control when there is no previous part', async () => {
 			const { body } = await provideLanguageModelResponse([
 				vscode.LanguageModelChatMessage2.User([
-					(languageModelCacheControlPart()),
+					(languageModelCacheBreakpointPart()),
 				])
 			]);
 
@@ -440,9 +440,9 @@ suite('AnthropicLanguageModel', () => {
 			const { body } = await provideLanguageModelResponse([
 				vscode.LanguageModelChatMessage2.User([
 					new vscode.LanguageModelTextPart('First part'),
-					languageModelCacheControlPart(),
+					languageModelCacheBreakpointPart(),
 					new vscode.LanguageModelTextPart('Second part'),
-					languageModelCacheControlPart(),
+					languageModelCacheBreakpointPart(),
 				])
 			]);
 
@@ -491,7 +491,7 @@ suite('AnthropicLanguageModel', () => {
 				vscode.LanguageModelChatMessage2.User([
 					new vscode.LanguageModelTextPart('Hello world'),
 					new vscode.LanguageModelTextPart(''),
-					languageModelCacheControlPart(),
+					languageModelCacheBreakpointPart(),
 				])
 			]);
 
