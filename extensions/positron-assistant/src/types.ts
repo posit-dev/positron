@@ -23,8 +23,12 @@ export enum PositronAssistantToolName {
 export enum LanguageModelDataPartMimeType {
 	/**
 	 * Defines a cache breakpoint (e.g. for Anthropic's manual prompt caching).
+	 *
+	 * By matching the Copilot extension, other extensions that use models from either Copilot
+	 * or Positron Assistant can set cache breakpoints with the same mime type.
+	 * See: https://github.com/microsoft/vscode-copilot-chat/blob/6aeac371813be9037e74395186ec5b5b94089245/src/platform/endpoint/common/endpointTypes.ts#L7
 	 */
-	CacheBreakpoint = 'application/cache-control+json',
+	CacheControl = 'cache_control',
 }
 
 /**

@@ -498,10 +498,7 @@ function withCacheControl<T extends CacheControllableBlockParam>(
 		log.debug(`[anthropic] Adding cache breakpoint to ${part.type} part. Source: ${source}`);
 		return {
 			...part,
-			// Pass the data through without validation, let the Anthropic API handle errors.
-			cache_control: {
-				type: cachBreakpoint.type,
-			},
+			cache_control: cachBreakpoint,
 		};
 	} catch (error) {
 		log.error(`[anthropic] Failed to parse cache breakpoint: ${error}`);

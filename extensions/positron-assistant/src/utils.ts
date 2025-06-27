@@ -403,9 +403,9 @@ export function isWorkspaceOpen(): boolean {
 /**
  * Checks if a given language model part defines a cache breakpoint.
  */
-export function isCacheBreakpointPart(part: unknown): part is vscode.LanguageModelDataPart & { mimeType: LanguageModelDataPartMimeType.CacheBreakpoint } {
-	return (part instanceof vscode.LanguageModelDataPart) &&
-		part.mimeType === LanguageModelDataPartMimeType.CacheBreakpoint;
+export function isCacheBreakpointPart(part: unknown): part is vscode.LanguageModelDataPart & { mimeType: LanguageModelDataPartMimeType.CacheControl } {
+	return part instanceof vscode.LanguageModelDataPart &&
+		part.mimeType === LanguageModelDataPartMimeType.CacheControl;
 }
 
 /**
@@ -417,29 +417,19 @@ export function isCacheBreakpointPart(part: unknown): part is vscode.LanguageMod
  *   or if the parsed data does not match the expected schema.
  */
 export function parseCacheBreakpoint(part: vscode.LanguageModelDataPart): LanguageModelCacheBreakpoint {
-	if (part.mimeType !== LanguageModelDataPartMimeType.CacheBreakpoint) {
-		throw new Error(`Expected LanguageModelDataPart with mimeType ${LanguageModelDataPartMimeType.CacheBreakpoint}, but got ${part.mimeType}`);
+	if (part.mimeType !== LanguageModelDataPartMimeType.CacheControl) {
+		throw new Error(`Expected LanguageModelDataPart with mimeType ${LanguageModelDataPartMimeType.CacheControl}, but got ${part.mimeType}`);
 	}
 
-	let data: unknown;
-	try {
-		data = JSON.parse(part.data.toString());
-	} catch (error) {
-		throw new Error(`Failed to parse LanguageModelDataPart JSON: ${error}`);
+	// By matching the Copilot extension, other extensions that use models from either Copilot
+	// or Positron Assistant can set cache breakpoints with the same schema.
+	// See: https://github.com/microsoft/vscode-copilot-chat/blob/6aeac371813be9037e74395186ec5b5b94089245/src/extension/byok/vscode-node/anthropicMessageConverter.ts#L22
+	const type = part.data.toString();
+	if (!(type === LanguageModelCacheBreakpointType.Ephemeral)) {
+		throw new Error(`Expected LanguageModelDataPart to contain a LanguageModelCacheBreakpoint, but got: ${type}`);
 	}
 
-	if (!isCacheBreakpoint(data)) {
-		throw new Error(`Expected LanguageModelDataPart to contain a LanguageModelCacheBreakpoint, but got: ${JSON.stringify(data)}`);
-	}
-
-	return data;
-}
-
-function isCacheBreakpoint(obj: unknown): obj is LanguageModelCacheBreakpoint {
-	return typeof obj === 'object' &&
-		obj !== null &&
-		'type' in obj &&
-		obj.type === LanguageModelCacheBreakpointType.Ephemeral;
+	return { type };
 }
 
 /**
@@ -447,10 +437,8 @@ function isCacheBreakpoint(obj: unknown): obj is LanguageModelCacheBreakpoint {
  * @returns A language model part representing the cache control point.
  */
 export function languageModelCacheBreakpointPart(): vscode.LanguageModelDataPart {
-	return vscode.LanguageModelDataPart.json(
-		{
-			type: LanguageModelCacheBreakpointType.Ephemeral,
-		} satisfies LanguageModelCacheBreakpoint,
-		LanguageModelDataPartMimeType.CacheBreakpoint,
-	);
+	// By matching the Copilot extension, other extensions that use models from either Copilot
+	// or Positron Assistant can set cache breakpoints with the same schema.
+	// See: https://github.com/microsoft/vscode-copilot-chat/blob/6aeac371813be9037e74395186ec5b5b94089245/src/extension/byok/vscode-node/anthropicMessageConverter.ts#L22
+	return vscode.LanguageModelDataPart.text(LanguageModelCacheBreakpointType.Ephemeral, LanguageModelDataPartMimeType.CacheControl);
 }
