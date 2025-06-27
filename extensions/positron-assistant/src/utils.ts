@@ -7,6 +7,8 @@ import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { PositronAssistantToolName } from './types.js';
 import { isLanguageModelImagePart } from './languageModelParts.js';
+import { isLanguageModelCacheControlPart } from './anthropic.js';
+import { log } from './extension.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
@@ -83,35 +85,38 @@ export function toAIMessage(
 			}
 
 		} else if (message.role === vscode.LanguageModelChatMessageRole.Assistant) {
+			const content: ai.AssistantContent = [];
+			for (const part of message.content) {
+				if (part instanceof vscode.LanguageModelTextPart) {
+					content.push({ type: 'text', text: part.value });
+				} else if (part instanceof vscode.LanguageModelToolCallPart) {
+					if (
+						!toolResultExperimentalContent &&
+						part.name === PositronAssistantToolName.GetPlot
+					) {
+						// Vercel AI does not yet support image tool results,
+						// so replace getPlot tool calls with text asking for the plot.
+						// The corresponding tool result will be replaced with a user
+						// message containing the plot image.
+						content.push({
+							type: 'text',
+							text: 'Please provide the current active plot.'
+						});
+					}
+					content.push({
+						type: 'tool-call',
+						toolCallId: part.callId,
+						toolName: part.name,
+						args: part.input,
+					});
+				} else {
+					// Skip unknown parts.
+					log.warn(`[vercel] Skipping unsupported part type in assistant message: ${part.constructor.name}`);
+				}
+			}
 			aiMessages.push({
 				role: 'assistant',
-				content: message.content.map((part) => {
-					if (part instanceof vscode.LanguageModelTextPart) {
-						return { type: 'text', text: part.value };
-					} else if (part instanceof vscode.LanguageModelToolCallPart) {
-						if (
-							!toolResultExperimentalContent &&
-							part.name === PositronAssistantToolName.GetPlot
-						) {
-							// Vercel AI does not yet support image tool results,
-							// so replace getPlot tool calls with text asking for the plot.
-							// The corresponding tool result will be replaced with a user
-							// message containing the plot image.
-							return {
-								type: 'text',
-								text: 'Please provide the current active plot.'
-							};
-						}
-						return {
-							type: 'tool-call',
-							toolCallId: part.callId,
-							toolName: part.name,
-							args: part.input,
-						};
-					} else {
-						throw new Error(`Unsupported part type on assistant message`);
-					}
-				}),
+				content,
 			});
 		}
 	}
@@ -220,7 +225,7 @@ function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart):
 /**
  * Convert chat participant history into an array of VSCode language model messages.
  */
-export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[] {
+export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): vscode.LanguageModelChatMessage2[] {
 	return turns.map((turn) => {
 		if (turn instanceof vscode.ChatRequestTurn) {
 			let textValue = turn.prompt;
@@ -331,7 +336,9 @@ function removeEmptyTextParts(message: vscode.LanguageModelChatMessage2) {
 function hasContent(message: vscode.LanguageModelChatMessage2) {
 	return message.content.length > 0 &&
 		!message.content.every(
-			part => part instanceof vscode.LanguageModelTextPart && part.value.trim() === ''
+			part => (part instanceof vscode.LanguageModelTextPart && part.value.trim() === '') ||
+				// If the only other parts are extra data parts, consider the message to have no content.
+				isLanguageModelCacheControlPart(part)
 		);
 }
 

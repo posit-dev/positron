@@ -17,6 +17,7 @@ import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log } from './extension.js';
+import { languageModelCacheControlPart } from './anthropic.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -266,14 +267,22 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Note that context.history excludes tool calls and results.
 		const messages = toLanguageModelChatMessage(context.history);
 
+		// Add the user's prompt.
+		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
+		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
+
+		// Add cache control parts to at-most the last 2 user messages.
+		addCacheControlPartsToLastUserMessages(messages, 2);
+
 		// Add a user message containing context about the request, workspace, running sessions, etc.
+		// NOTE: We add the context message after the user prompt so that the context message is
+		// not cached. Since the context message is transiently added to each request, caching it
+		// will write a prompt prefix to the cache that will never be read. We will want to keep
+		// an eye on whether the order of user prompt and context message affects model responses.
 		const contextMessage = await this.getContextMessage(request, response, positronContext);
 		if (contextMessage) {
 			messages.push(contextMessage);
 		}
-
-		// Add the user's prompt.
-		messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
 
 		// Send the request to the language model.
 		await this.sendLanguageModelRequest(request, response, token, messages, tools, system);
@@ -840,4 +849,36 @@ export interface TextProcessor {
 
 	/** Process any unhandled text at the end of the stream. */
 	flush(): void | Promise<void>;
+}
+
+/**
+ * Add cache control parts (for Anthropic prompt caching) to the last few user messages.
+ *
+ * @param messages The chat messages to modify.
+ * @param maxCacheControlParts The maximum number of cache control parts to add.
+ *   Note that Anthropic supports a maximum of 4 cache controls per request and that
+ *   we may also cache tools and the system prompt.
+ */
+function addCacheControlPartsToLastUserMessages(
+	messages: vscode.LanguageModelChatMessage2[],
+	maxCacheControlParts: number,
+) {
+	let numCacheControlParts = 0;
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const message = messages[i];
+		if (message.role !== vscode.LanguageModelChatMessageRole.User) {
+			continue;
+		}
+		const lastPart = message.content.at(-1);
+		if (!lastPart) {
+			continue;
+		}
+		log.debug(`[participant] Adding cache control extra data part to user message: ${messages.length - i}`);
+		message.content.push(languageModelCacheControlPart());
+		numCacheControlParts++;
+		if (numCacheControlParts >= maxCacheControlParts) {
+			// We only want to cache the last two user messages.
+			break;
+		}
+	}
 }
