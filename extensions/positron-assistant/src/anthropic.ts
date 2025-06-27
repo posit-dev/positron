@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import Anthropic from '@anthropic-ai/sdk';
 import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
-import { isChatImagePart, isCacheBreakpointDataPart, parseCacheBreakpoint, processMessages } from './utils.js';
+import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log } from './extension.js';
 
@@ -489,7 +489,7 @@ function withCacheControl<T extends CacheControllableBlockParam>(
 	source: string,
 	dataPart: vscode.LanguageModelDataPart | undefined,
 ): T {
-	if (!isCacheBreakpointDataPart(dataPart)) {
+	if (!isCacheBreakpointPart(dataPart)) {
 		return part;
 	}
 
