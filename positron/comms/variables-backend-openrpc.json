@@ -189,6 +189,57 @@
 				},
 				"required": false
 			}
+		},
+		{
+			"name": "query_variable_data",
+			"summary": "Query variable data",
+			"description": "Request a data summary for a variable or variables.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to the variable to inspect, as an array of access keys.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				},
+				{
+					"name": "query_types",
+					"description": "A list of types to summarize.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "summarized_data",
+					"description": "Result of the summarize operation",
+					"type": "object",
+					"properties": {
+						"children": {
+							"type": "array",
+							"description": "An array of summarized variables, each containing a summary of the data.",
+							"items": {
+								"$ref": "#/components/schemas/variable"
+							}
+						},
+						"length": {
+							"type": "integer",
+							"description": "The total number of summarized variables. This may be greater than the number of variables in the 'children' array if the array is truncated."
+						}
+					},
+					"required": [
+						"children",
+						"length"
+					]
+				}
+			}
 		}
 	],
 	"components": {
