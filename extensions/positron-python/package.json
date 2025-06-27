@@ -360,6 +360,11 @@
                 "title": "%python.command.python.createEnvironment.title%"
             },
             {
+                "command": "python.installPackages",
+                "title": "Install Python Packages",
+                "category": "Python"
+            },
+            {
                 "category": "Python",
                 "command": "python.createEnvironment-button",
                 "title": "%python.command.python.createEnvironment.title%"

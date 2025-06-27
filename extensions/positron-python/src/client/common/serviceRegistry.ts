@@ -90,6 +90,7 @@ import { RequireJupyterPrompt } from '../jupyter/requireJupyterPrompt';
 import { isWindows } from './utils/platform';
 import { PixiActivationCommandProvider } from './terminal/environmentActivationProviders/pixiActivationProvider';
 // --- Start Positron ---
+import { InstallPackagesCommandHandler } from './application/commands/installPackages';
 import { registerPositronTypes } from '../positron/serviceRegistry';
 // --- End Positron ---
 
@@ -120,6 +121,12 @@ export function registerTypes(serviceManager: IServiceManager): void {
         IExtensionSingleActivationService,
         CreatePythonFileCommandHandler,
     );
+    // --- Start Positron ---
+    serviceManager.addSingleton<IExtensionSingleActivationService>(
+        IExtensionSingleActivationService,
+        InstallPackagesCommandHandler,
+    );
+    // --- End Positron ---
     serviceManager.addSingleton<ICommandManager>(ICommandManager, CommandManager);
     serviceManager.addSingleton<IContextKeyManager>(IContextKeyManager, ContextKeyManager);
     serviceManager.addSingleton<IConfigurationService>(IConfigurationService, ConfigurationService);
