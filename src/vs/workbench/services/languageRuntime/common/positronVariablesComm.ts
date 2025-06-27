@@ -421,6 +421,19 @@ export class PositronVariablesComm extends PositronBaseComm {
 
 
 	/**
+	 * Request statistical summary for a variable's data
+	 *
+	 * Computes a statistical summary for the data in a variable without opening a data explorer.
+	 *
+	 * @param path The path to the variable to summarize, as an array of access keys.
+	 *
+	 * @return A statistical summary of the variable's data.
+	 */
+	summarizeData(path: Array<string>): Promise<string> {
+		return super.performRpc('summarize_data', ['paths'], [[path]]);
+	}
+
+	/**
 	 * Update variables
 	 *
 	 * Updates the variables in the current session.

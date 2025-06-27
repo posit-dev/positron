@@ -183,6 +183,9 @@ class VariablesBackendRequest(str, enum.Enum):
     # Request a viewer for a variable
     View = "view"
 
+    # Summarize data
+    SummarizeData = "summarize_data"
+
 
 class ListRequest(BaseModel):
     """
@@ -361,6 +364,7 @@ class VariablesBackendMessageContent(BaseModel):
         InspectRequest,
         ClipboardFormatRequest,
         ViewRequest,
+        SummarizeDataRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -417,6 +421,33 @@ class RefreshParams(BaseModel):
     )
 
 
+class SummarizeDataParams(BaseModel):
+    paths: List[List[StrictStr]] = Field(
+        description="Array of paths to variables to summarize, each path is an array of access keys.",
+    )
+
+
+class SummarizeDataRequest(BaseModel):
+    """
+    Request that the runtime summarize data in a variable.
+    """
+
+    params: SummarizeDataParams = Field(
+        description="Parameters to the SummarizeData method",
+    )
+
+    method: Literal[VariablesBackendRequest.SummarizeData] = Field(
+        description="The JSON-RPC method name (summarize_data)",
+    )
+
+    jsonrpc: str = (
+        Field(
+            default="2.0",
+            description="The JSON-RPC version specifier",
+        ),
+    )
+
+
 VariableList.update_forward_refs()
 
 InspectedVariable.update_forward_refs()
@@ -450,3 +481,9 @@ ViewRequest.update_forward_refs()
 UpdateParams.update_forward_refs()
 
 RefreshParams.update_forward_refs()
+
+SummarizeDataParams.update_forward_refs()
+
+SummarizeDataRequest.update_forward_refs()
+
+VariablesBackendMessageContent.update_forward_refs()
