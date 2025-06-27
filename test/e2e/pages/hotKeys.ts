@@ -134,6 +134,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J C', 'Toggle bottom panel');
 	}
 
+	public async notebookLayout() {
+		await this.pressHotKeys('Cmd+J N', 'Notebook layout');
+	}
+
 	// ----------------------
 	// --- Workspace Actions ---
 	// ----------------------

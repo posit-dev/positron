@@ -16,14 +16,14 @@ test.describe('Data Explorer - Python Polars', {
 }, () => {
 
 	test.beforeAll(async function ({ app, openFile, runCommand, python }) {
-		const { variables, dataExplorer } = app.workbench;
+		const { variables, dataExplorer, editors } = app.workbench;
 
 		await openFile(join('workspaces', 'polars-dataframe-py', 'polars_basic.py'));
 		await runCommand('python.execInConsole');
 
 		// open the data frame in the data explorer
 		await variables.doubleClickVariableRow('df');
-		await dataExplorer.verifyTab('Data: df', { isVisible: true });
+		await editors.verifyTab('Data: df', { isVisible: true });
 		await dataExplorer.maximizeDataExplorer(true);
 	});
 

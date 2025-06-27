@@ -12,8 +12,8 @@ test.use({
 
 test.describe('Sessions: Accessibility',
 	{ tag: [tags.WIN, tags.WEB, tags.ACCESSIBILITY, tags.SESSIONS, tags.CONSOLE] }, () => {
-		test.beforeEach(async function ({ app }) {
-			await app.workbench.variables.togglePane('hide');
+		test.beforeEach(async function ({ hotKeys }) {
+			await hotKeys.hideSecondarySidebar();
 		});
 
 		test.afterEach(async function ({ sessions }) {

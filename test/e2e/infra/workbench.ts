@@ -87,7 +87,7 @@ export class Workbench {
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
 		this.popups = new Popups(code);
-		this.variables = new Variables(code);
+		this.variables = new Variables(code, this.hotKeys);
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);
 		this.plots = new Plots(code);

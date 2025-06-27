@@ -39,7 +39,7 @@ test.describe('Data Explorer - Sparklines', {
 async function openDataExplorerColumnProfile(app: Application, variableName: string) {
 
 	await app.workbench.variables.doubleClickVariableRow(variableName);
-	await app.workbench.dataExplorer.verifyTab(`Data: ${variableName}`, { isVisible: true });
+	await app.workbench.editors.verifyTab(`Data: ${variableName}`, { isVisible: true });
 
 	await app.workbench.quickaccess.runCommand('workbench.action.toggleSidebarVisibility');
 	await app.workbench.sideBar.closeSecondarySideBar();

@@ -18,11 +18,11 @@ test.describe('Autocomplete', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
-		const { variables, editors, console } = app.workbench;
+	test('Python - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions, hotKeys }) {
+		const { editors, console } = app.workbench;
 
 		const [pySession1, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt']);
-		await variables.togglePane('hide');
+		await hotKeys.hideSecondarySidebar();
 
 		// Session 1 - trigger and verify console autocomplete
 		await sessions.select(pySession1.id);
@@ -56,10 +56,10 @@ test.describe('Autocomplete', {
 	});
 
 	test('Python - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, hotKeys, sessions }) {
-		const { variables, console } = app.workbench;
+		const { console } = app.workbench;
 
 		const [pySession, pyAltSession] = await sessions.start(['python', 'pythonAlt']);
-		await variables.togglePane('hide');
+		await hotKeys.hideSecondarySidebar();
 
 		// Session 1 - verify console autocomplete
 		await sessions.select(pySession.id);
@@ -90,11 +90,11 @@ test.describe('Autocomplete', {
 
 	test('R - Verify autocomplete suggestions in Console and Editor', {
 		tag: [tags.ARK]
-	}, async function ({ app, runCommand, sessions }) {
-		const { variables, editors, console } = app.workbench;
+	}, async function ({ app, runCommand, sessions, hotKeys }) {
+		const { editors, console } = app.workbench;
 
 		const [rSession1, rSession2, rSessionAlt] = await sessions.start(['r', 'r', 'rAlt']);
-		await variables.togglePane('hide');
+		await hotKeys.hideSecondarySidebar();
 
 		// Session 1 - verify console autocomplete
 		await sessions.select(rSession1.id);
@@ -129,11 +129,11 @@ test.describe('Autocomplete', {
 
 	test('R - Verify autocomplete suggestions (LSP is alive) after restart', {
 		tag: [tags.ARK]
-	}, async function ({ app, sessions }) {
-		const { variables, console } = app.workbench;
+	}, async function ({ app, sessions, hotKeys }) {
+		const { console } = app.workbench;
 
 		const [rSession, rSessionAlt] = await sessions.start(['r', 'rAlt']);
-		await variables.togglePane('hide');
+		await hotKeys.hideSecondarySidebar();
 
 		// Session 1 - verify console autocomplete
 		await sessions.select(rSession.id);
