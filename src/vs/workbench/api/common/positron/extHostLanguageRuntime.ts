@@ -1224,6 +1224,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		throw new Error(`Session with ID '${sessionId}' not found`);
 	}
 
+	public querySessionVariable(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
+		Promise<Array<string>> {
+		for (let i = 0; i < this._runtimeSessions.length; i++) {
+			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
+				return this._proxy.$querySessionVariable(i, accessKeys, queryTypes);
+			}
+		}
+		throw new Error(`Session with ID '${sessionId}' not found`);
+	}
+
 	/**
 	 * Interrupts an active session.
 	 *

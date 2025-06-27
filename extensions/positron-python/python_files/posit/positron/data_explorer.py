@@ -3062,3 +3062,44 @@ class DataExplorerService:
                 assert isinstance(result, dict)
 
         comm.send_result(result)
+
+
+def _get_table_schema_from_view(table_view):
+    """Extract table schema from a table view."""
+    try:
+        num_columns = table_view.table.shape[1]
+
+        # Get column schemas directly using the internal method
+        column_schemas = []
+        for i in range(num_columns):
+            column_schema = table_view._get_single_column_schema(i)  # noqa: SLF001
+            column_schemas.append(column_schema)
+        return TableSchema(columns=column_schemas)
+    except Exception as e:
+        raise ValueError(f"Failed to get schema: {e}") from e
+
+
+def _get_column_profiles(table_view, schema, query_types, format_options):
+    """Generate column profiles for a table view."""
+    profiles = []
+    skipped_columns = []
+
+    for i, column in enumerate(schema.columns):
+        summary_stats = None
+        if "summary_stats" in query_types:
+            try:
+                summary_stats = table_view._prof_summary_stats(i, format_options)  # noqa: SLF001
+            except Exception as e:
+                # Collect failed columns for later logging
+                skipped_columns.append((i, column.column_name, e))
+                continue
+
+        profiles.append(
+            {
+                "column_name": column.column_name,
+                "type_display": column.type_display,
+                "summary_stats": summary_stats,
+            }
+        )
+
+    return profiles, skipped_columns

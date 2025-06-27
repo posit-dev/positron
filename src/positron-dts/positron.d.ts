@@ -1788,6 +1788,12 @@ declare module 'positron' {
 			accessKeys?: Array<Array<string>>):
 			Thenable<Array<Array<RuntimeVariable>>>;
 
+		export function querySessionVariable(
+			sessionId: string,
+			accessKeys: Array<Array<string>>,
+			queryTypes: Array<string>):
+			Thenable<Array<string>>;
+
 		/**
 		 * Register a handler for runtime client instances. This handler will be called
 		 * whenever a new client instance is created by a language runtime of the given

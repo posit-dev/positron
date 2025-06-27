@@ -361,6 +361,39 @@
         ]
       },
       {
+        "name": "getDataSummary",
+        "displayName": "Get Data Summary",
+        "modelDescription": "Get structured information about data objects in the current session.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionIdentifier": {
+              "type": "string",
+              "description": "The identifier of the session that contains the data."
+            },
+            "accessKeys": {
+              "type": "array",
+              "description": "An array of data variables to summarize.",
+              "items": {
+                "type": "array",
+                "description": "A list of access keys that identify a variable by specifying its path.",
+                "items": {
+                  "type": "string",
+                  "description": "An access key that uniquely identifies a variable among its siblings."
+                }
+              }
+            }
+          },
+          "required": [
+            "sessionIdentifier",
+            "accessKeys"
+          ]
+        },
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
         "name": "getProjectTree",
         "displayName": "Get Project Tree",
         "modelDescription": "Get the project tree of the current workspace as a JSON object. This is useful for understanding the structure of the project and finding files and folders. Empty folders are not included in the tree.",
