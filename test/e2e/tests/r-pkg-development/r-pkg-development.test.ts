@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT] }, () => {
+test.describe('R Package Development', { tag: [tags.R_PKG_DEVELOPMENT, tags.ARK] }, () => {
 	test.beforeAll(async function ({ app, r, settings }) {
 		try {
 			// don't use native file picker

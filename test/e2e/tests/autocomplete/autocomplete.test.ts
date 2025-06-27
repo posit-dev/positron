@@ -88,7 +88,9 @@ test.describe('Autocomplete', {
 		await console.expectSuggestionListToContain('abspath, def abspath(path)');
 	});
 
-	test('R - Verify autocomplete suggestions in Console and Editor', async function ({ app, runCommand, sessions }) {
+	test('R - Verify autocomplete suggestions in Console and Editor', {
+		tag: [tags.ARK]
+	}, async function ({ app, runCommand, sessions }) {
 		const { variables, editors, console } = app.workbench;
 
 		const [rSession1, rSession2, rSessionAlt] = await sessions.start(['r', 'r', 'rAlt']);
@@ -125,7 +127,9 @@ test.describe('Autocomplete', {
 		await editors.expectSuggestionListCount(0);
 	});
 
-	test('R - Verify autocomplete suggestions (LSP is alive) after restart', async function ({ app, sessions }) {
+	test('R - Verify autocomplete suggestions (LSP is alive) after restart', {
+		tag: [tags.ARK]
+	}, async function ({ app, sessions }) {
 		const { variables, console } = app.workbench;
 
 		const [rSession, rSessionAlt] = await sessions.start(['r', 'rAlt']);

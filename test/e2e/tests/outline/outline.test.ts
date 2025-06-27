@@ -150,7 +150,9 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 			]);
 		});
 
-		test('R - Verify Outline Contents', async function ({ app, r, openFile }) {
+		test('R - Verify Outline Contents', {
+			tag: [tags.ARK]
+		}, async function ({ app, r, openFile }) {
 			await openFile(join('workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
 			await app.workbench.outline.expectOutlineToContain([
 				'con',

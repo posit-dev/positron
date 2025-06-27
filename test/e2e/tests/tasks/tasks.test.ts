@@ -28,7 +28,9 @@ test.describe('Tasks', {
 		await app.workbench.terminal.sendKeysToTerminal('Enter');
 	});
 
-	test('R: Verify Basic Tasks Functionality', async function ({ app, r, openFile }) {
+	test('R: Verify Basic Tasks Functionality', {
+		tag: [tags.ARK]
+	}, async function ({ app, r, openFile }) {
 
 		await openFile(join('workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 
@@ -38,7 +40,7 @@ test.describe('Tasks', {
 		await app.workbench.quickInput.selectQuickInputElementContaining('Run R File');
 		await app.workbench.quickInput.waitForQuickInputClosed();
 
-		await app.workbench.terminal.waitForTerminalText('336776');;
+		await app.workbench.terminal.waitForTerminalText('336776');
 		await app.workbench.terminal.sendKeysToTerminal('Enter');
 	});
 });

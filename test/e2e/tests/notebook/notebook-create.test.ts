@@ -142,7 +142,9 @@ test.describe('Notebooks', {
 		});
 	});
 
-	test.describe('R Notebooks', () => {
+	test.describe('R Notebooks', {
+		tag: [tags.ARK]
+	}, () => {
 		test.beforeEach(async function ({ app, r }) {
 			await app.workbench.layouts.enterLayout('notebook');
 			await app.workbench.notebooks.createNewNotebook();

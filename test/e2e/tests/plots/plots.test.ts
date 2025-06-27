@@ -283,7 +283,9 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 	});
 
-	test.describe('R Plots', () => {
+	test.describe('R Plots', {
+		tag: [tags.ARK]
+	}, () => {
 
 		test.beforeEach(async function ({ app, sessions }) {
 			await app.workbench.layouts.enterLayout('stacked');

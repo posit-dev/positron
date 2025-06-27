@@ -38,7 +38,9 @@ test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN, tag
 		}).toPass({ timeout: 60000 });
 	});
 
-	test('R - Verify Basic Shiny App', async function ({ app, r }) {
+	test('R - Verify Basic Shiny App', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		const code = `library(shiny)
 runExample("01_hello")`;
 		await app.workbench.console.pasteCodeToConsole(code);
