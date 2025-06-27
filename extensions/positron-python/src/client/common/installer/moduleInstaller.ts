@@ -29,7 +29,7 @@ import { IModuleInstaller, InstallOptions, InterpreterUri, ModuleInstallFlags } 
 // --- Start Positron ---
 // eslint-disable-next-line import/newline-after-import
 import { IWorkspaceService } from '../application/types';
-class ExternallyManagedEnvironmentError extends Error { }
+class ExternallyManagedEnvironmentError extends Error {}
 // --- End Positron ---
 
 @injectable()
@@ -50,7 +50,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
     // the installation went.
     private _waitForCompletion?: boolean;
     // --- End Positron ---
-    constructor(protected serviceContainer: IServiceContainer) { }
+    constructor(protected serviceContainer: IServiceContainer) {}
 
     public async installModule(
         productOrModuleName: Product | string,
@@ -173,7 +173,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                 if (ex instanceof ExternallyManagedEnvironmentError) {
                     traceWarn(
                         `Failed to install ${name} in ${resource?.path} because it is an ` +
-                        `externally-managed environment. Retrying with the --break-system-packages flag.`,
+                            `externally-managed environment. Retrying with the --break-system-packages flag.`,
                     );
                     await _install(token, (flags ?? ModuleInstallFlags.none) | ModuleInstallFlags.breakSystemPackages);
                 } else {
