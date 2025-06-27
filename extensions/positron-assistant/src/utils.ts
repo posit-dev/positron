@@ -7,8 +7,16 @@ import * as vscode from 'vscode';
 import * as ai from 'ai';
 import { PositronAssistantToolName } from './types.js';
 import { isLanguageModelImagePart } from './languageModelParts.js';
-import { isLanguageModelCacheControlPart } from './anthropic.js';
 import { log } from './extension.js';
+
+/**
+ * The mime type for LanguageModelDataParts.
+ */
+export enum LanguageModelDataPartMimeType {
+	// TODO: Post next upstream merge, the default json mime type will change:
+	//       https://github.com/microsoft/vscode/pull/248180/files
+	JSON = 'json',
+}
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
@@ -337,8 +345,8 @@ function hasContent(message: vscode.LanguageModelChatMessage2) {
 	return message.content.length > 0 &&
 		!message.content.every(
 			part => (part instanceof vscode.LanguageModelTextPart && part.value.trim() === '') ||
-				// If the only other parts are extra data parts, consider the message to have no content.
-				isLanguageModelCacheControlPart(part)
+				// If the only other parts are json data parts (e.g. cache breakpoints), consider the message to have no content.
+				isLanguageModelJsonDataPart(part)
 		);
 }
 
@@ -399,4 +407,32 @@ export function uriToString(uri: vscode.Uri): string {
 export function isWorkspaceOpen(): boolean {
 	const workspaceFolders = vscode.workspace.workspaceFolders;
 	return !!workspaceFolders && workspaceFolders.length > 0;
+}
+
+/**
+ * Checks if a given part is a LanguageModelDataPart with JSON data.
+ *
+ * @param part The LanguageModelDataPart to check.
+ */
+export function isLanguageModelJsonDataPart(part: unknown): part is vscode.LanguageModelDataPart {
+	return (part instanceof vscode.LanguageModelDataPart) &&
+		part.mimeType === LanguageModelDataPartMimeType.JSON;
+}
+
+/**
+ * Parses a LanguageModelDataPart with JSON data.
+ *
+ * @param part The LanguageModelDataPart to parse.
+ * @returns The parsed JSON object.
+ * @throws Will throw an error if the part's mimeType is not JSON or if the JSON parsing fails.
+ */
+export function parseJsonLanguageModelDataPart(part: vscode.LanguageModelDataPart): unknown {
+	if (part.mimeType !== LanguageModelDataPartMimeType.JSON) {
+		throw new Error(`Expected LanguageModelDataPart with mimeType ${LanguageModelDataPartMimeType.JSON}, but got ${part.mimeType}`);
+	}
+	try {
+		return JSON.parse(part.data.toString());
+	} catch (error) {
+		throw new Error(`Failed to parse LanguageModelDataPart JSON: ${error}`);
+	}
 }

@@ -873,7 +873,7 @@ function addCacheControlPartsToLastUserMessages(
 		if (!lastPart) {
 			continue;
 		}
-		log.debug(`[participant] Adding cache control extra data part to user message: ${messages.length - i}`);
+		log.debug(`[participant] Adding cache control part to user message: ${messages.length - i}`);
 		message.content.push(languageModelCacheControlPart());
 		numCacheControlParts++;
 		if (numCacheControlParts >= maxCacheControlParts) {
