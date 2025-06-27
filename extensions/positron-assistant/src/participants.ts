@@ -10,14 +10,13 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
-import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, toLanguageModelChatMessage, uriToString } from './utils';
+import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log } from './extension.js';
-import { languageModelCacheControlPart } from './anthropic.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -271,8 +270,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
 		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
 
-		// Add cache control parts to at-most the last 2 user messages.
-		addCacheControlPartsToLastUserMessages(messages, 2);
+		// Add cache breakpoints to at-most the last 2 user messages.
+		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
 
 		// Add a user message containing context about the request, workspace, running sessions, etc.
 		// NOTE: We add the context message after the user prompt so that the context message is
@@ -862,16 +861,16 @@ export interface TextProcessor {
 }
 
 /**
- * Add cache control parts (for Anthropic prompt caching) to the last few user messages.
+ * Add cache breakpoints (for Anthropic prompt caching) to the last few user messages.
  *
  * @param messages The chat messages to modify.
- * @param maxCacheControlParts The maximum number of cache control parts to add.
+ * @param maxCacheBreakpointParts The maximum number of cache breakpoints to add.
  *   Note that Anthropic supports a maximum of 4 cache controls per request and that
  *   we may also cache tools and the system prompt.
  */
-function addCacheControlPartsToLastUserMessages(
+function addCacheControlBreakpointPartsToLastUserMessages(
 	messages: vscode.LanguageModelChatMessage2[],
-	maxCacheControlParts: number,
+	maxCacheBreakpointParts: number,
 ) {
 	let numCacheControlParts = 0;
 	for (let i = messages.length - 1; i >= 0; i--) {
@@ -883,10 +882,10 @@ function addCacheControlPartsToLastUserMessages(
 		if (!lastPart) {
 			continue;
 		}
-		log.debug(`[participant] Adding cache control part to user message: ${messages.length - i}`);
-		message.content.push(languageModelCacheControlPart());
+		log.debug(`[participant] Adding cache breakpoint to user message part: ${lastPart.constructor.name}`);
+		message.content.push(languageModelCacheBreakpointPart());
 		numCacheControlParts++;
-		if (numCacheControlParts >= maxCacheControlParts) {
+		if (numCacheControlParts >= maxCacheBreakpointParts) {
 			// We only want to cache the last two user messages.
 			break;
 		}

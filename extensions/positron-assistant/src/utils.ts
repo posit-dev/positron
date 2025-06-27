@@ -5,18 +5,9 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
-import { PositronAssistantToolName } from './types.js';
+import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName } from './types.js';
 import { isLanguageModelImagePart } from './languageModelParts.js';
 import { log } from './extension.js';
-
-/**
- * The mime type for LanguageModelDataParts.
- */
-export enum LanguageModelDataPartMimeType {
-	// TODO: Post next upstream merge, the default json mime type will change:
-	//       https://github.com/microsoft/vscode/pull/248180/files
-	JSON = 'json',
-}
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
@@ -345,8 +336,8 @@ function hasContent(message: vscode.LanguageModelChatMessage2) {
 	return message.content.length > 0 &&
 		!message.content.every(
 			part => (part instanceof vscode.LanguageModelTextPart && part.value.trim() === '') ||
-				// If the only other parts are json data parts (e.g. cache breakpoints), consider the message to have no content.
-				isLanguageModelJsonDataPart(part)
+				// If the only other parts are cache breakpoints, consider the message to have no content.
+				isCacheBreakpointDataPart(part)
 		);
 }
 
@@ -410,29 +401,56 @@ export function isWorkspaceOpen(): boolean {
 }
 
 /**
- * Checks if a given part is a LanguageModelDataPart with JSON data.
- *
- * @param part The LanguageModelDataPart to check.
+ * Checks if a given language model part defines a cache breakpoint.
  */
-export function isLanguageModelJsonDataPart(part: unknown): part is vscode.LanguageModelDataPart {
+export function isCacheBreakpointDataPart(part: unknown): part is vscode.LanguageModelDataPart & { mimeType: LanguageModelDataPartMimeType.CacheBreakpoint } {
 	return (part instanceof vscode.LanguageModelDataPart) &&
-		part.mimeType === LanguageModelDataPartMimeType.JSON;
+		part.mimeType === LanguageModelDataPartMimeType.CacheBreakpoint;
 }
 
 /**
- * Parses a LanguageModelDataPart with JSON data.
+ * Parses a LanguageModelDataPart representing a cache breakpoint.
  *
  * @param part The LanguageModelDataPart to parse.
- * @returns The parsed JSON object.
- * @throws Will throw an error if the part's mimeType is not JSON or if the JSON parsing fails.
+ * @returns The parsed cache breakpoint.
+ * @throws Will throw an error if the part's mimeType is not JSON, if the JSON parsing fails,
+ *   or if the parsed data does not match the expected schema.
  */
-export function parseJsonLanguageModelDataPart(part: vscode.LanguageModelDataPart): unknown {
-	if (part.mimeType !== LanguageModelDataPartMimeType.JSON) {
-		throw new Error(`Expected LanguageModelDataPart with mimeType ${LanguageModelDataPartMimeType.JSON}, but got ${part.mimeType}`);
+export function parseCacheBreakpoint(part: vscode.LanguageModelDataPart): LanguageModelCacheBreakpoint {
+	if (part.mimeType !== LanguageModelDataPartMimeType.CacheBreakpoint) {
+		throw new Error(`Expected LanguageModelDataPart with mimeType ${LanguageModelDataPartMimeType.CacheBreakpoint}, but got ${part.mimeType}`);
 	}
+
+	let data: unknown;
 	try {
-		return JSON.parse(part.data.toString());
+		data = JSON.parse(part.data.toString());
 	} catch (error) {
 		throw new Error(`Failed to parse LanguageModelDataPart JSON: ${error}`);
 	}
+
+	if (!isCacheBreakpoint(data)) {
+		throw new Error(`Expected LanguageModelDataPart to contain a LanguageModelCacheBreakpoint, but got: ${JSON.stringify(data)}`);
+	}
+
+	return data;
+}
+
+function isCacheBreakpoint(obj: unknown): obj is LanguageModelCacheBreakpoint {
+	return typeof obj === 'object' &&
+		obj !== null &&
+		'type' in obj &&
+		obj.type === LanguageModelCacheBreakpointType.Ephemeral;
+}
+
+/**
+ * Create a language model part that represents a cache control point.
+ * @returns A language model part representing the cache control point.
+ */
+export function languageModelCacheBreakpointPart(): vscode.LanguageModelDataPart {
+	return vscode.LanguageModelDataPart.json(
+		{
+			type: LanguageModelCacheBreakpointType.Ephemeral,
+		} satisfies LanguageModelCacheBreakpoint,
+		LanguageModelDataPartMimeType.CacheBreakpoint,
+	);
 }
