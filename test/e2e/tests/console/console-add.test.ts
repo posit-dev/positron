@@ -14,7 +14,9 @@ test.describe('Console: Add +', {
 	tag: [tags.SESSIONS, tags.CONSOLE, tags.WEB, tags.WIN]
 }, () => {
 
-	test('Validate can duplicate runtime via Console + button', async function ({ app, page }) {
+	test('Validate can duplicate runtime via Console + button', {
+		tag: [tags.ARK]
+	}, async function ({ app, page }) {
 		const { sessions, console } = app.workbench;
 		await sessions.start(['r']);
 
@@ -24,7 +26,9 @@ test.describe('Console: Add +', {
 		await sessions.expectAllSessionsToBeReady();
 	});
 
-	test('Validate can start a different runtime via Console + button', async function ({ app, page, contextMenu }) {
+	test('Validate can start a different runtime via Console + button', {
+		tag: [tags.ARK]
+	}, async function ({ app, page, contextMenu }) {
 		const { sessions, console } = app.workbench;
 		await sessions.start(['r', 'r']);
 
@@ -35,7 +39,9 @@ test.describe('Console: Add +', {
 		await sessions.expectAllSessionsToBeReady();
 	});
 
-	test('Validate Console + button menu shows both active and disconnected sessions', async function ({ app, contextMenu }) {
+	test('Validate Console + button menu shows both active and disconnected sessions', {
+		tag: [tags.ARK]
+	}, async function ({ app, contextMenu }) {
 		const { sessions, console } = app.workbench;
 		const [pythonSession, rSession] = await sessions.start(['python', 'r', 'r', 'r', 'r', 'r', 'r',]);
 

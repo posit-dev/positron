@@ -81,7 +81,9 @@ test.describe('Postgres DB Connection', {
 		});
 	});
 
-	test('R - Can establish a Postgres connection to a docker container', async function ({ app, r }) {
+	test('R - Can establish a Postgres connection to a docker container', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 
 		await app.workbench.connections.openConnectionPane();
 

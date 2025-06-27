@@ -16,7 +16,9 @@ test.describe('Restart Host Extension', { tag: [tags.EXTENSIONS, tags.WIN] }, ()
 		await app.workbench.sessions.deleteAll();
 	});
 
-	test('Verify Restart Extension Host command works - R', async function ({ app, r }) {
+	test('Verify Restart Extension Host command works - R', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		await app.workbench.quickaccess.runCommand('workbench.action.restartExtensionHost');
 		await app.workbench.console.waitForConsoleContents('Extensions restarting...');
 		await app.workbench.console.waitForReady('>');

@@ -14,7 +14,9 @@ test.describe('Extensions', {
 	tag: [tags.EXTENSIONS, tags.WEB, tags.WIN],
 }, () => {
 
-	test('Verify AIR extension basic functionality', async function ({ app, openFile, runCommand }) {
+	test('Verify AIR extension basic functionality', {
+		tag: [tags.ARK]
+	}, async function ({ app, openFile, runCommand }) {
 
 		await openFile('workspaces/r-formatting/bad-formatting.r');
 
