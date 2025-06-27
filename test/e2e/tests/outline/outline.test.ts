@@ -20,7 +20,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 		await hotKeys.closeAllEditors();
 	});
 
-	test.describe('Outline: Sessions', { tag: [tags.SESSIONS] }, () => {
+	test.describe('Outline: Sessions', { tag: [tags.SESSIONS, tags.ARK] }, () => {
 
 		test.beforeAll(async function ({ app, openFile, hotKeys }) {
 			const { outline } = app.workbench;
