@@ -81,7 +81,7 @@ test.describe('Data Explorer - Python Pandas', {
 	});
 
 
-	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, sessions, hotKeys, python }) {
+	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, hotKeys, python }) {
 		const { dataExplorer, notebooks, variables, editors } = app.workbench;
 
 		// open a notebook and execute a cell to create a DataFrame
