@@ -254,23 +254,6 @@ export class DataExplorer {
 		});
 	}
 
-	async verifyTab(
-		tabName: string,
-		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
-	): Promise<void> {
-		await test.step(`Verify tab: ${tabName} is ${isVisible ? '' : 'not'} visible, is ${isSelected ? '' : 'not'} selected`, async () => {
-			const tabLocator = this.code.driver.page.getByRole('tab', { name: tabName });
-
-			await (isVisible
-				? expect(tabLocator).toBeVisible()
-				: expect(tabLocator).not.toBeVisible());
-
-			await (isSelected
-				? expect(tabLocator).toHaveClass(/selected/)
-				: expect(tabLocator).not.toHaveClass(/selected/));
-		});
-	}
-
 	async verifyTableData(expectedData, timeout = 60000) {
 		await test.step('Verify data explorer data', async () => {
 			await expect(async () => {

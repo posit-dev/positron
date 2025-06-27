@@ -14,8 +14,8 @@ test.describe('Sessions: Management', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
 }, () => {
 
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.variables.togglePane('hide');
+	test.beforeEach(async function ({ hotKeys }) {
+		await hotKeys.hideSecondarySidebar();
 	});
 
 	test.afterEach(async function ({ sessions }) {

@@ -16,6 +16,31 @@ export class Editors {
 
 	constructor(private code: Code) { }
 
+	async clickTab(tabName: string): Promise<void> {
+		await test.step(`Click tab: ${tabName}`, async () => {
+			const tabLocator = this.code.driver.page.getByRole('tab', { name: tabName });
+			await expect(tabLocator).toBeVisible();
+			await tabLocator.click();
+		});
+	}
+
+	async verifyTab(
+		tabName: string,
+		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
+	): Promise<void> {
+		await test.step(`Verify tab: ${tabName} is ${isVisible ? '' : 'not'} visible, is ${isSelected ? '' : 'not'} selected`, async () => {
+			const tabLocator = this.code.driver.page.getByRole('tab', { name: tabName });
+
+			await (isVisible
+				? expect(tabLocator).toBeVisible()
+				: expect(tabLocator).not.toBeVisible());
+
+			await (isSelected
+				? expect(tabLocator).toHaveClass(/selected/)
+				: expect(tabLocator).not.toHaveClass(/selected/));
+		});
+	}
+
 	async waitForActiveTab(fileName: string, isDirty: boolean = false): Promise<void> {
 		await expect(this.code.driver.page.locator(`.tabs-container div.tab.active${isDirty ? '.dirty' : ''}[aria-selected="true"][data-resource-name$="${fileName}"]`)).toBeVisible();
 	}

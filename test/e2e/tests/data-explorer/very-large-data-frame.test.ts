@@ -33,9 +33,9 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		}
 	});
 
-	test.afterEach(async function ({ app }) {
+	test.afterEach(async function ({ app, hotKeys }) {
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.togglePane('show');
+		await hotKeys.showSecondarySidebar();
 	});
 
 	if (githubActions && process.platform !== 'win32') {
@@ -46,7 +46,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			const startTime = performance.now();
 
 			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true, isSelected: true });
+			await app.workbench.editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 			await app.workbench.sideBar.closeSecondarySideBar();
 
 			// awaits table load completion
@@ -67,7 +67,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			const startTime = performance.now();
 
 			await app.workbench.variables.doubleClickVariableRow('df2');
-			await app.workbench.dataExplorer.verifyTab('Data: df2', { isVisible: true, isSelected: true });
+			await app.workbench.editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
 			await app.workbench.sideBar.closeSecondarySideBar();
 
 			// awaits table load completion
@@ -90,7 +90,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			const startTime = performance.now();
 
 			await app.workbench.variables.doubleClickVariableRow('df_large');
-			await app.workbench.dataExplorer.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
+			await app.workbench.editors.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
 			await app.workbench.sideBar.closeSecondarySideBar();
 
 			// awaits table load completion
@@ -111,7 +111,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			const startTime = performance.now();
 
 			await app.workbench.variables.doubleClickVariableRow('df3_large');
-			await app.workbench.dataExplorer.verifyTab('Data: df3_large', { isVisible: true, isSelected: true });
+			await app.workbench.editors.verifyTab('Data: df3_large', { isVisible: true, isSelected: true });
 			await app.workbench.sideBar.closeSecondarySideBar();
 
 			// awaits table load completion

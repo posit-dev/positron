@@ -5,6 +5,7 @@
 
 import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
+import { Application } from '../../infra/index.js';
 
 test.use({
 	suiteId: __filename
@@ -13,76 +14,40 @@ test.use({
 test.describe('Data Explorer - Python Pandas', {
 	tag: [tags.WEB, tags.WIN, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
-	test.describe.configure({ mode: 'serial' });
-	test('Python Pandas - Verify can send code to console, open data grid, and data present', async function ({ app, python, logger }) {
-		// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
-		const script = `import pandas as pd
-data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
-		'Age':[27, 24, 22, 32],
-		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj']}
-df = pd.DataFrame(data)`;
 
-		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('Python', script);
-
-		logger.log('Opening data grid');
-		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
-
-		await app.workbench.sideBar.closeSecondarySideBar();
-
-		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
-
-			expect(tableData[0]).toStrictEqual({ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' });
-			expect(tableData[1]).toStrictEqual({ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' });
-			expect(tableData[2]).toStrictEqual({ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' });
-			expect(tableData[3]).toStrictEqual({ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' });
-			expect(tableData.length).toBe(4);
-		}).toPass({ timeout: 60000 });
-
-		await test.step('Verify copy to clipboard', async () => {
-			await expect(async () => {
-				await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-				await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
-				const clipboardText = await app.workbench.clipboard.getClipboardText();
-				expect(clipboardText).toBe('Jai');
-			}).toPass({ timeout: 20000 });
-		});
-
-		await app.workbench.dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
-
-		await app.workbench.dataExplorer.verifyNullPercentHoverDialog();
-
-		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.togglePane('show');
+	test.afterEach(async function ({ app }) {
+		await app.workbench.dataExplorer.clearAllFilters();
 	});
 
-	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, logger }) {
-		const script = `import numpy as np
-import pandas as pd
+	test('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app, executeCode, hotKeys, python }) {
+		const { dataExplorer, variables, editors } = app.workbench;
 
-data = {
-		'A': [1, 2, np.nan, 4, 5],
-		'B': ['foo', np.nan, 'bar', 'baz', None],
-		'C': [np.nan, 2.5, 3.1, None, 4.8],
-		'D': [np.nan, pd.NaT, pd.Timestamp('2023-01-01'), pd.NaT, pd.Timestamp('2023-02-01')],
-		'E': [None, 'text', 'more text', np.nan, 'even more text']
-}
-df2 = pd.DataFrame(data)`;
+		await executeCode('Python', df);
+		await variables.doubleClickVariableRow('df');
+		await editors.verifyTab('Data: df', { isVisible: true });
+		await hotKeys.hideSecondarySidebar();
 
-		logger.log('Sending code to console');
-		await app.workbench.console.executeCode('Python', script);
+		await dataExplorer.verifyTableData([
+			{ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' },
+			{ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' },
+			{ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' },
+			{ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' }
+		]);
+		await verifyCanCopyDataToClipboard(app, 'Jai');
+		await dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+		await dataExplorer.verifyNullPercentHoverDialog();
+	});
 
-		logger.log('Opening data grid');
-		await app.workbench.variables.doubleClickVariableRow('df2');
-		await app.workbench.dataExplorer.verifyTab('Data: df2', { isVisible: true });
+	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python }) {
+		const { dataExplorer, console, variables, editors } = app.workbench;
 
-		// Need to make sure the data explorer is visible test.beforeAll we can interact with it
-		await app.workbench.dataExplorer.maximizeDataExplorer(true);
+		await console.executeCode('Python', scriptWithEmptyFields);
+		await variables.doubleClickVariableRow('df2');
+		await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
+		await dataExplorer.maximizeDataExplorer(true);
 
 		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+			const tableData = await dataExplorer.getDataExplorerTableData();
 
 			expect(tableData[0]).toStrictEqual({ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' });
 			expect(tableData[1]).toStrictEqual({ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' });
@@ -92,88 +57,134 @@ df2 = pd.DataFrame(data)`;
 			expect(tableData.length).toBe(5);
 		}).toPass({ timeout: 60000 });
 
-		// Need to expand summary for next test
-		await app.workbench.dataExplorer.expandSummary();
+		await dataExplorer.expandSummary();
+		await dataExplorer.verifyMissingPercent([
+			{ column: 1, expected: '20%' },
+			{ column: 2, expected: '40%' },
+			{ column: 3, expected: '40%' },
+			{ column: 4, expected: '60%' },
+			{ column: 5, expected: '40%' }
+		]);
 
+		await dataExplorer.verifyProfileData([
+			{ column: 1, expected: { 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' } },
+			{ column: 2, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } },
+			{ column: 3, expected: { 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' } },
+			{ column: 4, expected: { 'Missing': '3', 'Min': '2023-01-01 00:00:00', 'Median': 'NaT', 'Max': '2023-02-01 00:00:00', 'Timezone': 'None' } },
+			{ column: 5, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } }
+		]);
 	});
 
-	// Cannot be run by itself, relies on the previous test
-	test('Python Pandas - Verify data explorer column info functionality', async function ({ app }) {
-		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('20%');
-		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('40%');
-		expect(await app.workbench.dataExplorer.getColumnMissingPercent(3)).toBe('40%');
-		expect(await app.workbench.dataExplorer.getColumnMissingPercent(4)).toBe('60%');
-		expect(await app.workbench.dataExplorer.getColumnMissingPercent(5)).toBe('40%');
 
-		const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);
-		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' });
+	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, sessions, hotKeys, python }) {
+		const { dataExplorer, notebooks, variables, layouts, editors } = app.workbench;
 
-		const col2ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(2);
-		expect(col2ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
-
-		const col3ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(3);
-		expect(col3ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' });
-
-		const col4ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(4);
-		expect(col4ProfileInfo.profileData).toStrictEqual({ 'Missing': '3', 'Min': '2023-01-01 00:00:00', 'Median': 'NaT', 'Max': '2023-02-01 00:00:00', 'Timezone': 'None' });
-
-		const col5ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(5);
-		expect(col5ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '3' });
-	});
-
-	// This test is not dependent on the previous test, so it refreshes the python environment
-	test('Python Pandas - Verify can execute cell, open data grid, and data present', async function ({ app, runCommand, sessions }) {
 		// Restart python for clean environment & open the file
-		await runCommand('workbench.action.closeAllEditors', { keepOpen: false });
-		await runCommand('workbench.action.toggleAuxiliaryBar');
+		await hotKeys.closeAllEditors();
+		await hotKeys.showSecondarySidebar();
 		await sessions.restart('Python');
 
 		const filename = 'pandas-update-dataframe.ipynb';
-		await app.workbench.notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
-		await app.workbench.notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
-		await app.workbench.notebooks.focusFirstCell();
-		await app.workbench.notebooks.executeActiveCell();
-		// is this an issue? the variables pane does not open up automatically after running cell
-		await app.workbench.variables.focusVariablesView();
-		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
+		await notebooks.openNotebook(join(app.workspacePathOrFolder, 'workspaces', 'data-explorer-update-datasets', filename));
+		await notebooks.selectInterpreter('Python', process.env.POSITRON_PY_VER_SEL!);
+		await notebooks.focusFirstCell();
+		await notebooks.executeActiveCell();
+		await variables.doubleClickVariableRow('df');
+		await editors.verifyTab('Data: df', { isVisible: true });
 
-		await app.workbench.layouts.enterLayout('notebook');
-
+		await hotKeys.notebookLayout();
 		await expect(async () => {
 			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 			expect(tableData.length).toBe(11);
 		}).toPass({ timeout: 60000 });
 
-		await app.code.driver.page.locator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
-		await app.workbench.notebooks.focusNextCell();
-		await app.workbench.notebooks.executeActiveCell();
-		await app.code.driver.page.locator('.label-name:has-text("Data: df")').click();
+		await editors.clickTab(filename);
+		await notebooks.focusNextCell();
+		await notebooks.executeActiveCell();
+		await editors.clickTab('Data: df');
 
 		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+			const tableData = await dataExplorer.getDataExplorerTableData();
 			expect(tableData.length).toBe(12);
 		}).toPass({ timeout: 60000 });
 
-		await app.code.driver.page.locator('.tabs .label-name:has-text("pandas-update-dataframe.ipynb")').click();
-		await app.workbench.notebooks.focusNextCell();
-		await app.workbench.notebooks.executeActiveCell();
+		await editors.clickTab(filename);
+		await notebooks.focusNextCell();
+		await notebooks.executeActiveCell();
 		await app.code.driver.page.locator('.label-name:has-text("Data: df")').click();
-		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
+		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 
 		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+			const tableData = await dataExplorer.getDataExplorerTableData();
 			expect(tableData[0]).toStrictEqual({ 'Year': '2025' });
 			expect(tableData.length).toBe(12);
 		}).toPass({ timeout: 60000 });
 
-		await app.workbench.layouts.enterLayout('stacked');
-		await app.workbench.dataExplorer.closeDataExplorer();
+		await layouts.enterLayout('stacked');
+		await dataExplorer.closeDataExplorer();
 	});
 
-	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app }) {
+	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
+		const { dataExplorer, variables, console, editors } = app.workbench;
+		await console.executeCode('Python', mtcarsDf);
+		await variables.focusVariablesView();
+		await variables.doubleClickVariableRow('Data_Frame');
+		await editors.verifyTab('Data: Data_Frame', { isVisible: true });
 
-		const script = `import pandas as pd
+		// Now move focus out of the the data explorer pane
+		await editors.newUntitledFile();
+		await variables.focusVariablesView();
+		await variables.doubleClickVariableRow('Data_Frame');
+		await editors.verifyTab('Data: Data_Frame', { isVisible: true });
+
+		await dataExplorer.closeDataExplorer();
+		await variables.focusVariablesView();
+	});
+
+	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, runCommand, python }) {
+		const { dataExplorer, console, variables, editors } = app.workbench;
+
+		await console.executeCode('Python', blankSpacesScript);
+		await variables.doubleClickVariableRow('df');
+		await editors.verifyTab('Data: df', { isVisible: true });
+
+		await dataExplorer.verifyTableData([
+			{ 'x': 'a·' },
+			{ 'x': 'a' },
+			{ 'x': '···' },
+			{ 'x': '<empty>' }
+		]);
+
+		await test.step('Verify disconnect dialog', async () => {
+			await runCommand('workbench.action.toggleAuxiliaryBar');
+			await console.trashButton.click();
+			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
+		});
+
+		await dataExplorer.closeDataExplorer();
+	});
+});
+
+
+async function verifyCanCopyDataToClipboard(app: Application, expectedText?: string) {
+	await test.step('Verify can copy data to clipboard', async () => {
+		await expect(async () => {
+			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+			await app.workbench.hotKeys.copy();
+			const clipboardText = await app.workbench.clipboard.getClipboardText();
+			expect(clipboardText).toBe(expectedText || 'Jai');
+		}).toPass({ timeout: 20000 });
+	});
+}
+
+// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
+const df = `import pandas as pd
+data = {'Name':['Jai', 'Princi', 'Gaurav', 'Anuj'],
+		'Age':[27, 24, 22, 32],
+		'Address':['Delhi', 'Kanpur', 'Allahabad', 'Kannauj']}
+df = pd.DataFrame(data)`;
+
+const mtcarsDf = `import pandas as pd
 Data_Frame = pd.DataFrame({
 	"mpg": [21.0, 21.0, 22.8, 21.4, 18.7],
 	"cyl": [6, 6, 4, 6, 8],
@@ -187,45 +198,18 @@ Data_Frame = pd.DataFrame({
 	"gear": [4, 4, 4, 3, 3],
 	"carb": [4, 4, 1, 1, 2]
 })`;
-		await app.workbench.console.executeCode('Python', script);
-		await app.workbench.variables.focusVariablesView();
-		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true });
 
-		// Now move focus out of the the data explorer pane
-		await app.workbench.editors.newUntitledFile();
-		await app.workbench.variables.focusVariablesView();
-		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true });
-
-		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.focusVariablesView();
-	});
-
-	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app }) {
-
-		const script = `import pandas as pd
+const blankSpacesScript = `import pandas as pd
 df = pd.DataFrame({'x': ["a ", "a", "   ", ""]})`;
-		await app.workbench.console.executeCode('Python', script);
-		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
 
-		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+const scriptWithEmptyFields = `import numpy as np
+import pandas as pd
 
-			expect(tableData[0]).toStrictEqual({ 'x': 'a·' });
-			expect(tableData[1]).toStrictEqual({ 'x': 'a' });
-			expect(tableData[2]).toStrictEqual({ 'x': '···' });
-			expect(tableData[3]).toStrictEqual({ 'x': '<empty>' });
-			expect(tableData.length).toBe(4);
-		}).toPass({ timeout: 60000 });
-
-		await test.step('Verify disconnect dialog', async () => {
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.trashButton.click();
-			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
-		});
-
-		await app.workbench.dataExplorer.closeDataExplorer();
-	});
-});
+data = {
+		'A': [1, 2, np.nan, 4, 5],
+		'B': ['foo', np.nan, 'bar', 'baz', None],
+		'C': [np.nan, 2.5, 3.1, None, 4.8],
+		'D': [np.nan, pd.NaT, pd.Timestamp('2023-01-01'), pd.NaT, pd.Timestamp('2023-02-01')],
+		'E': [None, 'text', 'more text', np.nan, 'even more text']
+}
+df2 = pd.DataFrame(data)`;

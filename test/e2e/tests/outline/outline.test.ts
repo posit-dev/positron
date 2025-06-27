@@ -22,13 +22,13 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 
 	test.describe('Outline: Sessions', { tag: [tags.SESSIONS] }, () => {
 
-		test.beforeAll(async function ({ app, openFile }) {
-			const { variables, outline } = app.workbench;
+		test.beforeAll(async function ({ app, openFile, hotKeys }) {
+			const { outline } = app.workbench;
 
 			await openFile(`workspaces/outline/${PY_FILE}`);
 			await openFile(`workspaces/outline/${R_FILE}`);
 
-			await variables.togglePane('hide');
+			await hotKeys.hideSecondarySidebar();
 			await outline.focus();
 		});
 

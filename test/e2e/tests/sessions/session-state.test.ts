@@ -13,8 +13,8 @@ test.describe('Sessions: State', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
 }, () => {
 
-	test.beforeEach(async function ({ app, sessions }) {
-		await app.workbench.variables.togglePane('hide');
+	test.beforeEach(async function ({ hotKeys, sessions }) {
+		await hotKeys.hideSecondarySidebar();
 		await sessions.deleteDisconnectedSessions();
 		await sessions.clearConsoleAllSessions();
 	});

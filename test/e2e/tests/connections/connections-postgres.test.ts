@@ -51,7 +51,7 @@ test.describe('Postgres DB Connection', {
 			const connectionName = app.code.driver.page.locator('.connections-details', { hasText: 'public' });
 			await connectionName.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
 			await app.code.driver.page.locator('.codicon-positron-table-connection').click();
-			await app.workbench.dataExplorer.verifyTab('Data: periodic_table', { isVisible: true });
+			await app.workbench.editors.verifyTab('Data: periodic_table', { isVisible: true });
 		});
 
 		await test.step('Verify connection data from periodic table', async () => {
@@ -112,7 +112,7 @@ test.describe('Postgres DB Connection', {
 			await publicNode.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
 
 			await app.code.driver.page.locator('.codicon-positron-table-connection').click();
-			await app.workbench.dataExplorer.verifyTab('Data: periodic_table', { isVisible: true });
+			await app.workbench.editors.verifyTab('Data: periodic_table', { isVisible: true });
 		});
 
 		await test.step('Verify connection data from periodic table', async () => {

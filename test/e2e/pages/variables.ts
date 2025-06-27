@@ -5,8 +5,8 @@
 
 
 import { Code } from '../infra/code';
-import * as os from 'os';
 import test, { expect, Locator } from '@playwright/test';
+import { HotKeys } from './hotKeys.js';
 
 interface FlatVariables {
 	value: string;
@@ -32,7 +32,7 @@ export class Variables {
 	variablesPane: Locator;
 	variablesRuntime: (name: string | RegExp) => Locator;
 
-	constructor(private code: Code) {
+	constructor(private code: Code, private hotKeys: HotKeys) {
 		this.variablesPane = this.code.driver.page.locator('[id="workbench.panel.positronSession"]');
 		this.variablesRuntime = (name: string | RegExp) => this.variablesPane.getByRole('button', { name });
 	}
@@ -75,6 +75,7 @@ export class Variables {
 
 	async doubleClickVariableRow(variableName: string) {
 		await test.step(`Double click variable: ${variableName}`, async () => {
+			await this.hotKeys.showSecondarySidebar();
 			const desiredRow = this.code.driver.page.locator(VARIABLES_NAME_COLUMN).filter({ hasText: variableName });
 			await desiredRow.dblclick();
 		});
@@ -85,19 +86,19 @@ export class Variables {
 		return await progressBar.isVisible();
 	}
 
-	/**
-	 * Action: Show or hide the secondary side bar (variables pane).
-	 * @param action show or hide the secondary side bar
-	 */
-	async togglePane(action: 'show' | 'hide') {
-		await test.step(`Toggle variables pane: ${action}`, async () => {
-			const variablesSectionIsVisible = await this.code.driver.page.getByRole('button', { name: 'Variables Section' }).isVisible();
+	// /**
+	//  * Action: Show or hide the secondary side bar (variables pane).
+	//  * @param action show or hide the secondary side bar
+	//  */
+	// async togglePane(action: 'show' | 'hide') {
+	// 	await test.step(`Toggle variables pane: ${action}`, async () => {
+	// 		const variablesSectionIsVisible = await this.code.driver.page.getByRole('button', { name: 'Variables Section' }).isVisible();
 
-			if (action === 'show' && !variablesSectionIsVisible || action === 'hide' && variablesSectionIsVisible) {
-				await this.code.driver.page.keyboard.press(os.platform() === 'darwin' ? 'Meta+Alt+B' : 'Control+Alt+B');
-			}
-		});
-	}
+	// 		if (action === 'show' && !variablesSectionIsVisible || action === 'hide' && variablesSectionIsVisible) {
+	// 			await this.code.driver.page.keyboard.press(os.platform() === 'darwin' ? 'Meta+Alt+B' : 'Control+Alt+B');
+	// 		}
+	// 	});
+	// }
 
 	async toggleVariable({ variableName, action }: { variableName: string; action: 'expand' | 'collapse' }) {
 		await test.step(`${action} variable: ${variableName}`, async () => {
@@ -207,7 +208,7 @@ export class Variables {
 	 */
 	async expectRuntimeToBe(expectation: 'visible' | 'not.visible', sessionName: string | RegExp) {
 		await test.step(`Verify runtime is ${expectation}: ${sessionName}`, async () => {
-			await this.togglePane('show');
+			await this.hotKeys.showSecondarySidebar();
 			expectation === 'visible'
 				? await expect(this.variablesRuntime(sessionName)).toBeVisible()
 				: await expect(this.variablesRuntime(sessionName)).not.toBeVisible();

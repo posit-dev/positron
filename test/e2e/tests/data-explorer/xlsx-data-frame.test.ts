@@ -14,9 +14,9 @@ test.describe('Data Explorer - XLSX', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
 
-	test.afterEach(async function ({ app }) {
+	test.afterEach(async function ({ app, hotKeys }) {
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.variables.togglePane('show');
+		await hotKeys.showSecondarySidebar();
 	});
 
 	test('Python - Verify data explorer functionality with XLSX input', async function ({ app, python, logger }) {
@@ -25,7 +25,7 @@ test.describe('Data Explorer - XLSX', {
 
 		logger.log('Opening data grid');
 		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true });
+		await app.workbench.editors.verifyTab('Data: df', { isVisible: true });
 
 		await app.workbench.sideBar.closeSecondarySideBar();
 		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
@@ -40,7 +40,7 @@ test.describe('Data Explorer - XLSX', {
 
 		logger.log('Opening data grid');
 		await app.workbench.variables.doubleClickVariableRow('df2');
-		await app.workbench.dataExplorer.verifyTab('Data: df2', { isVisible: true });
+		await app.workbench.editors.verifyTab('Data: df2', { isVisible: true });
 
 		await app.workbench.sideBar.closeSecondarySideBar();
 		await app.workbench.dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
