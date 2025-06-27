@@ -29,7 +29,7 @@ import { IModuleInstaller, InstallOptions, InterpreterUri, ModuleInstallFlags } 
 // --- Start Positron ---
 // eslint-disable-next-line import/newline-after-import
 import { IWorkspaceService } from '../application/types';
-class ExternallyManagedEnvironmentError extends Error {}
+class ExternallyManagedEnvironmentError extends Error { }
 // --- End Positron ---
 
 @injectable()
@@ -42,7 +42,15 @@ export abstract class ModuleInstaller implements IModuleInstaller {
 
     public abstract get type(): ModuleInstallerType;
 
-    constructor(protected serviceContainer: IServiceContainer) {}
+    // --- Start Positron ---
+    // This is a temporary flag to allow for the installation to wait for
+    // completion. It can be used to override the behavior that the
+    // python.installModulesInTerminal setting typically controls. This is used
+    // when installing packages using the assistant to make sure it knows how
+    // the installation went.
+    private _waitForCompletion?: boolean;
+    // --- End Positron ---
+    constructor(protected serviceContainer: IServiceContainer) { }
 
     public async installModule(
         productOrModuleName: Product | string,
@@ -53,6 +61,12 @@ export abstract class ModuleInstaller implements IModuleInstaller {
     ): Promise<void> {
         // --- Start Positron ---
         const shouldExecuteInTerminal = this.installModulesInTerminal() || !options?.installAsProcess;
+        // Store the waitForCompletion option so that we can use it in the
+        // executeCommand method. This is temporary and is immediately unset
+        // (before any awaits) in the executeCommand method which takes place in
+        // a single call stack, thus it's not at risk for race conditions with
+        // other calls to installModule..
+        this._waitForCompletion = options?.waitForCompletion;
         // --- End Positron ---
         const name =
             typeof productOrModuleName === 'string'
@@ -159,7 +173,7 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                 if (ex instanceof ExternallyManagedEnvironmentError) {
                     traceWarn(
                         `Failed to install ${name} in ${resource?.path} because it is an ` +
-                            `externally-managed environment. Retrying with the --break-system-packages flag.`,
+                        `externally-managed environment. Retrying with the --break-system-packages flag.`,
                     );
                     await _install(token, (flags ?? ModuleInstallFlags.none) | ModuleInstallFlags.breakSystemPackages);
                 } else {
@@ -259,13 +273,20 @@ export abstract class ModuleInstaller implements IModuleInstaller {
                 .getTerminalService(options);
 
             // --- Start Positron ---
-            // When running with the `python.installModulesInTerminal` setting enabled, we want to
-            // ensure that the terminal command is fully executed before returning. Otherwise, the
-            // calling code of the install will not be able to tell when the installation is complete.
-            if (this.installModulesInTerminal()) {
+            // When running with the `python.installModulesInTerminal` setting
+            // enabled or when the `waitForCompletion` option was set to true in
+            // the parent `installModule` call, we want to ensure that the
+            // terminal command is fully executed before returning. Otherwise,
+            // the calling code of the install will not be able to tell when the
+            // installation is complete.
+
+            if (this.installModulesInTerminal() || this._waitForCompletion) {
                 // Ensure we pass a cancellation token so that we await the full terminal command
                 // execution before returning.
                 const cancelToken = token ?? new CancellationTokenSource().token;
+                // Unset the waitForCompletion flag so that future calls are not blocked if not desired.
+                // If a call needs to be blocked this will be set to true again in the installModule method.
+                this._waitForCompletion = undefined;
                 await terminalService.sendCommand(command, args, token ?? cancelToken);
                 return;
             }

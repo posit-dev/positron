@@ -61,7 +61,9 @@ export class InstallPackagesCommandHandler implements IExtensionSingleActivation
         // 3. Detailed per-package feedback helps the Assistant make better decisions
         for (const packageName of packages) {
             try {
-                await installer.installModule(packageName, undefined, undefined, ModuleInstallFlags.none, undefined);
+                await installer.installModule(packageName, undefined, undefined, ModuleInstallFlags.none, {
+                    waitForCompletion: true,
+                });
                 results.push(`${packageName} installed successfully using ${installer.displayName}`);
             } catch (error) {
                 const errorMsg = error instanceof Error ? error.message : String(error);
