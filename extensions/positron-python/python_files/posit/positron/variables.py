@@ -723,7 +723,13 @@ class VariablesService:
 
     def _get_variable_summary(self, path: list[str], query_types: list[str]) -> None:
         """Compute statistical summary for a variable without opening a data explorer."""
-        from .data_explorer import DataExplorerState, _get_table_view, _value_type_is_supported
+        from .data_explorer import (
+            DataExplorerState,
+            _get_column_profiles,
+            _get_table_schema_from_view,
+            _get_table_view,
+            _value_type_is_supported,
+        )
         from .data_explorer_comm import FormatOptions
 
         is_known, value = self._find_var(path)
@@ -741,23 +747,10 @@ class VariablesService:
         except Exception as e:
             raise ValueError(f"Failed to create table view: {e}") from e
 
-        # Get the number of columns and build schema manually
-        try:
-            num_columns = table_view.table.shape[1]
-            num_rows = table_view.table.shape[0]
-
-            # Get column schemas directly using the internal method
-            column_schemas = []
-            for i in range(num_columns):
-                column_schema = table_view._get_single_column_schema(i)  # noqa: SLF001
-                column_schemas.append(column_schema)
-
-            # Create schema object manually
-            from .data_explorer_comm import TableSchema
-
-            schema = TableSchema(columns=column_schemas)
-        except Exception as e:
-            raise ValueError(f"Failed to get schema: {e}") from e
+        # Get schema using the helper function
+        schema = _get_table_schema_from_view(table_view)
+        num_rows = table_view.table.shape[0]
+        num_columns = table_view.table.shape[1]
 
         # Create default format options
         format_options = FormatOptions(
@@ -768,25 +761,10 @@ class VariablesService:
             thousands_sep=None,
         )
 
-        profiles = []
-        skipped_columns = []
-        for i, column in enumerate(schema.columns):
-            summary_stats = None
-            if "summary_stats" in query_types:
-                try:
-                    summary_stats = table_view._prof_summary_stats(i, format_options)  # noqa: SLF001
-                except Exception as e:
-                    # Collect failed columns for later logging
-                    skipped_columns.append((i, column.column_name, e))
-                    continue
-
-            profiles.append(
-                {
-                    "column_name": column.column_name,
-                    "type_display": column.type_display,
-                    "summary_stats": summary_stats,
-                }
-            )
+        # Get column profiles using the helper function
+        profiles, skipped_columns = _get_column_profiles(
+            table_view, schema, query_types, format_options
+        )
 
         # Log all skipped columns at once
         for i, column_name, error in skipped_columns:
