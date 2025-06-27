@@ -39,7 +39,9 @@ test.describe('References', {
 	});
 
 
-	test('R - Verify References Pane Lists All Function References Across Files', async function ({ app, r, openFile }) {
+	test('R - Verify References Pane Lists All Function References Across Files', {
+		tag: [tags.ARK]
+	}, async function ({ app, r, openFile }) {
 		const helper = 'helper.R';
 
 		await openFile(join('workspaces', 'references_tests', 'r', helper));

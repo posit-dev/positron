@@ -28,7 +28,9 @@ test.describe('Variables - Expanded View', { tag: [tags.WEB, tags.VARIABLES] }, 
 		}
 	});
 
-	test('R - Verify getting large dataframe children should not cause problems', async function ({ app, r }) {
+	test('R - Verify getting large dataframe children should not cause problems', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		const variables = app.workbench.variables;
 
 		// workaround for https://github.com/posit-dev/positron/issues/5718

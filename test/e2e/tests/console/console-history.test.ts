@@ -32,7 +32,9 @@ test.describe('Console History', {
 	});
 
 
-	test('R - Verify first history and full history', async function ({ app, page, r }) {
+	test('R - Verify first history and full history', {
+		tag: [tags.ARK]
+	}, async function ({ app, page, r }) {
 		const rLines = [
 			'a <- 1',
 			'b <- 2',

@@ -57,7 +57,9 @@ test.describe('SQLite DB Connection', {
 		});
 	});
 
-	test('R - Can establish a SQLite connection, disconnect & reconnect', async function ({ app, r }) {
+	test('R - Can establish a SQLite connection, disconnect & reconnect', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		await test.step('Open an R file and run it', async () => {
 			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'chinook-db-r', 'chinook-sqlite.r'));
 			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
@@ -84,7 +86,9 @@ test.describe('SQLite DB Connection', {
 
 	});
 
-	test('R - Ensure SQLite connections are updated after adding a database', async function ({ app, page, r }) {
+	test('R - Ensure SQLite connections are updated after adding a database', {
+		tag: [tags.ARK]
+	}, async function ({ app, page, r }) {
 		await test.step('Open an empty connection', async () => {
 			await app.workbench.console.executeCode(
 				'R',

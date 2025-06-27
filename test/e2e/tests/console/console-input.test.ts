@@ -32,7 +32,9 @@ test.describe('Console Input', {
 	});
 
 
-	test('R - Can get input string via console', async function ({ app, r }) {
+	test('R - Can get input string via console', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		const inputCode = `val <- readline(prompt = "Enter your name: ")
 cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.pasteCodeToConsole(inputCode);
@@ -46,7 +48,9 @@ cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.waitForConsoleContents('Hello John Doe!');
 	});
 
-	test('R - Can use `menu` to select alternatives', async function ({ app, r }) {
+	test('R - Can use `menu` to select alternatives', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		const inputCode = `x <- menu(letters)`;
 
 		await app.workbench.console.pasteCodeToConsole(inputCode);
@@ -62,7 +66,9 @@ cat(sprintf('Hello %s!\n', val))`;
 		await app.workbench.console.waitForConsoleContents('[1] 1');
 	});
 
-	test("R - Verify ESC dismisses autocomplete without deleting typed text", async function ({ app, page, r }) {
+	test("R - Verify ESC dismisses autocomplete without deleting typed text", {
+		tag: [tags.ARK]
+	}, async function ({ app, page, r }) {
 		// This is a regression test for https://github.com/posit-dev/positron/issues/1161
 
 		const inputCode = `base::mea`;

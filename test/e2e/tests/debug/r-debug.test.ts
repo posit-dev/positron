@@ -27,7 +27,7 @@ let session: SessionMetaData;
 test.use({ suiteId: __filename });
 
 test.describe('R Debugging', {
-	tag: [tags.DEBUG, tags.WEB, tags.WIN]
+	tag: [tags.DEBUG, tags.WEB, tags.WIN, tags.ARK]
 }, () => {
 
 	test.beforeAll('Setup fruit data', async ({ executeCode, sessions }) => {
