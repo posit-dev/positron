@@ -104,11 +104,17 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * State hooks.
 	 */
 	const [isRecent, setIsRecent] = useState(props.variableItem.isRecent.get());
+	const [isViewLoading, setIsViewLoading] = useState(props.variableItem.isViewLoading.get());
 
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
-		const evt = Event.fromObservable(props.variableItem.isRecent, disposableStore);
-		evt(e => setIsRecent(e));
+
+		const onDidChangeIsRecent = Event.fromObservable(props.variableItem.isRecent, disposableStore);
+		disposableStore.add(onDidChangeIsRecent(e => setIsRecent(e)));
+
+		const onDidChangeIsViewLoading = Event.fromObservable(props.variableItem.isViewLoading, disposableStore);
+		disposableStore.add(onDidChangeIsViewLoading(e => setIsViewLoading(e)));
+
 		return () => disposableStore.dispose();
 	}, [props.variableItem]);
 
@@ -277,7 +283,7 @@ export const VariableItem = (props: VariableItemProps) => {
 				label: localize('positron.variables.view', "View"),
 				tooltip: '',
 				class: undefined,
-				enabled: true,
+				enabled: !isViewLoading,
 				run: () => viewVariableItem(props.variableItem)
 			});
 		}
@@ -396,14 +402,17 @@ export const VariableItem = (props: VariableItemProps) => {
 			} else if (props.variableItem.kind === 'connection') {
 				icon = 'codicon codicon-database';
 			}
-			icon = 'viewer-icon ' + icon + ' ' + props.variableItem.kind;
+			const enablement = isViewLoading ? 'disabled' : 'enabled';
+			icon = `viewer-icon ${enablement} ${icon} ${props.variableItem.kind}`;
 
 			return (
 				<div className='right-column'>
 					<div
 						className={icon}
-						title={localize('positron.variables.clickToView', "Click to view")}
-						onMouseDown={viewerMouseDownHandler}
+						title={isViewLoading ?
+							localize('positron.variables.pendingView', "Loading...") :
+							localize('positron.variables.clickToView', "Click to view")}
+						onMouseDown={isViewLoading ? undefined : viewerMouseDownHandler}
 					></div>
 				</div>
 			);
@@ -428,7 +437,7 @@ export const VariableItem = (props: VariableItemProps) => {
 
 	// Render.
 	return (
-		<div className={classNames} style={props.style} onDoubleClick={doubleClickHandler} onMouseDown={mouseDownHandler}>
+		<div className={classNames} style={props.style} onDoubleClick={isViewLoading ? undefined : doubleClickHandler} onMouseDown={mouseDownHandler}>
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div className='name-column-indenter' style={{ marginLeft: props.variableItem.indentLevel * 20 }}>
 					<div className='gutter'>
