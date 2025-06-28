@@ -16,3 +16,37 @@ export enum PositronAssistantToolName {
 	TextSearch = 'positron_findTextInProject_internal',
 	FileContents = 'positron_getFileContents_internal',
 }
+
+/**
+ * Custom LanguageModelDataPart mime types.
+ */
+export enum LanguageModelDataPartMimeType {
+	/**
+	 * Defines a cache breakpoint (e.g. for Anthropic's manual prompt caching).
+	 *
+	 * By matching the Copilot extension, other extensions that use models from either Copilot
+	 * or Positron Assistant can set cache breakpoints with the same mime type.
+	 * See: https://github.com/microsoft/vscode-copilot-chat/blob/6aeac371813be9037e74395186ec5b5b94089245/src/platform/endpoint/common/endpointTypes.ts#L7
+	 */
+	CacheControl = 'cache_control',
+}
+
+/**
+ * The type of cache breakpoint.
+ */
+export enum LanguageModelCacheBreakpointType {
+	/**
+	 * Defines a short-lived cache.
+	 */
+	Ephemeral = 'ephemeral',
+}
+
+/**
+ * Represents a cache breakpoint in a LanguageModelDataPart.
+ */
+export interface LanguageModelCacheBreakpoint {
+	/**
+	 * The type of cache breakpoint.
+	 */
+	type: LanguageModelCacheBreakpointType;
+}

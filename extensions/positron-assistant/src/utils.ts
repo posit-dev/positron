@@ -5,8 +5,9 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
-import { PositronAssistantToolName } from './types.js';
+import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName } from './types.js';
 import { isLanguageModelImagePart } from './languageModelParts.js';
+import { log } from './extension.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
@@ -83,35 +84,38 @@ export function toAIMessage(
 			}
 
 		} else if (message.role === vscode.LanguageModelChatMessageRole.Assistant) {
+			const content: ai.AssistantContent = [];
+			for (const part of message.content) {
+				if (part instanceof vscode.LanguageModelTextPart) {
+					content.push({ type: 'text', text: part.value });
+				} else if (part instanceof vscode.LanguageModelToolCallPart) {
+					if (
+						!toolResultExperimentalContent &&
+						part.name === PositronAssistantToolName.GetPlot
+					) {
+						// Vercel AI does not yet support image tool results,
+						// so replace getPlot tool calls with text asking for the plot.
+						// The corresponding tool result will be replaced with a user
+						// message containing the plot image.
+						content.push({
+							type: 'text',
+							text: 'Please provide the current active plot.'
+						});
+					}
+					content.push({
+						type: 'tool-call',
+						toolCallId: part.callId,
+						toolName: part.name,
+						args: part.input,
+					});
+				} else {
+					// Skip unknown parts.
+					log.warn(`[vercel] Skipping unsupported part type in assistant message: ${part.constructor.name}`);
+				}
+			}
 			aiMessages.push({
 				role: 'assistant',
-				content: message.content.map((part) => {
-					if (part instanceof vscode.LanguageModelTextPart) {
-						return { type: 'text', text: part.value };
-					} else if (part instanceof vscode.LanguageModelToolCallPart) {
-						if (
-							!toolResultExperimentalContent &&
-							part.name === PositronAssistantToolName.GetPlot
-						) {
-							// Vercel AI does not yet support image tool results,
-							// so replace getPlot tool calls with text asking for the plot.
-							// The corresponding tool result will be replaced with a user
-							// message containing the plot image.
-							return {
-								type: 'text',
-								text: 'Please provide the current active plot.'
-							};
-						}
-						return {
-							type: 'tool-call',
-							toolCallId: part.callId,
-							toolName: part.name,
-							args: part.input,
-						};
-					} else {
-						throw new Error(`Unsupported part type on assistant message`);
-					}
-				}),
+				content,
 			});
 		}
 	}
@@ -220,7 +224,7 @@ function getPlotToolResultToAiMessage(part: vscode.LanguageModelToolResultPart):
 /**
  * Convert chat participant history into an array of VSCode language model messages.
  */
-export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[] {
+export function toLanguageModelChatMessage(turns: vscode.ChatContext['history']): vscode.LanguageModelChatMessage2[] {
 	return turns.map((turn) => {
 		if (turn instanceof vscode.ChatRequestTurn) {
 			let textValue = turn.prompt;
@@ -331,7 +335,9 @@ function removeEmptyTextParts(message: vscode.LanguageModelChatMessage2) {
 function hasContent(message: vscode.LanguageModelChatMessage2) {
 	return message.content.length > 0 &&
 		!message.content.every(
-			part => part instanceof vscode.LanguageModelTextPart && part.value.trim() === ''
+			part => (part instanceof vscode.LanguageModelTextPart && part.value.trim() === '') ||
+				// If the only other parts are cache breakpoints, consider the message to have no content.
+				isCacheBreakpointPart(part)
 		);
 }
 
@@ -392,4 +398,47 @@ export function uriToString(uri: vscode.Uri): string {
 export function isWorkspaceOpen(): boolean {
 	const workspaceFolders = vscode.workspace.workspaceFolders;
 	return !!workspaceFolders && workspaceFolders.length > 0;
+}
+
+/**
+ * Checks if a given language model part defines a cache breakpoint.
+ */
+export function isCacheBreakpointPart(part: unknown): part is vscode.LanguageModelDataPart & { mimeType: LanguageModelDataPartMimeType.CacheControl } {
+	return part instanceof vscode.LanguageModelDataPart &&
+		part.mimeType === LanguageModelDataPartMimeType.CacheControl;
+}
+
+/**
+ * Parses a LanguageModelDataPart representing a cache breakpoint.
+ *
+ * @param part The LanguageModelDataPart to parse.
+ * @returns The parsed cache breakpoint.
+ * @throws Will throw an error if the part's mimeType is not JSON, if the JSON parsing fails,
+ *   or if the parsed data does not match the expected schema.
+ */
+export function parseCacheBreakpoint(part: vscode.LanguageModelDataPart): LanguageModelCacheBreakpoint {
+	if (part.mimeType !== LanguageModelDataPartMimeType.CacheControl) {
+		throw new Error(`Expected LanguageModelDataPart with mimeType ${LanguageModelDataPartMimeType.CacheControl}, but got ${part.mimeType}`);
+	}
+
+	// By matching the Copilot extension, other extensions that use models from either Copilot
+	// or Positron Assistant can set cache breakpoints with the same schema.
+	// See: https://github.com/microsoft/vscode-copilot-chat/blob/6aeac371813be9037e74395186ec5b5b94089245/src/extension/byok/vscode-node/anthropicMessageConverter.ts#L22
+	const type = part.data.toString();
+	if (!(type === LanguageModelCacheBreakpointType.Ephemeral)) {
+		throw new Error(`Expected LanguageModelDataPart to contain a LanguageModelCacheBreakpoint, but got: ${type}`);
+	}
+
+	return { type };
+}
+
+/**
+ * Create a language model part that represents a cache control point.
+ * @returns A language model part representing the cache control point.
+ */
+export function languageModelCacheBreakpointPart(): vscode.LanguageModelDataPart {
+	// By matching the Copilot extension, other extensions that use models from either Copilot
+	// or Positron Assistant can set cache breakpoints with the same schema.
+	// See: https://github.com/microsoft/vscode-copilot-chat/blob/6aeac371813be9037e74395186ec5b5b94089245/src/extension/byok/vscode-node/anthropicMessageConverter.ts#L22
+	return vscode.LanguageModelDataPart.text(LanguageModelCacheBreakpointType.Ephemeral, LanguageModelDataPartMimeType.CacheControl);
 }
