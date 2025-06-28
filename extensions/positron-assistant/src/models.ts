@@ -102,7 +102,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		token: vscode.CancellationToken
 	): Promise<any> {
 		const _messages = toAIMessage(messages);
-		const message = _messages[_messages.length - 1];
+		const message = _messages[0];
 
 		if (typeof message.content === 'string') {
 			message.content = [{ type: 'text', text: message.content }];
