@@ -11,21 +11,81 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
-import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
+import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions, IWorkbenchContribution } from '../../../common/contributions.js';
 import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../../../common/editor.js';
 
 import { parse } from '../../../../base/common/marshalling.js';
 import { assertType } from '../../../../base/common/types.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { PositronNotebookEditor } from './PositronNotebookEditor.js';
 import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput.js';
+import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ICommandAndKeybindingRule, KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+
+// Configuration constants
+export const POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY = 'positron.notebooks.defaultEditor';
+const LEGACY_CONFIG_KEY = 'positron.notebooks.usePositronNotebooksExperimental';
+
+// Register the new configuration
+Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
+	...positronConfigurationNodeBase,
+	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
+	properties: {
+		[POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY]: {
+			type: 'string',
+			enum: ['positron', 'vscode'],
+			enumDescriptions: [
+				localize('positron.notebooks.defaultEditor.positron', 'Use Positron\'s notebook editor for .ipynb files'),
+				localize('positron.notebooks.defaultEditor.vscode', 'Use VS Code\'s built-in notebook editor for .ipynb files')
+			],
+			default: 'vscode',
+			markdownDescription: localize(
+				'positron.notebooks.defaultEditor.description',
+				'Choose which editor to use for notebook (.ipynb) files. You can always use "Open With..." to override this setting for specific files.'
+			),
+			scope: ConfigurationScope.MACHINE_OVERRIDABLE
+		}
+	}
+});
+
+/**
+ * Get the user's preferred notebook editor
+ * @param configurationService Configuration service
+ * @returns 'positron' | 'vscode'
+ */
+export function getPreferredNotebookEditor(configurationService: IConfigurationService): 'positron' | 'vscode' {
+	return configurationService.getValue<'positron' | 'vscode'>(POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY) || 'vscode';
+}
+
+/**
+ * Handle migration from old experimental setting (log-only approach)
+ */
+class PositronNotebookConfigMigration implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.positronNotebookConfigMigration';
+
+	constructor(@IConfigurationService private readonly configurationService: IConfigurationService) {
+		this.checkForLegacyConfiguration();
+	}
+
+	private checkForLegacyConfiguration(): void {
+		const legacyValue = this.configurationService.getValue<boolean>(LEGACY_CONFIG_KEY);
+		if (legacyValue === true) {
+			console.log(
+				'Positron: The setting "positron.notebooks.usePositronNotebooksExperimental" has been replaced. ' +
+				'Please use "positron.notebooks.defaultEditor" instead. ' +
+				'Set it to "positron" to continue using Positron notebooks as your default.'
+			);
+		}
+	}
+}
 
 
 
@@ -233,3 +293,7 @@ function registerNotebookKeybinding({ id, onRun, ...opts }: {
 	});
 }
 //#endregion Keybindings
+
+// Register the migration
+const workbenchRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
+workbenchRegistry.registerWorkbenchContribution(PositronNotebookConfigMigration, LifecyclePhase.Restored);
