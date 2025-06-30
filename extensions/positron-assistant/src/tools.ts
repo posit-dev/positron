@@ -9,6 +9,7 @@ import { LanguageModelImage } from './languageModelParts.js';
 import { ParticipantService } from './participants.js';
 import { PositronAssistantToolName } from './types.js';
 import { ProjectTreeTool } from './tools/projectTreeTool.js';
+import { getWorkspaceGitChanges, GitRepoChangeKind } from './git.js';
 import { DocumentCreateTool } from './tools/documentCreate.js';
 
 
@@ -280,6 +281,21 @@ export function registerAssistantTools(
 			]);
 		}
 	});
+
+	const getChangedFilesTool = vscode.lm.registerTool<{}>(PositronAssistantToolName.GetChangedFiles, {
+		invoke: async (options, token) => {
+			const repoChanges = await getWorkspaceGitChanges(GitRepoChangeKind.All);
+			const textChanges = repoChanges.map((({ changes }) => {
+				return changes.map((change) => change.summary).join('\n');
+			})).join('\n\n');
+
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(textChanges)
+			]);
+		},
+	});
+
+	context.subscriptions.push(getChangedFilesTool);
 
 	context.subscriptions.push(inspectVariablesTool);
 
