@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -27,7 +27,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await executeCode('Python', df);
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 
 		// verify table data, clipboard, sparkline hover, and null percentage hover
 		await dataExplorer.verifyTableData([
@@ -111,12 +111,10 @@ test.describe('Data Explorer - Python Pandas', {
 		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 		await dataExplorer.verifyTableDataLength(12);
 		await dataExplorer.verifyTableDataRowValue(0, { 'Year': '2025' });
-
-		await dataExplorer.closeDataExplorer();
 	});
 
 	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
-		const { dataExplorer, variables, console, editors } = app.workbench;
+		const { variables, console, editors } = app.workbench;
 
 		// execute code to create a DataFrame
 		await console.executeCode('Python', mtcarsDf);
@@ -129,13 +127,10 @@ test.describe('Data Explorer - Python Pandas', {
 		await variables.focusVariablesView();
 		await variables.doubleClickVariableRow('Data_Frame');
 		await editors.verifyTab('Data: Data_Frame', { isVisible: true });
-
-		await dataExplorer.closeDataExplorer();
 	});
 
-	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, sessions, hotKeys }) {
-		const { dataExplorer, console, variables, editors } = app.workbench;
-		const [session] = await sessions.start(['python']);
+	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, sessions, hotKeys, python }) {
+		const { dataExplorer, console, variables, editors, popups } = app.workbench;
 
 		// execute code to create a DataFrame with blank spaces
 		await console.executeCode('Python', blankSpacesScript);
@@ -148,13 +143,10 @@ test.describe('Data Explorer - Python Pandas', {
 			{ 'x': '<empty>' }
 		]);
 
-		await test.step('Verify disconnect dialog', async () => {
-			await hotKeys.stackedLayout();
-			await sessions.delete(session.id);
-			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
-		});
-
-		await dataExplorer.closeDataExplorer();
+		// verify disconnect modal dialog box when session is closed
+		await hotKeys.stackedLayout();
+		await console.trashButton.click();
+		await popups.verifyModalDialogBoxContainsText('Connection Closed');
 	});
 });
 

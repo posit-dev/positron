@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect, tags } from '../_test.setup';
-import { Application, TestTags } from '../../infra';
+import { test, tags } from '../_test.setup';
+import { TestTags } from '../../infra';
+
+const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 
 test.use({
 	suiteId: __filename
@@ -31,92 +33,55 @@ test.describe('Headless Data Explorer', {
 	tag: [tags.WEB, tags.DATA_EXPLORER, tags.DUCK_DB, tags.WIN]
 }, () => {
 
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.layouts.enterLayout('notebook'); // Make data explorer larger
+	test.beforeEach(async function ({ hotKeys }) {
+		await hotKeys.notebookLayout(); // Make data explorer larger
 	});
 
-	test.afterEach(async function ({ app }) {
+	test.afterEach(async function ({ app, hotKeys }) {
 		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.layouts.enterLayout('stacked'); //return to default layout
+		await hotKeys.stackedLayout(); //return to default layout
 	});
 
 	testCases.forEach(({ name, file, copyValue }) => {
 		test(`Verify can open and view data with large ${name} file`, async function ({ app, openDataFile }) {
+			const { editors, dataExplorer } = app.workbench;
+
 			await openDataFile(`${file}`);
-			await app.workbench.editors.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
-			await verifyCopyFromCell(app, copyValue);
-			await verifyDataIsPresent(app);
-			await verifyPlainTextButtonInActionBar(app, file.endsWith('.csv') || file.endsWith('.tsv'));
+			await editors.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
+
+			await dataExplorer.verifyCanCopyDataToClipboard(copyValue);
+			await dataExplorer.clickLowerRightCorner();
+			await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
+			await dataExplorer.expectActionBarToHaveButton('Open as Plain Text File', file.endsWith('.csv') || file.endsWith('.tsv'));
 		});
 	});
 
 	plainTextTestCases.forEach(({ name, file, searchString }) => {
 		test(`Verify can open ${name} file as plaintext`,
 			{ tag: [TestTags.EDITOR_ACTION_BAR] }, async function ({ app, openDataFile }) {
+				const { dataExplorer, editors } = app.workbench;
+
 				await openDataFile(join(`data-files/flights/${file}`));
-				await verifyPlainTextButtonInActionBar(app, true);
-				await verifyCanOpenAsPlaintext(app, searchString);
+				await editors.verifyTab(file, { isVisible: true, isSelected: true });
+
+				await dataExplorer.expectActionBarToHaveButton('Open as Plain Text File', true);
+				await dataExplorer.verifyCanOpenAsPlaintext(searchString);
 			});
 	});
 
 	test(`Verify can open parquet decimal data`, async function ({ app, openDataFile }) {
+		const { editors, dataExplorer } = app.workbench;
+
 		await openDataFile(`data-files/misc-parquet/decimal_types.parquet`);
-		await app.workbench.editors.verifyTab('decimal_types.parquet', { isVisible: true, isSelected: true });
-		await verifyCopyFromCell(app, '123456789012345.678');
-		await expect(async () => {
-			// Validate full grid by checking bottom right corner data
-			await app.workbench.dataExplorer.clickLowerRightCorner();
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
-			const lastRow = tableData.at(-2);
-			const lastHour = lastRow!['decimal_no_scale'];
-			expect(lastHour).toBe(`5555555555`);
-		}).toPass();
-	}
-	);
+		await editors.verifyTab('decimal_types.parquet', { isVisible: true, isSelected: true });
+
+		await dataExplorer.verifyCanCopyDataToClipboard('123456789012345.678');
+		await dataExplorer.clickLowerRightCorner();
+		await dataExplorer.expectLastCellContentToBe('decimal_no_scale', '5555555555', -2);
+	});
 });
 
 
-// Helpers
 
-async function verifyDataIsPresent(app: Application) {
-	const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 
-	await expect(async () => {
-		// Validate full grid by checking bottom right corner data
-		await app.workbench.dataExplorer.clickLowerRightCorner();
-		const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
-		const lastRow = tableData.at(-1);
-		const lastHour = lastRow!['time_hour'];
-		expect(lastHour).toBe(LAST_CELL_CONTENTS);
-	}).toPass();
-}
 
-async function verifyCanOpenAsPlaintext(app: Application, searchString: string | RegExp) {
-	await app.workbench.editorActionBar.clickButton('Open as Plain Text File');
-
-	// Check if the "Open Anyway" button is visible. This is needed on web only as it warns
-	// that the file is large and may take a while to open. This is due to a vs code behavior and file size limit.
-	const openAnyway = app.code.driver.page.getByText("Open Anyway");
-
-	if (await openAnyway.waitFor({ state: "visible", timeout: 5000 }).then(() => true).catch(() => false)) {
-		await openAnyway.click();
-	}
-
-	await expect(app.code.driver.page.getByText(searchString, { exact: true })).toBeVisible();
-}
-
-async function verifyPlainTextButtonInActionBar(app: Application, isVisible: boolean) {
-	const openAsPlainTextInActionBar = app.code.driver.page.getByLabel('Open as Plain Text File');
-	isVisible
-		? await expect(openAsPlainTextInActionBar).toBeVisible()
-		: await expect(openAsPlainTextInActionBar).not.toBeVisible();
-}
-
-async function verifyCopyFromCell(app: Application, value: string) {
-	await expect(async () => {
-		await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-		await app.code.driver.page.keyboard.press(process.platform === 'darwin' ? 'Meta+C' : 'Control+C');
-		const clipboardText = await app.workbench.clipboard.getClipboardText();
-		expect(clipboardText).toBe(value);
-	}).toPass();
-}

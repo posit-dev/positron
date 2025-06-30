@@ -14,7 +14,7 @@ test.describe('Sessions: State', {
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys, sessions }) {
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 		await sessions.deleteDisconnectedSessions();
 		await sessions.clearConsoleAllSessions();
 	});

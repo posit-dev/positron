@@ -36,7 +36,7 @@ test.describe('Data Explorer - Large Data Frame', {
 
 		// Validate full grid by checking data in the bottom right corner
 		await dataExplorer.clickLowerRightCorner();
-		await dataExplorer.expectLastCellContentToBe(LAST_CELL_CONTENTS);
+		await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
 		// Verify the status bar text reflects the full data set
 		await dataExplorer.clickUpperLeftCorner();
@@ -58,7 +58,7 @@ test.describe('Data Explorer - Large Data Frame', {
 
 		// Validate full grid by checking data in the bottom right corner
 		await dataExplorer.clickLowerRightCorner();
-		await dataExplorer.expectLastCellContentToBe(LAST_CELL_CONTENTS);
+		await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
 		// Verify the status bar text reflects the full data set
 		await dataExplorer.clickUpperLeftCorner();

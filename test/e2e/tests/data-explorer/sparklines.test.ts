@@ -30,7 +30,7 @@ test.describe('Data Explorer - Sparklines', {
 		await editors.verifyTab('Data: pythonData', { isVisible: true });
 
 		await hotKeys.closePrimarySidebar();
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 
 		await dataExplorer.verifySparklineHeights([{ column: 1, expected: ['50.0', '40.0', '30.0', '20.0', '10.0'] }]);
 	});
@@ -45,7 +45,7 @@ test.describe('Data Explorer - Sparklines', {
 		await editors.verifyTab(`Data: rData`, { isVisible: true });
 
 		await hotKeys.closePrimarySidebar();
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 
 		await dataExplorer.verifySparklineHeights([{ column: 1, expected: ['50.0', '40.0', '30.0', '20.0', '10.0'] }]);
 	});

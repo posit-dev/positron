@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -77,8 +77,8 @@ test.describe('Data Explorer - R ', {
 		await editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 	});
 
-	test('R - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, r, executeCode }) {
-		const { variables, editors, dataExplorer } = app.workbench;
+	test('R - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, r, executeCode, hotKeys }) {
+		const { variables, editors, dataExplorer, console, popups } = app.workbench;
 
 		// Execute code to generate data frames
 		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
@@ -96,11 +96,10 @@ test.describe('Data Explorer - R ', {
 			{ 'x': '<empty>' }
 		]);
 
-		await test.step('Verify disconnect dialog', async () => {
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.trashButton.click();
-			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
-		});
+		// Verify disconnect modal dialog box when session is closed
+		await hotKeys.stackedLayout();
+		await console.trashButton.click();
+		await popups.verifyModalDialogBoxContainsText('Connection Closed');
 	});
 });
 

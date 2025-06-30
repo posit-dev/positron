@@ -132,12 +132,12 @@ export class DataExplorer {
 		});
 	}
 
-	async expectLastCellContentToBe(expectedContent: string) {
+	async expectLastCellContentToBe(columnName: string, expectedContent: string, rowAtIndex = -1): Promise<void> {
 		await test.step(`Verify last cell content: ${expectedContent}`, async () => {
 			await expect(async () => {
 				const tableData = await this.getDataExplorerTableData();
-				const lastRow = tableData.at(-1);
-				const lastHour = lastRow!['time_hour'];
+				const lastRow = tableData.at(rowAtIndex);
+				const lastHour = lastRow![columnName];
 				expect(lastHour).toBe(expectedContent);
 			}, 'Verify last hour cell content').toPass();
 		});
@@ -153,8 +153,33 @@ export class DataExplorer {
 	async selectColumnMenuItem(columnIndex: number, menuItem: string) {
 		await test.step(`Sort column ${columnIndex} by: ${menuItem}`, async () => {
 			await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
-			await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
+			await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text('${menuItem}')`).click();
 		});
+	}
+
+	async expectActionBarToHaveButton(buttonName: string, isVisible: boolean = true) {
+		await test.step(`Expect action bar to have button: ${buttonName}`, async () => {
+			const button = this.code.driver.page.getByRole('button', { name: buttonName });
+			if (isVisible) {
+				await expect(button).toBeVisible();
+			} else {
+				await expect(button).not.toBeVisible();
+			}
+		});
+	}
+
+	async verifyCanOpenAsPlaintext(searchString: string | RegExp) {
+		await this.workbench.editorActionBar.clickButton('Open as Plain Text File');
+
+		// Check if the 'Open Anyway' button is visible. This is needed on web only as it warns
+		// that the file is large and may take a while to open. This is due to a vs code behavior and file size limit.
+		const openAnyway = this.code.driver.page.getByText('Open Anyway');
+
+		if (await openAnyway.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)) {
+			await openAnyway.click();
+		}
+
+		await expect(this.code.driver.page.getByText(searchString, { exact: true })).toBeVisible();
 	}
 
 	async home(): Promise<void> {
@@ -215,7 +240,7 @@ export class DataExplorer {
 			}
 		}
 
-		// some rects have "count" class, some have "bin-count" class, some have "count other" class
+		// some rects have 'count' class, some have 'bin-count' class, some have 'count other' class
 		const rects = await this.code.driver.page.locator('.column-profile-sparkline').locator('[class*="count"]').all();
 		const profileSparklineHeights: string[] = [];
 		for (let i = 0; i < rects.length; i++) {
