@@ -132,10 +132,23 @@ export class DataExplorer {
 		});
 	}
 
-	async getDataExplorerStatusBarText(): Promise<String> {
-		await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(/Showing/, { timeout: 60000 });
-		return (await this.code.driver.page.locator(STATUS_BAR).textContent()) ?? '';
+	async expectLastCellContentToBe(expectedContent: string) {
+		await test.step(`Verify last cell content: ${expectedContent}`, async () => {
+			await expect(async () => {
+				const tableData = await this.getDataExplorerTableData();
+				const lastRow = tableData.at(-1);
+				const lastHour = lastRow!['time_hour'];
+				expect(lastHour).toBe(expectedContent);
+			}, 'Verify last hour cell content').toPass();
+		});
 	}
+
+	async expectStatusBarToHaveText(expectedText: string, timeout = 60000): Promise<void> {
+		await test.step(`Expect status bar text: ${expectedText}`, async () => {
+			await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(expectedText, { timeout });
+		});
+	}
+
 
 	async selectColumnMenuItem(columnIndex: number, menuItem: string) {
 		await test.step(`Sort column ${columnIndex} by: ${menuItem}`, async () => {
@@ -318,6 +331,15 @@ export class DataExplorer {
 
 			for (const text of verificationText) {
 				await expect(hoverTooltip).toContainText(text);
+			}
+		});
+	}
+
+	async verifySparklineHeights(expectedHeights: Array<{ column: number; expected: string[] }>) {
+		await test.step('Verify sparkline heights', async () => {
+			for (const { column, expected } of expectedHeights) {
+				const colProfileInfo = await this.getColumnProfileInfo(column);
+				expect(colProfileInfo.profileSparklineHeights).toStrictEqual(expected);
 			}
 		});
 	}
