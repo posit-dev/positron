@@ -2039,11 +2039,10 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 				)
 			);
 
-			// Detect incoming code that was not sent by the console input (that is not prefixed
-			// by 'fragment-'). When this happens, fire the onDidExecuteCode event so the code gets
-			// added to the console history. In the fullness of time, it would be ideal for the
-			// runtime to emit an event for this, but for now we can detect it.
-			if (!languageRuntimeMessageInput.parent_id.startsWith('fragment-')) {
+			// As a temporary measure, to be replaced soon with an event from the runtime, detect code
+			// that was injected into the runtime directly (not via the console input). When this happens,
+			// fire the onDidExecuteCode event so the code gets added to the console history.
+			if (languageRuntimeMessageInput.parent_id.startsWith('direct-injection-')) {
 				// Get the session's language ID. It will always be defined for a runtime session.
 				const languageId = this.session?.runtimeMetadata?.languageId;
 				if (!languageId) {

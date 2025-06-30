@@ -23,12 +23,14 @@ test.describe('Console - Clipboard', { tag: [tags.CONSOLE, tags.WIN, tags.WEB] }
 			await testConsoleClipboardWithContextMenu(app, '>>>', /Python .+ restarted\./, (new URL(page.url())).port);
 		});
 
-	test('R - Verify copy from console & paste to console ', async ({ app, r, page }) => {
+	test('R - Verify copy from console & paste to console ', {
+		tag: [tags.ARK]
+	}, async ({ app, r, page }) => {
 		await testConsoleClipboard(app, 'a <- 1', (new URL(page.url())).port);
 	});
 
 	test('R - Verify copy from console & paste to console with context menu',
-		{ tag: [tags.WEB_ONLY] },
+		{ tag: [tags.WEB_ONLY, tags.ARK] },
 		async ({ app, r, page }) => {
 			await testConsoleClipboardWithContextMenu(app, '>', /R .+ restarted\./, (new URL(page.url())).port);
 		});

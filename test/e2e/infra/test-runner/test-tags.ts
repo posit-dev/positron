@@ -20,6 +20,7 @@ export enum TestTags {
 	// feature tags
 	ACCESSIBILITY = '@:accessibility',
 	APPS = '@:apps',
+	ARK = '@:ark',
 	ASSISTANT = '@:assistant',
 	CONNECTIONS = '@:connections',
 	CONSOLE = '@:console',

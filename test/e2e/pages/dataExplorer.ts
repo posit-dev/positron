@@ -254,23 +254,6 @@ export class DataExplorer {
 		});
 	}
 
-	async verifyTab(
-		tabName: string,
-		{ isVisible = true, isSelected = true }: { isVisible?: boolean; isSelected?: boolean }
-	): Promise<void> {
-		await test.step(`Verify tab: ${tabName} is ${isVisible ? '' : 'not'} visible, is ${isSelected ? '' : 'not'} selected`, async () => {
-			const tabLocator = this.code.driver.page.getByRole('tab', { name: tabName });
-
-			await (isVisible
-				? expect(tabLocator).toBeVisible()
-				: expect(tabLocator).not.toBeVisible());
-
-			await (isSelected
-				? expect(tabLocator).toHaveClass(/selected/)
-				: expect(tabLocator).not.toHaveClass(/selected/));
-		});
-	}
-
 	async verifyTableData(expectedData, timeout = 60000) {
 		await test.step('Verify data explorer data', async () => {
 			await expect(async () => {
@@ -285,6 +268,28 @@ export class DataExplorer {
 					}
 				}
 			}).toPass({ timeout });
+		});
+	}
+
+	async verifyTableDataLength(expectedLength: number) {
+		await test.step('Verify data explorer table data length', async () => {
+			await expect(async () => {
+				const tableData = await this.getDataExplorerTableData();
+				expect(tableData.length).toBe(expectedLength);
+			}).toPass({ timeout: 60000 });
+		});
+	}
+
+	async verifyTableDataRowValue(rowIndex: number, expectedData: CellData) {
+		await test.step(`Verify data explorer row ${rowIndex} data`, async () => {
+			await expect(async () => {
+				const tableData = await this.getDataExplorerTableData();
+				const rowData = tableData[rowIndex];
+
+				for (const [key, value] of Object.entries(expectedData)) {
+					expect(rowData[key]).toBe(value);
+				}
+			}).toPass({ timeout: 60000 });
 		});
 	}
 

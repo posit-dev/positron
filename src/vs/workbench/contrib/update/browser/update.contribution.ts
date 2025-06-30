@@ -26,6 +26,12 @@ import { ContextKeyExpr } from '../../../../platform/contextkey/common/contextke
 
 // --- Start Positron ---
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+// eslint-disable-next-line no-duplicate-imports
+import { IsDevelopmentContext } from '../../../../platform/contextkey/common/contextkeys.js';
+// eslint-disable-next-line no-duplicate-imports
+import { storeLastUpdateVersion } from './update.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
+import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 // --- End Positron ---
 
 const workbench = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
@@ -60,17 +66,15 @@ export class ShowCurrentReleaseNotesAction extends Action2 {
 	async run(accessor: ServicesAccessor): Promise<void> {
 		const instantiationService = accessor.get(IInstantiationService);
 		const productService = accessor.get(IProductService);
-		const openerService = accessor.get(IOpenerService);
+		// --- Start Positron ---
+		// const openerService = accessor.get(IOpenerService);
 
 		try {
-			await showReleaseNotesInEditor(instantiationService, productService.version, false);
+			await showReleaseNotesInEditor(instantiationService, productService.positronVersion, false);
 		} catch (err) {
-			if (productService.releaseNotesUrl) {
-				await openerService.open(URI.parse(productService.releaseNotesUrl));
-			} else {
-				throw new Error(localize('update.noReleaseNotesOnline', "This version of {0} does not have release notes online", productService.nameLong));
-			}
+			throw new Error(localize('update.noReleaseNotesOnline', "This version of {0} does not have release notes online", productService.nameLong));
 		}
+		// --- End Positron ---
 	}
 }
 
@@ -93,7 +97,9 @@ export class ShowCurrentReleaseNotesFromCurrentFileAction extends Action2 {
 		const productService = accessor.get(IProductService);
 
 		try {
-			await showReleaseNotesInEditor(instantiationService, productService.version, true);
+			// --- Start Positron ---
+			await showReleaseNotesInEditor(instantiationService, productService.positronVersion, true);
+			// --- End Positron ---
 		} catch (err) {
 			throw new Error(localize('releaseNotesFromFileNone', "Cannot open the current file as Release Notes"));
 		}
@@ -257,3 +263,41 @@ if (isWindows) {
 
 	registerAction2(DeveloperApplyUpdateAction);
 }
+
+// --- Start Positron ---
+class DeveloperSetLastUpdateVersion extends Action2 {
+	constructor() {
+		super({
+			id: 'update.setLastUpdateVersion',
+			title: localize2('setLastUpdateVersion', 'Set Last Update Version'),
+			category: Categories.Developer,
+			f1: true,
+			precondition: IsDevelopmentContext
+		});
+	}
+
+	async run(accessor: ServicesAccessor): Promise<void> {
+		const quickInputService = accessor.get(IQuickInputService);
+		const productService = accessor.get(IProductService);
+		const notificationService = accessor.get(INotificationService);
+		const instantiationService = accessor.get(IInstantiationService);
+
+		const version = await quickInputService.input({
+			prompt: localize('enterVersion', "Enter version string"),
+			placeHolder: productService.positronVersion,
+			value: productService.positronVersion
+		});
+
+		if (version) {
+			instantiationService.invokeFunction((accessor) => {
+				storeLastUpdateVersion(accessor, version);
+			});
+		} else {
+			// notify with notification service that a version was not set
+			notificationService.warn(localize('noVersionSet', "No version was set"));
+		}
+	}
+}
+
+registerAction2(DeveloperSetLastUpdateVersion);
+// --- End Positron ---

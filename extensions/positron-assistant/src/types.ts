@@ -8,6 +8,7 @@ export enum PositronAssistantToolName {
 	EditFile = 'positron_editFile_internal',
 	ExecuteCode = 'executeCode',
 	GetPlot = 'getPlot',
+	InstallPythonPackage = 'installPythonPackage',
 	InspectVariables = 'inspectVariables',
 	SelectionEdit = 'selectionEdit',
 	ProjectTree = 'getProjectTree',

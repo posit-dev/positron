@@ -20,7 +20,9 @@ test.describe('Sessions: Delete', {
 		await sessions.expectSessionCountToBe(0);
 	});
 
-	test('R - Validate can delete a single session', async function ({ sessions }) {
+	test('R - Validate can delete a single session', {
+		tag: [tags.ARK]
+	}, async function ({ sessions }) {
 		await sessions.start(['r']);
 		await sessions.expectSessionCountToBe(1);
 		await sessions.deleteAll();

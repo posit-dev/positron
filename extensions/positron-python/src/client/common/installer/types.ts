@@ -90,4 +90,7 @@ export enum ModuleInstallFlags {
 
 export type InstallOptions = {
     installAsProcess?: boolean;
+    // --- Start Positron ---
+    waitForCompletion?: boolean;
+    // --- End Positron ---
 };

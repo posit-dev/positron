@@ -35,11 +35,30 @@
         "command": "workbench.action.showAuxiliaryBar" // Views: Show Secondary Side Bar
     },
     {
+        "key": "cmd+j g",
+        "command": "workbench.action.fullSizedAuxiliaryBar" // Views: Full Size Auxiliary Bar
+    },
+    {
+        "key": "cmd+j h",
+        "command": "workbench.action.positronFourPaneDataScienceLayout" // Views: Stacked Layout
+    },
+    {
         "key": "cmd+r r",
         "command": "workbench.action.reloadWindow"
     },
     {
         "key": "cmd+j x",
         "command": "resetGettingStartedProgress" // Reset Welcome Walkthrough Progress
+    },
+    {
+        "key": "cmd+j o",
+        "command": "workbench.action.executeCode.console" // Execute Code in Console
+    },
+    {
+        "key": "cmd+j c",
+        "command": "workbench.action.togglePanel"
+    }, {
+        "key": "cmd+j n",
+        "command": "workbench.action.positronNotebookLayout" // View: Notebook Layout
     }
 ]

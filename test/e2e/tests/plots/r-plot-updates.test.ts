@@ -12,7 +12,9 @@ test.use({
 });
 
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
-	test.describe('R Plots', () => {
+	test.describe('R Plots', {
+		tag: [tags.ARK]
+	}, () => {
 
 		test('R - plot should not be updated after initial appearance', { tag: [tags.WEB, tags.WIN] }, async function ({ app, r }) {
 

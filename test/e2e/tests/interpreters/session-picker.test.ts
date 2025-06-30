@@ -21,7 +21,9 @@ test.describe('Session Picker', {
 		await sessions.expectAllSessionsToBeReady();
 	});
 
-	test('R - Start and verify session via session picker', async function ({ sessions }) {
+	test('R - Start and verify session via session picker', {
+		tag: [tags.ARK]
+	}, async function ({ sessions }) {
 		const rSession = await sessions.start('r', { triggerMode: 'session-picker', reuse: false });
 
 		await sessions.expectSessionPickerToBe(rSession.name);

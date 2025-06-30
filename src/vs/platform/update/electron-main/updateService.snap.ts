@@ -138,6 +138,9 @@ abstract class AbstractUpdateService implements IUpdateService {
 	updateActiveLanguages(languages: string[]): void {
 		// no-op
 	}
+	getReleaseNotes(): Promise<string> {
+		return Promise.resolve('No release notes available');
+	}
 	// --- End Positron ---
 }
 

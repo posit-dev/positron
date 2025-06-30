@@ -15,7 +15,9 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 
-	test('Run a long computation and see the progress bar appearing', async function ({ app, sessions }) {
+	test('Run a long computation and see the progress bar appearing', {
+		tag: [tags.ARK]
+	}, async function ({ app, sessions }) {
 
 		const session1 = await sessions.start('r');
 		await app.workbench.layouts.enterLayout('fullSizedAuxBar');

@@ -80,9 +80,9 @@ export class Plots {
 		const locator = RWeb ? this.getDeepWebWebviewPlotLocator(selector) : this.getWebviewPlotLocator(selector);
 
 		if (state === 'attached') {
-			await expect(locator).toBeAttached({ timeout: 30000 });
+			await expect(locator).toBeAttached({ timeout: 15000 });
 		} else {
-			await expect(locator).toBeVisible({ timeout: 30000 });
+			await expect(locator).toBeVisible({ timeout: 15000 });
 		}
 	}
 

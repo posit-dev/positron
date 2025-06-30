@@ -309,7 +309,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				response.reference(llmsDocument.uri);
 
 				// Add the contents of the file to the prompt
-				prompts.push(xml.node('instructions', llmsText));
+				const instructionsNode = xml.node('instructions', llmsText);
+				prompts.push(instructionsNode);
+				log.debug(`[context] adding llms.txt context: ${llmsText.length} characters`);
 			}
 		}
 
@@ -344,20 +346,21 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					response.reference(value.uri);
 
 					// Add the visible region prompt.
-					attachmentPrompts.push(xml.node('attachment', visibleText, {
+					const rangeAttachmentNode = xml.node('attachment', visibleText, {
 						filePath: path,
 						description: 'Visible region of the active file',
 						language: document.languageId,
 						startLine: value.range.start.line + 1,
 						endLine: value.range.end.line + 1,
-					}));
-
-					// Add the full document text prompt.
-					attachmentPrompts.push(xml.node('attachment', documentText, {
+					});
+					const documentAttachmentNode = xml.node('attachment', documentText, {
 						filePath: path,
 						description: 'Full contents of the active file',
 						language: document.languageId,
-					}));
+					});
+					attachmentPrompts.push(rangeAttachmentNode, documentAttachmentNode);
+					log.debug(`[context] adding file range attachment context: ${rangeAttachmentNode.length} characters`);
+					log.debug(`[context] adding file attachment context: ${documentAttachmentNode.length} characters`);
 				} else if (value instanceof vscode.Uri) {
 					const fileStat = await vscode.workspace.fs.stat(value);
 					if (fileStat.type === vscode.FileType.Directory) {
@@ -379,10 +382,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						// response.reference(value);
 
 						// Attach the folder's contents.
-						attachmentPrompts.push(xml.node('attachment', entriesText, {
+						const attachmentNode = xml.node('attachment', entriesText, {
 							filePath: path,
 							description: 'Contents of the directory',
-						}));
+						});
+						attachmentPrompts.push(attachmentNode);
+						log.debug(`[context] adding directory attachment context: ${attachmentNode.length} characters`);
 					} else {
 						// The user attached a file - usually a manually attached file in the workspace.
 						const document = await vscode.workspace.openTextDocument(value);
@@ -393,11 +398,13 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						response.reference(value);
 
 						// Attach the full document text.
-						attachmentPrompts.push(xml.node('attachment', documentText, {
+						const attachmentNode = xml.node('attachment', documentText, {
 							filePath: path,
 							description: 'Full contents of the file',
 							language: document.languageId,
-						}));
+						});
+						attachmentPrompts.push(attachmentNode);
+						log.debug(`[context] adding file attachment context: ${attachmentNode.length} characters`);
 					}
 				} else if (value instanceof vscode.ChatReferenceBinaryData) {
 					if (isChatImageMimeType(value.mimeType)) {
@@ -410,18 +417,20 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						}
 
 						// Attach the image.
-						attachmentPrompts.push(xml.leaf('img', {
+						const imageNode = xml.leaf('img', {
 							src: reference.name,
-						}));
+						});
+						attachmentPrompts.push(imageNode);
+						log.debug(`[context] adding image attachment context: ${data.length} bytes`);
 
 						userDataParts.push(
 							vscode.LanguageModelDataPart.image(data, value.mimeType),
 						);
 					} else {
-						console.warn(`Positron Assistant: Unsupported chat reference binary data type: ${typeof value}`);
+						log.warn(`Unsupported chat reference binary data type: ${typeof value}`);
 					}
 				} else {
-					console.warn(`Positron Assistant: Unsupported reference type: ${typeof value}`);
+					log.warn(`Unsupported reference type: ${typeof value}`);
 				}
 			}
 
@@ -439,15 +448,18 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			const executions = positronContext.activeSession.executions
 				.map((e) => xml.node('execution', JSON.stringify(e)))
 				.join('\n');
-			positronContextPrompts.push(
-				xml.node('session',
-					xml.node('executions', executions ?? ''), {
-					description: 'Current active session',
-					language: positronContext.activeSession.language,
-					version: positronContext.activeSession.version,
-					mode: positronContext.activeSession.mode,
-					identifier: positronContext.activeSession.identifier,
-				})
+			const sessionNode = xml.node('session',
+				xml.node('executions', executions ?? ''), {
+				description: 'Current active session',
+				language: positronContext.activeSession.language,
+				version: positronContext.activeSession.version,
+				mode: positronContext.activeSession.mode,
+				identifier: positronContext.activeSession.identifier,
+			});
+			positronContextPrompts.push(sessionNode);
+			log.debug(
+				`[context] adding active ${positronContext.activeSession.mode} ${positronContext.activeSession.language} session context: ` +
+				`${sessionNode.length} characters`
 			);
 		}
 		if (positronContext.variables) {
@@ -457,33 +469,33 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			const description = content.length > 0 ?
 				'Variables defined in the current session' :
 				'No variables defined in the current session';
-			positronContextPrompts.push(
-				xml.node('variables', content, {
-					description,
-				})
-			);
+			const variablesNode = xml.node('variables', content, {
+				description,
+			});
+			positronContextPrompts.push(variablesNode);
+			log.debug(`[context] adding variables context: ${variablesNode.length} characters`);
 		}
 		if (positronContext.shell) {
-			positronContextPrompts.push(
-				xml.node('shell', positronContext.shell, {
-					description: 'Current active shell',
-				})
-			);
+			const shellNode = xml.node('shell', positronContext.shell, {
+				description: 'Current active shell',
+			});
+			positronContextPrompts.push(shellNode);
+			log.debug(`[context] adding shell context: ${shellNode.length} characters`);
 		}
 		if (positronContext.plots && positronContext.plots.hasPlots) {
-			positronContextPrompts.push(
-				xml.node('plots', 'A plot is visible.')
-			);
+			const plotsNode = xml.node('plots', 'A plot is visible.');
+			positronContextPrompts.push(plotsNode);
+			log.debug(`[context] adding plots context: ${plotsNode.length} characters`);
 		}
 		if (positronContext.positronVersion) {
-			positronContextPrompts.push(
-				xml.node('version', `Positron version: ${positronContext.positronVersion}`),
-			);
+			const versionNode = xml.node('version', `Positron version: ${positronContext.positronVersion}`);
+			positronContextPrompts.push(versionNode);
+			log.debug(`[context] adding positron version context: ${versionNode.length} characters`);
 		}
 		if (positronContext.currentDate) {
-			positronContextPrompts.push(
-				xml.node('date', `Today's date is: ${positronContext.currentDate}`),
-			);
+			const dateNode = xml.node('date', `Today's date is: ${positronContext.currentDate}`);
+			positronContextPrompts.push(dateNode);
+			log.debug(`[context] adding date context: ${dateNode.length} characters`);
 		}
 		if (positronContextPrompts.length > 0) {
 			prompts.push(xml.node('context', positronContextPrompts.join('\n\n')));
@@ -748,7 +760,7 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		const selectedText = document.getText(selection);
 		const documentText = document.getText();
 		const filePath = uriToString(document.uri);
-		return xml.node('editor',
+		const editorNode = xml.node('editor',
 			[
 				xml.node('document', documentText, {
 					description: 'Full contents of the active file',
@@ -766,6 +778,8 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 				documentOffset: document.offsetAt(selection.active),
 			},
 		);
+		log.debug(`[context] adding editor context: ${editorNode.length} characters`);
+		return editorNode;
 	}
 
 }

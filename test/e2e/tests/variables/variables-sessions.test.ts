@@ -13,8 +13,8 @@ test.describe('Variables: Sessions', {
 	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.VARIABLES, tags.SESSIONS]
 }, () => {
 
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.variables.togglePane('hide');
+	test.beforeEach(async function ({ hotKeys }) {
+		await hotKeys.hideSecondarySidebar();
 	});
 
 	test.afterEach(async function ({ sessions }) {

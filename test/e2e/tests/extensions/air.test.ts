@@ -15,7 +15,7 @@ test.describe('Extensions', {
 }, () => {
 
 	test('Verify AIR extension basic functionality', {
-		tag: [tags.EXTENSIONS, tags.WEB, tags.WIN]
+		tag: [tags.ARK]
 	}, async function ({ app, openFile, runCommand }) {
 
 		await openFile('workspaces/r-formatting/bad-formatting.r');
@@ -32,6 +32,7 @@ test.describe('Extensions', {
 		});
 
 	});
+
 });
 
 // note that waitForEditorContents removes line breaks

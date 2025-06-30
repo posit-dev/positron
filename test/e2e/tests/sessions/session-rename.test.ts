@@ -17,11 +17,11 @@ test.describe('Sessions: Rename', {
 	],
 }, () => {
 
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.variables.togglePane('hide');
+	test.beforeEach(async function ({ hotKeys }) {
+		await hotKeys.hideSecondarySidebar();
 	});
 
-	test('Validate can rename sessions and name persists', async function ({ sessions }) {
+	test('Validate can rename sessions and name persists', async function ({ sessions, runCommand }) {
 		const [pySession, pySessionAlt, rSession, rSessionAlt] = await sessions.start(['python', 'pythonAlt', 'r', 'rAlt']);
 
 		// Rename sessions
@@ -36,16 +36,16 @@ test.describe('Sessions: Rename', {
 		await sessions.expectSessionNameToBe(rSession.id, 'R Session 1');
 		await sessions.expectSessionNameToBe(rSessionAlt.id, 'R Session 2');
 
-		// Skipping rest of test due to issue 6843
+		// Test may be flaky due to issue 6843
 		// Reload window
-		// await runCommand('workbench.action.reloadWindow');
-		// await sessions.expectAllSessionsToBeReady();
+		await runCommand('workbench.action.reloadWindow');
+		await sessions.expectAllSessionsToBeReady();
 
-		// // Verify session names persist
-		// await sessions.expectSessionNameToBe(pySession.id, 'Python Session 1');
-		// await sessions.expectSessionNameToBe(pySessionAlt.id, 'Python Session 2');
-		// await sessions.expectSessionNameToBe(rSession.id, 'R Session 1');
-		// await sessions.expectSessionNameToBe(rSessionAlt.id, 'R Session 2');
+		// Verify session names persist
+		await sessions.expectSessionNameToBe(pySession.id, 'Python Session 1');
+		await sessions.expectSessionNameToBe(pySessionAlt.id, 'Python Session 2');
+		await sessions.expectSessionNameToBe(rSession.id, 'R Session 1');
+		await sessions.expectSessionNameToBe(rSessionAlt.id, 'R Session 2');
 	});
 
 	test('Validate can rename sessions via UI', { tag: [tags.WEB_ONLY] }, async function ({ sessions },) {

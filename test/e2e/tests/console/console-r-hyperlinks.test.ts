@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Console Pane: R Hyperlinks', {
-	tag: [tags.WEB, tags.CONSOLE, tags.WIN]
+	tag: [tags.WEB, tags.CONSOLE, tags.WIN, tags.ARK]
 }, () => {
 
 	test('R - Verify console link to help', async function ({ app, r }) {

@@ -29,7 +29,7 @@ test.describe('Data Explorer - R ', {
 
 		// Open Data Explorer
 		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true, isSelected: true });
+		await app.workbench.editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Verify the data in the table
 		await app.workbench.dataExplorer.maximizeDataExplorer(true);
@@ -65,14 +65,14 @@ test.describe('Data Explorer - R ', {
 
 		// Open Data Explorer
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
+		await app.workbench.editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 
 		// Now move focus out of the the data explorer pane
 		await app.workbench.editors.newUntitledFile();
 		await app.workbench.variables.focusVariablesView();
-		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: false });
+		await app.workbench.editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: false });
 		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-		await app.workbench.dataExplorer.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
+		await app.workbench.editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 	});
 
 	test('R - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, r, executeCode }) {
@@ -81,7 +81,7 @@ test.describe('Data Explorer - R ', {
 
 		// Open Data Explorer
 		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true, isSelected: true });
+		await app.workbench.editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Verify blank spaces in the table
 		await expect(async () => {
