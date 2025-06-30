@@ -46,6 +46,21 @@ function getQuartoWindows(version: string): Stream {
 function getQuartoMacOS(version: string): Stream {
 	const gunzip = require('gulp-gunzip');
 	const untar = require('gulp-untar');
+	const filter = require('gulp-filter');
+
+	const arch = process.env['npm_config_arch'];
+
+	// Create a filter to exclude files based on architecture.
+	const archFilter = filter((file: any) => {
+		const path = file.relative || file.path || '';
+		if (arch === 'x64') {
+			// For x64, exclude aarch64 files
+			return !path.includes('/aarch64/');
+		} else {
+			// For other architectures (including arm64), exclude x86_64 files
+			return !path.includes('/x86_64/');
+		}
+	});
 
 	return fetchUrls([`quarto-${version}-macos.tar.gz`], {
 		base: getBaseUrl(version),
@@ -54,7 +69,9 @@ function getQuartoMacOS(version: string): Stream {
 	})
 		// Unzip, then untar
 		.pipe(gunzip())
-		.pipe(untar());
+		.pipe(untar())
+		// Filter out unnecessary architecture files
+		.pipe(archFilter);
 }
 
 /**

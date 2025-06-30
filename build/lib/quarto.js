@@ -81,6 +81,20 @@ function getQuartoWindows(version) {
 function getQuartoMacOS(version) {
     const gunzip = require('gulp-gunzip');
     const untar = require('gulp-untar');
+    const filter = require('gulp-filter');
+    const arch = process.env['npm_config_arch'];
+    // Create a filter to exclude files based on architecture.
+    const archFilter = filter((file) => {
+        const path = file.relative || file.path || '';
+        if (arch === 'x64') {
+            // For x64, exclude aarch64 files
+            return !path.includes('/aarch64/');
+        }
+        else {
+            // For other architectures (including arm64), exclude x86_64 files
+            return !path.includes('/x86_64/');
+        }
+    });
     return (0, fetch_1.fetchUrls)([`quarto-${version}-macos.tar.gz`], {
         base: getBaseUrl(version),
         verbose: true,
@@ -88,7 +102,9 @@ function getQuartoMacOS(version) {
     })
         // Unzip, then untar
         .pipe(gunzip())
-        .pipe(untar());
+        .pipe(untar())
+        // Filter out unnecessary architecture files
+        .pipe(archFilter);
 }
 /**
  * Gets a stream that downloads and unpacks the quarto executable for Linux
