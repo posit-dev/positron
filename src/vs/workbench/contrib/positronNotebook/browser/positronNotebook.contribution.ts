@@ -16,14 +16,11 @@ import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../
 
 import { parse } from '../../../../base/common/marshalling.js';
 import { assertType } from '../../../../base/common/types.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
 import { LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { PositronNotebookEditor } from './PositronNotebookEditor.js';
 import { PositronNotebookEditorInput, PositronNotebookEditorInputOptions } from './PositronNotebookEditorInput.js';
-import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
 import { KeyChord, KeyCode, KeyMod } from '../../../../base/common/keyCodes.js';
 import { ICommandAndKeybindingRule, KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
@@ -32,36 +29,6 @@ import { IPositronNotebookInstance } from '../../../services/positronNotebook/br
 
 
 
-/**
- * Key for the configuration setting that determines whether to use the Positron Notebook editor
- */
-const USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY = 'positron.notebooks.usePositronNotebooksExperimental';
-
-/**
- * Retrieve the value of the configuration setting that determines whether to use the Positron
- * Notebook editor. Makes sure that the value is a boolean for type-safety.
- * @param configurationService Configuration service
- * @returns A boolean value that determines whether to use the Positron Notebook editor
- */
-export function getShouldUsePositronEditor(configurationService: IConfigurationService) {
-	return Boolean(configurationService.getValue(USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY));
-}
-
-// Register the configuration setting that determines whether to use the Positron Notebook editor
-Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).registerConfiguration({
-	...positronConfigurationNodeBase,
-	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
-	properties: {
-		[USE_POSITRON_NOTEBOOK_EDITOR_CONFIG_KEY]: {
-			type: 'boolean',
-			default: false,
-			markdownDescription: localize(
-				'positron.usePositronNotebooks',
-				"Use experimental Positron Notebook editor.\n\n**CAUTION**: The Positron Notebook editor is experimental and does not yet support all notebook features."
-			),
-		}
-	}
-});
 
 
 /**
