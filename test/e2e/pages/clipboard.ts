@@ -4,10 +4,19 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from '../infra/code';
+import { HotKeys } from './hotKeys.js';
 
 export class Clipboard {
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private hotKeys: HotKeys) { }
+
+	async copy(): Promise<void> {
+		await this.hotKeys.copy();
+	}
+
+	async paste(): Promise<void> {
+		await this.hotKeys.paste();
+	}
 
 	async getClipboardText(): Promise<string | null> {
 		// Grant permissions to read from clipboard

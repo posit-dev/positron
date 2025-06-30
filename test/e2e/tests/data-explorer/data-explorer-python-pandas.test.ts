@@ -5,7 +5,6 @@
 
 import { join } from 'path';
 import { test, expect, tags } from '../_test.setup';
-import { Application } from '../../infra/index.js';
 
 test.use({
 	suiteId: __filename
@@ -37,7 +36,7 @@ test.describe('Data Explorer - Python Pandas', {
 			{ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' },
 			{ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' }
 		]);
-		await verifyCanCopyDataToClipboard(app, 'Jai');
+		await dataExplorer.verifyCanCopyDataToClipboard('Jai');
 		await dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
 		await dataExplorer.verifyNullPercentHoverDialog();
 	});
@@ -71,7 +70,7 @@ test.describe('Data Explorer - Python Pandas', {
 		]);
 
 		// verify column profile data
-		await dataExplorer.verifyProfileData([
+		await dataExplorer.verifyColumnData([
 			{ column: 1, expected: { 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' } },
 			{ column: 2, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } },
 			{ column: 3, expected: { 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' } },
@@ -159,17 +158,6 @@ test.describe('Data Explorer - Python Pandas', {
 	});
 });
 
-
-async function verifyCanCopyDataToClipboard(app: Application, expectedText?: string) {
-	await test.step('Verify can copy data to clipboard', async () => {
-		await expect(async () => {
-			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-			await app.workbench.hotKeys.copy();
-			const clipboardText = await app.workbench.clipboard.getClipboardText();
-			expect(clipboardText).toBe(expectedText || 'Jai');
-		}).toPass({ timeout: 20000 });
-	});
-}
 
 // modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 const df = `import pandas as pd

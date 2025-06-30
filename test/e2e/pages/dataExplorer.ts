@@ -180,10 +180,8 @@ export class DataExplorer {
 	async getColumnProfileInfo(rowNumber: number): Promise<ColumnProfile> {
 
 		const expandCollapseLocator = this.code.driver.page.locator(EXPAND_COLLAPSE_PROFILE(rowNumber));
-
 		await expandCollapseLocator.scrollIntoViewIfNeeded();
 		await expandCollapseLocator.click();
-
 		await expect(expandCollapseLocator.locator(EXPAND_COLLASPE_ICON)).toHaveClass(/codicon-chevron-down/);
 
 		const profileData: { [key: string]: string } = {};
@@ -254,7 +252,7 @@ export class DataExplorer {
 		});
 	}
 
-	async verifyTableData(expectedData, timeout = 60000) {
+	async verifyTableData(expectedData: Array<{ [key: string]: string }>, timeout = 60000) {
 		await test.step('Verify data explorer data', async () => {
 			await expect(async () => {
 				const tableData = await this.getDataExplorerTableData();
@@ -302,8 +300,8 @@ export class DataExplorer {
 		});
 	}
 
-	async verifyProfileData(expectedValues: Array<{ column: number; expected: { [key: string]: string } }>) {
-		await test.step('Verify profile data', async () => {
+	async verifyColumnData(expectedValues: Array<{ column: number; expected: { [key: string]: string } }>) {
+		await test.step('Verify column data', async () => {
 			for (const { column, expected } of expectedValues) {
 				const profileInfo = await this.getColumnProfileInfo(column);
 				expect(profileInfo.profileData).toStrictEqual(expected);
@@ -347,4 +345,16 @@ export class DataExplorer {
 			expect(missing).toEqual([]); // Will throw if any are missing
 		});
 	}
+
+	async verifyCanCopyDataToClipboard(expectedText: string) {
+		await test.step('Verify can copy data to clipboard', async () => {
+			await expect(async () => {
+				await this.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
+				await this.workbench.hotKeys.copy();
+				const clipboardText = await this.workbench.clipboard.getClipboardText();
+				expect(clipboardText).toBe(expectedText);
+			}).toPass({ timeout: 20000 });
+		});
+	}
+
 }
