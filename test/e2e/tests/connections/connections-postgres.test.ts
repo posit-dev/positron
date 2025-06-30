@@ -27,7 +27,7 @@ test.describe('Postgres DB Connection', {
 	tag: [tags.WEB, tags.CONNECTIONS]
 }, () => {
 
-	test('Python - Can establish a Postgres connection to a docker container', async function ({ app, python }) {
+	test('Python - Can establish a Postgres connection to a docker container', async function ({ app, hotKeys, python }) {
 
 		await app.workbench.connections.openConnectionPane();
 
@@ -65,7 +65,7 @@ test.describe('Postgres DB Connection', {
 			}).toPass({ timeout: 60000 });
 		});
 
-		await app.workbench.dataExplorer.closeDataExplorer();
+		await hotKeys.closeAllEditors();
 		await app.workbench.layouts.enterLayout('stacked');
 
 		await test.step('Remove connection', async () => {
@@ -83,7 +83,7 @@ test.describe('Postgres DB Connection', {
 
 	test('R - Can establish a Postgres connection to a docker container', {
 		tag: [tags.ARK]
-	}, async function ({ app, r }) {
+	}, async function ({ app, hotKeys, r }) {
 
 		await app.workbench.connections.openConnectionPane();
 
@@ -128,8 +128,7 @@ test.describe('Postgres DB Connection', {
 			}).toPass({ timeout: 60000 });
 		});
 
-		await app.workbench.dataExplorer.closeDataExplorer();
-		await app.workbench.layouts.enterLayout('stacked');
+		await hotKeys.closeAllEditors();
 
 		await test.step('Remove connection', async () => {
 			await app.workbench.connections.openConnectionPane();

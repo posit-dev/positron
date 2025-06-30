@@ -12,7 +12,6 @@ const COLUMN_HEADERS = '.data-explorer-panel .right-column .data-grid-column-hea
 const HEADER_TITLES = '.data-grid-column-header .title-description .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows';
 const DATA_GRID_ROW = '.data-grid-row';
-const CLOSE_DATA_EXPLORER = '.tab .codicon-close';
 const IDLE_STATUS = '.status-bar-indicator .icon.idle';
 const SCROLLBAR_LOWER_RIGHT_CORNER = '.data-grid-scrollbar-corner';
 const DATA_GRID_TOP_LEFT = '.data-grid-corner-top-left';
@@ -97,10 +96,6 @@ export class DataExplorer {
 		}
 
 		return tableData;
-	}
-
-	async closeDataExplorer() {
-		await this.code.driver.page.locator(CLOSE_DATA_EXPLORER).first().click();
 	}
 
 	async clickLowerRightCorner() {

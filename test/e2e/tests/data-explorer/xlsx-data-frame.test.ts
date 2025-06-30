@@ -14,8 +14,8 @@ test.describe('Data Explorer - XLSX', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
 
-	test.afterEach(async function ({ app, hotKeys }) {
-		await app.workbench.dataExplorer.closeDataExplorer();
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
 		await hotKeys.showSecondarySidebar();
 	});
 

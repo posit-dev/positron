@@ -21,8 +21,8 @@ test.describe('Data Explorer - Large Data Frame', {
 		await hotKeys.stackedLayout();
 	});
 
-	test.afterEach(async function ({ app }) {
-		await app.workbench.dataExplorer.closeDataExplorer();
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
 	});
 
 	test('Python - Verify data loads and basic filtering with large data frame', async function ({ app, openFile, runCommand, python }) {

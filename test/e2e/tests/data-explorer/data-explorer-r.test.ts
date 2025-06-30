@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { clipboard } from 'electron';
 import { test, tags } from '../_test.setup';
 
 test.use({

@@ -33,8 +33,8 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		}
 	});
 
-	test.afterEach(async function ({ app, hotKeys }) {
-		await app.workbench.dataExplorer.closeDataExplorer();
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
 		await hotKeys.showSecondarySidebar();
 	});
 
