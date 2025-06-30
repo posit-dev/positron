@@ -135,11 +135,6 @@ import { getFormattedNotebookMetadataJSON } from '../common/model/notebookMetada
 import { NotebookOutputEditor } from './outputEditor/notebookOutputEditor.js';
 import { NotebookOutputEditorInput } from './outputEditor/notebookOutputEditorInput.js';
 
-// --- Start Positron ---
-import { getShouldUsePositronEditor } from '../../positronNotebook/browser/positronNotebook.contribution.js';
-import { PositronNotebookEditorInput } from '../../positronNotebook/browser/PositronNotebookEditorInput.js';
-import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
-// --- End Positron ---
 /*--------------------------------------------------------------------------------------------- */
 
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
@@ -771,9 +766,6 @@ class NotebookEditorManager implements IWorkbenchContribution {
 	constructor(
 		@IEditorService private readonly _editorService: IEditorService,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelService: INotebookEditorModelResolverService,
-		// --- Start Positron ---
-		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
-		// --- End Positron ---
 		@IEditorGroupsService editorGroups: IEditorGroupsService
 	) {
 		// OPEN notebook editor for models that have turned dirty without being visible in an editor
@@ -802,16 +794,6 @@ class NotebookEditorManager implements IWorkbenchContribution {
 		const result: IResourceEditorInput[] = [];
 		for (const model of models) {
 			if (model.isDirty() && !this._editorService.isOpened({ resource: model.resource, typeId: NotebookEditorInput.ID, editorId: model.viewType }) && extname(model.resource) !== '.interactive') {
-				// --- Start Positron ---
-				// Make sure that we dont try and open the same editor twice if we're using positron
-				// notebooks. This is a separate if-statement so we don't have to put the diff
-				// inside the inline conditional.
-				const positronNotebookInstance = this._positronNotebookService.getInstance(model.resource);
-				// Check to see if the instance is connected to the view.
-				if (positronNotebookInstance && positronNotebookInstance.connectedToEditor) {
-					continue;
-				}
-				// --- End Positron ---
 				result.push({
 					resource: model.resource,
 					options: { inactive: true, preserveFocus: true, pinned: true, override: model.viewType }
@@ -832,10 +814,7 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IWorkingCopyEditorService private readonly _workingCopyEditorService: IWorkingCopyEditorService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
-		// --- Start Positron ---
 		@INotebookService private readonly _notebookService: INotebookService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		// --- End Positron ---
 	) {
 		super();
 
@@ -865,20 +844,10 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 			return false;
 		}
 
-		// --- Start Positron ---
-		if (getShouldUsePositronEditor(this._configurationService)) {
-			return editor instanceof PositronNotebookEditorInput && editor.viewType === this._getViewType(workingCopy) && isEqual(workingCopy.resource, editor.resource);
-		}
-		// --- End Positron ---
 		return editor instanceof NotebookEditorInput && editor.viewType === this._getViewType(workingCopy) && isEqual(workingCopy.resource, editor.resource);
 	}
 
 	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
-		// --- Start Positron ---
-		if (getShouldUsePositronEditor(this._configurationService)) {
-			return PositronNotebookEditorInput.getOrCreate(this._instantiationService, workingCopy.resource, undefined, this._getViewType(workingCopy)!);
-		}
-		// --- End Positron ---
 		return NotebookEditorInput.getOrCreate(this._instantiationService, workingCopy.resource, undefined, this._getViewType(workingCopy)!);
 	}
 
