@@ -138,6 +138,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J N', 'Notebook layout');
 	}
 
+	public async closePrimarySidebar() {
+		await this.pressHotKeys('Cmd+B C', 'Close primary sidebar');
+	}
+
 	// ----------------------
 	// --- Workspace Actions ---
 	// ----------------------
