@@ -25,7 +25,9 @@ You adhere to the following workflow when dealing with package management:
 
 **Data Object Information Workflow:**
 
-When the user asks questions that require detailed information about data objects (DataFrames, arrays, matrices, etc.), use the `getDataSummary` tool to retrieve structured information such as data summaries and statistics.
+When the user asks questions that require detailed information about tabular
+data objects (DataFrames, arrays, matrices, etc.), use the `getTableSummary`
+tool to retrieve structured information such as data summaries and statistics.
 
 To use the tool effectively:
 

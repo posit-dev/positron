@@ -105,17 +105,25 @@ class FormattedVariable(BaseModel):
     )
 
 
-class SummarizedData(BaseModel):
+class QueryTableSummaryResult(BaseModel):
     """
     Result of the summarize operation
     """
 
-    children: List[Variable] = Field(
-        description="An array of summarized variables, each containing a summary of the data.",
+    num_rows: StrictInt = Field(
+        description="The total number of rows in the table.",
     )
 
-    length: StrictInt = Field(
-        description="The total number of summarized variables. This may be greater than the number of variables in the 'children' array if the array is truncated.",
+    num_columns: StrictInt = Field(
+        description="The total number of columns in the table.",
+    )
+
+    column_schemas: List[StrictStr] = Field(
+        description="The column schemas in the table.",
+    )
+
+    column_profiles: List[StrictStr] = Field(
+        description="The column profiles in the table.",
     )
 
 
@@ -197,8 +205,8 @@ class VariablesBackendRequest(str, enum.Enum):
     # Request a viewer for a variable
     View = "view"
 
-    # Query variable data
-    QueryVariableData = "query_variable_data"
+    # Query table summary
+    QueryTableSummary = "query_table_summary"
 
 
 class ListRequest(BaseModel):
@@ -369,31 +377,31 @@ class ViewRequest(BaseModel):
     )
 
 
-class QueryVariableDataParams(BaseModel):
+class QueryTableSummaryParams(BaseModel):
     """
-    Request a data summary for a variable or variables.
+    Request a data summary for a table variable.
     """
 
     path: List[StrictStr] = Field(
-        description="The path to the variable to inspect, as an array of access keys.",
+        description="The path to the table to summarize, as an array of access keys.",
     )
 
     query_types: List[StrictStr] = Field(
-        description="A list of types to summarize.",
+        description="A list of query types.",
     )
 
 
-class QueryVariableDataRequest(BaseModel):
+class QueryTableSummaryRequest(BaseModel):
     """
-    Request a data summary for a variable or variables.
+    Request a data summary for a table variable.
     """
 
-    params: QueryVariableDataParams = Field(
-        description="Parameters to the QueryVariableData method",
+    params: QueryTableSummaryParams = Field(
+        description="Parameters to the QueryTableSummary method",
     )
 
-    method: Literal[VariablesBackendRequest.QueryVariableData] = Field(
-        description="The JSON-RPC method name (query_variable_data)",
+    method: Literal[VariablesBackendRequest.QueryTableSummary] = Field(
+        description="The JSON-RPC method name (query_table_summary)",
     )
 
     jsonrpc: str = Field(
@@ -411,7 +419,7 @@ class VariablesBackendMessageContent(BaseModel):
         InspectRequest,
         ClipboardFormatRequest,
         ViewRequest,
-        QueryVariableDataRequest,
+        QueryTableSummaryRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -474,7 +482,7 @@ InspectedVariable.update_forward_refs()
 
 FormattedVariable.update_forward_refs()
 
-SummarizedData.update_forward_refs()
+QueryTableSummaryResult.update_forward_refs()
 
 Variable.update_forward_refs()
 
@@ -500,9 +508,9 @@ ViewParams.update_forward_refs()
 
 ViewRequest.update_forward_refs()
 
-QueryVariableDataParams.update_forward_refs()
+QueryTableSummaryParams.update_forward_refs()
 
-QueryVariableDataRequest.update_forward_refs()
+QueryTableSummaryRequest.update_forward_refs()
 
 UpdateParams.update_forward_refs()
 

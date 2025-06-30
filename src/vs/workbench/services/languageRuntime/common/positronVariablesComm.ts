@@ -65,18 +65,26 @@ export interface FormattedVariable {
 /**
  * Result of the summarize operation
  */
-export interface SummarizedData {
+export interface QueryTableSummaryResult {
 	/**
-	 * An array of summarized variables, each containing a summary of the
-	 * data.
+	 * The total number of rows in the table.
 	 */
-	children: Array<Variable>;
+	num_rows: number;
 
 	/**
-	 * The total number of summarized variables. This may be greater than the
-	 * number of variables in the 'children' array if the array is truncated.
+	 * The total number of columns in the table.
 	 */
-	length: number;
+	num_columns: number;
+
+	/**
+	 * The column schemas in the table.
+	 */
+	column_schemas: Array<string>;
+
+	/**
+	 * The column profiles in the table.
+	 */
+	column_profiles: Array<string>;
 
 }
 
@@ -235,16 +243,16 @@ export interface ViewParams {
 }
 
 /**
- * Parameters for the QueryVariableData method.
+ * Parameters for the QueryTableSummary method.
  */
-export interface QueryVariableDataParams {
+export interface QueryTableSummaryParams {
 	/**
-	 * The path to the variable to inspect, as an array of access keys.
+	 * The path to the table to summarize, as an array of access keys.
 	 */
 	path: Array<string>;
 
 	/**
-	 * A list of types to summarize.
+	 * A list of query types.
 	 */
 	query_types: Array<string>;
 }
@@ -357,7 +365,7 @@ export enum VariablesBackendRequest {
 	Inspect = 'inspect',
 	ClipboardFormat = 'clipboard_format',
 	View = 'view',
-	QueryVariableData = 'query_variable_data'
+	QueryTableSummary = 'query_table_summary'
 }
 
 export class PositronVariablesComm extends PositronBaseComm {
@@ -454,18 +462,18 @@ export class PositronVariablesComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Query variable data
+	 * Query table summary
 	 *
-	 * Request a data summary for a variable or variables.
+	 * Request a data summary for a table variable.
 	 *
-	 * @param path The path to the variable to inspect, as an array of access
+	 * @param path The path to the table to summarize, as an array of access
 	 * keys.
-	 * @param queryTypes A list of types to summarize.
+	 * @param queryTypes A list of query types.
 	 *
 	 * @returns Result of the summarize operation
 	 */
-	queryVariableData(path: Array<string>, queryTypes: Array<string>): Promise<SummarizedData> {
-		return super.performRpc('query_variable_data', ['path', 'query_types'], [path, queryTypes]);
+	queryTableSummary(path: Array<string>, queryTypes: Array<string>): Promise<QueryTableSummaryResult> {
+		return super.performRpc('query_table_summary', ['path', 'query_types'], [path, queryTypes]);
 	}
 
 

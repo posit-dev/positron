@@ -361,19 +361,19 @@
         ]
       },
       {
-        "name": "getDataSummary",
-        "displayName": "Get Data Summary",
-        "modelDescription": "Get structured information about data objects in the current session.",
+        "name": "getTableSummary",
+        "displayName": "Get Table Summary",
+        "modelDescription": "Get structured information about table variables in the current session.",
         "inputSchema": {
           "type": "object",
           "properties": {
             "sessionIdentifier": {
               "type": "string",
-              "description": "The identifier of the session that contains the data."
+              "description": "The identifier of the session that contains the tables."
             },
             "accessKeys": {
               "type": "array",
-              "description": "An array of data variables to summarize.",
+              "description": "An array of table variables to summarize.",
               "items": {
                 "type": "array",
                 "description": "A list of access keys that identify a variable by specifying its path.",

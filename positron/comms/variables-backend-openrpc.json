@@ -191,13 +191,13 @@
 			}
 		},
 		{
-			"name": "query_variable_data",
-			"summary": "Query variable data",
-			"description": "Request a data summary for a variable or variables.",
+			"name": "query_table_summary",
+			"summary": "Query table summary",
+			"description": "Request a data summary for a table variable.",
 			"params": [
 				{
 					"name": "path",
-					"description": "The path to the variable to inspect, as an array of access keys.",
+					"description": "The path to the table to summarize, as an array of access keys.",
 					"schema": {
 						"type": "array",
 						"items": {
@@ -207,7 +207,7 @@
 				},
 				{
 					"name": "query_types",
-					"description": "A list of types to summarize.",
+					"description": "A list of query types.",
 					"schema": {
 						"type": "array",
 						"items": {
@@ -218,25 +218,38 @@
 			],
 			"result": {
 				"schema": {
-					"name": "summarized_data",
+					"name": "query_table_summary_result",
 					"description": "Result of the summarize operation",
 					"type": "object",
 					"properties": {
-						"children": {
+						"num_rows": {
+							"type": "integer",
+							"description": "The total number of rows in the table."
+						},
+						"num_columns": {
+							"type": "integer",
+							"description": "The total number of columns in the table."
+						},
+						"column_schemas": {
 							"type": "array",
-							"description": "An array of summarized variables, each containing a summary of the data.",
+							"description": "The column schemas in the table.",
 							"items": {
-								"$ref": "#/components/schemas/variable"
+								"type": "string"
 							}
 						},
-						"length": {
-							"type": "integer",
-							"description": "The total number of summarized variables. This may be greater than the number of variables in the 'children' array if the array is truncated."
+						"column_profiles": {
+							"type": "array",
+							"description": "The column profiles in the table.",
+							"items": {
+								"type": "string"
+							}
 						}
 					},
 					"required": [
-						"children",
-						"length"
+						"num_rows",
+						"num_columns",
+						"column_schemas",
+						"column_profiles"
 					]
 				}
 			}

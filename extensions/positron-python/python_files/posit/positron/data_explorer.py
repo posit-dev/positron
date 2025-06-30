@@ -751,7 +751,7 @@ class DataExplorerTableView:
 
     _SUMMARIZERS: MappingProxyType[str, SummarizerType] = MappingProxyType({})
 
-    def _prof_summary_stats(self, column_index: int, options: FormatOptions):
+    def _prof_summary_stats(self, column_index: int, options: FormatOptions) -> ColumnSummaryStats:
         col_schema = self._get_single_column_schema(column_index)
         col = self._get_column(column_index)
 
@@ -3098,7 +3098,7 @@ def _get_column_profiles(table_view, schema, query_types, format_options):
             {
                 "column_name": column.column_name,
                 "type_display": column.type_display,
-                "summary_stats": summary_stats,
+                "summary_stats": summary_stats.dict() if summary_stats else None,
             }
         )
 
