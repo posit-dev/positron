@@ -13,13 +13,13 @@ test.describe('Sessions: State', {
 	tag: [tags.WIN, tags.WEB, tags.CONSOLE, tags.SESSIONS, tags.CRITICAL]
 }, () => {
 
-	test.beforeEach(async function ({ app, sessions }) {
-		await app.workbench.variables.togglePane('hide');
+	test.beforeEach(async function ({ hotKeys, sessions }) {
+		await hotKeys.hideSecondarySidebar();
 		await sessions.deleteDisconnectedSessions();
 		await sessions.clearConsoleAllSessions();
 	});
 
-	test('Validate session states during start, restart, and shutdown', async function ({ app, sessions }) {
+	test('Validate session states during start, restart, and shutdown', { tag: [tags.ARK] }, async function ({ app, sessions }) {
 		const { console } = app.workbench;
 		// using this session to trigger session tab list view below to verify session states
 		await sessions.start(['r']);

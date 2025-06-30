@@ -30,7 +30,7 @@ test.describe('Data Explorer - Large Data Frame', {
 		await app.workbench.quickaccess.runCommand('python.execInConsole');
 
 		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.dataExplorer.verifyTab('Data: df', { isVisible: true, isSelected: true });
+		await app.workbench.editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		await expect(async () => {
 			// Validate full grid by checking bottom right corner data
@@ -59,7 +59,7 @@ test.describe('Data Explorer - Large Data Frame', {
 		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
 
 		await app.workbench.variables.doubleClickVariableRow('df2');
-		await app.workbench.dataExplorer.verifyTab('Data: df2', { isVisible: true, isSelected: true });
+		await app.workbench.editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
 
 		await expect(async () => {
 			// Validate full grid by checking bottom right corner data

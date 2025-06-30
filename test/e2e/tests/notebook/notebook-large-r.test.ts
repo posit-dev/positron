@@ -16,7 +16,9 @@ test.describe('Large R Notebook', {
 	tag: [tags.NOTEBOOKS, tags.WIN]
 }, () => {
 
-	test('R - Large notebook execution', async function ({ app, r }) {
+	test('R - Large notebook execution', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		test.slow();
 		const notebooks = app.workbench.notebooks;
 

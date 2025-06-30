@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.49",
+			"version": "1.5.50",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "c623ec9e770f1b4bcc3ca1feb6e5f8a756de61e79309b822a316db79f0be2033",
+			"sha256": "232e3cca1e695fa19dd75abaf29f9bfe4a6634ab78ec6629a764ed1c37aee999",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -269,8 +269,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.110.0",
-			"sha256": "0a3ca92e1d6a47d11343b77cc5de08e66637df4d79dd21b27660d0728eb49996",
+			"version": "0.112.0",
+			"sha256": "77643a428f6311b64121cfdb3ba436e3c1832bddaf80d800a7eba370405a635f",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {

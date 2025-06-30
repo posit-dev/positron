@@ -85,7 +85,10 @@ export class StaticPlotClient extends Disposable implements IPositronPlotClient,
 	}
 
 	set zoomLevel(zoom: ZoomLevel) {
-		this._zoomLevelEventEmitter.fire(zoom);
+		if (this.metadata.zoom_level !== zoom) {
+			this.metadata.zoom_level = zoom; // Update the zoom level in metadata.
+			this._zoomLevelEventEmitter.fire(zoom);
+		}
 	}
 
 	get zoomLevel(): ZoomLevel {

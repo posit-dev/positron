@@ -104,6 +104,20 @@
         ]
       }
     ],
+    "menus": {
+      "scm/inputBox": [
+        {
+          "command": "positron-assistant.generateCommitMessage",
+          "group": "navigation",
+          "when": "!positron-assistant.generatingCommitMessage && config.positron.assistant.gitIntegration.enable"
+        },
+        {
+          "command": "positron-assistant.cancelGenerateCommitMessage",
+          "group": "navigation",
+          "when": "positron-assistant.generatingCommitMessage && config.positron.assistant.gitIntegration.enable"
+        }
+      ]
+    },
     "commands": [
       {
         "command": "positron-assistant.configureModels",
@@ -116,6 +130,20 @@
         "title": "%commands.logStoredModels.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable"
+      },
+      {
+        "command": "positron-assistant.generateCommitMessage",
+        "title": "%commands.generateCommitMessage.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && config.positron.assistant.gitIntegration.enable",
+        "icon": "$(sparkle)"
+      },
+      {
+        "command": "positron-assistant.cancelGenerateCommitMessage",
+        "title": "%commands.cancelGenerateCommitMessage.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && config.positron.assistant.gitIntegration.enable",
+        "icon": "$(stop)"
       }
     ],
     "configuration": [
@@ -146,6 +174,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "positron.assistant.gitIntegration.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.gitIntegration.description%",
+            "tags": ["experimental"]
           }
         }
       }
@@ -357,6 +391,41 @@
               "type": "number",
               "description": "The maximum number of files to include in the project tree. If this limit is reached, a compressed description of the project will be provided instead.",
               "default": 500
+            }
+          }
+        }
+      },
+      {
+        "name": "getChangedFiles",
+        "displayName": "Get changed files",
+        "modelDescription": "Get summaries and git diffs for current changes to files in this workspace.",
+        "canBeReferencedInPrompt": true,
+        "userDescription": "Get changed files",
+        "toolReferenceName": "changes",
+        "when": "config.positron.assistant.gitIntegration.enable",
+        "icon": "$(diff)",
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "installPythonPackage",
+        "displayName": "Install Python Package",
+        "modelDescription": "Install Python packages using pip. Provide an array of package names to install.",
+        "canBeReferencedInPrompt": false,
+        "tags": [
+          "positron-assistant"
+        ],
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packages": {
+              "type": "array",
+              "description": "Array of Python package names to install.",
+              "items": {
+                "type": "string",
+                "description": "Name of the Python package to install."
+              }
             }
           }
         }

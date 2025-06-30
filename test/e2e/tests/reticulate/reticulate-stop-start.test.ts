@@ -29,7 +29,9 @@ test.describe('Reticulate', {
 		}
 	});
 
-	test('R - Verify Reticulate Stop/Start Functionality', async function ({ app, sessions }) {
+	test('R - Verify Reticulate Stop/Start Functionality', {
+		tag: [tags.ARK]
+	}, async function ({ app, sessions }) {
 
 		await sessions.start('pythonReticulate');
 

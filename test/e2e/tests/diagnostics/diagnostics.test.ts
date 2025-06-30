@@ -56,7 +56,9 @@ test.describe('Diagnostics', {
 		await problems.expectSquigglyCountToBe('warning', 0);
 	});
 
-	test('R - Verify diagnostics isolation between sessions in the editor and problems view', async function ({ app, runCommand, sessions }) {
+	test('R - Verify diagnostics isolation between sessions in the editor and problems view', {
+		tag: [tags.ARK]
+	}, async function ({ app, runCommand, sessions }) {
 		const { problems, editor, console } = app.workbench;
 
 		// Start R Session and install 'circlize'

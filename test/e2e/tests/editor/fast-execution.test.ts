@@ -13,7 +13,9 @@ test.use({
 const FILENAME = 'fast-execution.r';
 
 test.describe('R Fast Execution', { tag: [tags.WEB, tags.EDITOR, tags.WIN] }, () => {
-	test('Verify fast execution is not out of order', async function ({ app, r }) {
+	test('Verify fast execution is not out of order', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'fast-statement-execution', FILENAME));
 
 		let previousTop = -1;

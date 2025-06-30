@@ -26,7 +26,9 @@ test.describe('Console Output Log', { tag: [tags.WEB, tags.WIN, tags.OUTPUT, tag
 		await app.workbench.output.waitForOutContaining("name 'b' is not defined");
 	});
 
-	test('R - Verify Console Output Log Contents', async function ({ app, r }) {
+	test('R - Verify Console Output Log Contents', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		const activeConsole = app.workbench.console.activeConsole;
 		await activeConsole.click();
 

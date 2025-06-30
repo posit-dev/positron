@@ -12,7 +12,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB] }, () => {
+test.describe('R Code Actions', { tag: [tags.EDITOR, tags.WIN, tags.WEB, tags.ARK] }, () => {
 
 	test.afterEach(async function ({ app, hotKeys, cleanup }) {
 		await hotKeys.closeAllEditors();

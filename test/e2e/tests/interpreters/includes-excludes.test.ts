@@ -34,7 +34,7 @@ test.describe('Interpreter: Includes', {
 	});
 
 	test('R - Can Include an Interpreter', {
-		tag: [tags.NIGHTLY_ONLY]
+		tag: [tags.NIGHTLY_ONLY, tags.ARK]
 	}, async function ({ sessions }) {
 
 		const hiddenR = process.env.POSITRON_HIDDEN_R;
@@ -56,7 +56,9 @@ test.describe('Interpreter: Excludes', {
 		}, { reload: true });
 	});
 
-	test('R - Can Exclude an Interpreter', async function ({ app, sessions }) {
+	test('R - Can Exclude an Interpreter', {
+		tag: [tags.ARK]
+	}, async function ({ app, sessions }) {
 
 		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
 
@@ -117,7 +119,9 @@ test.describe('Interpreter: Override', {
 		}, { reload: true });
 	});
 
-	test('R - Can Override Interpreter Discovery', async function ({ app, sessions }) {
+	test('R - Can Override Interpreter Discovery', {
+		tag: [tags.ARK]
+	}, async function ({ app, sessions }) {
 
 		const alternateR = process.env.POSITRON_R_ALT_VER_SEL;
 

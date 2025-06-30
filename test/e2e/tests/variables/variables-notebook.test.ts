@@ -39,7 +39,9 @@ test.describe('Variables Pane - Notebook', {
 		}).toPass({ timeout: 60000 });
 	});
 
-	test('R - Verify Variables pane basic function for notebook', async function ({ app, r }) {
+	test('R - Verify Variables pane basic function for notebook', {
+		tag: [tags.ARK]
+	}, async function ({ app, r }) {
 		await app.workbench.notebooks.createNewNotebook();
 
 		await app.workbench.notebooks.selectInterpreter('R');

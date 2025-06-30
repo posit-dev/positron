@@ -61,7 +61,7 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 
 	});
 
-	test('R - Verify Viewer displays modelsummary output', { tag: [tags.WEB] }, async function ({ app, logger, r }) {
+	test('R - Verify Viewer displays modelsummary output', { tag: [tags.WEB, tags.ARK] }, async function ({ app, logger, r }) {
 		logger.log('Sending code to console');
 		await app.workbench.console.executeCode('R', rModelSummaryScript);
 		let billDepthLocator;
@@ -75,7 +75,8 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	});
 
 	test('R - Verify Viewer displays reactable table output', {
-		annotation: [{ type: 'web issue', description: 'https://github.com/posit-dev/positron/issues/5972' }]
+		annotation: [{ type: 'web issue', description: 'https://github.com/posit-dev/positron/issues/5972' }],
+		tag: [tags.ARK]
 	}, async function ({ app, logger, r }) {
 
 		logger.log('Sending code to console');
@@ -88,7 +89,8 @@ test.describe('Viewer', { tag: [tags.VIEWER] }, () => {
 	});
 
 	test('R - Verify Viewer displays reprex code output', {
-		annotation: [{ type: 'web issue', description: 'https://github.com/posit-dev/positron/issues/5975' }]
+		annotation: [{ type: 'web issue', description: 'https://github.com/posit-dev/positron/issues/5975' }],
+		tag: [tags.ARK]
 	}, async function ({ app, logger, r }) {
 
 		logger.log('Sending code to console');

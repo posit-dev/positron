@@ -10,7 +10,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN] }, () => {
+test.describe('R Markdown', { tag: [tags.WEB, tags.R_MARKDOWN, tags.ARK] }, () => {
 	test.describe.configure({ mode: 'serial' }); // 2nd test depends on 1st test
 
 	test('Verify can render R Markdown', async function ({ app, r }) {

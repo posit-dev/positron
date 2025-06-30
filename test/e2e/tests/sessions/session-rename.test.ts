@@ -17,8 +17,8 @@ test.describe('Sessions: Rename', {
 	],
 }, () => {
 
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.variables.togglePane('hide');
+	test.beforeEach(async function ({ hotKeys }) {
+		await hotKeys.hideSecondarySidebar();
 	});
 
 	test('Validate can rename sessions and name persists', async function ({ sessions, runCommand }) {

@@ -70,8 +70,3 @@ test.describe('Interpreter Commands (Force Quit, Interrupt, Shutdown, Clear Inte
 	});
 
 });
-
-/*
-A couple questions for next week:
-1. What would be relevant to add to the POM here? Any suggestions are welcome. Or anything I used that I could have adopted from the codebase?
-*/

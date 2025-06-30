@@ -3,6 +3,8 @@
 	"description": "Provides default assistant and language models for Positron.",
 	"commands.configureModels.title": "Configure Language Model Providers",
 	"commands.logStoredModels.title": "Log the stored language models",
+	"commands.generateCommitMessage.title": "Generate Commit Message",
+	"commands.cancelGenerateCommitMessage.title": "Cancel Generate Commit Message",
 	"commands.copilot.signin.title": "Copilot Sign In",
 	"commands.copilot.signout.title": "Copilot Sign Out",
 	"commands.category": "Positron Assistant",
@@ -15,5 +17,6 @@
 	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.",
 	"configuration.useAnthropicSdk.description": "Use the Anthropic SDK for Anthropic models rather than the generic AI SDK.",
 	"configuration.streamingEdits.enable": "Enable streaming edits in inline editor chats.",
-	"configuration.inlineCompletionExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from inline completions."
+	"configuration.inlineCompletionExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from inline completions.",
+	"configuration.gitIntegration.description": "Enable Positron Assistant git integration."
 }

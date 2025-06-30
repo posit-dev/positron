@@ -19,7 +19,6 @@
  * 5. Variables can be inspected in the console or in the Variables debugging pane
  */
 
-import { Page } from '@playwright/test';
 import { Application, SessionMetaData } from '../../infra/index.js';
 import { test, tags, expect } from '../_test.setup';
 
@@ -28,7 +27,7 @@ let session: SessionMetaData;
 test.use({ suiteId: __filename });
 
 test.describe('R Debugging', {
-	tag: [tags.DEBUG, tags.WEB, tags.WIN]
+	tag: [tags.DEBUG, tags.WEB, tags.WIN, tags.ARK]
 }, () => {
 
 	test.beforeAll('Setup fruit data', async ({ executeCode, sessions }) => {
@@ -139,8 +138,8 @@ test.describe('R Debugging', {
 		// Verify the debug pane, call stack, and console variables
 		await verifyDebugPane(app);
 		await verifyCallStack(app);
-		await verifyVariableInConsole(page, 'pattern', '[1] "berry"');
-		await verifyVariableInConsole(page, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
+		await verifyVariableInConsole(app, 'pattern', '[1] "berry"');
+		await verifyVariableInConsole(app, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
 
 		// Step into the next line using 's'
 		await page.keyboard.type('s');
@@ -171,8 +170,8 @@ test.describe('R Debugging', {
 		// Verify the debug pane and call stack
 		await verifyDebugPane(app);
 		await verifyCallStack(app);
-		await verifyVariableInConsole(page, 'pattern', '[1] "berry"');
-		await verifyVariableInConsole(page, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
+		await verifyVariableInConsole(app, 'pattern', '[1] "berry"');
+		await verifyVariableInConsole(app, 'names(dat)', '[1] "blackberry" "blueberry"  "peach" "plum"');
 
 		// Step into using the debugger UI controls
 		await debug.stepInto();
@@ -238,7 +237,7 @@ test.describe('R Debugging', {
 
 		// Check the contents of mini_dat in the console
 		await console.focus();
-		await verifyVariableInConsole(page, 'mini_dat', '[1] 4 9 6');
+		await verifyVariableInConsole(app, 'mini_dat', '[1] 4 9 6');
 
 		// Quit the debugger
 		await page.keyboard.type('Q');
@@ -262,11 +261,12 @@ async function verifyCallStack(app: Application) {
 	await debug.expectCallStackAtIndex(1, '<global>fruit_avg(dat, "berry")');
 }
 
-async function verifyVariableInConsole(page: Page, name: string, expectedText: string) {
+async function verifyVariableInConsole(app: Application, name: string, expectedText: string) {
 	await test.step(`Verify variable in console: ${name}`, async () => {
-		await page.keyboard.type(name);
-		await page.keyboard.press('Enter');
-		await expect(page.getByText(expectedText)).toBeVisible({ timeout: 30000 });
+		await app.workbench.console.focus();
+		await app.code.driver.page.keyboard.type(name);
+		await app.code.driver.page.keyboard.press('Enter');
+		await expect(app.code.driver.page.getByText(expectedText)).toBeVisible({ timeout: 30000 });
 	});
 }
 

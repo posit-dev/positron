@@ -43,7 +43,7 @@ test.describe('Headless Data Explorer', {
 	testCases.forEach(({ name, file, copyValue }) => {
 		test(`Verify can open and view data with large ${name} file`, async function ({ app, openDataFile }) {
 			await openDataFile(`${file}`);
-			await app.workbench.dataExplorer.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
+			await app.workbench.editors.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
 			await verifyCopyFromCell(app, copyValue);
 			await verifyDataIsPresent(app);
 			await verifyPlainTextButtonInActionBar(app, file.endsWith('.csv') || file.endsWith('.tsv'));
@@ -61,7 +61,7 @@ test.describe('Headless Data Explorer', {
 
 	test(`Verify can open parquet decimal data`, async function ({ app, openDataFile }) {
 		await openDataFile(`data-files/misc-parquet/decimal_types.parquet`);
-		await app.workbench.dataExplorer.verifyTab('decimal_types.parquet', { isVisible: true, isSelected: true });
+		await app.workbench.editors.verifyTab('decimal_types.parquet', { isVisible: true, isSelected: true });
 		await verifyCopyFromCell(app, '123456789012345.678');
 		await expect(async () => {
 			// Validate full grid by checking bottom right corner data
