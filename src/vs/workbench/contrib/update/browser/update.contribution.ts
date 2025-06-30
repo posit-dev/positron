@@ -72,7 +72,7 @@ export class ShowCurrentReleaseNotesAction extends Action2 {
 		try {
 			await showReleaseNotesInEditor(instantiationService, productService.positronVersion, false);
 		} catch (err) {
-			throw new Error(localize('update.noReleaseNotesOnline', "This version of {0} does not have release notes online", productService.nameLong));
+			throw new Error(localize('update.noReleaseNotesOnline', "This version of {0} does not have release notes available", productService.nameLong));
 		}
 		// --- End Positron ---
 	}
