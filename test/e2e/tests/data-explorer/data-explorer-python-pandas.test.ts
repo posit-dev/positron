@@ -4,8 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect, tags } from '../_test.setup';
-import { Application } from '../../infra/index.js';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -22,13 +21,13 @@ test.describe('Data Explorer - Python Pandas', {
 	});
 
 	test('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app, executeCode, hotKeys, python }) {
-		const { dataExplorer, variables, editors } = app.workbench;
+		const { dataExplorer, variables, editors, clipboard } = app.workbench;
 
 		// execute code to create a DataFrame
 		await executeCode('Python', df);
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 
 		// verify table data, clipboard, sparkline hover, and null percentage hover
 		await dataExplorer.verifyTableData([
@@ -37,8 +36,16 @@ test.describe('Data Explorer - Python Pandas', {
 			{ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' },
 			{ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' }
 		]);
-		await verifyCanCopyDataToClipboard(app, 'Jai');
+
+		// verify can copy data to clipboard
+		await dataExplorer.clickCell(0, 0);
+		await clipboard.copy();
+		await clipboard.expectClipboardTextToBe('Jai');
+
+		// verify sparkline hover dialog
 		await dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+
+		// verify null percentage hover dialog
 		await dataExplorer.verifyNullPercentHoverDialog();
 	});
 
@@ -71,7 +78,7 @@ test.describe('Data Explorer - Python Pandas', {
 		]);
 
 		// verify column profile data
-		await dataExplorer.verifyProfileData([
+		await dataExplorer.verifyColumnData([
 			{ column: 1, expected: { 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' } },
 			{ column: 2, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } },
 			{ column: 3, expected: { 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' } },
@@ -112,12 +119,10 @@ test.describe('Data Explorer - Python Pandas', {
 		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
 		await dataExplorer.verifyTableDataLength(12);
 		await dataExplorer.verifyTableDataRowValue(0, { 'Year': '2025' });
-
-		await dataExplorer.closeDataExplorer();
 	});
 
 	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
-		const { dataExplorer, variables, console, editors } = app.workbench;
+		const { variables, console, editors } = app.workbench;
 
 		// execute code to create a DataFrame
 		await console.executeCode('Python', mtcarsDf);
@@ -130,13 +135,10 @@ test.describe('Data Explorer - Python Pandas', {
 		await variables.focusVariablesView();
 		await variables.doubleClickVariableRow('Data_Frame');
 		await editors.verifyTab('Data: Data_Frame', { isVisible: true });
-
-		await dataExplorer.closeDataExplorer();
 	});
 
-	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, sessions, hotKeys }) {
-		const { dataExplorer, console, variables, editors } = app.workbench;
-		const [session] = await sessions.start(['python']);
+	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, hotKeys, python }) {
+		const { dataExplorer, console, variables, editors, popups } = app.workbench;
 
 		// execute code to create a DataFrame with blank spaces
 		await console.executeCode('Python', blankSpacesScript);
@@ -149,27 +151,13 @@ test.describe('Data Explorer - Python Pandas', {
 			{ 'x': '<empty>' }
 		]);
 
-		await test.step('Verify disconnect dialog', async () => {
-			await hotKeys.stackedLayout();
-			await sessions.delete(session.id);
-			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
-		});
-
-		await dataExplorer.closeDataExplorer();
+		// verify disconnect modal dialog box when session is closed
+		await hotKeys.stackedLayout();
+		await console.trashButton.click();
+		await popups.verifyModalDialogBoxContainsText('Connection Closed');
 	});
 });
 
-
-async function verifyCanCopyDataToClipboard(app: Application, expectedText?: string) {
-	await test.step('Verify can copy data to clipboard', async () => {
-		await expect(async () => {
-			await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-			await app.workbench.hotKeys.copy();
-			const clipboardText = await app.workbench.clipboard.getClipboardText();
-			expect(clipboardText).toBe(expectedText || 'Jai');
-		}).toPass({ timeout: 20000 });
-	});
-}
 
 // modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
 const df = `import pandas as pd

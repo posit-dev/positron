@@ -3,8 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Application } from '../../infra';
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 test.use({
 	suiteId: __filename
@@ -15,43 +14,52 @@ test.beforeEach(async function ({ app }) {
 	await app.workbench.variables.focusVariablesView();
 });
 
-test.afterEach(async function ({ runCommand }) {
-	await runCommand('workbench.action.closeAllEditors');
+test.afterEach(async function ({ hotKeys }) {
+	await hotKeys.closeAllEditors();
 });
 
 test.describe('Data Explorer - R ', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
 	test('R - Verify basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, hotKeys }) {
+		const { dataExplorer, editor, editors, variables, clipboard } = app.workbench;
+
 		// Execute code to generate data frames
 		await openFile('workspaces/generate-data-frames-r/simple-data-frames.r');
-		await app.workbench.editor.playButton.click();
+		await editor.playButton.click();
 
 		// Open Data Explorer
-		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+		await variables.doubleClickVariableRow('df');
+		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Verify the data in the table
-		await app.workbench.dataExplorer.maximizeDataExplorer(true);
-		await verifyTable(app);
+		await dataExplorer.maximizeDataExplorer(true);
+		await dataExplorer.verifyTableDataLength(3);
+		await dataExplorer.verifyTableData([
+			{ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' },
+			{ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' },
+			{ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' }
+		]);
 
 		// Verify the summary column data
-		await app.workbench.dataExplorer.expandSummary();
-		await verifyColumnData(app);
+		await dataExplorer.expandSummary();
+		await dataExplorer.verifyColumnData([
+			{ column: 1, expected: { 'Missing': '0', 'Empty': '0', 'Unique': '3' } },
+			{ column: 2, expected: { 'Missing': '1', 'Min': '100.00', 'Median': '110.00', 'Mean': '110.00', 'Max': '120.00', 'SD': '14.14' } },
+			{ column: 3, expected: { 'Missing': '0', 'Min': '30.00', 'Median': '45.00', 'Mean': '45.00', 'Max': '60.00', 'SD': '15.00' } },
+			{ column: 4, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '2' } }
+		]);
 
-		await test.step('Verify copy to clipboard', async () => {
-			await expect(async () => {
-				await app.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-				await hotKeys.copy();
-				const clipboardText = await app.workbench.clipboard.getClipboardText();
-				expect(clipboardText).toBe('Strength');
-			}).toPass({ timeout: 20000 });
-		});
+		// verify can copy data to clipboard
+		await dataExplorer.clickCell(0, 0);
+		await clipboard.copy();
+		await clipboard.expectClipboardTextToBe('Strength');
 
-		await app.workbench.dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+		// verify sparkline hover dialog
+		await dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
 
-		await app.workbench.dataExplorer.verifyNullPercentHoverDialog();
-
+		// verify null percentage hover dialog
+		await dataExplorer.verifyNullPercentHoverDialog();
 	});
 
 	test('R - Verify opening Data Explorer for the second time brings focus back', {
@@ -59,89 +67,47 @@ test.describe('Data Explorer - R ', {
 			{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5714' },
 			{ type: 'regression', description: 'https://github.com/posit-dev/positron/issues/4197' }]
 	}, async function ({ app, r, executeCode }) {
+		const { variables, editors } = app.workbench;
+
 		// Execute code to generate data frames
 		await executeCode('R', `Data_Frame <- mtcars`);
-		await app.workbench.variables.focusVariablesView();
+		await variables.focusVariablesView();
 
 		// Open Data Explorer
-		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-		await app.workbench.editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
+		await variables.doubleClickVariableRow('Data_Frame');
+		await editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 
 		// Now move focus out of the the data explorer pane
-		await app.workbench.editors.newUntitledFile();
-		await app.workbench.variables.focusVariablesView();
-		await app.workbench.editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: false });
-		await app.workbench.variables.doubleClickVariableRow('Data_Frame');
-		await app.workbench.editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
+		await editors.newUntitledFile();
+		await variables.focusVariablesView();
+		await editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: false });
+		await variables.doubleClickVariableRow('Data_Frame');
+		await editors.verifyTab('Data: Data_Frame', { isVisible: true, isSelected: true });
 	});
 
-	test('R - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, r, executeCode }) {
+	test('R - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, r, executeCode, hotKeys }) {
+		const { variables, editors, dataExplorer, console, popups } = app.workbench;
+
 		// Execute code to generate data frames
 		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
 
 		// Open Data Explorer
-		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+		await variables.doubleClickVariableRow('df');
+		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Verify blank spaces in the table
-		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+		await dataExplorer.verifyTableDataLength(4);
+		await dataExplorer.verifyTableData([
+			{ 'x': 'a·' },
+			{ 'x': 'a' },
+			{ 'x': '···' },
+			{ 'x': '<empty>' }
+		]);
 
-			const expectedData = [
-				{ 'x': 'a·' },
-				{ 'x': 'a' },
-				{ 'x': '···' },
-				{ 'x': '<empty>' },
-			];
-
-			expect(tableData).toStrictEqual(expectedData);
-			expect(tableData).toHaveLength(4);
-		}).toPass({ timeout: 60000 });
-
-		await test.step('Verify disconnect dialog', async () => {
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
-			await app.workbench.console.trashButton.click();
-			await expect(app.code.driver.page.locator('.dialog-box .message')).toHaveText('Connection Closed');
-		});
+		// Verify disconnect modal dialog box when session is closed
+		await hotKeys.stackedLayout();
+		await console.trashButton.click();
+		await popups.verifyModalDialogBoxContainsText('Connection Closed');
 	});
 });
 
-// Helpers
-
-async function verifyTable(app: Application) {
-	await test.step('Verify table data', async () => {
-		await expect(async () => {
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
-
-			const expectedData = [
-				{ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' },
-				{ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' },
-				{ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' },
-			];
-
-			expect(tableData).toStrictEqual(expectedData);
-			expect(tableData).toHaveLength(3);
-		}).toPass({ timeout: 60000 });
-	});
-}
-
-async function verifyColumnData(app: Application) {
-	await test.step('Verify column data', async () => {
-		expect(await app.workbench.dataExplorer.getColumnMissingPercent(1)).toBe('0%');
-		expect(await app.workbench.dataExplorer.getColumnMissingPercent(2)).toBe('33%');
-		expect(await app.workbench.dataExplorer.getColumnMissingPercent(3)).toBe('0%');
-		expect(await app.workbench.dataExplorer.getColumnMissingPercent(4)).toBe('66%');
-
-		const col1ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(1);
-		expect(col1ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Empty': '0', 'Unique': '3' });
-
-		const col2ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(2);
-		expect(col2ProfileInfo.profileData).toStrictEqual({ 'Missing': '1', 'Min': '100.00', 'Median': '110.00', 'Mean': '110.00', 'Max': '120.00', 'SD': '14.14' });
-
-		const col3ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(3);
-		expect(col3ProfileInfo.profileData).toStrictEqual({ 'Missing': '0', 'Min': '30.00', 'Median': '45.00', 'Mean': '45.00', 'Max': '60.00', 'SD': '15.00' });
-
-		const col4ProfileInfo = await app.workbench.dataExplorer.getColumnProfileInfo(4);
-		expect(col4ProfileInfo.profileData).toStrictEqual({ 'Missing': '2', 'Empty': '0', 'Unique': '2' });
-	});
-}

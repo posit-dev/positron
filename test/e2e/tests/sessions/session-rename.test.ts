@@ -18,7 +18,7 @@ test.describe('Sessions: Rename', {
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 	});
 
 	test('Validate can rename sessions and name persists', async function ({ sessions, runCommand }) {

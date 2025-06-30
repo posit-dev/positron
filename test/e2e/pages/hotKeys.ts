@@ -118,7 +118,7 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J B', 'Show secondary sidebar');
 	}
 
-	public async hideSecondarySidebar() {
+	public async closeSecondarySidebar() {
 		await this.pressHotKeys('Cmd+J A', 'Hide secondary sidebar');
 	}
 
@@ -136,6 +136,10 @@ export class HotKeys {
 
 	public async notebookLayout() {
 		await this.pressHotKeys('Cmd+J N', 'Notebook layout');
+	}
+
+	public async closePrimarySidebar() {
+		await this.pressHotKeys('Cmd+B C', 'Close primary sidebar');
 	}
 
 	// ----------------------

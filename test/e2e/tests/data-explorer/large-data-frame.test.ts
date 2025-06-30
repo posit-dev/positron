@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { join } from 'path';
-import { test, expect, tags } from '../_test.setup';
+import { test, tags } from '../_test.setup';
 
 const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 const FILTER_PARAMS = ['distance', 'is equal to', '2586'];
@@ -17,66 +17,55 @@ test.use({
 test.describe('Data Explorer - Large Data Frame', {
 	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
-	test.beforeEach(async function ({ app }) {
-		await app.workbench.layouts.enterLayout('stacked');
+	test.beforeEach(async function ({ hotKeys }) {
+		await hotKeys.stackedLayout();
 	});
 
-	test.afterEach(async function ({ app }) {
-		await app.workbench.dataExplorer.closeDataExplorer();
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Verify data loads and basic filtering with large data frame', async function ({ app, python }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
-		await app.workbench.quickaccess.runCommand('python.execInConsole');
+	test('Python - Verify data loads and basic filtering with large data frame', async function ({ app, openFile, runCommand, python }) {
+		const { dataExplorer, variables, editors } = app.workbench;
+		await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
+		await runCommand('python.execInConsole');
 
-		await app.workbench.variables.doubleClickVariableRow('df');
-		await app.workbench.editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+		// Open Data Explorer for the data frame
+		await variables.doubleClickVariableRow('df');
+		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
-		await expect(async () => {
-			// Validate full grid by checking bottom right corner data
-			await app.workbench.dataExplorer.clickLowerRightCorner();
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
-			const lastRow = tableData.at(-1);
-			const lastHour = lastRow!['time_hour'];
-			expect(lastHour).toBe(LAST_CELL_CONTENTS);
-		}).toPass();
+		// Validate full grid by checking data in the bottom right corner
+		await dataExplorer.clickLowerRightCorner();
+		await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
-		await expect(async () => {
-			// Filter data set
-			await app.workbench.dataExplorer.clickUpperLeftCorner();
-			await app.workbench.dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
-
-			const statusBarText = await app.workbench.dataExplorer.getDataExplorerStatusBarText();
-			expect(statusBarText).toBe(POST_FILTER_DATA_SUMMARY);
-		}).toPass();
-
+		// Verify the status bar text reflects the full data set
+		await dataExplorer.clickUpperLeftCorner();
+		await dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
+		await dataExplorer.expectStatusBarToHaveText(POST_FILTER_DATA_SUMMARY);
 	});
 
 	test('R - Verify data loads and basic filtering with large data frame', {
 		tag: [tags.WEB, tags.CRITICAL]
-	}, async function ({ app, r }) {
-		await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
-		await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+	}, async function ({ app, openFile, runCommand, r }) {
+		const { dataExplorer, variables, editors } = app.workbench;
 
-		await app.workbench.variables.doubleClickVariableRow('df2');
-		await app.workbench.editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
+		await openFile(join('workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
+		await runCommand('r.sourceCurrentFile');
 
-		await expect(async () => {
-			// Validate full grid by checking bottom right corner data
-			await app.workbench.dataExplorer.clickLowerRightCorner();
-			const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
-			const lastRow = tableData.at(-1);
-			const lastHour = lastRow!['time_hour'];
-			expect(lastHour).toBe(LAST_CELL_CONTENTS);
-		}).toPass();
+		// Open Data Explorer for the data frame
+		await variables.doubleClickVariableRow('df2');
+		await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
 
-		await expect(async () => {
-			// Filter data set
-			await app.workbench.dataExplorer.clickUpperLeftCorner();
-			await app.workbench.dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
-			const statusBarText = await app.workbench.dataExplorer.getDataExplorerStatusBarText();
-			expect(statusBarText).toBe(POST_FILTER_DATA_SUMMARY);
-		}).toPass();
+		// Validate full grid by checking data in the bottom right corner
+		await dataExplorer.clickLowerRightCorner();
+		await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
+		// Verify the status bar text reflects the full data set
+		await dataExplorer.clickUpperLeftCorner();
+		await dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
+		await dataExplorer.expectStatusBarToHaveText(POST_FILTER_DATA_SUMMARY);
 	});
 });
+
+
+

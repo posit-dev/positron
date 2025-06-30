@@ -14,7 +14,7 @@ test.describe('Variables: Sessions', {
 }, () => {
 
 	test.beforeEach(async function ({ hotKeys }) {
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 	});
 
 	test.afterEach(async function ({ sessions }) {

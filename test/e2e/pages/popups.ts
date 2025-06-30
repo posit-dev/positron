@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 
 const POSITRON_MODAL_DIALOG_BOX = '.positron-modal-dialog-box';
@@ -157,6 +157,12 @@ export class Popups {
 
 	async waitForModalDialogBox() {
 		await expect(this.code.driver.page.locator(POSITRON_MODAL_DIALOG_BOX)).toBeVisible({ timeout: 30000 });
+	}
+
+	async verifyModalDialogBoxContainsText(text: string | RegExp) {
+		await test.step(`Verify modal dialog box contains text: ${text}`, async () => {
+			await expect(this.code.driver.page.locator('.dialog-box .message')).toHaveText(text, { timeout: 10000 });
+		});
 	}
 
 	async waitForModalDialogBoxToDisappear() {
