@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import json
 import logging
 import time
 import types
@@ -30,7 +31,7 @@ from .variables_comm import (
     InspectedVariable,
     InspectRequest,
     ListRequest,
-    QueryVariableDataRequest,
+    QueryTableSummaryRequest,
     RefreshParams,
     UpdateParams,
     Variable,
@@ -138,8 +139,8 @@ class VariablesService:
         elif isinstance(request, ViewRequest):
             self._perform_view_action(request.params.path)
 
-        elif isinstance(request, QueryVariableDataRequest):
-            self._perform_get_variable_summary(request.params.path, request.params.query_types)
+        elif isinstance(request, QueryTableSummaryRequest):
+            self._perform_get_table_summary(request.params.path, request.params.query_types)
 
         else:
             logger.warning(f"Unhandled request: {request}")
@@ -711,18 +712,18 @@ class VariablesService:
         msg = InspectedVariable(children=children, length=len(children))
         self._send_result(msg.dict())
 
-    def _perform_get_variable_summary(self, path: list[str], query_types: list[str]) -> None:
-        """RPC handler for getting variable data summary."""
+    def _perform_get_table_summary(self, path: list[str], query_types: list[str]) -> None:
+        """RPC handler for getting table summary."""
         try:
-            self._get_variable_summary(path, query_types)
+            self._get_table_summary(path, query_types)
         except Exception as err:
             self._send_error(
                 JsonRpcErrorCode.INTERNAL_ERROR,
-                f"Error summarizing variable at '{path}': {err}",
+                f"Error summarizing table at '{path}': {err}",
             )
 
-    def _get_variable_summary(self, path: list[str], query_types: list[str]) -> None:
-        """Compute statistical summary for a variable without opening a data explorer."""
+    def _get_table_summary(self, path: list[str], query_types: list[str]) -> None:
+        """Compute statistical summary for a table without opening a data explorer."""
         from .data_explorer import (
             DataExplorerState,
             _get_column_profiles,
@@ -734,10 +735,10 @@ class VariablesService:
 
         is_known, value = self._find_var(path)
         if not is_known:
-            raise ValueError(f"Cannot find variable at '{path}' to summarize")
+            raise ValueError(f"Cannot find table at '{path}' to summarize")
 
         if not _value_type_is_supported(value):
-            raise ValueError(f"Variable at '{path}' is not supported for summary")
+            raise ValueError(f"Variable at '{path}' is not supported for table summary")
 
         try:
             # Create a temporary table view with a temporary comm
@@ -772,11 +773,12 @@ class VariablesService:
 
         self._send_result(
             {
-                "schema": {
-                    "num_rows": num_rows,
-                    "num_columns": num_columns,
-                },
-                "column_profiles": profiles,
+                "num_rows": num_rows,
+                "num_columns": num_columns,
+                # convert each column schema to serialized JSON
+                "column_schemas": [json.dumps(x.dict()) for x in schema.columns],
+                # convert each column profile to serialized JSON
+                "column_profiles": [json.dumps(x) for x in profiles],
             }
         )
 

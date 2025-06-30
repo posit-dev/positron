@@ -299,9 +299,9 @@ export function registerAssistantTools(
 
 	context.subscriptions.push(inspectVariablesTool);
 
-	const getDataSummaryTool = vscode.lm.registerTool<{ sessionIdentifier: string; accessKeys: Array<Array<string>> }>(PositronAssistantToolName.GetDataSummary, {
+	const getTableSummaryTool = vscode.lm.registerTool<{ sessionIdentifier: string; accessKeys: Array<Array<string>> }>(PositronAssistantToolName.GetTableSummary, {
 		/**
-		 * Called to get a data summary of one or more variables in the current session.
+		 * Called to get a summary information for one or more tabular datasets in the current session.
 		 * @param options The options for the tool invocation.
 		 * @param token The cancellation token.
 		 * @returns A vscode.LanguageModelToolResult containing the data summary.
@@ -336,7 +336,7 @@ export function registerAssistantTools(
 			}
 
 			// Call the Positron API to get the session variable data summaries
-			const result = await positron.runtime.querySessionVariable(
+			const result = await positron.runtime.querySessionTables(
 				options.input.sessionIdentifier,
 				options.input.accessKeys,
 				['summary_stats']);
@@ -347,7 +347,7 @@ export function registerAssistantTools(
 			]);
 		}
 	});
-	context.subscriptions.push(getDataSummaryTool);
+	context.subscriptions.push(getTableSummaryTool);
 
 	const installPythonPackageTool = vscode.lm.registerTool<{
 		packages: string[];
