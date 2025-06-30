@@ -69,6 +69,28 @@ export const formatSize = (size: number) => {
 	return localize('positron.sizeTB', "{0} TB", (size / TB).toFixed(2));
 };
 
+const viewQueuedLabel = (variableItem: IVariableItem) => {
+	switch (variableItem.kind) {
+		case 'table':
+			return localize('positron.variables.viewTableQueued', 'Data Table Queued...');
+		case 'connection':
+			return localize('positron.variables.viewConnectionQueued', 'Connection Queued...');
+		default:
+			return localize('positron.variables.viewQueued', 'View Queued...');
+	}
+};
+
+const viewLabel = (variableItem: IVariableItem) => {
+	switch (variableItem.kind) {
+		case 'table':
+			return localize('positron.variables.viewTable', 'View Data Table');
+		case 'connection':
+			return localize('positron.variables.viewConnection', 'View Connection');
+		default:
+			return localize('positron.variables.view', 'View');
+	}
+};
+
 /**
  * VariableItemProps interface.
  */
@@ -280,7 +302,7 @@ export const VariableItem = (props: VariableItemProps) => {
 		if (!props.disabled && props.variableItem.hasViewer) {
 			actions.push({
 				id: POSITRON_VARIABLES_VIEW,
-				label: localize('positron.variables.view', "View"),
+				label: viewLabel(props.variableItem),
 				tooltip: '',
 				class: undefined,
 				enabled: !isViewLoading,
@@ -397,7 +419,9 @@ export const VariableItem = (props: VariableItemProps) => {
 	const RightColumn = () => {
 		if (!props.disabled && props.variableItem.hasViewer) {
 			let icon = 'codicon codicon-open-preview';
-			if (props.variableItem.kind === 'table') {
+			if (isViewLoading) {
+				icon = 'codicon codicon-notebook-state-pending';
+			} else if (props.variableItem.kind === 'table') {
 				icon = 'codicon codicon-table';
 			} else if (props.variableItem.kind === 'connection') {
 				icon = 'codicon codicon-database';
@@ -410,8 +434,8 @@ export const VariableItem = (props: VariableItemProps) => {
 					<div
 						className={icon}
 						title={isViewLoading ?
-							localize('positron.variables.pendingView', "Loading...") :
-							localize('positron.variables.clickToView', "Click to view")}
+							viewQueuedLabel(props.variableItem) :
+							viewLabel(props.variableItem)}
 						onMouseDown={isViewLoading ? undefined : viewerMouseDownHandler}
 					></div>
 				</div>
