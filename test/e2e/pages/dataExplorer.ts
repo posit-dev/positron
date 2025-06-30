@@ -393,15 +393,10 @@ export class DataExplorer {
 		});
 	}
 
-	async verifyCanCopyDataToClipboard(expectedText: string) {
-		await test.step('Verify can copy data to clipboard', async () => {
-			await expect(async () => {
-				await this.code.driver.page.locator('#data-grid-row-cell-content-0-0 .text-container .text-value').click();
-				await this.workbench.hotKeys.copy();
-				const clipboardText = await this.workbench.clipboard.getClipboardText();
-				expect(clipboardText).toBe(expectedText);
-			}).toPass({ timeout: 20000 });
+	async clickCell(rowIndex: number, columnIndex: number) {
+		await test.step(`Click cell at row ${rowIndex}, column ${columnIndex}`, async () => {
+			const cellLocator = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`);
+			await cellLocator.click();
 		});
 	}
-
 }

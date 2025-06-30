@@ -37,21 +37,28 @@ test.describe('Headless Data Explorer', {
 		await hotKeys.notebookLayout(); // Make data explorer larger
 	});
 
-	test.afterEach(async function ({ app, hotKeys }) {
-		await app.workbench.dataExplorer.closeDataExplorer();
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
 		await hotKeys.stackedLayout(); //return to default layout
 	});
 
 	testCases.forEach(({ name, file, copyValue }) => {
 		test(`Verify can open and view data with large ${name} file`, async function ({ app, openDataFile }) {
-			const { editors, dataExplorer } = app.workbench;
+			const { editors, dataExplorer, clipboard } = app.workbench;
 
 			await openDataFile(`${file}`);
 			await editors.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
 
-			await dataExplorer.verifyCanCopyDataToClipboard(copyValue);
+			// verify can copy data to clipboard
+			await dataExplorer.clickCell(0, 0);
+			await clipboard.copy();
+			await clipboard.expectClipboardTextToBe(copyValue);
+
+			// verify all data loads
 			await dataExplorer.clickLowerRightCorner();
 			await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
+
+			// verify action bar has correct buttons
 			await dataExplorer.expectActionBarToHaveButton('Open as Plain Text File', file.endsWith('.csv') || file.endsWith('.tsv'));
 		});
 	});
@@ -70,12 +77,17 @@ test.describe('Headless Data Explorer', {
 	});
 
 	test(`Verify can open parquet decimal data`, async function ({ app, openDataFile }) {
-		const { editors, dataExplorer } = app.workbench;
+		const { editors, dataExplorer, clipboard } = app.workbench;
 
 		await openDataFile(`data-files/misc-parquet/decimal_types.parquet`);
 		await editors.verifyTab('decimal_types.parquet', { isVisible: true, isSelected: true });
 
-		await dataExplorer.verifyCanCopyDataToClipboard('123456789012345.678');
+		// verify can copy data to clipboard
+		await dataExplorer.clickCell(0, 0);
+		await clipboard.copy();
+		await clipboard.expectClipboardTextToBe('123456789012345.678');
+
+		// verify all data loads
 		await dataExplorer.clickLowerRightCorner();
 		await dataExplorer.expectLastCellContentToBe('decimal_no_scale', '5555555555', -2);
 	});

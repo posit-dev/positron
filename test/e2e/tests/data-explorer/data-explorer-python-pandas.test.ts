@@ -21,7 +21,7 @@ test.describe('Data Explorer - Python Pandas', {
 	});
 
 	test('Python Pandas - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app, executeCode, hotKeys, python }) {
-		const { dataExplorer, variables, editors } = app.workbench;
+		const { dataExplorer, variables, editors, clipboard } = app.workbench;
 
 		// execute code to create a DataFrame
 		await executeCode('Python', df);
@@ -36,8 +36,16 @@ test.describe('Data Explorer - Python Pandas', {
 			{ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' },
 			{ 'Name': 'Anuj', 'Age': '32', 'Address': 'Kannauj' }
 		]);
-		await dataExplorer.verifyCanCopyDataToClipboard('Jai');
+
+		// verify can copy data to clipboard
+		await dataExplorer.clickCell(0, 0);
+		await clipboard.copy();
+		await clipboard.expectClipboardTextToBe('Jai');
+
+		// verify sparkline hover dialog
 		await dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+
+		// verify null percentage hover dialog
 		await dataExplorer.verifyNullPercentHoverDialog();
 	});
 
@@ -129,7 +137,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await editors.verifyTab('Data: Data_Frame', { isVisible: true });
 	});
 
-	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, sessions, hotKeys, python }) {
+	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, hotKeys, python }) {
 		const { dataExplorer, console, variables, editors, popups } = app.workbench;
 
 		// execute code to create a DataFrame with blank spaces

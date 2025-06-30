@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { clipboard } from 'electron';
 import { test, tags } from '../_test.setup';
 
 test.use({
@@ -22,7 +23,7 @@ test.describe('Data Explorer - R ', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
 	test('R - Verify basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, hotKeys }) {
-		const { dataExplorer, editor, editors, variables } = app.workbench;
+		const { dataExplorer, editor, editors, variables, clipboard } = app.workbench;
 
 		// Execute code to generate data frames
 		await openFile('workspaces/generate-data-frames-r/simple-data-frames.r');
@@ -49,8 +50,16 @@ test.describe('Data Explorer - R ', {
 			{ column: 3, expected: { 'Missing': '0', 'Min': '30.00', 'Median': '45.00', 'Mean': '45.00', 'Max': '60.00', 'SD': '15.00' } },
 			{ column: 4, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '2' } }
 		]);
-		await dataExplorer.verifyCanCopyDataToClipboard('Strength');
+
+		// verify can copy data to clipboard
+		await dataExplorer.clickCell(0, 0);
+		await clipboard.copy();
+		await clipboard.expectClipboardTextToBe('Strength');
+
+		// verify sparkline hover dialog
 		await dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+
+		// verify null percentage hover dialog
 		await dataExplorer.verifyNullPercentHoverDialog();
 	});
 

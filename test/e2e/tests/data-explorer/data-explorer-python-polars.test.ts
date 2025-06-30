@@ -31,7 +31,7 @@ test.describe('Data Explorer - Python Polars', {
 	});
 
 	test('Python Polars - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app }) {
-		const { dataExplorer } = app.workbench;
+		const { dataExplorer, clipboard } = app.workbench;
 
 		// verify table data
 		await dataExplorer.verifyTableData([
@@ -41,7 +41,9 @@ test.describe('Data Explorer - Python Polars', {
 		]);
 
 		// verify can copy data to clipboard
-		await dataExplorer.verifyCanCopyDataToClipboard('1');
+		await dataExplorer.clickCell(0, 0);
+		await clipboard.copy();
+		await clipboard.expectClipboardTextToBe('1');
 
 		// verify sparkline hover
 		await dataExplorer.expandSummary();
