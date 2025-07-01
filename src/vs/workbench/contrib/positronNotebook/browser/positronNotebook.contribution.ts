@@ -17,6 +17,7 @@ import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../
 import { parse } from '../../../../base/common/marshalling.js';
 import { assertType } from '../../../../base/common/types.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { INotebookService } from '../../notebook/common/notebookService.js';
 import { Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
@@ -62,7 +63,8 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
  * @returns 'positron' | 'vscode'
  */
 export function getPreferredNotebookEditor(configurationService: IConfigurationService): 'positron' | 'vscode' {
-	return configurationService.getValue<'positron' | 'vscode'>(POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY) || 'vscode';
+	const value = configurationService.getValue<'positron' | 'vscode'>(POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY) || 'vscode';
+	return value === 'positron' || value === 'vscode' ? value : 'vscode';
 }
 
 /**
@@ -97,35 +99,99 @@ class PositronNotebookConfigMigration implements IWorkbenchContribution {
 class PositronNotebookContribution extends Disposable {
 	constructor(
 		@IEditorResolverService editorResolverService: IEditorResolverService,
-		@IInstantiationService instantiationService: IInstantiationService,
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@INotebookService private readonly notebookService: INotebookService
 	) {
 		super();
 
+		// Register for .ipynb files
 		this._register(editorResolverService.registerEditor(
-			// The glob pattern for this registration
-			`${Schemas.positronNotebook}:**/**`,
-			// Information about the registration
+			'*.ipynb',
 			{
 				id: PositronNotebookEditorInput.EditorID,
 				label: localize('positronNotebook', "Positron Notebook"),
-				priority: RegisteredEditorPriority.builtin
+				priority: this.getEditorPriority()
 			},
-			// Specific options which apply to this registration
 			{
 				singlePerResource: true,
-				canSupportResource: resource => resource.scheme === Schemas.positronNotebook
+				canSupportResource: (resource: URI) => {
+					// Only support file:// scheme initially
+					return resource.scheme === Schemas.file;
+				}
 			},
-			// The editor input factory functions
 			{
-				// Right now this doesn't do anything because we hijack the
-				// vscode built in notebook factories to open our notebooks.
-				createEditorInput: ({ resource, options }) => {
-					// TODO: Make this be based on the actual file.
-					const temporaryViewType = 'jupyter-notebook';
-					return { editor: instantiationService.createInstance(PositronNotebookEditorInput, resource, temporaryViewType, {}), options };
+				createEditorInput: async ({ resource, options }) => {
+					// Determine notebook type from file content or metadata
+					const viewType = await this.detectNotebookViewType(resource);
+
+					const editorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						resource,
+						undefined,
+						viewType,
+						{ startDirty: false }
+					);
+
+					return { editor: editorInput, options };
 				}
 			}
 		));
+
+		// Set initial editor associations
+		this.updateEditorPriority();
+
+		// Re-register when configuration changes
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration(POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY)) {
+				this.updateEditorPriority();
+			}
+		}));
+	}
+
+	private getEditorPriority(): RegisteredEditorPriority {
+		const defaultEditor = getPreferredNotebookEditor(this.configurationService);
+		return defaultEditor === 'positron'
+			? RegisteredEditorPriority.default  // Default priority - opens by default
+			: RegisteredEditorPriority.option; // Option priority - available in "Open With"
+	}
+
+	private async detectNotebookViewType(resource: URI): Promise<string> {
+		// Check if there's already an open notebook model for this URI
+		const existingModel = this.notebookService.getNotebookTextModel(resource);
+		if (existingModel) {
+			return existingModel.viewType;
+		}
+
+		// Use NotebookService to detect the correct viewType
+		const notebookProviders = this.notebookService.getContributedNotebookTypes(resource);
+
+		// Default to jupyter-notebook if detection fails
+		return notebookProviders[0]?.id || 'jupyter-notebook';
+	}
+
+	private updateEditorPriority(): void {
+		// Manage workbench.editorAssociations to ensure proper notebook editor selection
+		const defaultEditor = getPreferredNotebookEditor(this.configurationService);
+		const currentAssociations = this.configurationService.getValue<Record<string, string>>('workbench.editorAssociations') || {};
+
+		if (defaultEditor === 'positron') {
+			// Add association to ensure Positron opens .ipynb files
+			if (currentAssociations['*.ipynb'] !== PositronNotebookEditorInput.EditorID) {
+				const newAssociations = {
+					...currentAssociations,
+					'*.ipynb': PositronNotebookEditorInput.EditorID
+				};
+				this.configurationService.updateValue('workbench.editorAssociations', newAssociations);
+			}
+		} else {
+			// Remove association to allow VS Code's default behavior
+			if (currentAssociations['*.ipynb'] === PositronNotebookEditorInput.EditorID) {
+				const newAssociations = { ...currentAssociations };
+				delete newAssociations['*.ipynb'];
+				this.configurationService.updateValue('workbench.editorAssociations', newAssociations);
+			}
+		}
 	}
 }
 
