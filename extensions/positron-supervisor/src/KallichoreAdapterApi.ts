@@ -287,7 +287,7 @@ export class KCApi implements PositronSupervisorApi {
 					// Non-fatal. We can still start a new server if the connection file
 					// is invalid.
 					this.log(
-						`Error connecting to Kallichore (${connectionFile}): ${err}`);
+						`Error connecting to Kallichore (${connectionFile}): ${summarizeError(err)}`);
 				}
 			} else {
 				// Non-fatal, but not expected.
@@ -843,10 +843,10 @@ export class KCApi implements PositronSupervisorApi {
 			this._api.basePath = serverState.base_path;
 			this.log(`Reconnecting to TCP server at ${serverState.base_path}`);
 		} else if (serverState.socket_path) {
-			this._api.basePath = `http://unix:${serverState.socket_path}:/`;
+			this._api.basePath = `http://unix:${serverState.socket_path}:`;
 			this.log(`Reconnecting to socket: ${serverState.socket_path}`);
 		} else if (serverState.named_pipe) {
-			this._api.basePath = `http://npipe:${serverState.named_pipe}:/`;
+			this._api.basePath = `http://npipe:${serverState.named_pipe}:`;
 			this.log(`Reconnecting to named pipe: ${serverState.named_pipe}`);
 		} else {
 			throw new Error('Server state missing base_path, socket_path, and named_pipe');
