@@ -6,12 +6,7 @@ What is [Positron](https://positron.posit.co/)?
 - An extensible, polyglot tool for writing code and exploring data
 - A familiar environment for reproducible authoring and publishing
 
-> [!IMPORTANT]
-> Positron is an early stage project under active development and may [not yet be a good fit for you](https://positron.posit.co/start#is-positron-for-me). If you are interested in experimenting with it, we welcome your feedback!
-
-
-
-https://github.com/posit-dev/positron/assets/29187501/d1c4c9f0-7bd5-4132-bc24-c3d981ad0056
+![image](https://github.com/user-attachments/assets/51d7adf2-2a23-4c23-b10b-97b6052914c6)
 
 
 ## Get started using Positron
@@ -22,7 +17,7 @@ Positron is built on [Code OSS](https://github.com/microsoft/vscode). To learn a
 
 ## Install Positron
 
-Install the latest release of Positron from our [website](https://positron.posit.co/download), or find other versions [here on GitHub](https://github.com/posit-dev/positron/releases). Currently, Positron is producing pre-release builds from a continuous integration (CI) system for macOS, Windows, and Linux.
+Install the latest release of Positron from our [website](https://positron.posit.co/download). Currently, we are producing Positron release builds from a continuous integration (CI) system for macOS, Windows, and Linux desktop.
 
 ## Share your feedback about Positron
 
