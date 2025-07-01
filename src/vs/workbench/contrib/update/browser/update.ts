@@ -141,9 +141,14 @@ export class ProductContribution implements IWorkbenchContribution {
 			const currentVersion = parseVersion(productService.positronVersion);
 			const shouldShowReleaseNotes = configurationService.getValue<boolean>('update.showReleaseNotes');
 			const downloadUrl = productService.downloadUrl;
+			const channel = configurationService.getValue<string>('update.positron.channel');
 
 			// was there a major/minor update? if so, open release notes
-			if (shouldShowReleaseNotes && !environmentService.skipReleaseNotes && downloadUrl && lastVersion && currentVersion && isMajorMinorUpdate(lastVersion, currentVersion)) {
+			if (shouldShowReleaseNotes && !environmentService.skipReleaseNotes
+				&& downloadUrl && lastVersion && currentVersion
+				&& isMajorMinorUpdate(lastVersion, currentVersion)
+				&& channel === 'releases'
+			) {
 				showReleaseNotesInEditor(instantiationService, productService.positronVersion, false)
 					.then(undefined, () => {
 						notificationService.prompt(
