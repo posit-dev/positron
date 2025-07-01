@@ -11,6 +11,7 @@ export enum JupyterMessageType {
 	CommMsg = 'comm_msg',
 	CommOpen = 'comm_open',
 	DebugEvent = 'debug_event',
+	DebugRequest = 'debug_request',
 	DebugReply = 'debug_reply',
 	DisplayData = 'display_data',
 	Error = 'error',

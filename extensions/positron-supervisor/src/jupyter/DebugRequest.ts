@@ -6,10 +6,11 @@
 import { DebugProtocol } from 'vscode-debugprotocol';
 import { JupyterRequest } from './JupyterRequest';
 import { JupyterChannel } from './JupyterChannel';
+import { JupyterMessageType } from './JupyterMessageType.js';
 
 export class DebugRequest extends JupyterRequest<DebugProtocol.Request, DebugProtocol.Response> {
 	constructor(readonly requestId: string, req: DebugProtocol.Request) {
-		super('debug_request', req, 'debug_reply', JupyterChannel.Control);
+		super(JupyterMessageType.DebugRequest, req, JupyterMessageType.DebugReply, JupyterChannel.Control);
 	}
 	protected override createMsgId(): string {
 		return this.requestId;

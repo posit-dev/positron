@@ -20,6 +20,17 @@ import { activateAppDetection as activateWebAppDetection } from './webAppContext
 import { activateWebAppCommands } from './webAppCommands';
 import { activateWalkthroughCommands } from './walkthroughCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
+import { registerLanguageServerManager } from './languageServerManager';
+
+const log = vscode.window.createOutputChannel('Debug', { log: true });
+
+interface DumpCellArguments {
+    code: string;
+}
+
+interface DumpCellResponseBody {
+    sourcePath: string;
+}
 
 class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
     private readonly _disposables: vscode.Disposable[] = [];
@@ -28,32 +39,243 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
 
     public readonly onDidSendMessage = this._onDidSendMessage.event;
 
+    private _cellUriByTempFilePath = new Map<string, string>();
+
+    private _seq = 1;
+    private _seqToClientSeq = new Map<number, number>();
+
     constructor(
         private readonly _debugSession: vscode.DebugSession,
         private readonly _runtimeSession: positron.LanguageRuntimeSession,
+        private readonly _notebook: vscode.NotebookDocument,
+        // TODO: Can we just have a single cell? Could this debug adapter deal with multiple cells?
+        // TODO: Replace all cell URI checks below to just compare with this one?
+        private readonly _cell: vscode.NotebookCell,
     ) {
         this._disposables.push(this._onDidSendMessage);
 
         this._disposables.push(
-            this._runtimeSession.onDidReceiveRuntimeMessage((message) => {
+            this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
+                // TODO: Could the event be for another debug session?
                 if (message.type === positron.LanguageRuntimeMessageType.DebugEvent) {
                     const debugEvent = message as positron.LanguageRuntimeDebugEvent;
-                    this._onDidSendMessage.fire(debugEvent.content);
+                    log.debug(`[kernel] SEND ${debugEvent.content.type} ${JSON.stringify(debugEvent.content)}`);
+
+                    // TODO: Do we need this?
+                    // Only handle stopped events inside the cell.
+                    // Otherwise the debugger stops in internal IPython/ipykernel code.
+                    // if (debugEvent.content.event === 'stopped') {
+                    //     const stoppedEvent = debugEvent.content as DebugProtocol.StoppedEvent;
+                    //     const threadId = stoppedEvent.body.threadId;
+                    //     if (threadId) {
+                    //         // Call stackTrace to determine whether to forward the stop event to the client, and also to
+                    //         // start the process of updating the variables view.
+                    //         const stackTraceResponse = await this.stackTrace({
+                    //             threadId,
+                    //             startFrame: 0,
+                    //             levels: 1,
+                    //         });
+                    //         const stackFrame = stackTraceResponse.stackFrames[0];
+                    //         // NOTE: This path will be a cell URI since it uses customRequest thus
+                    //         //       goes through the adapter transformations.
+                    //         if (stackFrame.source?.path !== this._cell.document.uri.toString()) {
+                    //             // TODO: Why do we step in?...
+                    //             log.debug('Intercepting stopped event for non-cell source; stepping in');
+                    //             // TODO: Could this be 'next'?
+                    //             // Run in the background to avoid being very slow?
+                    //             // this.sendRequest<DebugProtocol.StepInRequest, DebugProtocol.StepInResponse>({
+                    //             //     command: 'stepIn',
+                    //             //     arguments: {
+                    //             //         threadId,
+                    //             //     },
+                    //             // }).ignoreErrors();
+
+                    //             this.stepIn({ threadId }).ignoreErrors();
+                    //             return;
+                    //         }
+                    //     }
+                    // }
+
+                    this.emitClientMessage(debugEvent.content);
                 }
             }),
         );
     }
 
-    // eslint-disable-next-line class-methods-use-this
     public handleMessage(message: DebugProtocol.ProtocolMessage): void {
-        console.log('PythonNotebookDebugAdapter.handleMessage', message);
-        this._handleMessageAsync(message).ignoreErrors();
+        this.handleMessageAsync(message).ignoreErrors();
     }
 
-    private async _handleMessageAsync(message: DebugProtocol.ProtocolMessage): Promise<void> {
-        if (message.type === 'request') {
-            const id = randomUUID();
+    private async handleMessageAsync(message: DebugProtocol.ProtocolMessage): Promise<void> {
+        log.debug(`[adapter] RECV ${message.type} ${JSON.stringify(message)}`);
+        switch (message.type) {
+            case 'request':
+                return await this.handleRequest(message as DebugProtocol.Request);
+        }
+    }
 
+    private async handleRequest(request: DebugProtocol.Request): Promise<void> {
+        // switch (request.command) {
+        //     case 'setBreakpoints':
+        //         return await this.handleSetBreakpointsRequest(request as DebugProtocol.SetBreakpointsRequest);
+        //     case 'stackTrace':
+        //         return await this.handleStackTraceRequest(request as DebugProtocol.StackTraceRequest);
+        // }
+        const kernelRequest = await this.toKernelRequest(request);
+        const kernelResponse = await this.sendKernelRequest(kernelRequest);
+        const response = this.toClientResponse(kernelResponse);
+        this.emitClientMessage(response);
+        // const kernelRequest = await this.toKernelRequest(request);
+        // const kernelResponse = await this.sendRequest(kernelRequest);
+        // const response = this.toClientResponse(kernelResponse, cellUri);
+        // // TODO: Do we also need our own seq counter for messages from adapter -> client?
+        // //       Since we don't forward every message e.g. dumpCell responses?
+        // this.emitMessage(response);
+    }
+
+    // private async handleSetBreakpointsRequest(request: DebugProtocol.SetBreakpointsRequest): Promise<void> {
+    //     const kernelRequest = await this.toKernelSetBreakpointsRequest(request);
+    //     const kernelResponse = await this.sendKernelRequest<
+    //         DebugProtocol.SetBreakpointsRequest,
+    //         DebugProtocol.SetBreakpointsResponse
+    //     >(kernelRequest);
+    //     const response = this.toClientSetBreakpointsResponse(kernelResponse);
+    //     // TODO: Do we also need our own seq counter for messages from adapter -> client?
+    //     //       Since we don't forward every message e.g. dumpCell responses?
+    //     this.emitClientMessage(response);
+    // }
+
+    // private async handleStackTraceRequest(request: DebugProtocol.StackTraceRequest): Promise<void> {
+    //     const kernelResponse = await this.sendKernelRequest<
+    //         DebugProtocol.StackTraceRequest,
+    //         DebugProtocol.StackTraceResponse
+    //     >(request);
+    //     const response = this.toClientStackTraceResponse(kernelResponse);
+    //     this.emitClientMessage(response);
+    // }
+
+    private async toKernelRequest(request: DebugProtocol.Request): Promise<DebugProtocol.Request> {
+        switch (request.command) {
+            case 'setBreakpoints':
+                return this.toKernelSetBreakpointsRequest(request as DebugProtocol.SetBreakpointsRequest);
+            default:
+                return request;
+        }
+    }
+
+    private async toKernelSetBreakpointsRequest(
+        request: DebugProtocol.SetBreakpointsRequest,
+    ): Promise<DebugProtocol.SetBreakpointsRequest> {
+        const cellUri = request.arguments.source.path;
+        if (!cellUri) {
+            throw new Error('No cell URI provided.');
+        }
+        const cell = this._notebook.getCells().find((cell) => cell.document.uri.toString() === cellUri);
+        if (!cell) {
+            throw new Error(`Could not find cell for path: ${cellUri}`);
+        }
+        const code = cell.document.getText();
+        // Dump the cell into a temp file.
+        const path = (await this.dumpCell({ code })).sourcePath;
+        // TODO: Do these need to be cleared?...
+        this._cellUriByTempFilePath.set(path, cellUri);
+        return {
+            ...request,
+            arguments: {
+                ...request.arguments,
+                source: {
+                    ...request.arguments.source,
+                    path,
+                },
+            },
+        };
+    }
+
+    private toClientStackTraceResponse(response: DebugProtocol.StackTraceResponse): DebugProtocol.StackTraceResponse {
+        return {
+            ...response,
+            body: {
+                ...response.body,
+                stackFrames: response.body.stackFrames.map((frame) => ({
+                    ...frame,
+                    source: {
+                        ...frame.source,
+                        path:
+                            (frame.source?.path && this._cellUriByTempFilePath.get(frame.source.path)) ??
+                            frame.source?.path,
+                    },
+                })),
+            },
+        };
+    }
+
+    private toClientResponse(response: DebugProtocol.Response): DebugProtocol.Response {
+        switch (response.command) {
+            case 'setBreakpoints':
+                return this.toClientSetBreakpointsResponse(response as DebugProtocol.SetBreakpointsResponse);
+            case 'stackTrace':
+                return this.toClientStackTraceResponse(response as DebugProtocol.StackTraceResponse);
+            default:
+                return response;
+        }
+    }
+
+    private toClientSetBreakpointsResponse(
+        response: DebugProtocol.SetBreakpointsResponse,
+    ): DebugProtocol.SetBreakpointsResponse {
+        return {
+            ...response,
+            body: {
+                ...response.body,
+                breakpoints: response.body.breakpoints.map((breakpoint) => ({
+                    ...breakpoint,
+                    source: {
+                        ...breakpoint.source,
+                        // Swap the source path with the original cell path.
+                        path:
+                            (breakpoint.source?.path && this._cellUriByTempFilePath.get(breakpoint.source.path)) ??
+                            breakpoint.source?.path,
+                    },
+                })),
+            },
+        };
+    }
+
+    private async dumpCell(args: DumpCellArguments): Promise<DumpCellResponseBody> {
+        return await this._debugSession.customRequest('dumpCell', args);
+    }
+
+    // private async stackTrace(
+    //     args: DebugProtocol.StackTraceArguments,
+    // ): Promise<DebugProtocol.StackTraceResponse['body']> {
+    //     return await this._debugSession.customRequest('stackTrace', args);
+    // }
+
+    // private async stepIn(args: DebugProtocol.StepInArguments): Promise<DebugProtocol.StepInResponse['body']> {
+    //     return await this._debugSession.customRequest('stepIn', args);
+    // }
+
+    private emitClientMessage(message: DebugProtocol.ProtocolMessage): void {
+        log.debug(`[adapter] SEND ${message.type} ${JSON.stringify(message)}`);
+        this._onDidSendMessage.fire(message);
+    }
+
+    private async sendKernelRequest<P extends DebugProtocol.Request, R extends DebugProtocol.Response>(
+        request: Omit<P, 'seq' | 'type'> & { seq?: number; type?: string },
+    ): Promise<R> {
+        const id = randomUUID();
+
+        const seq = this._seq++;
+        if (request.seq) {
+            this._seqToClientSeq.set(seq, request.seq);
+        }
+        const requestWithSeq = { ...request, seq, type: request.type ?? 'request' };
+
+        switch (request.type) {
+            case 'request':
+        }
+
+        const responsePromise = new Promise<R>((resolve, reject) => {
             const disposable = this._runtimeSession.onDidReceiveRuntimeMessage((message) => {
                 if (message.parent_id !== id) {
                     return;
@@ -61,22 +283,27 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
                 if (message.type === positron.LanguageRuntimeMessageType.DebugReply) {
                     const debugReply = message as positron.LanguageRuntimeDebugReply;
                     if (debugReply.content === undefined) {
-                        throw new Error('No content in debug reply. Is debugpy already listening?');
+                        reject(new Error('No content in debug reply. Is debugpy already listening?'));
                     }
-                    this._onDidSendMessage.fire(debugReply.content);
+                    log.debug(`[kernel] SEND ${debugReply.content.type} ${JSON.stringify(debugReply.content)}`);
+                    resolve(debugReply.content as R);
                     disposable.dispose();
                 }
             });
+        });
 
-            this._runtimeSession.debug(message as DebugProtocol.Request, id);
-        }
+        log.debug(`[kernel] RECV ${requestWithSeq.type} ${JSON.stringify(requestWithSeq)}`);
+        this._runtimeSession.debug(requestWithSeq, id);
+
+        // TODO: Should we replace seq in the response with the original request seq?...
+        const response = await responsePromise;
+        return { ...response, request_seq: request.seq ?? seq };
     }
 
     public dispose() {
         this._disposables.forEach((disposable) => disposable.dispose());
     }
 }
-import { registerLanguageServerManager } from './languageServerManager';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
@@ -165,12 +392,19 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                         return undefined;
                     }
 
+                    const cell = notebook
+                        .getCells()
+                        .find((cell) => cell.document.uri.toString() === debugSession.configuration.__cellUri);
+                    if (!cell) {
+                        return undefined;
+                    }
+
                     const runtimeSession = await positron.runtime.getNotebookSession(notebook.uri);
                     if (!runtimeSession) {
                         return undefined;
                     }
 
-                    const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession);
+                    const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook, cell);
                     return new vscode.DebugAdapterInlineImplementation(adapter);
                 },
             }),
@@ -183,6 +417,11 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                     return;
                 }
 
+                const cellUri = vscode.window.activeTextEditor?.document.uri;
+                if (!cellUri) {
+                    return;
+                }
+
                 await vscode.debug.startDebugging(undefined, {
                     type: 'pythonNotebook',
                     name: path.basename(notebookEditor.notebook.uri.fsPath),
@@ -190,6 +429,7 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                     // TODO: Get from config.
                     justMyCode: false,
                     __notebookUri: notebookEditor.notebook.uri.toString(),
+                    __cellUri: cellUri.toString(),
                 });
             }),
         );
