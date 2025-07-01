@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
-import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, toLanguageModelChatMessage, uriToString } from './utils';
+import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
@@ -266,14 +266,22 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Note that context.history excludes tool calls and results.
 		const messages = toLanguageModelChatMessage(context.history);
 
+		// Add the user's prompt.
+		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
+		messages.push(vscode.LanguageModelChatMessage.User([userPromptPart]));
+
+		// Add cache breakpoints to at-most the last 2 user messages.
+		addCacheControlBreakpointPartsToLastUserMessages(messages, 2);
+
 		// Add a user message containing context about the request, workspace, running sessions, etc.
+		// NOTE: We add the context message after the user prompt so that the context message is
+		// not cached. Since the context message is transiently added to each request, caching it
+		// will write a prompt prefix to the cache that will never be read. We will want to keep
+		// an eye on whether the order of user prompt and context message affects model responses.
 		const contextMessage = await this.getContextMessage(request, response, positronContext);
 		if (contextMessage) {
 			messages.push(contextMessage);
 		}
-
-		// Add the user's prompt.
-		messages.push(vscode.LanguageModelChatMessage.User(request.prompt));
 
 		// Send the request to the language model.
 		await this.sendLanguageModelRequest(request, response, token, messages, tools, system);
@@ -850,4 +858,36 @@ export interface TextProcessor {
 
 	/** Process any unhandled text at the end of the stream. */
 	flush(): void | Promise<void>;
+}
+
+/**
+ * Add cache breakpoints (for Anthropic prompt caching) to the last few user messages.
+ *
+ * @param messages The chat messages to modify.
+ * @param maxCacheBreakpointParts The maximum number of cache breakpoints to add.
+ *   Note that Anthropic supports a maximum of 4 cache controls per request and that
+ *   we may also cache tools and the system prompt.
+ */
+function addCacheControlBreakpointPartsToLastUserMessages(
+	messages: vscode.LanguageModelChatMessage2[],
+	maxCacheBreakpointParts: number,
+) {
+	let numCacheControlParts = 0;
+	for (let i = messages.length - 1; i >= 0; i--) {
+		const message = messages[i];
+		if (message.role !== vscode.LanguageModelChatMessageRole.User) {
+			continue;
+		}
+		const lastPart = message.content.at(-1);
+		if (!lastPart) {
+			continue;
+		}
+		log.debug(`[participant] Adding cache breakpoint to user message part: ${lastPart.constructor.name}`);
+		message.content.push(languageModelCacheBreakpointPart());
+		numCacheControlParts++;
+		if (numCacheControlParts >= maxCacheBreakpointParts) {
+			// We only want to cache the last two user messages.
+			break;
+		}
+	}
 }
