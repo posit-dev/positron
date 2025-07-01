@@ -52,7 +52,7 @@ from .data_explorer_comm import (
     DataSelectionRange,
     DataSelectionSingleCell,
     ExportDataSelectionFeatures,
-    ExportDataSelectionRequest,
+    ExportDataSelectionParams,
     ExportedData,
     ExportFormat,
     FilterBetween,
@@ -64,24 +64,23 @@ from .data_explorer_comm import (
     FilterTextSearch,
     FormatOptions,
     GetColumnProfilesFeatures,
-    GetColumnProfilesRequest,
-    GetDataValuesRequest,
-    GetRowLabelsRequest,
-    GetSchemaRequest,
-    GetStateRequest,
+    GetColumnProfilesParams,
+    GetDataValuesParams,
+    GetRowLabelsParams,
+    GetSchemaParams,
     RowFilter,
     RowFilterCondition,
     RowFilterType,
     RowFilterTypeSupportStatus,
     SearchSchemaFeatures,
-    SearchSchemaRequest,
+    SearchSchemaParams,
     SearchSchemaResult,
     SetColumnFiltersFeatures,
-    SetColumnFiltersRequest,
+    SetColumnFiltersParams,
     SetRowFiltersFeatures,
-    SetRowFiltersRequest,
+    SetRowFiltersParams,
     SetSortColumnsFeatures,
-    SetSortColumnsRequest,
+    SetSortColumnsParams,
     SummaryStatsBoolean,
     SummaryStatsDate,
     SummaryStatsDatetime,
@@ -261,10 +260,10 @@ class DataExplorerTableView:
             self._sort_data()
 
     # Gets the schema from a list of column indices.
-    def get_schema(self, request: GetSchemaRequest):
+    def get_schema(self, params: GetSchemaParams):
         # Loop over the sorted column indices to get the column schemas the user requested.
         column_schemas = []
-        for column_index in sorted(request.params.column_indices):
+        for column_index in sorted(params.column_indices):
             # Validate that the column index isn't negative.
             if column_index < 0:
                 raise IndexError
@@ -282,10 +281,10 @@ class DataExplorerTableView:
     def _get_single_column_schema(self, column_index: int) -> ColumnSchema:
         raise NotImplementedError
 
-    def search_schema(self, request: SearchSchemaRequest):
-        filters = request.params.filters
-        start_index = request.params.start_index
-        max_results = request.params.max_results
+    def search_schema(self, params: SearchSchemaParams):
+        filters = params.filters
+        start_index = params.start_index
+        max_results = params.max_results
         if self._search_schema_last_result is not None:
             last_filters, matches = self._search_schema_last_result
             if last_filters != filters:
@@ -352,18 +351,18 @@ class DataExplorerTableView:
     def _get_column_name(self, column_index: int) -> str:
         raise NotImplementedError
 
-    def get_data_values(self, request: GetDataValuesRequest):
+    def get_data_values(self, params: GetDataValuesParams):
         self._recompute_if_needed()
         return self._get_data_values(
-            request.params.columns,
-            request.params.format_options,
+            params.columns,
+            params.format_options,
         )
 
-    def get_row_labels(self, request: GetRowLabelsRequest):
+    def get_row_labels(self, params: GetRowLabelsParams):
         self._recompute_if_needed()
         return self._get_row_labels(
-            request.params.selection,
-            request.params.format_options,
+            params.selection,
+            params.format_options,
         )
 
     def _get_row_labels(self, _selection: ArraySelection, _format_options: FormatOptions):
@@ -371,11 +370,11 @@ class DataExplorerTableView:
         # be implemented for pandas
         return {"row_labels": []}
 
-    def export_data_selection(self, request: ExportDataSelectionRequest):
+    def export_data_selection(self, params: ExportDataSelectionParams):
         self._recompute_if_needed()
-        kind = request.params.selection.kind
-        sel = request.params.selection.selection
-        fmt = request.params.format
+        kind = params.selection.kind
+        sel = params.selection.selection
+        fmt = params.format
         if kind == TableSelectionKind.SingleCell:
             assert isinstance(sel, DataSelectionSingleCell)
             row_index = sel.row_index
@@ -418,14 +417,14 @@ class DataExplorerTableView:
     def _export_tabular(self, row_selector, column_selector, fmt: ExportFormat):
         raise NotImplementedError
 
-    def set_column_filters(self, request: SetColumnFiltersRequest):
-        return self._set_column_filters(request.params.filters)
+    def set_column_filters(self, params: SetColumnFiltersParams):
+        return self._set_column_filters(params.filters)
 
     def _set_column_filters(self, filters: list[ColumnFilter]):
         raise NotImplementedError
 
-    def set_row_filters(self, request: SetRowFiltersRequest):
-        return self._set_row_filters(request.params.filters)
+    def set_row_filters(self, params: SetRowFiltersParams):
+        return self._set_row_filters(params.filters)
 
     def _set_row_filters(self, filters: list[RowFilter]):
         self.state.row_filters = filters
@@ -487,8 +486,8 @@ class DataExplorerTableView:
     def _eval_filter(self, filt: RowFilter):
         raise NotImplementedError
 
-    def set_sort_columns(self, request: SetSortColumnsRequest):
-        self._set_sort_keys(request.params.sort_keys)
+    def set_sort_columns(self, params: SetSortColumnsParams):
+        self._set_sort_keys(params.sort_keys)
 
         if not self._recompute_if_needed():
             # If a re-filter is pending, then it will automatically
@@ -498,22 +497,22 @@ class DataExplorerTableView:
     def _sort_data(self):
         raise NotImplementedError
 
-    def get_column_profiles(self, request: GetColumnProfilesRequest):
+    def get_column_profiles(self, params: GetColumnProfilesParams):
         # Launch task to compute column profiles and return them
         # asynchronously, and return an empty result right away
-        self.job_queue.submit(self._get_column_profiles_task, request)
+        self.job_queue.submit(self._get_column_profiles_task, params)
         return {}
 
-    def _get_column_profiles_task(self, request: GetColumnProfilesRequest):
+    def _get_column_profiles_task(self, params: GetColumnProfilesParams):
         self._recompute_if_needed()
         results = []
 
-        for req in request.params.profiles:
+        for req in params.profiles:
             try:
                 result = self._compute_profiles(
                     req.column_index,
                     req.profiles,
-                    request.params.format_options,
+                    params.format_options,
                 )
                 results.append(result.dict())
             except Exception as e:  # noqa: PERF203
@@ -524,7 +523,7 @@ class DataExplorerTableView:
 
         self.comm.send_event(
             DataExplorerFrontendEvent.ReturnColumnProfiles.value,
-            {"callback_id": request.params.callback_id, "profiles": results},
+            {"callback_id": params.callback_id, "profiles": results},
         )
 
     def _compute_profiles(
@@ -564,7 +563,7 @@ class DataExplorerTableView:
                 raise NotImplementedError(profile_type)
         return ColumnProfileResult(**results)
 
-    def get_state(self, _: GetStateRequest):
+    def get_state(self, _unused):
         self._recompute_if_needed()
 
         num_rows, num_columns = self.table.shape
@@ -3051,7 +3050,8 @@ class DataExplorerService:
         comm = self.comms[comm_id]
         table = self.table_views[comm_id]
 
-        result = getattr(table, request.method.value)(request)
+        # GetState is the only method that doesn't have params
+        result = getattr(table, request.method.value)(getattr(request, "params", None))
 
         # To help remember to convert pydantic types to dicts
         if result is not None:
@@ -3062,21 +3062,6 @@ class DataExplorerService:
                 assert isinstance(result, dict)
 
         comm.send_result(result)
-
-
-def _get_table_schema_from_view(table_view):
-    """Extract table schema from a table view."""
-    try:
-        num_columns = table_view.table.shape[1]
-
-        # Get column schemas directly using the internal method
-        column_schemas = []
-        for i in range(num_columns):
-            column_schema = table_view._get_single_column_schema(i)  # noqa: SLF001
-            column_schemas.append(column_schema)
-        return TableSchema(columns=column_schemas)
-    except Exception as e:
-        raise ValueError(f"Failed to get schema: {e}") from e
 
 
 def _get_column_profiles(table_view, schema, query_types, format_options):

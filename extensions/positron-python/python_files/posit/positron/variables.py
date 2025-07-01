@@ -727,11 +727,10 @@ class VariablesService:
         from .data_explorer import (
             DataExplorerState,
             _get_column_profiles,
-            _get_table_schema_from_view,
             _get_table_view,
             _value_type_is_supported,
         )
-        from .data_explorer_comm import FormatOptions
+        from .data_explorer_comm import FormatOptions, GetSchemaParams
 
         is_known, value = self._find_var(path)
         if not is_known:
@@ -749,9 +748,9 @@ class VariablesService:
             raise ValueError(f"Failed to create table view: {e}") from e
 
         # Get schema using the helper function
-        schema = _get_table_schema_from_view(table_view)
         num_rows = table_view.table.shape[0]
         num_columns = table_view.table.shape[1]
+        schema = table_view.get_schema(GetSchemaParams(list(range(num_columns))))
 
         # Create default format options
         format_options = FormatOptions(
