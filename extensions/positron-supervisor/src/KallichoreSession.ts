@@ -1475,6 +1475,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * been sent. Note that the kernel may not be interrupted immediately.
 	 */
 	async interrupt(): Promise<void> {
+		// Mark the session as interrupting
+		this.onStateChange(positron.RuntimeState.Interrupting, 'interrupting kernel');
+
 		// Clear current input request if any
 		this._activeBackendRequestHeader = null;
 
