@@ -1151,9 +1151,26 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				vscode.window.withProgress({
 					location: vscode.ProgressLocation.Notification,
 					title: vscode.l10n.t('{0} is busy; waiting for it to become idle before reconnecting.', this.dynState.sessionName),
-					cancellable: false,
-				}, async () => {
-					await this.waitForIdle();
+					cancellable: true,
+				}, async (progress, token) => {
+					// If the user cancels the progress, we should interrupt the
+					// session. This can be destructive, so we ask the user for
+					// confirmation.
+					//
+					// It'd be nicer to make the progress cancel button read
+					// "Interrupt", but there is no way to do that with the
+					// current API.
+					const disposable = token.onCancellationRequested(() => {
+						this.requestReconnectInterrupt();
+					});
+					try {
+						// Await for the session to become idle. The session
+						// will become idle after the active code execution is
+						// done, or after the user interrupts it.
+						await this.waitForIdle();
+					} finally {
+						disposable.dispose();
+					}
 					this.markReady('idle after busy reconnect');
 				});
 			} else {
@@ -1168,6 +1185,72 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		return runtimeInfo;
+	}
+
+	/**
+	 * Requests that the user confirm whether they want to interrupt the
+	 * session that is currently busy so that we can reconnect to it.
+	 *
+	 * @param progress The progress report to update with the status of the
+	 *  interrupt request.
+	 */
+	private requestReconnectInterrupt() {
+		// Show a confirmation dialog to the user asking if they want to
+		// interrupt the session.
+		positron.window.showSimpleModalDialogPrompt(
+			vscode.l10n.t('Interrupt {0}', this.dynState.sessionName),
+			vscode.l10n.t('Positron is waiting for {0} to complete work; it will reconnect automatically when {1} becomes idle. Do you want to interrupt the active computation in order to reconnect now?', this.runtimeMetadata.languageName, this.runtimeMetadata.languageName),
+			vscode.l10n.t('Interrupt'),
+			vscode.l10n.t('Wait'),
+		).then((result) => {
+			if (!result) {
+				// A fun feature of the VS Code API is that it takes down
+				// progress dialogs after the user invokes the cancellation
+				// operation. So if the user chooses to wait, we need to show a
+				// new progress dialog to continue waiting for the session to
+				// become idle.
+				//
+				// It does NOT however prevent the original progress callback
+				// from running, so this callback differs from the one in
+				// `start()` in that it does not mark the session as ready (that
+				// will happen in the original callback).
+				vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: vscode.l10n.t('{0} is busy; continuing to wait for it to become idle.', this.dynState.sessionName),
+					cancellable: true,
+				}, async (_progress, token) => {
+					const disposable = token.onCancellationRequested(() => {
+						this.requestReconnectInterrupt();
+					});
+					try {
+						await this.waitForIdle();
+					} finally {
+						disposable.dispose();
+					}
+				});
+				return;
+			}
+
+			// The user chose to interrupt; send the interrupt request to the
+			// API. This will send an interrupt request to the kernel's control
+			// socket, which will then stop the current execution and
+			// (hopefully) return to idle.
+			vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t('Interrupting {0}', this.dynState.sessionName),
+				cancellable: false,
+			}, async (_progress, _token) => {
+				try {
+					await this._api.interruptSession(this.metadata.sessionId);
+				} catch (err) {
+					// If the interrupt failed, log the error and report it to the
+					// user. The session will continue to be busy, so we keep the
+					// progress report up.
+					this.log(`Failed to interrupt session ${this.metadata.sessionId}: ${summarizeError(err)}`, vscode.LogLevel.Error);
+					vscode.window.showErrorMessage(vscode.l10n.t('Failed to interrupt {0}: {1}', this.dynState.sessionName, summarizeError(err)));
+				}
+			});
+		});
 	}
 
 	/**
