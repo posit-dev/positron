@@ -464,7 +464,7 @@
 					"name": "{{ roxygen-tag }}"
 				}
 			},
-			"end": "(^\\s*#+')\\s*(@\\w*)",
+			"end": "(?:(^\\s*#+')\\s*(@\\w*)|(^\\s*(?!#+')))",
 			"endCaptures": {
 				"1": {
 					"name": "comment.line"
