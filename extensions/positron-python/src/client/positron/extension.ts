@@ -63,8 +63,6 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
 
     private sequence = 1;
 
-    // TODO: Can we just have a single cell? Could this debug adapter deal with multiple cells?
-    // TODO: Replace all cell URI checks below to just compare with this one?
     constructor(
         private readonly _debugSession: vscode.DebugSession,
         private readonly _runtimeSession: positron.LanguageRuntimeSession,
@@ -123,6 +121,7 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
     public handleMessage(message: DebugProtocol.ProtocolMessage): void {
         this.handleMessageAsync(message).catch((error) => {
             log.error(`[adapter] Error handling message: ${logMessage(message)}`, error);
+            // TODO: should still respond with an error response...
         });
     }
 
@@ -149,14 +148,10 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
         const cellUri = request.arguments.source.path;
         if (!cellUri) {
             throw new Error('No cell URI provided.');
-            // TODO: should still respond with an error response...
         }
         const cell = this._notebook.getCells().find((cell) => cell.document.uri.toString() === cellUri);
 
         if (!cell) {
-            // TODO: should we still send the request? maybe we should instead send an adapter error response?
-            //       currently this shows an unverified breakpoint with message "Breakpoint in file that does not exist"
-            //       which isn't accurate...
             this.emitClientMessage<DebugProtocol.SetBreakpointsResponse>({
                 type: 'response',
                 command: request.command,
@@ -398,6 +393,7 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
 
                     const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook);
 
+                    // Execute the cell when the debug session is ready.
                     const disposable = adapter.onDidSendMessage((message) => {
                         console.log(message);
                         if (
@@ -415,6 +411,41 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                             });
                         }
                     });
+
+                    // End the debug session when the cell execution is complete.
+                    (async () => {
+                        const codeExecutionEvent = await new Promise<positron.CodeExecutionEvent>((resolve) => {
+                            const disposable = positron.runtime.onDidExecuteCode((event) => {
+                                // TODO: restrict to cell and session ID as well?
+                                if (
+                                    event.attribution.source === positron.CodeAttributionSource.Notebook &&
+                                    // TODO: what does this look like for untitled/unsaved files?
+                                    event.attribution.metadata?.notebook === notebook.uri.fsPath
+                                ) {
+                                    disposable.dispose();
+                                    resolve(event);
+                                }
+                            });
+                        });
+
+                        // Now wait for the execution to complete...
+                        await new Promise<void>((resolve) => {
+                            const disposable = runtimeSession.onDidReceiveRuntimeMessage((message) => {
+                                if (
+                                    message.parent_id === codeExecutionEvent.executionId &&
+                                    message.type === positron.LanguageRuntimeMessageType.State &&
+                                    (message as positron.LanguageRuntimeState).state ===
+                                        positron.RuntimeOnlineState.Idle
+                                ) {
+                                    disposable.dispose();
+                                    resolve();
+                                }
+                            });
+                        });
+
+                        // End the debug session.
+                        await vscode.debug.stopDebugging(debugSession);
+                    })();
 
                     // const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook, cell);
                     return new vscode.DebugAdapterInlineImplementation(adapter);

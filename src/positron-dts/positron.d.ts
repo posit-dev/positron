@@ -881,6 +881,8 @@ declare module 'positron' {
 	 * An event that is emitted when code is executed in Positron.
 	 */
 	export interface CodeExecutionEvent {
+		executionId: string;
+
 		/** The ID of the language in which the code was executed (e.g. 'python') */
 		languageId: string;
 
