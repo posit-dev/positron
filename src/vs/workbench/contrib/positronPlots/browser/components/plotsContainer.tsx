@@ -70,12 +70,13 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	const plotHeight = historyBottom && props.height > 0 ? props.height - historyPx : props.height;
 	const plotWidth = historyBottom || props.width <= 0 ? props.width : props.width - historyPx;
 
-	// Plot history useEffect to handle scrolling and mouse wheel events.
+	// Plot history useEffect to handle scrolling, mouse wheel events, and keyboard navigation.
 	useEffect(() => {
-		// Get the current plot history. If the plot history is not rendered,
+		// Get the current plot history and container. If the plot history is not rendered,
 		// return.
 		const plotHistory = plotHistoryRef.current;
-		if (!plotHistory) {
+		const container = containerRef.current;
+		if (!plotHistory || !container) {
 			return;
 		}
 
@@ -92,10 +93,26 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			plotHistory.scrollTop = plotHistory.scrollHeight;
 		}
 
+		// The keyboard event listener for the plot container.
+		const onKeyDown = (e: KeyboardEvent) => {
+			if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
+				e.preventDefault();
+				props.positronPlotsService.selectPreviousPlot();
+			} else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
+				e.preventDefault();
+				props.positronPlotsService.selectNextPlot();
+			}
+		};
+
 		// If the plot history is not at the bottom, there is no need to handle
 		// horizontal scrolling with the mouse wheel.
 		if (!historyBottom) {
-			return;
+			// Add keyboard event listener to the container
+			container.addEventListener('keydown', onKeyDown);
+
+			return () => {
+				container.removeEventListener('keydown', onKeyDown);
+			};
 		}
 
 		// The wheel event listener for the plot history. This allows the user to
@@ -115,10 +132,16 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		// handler.)
 		plotHistory.addEventListener('wheel', onWheel, { passive: false });
 
-		// Cleanup function to remove the wheel event listener when the component
+		// Add keyboard event listener to the container
+		container.addEventListener('keydown', onKeyDown);
+
+		// Cleanup function to remove the wheel and keyboard event listeners when the component
 		// unmounts.
-		return () => plotHistory.removeEventListener('wheel', onWheel);
-	}, [historyBottom, plotHistoryRef]);
+		return () => {
+			plotHistory.removeEventListener('wheel', onWheel);
+			container.removeEventListener('keydown', onKeyDown);
+		};
+	}, [historyBottom, containerRef, plotHistoryRef, props.positronPlotsService]);
 
 	useEffect(() => {
 		// Be defensive against null sizes when pane is invisible
@@ -322,7 +345,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 	// If there are no plot instances, show a placeholder; otherwise, show the
 	// most recently generated plot.
 	return (
-		<div ref={containerRef} className={'plots-container dark-filter-' + props.darkFilterMode + ' ' + historyEdge}>
+		<div ref={containerRef} className={'plots-container dark-filter-' + props.darkFilterMode + ' ' + historyEdge} tabIndex={0}>
 			<div className='selected-plot'>
 				{positronPlotsContext.positronPlotInstances.length === 0 &&
 					<div className='plot-placeholder'></div>}
