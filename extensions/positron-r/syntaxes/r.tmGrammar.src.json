@@ -464,13 +464,14 @@
 					"name": "{{ roxygen-tag }}"
 				}
 			},
-			"end": "(?:(^\\s*#+')\\s*(@\\w*)|(^\\s*(?!#+')))",
+			"end": "(^\\s*#+'\\s*@.*$)|(^\\s*(?!#+'))",
 			"endCaptures": {
 				"1": {
-					"name": "comment.line"
-				},
-				"2": {
-					"name": "{{ roxygen-tag }}"
+					"patterns": [
+						{
+							"include": "#roxygen"
+						}
+					]
 				}
 			},
 			"patterns": [
