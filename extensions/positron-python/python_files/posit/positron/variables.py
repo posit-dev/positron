@@ -714,12 +714,14 @@ class VariablesService:
 
     def _perform_get_table_summary(self, path: list[str], query_types: list[str]) -> None:
         """RPC handler for getting table summary."""
+        import traceback
+
         try:
             self._get_table_summary(path, query_types)
         except Exception as err:
             self._send_error(
                 JsonRpcErrorCode.INTERNAL_ERROR,
-                f"Error summarizing table at '{path}': {err}",
+                f"Error summarizing table at '{path}': {err}\n{traceback.format_exc()}",
             )
 
     def _get_table_summary(self, path: list[str], query_types: list[str]) -> None:
@@ -750,7 +752,7 @@ class VariablesService:
         # Get schema using the helper function
         num_rows = table_view.table.shape[0]
         num_columns = table_view.table.shape[1]
-        schema = table_view.get_schema(GetSchemaParams(list(range(num_columns))))
+        schema = table_view.get_schema(GetSchemaParams(column_indices=list(range(num_columns))))
 
         # Create default format options
         format_options = FormatOptions(

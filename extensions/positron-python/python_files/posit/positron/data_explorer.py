@@ -276,7 +276,7 @@ class DataExplorerTableView:
             column_schemas.append(self._get_single_column_schema(column_index))
 
         # Return the column schemas.
-        return TableSchema(columns=column_schemas).dict()
+        return TableSchema(columns=column_schemas)
 
     def _get_single_column_schema(self, column_index: int) -> ColumnSchema:
         raise NotImplementedError
@@ -298,7 +298,7 @@ class DataExplorerTableView:
         return SearchSchemaResult(
             matches=TableSchema(columns=[self._get_single_column_schema(i) for i in matches_slice]),
             total_num_matches=len(matches),
-        ).dict()
+        )
 
     def _column_filter_get_matches(self, filters: list[ColumnFilter]):
         matchers = self._get_column_filter_functions(filters)
@@ -438,7 +438,7 @@ class DataExplorerTableView:
             # Simply reset if empty filter set passed
             self.filtered_indices = None
             self._update_row_view_indices()
-            return FilterResult(selected_num_rows=len(self.table), had_errors=False).dict()
+            return FilterResult(selected_num_rows=len(self.table), had_errors=False)
 
         # Evaluate all the filters and combine them using the
         # indicated conditions
@@ -478,7 +478,7 @@ class DataExplorerTableView:
 
         # Update the view indices, re-sorting if needed
         self._update_row_view_indices()
-        return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors).dict()
+        return FilterResult(selected_num_rows=selected_num_rows, had_errors=had_errors)
 
     def _mask_to_indices(self, mask):
         raise NotImplementedError
@@ -591,7 +591,7 @@ class DataExplorerTableView:
             row_filters=self.state.row_filters,
             sort_keys=self.state.sort_keys,
             supported_features=self.FEATURES,
-        ).dict()
+        )
 
     def _recompute(self):
         # Re-setting the column filters will trigger filtering AND
@@ -1592,10 +1592,10 @@ class PandasView(DataExplorerTableView):
         if result[-1] == "\n":
             result = result[:-1]
 
-        return ExportedData(data=result, format=fmt).dict()
+        return ExportedData(data=result, format=fmt)
 
     def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
-        return ExportedData(data=str(self.table.iloc[row_index, column_index]), format=fmt).dict()
+        return ExportedData(data=str(self.table.iloc[row_index, column_index]), format=fmt)
 
     def _mask_to_indices(self, mask):
         if mask is not None:
@@ -2438,10 +2438,10 @@ class PolarsView(DataExplorerTableView):
         elif fmt == ExportFormat.Html:
             raise NotImplementedError(f"Unsupported export format {fmt}")
 
-        return ExportedData(data=result, format=fmt).dict()
+        return ExportedData(data=result, format=fmt)
 
     def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
-        return ExportedData(data=str(self.table[row_index, column_index]), format=fmt).dict()
+        return ExportedData(data=str(self.table[row_index, column_index]), format=fmt)
 
     SUPPORTED_FILTERS = frozenset(
         {
@@ -3055,6 +3055,9 @@ class DataExplorerService:
 
         # To help remember to convert pydantic types to dicts
         if result is not None:
+            # Convert pydantic types to dict
+            if not isinstance(result, dict):
+                result = result.dict()
             if isinstance(result, list):
                 for x in result:
                     assert isinstance(x, dict)
