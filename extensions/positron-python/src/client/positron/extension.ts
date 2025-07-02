@@ -32,6 +32,26 @@ interface DumpCellResponseBody {
     sourcePath: string;
 }
 
+function logMessage(message: DebugProtocol.ProtocolMessage) {
+    switch (message.type) {
+        case 'request': {
+            const request = message as DebugProtocol.Request;
+            return `${request.command} #${request.seq}: ${JSON.stringify(request.arguments)}`;
+        }
+        case 'event': {
+            const event = message as DebugProtocol.Event;
+            return `${event.event}: ${JSON.stringify(event.body)}`;
+        }
+        case 'response': {
+            const response = message as DebugProtocol.Response;
+            return `${response.command} #${response.request_seq}: ${JSON.stringify(response.body)}`;
+        }
+        default: {
+            return `[${message.type}]: ${JSON.stringify(message)}`;
+        }
+    }
+}
+
 class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
     private readonly _disposables: vscode.Disposable[] = [];
 
@@ -40,6 +60,8 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
     public readonly onDidSendMessage = this._onDidSendMessage.event;
 
     private _cellUriByTempFilePath = new Map<string, string>();
+
+    private sequence = 1;
 
     // TODO: Can we just have a single cell? Could this debug adapter deal with multiple cells?
     // TODO: Replace all cell URI checks below to just compare with this one?
@@ -55,7 +77,7 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
                 // TODO: Could the event be for another debug session?
                 if (message.type === positron.LanguageRuntimeMessageType.DebugEvent) {
                     const debugEvent = message as positron.LanguageRuntimeDebugEvent;
-                    log.debug(`[kernel] SEND ${debugEvent.content.type} ${JSON.stringify(debugEvent.content)}`);
+                    log.debug(`[kernel] >>> SEND ${logMessage(debugEvent.content)}`);
 
                     // TODO: Do we need this?
                     // Only handle stopped events inside the cell.
@@ -99,11 +121,13 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
     }
 
     public handleMessage(message: DebugProtocol.ProtocolMessage): void {
-        this.handleMessageAsync(message).ignoreErrors();
+        this.handleMessageAsync(message).catch((error) => {
+            log.error(`[adapter] Error handling message: ${logMessage(message)}`, error);
+        });
     }
 
     private async handleMessageAsync(message: DebugProtocol.ProtocolMessage): Promise<void> {
-        log.debug(`[adapter] RECV ${message.type} ${JSON.stringify(message)}`);
+        log.debug(`[adapter] <<< RECV ${logMessage(message)}`);
         switch (message.type) {
             case 'request':
                 return await this.handleRequest(message as DebugProtocol.Request);
@@ -111,66 +135,53 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
     }
 
     private async handleRequest(request: DebugProtocol.Request): Promise<void> {
-        // switch (request.command) {
-        //     case 'setBreakpoints':
-        //         return await this.handleSetBreakpointsRequest(request as DebugProtocol.SetBreakpointsRequest);
-        //     case 'stackTrace':
-        //         return await this.handleStackTraceRequest(request as DebugProtocol.StackTraceRequest);
-        // }
-        const kernelRequest = await this.toKernelRequest(request);
-        const kernelResponse = await this.sendKernelRequest(kernelRequest);
-        const response = this.toClientResponse(kernelResponse);
+        switch (request.command) {
+            case 'setBreakpoints':
+                return await this.handleSetBreakpointsRequest(request as DebugProtocol.SetBreakpointsRequest);
+            case 'stackTrace':
+                return await this.handleStackTraceRequest(request as DebugProtocol.StackTraceRequest);
+        }
+        const response = await this.sendKernelRequest(request);
         this.emitClientMessage(response);
     }
 
-    // private async handleSetBreakpointsRequest(request: DebugProtocol.SetBreakpointsRequest): Promise<void> {
-    //     const kernelRequest = await this.toKernelSetBreakpointsRequest(request);
-    //     const kernelResponse = await this.sendKernelRequest<
-    //         DebugProtocol.SetBreakpointsRequest,
-    //         DebugProtocol.SetBreakpointsResponse
-    //     >(kernelRequest);
-    //     const response = this.toClientSetBreakpointsResponse(kernelResponse);
-    //     // TODO: Do we also need our own seq counter for messages from adapter -> client?
-    //     //       Since we don't forward every message e.g. dumpCell responses?
-    //     this.emitClientMessage(response);
-    // }
-
-    // private async handleStackTraceRequest(request: DebugProtocol.StackTraceRequest): Promise<void> {
-    //     const kernelResponse = await this.sendKernelRequest<
-    //         DebugProtocol.StackTraceRequest,
-    //         DebugProtocol.StackTraceResponse
-    //     >(request);
-    //     const response = this.toClientStackTraceResponse(kernelResponse);
-    //     this.emitClientMessage(response);
-    // }
-
-    private async toKernelRequest(request: DebugProtocol.Request): Promise<DebugProtocol.Request> {
-        switch (request.command) {
-            case 'setBreakpoints':
-                return this.toKernelSetBreakpointsRequest(request as DebugProtocol.SetBreakpointsRequest);
-            default:
-                return request;
-        }
-    }
-
-    private async toKernelSetBreakpointsRequest(
-        request: DebugProtocol.SetBreakpointsRequest,
-    ): Promise<DebugProtocol.SetBreakpointsRequest> {
+    private async handleSetBreakpointsRequest(request: DebugProtocol.SetBreakpointsRequest): Promise<void> {
         const cellUri = request.arguments.source.path;
         if (!cellUri) {
             throw new Error('No cell URI provided.');
+            // TODO: should still respond with an error response...
         }
         const cell = this._notebook.getCells().find((cell) => cell.document.uri.toString() === cellUri);
+
         if (!cell) {
-            throw new Error(`Could not find cell for path: ${cellUri}`);
+            // TODO: should we still send the request? maybe we should instead send an adapter error response?
+            //       currently this shows an unverified breakpoint with message "Breakpoint in file that does not exist"
+            //       which isn't accurate...
+            this.emitClientMessage<DebugProtocol.SetBreakpointsResponse>({
+                type: 'response',
+                command: request.command,
+                request_seq: request.seq,
+                success: true,
+                body: {
+                    breakpoints:
+                        request.arguments.breakpoints?.map((bp) => ({
+                            verified: false,
+                            line: bp.line,
+                            column: bp.column,
+                            message: `Unbound breakpoint`,
+                        })) ?? [],
+                },
+            });
+            return;
         }
+
         const code = cell.document.getText();
         // Dump the cell into a temp file.
-        const response = await this.dumpCell({ code });
-        const path = response.sourcePath;
+        const dumpCellResponse = await this.dumpCell({ code });
+        const path = dumpCellResponse.sourcePath;
         // TODO: Do these need to be cleared?...
         this._cellUriByTempFilePath.set(path, cellUri);
-        return {
+        const kernelRequest = {
             ...request,
             arguments: {
                 ...request.arguments,
@@ -180,45 +191,15 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
                 },
             },
         };
-    }
-
-    private toClientStackTraceResponse(response: DebugProtocol.StackTraceResponse): DebugProtocol.StackTraceResponse {
-        return {
-            ...response,
+        const kernelResponse = await this.sendKernelRequest<
+            DebugProtocol.SetBreakpointsRequest,
+            DebugProtocol.SetBreakpointsResponse
+        >(kernelRequest);
+        const response = {
+            ...kernelResponse,
             body: {
-                ...response.body,
-                stackFrames: response.body.stackFrames.map((frame) => ({
-                    ...frame,
-                    source: {
-                        ...frame.source,
-                        path:
-                            (frame.source?.path && this._cellUriByTempFilePath.get(frame.source.path)) ??
-                            frame.source?.path,
-                    },
-                })),
-            },
-        };
-    }
-
-    private toClientResponse(response: DebugProtocol.Response): DebugProtocol.Response {
-        switch (response.command) {
-            case 'setBreakpoints':
-                return this.toClientSetBreakpointsResponse(response as DebugProtocol.SetBreakpointsResponse);
-            case 'stackTrace':
-                return this.toClientStackTraceResponse(response as DebugProtocol.StackTraceResponse);
-            default:
-                return response;
-        }
-    }
-
-    private toClientSetBreakpointsResponse(
-        response: DebugProtocol.SetBreakpointsResponse,
-    ): DebugProtocol.SetBreakpointsResponse {
-        return {
-            ...response,
-            body: {
-                ...response.body,
-                breakpoints: response.body.breakpoints.map((breakpoint) => ({
+                ...kernelResponse.body,
+                breakpoints: kernelResponse.body.breakpoints.map((breakpoint) => ({
                     ...breakpoint,
                     source: {
                         ...breakpoint.source,
@@ -230,6 +211,30 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
                 })),
             },
         };
+        this.emitClientMessage(response);
+    }
+
+    private async handleStackTraceRequest(request: DebugProtocol.StackTraceRequest): Promise<void> {
+        const kernelResponse = await this.sendKernelRequest<
+            DebugProtocol.StackTraceRequest,
+            DebugProtocol.StackTraceResponse
+        >(request);
+        const response: DebugProtocol.StackTraceResponse = {
+            ...kernelResponse,
+            body: {
+                ...kernelResponse.body,
+                stackFrames: kernelResponse.body.stackFrames.map((frame) => ({
+                    ...frame,
+                    source: {
+                        ...frame.source,
+                        path:
+                            (frame.source?.path && this._cellUriByTempFilePath.get(frame.source.path)) ??
+                            frame.source?.path,
+                    },
+                })),
+            },
+        };
+        this.emitClientMessage(response);
     }
 
     private async dumpCell(args: DumpCellArguments): Promise<DumpCellResponseBody> {
@@ -246,9 +251,14 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
     //     return await this._debugSession.customRequest('stepIn', args);
     // }
 
-    private emitClientMessage(message: DebugProtocol.ProtocolMessage): void {
-        log.debug(`[adapter] SEND ${message.type} ${JSON.stringify(message)}`);
-        this._onDidSendMessage.fire(message);
+    private emitClientMessage<P extends DebugProtocol.ProtocolMessage>(message: Omit<P, 'seq'>): void {
+        const messageWithSeq: DebugProtocol.ProtocolMessage = {
+            ...message,
+            seq: this.sequence,
+        };
+        this.sequence++;
+        log.debug(`[adapter] >>> SEND ${logMessage(messageWithSeq)}`);
+        this._onDidSendMessage.fire(messageWithSeq);
     }
 
     private async sendKernelRequest<P extends DebugProtocol.Request, R extends DebugProtocol.Response>(
@@ -267,14 +277,14 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
                     if (debugReply.content === undefined) {
                         reject(new Error('No content in debug reply. Is debugpy already listening?'));
                     }
-                    log.debug(`[kernel] SEND ${debugReply.content.type} ${JSON.stringify(debugReply.content)}`);
+                    log.debug(`[kernel] >>> SEND ${logMessage(debugReply.content)}`);
                     resolve(debugReply.content as R);
                     disposable.dispose();
                 }
             });
         });
 
-        log.debug(`[kernel] RECV ${request.type} ${JSON.stringify(request)}`);
+        log.debug(`[kernel] <<< RECV ${logMessage(request)}`);
         this._runtimeSession.debug(request, id);
 
         const response = await responsePromise;
@@ -360,6 +370,7 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
         // Activate web application commands.
         activateWebAppCommands(serviceContainer, disposables);
 
+        // TODO: How do we handle reusing a debug adapter/session across cells?
         disposables.push(
             vscode.debug.registerDebugAdapterDescriptorFactory('pythonNotebook', {
                 async createDebugAdapterDescriptor(
