@@ -3,6 +3,35 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+/**
+ * @fileoverview Tests for Positron Notebook editor resolution logic.
+ *
+ * This test suite verifies that the Positron Notebook editor correctly resolves and handles
+ * file types based on user configuration. These tests are critical for ensuring that:
+ *
+ * 1. **File Type Specificity**: Only .ipynb files are handled by the Positron Notebook editor,
+ *    while other file types (like .py, .js, etc.) are properly delegated to their appropriate editors.
+ *
+ * 2. **Configuration Defaults**: The system gracefully handles missing or invalid configuration
+ *    values by falling back to sensible defaults (VS Code's default notebook editor).
+ *
+ * 3. **Editor Priority Resolution**: The editor resolver service correctly prioritizes and
+ *    instantiates the appropriate editor based on file type and user preferences.
+ *
+ * **Context**: This is part of Positron Notebooks 2.0's transition from intercepting/hijacking
+ * the existing NotebookEditor to registering as a separate editor that receives priority for
+ * .ipynb files. This approach eliminates the previous "hijacking" behavior and allows users
+ * to opt out without modifying global settings.
+ *
+ * **Why These Tests Matter**: Unlike end-to-end tests that verify user-facing behavior, these
+ * unit tests focus on the internal resolution mechanics that are difficult to test at higher
+ * levels, including error conditions, edge cases, and proper resource cleanup.
+ *
+ * @see {@link PositronNotebookEditorInput} - The editor input class being tested
+ * @see {@link getPreferredNotebookEditor} - Configuration utility function
+ * @see {@link EditorResolverService} - Core service for editor resolution
+ */
+
 import assert from 'assert';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
