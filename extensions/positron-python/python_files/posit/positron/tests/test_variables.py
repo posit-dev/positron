@@ -25,6 +25,7 @@ from .conftest import DummyComm, PositronShell
 from .utils import (
     assert_register_table_called,
     comm_open_message,
+    dummy_rpc_request,
     json_rpc_error,
     json_rpc_notification,
     json_rpc_request,
@@ -803,7 +804,7 @@ def _do_view(
     mock_dataexplorer_service: Mock,
 ):
     path = _encode_path([name])
-    msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
+    msg = dummy_rpc_request("view", {"path": path})
     variables_comm.handle_msg(msg)
 
     # An acknowledgment message is sent
@@ -898,6 +899,37 @@ def test_view_error_when_pandas_not_loaded(
         json_rpc_error(
             JsonRpcErrorCode.INTERNAL_ERROR,
             f"Error opening viewer for variable at '{path}'. Try restarting the session.",
+        )
+    ]
+
+
+def _assign_variables(shell: PositronShell, variables_comm: DummyComm, **variables):
+    # A hack to make sure that change events are fired when we
+    # manipulate user_ns
+    shell.kernel.variables_service.snapshot_user_ns()
+    shell.user_ns.update(**variables)
+    shell.kernel.variables_service.poll_variables()
+    variables_comm.messages.clear()
+
+
+def test_query_table_summary(shell: PositronShell, variables_comm: DummyComm):
+    from .test_data_explorer import SIMPLE_PANDAS_DF
+
+    _assign_variables(shell, variables_comm, df=SIMPLE_PANDAS_DF)
+
+    msg = json_rpc_request(
+        "query_table_summary",
+        {"path": ["df"], "query_types": ["summary_stats"]},
+        comm_id="dummy_comm_id",
+    )
+    variables_comm.handle_msg(msg)
+
+    assert variables_comm.messages == [
+        json_rpc_response(
+            {
+                "summary": ANY,
+                "version": 0,
+            }
         )
     ]
 
