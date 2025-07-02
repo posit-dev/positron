@@ -447,6 +447,17 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                         await vscode.debug.stopDebugging(debugSession);
                     })();
 
+                    // End the debug session when an interrupt is received.
+                    // TODO: need to also dispose things from above in each end case...
+                    //       does the adapter get disposed?
+                    const stateDisposable = runtimeSession.onDidChangeRuntimeState(async (state) => {
+                        console.log(`Runtime state changed: ${state}`);
+                        if (state === positron.RuntimeState.Interrupting) {
+                            stateDisposable.dispose();
+                            await vscode.debug.stopDebugging(debugSession);
+                        }
+                    });
+
                     // const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook, cell);
                     return new vscode.DebugAdapterInlineImplementation(adapter);
                 },
