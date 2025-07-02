@@ -41,16 +41,12 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
 
     private _cellUriByTempFilePath = new Map<string, string>();
 
-    private _seq = 1;
-    private _seqToClientSeq = new Map<number, number>();
-
+    // TODO: Can we just have a single cell? Could this debug adapter deal with multiple cells?
+    // TODO: Replace all cell URI checks below to just compare with this one?
     constructor(
         private readonly _debugSession: vscode.DebugSession,
         private readonly _runtimeSession: positron.LanguageRuntimeSession,
         private readonly _notebook: vscode.NotebookDocument,
-        // TODO: Can we just have a single cell? Could this debug adapter deal with multiple cells?
-        // TODO: Replace all cell URI checks below to just compare with this one?
-        private readonly _cell: vscode.NotebookCell,
     ) {
         this._disposables.push(this._onDidSendMessage);
 
@@ -261,15 +257,15 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
     }
 
     private async sendKernelRequest<P extends DebugProtocol.Request, R extends DebugProtocol.Response>(
-        request: Omit<P, 'seq' | 'type'> & { seq?: number; type?: string },
+        request: P,
     ): Promise<R> {
         const id = randomUUID();
 
-        const seq = this._seq++;
-        if (request.seq) {
-            this._seqToClientSeq.set(seq, request.seq);
-        }
-        const requestWithSeq = { ...request, seq, type: request.type ?? 'request' };
+        // const seq = this._seq++;
+        // if (request.seq) {
+        //     this._seqToClientSeq.set(seq, request.seq);
+        // }
+        // const requestWithSeq = { ...request, seq, type: request.type ?? 'request' };
 
         switch (request.type) {
             case 'request':
@@ -292,12 +288,11 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
             });
         });
 
-        log.debug(`[kernel] RECV ${requestWithSeq.type} ${JSON.stringify(requestWithSeq)}`);
-        this._runtimeSession.debug(requestWithSeq, id);
+        log.debug(`[kernel] RECV ${request.type} ${JSON.stringify(request)}`);
+        this._runtimeSession.debug(request, id);
 
-        // TODO: Should we replace seq in the response with the original request seq?...
         const response = await responsePromise;
-        return { ...response, request_seq: request.seq ?? seq };
+        return response;
     }
 
     public dispose() {
@@ -404,7 +399,8 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                         return undefined;
                     }
 
-                    const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook, cell);
+                    const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook);
+                    // const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook, cell);
                     return new vscode.DebugAdapterInlineImplementation(adapter);
                 },
             }),
