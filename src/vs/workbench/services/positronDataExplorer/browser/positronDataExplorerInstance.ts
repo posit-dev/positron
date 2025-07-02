@@ -431,6 +431,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
+	 * Export filters as code.
+	 * @returns A Promise<void> that resolves when generated code is copied to clipboard.
+	 */
+	async exportToCode(): Promise<void> {
+		// Write the code to the clipboard.
+		this._clipboardService.writeText('1234567890');
+		await this._tableDataDataGridInstance._tableDataCache.getColumnSchema(0);
+	}
+
+
+	/**
 	 * onDidClose event.
 	 */
 	readonly onDidClose = this._onDidCloseEmitter.event;

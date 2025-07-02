@@ -119,4 +119,9 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	 * Copies the table data to the clipboard.
 	 */
 	copyTableDataToClipboard(): Promise<void>;
+
+	/**
+	 * Exports the table data to code.
+	 */
+	exportToCode(): Promise<void>;
 }

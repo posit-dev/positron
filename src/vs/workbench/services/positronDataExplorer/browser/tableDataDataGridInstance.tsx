@@ -72,7 +72,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		private readonly _layoutService: ILayoutService,
 		private readonly _hoverService: IHoverService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
-		private readonly _tableDataCache: TableDataCache,
+		public readonly _tableDataCache: TableDataCache,
 	) {
 		// Call the base class's constructor.
 		super({

@@ -53,7 +53,8 @@ export const enum PositronDataExplorerCommandId {
 	SummaryOnLeftAction = 'workbench.action.positronDataExplorer.summaryOnLeft',
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
-	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext'
+	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
+	ExportToCodeAction = 'workbench.action.positronDataExplorer.exportToCode'
 }
 
 /**
@@ -689,6 +690,103 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerExportToCodeAction action.
+ */
+class PositronDataExplorerExportToCodeAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ExportToCodeAction,
+			title: {
+				value: localize('positronDataExplorer.exportToCode', 'Export to Code'),
+				original: 'Export to Code'
+			},
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true,
+			},
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+			),
+			icon: Codicon.code,
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const notificationService = accessor.get(INotificationService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		/**
+		 * Notifies the user that clear sorting failed.
+		 */
+		const notifyUserThatCodeCopied = () => {
+			// Notify the user.
+			notificationService.notify({
+				severity: Severity.Info,
+				message: localize(
+					'positron.dataExplorer.exportToCode.copiedToClipboard',
+					"Successfully copied code to clipboard."
+				),
+				sticky: false
+			});
+		};
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			return;
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			return;
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			return;
+		}
+
+		// Export filters as code.
+		await positronDataExplorerInstance.exportToCode();
+		notifyUserThatCodeCopied();
+	}
+}
+
+/**
  * PositronDataExplorerOpenAsPlaintextAction action.
  */
 class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
@@ -787,4 +885,5 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
+	registerAction2(PositronDataExplorerExportToCodeAction);
 }
