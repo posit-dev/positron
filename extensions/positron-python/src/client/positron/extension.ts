@@ -121,12 +121,6 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
         const kernelResponse = await this.sendKernelRequest(kernelRequest);
         const response = this.toClientResponse(kernelResponse);
         this.emitClientMessage(response);
-        // const kernelRequest = await this.toKernelRequest(request);
-        // const kernelResponse = await this.sendRequest(kernelRequest);
-        // const response = this.toClientResponse(kernelResponse, cellUri);
-        // // TODO: Do we also need our own seq counter for messages from adapter -> client?
-        // //       Since we don't forward every message e.g. dumpCell responses?
-        // this.emitMessage(response);
     }
 
     // private async handleSetBreakpointsRequest(request: DebugProtocol.SetBreakpointsRequest): Promise<void> {
@@ -172,7 +166,8 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
         }
         const code = cell.document.getText();
         // Dump the cell into a temp file.
-        const path = (await this.dumpCell({ code })).sourcePath;
+        const response = await this.dumpCell({ code });
+        const path = response.sourcePath;
         // TODO: Do these need to be cleared?...
         this._cellUriByTempFilePath.set(path, cellUri);
         return {
@@ -261,16 +256,7 @@ class PythonNotebookDebugAdapter implements vscode.DebugAdapter {
     ): Promise<R> {
         const id = randomUUID();
 
-        // const seq = this._seq++;
-        // if (request.seq) {
-        //     this._seqToClientSeq.set(seq, request.seq);
-        // }
-        // const requestWithSeq = { ...request, seq, type: request.type ?? 'request' };
-
-        switch (request.type) {
-            case 'request':
-        }
-
+        // TODO: Timeout?
         const responsePromise = new Promise<R>((resolve, reject) => {
             const disposable = this._runtimeSession.onDidReceiveRuntimeMessage((message) => {
                 if (message.parent_id !== id) {
