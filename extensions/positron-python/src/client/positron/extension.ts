@@ -397,6 +397,25 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
                     }
 
                     const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook);
+
+                    const disposable = adapter.onDidSendMessage((message) => {
+                        console.log(message);
+                        if (
+                            'type' in message &&
+                            message.type === 'response' &&
+                            'command' in message &&
+                            message.command === 'configurationDone'
+                        ) {
+                            disposable.dispose();
+
+                            // Execute the cell.
+                            vscode.commands.executeCommand('notebook.cell.execute', {
+                                ranges: [{ start: cell.index, end: cell.index + 1 }],
+                                document: cell.notebook.uri,
+                            });
+                        }
+                    });
+
                     // const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook, cell);
                     return new vscode.DebugAdapterInlineImplementation(adapter);
                 },
