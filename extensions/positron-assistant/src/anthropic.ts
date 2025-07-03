@@ -98,7 +98,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		// Log request information - the request ID is only available upon connection.
 		stream.on('connect', () => {
 			if (log.logLevel <= vscode.LogLevel.Trace) {
-				log.trace(`[anthropic] SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body)}`);
+				log.trace(`[anthropic] SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body, null, 2)}`);
 			} else {
 				const userMessages = body.messages.filter(m => m.role === 'user');
 				const assistantMessages = body.messages.filter(m => m.role === 'assistant');
@@ -155,7 +155,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		// Log usage information.
 		const message = await stream.finalMessage();
 		if (log.logLevel <= vscode.LogLevel.Trace) {
-			log.trace(`[anthropic] RECV messages.stream [${stream.request_id}]: ${JSON.stringify(message)}`);
+			log.trace(`[anthropic] RECV messages.stream [${stream.request_id}]: ${JSON.stringify(message, null, 2)}`);
 		} else {
 			log.debug(
 				`[anthropic] RECV messages.stream [${stream.request_id}]: ` +
