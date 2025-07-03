@@ -737,9 +737,10 @@
     "languageModelTools": [
       {
         "name": "getAttachedRPackages",
-        "displayName": "Get attached R Packages",
+        "displayName": "Get Attached R Packages",
         "modelDescription": "Gets a list of the R packages that are loaded and attached in the current R session.",
-        "canBeReferencedInPrompt": false,
+        "toolReferenceName": "getAttachedRPackages",
+        "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant"
         ]
@@ -748,7 +749,8 @@
         "name": "getInstalledRPackageVersion",
         "displayName": "Get Installed R Package Version",
         "modelDescription": "Given the name of an R package, returns the version of the package that's installed in the current R session, or NULL if the package is not installed.",
-        "canBeReferencedInPrompt": false,
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "getInstalledRPackageVersion",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -765,9 +767,16 @@
       {
         "name": "listPackageHelpTopics",
         "displayName": "List R Package Help Topics",
+        "toolReferenceName": "listPackageHelpTopics",
         "modelDescription": "Get a list of the help topics for the named R package.",
         "inputSchema": {
-          "type": "string"
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package to list help topics for."
+            }
+          }
         },
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -777,9 +786,16 @@
       {
         "name": "listAvailableVignettes",
         "displayName": "List R Package Vignettes",
+        "toolReferenceName": "listAvailableVignettes",
         "modelDescription": "Get a list of the vignettes available for the named R package. A vignette is a long-form guide to using the package, often with examples and explanations.",
         "inputSchema": {
-          "type": "string"
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package to list vignettes for."
+            }
+          }
         },
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -789,6 +805,7 @@
       {
         "name": "getPackageVignette",
         "displayName": "Get an R Package Vignette",
+        "toolReferenceName": "getPackageVignette",
         "modelDescription": "Get a specific vignette for the named R package.",
         "inputSchema": {
           "type": "object",
@@ -811,6 +828,7 @@
       {
         "name": "getHelpPage",
         "displayName": "Get an R Help Page",
+        "toolReferenceName": "getRHelpPage",
         "modelDescription": "Get a specific help page from R. This can be used to retrieve documentation for a specific function, dataset, or other topic in R.",
         "inputSchema": {
           "type": "object",

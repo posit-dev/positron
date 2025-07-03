@@ -65,7 +65,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 
 	context.subscriptions.push(rPackageVersionTool);
 
-	const rListPackageHelpTopicsTool = vscode.lm.registerTool<string>('listPackageHelpTopics', {
+	const rListPackageHelpTopicsTool = vscode.lm.registerTool<{ packageName: string }>('listPackageHelpTopics', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
 			const session = manager.getConsoleSession();
@@ -75,15 +75,15 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 				]);
 			}
 
-			if (!options.input) {
+			if (!options.input.packageName) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('Package name is required'),
 				]);
 			}
 
-			const helpTopics = await session.callMethod('list_package_help_topics', options.input);
+			const helpTopics = await session.callMethod('list_package_help_topics', options.input.packageName);
 			if (helpTopics instanceof Array) {
-				const results = helpTopics.map((topic: string) => new vscode.LanguageModelTextPart(topic));
+				const results = helpTopics.map((topic: string) => new vscode.LanguageModelTextPart(JSON.stringify(topic)));
 				return new vscode.LanguageModelToolResult(results);
 			} else {
 				return new vscode.LanguageModelToolResult([
@@ -94,7 +94,7 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	});
 	context.subscriptions.push(rListPackageHelpTopicsTool);
 
-	const rListAvailableVignettesTool = vscode.lm.registerTool<string>('listAvailableVignettes', {
+	const rListAvailableVignettesTool = vscode.lm.registerTool<{ packageName: string }>('listAvailableVignettes', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
 			const session = manager.getConsoleSession();
@@ -104,15 +104,15 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 				]);
 			}
 
-			if (!options.input) {
+			if (!options.input.packageName) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart('Package name is required'),
 				]);
 			}
 
-			const vignettes = await session.callMethod('list_available_vignettes', options.input);
+			const vignettes = await session.callMethod('list_available_vignettes', options.input.packageName);
 			if (vignettes instanceof Array) {
-				const results = vignettes.map((vignette: string) => new vscode.LanguageModelTextPart(vignette));
+				const results = vignettes.map((vignette: string) => new vscode.LanguageModelTextPart(JSON.stringify(vignette)));
 				return new vscode.LanguageModelToolResult(results);
 			} else {
 				return new vscode.LanguageModelToolResult([
