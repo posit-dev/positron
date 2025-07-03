@@ -761,6 +761,74 @@
         "tags": [
           "positron-assistant"
         ]
+      },
+      {
+        "name": "listPackageHelpTopics",
+        "displayName": "List R Package Help Topics",
+        "modelDescription": "Get a list of the help topics for the named R package.",
+        "inputSchema": {
+          "type": "string"
+        },
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "listAvailableVignettes",
+        "displayName": "List R Package Vignettes",
+        "modelDescription": "Get a list of the vignettes available for the named R package. A vignette is a long-form guide to using the package, often with examples and explanations.",
+        "inputSchema": {
+          "type": "string"
+        },
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "getPackageVignette",
+        "displayName": "Get an R Package Vignette",
+        "modelDescription": "Get a specific vignette for the named R package.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package to get the vignette for."
+            },
+            "vignetteName": {
+              "type": "string",
+              "description": "The name of the vignette to retrieve."
+            }
+          }
+        },
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "getHelpPage",
+        "displayName": "Get an R Help Page",
+        "modelDescription": "Get a specific help page from R. This can be used to retrieve documentation for a specific function, dataset, or other topic in R.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package in which to look for help. If not provided, the help page will be searched in all loaded packages."
+            },
+            "helpTopic": {
+              "type": "string",
+              "description": "The name of the help topic to retrieve."
+            }
+          }
+        },
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ]
       }
     ]
   },
