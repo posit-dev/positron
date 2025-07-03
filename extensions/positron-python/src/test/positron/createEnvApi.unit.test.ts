@@ -16,7 +16,7 @@ import { EXTENSION_ROOT_DIR_FOR_TESTS } from '../constants';
 import * as commandApis from '../../client/common/vscodeApis/commandApis';
 import * as workspaceApis from '../../client/common/vscodeApis/workspaceApis';
 import * as createEnvironmentApis from '../../client/pythonEnvironments/creation/createEnvironment';
-import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../client/common/types';
+import { IDisposableRegistry, IPathUtils } from '../../client/common/types';
 import { registerCreateEnvironmentFeatures } from '../../client/pythonEnvironments/creation/createEnvApi';
 import {
     CreateEnvironmentOptions,
@@ -24,7 +24,7 @@ import {
 } from '../../client/pythonEnvironments/creation/proposed.createEnvApis';
 import { CreateEnvironmentOptionsInternal } from '../../client/pythonEnvironments/creation/types';
 import { IPythonRuntimeManager } from '../../client/positron/manager';
-import { IInterpreterQuickPick } from '../../client/interpreter/configuration/types';
+import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from '../../client/interpreter/configuration/types';
 import { createEnvironmentAndRegister } from '../../client/positron/createEnvApi';
 import { createTypeMoq } from '../mocks/helper';
 
@@ -42,7 +42,7 @@ suite('Positron Create Environment APIs', () => {
     let pythonRuntimeManager: typemoq.IMock<IPythonRuntimeManager>;
     let pathUtils: typemoq.IMock<IPathUtils>;
     let interpreterQuickPick: typemoq.IMock<IInterpreterQuickPick>;
-    let interpreterPathService: typemoq.IMock<IInterpreterPathService>;
+    let interpreterPathService: typemoq.IMock<IPythonPathUpdaterServiceManager>;
     let workspaceConfig: typemoq.IMock<WorkspaceConfiguration>;
 
     // Test workspace
@@ -80,7 +80,7 @@ suite('Positron Create Environment APIs', () => {
         pythonRuntimeManager = createTypeMoq<IPythonRuntimeManager>();
         pathUtils = createTypeMoq<IPathUtils>();
         interpreterQuickPick = createTypeMoq<IInterpreterQuickPick>();
-        interpreterPathService = createTypeMoq<IInterpreterPathService>();
+        interpreterPathService = createTypeMoq<IPythonPathUpdaterServiceManager>();
         workspaceConfig = createTypeMoq<WorkspaceConfiguration>();
 
         getConfigurationStub = sinon.stub(workspaceApis, 'getConfiguration');
