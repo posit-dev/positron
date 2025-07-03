@@ -1963,6 +1963,10 @@ def _get_histogram_polars(data: pl.Series, num_bins: int, method="fd"):
         if n_bins > num_bins:
             n_bins = num_bins
 
+    if n_bins > len(data_clean):
+        # If number of bins exceeds number of data points, limit to number of data points
+        n_bins = len(data_clean)
+
     # Handle integer data specially to avoid too many bins
     if method != "fixed" and data.dtype.is_integer():
         data_range = data_clean.max() - data_clean.min()
