@@ -18,9 +18,16 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	 * Multiple sessions could map to the same console, this happens
 	 * when a user power-cycles the session for a console instance
 	 * (i.e. shutdown session for console instance, then start a session for console instance)
-	 *
-	 * Kept in sync with consoles in `MainThreadConsoleService`
 	 */
+	// TODO!: This doesn't survive a browser reload, and we don't really have a good way
+	// to revive it. We want to make sure of two things:
+	// - If a console is deleted, we update any existing handles to a `positron.Console` to
+	//   ensure that it looks disposed and warns on any API usage
+	// - If the window is reloaded, we need to be able to still look up the console for
+	//   a valid sessionId. The positron console service seems to maintain an up to date
+	//   set of consoles, and is probably our source of truth.
+	// Is it even possible to hand out a `positron.Console` that survives a browser reload?
+	// Or should this be more of an `executeCode()`-like API that works off a `sessionId`?
 	private readonly _extHostConsolesBySessionId = new Map<string, ExtHostConsole>();
 
 	private readonly _onDidChangeConsoleWidth = new Emitter<number>();
@@ -46,28 +53,17 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	}
 
 	/**
-	 * Queries the main thread for the console that aligns with this
-	 * `languageId`.
+	 * Get the `positron.Console` that is tied to this `sessionId`
 	 *
-	 * @param languageId The language id to find a console for.
+	 * @param sessionId The session id to retrieve a `positron.Console` for.
 	 * @returns A promise that resolves to a `positron.Console` or `undefined`
 	 * if no console can be found.
 	 */
-	async getConsoleForLanguage(languageId: string): Promise<positron.Console | undefined> {
-		const sessionId = await this._proxy.$getSessionIdForLanguage(languageId);
-
-		if (!sessionId) {
-			// Main thread says there is no `sessionId` for this `languageId`
-			return undefined;
-		}
-
-		// Now find the console on the extension host side
+	async getConsoleForSessionId(sessionId: string): Promise<positron.Console | undefined> {
 		const extHostConsole = this._extHostConsolesBySessionId.get(sessionId);
 
 		if (!extHostConsole) {
 			// Extension host says there is no console for this `sessionId`
-			// (Should be extremely rare, if not impossible, for main thread and extension host to
-			// be out of sync here)
 			return undefined;
 		}
 
@@ -83,13 +79,13 @@ export class ExtHostConsoleService implements extHostProtocol.ExtHostConsoleServ
 	}
 
 	// Called when a new console instance is started
-	$addConsole(sessionId: string): void {
+	$onDidStartPositronConsoleInstance(sessionId: string): void {
 		const extHostConsole = new ExtHostConsole(sessionId, this._proxy, this._logService);
 		this._extHostConsolesBySessionId.set(sessionId, extHostConsole);
 	}
 
-	// Called when a console instance is removed
-	$removeConsole(sessionId: string): void {
+	// Called when a console instance is deleted
+	$onDidDeletePositronConsoleInstance(sessionId: string): void {
 		const extHostConsole = this._extHostConsolesBySessionId.get(sessionId);
 		this._extHostConsolesBySessionId.delete(sessionId);
 		// "Dispose" of an `ExtHostConsole`, ensuring that future API calls warn / error
