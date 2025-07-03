@@ -108,7 +108,7 @@ jobs:
           uv pip install --upgrade -r build/test-requirements.txt -r ./python_files/posit/pinned-test-requirements.txt
 
       - name: Run Pyright
-        uses: jakebailey/pyright-action@v2
+        uses: jakebailey/pyright-action@b5d50e5cde6547546a5c4ac92e416a8c2c1a1dfe # v2.3.2
         with:
           version: 1.1.308
           working-directory: ${{ env.PYTHON_SRC_DIR }}
@@ -397,7 +397,7 @@ jobs:
           TEST_FILES_SUFFIX: testvirtualenvs
           CI_PYTHON_VERSION: ${{ matrix.python }}
           POSITRON_GITHUB_PAT: ${{ github.token }}
-        uses: GabrielBB/xvfb-action@v1.7
+        uses: GabrielBB/xvfb-action@b706e4e27b14669b486812790492dc50ca16b465 # v1.7
         with:
           run: npm run testSingleWorkspace
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
@@ -407,7 +407,7 @@ jobs:
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
           POSITRON_GITHUB_PAT: ${{ github.token }}
-        uses: GabrielBB/xvfb-action@v1.7
+        uses: GabrielBB/xvfb-action@b706e4e27b14669b486812790492dc50ca16b465 # v1.7
         with:
           run: npm run testSingleWorkspace
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}
@@ -417,7 +417,7 @@ jobs:
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
           POSITRON_GITHUB_PAT: ${{ github.token }}
-        uses: GabrielBB/xvfb-action@v1.7
+        uses: GabrielBB/xvfb-action@b706e4e27b14669b486812790492dc50ca16b465 # v1.7
         with:
           run: npm run testDebugger
           working-directory: ${{ env.special-working-directory }}/${{ env.PROJECT_DIR }}

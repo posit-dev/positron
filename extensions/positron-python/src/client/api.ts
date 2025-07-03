@@ -48,8 +48,10 @@ export function buildApi(
         TensorboardExtensionIntegration,
         TensorboardExtensionIntegration,
     );
-    const jupyterIntegration = serviceContainer.get<JupyterExtensionIntegration>(JupyterExtensionIntegration);
     const jupyterPythonEnvApi = serviceContainer.get<JupyterPythonEnvironmentApi>(JupyterExtensionPythonEnvironments);
+    const environments = buildEnvironmentApi(discoveryApi, serviceContainer, jupyterPythonEnvApi);
+    const jupyterIntegration = serviceContainer.get<JupyterExtensionIntegration>(JupyterExtensionIntegration);
+    jupyterIntegration.registerEnvApi(environments);
     const tensorboardIntegration = serviceContainer.get<TensorboardExtensionIntegration>(
         TensorboardExtensionIntegration,
     );
@@ -158,7 +160,7 @@ export function buildApi(
             stop: (client: BaseLanguageClient): Promise<void> => client.stop(),
             getTelemetryReporter: () => getTelemetryReporter(),
         },
-        environments: buildEnvironmentApi(discoveryApi, serviceContainer, jupyterPythonEnvApi),
+        environments,
     };
 
     // In test environment return the DI Container.
