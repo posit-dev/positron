@@ -1925,7 +1925,7 @@ def _get_histogram_method(method: ColumnHistogramParamsMethod):
     }[method]
 
 
-def _get_histogram_polars(data, num_bins: int, method="fd"):
+def _get_histogram_polars(data: pl.Series, num_bins: int, method="fd"):
     """
     Compute histogram using pure Polars operations.
 
@@ -1941,11 +1941,13 @@ def _get_histogram_polars(data, num_bins: int, method="fd"):
 
     assert num_bins is not None
 
-    # Handle object/string dtype by converting to float (like numpy version)
-    if data.dtype == pl.Object or data.dtype == pl.Utf8:
+    # Handle object/string dtype by converting to float
+    if data.dtype == pl.Object:
+        data = pl.Series(data.to_list())
+    if (data.dtype == pl.Utf8) or (data.dtype == pl.Decimal):
         data = data.cast(pl.Float64)
 
-    # Filter out null, inf, and -inf values (like numpy version does with np.isfinite)
+    # Filter out null, inf, and -inf values
     data_clean = data.filter(data.is_finite())
 
     if len(data_clean) == 0:
@@ -1957,13 +1959,12 @@ def _get_histogram_polars(data, num_bins: int, method="fd"):
         n_bins = num_bins
     else:
         n_bins = _calculate_optimal_bins(data_clean, method)
-        # Like numpy version: if method returns more bins than requested, limit it
+        # if method returns more bins than requested, limit it
         if n_bins > num_bins:
             n_bins = num_bins
 
-    # Handle integer data specially to avoid too many bins (like numpy version)
-    # But only apply this limitation when method is not "fixed"
-    if data.dtype.is_integer() and method != "fixed":
+    # Handle integer data specially to avoid too many bins
+    if method != "fixed" and data.dtype.is_integer():
         data_range = data_clean.max() - data_clean.min()
         if data_range is not None and data_range > 0:
             # For integers, don't create more bins than the range of values
@@ -1979,7 +1980,7 @@ def _get_histogram_polars(data, num_bins: int, method="fd"):
         bin_counts = pl.Series("counts", [len(data_clean)], dtype=pl.Int64)
         return bin_counts, bin_edges
 
-    # Create bin edges
+    # Create bin edges - need n_bins+1 edges to create n_bins bins
     bin_width = (data_max - data_min) / n_bins
     bin_edges = pl.Series(
         "edges", [data_min + i * bin_width for i in range(n_bins + 1)], dtype=pl.Float64
@@ -2007,7 +2008,7 @@ def _calculate_optimal_bins(data, method):
         q25 = data.quantile(0.25)
         iqr = q75 - q25
         if iqr == 0:
-            return 0  # Return 1 instead of 0 to avoid division by zero
+            return 1  # Return 1 instead of 0 to avoid division by zero
         width = 2.0 * iqr * n ** (-1.0 / 3.0)
     elif method == "scott":  # Scott's rule
         std = data.std()
@@ -2822,10 +2823,14 @@ class PolarsView(DataExplorerTableView):
         else:
             cast_bin_edges = False
 
+        method = _get_histogram_method(params.method)
+
         bin_counts, bin_edges = _get_histogram_polars(
             data,
             params.num_bins,
+            method=method,
         )
+
         bin_edges = pl.Series(bin_edges)
 
         if cast_bin_edges:
