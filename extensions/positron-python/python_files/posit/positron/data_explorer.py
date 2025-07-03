@@ -1925,6 +1925,145 @@ def _get_histogram_method(method: ColumnHistogramParamsMethod):
     }[method]
 
 
+def _get_histogram_polars(data: pl.Series, num_bins: int, method="fd"):
+    """
+    Compute histogram using pure Polars operations.
+
+    Args:
+        data: Polars Series containing the data
+        num_bins: Number of bins for the histogram
+        method: Binning method - "fd" (Freedman-Diaconis), "scott", "sqrt", "sturges", or "fixed"
+
+    Returns:
+        Tuple of (bin_counts, bin_edges) as Polars Series
+    """
+    import polars as pl
+
+    assert num_bins is not None
+
+    # Handle object/string dtype by converting to float
+    if data.dtype == pl.Object:
+        data = pl.Series(data.to_list())
+    if (data.dtype == pl.Utf8) or (data.dtype == pl.Decimal):
+        data = data.cast(pl.Float64)
+
+    # Filter out null, inf, and -inf values
+    data_clean = data.filter(data.is_finite())
+
+    if len(data_clean) == 0:
+        # Return empty histogram if no valid data
+        return pl.Series("counts", [], dtype=pl.Int64), pl.Series("edges", [], dtype=pl.Float64)
+
+    # Calculate number of bins based on method
+    if method == "fixed":
+        n_bins = num_bins
+    else:
+        n_bins = _calculate_optimal_bins(data_clean, method)
+        # if method returns more bins than requested, limit it
+        if n_bins > num_bins:
+            n_bins = num_bins
+
+    if n_bins > len(data_clean):
+        # If number of bins exceeds number of data points, limit to number of data points
+        n_bins = len(data_clean)
+
+    # Handle integer data specially to avoid too many bins
+    if method != "fixed" and data.dtype.is_integer():
+        data_range = data_clean.max() - data_clean.min()
+        if data_range is not None and data_range > 0:
+            # For integers, don't create more bins than the range of values
+            n_bins = min(n_bins, int(data_range) + 1)
+
+    # Calculate bin edges
+    data_min = data_clean.min()
+    data_max = data_clean.max()
+
+    if data_min == data_max:
+        # All values are the same - create single bin containing all data
+        bin_edges = pl.Series("edges", [data_min - 0.5, data_max + 0.5], dtype=pl.Float64)
+        bin_counts = pl.Series("counts", [len(data_clean)], dtype=pl.Int64)
+        return bin_counts, bin_edges
+
+    # Create bin edges - need n_bins+1 edges to create n_bins bins
+    bin_width = (data_max - data_min) / n_bins
+    bin_edges = pl.Series(
+        "edges", [data_min + i * bin_width for i in range(n_bins + 1)], dtype=pl.Float64
+    )
+
+    # Ensure the last edge includes the maximum value
+    edges_list = bin_edges.to_list()
+    edges_list[-1] = data_max
+    bin_edges = pl.Series("edges", edges_list, dtype=pl.Float64)
+
+    # Calculate bin counts
+    bin_counts = _compute_bin_counts(data_clean, bin_edges)
+
+    return bin_counts, bin_edges
+
+
+def _calculate_optimal_bins(data, method):
+    """Calculate optimal number of bins using various methods."""
+    import math
+
+    n = len(data)
+
+    if method == "fd":  # Freedman-Diaconis
+        q75 = data.quantile(0.75)
+        q25 = data.quantile(0.25)
+        iqr = q75 - q25
+        if iqr == 0:
+            return 1  # Return 1 instead of 0 to avoid division by zero
+        width = 2.0 * iqr * n ** (-1.0 / 3.0)
+    elif method == "scott":  # Scott's rule
+        std = data.std()
+        if std == 0:
+            return 1
+        width = (24.0 * math.pi**0.5 / n) ** (1.0 / 3.0) * std
+    elif method == "sqrt":
+        width = (data.max() - data.min()) / math.sqrt(n)
+    elif method == "sturges":
+        width = (data.max() - data.min()) / (math.log2(n) + 1.0)
+    else:
+        raise ValueError(f"Unknown binning method: {method}")
+
+    if width > 0:
+        delta = data.max() - data.min()
+        return max(1, int(math.ceil(delta / width)))
+    else:
+        return 1
+
+
+def _compute_bin_counts(data, bin_edges):
+    """Compute histogram bin counts given data and bin edges."""
+    import polars as pl
+
+    n_bins = len(bin_edges) - 1
+
+    # Create a DataFrame with data and compute which bin each value belongs to
+    df = pl.DataFrame({"value": data})
+
+    # For each bin, count values that fall within it
+    bin_counts = []
+    edges_list = bin_edges.to_list()
+
+    for i in range(n_bins):
+        left_edge = edges_list[i]
+        right_edge = edges_list[i + 1]
+
+        if i == n_bins - 1:  # Last bin includes right edge (like numpy histogram)
+            count = df.filter(
+                (pl.col("value") >= left_edge) & (pl.col("value") <= right_edge)
+            ).height
+        else:  # Other bins exclude right edge
+            count = df.filter(
+                (pl.col("value") >= left_edge) & (pl.col("value") < right_edge)
+            ).height
+
+        bin_counts.append(count)
+
+    return pl.Series("counts", bin_counts, dtype=pl.Int64)
+
+
 def _get_histogram_numpy(data, num_bins, method="fd"):
     import numpy as np
 
@@ -2690,9 +2829,12 @@ class PolarsView(DataExplorerTableView):
 
         method = _get_histogram_method(params.method)
 
-        bin_counts, bin_edges = _get_histogram_numpy(
-            data.to_numpy(), params.num_bins, method=method
+        bin_counts, bin_edges = _get_histogram_polars(
+            data,
+            params.num_bins,
+            method=method,
         )
+
         bin_edges = pl.Series(bin_edges)
 
         if cast_bin_edges:
