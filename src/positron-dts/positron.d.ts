@@ -709,6 +709,32 @@ declare module 'positron' {
 	}
 
 	/**
+	 * A result of calling the QuerySessionTables API.
+	 */
+	export interface QueryTableSummaryResult {
+		/**
+		 * The total number of rows in the table.
+		 */
+		num_rows: number;
+
+		/**
+		 * The total number of columns in the table.
+		 */
+		num_columns: number;
+
+		/**
+		 * The column schemas in the table.
+		 */
+		column_schemas: Array<string>;
+
+		/**
+		 * The column profiles in the table.
+		 */
+		column_profiles: Array<string>;
+
+	}
+
+	/**
 	 * The possible types of language model that can be used with the Positron Assistant.
 	 */
 	export enum PositronLanguageModelType {
@@ -1787,6 +1813,22 @@ declare module 'positron' {
 			sessionId: string,
 			accessKeys?: Array<Array<string>>):
 			Thenable<Array<Array<RuntimeVariable>>>;
+
+		/**
+		 * Query a table in a session.
+		 *
+		 * @param sessionId The session ID of the session to query tables.
+		 * @param accessKeys The access keys of the tables to query.
+		 * @param queryTypes The types of data to query for the tables.
+		 *
+		 * @returns A Thenable that resolves with an array of runtime
+		 * table query results.
+		 */
+		export function querySessionTables(
+			sessionId: string,
+			accessKeys: Array<Array<string>>,
+			queryTypes: Array<string>):
+			Thenable<Array<QueryTableSummaryResult>>;
 
 		/**
 		 * Register a handler for runtime client instances. This handler will be called
