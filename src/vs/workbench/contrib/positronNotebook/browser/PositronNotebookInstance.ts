@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -363,7 +363,9 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		this.kernelStatus = observableValue<KernelStatus>('positronNotebookKernelStatus', KernelStatus.Uninitialized);
 		this.currentRuntime = observableValue<ILanguageRuntimeSession | undefined>('positronNotebookCurrentRuntime', undefined);
 
-		this.contextManager = this._instantiationService.createInstance(PositronNotebookContextKeyManager);
+		this.contextManager = this._register(
+			this._instantiationService.createInstance(PositronNotebookContextKeyManager)
+		);
 		this._positronNotebookService.registerInstance(this);
 
 		this.selectionStateMachine = this._register(
@@ -608,7 +610,7 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 	}
 
 	close(): void {
-		console.log('Closing a notebook instance');
+		this._logService.info(this.id, 'Closing a notebook instance');
 		this.dispose();
 	}
 
