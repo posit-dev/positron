@@ -361,7 +361,13 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 	}
 
 	private ensureToolDetails(dto: IToolInvocation, toolResult: IToolResult, toolData: IToolData): void {
+		// --- Start Positron ---
+		const isVerboseChatLogsEnabled = this._configurationService.getValue<boolean>('positron.assistant.verboseChatLogs.enable');
+		/*
 		if (!toolResult.toolResultDetails && toolData.alwaysDisplayInputOutput) {
+		*/
+		if (isVerboseChatLogsEnabled || (!toolResult.toolResultDetails && toolData.alwaysDisplayInputOutput)) {
+			// --- End Positron ---
 			toolResult.toolResultDetails = {
 				input: this.formatToolInput(dto),
 				output: this.toolResultToIO(toolResult),
