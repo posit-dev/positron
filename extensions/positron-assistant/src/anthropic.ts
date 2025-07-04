@@ -33,6 +33,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	provider: string;
 	identifier: string;
 	maxOutputTokens: number;
+	tokenCount: number = 0;
 
 	capabilities = {
 		vision: true,
@@ -93,6 +94,12 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			system,
 			messages: anthropicMessages,
 		};
+
+		for (const message of messages) {
+			this.tokenCount += await this.provideTokenCount(message, token);
+		}
+		vscode.commands.executeCommand('setContext', `assistant.${this._config.provider}.tokenCount`, this.tokenCount);
+
 		const stream = this._client.messages.stream(body);
 
 		// Log request information - the request ID is only available upon connection.
@@ -189,7 +196,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		});
 	}
 
-	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
+	async provideTokenCount(text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
 		const messages: Anthropic.MessageParam[] = [];
 		if (typeof text === 'string') {
 			// For empty string, return 0 tokens

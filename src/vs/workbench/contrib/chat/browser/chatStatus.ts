@@ -45,6 +45,8 @@ import { URI } from '../../../../base/common/uri.js';
 
 // --- Start Positron ---
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
+import { ILanguageModelsService } from '../common/languageModels.js';
+import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 // --- End Positron ---
 
 const gaugeBackground = registerColor('gauge.background', {
@@ -285,6 +287,8 @@ class ChatStatusDashboard extends Disposable {
 	constructor(
 		// --- Start Positron ---
 		@ILanguageFeaturesService private readonly languageFeaturesService: ILanguageFeaturesService,
+		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		// --- End Positron ---
 		@IChatEntitlementService private readonly chatEntitlementService: ChatEntitlementService,
 		@IChatStatusItemService private readonly chatStatusItemService: IChatStatusItemService,
@@ -396,7 +400,7 @@ class ChatStatusDashboard extends Disposable {
 				label: localize('completionProvidersLabel', "Completion Providers"),
 				description: '',
 				detail: '',
-			}
+			};
 			this.languageFeaturesService.inlineCompletionsProvider.allNoModel().forEach(provider => {
 				const name = provider.displayName;
 				if (name) {
@@ -409,8 +413,51 @@ class ChatStatusDashboard extends Disposable {
 				entry.description = localize('noCompletionProviders', "No completion providers available");
 			}
 
+			const itemDisposables = disposables.add(new MutableDisposable());
 			const rendered = this.renderContributedChatStatusItem(entry);
+
+			itemDisposables.value = rendered.disposables;
 			this.element.appendChild(rendered.element);
+		}
+
+		// Provider token usage
+		{
+			const tokenEntry = {
+				id: 'positron-assistant.providerTokenUsage',
+				label: localize('providerTokenUsageLabel', "Provider Token Usage"),
+				description: '',
+				detail: '',
+			};
+
+			const providers = this.languageModelsService.getLanguageModelProviders();
+			const details = new Array<HTMLSpanElement>();
+			providers.forEach(provider => {
+				const tokenCount = this.contextKeyService.getContextKeyValue(`assistant.${provider.id}.tokenCount`);
+				if (tokenCount && typeof tokenCount === 'number') {
+					const span = document.createElement('div');
+
+					span.innerText = `${provider.displayName}: ${tokenCount} tokens`;
+					details.push(span);
+				} else {
+					// add an element to the container with the name and a message
+					const span = document.createElement('div');
+					span.innerText = `${provider.displayName}: ${localize('noTokenUsage', "No token usage available")}`;
+					details.push(span);
+				}
+			});
+
+			if (providers.length === 0) {
+				tokenEntry.description = localize('noProviderTokenUsage', "No provider token usage available");
+			}
+
+			const itemDisposables = disposables.add(new MutableDisposable());
+			const rendered = this.renderContributedChatStatusItem(tokenEntry);
+
+			itemDisposables.value = rendered.disposables;
+			this.element.appendChild(rendered.element);
+			for (const detail of details) {
+				rendered.element.appendChild(detail);
+			}
 		}
 
 		/*
