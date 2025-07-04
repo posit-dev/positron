@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
+import * as positron from 'positron';
 import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName } from './types.js';
 import { isLanguageModelImagePart } from './languageModelParts.js';
 import { log } from './extension.js';
@@ -441,4 +442,16 @@ export function languageModelCacheBreakpointPart(): vscode.LanguageModelDataPart
 	// or Positron Assistant can set cache breakpoints with the same schema.
 	// See: https://github.com/microsoft/vscode-copilot-chat/blob/6aeac371813be9037e74395186ec5b5b94089245/src/extension/byok/vscode-node/anthropicMessageConverter.ts#L22
 	return vscode.LanguageModelDataPart.text(LanguageModelCacheBreakpointType.Ephemeral, LanguageModelDataPartMimeType.CacheControl);
+}
+
+/**
+ * Exports the current chat to a file in the workspace.
+ */
+export async function exportChatToFile(): Promise<void> {
+	const chatJson = await positron.ai.getChatExport();
+	const fileBuffer = Buffer.from(JSON.stringify(chatJson, null, 2));
+	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+	const fileName = `positron-chat-export-${timestamp}.json`;
+	const fileUri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders?.[0].uri || vscode.Uri.file('.'), fileName);
+	await vscode.workspace.fs.writeFile(fileUri, fileBuffer);
 }

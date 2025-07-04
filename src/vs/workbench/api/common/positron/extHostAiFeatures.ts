@@ -93,6 +93,10 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 		return this._proxy.$getSupportedProviders();
 	}
 
+	async getChatExport(): Promise<object | undefined> {
+		return this._proxy.$getChatExport();
+	}
+
 	addLanguageModelConfig(source: IPositronLanguageModelSource): void {
 		this._proxy.$addLanguageModelConfig(source);
 	}
