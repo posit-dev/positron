@@ -69,6 +69,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly provider = 'echo';
 	readonly identifier = 'echo-language-model';
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
+	tokenCount = 0;
 
 	static source = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -111,6 +112,13 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		if (message.content[0].type !== 'text') {
 			throw new Error('Echo language model only supports text messages.');
 		}
+
+		// iterate messages and get a token count for each message
+		for (const msg in messages) {
+			this.tokenCount += await this.provideTokenCount(msg, token);
+		}
+
+		vscode.commands.executeCommand('setContext', `assistant.${this.provider}.tokenCount`, this.tokenCount);
 
 		const inputText = message.content[0].text;
 		let response: string;
@@ -159,6 +167,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	public readonly provider;
 	public readonly identifier;
 	public readonly maxOutputTokens;
+	private tokenCount = 0;
 	protected abstract model: ai.LanguageModelV1;
 
 	capabilities = {
@@ -283,9 +292,16 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 				throw new Error(JSON.stringify(part.error));
 			}
 		}
+
+		for (const message of messages) {
+			this.tokenCount += await this.provideTokenCount(message, token);
+		}
+
+		// Update the context key with the token count when token count is more than a basic approximation
+		vscode.commands.executeCommand('setContext', `assistant.${this.provider}.tokenCount`, this.tokenCount);
 	}
 
-	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
+	async provideTokenCount(text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
 		// TODO: This is a very naive approximation, a model specific tokenizer should be used.
 		return typeof text === 'string' ? text.length : JSON.stringify(text.content).length;
 	}
