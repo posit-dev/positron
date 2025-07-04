@@ -12,7 +12,6 @@ const COLUMN_HEADERS = '.data-explorer-panel .right-column .data-grid-column-hea
 const HEADER_TITLES = '.data-grid-column-header .title-description .title';
 const DATA_GRID_ROWS = '.data-explorer-panel .right-column .data-grid-rows';
 const DATA_GRID_ROW = '.data-grid-row';
-const CLOSE_DATA_EXPLORER = '.tab .codicon-close';
 const IDLE_STATUS = '.status-bar-indicator .icon.idle';
 const SCROLLBAR_LOWER_RIGHT_CORNER = '.data-grid-scrollbar-corner';
 const DATA_GRID_TOP_LEFT = '.data-grid-corner-top-left';
@@ -99,10 +98,6 @@ export class DataExplorer {
 		return tableData;
 	}
 
-	async closeDataExplorer() {
-		await this.code.driver.page.locator(CLOSE_DATA_EXPLORER).first().click();
-	}
-
 	async clickLowerRightCorner() {
 		await this.code.driver.page.locator(SCROLLBAR_LOWER_RIGHT_CORNER).click();
 	}
@@ -132,16 +127,54 @@ export class DataExplorer {
 		});
 	}
 
-	async getDataExplorerStatusBarText(): Promise<String> {
-		await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(/Showing/, { timeout: 60000 });
-		return (await this.code.driver.page.locator(STATUS_BAR).textContent()) ?? '';
+	async expectLastCellContentToBe(columnName: string, expectedContent: string, rowAtIndex = -1): Promise<void> {
+		await test.step(`Verify last cell content: ${expectedContent}`, async () => {
+			await expect(async () => {
+				const tableData = await this.getDataExplorerTableData();
+				const lastRow = tableData.at(rowAtIndex);
+				const lastHour = lastRow![columnName];
+				expect(lastHour).toBe(expectedContent);
+			}, 'Verify last hour cell content').toPass();
+		});
 	}
+
+	async expectStatusBarToHaveText(expectedText: string, timeout = 60000): Promise<void> {
+		await test.step(`Expect status bar text: ${expectedText}`, async () => {
+			await expect(this.code.driver.page.locator(STATUS_BAR)).toHaveText(expectedText, { timeout });
+		});
+	}
+
 
 	async selectColumnMenuItem(columnIndex: number, menuItem: string) {
 		await test.step(`Sort column ${columnIndex} by: ${menuItem}`, async () => {
 			await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
-			await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text("${menuItem}")`).click();
+			await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text('${menuItem}')`).click();
 		});
+	}
+
+	async expectActionBarToHaveButton(buttonName: string, isVisible: boolean = true) {
+		await test.step(`Expect action bar to have button: ${buttonName}`, async () => {
+			const button = this.code.driver.page.getByRole('button', { name: buttonName });
+			if (isVisible) {
+				await expect(button).toBeVisible();
+			} else {
+				await expect(button).not.toBeVisible();
+			}
+		});
+	}
+
+	async verifyCanOpenAsPlaintext(searchString: string | RegExp) {
+		await this.workbench.editorActionBar.clickButton('Open as Plain Text File');
+
+		// Check if the 'Open Anyway' button is visible. This is needed on web only as it warns
+		// that the file is large and may take a while to open. This is due to a vs code behavior and file size limit.
+		const openAnyway = this.code.driver.page.getByText('Open Anyway');
+
+		if (await openAnyway.waitFor({ state: 'visible', timeout: 5000 }).then(() => true).catch(() => false)) {
+			await openAnyway.click();
+		}
+
+		await expect(this.code.driver.page.getByText(searchString, { exact: true })).toBeVisible();
 	}
 
 	async home(): Promise<void> {
@@ -180,10 +213,8 @@ export class DataExplorer {
 	async getColumnProfileInfo(rowNumber: number): Promise<ColumnProfile> {
 
 		const expandCollapseLocator = this.code.driver.page.locator(EXPAND_COLLAPSE_PROFILE(rowNumber));
-
 		await expandCollapseLocator.scrollIntoViewIfNeeded();
 		await expandCollapseLocator.click();
-
 		await expect(expandCollapseLocator.locator(EXPAND_COLLASPE_ICON)).toHaveClass(/codicon-chevron-down/);
 
 		const profileData: { [key: string]: string } = {};
@@ -204,7 +235,7 @@ export class DataExplorer {
 			}
 		}
 
-		// some rects have "count" class, some have "bin-count" class, some have "count other" class
+		// some rects have 'count' class, some have 'bin-count' class, some have 'count other' class
 		const rects = await this.code.driver.page.locator('.column-profile-sparkline').locator('[class*="count"]').all();
 		const profileSparklineHeights: string[] = [];
 		for (let i = 0; i < rects.length; i++) {
@@ -254,7 +285,7 @@ export class DataExplorer {
 		});
 	}
 
-	async verifyTableData(expectedData, timeout = 60000) {
+	async verifyTableData(expectedData: Array<{ [key: string]: string }>, timeout = 60000) {
 		await test.step('Verify data explorer data', async () => {
 			await expect(async () => {
 				const tableData = await this.getDataExplorerTableData();
@@ -302,8 +333,8 @@ export class DataExplorer {
 		});
 	}
 
-	async verifyProfileData(expectedValues: Array<{ column: number; expected: { [key: string]: string } }>) {
-		await test.step('Verify profile data', async () => {
+	async verifyColumnData(expectedValues: Array<{ column: number; expected: { [key: string]: string } }>) {
+		await test.step('Verify column data', async () => {
 			for (const { column, expected } of expectedValues) {
 				const profileInfo = await this.getColumnProfileInfo(column);
 				expect(profileInfo.profileData).toStrictEqual(expected);
@@ -320,6 +351,15 @@ export class DataExplorer {
 
 			for (const text of verificationText) {
 				await expect(hoverTooltip).toContainText(text);
+			}
+		});
+	}
+
+	async verifySparklineHeights(expectedHeights: Array<{ column: number; expected: string[] }>) {
+		await test.step('Verify sparkline heights', async () => {
+			for (const { column, expected } of expectedHeights) {
+				const colProfileInfo = await this.getColumnProfileInfo(column);
+				expect(colProfileInfo.profileSparklineHeights).toStrictEqual(expected);
 			}
 		});
 	}
@@ -345,6 +385,13 @@ export class DataExplorer {
 			const actualHeaders = await this.getColumnHeaders();
 			const missing = expectedHeaders.filter(item => !actualHeaders.includes(item));
 			expect(missing).toEqual([]); // Will throw if any are missing
+		});
+	}
+
+	async clickCell(rowIndex: number, columnIndex: number) {
+		await test.step(`Click cell at row ${rowIndex}, column ${columnIndex}`, async () => {
+			const cellLocator = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`);
+			await cellLocator.click();
 		});
 	}
 }

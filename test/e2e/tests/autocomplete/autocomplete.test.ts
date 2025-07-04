@@ -22,7 +22,7 @@ test.describe('Autocomplete', {
 		const { editors, console } = app.workbench;
 
 		const [pySession1, pySession2, pyAltSession] = await sessions.start(['python', 'python', 'pythonAlt']);
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 
 		// Session 1 - trigger and verify console autocomplete
 		await sessions.select(pySession1.id);
@@ -59,7 +59,7 @@ test.describe('Autocomplete', {
 		const { console } = app.workbench;
 
 		const [pySession, pyAltSession] = await sessions.start(['python', 'pythonAlt']);
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 
 		// Session 1 - verify console autocomplete
 		await sessions.select(pySession.id);
@@ -94,7 +94,7 @@ test.describe('Autocomplete', {
 		const { editors, console } = app.workbench;
 
 		const [rSession1, rSession2, rSessionAlt] = await sessions.start(['r', 'r', 'rAlt']);
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 
 		// Session 1 - verify console autocomplete
 		await sessions.select(rSession1.id);
@@ -133,7 +133,7 @@ test.describe('Autocomplete', {
 		const { console } = app.workbench;
 
 		const [rSession, rSessionAlt] = await sessions.start(['r', 'rAlt']);
-		await hotKeys.hideSecondarySidebar();
+		await hotKeys.closeSecondarySidebar();
 
 		// Session 1 - verify console autocomplete
 		await sessions.select(rSession.id);

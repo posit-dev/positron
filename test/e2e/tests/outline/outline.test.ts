@@ -28,7 +28,7 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 			await openFile(`workspaces/outline/${PY_FILE}`);
 			await openFile(`workspaces/outline/${R_FILE}`);
 
-			await hotKeys.hideSecondarySidebar();
+			await hotKeys.closeSecondarySidebar();
 			await outline.focus();
 		});
 

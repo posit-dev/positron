@@ -69,6 +69,28 @@ export const formatSize = (size: number) => {
 	return localize('positron.sizeTB', "{0} TB", (size / TB).toFixed(2));
 };
 
+const viewQueuedLabel = (variableItem: IVariableItem) => {
+	switch (variableItem.kind) {
+		case 'table':
+			return localize('positron.variables.viewTableQueued', 'Data Table Queued...');
+		case 'connection':
+			return localize('positron.variables.viewConnectionQueued', 'Connection Queued...');
+		default:
+			return localize('positron.variables.viewQueued', 'View Queued...');
+	}
+};
+
+const viewLabel = (variableItem: IVariableItem) => {
+	switch (variableItem.kind) {
+		case 'table':
+			return localize('positron.variables.viewTable', 'View Data Table');
+		case 'connection':
+			return localize('positron.variables.viewConnection', 'View Connection');
+		default:
+			return localize('positron.variables.view', 'View');
+	}
+};
+
 /**
  * VariableItemProps interface.
  */
@@ -104,11 +126,17 @@ export const VariableItem = (props: VariableItemProps) => {
 	 * State hooks.
 	 */
 	const [isRecent, setIsRecent] = useState(props.variableItem.isRecent.get());
+	const [isViewLoading, setIsViewLoading] = useState(props.variableItem.isViewLoading.get());
 
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
-		const evt = Event.fromObservable(props.variableItem.isRecent, disposableStore);
-		evt(e => setIsRecent(e));
+
+		const onDidChangeIsRecent = Event.fromObservable(props.variableItem.isRecent, disposableStore);
+		disposableStore.add(onDidChangeIsRecent(e => setIsRecent(e)));
+
+		const onDidChangeIsViewLoading = Event.fromObservable(props.variableItem.isViewLoading, disposableStore);
+		disposableStore.add(onDidChangeIsViewLoading(e => setIsViewLoading(e)));
+
 		return () => disposableStore.dispose();
 	}, [props.variableItem]);
 
@@ -274,10 +302,10 @@ export const VariableItem = (props: VariableItemProps) => {
 		if (!props.disabled && props.variableItem.hasViewer) {
 			actions.push({
 				id: POSITRON_VARIABLES_VIEW,
-				label: localize('positron.variables.view', "View"),
+				label: viewLabel(props.variableItem),
 				tooltip: '',
 				class: undefined,
-				enabled: true,
+				enabled: !isViewLoading,
 				run: () => viewVariableItem(props.variableItem)
 			});
 		}
@@ -391,19 +419,24 @@ export const VariableItem = (props: VariableItemProps) => {
 	const RightColumn = () => {
 		if (!props.disabled && props.variableItem.hasViewer) {
 			let icon = 'codicon codicon-open-preview';
-			if (props.variableItem.kind === 'table') {
+			if (isViewLoading) {
+				icon = 'codicon codicon-notebook-state-pending';
+			} else if (props.variableItem.kind === 'table') {
 				icon = 'codicon codicon-table';
 			} else if (props.variableItem.kind === 'connection') {
 				icon = 'codicon codicon-database';
 			}
-			icon = 'viewer-icon ' + icon + ' ' + props.variableItem.kind;
+			const enablement = isViewLoading ? 'disabled' : 'enabled';
+			icon = `viewer-icon ${enablement} ${icon} ${props.variableItem.kind}`;
 
 			return (
 				<div className='right-column'>
 					<div
 						className={icon}
-						title={localize('positron.variables.clickToView', "Click to view")}
-						onMouseDown={viewerMouseDownHandler}
+						title={isViewLoading ?
+							viewQueuedLabel(props.variableItem) :
+							viewLabel(props.variableItem)}
+						onMouseDown={isViewLoading ? undefined : viewerMouseDownHandler}
 					></div>
 				</div>
 			);
@@ -428,7 +461,7 @@ export const VariableItem = (props: VariableItemProps) => {
 
 	// Render.
 	return (
-		<div className={classNames} style={props.style} onDoubleClick={doubleClickHandler} onMouseDown={mouseDownHandler}>
+		<div className={classNames} style={props.style} onDoubleClick={isViewLoading ? undefined : doubleClickHandler} onMouseDown={mouseDownHandler}>
 			<div className='name-column' style={{ width: props.nameColumnWidth, minWidth: props.nameColumnWidth }}>
 				<div className='name-column-indenter' style={{ marginLeft: props.variableItem.indentLevel * 20 }}>
 					<div className='gutter'>

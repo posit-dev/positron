@@ -65,6 +65,7 @@ import { isVersionSupported } from '../../environmentTypeComparer';
 import { untildify } from '../../../../common/helpers';
 import { useEnvExtension } from '../../../../envExt/api.internal';
 import { setInterpreterLegacy } from '../../../../envExt/api.legacy';
+import { CreateEnvironmentResult } from '../../../../pythonEnvironments/creation/proposed.createEnvApis';
 
 export type InterpreterStateArgs = { path?: string; workspace: Resource };
 export type QuickPickType = IInterpreterQuickPickItem | ISpecialQuickPickItem | QuickPickItem;
@@ -259,12 +260,13 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
             sendTelemetryEvent(EventName.SELECT_INTERPRETER_ENTER_OR_FIND);
             return this._enterOrBrowseInterpreterPath.bind(this);
         } else if (selection.label === this.createEnvironmentSuggestion.label) {
-            this.commandManager
-                .executeCommand(Commands.Create_Environment, {
+            const createdEnv = (await Promise.resolve(
+                this.commandManager.executeCommand(Commands.Create_Environment, {
                     showBackButton: false,
                     selectEnvironment: true,
-                })
-                .then(noop, noop);
+                }),
+            ).catch(noop)) as CreateEnvironmentResult | undefined;
+            state.path = createdEnv?.path;
         } else if (selection.label === this.noPythonInstalled.label) {
             this.commandManager.executeCommand(Commands.InstallPython).then(noop, noop);
             this.wasNoPythonInstalledItemClicked = true;
@@ -622,8 +624,14 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         return Promise.resolve();
     }
 
+    /**
+     * @returns true when an interpreter was set, undefined if the user cancelled the quickpick.
+     */
     @captureTelemetry(EventName.SELECT_INTERPRETER)
-    public async setInterpreter(): Promise<void> {
+    public async setInterpreter(options?: {
+        hideCreateVenv?: boolean;
+        showBackButton?: boolean;
+    }): Promise<SelectEnvironmentResult | undefined> {
         const targetConfig = await this.getConfigTargets();
         if (!targetConfig) {
             return;
@@ -632,11 +640,25 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
         const wkspace = targetConfig[0].folderUri;
         const interpreterState: InterpreterStateArgs = { path: undefined, workspace: wkspace };
         const multiStep = this.multiStepFactory.create<InterpreterStateArgs>();
-        await multiStep.run(
-            (input, s) => this._pickInterpreter(input, s, undefined, { showCreateEnvironment: true }),
-            interpreterState,
-        );
-
+        try {
+            await multiStep.run(
+                (input, s) =>
+                    this._pickInterpreter(input, s, undefined, {
+                        showCreateEnvironment: !options?.hideCreateVenv,
+                        showBackButton: options?.showBackButton,
+                    }),
+                interpreterState,
+            );
+        } catch (ex) {
+            if (ex === InputFlowAction.back) {
+                // User clicked back button, so we need to return this action.
+                return { action: 'Back' };
+            }
+            if (ex === InputFlowAction.cancel) {
+                // User clicked cancel button, so we need to return this action.
+                return { action: 'Cancel' };
+            }
+        }
         if (interpreterState.path !== undefined) {
             // User may choose to have an empty string stored, so variable `interpreterState.path` may be
             // an empty string, in which case we should update.
@@ -652,6 +674,7 @@ export class SetInterpreterCommand extends BaseInterpreterSelectorCommand implem
             if (useEnvExtension()) {
                 await setInterpreterLegacy(interpreterState.path, wkspace);
             }
+            return { path: interpreterState.path };
         }
     }
 
@@ -774,3 +797,14 @@ function filterWrapper(filter: ((i: PythonEnvironment) => boolean) | undefined) 
     return (i: PythonEnvironment) => (filter ? filter(i) : true) && shouldIncludeInterpreter(i.path);
 }
 // --- End Positron ---
+
+export type SelectEnvironmentResult = {
+    /**
+     * Path to the executable python in the environment
+     */
+    readonly path?: string;
+    /*
+     * User action that resulted in exit from the create environment flow.
+     */
+    readonly action?: 'Back' | 'Cancel';
+};

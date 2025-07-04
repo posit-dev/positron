@@ -57,8 +57,13 @@
     {
         "key": "cmd+j c",
         "command": "workbench.action.togglePanel"
-    }, {
+    },
+    {
         "key": "cmd+j n",
         "command": "workbench.action.positronNotebookLayout" // View: Notebook Layout
+    },
+    {
+        "key": "cmd+b c",
+        "command": "workbench.action.closeSidebar" // View: Close Primary Side Bar
     }
 ]

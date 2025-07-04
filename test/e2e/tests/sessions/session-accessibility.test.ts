@@ -13,7 +13,7 @@ test.use({
 test.describe('Sessions: Accessibility',
 	{ tag: [tags.WIN, tags.WEB, tags.ACCESSIBILITY, tags.SESSIONS, tags.CONSOLE] }, () => {
 		test.beforeEach(async function ({ hotKeys }) {
-			await hotKeys.hideSecondarySidebar();
+			await hotKeys.closeSecondarySidebar();
 		});
 
 		test.afterEach(async function ({ sessions }) {

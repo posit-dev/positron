@@ -5,8 +5,8 @@
 import { IPythonRuntimeManager } from '../../positron/manager';
 // --- End Positron ---
 
-import { IDisposableRegistry, IInterpreterPathService, IPathUtils } from '../../common/types';
-import { IInterpreterQuickPick } from '../../interpreter/configuration/types';
+import { IDisposableRegistry, IPathUtils } from '../../common/types';
+import { IInterpreterQuickPick, IPythonPathUpdaterServiceManager } from '../../interpreter/configuration/types';
 import { IInterpreterService } from '../../interpreter/contracts';
 import { registerCreateEnvironmentFeatures } from './createEnvApi';
 import { registerCreateEnvironmentButtonFeatures } from './createEnvButtonContext';
@@ -20,7 +20,7 @@ export async function registerAllCreateEnvironmentFeatures(
     // --- End Positron ---
     disposables: IDisposableRegistry,
     interpreterQuickPick: IInterpreterQuickPick,
-    interpreterPathService: IInterpreterPathService,
+    pythonPathUpdater: IPythonPathUpdaterServiceManager,
     interpreterService: IInterpreterService,
     pathUtils: IPathUtils,
     // --- Start Positron ---
@@ -29,7 +29,7 @@ export async function registerAllCreateEnvironmentFeatures(
     await registerCreateEnvironmentFeatures(
         disposables,
         interpreterQuickPick,
-        interpreterPathService,
+        pythonPathUpdater,
         pathUtils,
         pythonRuntimeManager,
     );

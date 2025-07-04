@@ -32,10 +32,6 @@ import {
     CreateEnvironmentResult,
 } from '../proposed.createEnvApis';
 
-// --- Start Positron ---
-export const VENV_PROVIDER_ID = `${PVSC_EXTENSION_ID}:venv`;
-// --- End Positron ---
-
 interface IVenvCommandArgs {
     argv: string[];
     stdin: string | undefined;
@@ -153,21 +149,26 @@ async function createVenv(
     return deferred.promise;
 }
 
+export const VenvCreationProviderId = `${PVSC_EXTENSION_ID}:venv`;
 export class VenvCreationProvider implements CreateEnvironmentProvider {
     constructor(private readonly interpreterQuickPick: IInterpreterQuickPick) {}
 
     public async createEnvironment(
         options?: CreateEnvironmentOptions & CreateEnvironmentOptionsInternal,
     ): Promise<CreateEnvironmentResult | undefined> {
-        let workspace: WorkspaceFolder | undefined;
+        let workspace = options?.workspaceFolder;
+        const bypassQuickPicks = options?.workspaceFolder && options.interpreter && options.providerId ? true : false;
         const workspaceStep = new MultiStepNode(
             undefined,
             async (context?: MultiStepAction) => {
                 try {
-                    workspace = (await pickWorkspaceFolder(
-                        { preSelectedWorkspace: options?.workspaceFolder },
-                        context,
-                    )) as WorkspaceFolder | undefined;
+                    workspace =
+                        workspace && bypassQuickPicks
+                            ? workspace
+                            : ((await pickWorkspaceFolder(
+                                  { preSelectedWorkspace: options?.workspaceFolder },
+                                  context,
+                              )) as WorkspaceFolder | undefined);
                 } catch (ex) {
                     if (ex === MultiStepAction.Back || ex === MultiStepAction.Cancel) {
                         return ex;
@@ -186,6 +187,9 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
         );
 
         let existingVenvAction: ExistingVenvAction | undefined;
+        if (bypassQuickPicks) {
+            existingVenvAction = ExistingVenvAction.Create;
+        }
         const existingEnvStep = new MultiStepNode(
             workspaceStep,
             async (context?: MultiStepAction) => {
@@ -208,7 +212,7 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
         );
         workspaceStep.next = existingEnvStep;
 
-        let interpreter: string | undefined;
+        let interpreter = options?.interpreter;
         const interpreterStep = new MultiStepNode(
             existingEnvStep,
             async (context?: MultiStepAction) => {
@@ -222,25 +226,28 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
                         existingVenvAction === ExistingVenvAction.Create
                     ) {
                         try {
-                            interpreter = await this.interpreterQuickPick.getInterpreterViaQuickPick(
-                                workspace.uri,
-                                (i: PythonEnvironment) =>
-                                    [
-                                        EnvironmentType.System,
-                                        EnvironmentType.MicrosoftStore,
-                                        EnvironmentType.Global,
-                                        EnvironmentType.Pyenv,
-                                        // --- Start Positron ---
-                                        EnvironmentType.Custom,
-                                        // --- End Positron ---
-                                    ].includes(i.envType) && i.type === undefined, // only global intepreters
-                                {
-                                    skipRecommended: true,
-                                    showBackButton: true,
-                                    placeholder: CreateEnv.Venv.selectPythonPlaceHolder,
-                                    title: null,
-                                },
-                            );
+                            interpreter =
+                                interpreter && bypassQuickPicks
+                                    ? interpreter
+                                    : await this.interpreterQuickPick.getInterpreterViaQuickPick(
+                                          workspace.uri,
+                                          (i: PythonEnvironment) =>
+                                              [
+                                                  EnvironmentType.System,
+                                                  EnvironmentType.MicrosoftStore,
+                                                  EnvironmentType.Global,
+                                                  EnvironmentType.Pyenv,
+                                                  // --- Start Positron ---
+                                                  EnvironmentType.Custom,
+                                                  // --- End Positron ---
+                                              ].includes(i.envType) && i.type === undefined, // only global intepreters
+                                          {
+                                              skipRecommended: true,
+                                              showBackButton: true,
+                                              placeholder: CreateEnv.Venv.selectPythonPlaceHolder,
+                                              title: null,
+                                          },
+                                      );
                         } catch (ex) {
                             if (ex === InputFlowAction.back) {
                                 return MultiStepAction.Back;
@@ -373,9 +380,7 @@ export class VenvCreationProvider implements CreateEnvironmentProvider {
 
     description: string = CreateEnv.Venv.providerDescription;
 
-    // --- Start Positron ---
-    id = VENV_PROVIDER_ID;
-    // --- End Positron ---
+    id = VenvCreationProviderId;
 
     tools = ['Venv'];
 }

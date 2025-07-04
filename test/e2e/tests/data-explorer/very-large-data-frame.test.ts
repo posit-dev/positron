@@ -33,24 +33,26 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 		}
 	});
 
-	test.afterEach(async function ({ app, hotKeys }) {
-		await app.workbench.dataExplorer.closeDataExplorer();
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
 		await hotKeys.showSecondarySidebar();
 	});
 
 	if (githubActions && process.platform !== 'win32') {
 
-		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, logger, python }) {
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.py'));
-			await app.workbench.quickaccess.runCommand('python.execInConsole');
+		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, python }) {
+			const { dataExplorer, variables, editors } = app.workbench;
+
+			await openFile(join('workspaces', 'performance', 'loadBigParquet.py'));
+			await runCommand('python.execInConsole');
 			const startTime = performance.now();
 
-			await app.workbench.variables.doubleClickVariableRow('df');
-			await app.workbench.editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
-			await app.workbench.sideBar.closeSecondarySideBar();
+			await variables.doubleClickVariableRow('df');
+			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+			await hotKeys.closeSecondarySidebar();
 
 			// awaits table load completion
-			await app.workbench.dataExplorer.getDataExplorerTableData();
+			await dataExplorer.getDataExplorerTableData();
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 
@@ -61,17 +63,19 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			}
 		});
 
-		test('R - Verify data loads with very large unique data dataframe', async function ({ app, logger, r }) {
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'loadBigParquet.r'));
-			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+		test('R - Verify data loads with very large unique data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, r }) {
+			const { variables, editors, dataExplorer } = app.workbench;
+
+			await openFile(join('workspaces', 'performance', 'loadBigParquet.r'));
+			await runCommand('r.sourceCurrentFile');
 			const startTime = performance.now();
 
-			await app.workbench.variables.doubleClickVariableRow('df2');
-			await app.workbench.editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
-			await app.workbench.sideBar.closeSecondarySideBar();
+			await variables.doubleClickVariableRow('df2');
+			await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
+			await hotKeys.closeSecondarySidebar();
 
 			// awaits table load completion
-			await app.workbench.dataExplorer.getDataExplorerTableData();
+			await dataExplorer.getDataExplorerTableData();
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 
@@ -84,17 +88,19 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	} else {
 
-		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, python }) {
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.py'));
-			await app.workbench.quickaccess.runCommand('python.execInConsole');
+		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, python }) {
+			const { dataExplorer, variables, editors } = app.workbench;
+
+			await openFile(join('workspaces', 'performance', 'multiplyParquet.py'));
+			await runCommand('python.execInConsole');
 			const startTime = performance.now();
 
-			await app.workbench.variables.doubleClickVariableRow('df_large');
-			await app.workbench.editors.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
-			await app.workbench.sideBar.closeSecondarySideBar();
+			await variables.doubleClickVariableRow('df_large');
+			await editors.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
+			await hotKeys.closeSecondarySidebar();
 
 			// awaits table load completion
-			await app.workbench.dataExplorer.getDataExplorerTableData();
+			await dataExplorer.getDataExplorerTableData();
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 
@@ -105,22 +111,24 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			}
 		});
 
-		test('R - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, r }) {
-			await app.workbench.quickaccess.openFile(join(app.workspacePathOrFolder, 'workspaces', 'performance', 'multiplyParquet.r'));
-			await app.workbench.quickaccess.runCommand('r.sourceCurrentFile');
+		test('R - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, r }) {
+			const { variables, editors, dataExplorer } = app.workbench;
+
+			await openFile(join('workspaces', 'performance', 'multiplyParquet.r'));
+			await runCommand('r.sourceCurrentFile');
 			const startTime = performance.now();
 
-			await app.workbench.variables.doubleClickVariableRow('df3_large');
-			await app.workbench.editors.verifyTab('Data: df3_large', { isVisible: true, isSelected: true });
-			await app.workbench.sideBar.closeSecondarySideBar();
+			await variables.doubleClickVariableRow('df3_large');
+			await editors.verifyTab('Data: df3_large', { isVisible: true, isSelected: true });
+			await hotKeys.closeSecondarySidebar();
 
 			// awaits table load completion
-			await app.workbench.dataExplorer.getDataExplorerTableData();
+			await dataExplorer.getDataExplorerTableData();
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 
 			if (timeTaken > 60000) {
-				fail(`Opening large dupliacted parquet took ${timeTaken} milliseconds (R)`);
+				fail(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);
 			} else {
 				logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);
 			}

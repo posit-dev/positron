@@ -6,6 +6,7 @@
 import * as sinon from 'sinon';
 import { assert, expect } from 'chai';
 import { mock, instance, when, anything, verify, reset } from 'ts-mockito';
+import * as TypeMoq from 'typemoq';
 import {
     EnvironmentVariableCollection,
     EnvironmentVariableMutatorOptions,
@@ -14,6 +15,7 @@ import {
     // --- End Positron ---
     ProgressLocation,
     Uri,
+    WorkspaceConfiguration,
     WorkspaceFolder,
 } from 'vscode';
 import {
@@ -59,6 +61,7 @@ suite('Terminal Environment Variable Collection Service', () => {
     let terminalEnvVarCollectionService: TerminalEnvVarCollectionService;
     let terminalDeactivateService: ITerminalDeactivateService;
     let useEnvExtensionStub: sinon.SinonStub;
+    let pythonConfig: TypeMoq.IMock<WorkspaceConfiguration>;
     const progressOptions = {
         location: ProgressLocation.Window,
         title: Interpreters.activatingTerminals,
@@ -128,6 +131,8 @@ suite('Terminal Environment Variable Collection Service', () => {
             instance(shellIntegrationService),
             instance(envVarProvider),
         );
+        pythonConfig = TypeMoq.Mock.ofType<WorkspaceConfiguration>();
+        pythonConfig.setup((p) => p.get('terminal.shellIntegration.enabled')).returns(() => false);
     });
 
     teardown(() => {

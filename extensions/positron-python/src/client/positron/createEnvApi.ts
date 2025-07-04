@@ -18,7 +18,7 @@ import { PythonExtension } from '../api/types';
 import { PVSC_EXTENSION_ID } from '../common/constants';
 import { getConfiguration } from '../common/vscodeApis/workspaceApis';
 import { CONDA_PROVIDER_ID } from '../pythonEnvironments/creation/provider/condaCreationProvider';
-import { VENV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/venvCreationProvider';
+import { VenvCreationProviderId } from '../pythonEnvironments/creation/provider/venvCreationProvider';
 import { UV_PROVIDER_ID } from '../pythonEnvironments/creation/provider/uvCreationProvider';
 import { traceInfo, traceVerbose } from '../logging';
 
@@ -116,7 +116,7 @@ export async function isGlobalPython(interpreterPath: string): Promise<boolean |
  * The provider names are used in the settings, while the IDs are used in the code.
  */
 enum EnvProviderToProviderId {
-    'Venv' = VENV_PROVIDER_ID,
+    'Venv' = VenvCreationProviderId,
     'Conda' = CONDA_PROVIDER_ID,
     'uv' = UV_PROVIDER_ID,
 }
@@ -130,7 +130,7 @@ function getEnabledEnvProviderIds(): string[] {
     if (!envProviderConfig) {
         // If the config hasn't been set, return the default providers
         traceInfo('[getEnabledEnvProviderIds] No environment provider settings configured. Using default providers.');
-        return [VENV_PROVIDER_ID, CONDA_PROVIDER_ID, UV_PROVIDER_ID];
+        return [VenvCreationProviderId, CONDA_PROVIDER_ID, UV_PROVIDER_ID];
     }
     const enabledProviderIds = Object.entries(envProviderConfig)
         // filter to include only enabled providers that are supported

@@ -3,11 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { expect } from '@playwright/test';
 import { Code } from '../infra/code';
+import { HotKeys } from './hotKeys.js';
 
 export class Clipboard {
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private hotKeys: HotKeys) { }
+
+	async copy(): Promise<void> {
+		await this.hotKeys.copy();
+	}
+
+	async paste(): Promise<void> {
+		await this.hotKeys.paste();
+	}
 
 	async getClipboardText(): Promise<string | null> {
 		// Grant permissions to read from clipboard
@@ -23,6 +33,13 @@ export class Clipboard {
 		});
 
 		return clipboardText;
+	}
+
+	async expectClipboardTextToBe(expectedText: string): Promise<void> {
+		await expect(async () => {
+			const clipboardText = await this.getClipboardText();
+			expect(clipboardText).toBe(expectedText);
+		}).toPass({ timeout: 20000 });
 	}
 
 	async setClipboardText(text: string): Promise<void> {
