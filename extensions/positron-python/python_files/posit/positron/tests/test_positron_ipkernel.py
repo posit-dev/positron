@@ -6,11 +6,11 @@
 import contextlib
 import logging
 import os
-import sys
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Tuple, cast
 from unittest.mock import Mock
 
+import IPython
 import pytest
 from ipykernel.compiler import get_tmp_directory
 from IPython.core import ultratb
@@ -177,7 +177,7 @@ def g():
 
 
 @pytest.fixture
-def test_traceback_result(
+def traceback_result(
     request: pytest.FixtureRequest,
     shell: PositronShell,
     tmp_path: Path,
@@ -199,13 +199,6 @@ def test_traceback_result(
     with prepended_to_syspath(str(tmp_path)):
         shell.run_cell(f"import {request.function.__name__} as test_traceback; test_traceback.g()")
 
-    # This template matches the beginning of each traceback frame. We don't check each entire frame
-    # because syntax highlighted code is full of escape codes. For example, after removing
-    # escape codes a formatted version of below might look like:
-    #
-    # File /private/var/folders/.../test_traceback.py:11, in func()
-    #
-
     # Check that a single message was sent to the frontend.
     call_args_list = mock_displayhook.session.send.call_args_list
     assert len(call_args_list) == 1
@@ -221,11 +214,11 @@ def test_traceback_result(
 
 
 @pytest.mark.xfail(
-    sys.version_info >= (3, 11),
-    reason="Python >= 3.11 does not support the traceback format of IPython < 9.0.0",
+    cast(Tuple[int, int], (IPython.version_info[:2])) >= (9, 0),
+    reason="IPython >= 9.0.0 does not support the old traceback format",
 )
-def test_console_traceback(shell: PositronShell, test_traceback_result) -> None:
-    file, exc_content = test_traceback_result
+def test_console_traceback(shell: PositronShell, traceback_result) -> None:
+    file, exc_content = traceback_result
 
     # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
     # compare the beginning of each frame of the traceback. The escape codes make it particularly
@@ -268,23 +261,19 @@ def test_console_traceback(shell: PositronShell, test_traceback_result) -> None:
 
 
 @pytest.mark.xfail(
-    sys.version_info < (3, 11),
-    reason="Python < 3.11 does not support the traceback format of IPython >= 9.0.0",
+    cast(Tuple[int, int], (IPython.version_info[:2])) < (9, 0),
+    reason="IPython < 9.0.0 does not support the new traceback format",
 )
-def test_console_traceback_ipy9(shell: PositronShell, test_traceback_result) -> None:
-    file, exc_content = test_traceback_result
+def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
+    file, exc_content = traceback_result
 
     # NOTE(seem): This is not elegant, but I'm not sure how else to test this than other than to
     # compare the beginning of each frame of the traceback. The escape codes make it particularly
     # challenging.
     path = str(alias_home(file))
 
-    # Define a few OSC8 escape codes for convenience.
-
-    # Convenient reference to colors from the active scheme.
-
     # NOTE (here and below): Ignoring types related to `theme_table` and `ultratb.Token`
-    # as they will report undefined in Python<3.11.
+    # as they will report undefined in IPython < 9.0.0.
     colors = ultratb.theme_table[shell.colors]  # type: ignore
 
     # This template matches the beginning of each traceback frame. We don't check each entire frame
