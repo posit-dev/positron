@@ -13,7 +13,7 @@ test.use({
 });
 
 test.describe('Notebook Editor Configuration', {
-	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
+	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 
 	test.afterEach(async function ({ hotKeys }) {
