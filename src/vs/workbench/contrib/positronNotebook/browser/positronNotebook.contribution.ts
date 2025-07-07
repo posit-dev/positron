@@ -111,6 +111,7 @@ class PositronNotebookContribution extends Disposable {
 			{
 				id: PositronNotebookEditorInput.EditorID,
 				label: localize('positronNotebook', "Positron Notebook"),
+				detail: localize('positronNotebook.detail', "Provided by Positron"),
 				priority: this.getEditorPriority()
 			},
 			{
