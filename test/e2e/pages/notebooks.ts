@@ -222,4 +222,19 @@ export class Notebooks {
 	async focusNextCell() {
 		await this.code.driver.page.keyboard.press('ArrowDown');
 	}
+
+	/**
+	 * Verify: that the specified notebook type is visible on the page.
+	 * @param type The type of notebook to check for ('positron' or 'vscode')
+	 * @param timeout Optional timeout in milliseconds (default: 5000)
+	 */
+	async expectNotebookTypeToBe(type: 'positron' | 'vscode', timeout = 5000): Promise<void> {
+		await test.step(`Expect notebook to be type: ${type}`, async () => {
+			const selector = type === 'positron'
+				? this.code.driver.page.locator('.positron-notebook').first()
+				: this.code.driver.page.getByLabel(/Start Chat to Generate Code/).first();
+
+			await expect(selector).toBeVisible({ timeout });
+		});
+	}
 }

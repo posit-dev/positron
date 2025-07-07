@@ -6,6 +6,8 @@
 import path from 'path';
 import { test, tags } from '../_test.setup';
 
+const NOTEBOOK_PATH = path.join('workspaces', 'bitmap-notebook', 'bitmap-notebook.ipynb');
+
 test.use({
 	suiteId: __filename
 });
@@ -14,93 +16,57 @@ test.describe('Notebook Editor Configuration', {
 	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.NOTEBOOKS]
 }, () => {
 
-	test.afterEach(async function ({ settings }) {
-		// Reset the notebook editor setting to default
-		await settings.set({
-			'positron.notebooks.defaultEditor': 'vscode'
-		});
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.closeAllEditors();
 	});
 
-	/**
-	 * Helper function to detect if Positron notebook is open
-	 * @param page The Playwright page object
-	 */
-	async function detectPositronNotebook(page: any): Promise<void> {
-		const positronIndicator = page.locator('.positron-notebook').first();
-		await positronIndicator.waitFor({ timeout: 5000 });
-	}
+	test('Verify default editor is VS Code notebook', async function ({ app, settings }) {
+		const { notebooks } = app.workbench;
 
-	/**
-	 * Helper function to detect if VS Code notebook is open
-	 * @param page The Playwright page object
-	 */
-	async function detectVSCodeNotebook(page: any): Promise<void> {
-		const vscodeIndicator = page.getByLabel(/Start Chat to Generate Code/).first();
-		await vscodeIndicator.waitFor({ timeout: 5000 });
-	}
-
-	/**
-	 * Helper function to get the test notebook file path
-	 * Uses existing notebook at workspaces/bitmap-notebook/bitmap-notebook.ipynb
-	 */
-	function getTestNotebookPath(app: any): string {
-		return path.join(app.workspacePathOrFolder, 'workspaces', 'bitmap-notebook', 'bitmap-notebook.ipynb');
-	}
-
-	test('default editor is VS Code notebook', async function ({ app, page }) {
-		const notebookPath = getTestNotebookPath(app);
-
-		// Close the current editor to start fresh
-		await app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
-
-		// Open the notebook file
-		await app.workbench.notebooks.openNotebook(notebookPath, false);
-
-		// Wait for VS Code notebook to load
-		await detectVSCodeNotebook(page);
-	});
-
-	test('setting positron.notebooks.defaultEditor to positron opens positron notebook', async function ({ app, page, settings }) {
-		// Set the setting to use Positron notebooks
-		await settings.set({
-			'positron.notebooks.defaultEditor': 'positron'
-		});
-
-		const notebookPath = getTestNotebookPath(app);
-
-		// Close the current editor to start fresh
-		await app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
-
-		// Open the notebook file
-		await app.workbench.notebooks.openNotebook(notebookPath, false);
-
-		// Wait for Positron notebook to load
-		await detectPositronNotebook(page);
-	});
-
-	test('reverting to default setting opens VS Code notebook again', async function ({ app, page, settings }) {
-		// First set to Positron
-		await settings.set({
-			'positron.notebooks.defaultEditor': 'positron'
-		});
-
-		const notebookPath = getTestNotebookPath(app);
-
-		// Open in Positron first
-		await app.workbench.notebooks.openNotebook(notebookPath, false);
-		await detectPositronNotebook(page);
-
-		// Close editor
-		await app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
-
-		// Revert to default (VS Code)
+		// Set default editor to VS Code notebook
 		await settings.set({
 			'positron.notebooks.defaultEditor': 'vscode'
 		});
 
-		// Open notebook again
-		await app.workbench.notebooks.openNotebook(notebookPath, false);
-		await detectVSCodeNotebook(page);
+		// Open the notebook file and verify it opens as a VS Code notebook
+		await notebooks.openNotebook(NOTEBOOK_PATH, false);
+		await notebooks.expectNotebookTypeToBe('vscode');
 	});
 
+	test('Verify setting `positron.notebooks.defaultEditor` to `positron` opens positron notebook', async function ({ app, settings }) {
+		const { notebooks } = app.workbench;
+
+		// Set default editor to Positron notebook
+		await settings.set({
+			'positron.notebooks.defaultEditor': 'positron'
+		});
+
+		// Open the notebook file and verify it opens as a Positron notebook
+		await notebooks.openNotebook(NOTEBOOK_PATH, false);
+		await notebooks.expectNotebookTypeToBe('positron');
+	});
+
+	test('Verify reverting to default setting opens VS Code notebook again', async function ({ app, hotKeys, settings }) {
+		const { notebooks } = app.workbench;
+
+		// First, set default editor to Positron notebook
+		await settings.set({
+			'positron.notebooks.defaultEditor': 'positron'
+		});
+
+		// Open the notebook file and verify it opens as a Positron notebook
+		await notebooks.openNotebook(NOTEBOOK_PATH, false);
+		await notebooks.expectNotebookTypeToBe('positron');
+
+		// Revert default editor to VS Code notebook
+		await hotKeys.closeAllEditors();
+		await settings.set({
+			'positron.notebooks.defaultEditor': 'vscode'
+		});
+
+		// Open notebook again and verify it opens as a VS Code notebook
+		await notebooks.openNotebook(NOTEBOOK_PATH, false);
+		await notebooks.expectNotebookTypeToBe('vscode');
+	});
 });
+
