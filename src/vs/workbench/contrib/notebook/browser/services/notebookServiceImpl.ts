@@ -50,10 +50,6 @@ import { CancellationToken } from '../../../../../base/common/cancellation.js';
 import { CancellationError } from '../../../../../base/common/errors.js';
 import { ICellRange } from '../../common/notebookRange.js';
 
-// --- Start Positron ---
-import { PositronNotebookEditorInput } from '../../../positronNotebook/browser/PositronNotebookEditorInput.js';
-import { getShouldUsePositronEditor } from '../../../positronNotebook/browser/positronNotebook.contribution.js';
-// --- End Positron ---
 
 export class NotebookProviderInfoStore extends Disposable {
 
@@ -260,12 +256,6 @@ export class NotebookProviderInfoStore extends Disposable {
 
 				const preferredResourceParam = cellOptions?.resource;
 
-				// --- Start Positron ---
-				if (getShouldUsePositronEditor(this._configurationService)) {
-					// Use our editor instead of the built in one.
-					return { editor: PositronNotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResourceParam, notebookProviderInfo.id), options };
-				}
-				// --- End Positron ---
 
 				const editor = NotebookEditorInput.getOrCreate(this._instantiationService, notebookUri, preferredResourceParam, notebookProviderInfo.id);
 				return { editor, options: notebookOptions };
@@ -280,13 +270,6 @@ export class NotebookProviderInfoStore extends Disposable {
 					ref.dispose();
 				});
 
-				// --- Start Positron ---
-				if (getShouldUsePositronEditor(this._configurationService)) {
-					// Use our editor instead of the built in one.
-					const editor = PositronNotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id);
-					return { editor, options };
-				}
-				// --- End Positron ---
 				return { editor: NotebookEditorInput.getOrCreate(this._instantiationService, ref.object.resource, undefined, notebookProviderInfo.id), options };
 			};
 			const notebookDiffEditorInputFactory: DiffEditorInputFactoryFunction = (diffEditorInput: IResourceDiffEditorInput, group: IEditorGroup) => {
