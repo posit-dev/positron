@@ -1283,11 +1283,91 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Determines the WebSocket URI for the session based on the API base path
+	 * and transport type.
+	 *
+	 * @returns The websocket URI for the session.
+	 */
+	async getWebsocketUri(): Promise<string> {
+		const basePath = this._api.basePath;
+		let wsUri: string;
+
+		if (basePath && basePath.includes('unix:')) {
+			// Unix domain socket transport - get socket path from channelsUpgrade API
+			this.log(
+				`Using Unix domain socket transport, getting socket path for session ${this.metadata.sessionId}`,
+				vscode.LogLevel.Debug);
+			const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
+			const socketPath = channelsResponse.body;
+
+			// The socket path might be returned with or without the ws+unix:// prefix
+			if (socketPath.startsWith('ws+unix://')) {
+				// Already a complete WebSocket URI
+				wsUri = socketPath;
+			} else if (socketPath.startsWith('/')) {
+				// Raw socket path, construct WebSocket URI
+				wsUri = `ws+unix://${socketPath}:/api/channels/${this.metadata.sessionId}`;
+			} else {
+				// Fallback: assume it's a relative path from the Unix socket
+				const socketMatch = basePath.match(/unix:([^:]+):/);
+				if (socketMatch) {
+					const baseSocketPath = socketMatch[1];
+					wsUri = `ws+unix://${baseSocketPath}:/api/channels/${this.metadata.sessionId}`;
+				} else {
+					throw new Error(`Cannot extract socket path from base path: ${basePath}`);
+				}
+			}
+		} else if (basePath && basePath.includes('npipe:')) {
+			// Named pipe transport - get pipe name from channelsUpgrade API
+			this.log(
+				`Using named pipe transport, getting pipe name for session ${this.metadata.sessionId}`,
+				vscode.LogLevel.Debug
+			);
+			const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
+			const pipeName = channelsResponse.body;
+
+			// The pipe name might be returned with or without the ws+npipe:// prefix
+			if (pipeName.startsWith('ws+npipe://')) {
+				// Already a complete WebSocket URI
+				wsUri = pipeName;
+			} else if (pipeName.startsWith('\\\\.\\pipe\\') || pipeName.includes('pipe\\')) {
+				// Raw pipe name with full path or partial path, construct WebSocket URI
+				wsUri = `ws+npipe://${pipeName}:/api/channels/${this.metadata.sessionId}`;
+			} else {
+				// Fallback: assume it's a relative pipe name from the base pipe
+				const pipeMatch = basePath.match(/npipe:([^:]+):/);
+				if (pipeMatch) {
+					const basePipeName = pipeMatch[1];
+					// If the base pipe name doesn't have the full path, construct it
+					const fullPipeName = basePipeName.startsWith('\\\\.\\pipe\\') ?
+						basePipeName :
+						(basePipeName.startsWith('pipe\\') ? `\\\\.\\${basePipeName}` : `\\\\.\\pipe\\${basePipeName}`);
+					wsUri = `ws+npipe://${fullPipeName}:/api/channels/${this.metadata.sessionId}`;
+				} else {
+					throw new Error(`Cannot extract pipe name from base path: ${basePath}`);
+				}
+			}
+		} else {
+			// TCP transport - construct WebSocket URI directly from base path
+			this.log(`Using TCP transport, constructing WebSocket URI from base path: ${basePath}`, vscode.LogLevel.Debug);
+			if (!basePath) {
+				throw new Error('API base path is not set for TCP transport');
+			}
+
+			// Convert HTTP base path to WebSocket URI
+			const wsScheme = basePath.startsWith('https://') ? 'wss://' : 'ws://';
+			const baseUrl = basePath.replace(/^https?:\/\//, '').replace(/\/$/, '');
+			wsUri = `${wsScheme}${baseUrl}/sessions/${this.metadata.sessionId}/channels`;
+		}
+		return wsUri;
+	}
+
+	/**
 	 * Connects or reconnects to the session's websocket.
 	 *
 	 * @returns A promise that resolves when the websocket is connected.
 	 */
-	connect(): Promise<void> {
+	async connect(): Promise<void> {
 		// Ensure we are eligible for reconnection. We can't reconnect if
 		// another client is connected to the session as it would disconnect the
 		// other client.
@@ -1295,18 +1375,30 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			return Promise.reject(new Error('This session cannot be reconnected.'));
 		}
 
+		// Get the WebSocket URI for the session. This will throw an error if
+		// the URI cannot be determined.
+		const wsUri = await this.getWebsocketUri();
+
 		return new Promise((resolve, reject) => {
 			// Ensure websocket is closed if it's open
 			if (this._socket) {
 				this._socket.close();
 			}
 
-			// Connect to the session's websocket. The websocket URL is based on
-			// the base path of the API.
-			const uri = vscode.Uri.parse(this._api.basePath);
-			const wsUri = `ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`;
-			this.log(`Connecting to websocket: ${wsUri}`, vscode.LogLevel.Debug);
-			this._socket = new SocketSession(wsUri, this.metadata.sessionId, this._consoleChannel);
+			this.log(`Connecting to session WebSocket via ${wsUri}`, vscode.LogLevel.Info);
+
+			// Get the Bearer token from the API for WebSocket authentication
+			const defaultAuth = (this._api as any).authentications?.default;
+			let accessToken: string | undefined;
+			const headers: { [key: string]: string } = {};
+			if (defaultAuth && typeof defaultAuth.accessToken !== 'undefined') {
+				accessToken = typeof defaultAuth.accessToken === 'function' ? defaultAuth.accessToken() : defaultAuth.accessToken;
+				headers['Authorization'] = `Bearer ${accessToken}`;
+			} else {
+				this.log(`Warning: No Bearer token found for WebSocket authentication`, vscode.LogLevel.Warning);
+			}
+
+			this._socket = new SocketSession(wsUri, this.metadata.sessionId, this._consoleChannel, headers);
 			this._disposables.push(this._socket);
 
 			// Handle websocket events
