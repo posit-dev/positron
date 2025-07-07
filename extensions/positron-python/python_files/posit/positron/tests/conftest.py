@@ -50,7 +50,7 @@ class DummyComm(comm.base_comm.BaseComm):
                     raise AssertionError(error["message"])
 
 
-class TestSession(Session):
+class MockSession(Session):
     """A session that records sent messages for testing purposes."""
 
     def __init__(self, *args, **kwargs):
@@ -92,7 +92,7 @@ def kernel() -> PositronIPyKernel:
     app.session_mode = SessionMode.CONSOLE
 
     # Use a test session to capture sent messages.
-    session = TestSession()
+    session = MockSession()
 
     try:
         kernel = PositronIPyKernel.instance(parent=app, session=session)
@@ -128,8 +128,8 @@ def shell(kernel) -> Iterable[PositronShell]:
 
 
 @pytest.fixture
-def session(kernel) -> TestSession:
-    session: TestSession = kernel.session
+def session(kernel) -> MockSession:
+    session: MockSession = kernel.session
 
     # Clear all messages from previous tests.
     session.messages.clear()

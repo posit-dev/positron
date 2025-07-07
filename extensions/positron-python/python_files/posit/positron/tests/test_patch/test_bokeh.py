@@ -9,7 +9,7 @@ import pytest
 
 from positron.positron_ipkernel import PositronShell
 
-from ..conftest import TestSession
+from ..conftest import MockSession
 
 MIME_TYPE_POSITRON_WEBVIEW_FLAG = "application/positron-webview-load.v0+json"
 
@@ -43,7 +43,7 @@ show(p)
     )
 
 
-def test_model_repr_html_disabled(shell: PositronShell, session: TestSession):
+def test_model_repr_html_disabled(shell: PositronShell, session: MockSession):
     """
     Test to make sure that the text/html mime type is excluded from Bokeh Model subclass instances.
 
