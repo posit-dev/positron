@@ -44,12 +44,12 @@ Positron Notebooks represents a parallel notebook implementation within Positron
 5. Update selection machine if needed
 
 #### Modifying Cell Execution
-- **Entry Point**: `PositronNotebookInstance.ts:729-765`
+- **Entry Point**: `PositronNotebookInstance.ts`
 - **Kernel Integration**: `RuntimeNotebookKernel.ts` for execution routing
 - **State Updates**: Use observable pattern for UI synchronization
 
 #### Adding New Configuration Options
-1. Define in `positronNotebook.contribution.ts:43-57`
+1. Define in `positronNotebook.contribution.ts`
 2. Implement reader function similar to `getPreferredNotebookEditor`
 3. Add configuration change listener
 4. Update editor registration if needed
@@ -89,7 +89,7 @@ Positron Notebooks represents a parallel notebook implementation within Positron
 ### 1. Configuration Layer
 
 **Configuration Key**: `positron.notebooks.defaultEditor`
-**Location**: `src/vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution.ts:43-57`
+**Location**: `src/vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution.ts`
 
 ```typescript
 'positron.notebooks.defaultEditor': {
@@ -102,12 +102,12 @@ Positron Notebooks represents a parallel notebook implementation within Positron
 
 **Configuration Reader**: `getPreferredNotebookEditor(configurationService: IConfigurationService): 'positron' | 'vscode'`
 - Returns user's preferred default notebook editor
-- Located in `positronNotebook.contribution.ts:65-68`
+- Located in `positronNotebook.contribution.ts`
 - Defaults to 'vscode' if not configured or invalid value
 
 ### 2. Editor Registration and Resolution
 
-**Location**: `src/vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution.ts:109-139`
+**Location**: `src/vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution.ts`
 
 The system uses VS Code's `IEditorResolverService` to register the Positron notebook editor:
 
@@ -294,7 +294,7 @@ export const POSITRON_NOTEBOOK_EDITOR_FOCUSED = new RawContextKey<boolean>('posi
 
 **Integration Pattern**: Cells with interactive outputs register with the preload service for proper rendering and lifecycle management:
 ```typescript
-// From PositronNotebookCodeCell.ts:62-70
+// From PositronNotebookCodeCell.ts
 if (preloadMessageType) {
     parsedOutput.preloadMessageResult = this._webviewPreloadService.addNotebookOutput({
         instance: this.instance,
@@ -313,7 +313,7 @@ if (preloadMessageType) {
 - **Cancellation Support**: Handles execution interruption
 - **Output Coordination**: Synchronizes outputs with execution completion
 
-**From PositronNotebookInstance.ts:752-759**:
+**From PositronNotebookInstance.ts**:
 ```typescript
 await this.notebookExecutionService.executeNotebookCells(
     this.textModel, 
@@ -487,7 +487,7 @@ src/vs/workbench/
 - **Focus Management**: Tab order follows logical cell sequence
 
 #### ARIA Support
-- **Image Outputs**: `role='img'` with descriptive `aria-label` in `DeferredImage.tsx:111-119`
+- **Image Outputs**: `role='img'` with descriptive `aria-label` in `DeferredImage.tsx`
 - **Interactive Elements**: Settings buttons use `aria-label='notebook output settings'`
 - **Cell Containers**: `tabIndex={0}` for keyboard accessibility
 
@@ -519,7 +519,7 @@ src/vs/workbench/
 
 #### Execution Protocol
 ```typescript
-// From PositronNotebookInstance.ts:377-393
+// From PositronNotebookInstance.ts
 this._register(
     this.notebookKernelService.onDidChangeSelectedNotebooks((e) => {
         if (e.notebook === this.uri.toString()) {
@@ -547,7 +547,7 @@ this._register(
 ### Core Service Communication
 
 #### Runtime Session Service
-**Integration Pattern**: `PositronNotebookInstance.ts:395-408`
+**Integration Pattern**: `PositronNotebookInstance.ts`
 ```typescript
 this._register(
     this.runtimeSessionService.onDidStartRuntime((session) => {
@@ -659,7 +659,7 @@ export function createPositronNotebookTestServices(): TestServiceAccessor {
 ##### React Performance Considerations
 **Memory Usage**: React implementation has ~20-30% higher baseline memory due to virtual DOM and component trees. However, the observable pattern provides more efficient selective updates, often resulting in better performance for dynamic content.
 
-**From `useWebviewMount.ts:88-125`**:
+**From `useWebviewMount.ts`**:
 ```typescript
 // RAF-based layout updates prevent main thread blocking
 requestAnimationFrame(() => {
@@ -699,7 +699,7 @@ requestAnimationFrame(() => {
 - **Legacy Setting**: `positron.notebooks.usePositronNotebooksExperimental` (boolean)
 - **Migration**: Handled by `PositronNotebookConfigMigration` class
 - **Behavior**: Log-only approach - notifies users to use new setting
-- **Location**: `positronNotebook.contribution.ts:73-90`
+- **Location**: `positronNotebook.contribution.ts`
 
 ### Integration Points
 - **Model Compatibility**: Uses standard VS Code notebook models (`IResolvedNotebookEditorModel`)
@@ -708,19 +708,4 @@ requestAnimationFrame(() => {
 - **Serialization**: Compatible with standard notebook serialization
 - **Testing Coverage**: Comprehensive test suite includes unit tests for service integration, E2E tests for user workflows, and configuration tests for editor switching. Mock service infrastructure enables isolated testing.
 
-## Outstanding Questions
-
-### Long-term Architecture Strategy
-1. **Timeline for Default Switch**: When will Positron notebooks become the default?
-2. **Maintenance Strategy**: How will dual implementation maintenance be managed long-term?
-3. **Migration Path**: What's the plan for users with existing notebook workflows?
-
-### Advanced Integration Features
-1. **Positron-Specific Features**: What unique capabilities justify the parallel implementation?
-2. **Performance Parity**: At what notebook size/complexity does React implementation become problematic?
-3. **Extension Ecosystem**: Are there plans for Positron-specific notebook extensions?
-
----
-
-*This document was last updated on 2025-07-02 and reflects the current state of the Positron notebook implementation following the removal of the hijacking architecture. The system now uses VS Code's standard editor resolution mechanisms for cleaner integration.*
 
