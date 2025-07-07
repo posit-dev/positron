@@ -108,7 +108,25 @@
           "default": 10,
           "minimum": 1,
           "maximum": 2000,
-          "description": "Maximum size in megabytes for binary buffers passed between IPyWidgets and the kernel"
+          "description": "%configuration.maxBufferSizeMB.description%"
+        },
+        "kernelSupervisor.transport": {
+          "scope": "machine",
+          "type": "string",
+          "description": "%configuration.transport.description%",
+          "enum": [
+            "ipc",
+            "tcp"
+          ],
+          "enumDescriptions": [
+            "%configuration.transport.ipc.description%",
+            "%configuration.transport.tcp.description%"
+          ],
+          "enumItemLabels": [
+            "%configuration.transport.ipc.label%",
+            "%configuration.transport.tcp.label%"
+          ],
+          "default": "ipc"
         }
       }
     },
@@ -150,7 +168,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "kallichore": "0.1.49"
+      "kallichore": "0.1.51"
     }
   },
   "extensionDependencies": [
