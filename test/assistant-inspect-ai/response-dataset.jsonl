@@ -1,0 +1,5 @@
+{"id":"sample_1","question":"What e the capital of France?","model_response":"Placeholder response for the chat message","target":"The answer should correctly identify Paris as the capital of France"}
+{"id":"sample_2","question":"Explain how photosynthesis works","model_response":"Placeholder response for the chat message","target":"The answer should explain that photosynthesis converts light energy, CO2, and water into glucose and oxygen, mentioning chloroplasts and chlorophyll"}
+{"id":"sample_3","question":"What is 25 multiplied by 4?","model_response":"Placeholder response for the chat message","target":"The answer should be 100, not 200. This response contains a mathematical error."}
+{"id":"sample_4","question":"Who wrote the novel '1984'?","model_response":"Placeholder response for the chat message","target":"The answer should correctly identify George Orwell as the author of '1984'"}
+{"id":"sample_5","question":"What are the primary colors?","model_response":"Placeholder response for the chat message","target":"The answer should identify red, blue, and yellow as primary colors and may mention they cannot be created by mixing other colors"}

@@ -215,6 +215,7 @@ module.exports.copyrightFilter = [
 
 	// --- Start Positron ---
 	'!extensions/positron-r/resources/testing/**',
+	`!**/*.jsonl`,
 	// --- End Positron ---
 ];
 

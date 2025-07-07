@@ -198,4 +198,14 @@ export class Assistant {
 			outputTokens: outputMatch ? parseInt(outputMatch[1], 10) : 0
 		};
 	}
+
+	async waitForSendButtonVisible() {
+		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).waitFor({ state: 'visible' });
+	}
+
+	async getChatResponseText() {
+		const responseText = 'Placeholder response for the chat message'; // Placeholder for actual response retrieval logic
+		return responseText; // Placeholder for actual response retrieval logic
+	}
+
 }
