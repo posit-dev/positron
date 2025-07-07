@@ -15,8 +15,8 @@ test.describe('Matplotlib Interact', { tag: [tags.PLOTS, tags.NOTEBOOKS] }, () =
 
 	test('Python - Matplotlib Interact Test', {
 		tag: [tags.CRITICAL, tags.WEB, tags.WIN],
-	}, async function ({ app, runCommand, hotKeys, python }) {
-		const { notebooks, quickaccess } = app.workbench;
+	}, async function ({ app, hotKeys, python }) {
+		const { notebooks: notebooks, quickaccess } = app.workbench;
 
 		// open the Matplotlib Interact notebook and run all cells
 		await quickaccess.openDataFile(join(app.workspacePathOrFolder, 'workspaces', 'matplotlib', 'interact.ipynb'));

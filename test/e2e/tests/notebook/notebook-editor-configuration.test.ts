@@ -21,7 +21,7 @@ test.describe('Notebook Editor Configuration', {
 	});
 
 	test('Verify default editor is VS Code notebook', async function ({ app, settings }) {
-		const { notebooks } = app.workbench;
+		const { notebooks, notebooksVscode } = app.workbench;
 
 		// Set default editor to VS Code notebook
 		await settings.set({
@@ -30,11 +30,11 @@ test.describe('Notebook Editor Configuration', {
 
 		// Open the notebook file and verify it opens as a VS Code notebook
 		await notebooks.openNotebook(NOTEBOOK_PATH, false);
-		await notebooks.expectNotebookTypeToBe('vscode');
+		await notebooksVscode.expectToBeVisible();
 	});
 
 	test('Verify setting `positron.notebooks.defaultEditor` to `positron` opens positron notebook', async function ({ app, settings }) {
-		const { notebooks } = app.workbench;
+		const { notebooks, notebooksPositron } = app.workbench;
 
 		// Set default editor to Positron notebook
 		await settings.set({
@@ -43,11 +43,11 @@ test.describe('Notebook Editor Configuration', {
 
 		// Open the notebook file and verify it opens as a Positron notebook
 		await notebooks.openNotebook(NOTEBOOK_PATH, false);
-		await notebooks.expectNotebookTypeToBe('positron');
+		await notebooksPositron.expectToBeVisible();
 	});
 
 	test('Verify reverting to default setting opens VS Code notebook again', async function ({ app, hotKeys, settings }) {
-		const { notebooks } = app.workbench;
+		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
 
 		// First, set default editor to Positron notebook
 		await settings.set({
@@ -56,7 +56,7 @@ test.describe('Notebook Editor Configuration', {
 
 		// Open the notebook file and verify it opens as a Positron notebook
 		await notebooks.openNotebook(NOTEBOOK_PATH, false);
-		await notebooks.expectNotebookTypeToBe('positron');
+		await notebooksPositron.expectToBeVisible();
 
 		// Revert default editor to VS Code notebook
 		await hotKeys.closeAllEditors();
@@ -66,7 +66,7 @@ test.describe('Notebook Editor Configuration', {
 
 		// Open notebook again and verify it opens as a VS Code notebook
 		await notebooks.openNotebook(NOTEBOOK_PATH, false);
-		await notebooks.expectNotebookTypeToBe('vscode');
+		await notebooksVscode.expectToBeVisible();
 	});
 });
 
