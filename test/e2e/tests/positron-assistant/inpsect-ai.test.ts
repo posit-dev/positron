@@ -37,7 +37,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.assistant.clickAddModelButton();
 		await app.workbench.assistant.selectModelProvider('Anthropic');
-		await app.workbench.assistant.enterApiKey(`${process.env.POSITRON_ATHROPIC_API}`);
+		await app.workbench.assistant.enterApiKey(`${process.env.POSITRON_ANTHROPIC_API}`);
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.verifySignOutButtonVisible();
 		await app.workbench.assistant.clickCloseButton();
