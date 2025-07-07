@@ -10,7 +10,6 @@ import { Variables } from '../pages/variables';
 import { DataExplorer } from '../pages/dataExplorer';
 import { SideBar } from '../pages/sideBar';
 import { Plots } from '../pages/plots';
-import { Notebooks } from '../pages/notebooks';
 import { NewFolderFlow } from '../pages/newFolderFlow';
 import { Explorer } from '../pages/explorer';
 import { Connections } from '../pages/connections';
@@ -40,6 +39,9 @@ import { Search } from '../pages/search.js';
 import { Assistant } from '../pages/positronAssistant.js';
 import { HotKeys } from '../pages/hotKeys.js';
 import { PositConnect } from '../pages/connect.js';
+import { Notebooks } from '../pages/notebooks.js';
+import { PositronNotebooks } from '../pages/notebooksPositron.js';
+import { VsCodeNotebooks } from '../pages/notebooksVscode.js';
 
 export interface Commands {
 	runCommand(command: string, options?: { exactLabelMatch?: boolean }): Promise<any>;
@@ -54,6 +56,8 @@ export class Workbench {
 	readonly sideBar: SideBar;
 	readonly plots: Plots;
 	readonly notebooks: Notebooks;
+	readonly notebooksVscode: VsCodeNotebooks;
+	readonly notebooksPositron: PositronNotebooks;
 	readonly newFolderFlow: NewFolderFlow;
 	readonly explorer: Explorer;
 	readonly connections: Connections;
@@ -104,6 +108,8 @@ export class Workbench {
 		this.console = new Console(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console);
 		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
+		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess);
+		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
 		this.clipboard = new Clipboard(code, this.hotKeys);
 		this.terminal = new Terminal(code, this.quickaccess, this.clipboard, this.popups);
