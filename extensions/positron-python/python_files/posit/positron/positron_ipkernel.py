@@ -30,7 +30,7 @@ from IPython.utils import PyColorize
 
 from .access_keys import encode_access_key
 from .connections import ConnectionsService
-from .data_explorer import DataExplorerWarning, DataExplorerService
+from .data_explorer import DataExplorerService, DataExplorerWarning
 from .help import HelpService, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
