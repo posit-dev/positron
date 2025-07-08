@@ -3,10 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// FALSE POSITIVE: The ESLint rule of hooks is incorrectly flagging numerous lines in this file as a
-// violation of the rules of hooks. See: https://github.com/facebook/react/issues/31687
-/* eslint-disable react-hooks/rules-of-hooks */
-
 // CSS.
 import './dataGridWaffle.css';
 
