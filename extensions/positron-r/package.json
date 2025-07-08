@@ -737,9 +737,11 @@
     "languageModelTools": [
       {
         "name": "getAttachedRPackages",
-        "displayName": "Get attached R Packages",
+        "displayName": "Get Attached R Packages",
+        "userDescription": "Get a list of the R packages being used in the current R session.",
         "modelDescription": "Gets a list of the R packages that are loaded and attached in the current R session.",
-        "canBeReferencedInPrompt": false,
+        "toolReferenceName": "getAttachedRPackages",
+        "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant"
         ]
@@ -747,8 +749,10 @@
       {
         "name": "getInstalledRPackageVersion",
         "displayName": "Get Installed R Package Version",
+        "userDescription": "Get the version of an installed R package.",
         "modelDescription": "Given the name of an R package, returns the version of the package that's installed in the current R session, or NULL if the package is not installed.",
-        "canBeReferencedInPrompt": false,
+        "canBeReferencedInPrompt": true,
+        "toolReferenceName": "getInstalledRPackageVersion",
         "inputSchema": {
           "type": "object",
           "properties": {
@@ -756,8 +760,112 @@
               "type": "string",
               "description": "The name of the R package to get the version of."
             }
-          }
+          },
+          "required": [
+            "packageName"
+          ]
         },
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "listPackageHelpTopics",
+        "displayName": "List R Package Help Topics",
+        "toolReferenceName": "listPackageHelpTopics",
+        "userDescription": "Get a list of the help topics for the named R package.",
+        "modelDescription": "This tool retrieves a list of help topics for a specific R package. A help topic can be a function, dataset, or other documentation related to the package. The topic IDs returned can be passed to the getRHelpPage tool to retrieve the full help page for that topic.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package to list help topics for."
+            }
+          },
+          "required": [
+            "packageName"
+          ]
+        },
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "listAvailableVignettes",
+        "displayName": "List R Package Vignettes",
+        "toolReferenceName": "listAvailableVignettes",
+        "userDescription": "Get a list of vignettes for the named R package.",
+        "modelDescription": "Get a list of the vignettes available for the named R package. A vignette is a long-form guide to using the package, often with examples and explanations. Call this tool if you are unfamiliar with a package and want to see what vignettes are available to help you learn about it.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package to list vignettes for."
+            }
+          },
+          "required": [
+            "packageName"
+          ]
+        },
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "getPackageVignette",
+        "displayName": "Get an R Package Vignette",
+        "toolReferenceName": "getPackageVignette",
+        "userDescription": "Get a specific vignette for the named R package.",
+        "modelDescription": "Get a specific vignette for the named R package. This tool retrieves the full text of the specified vignette, including all examples and explanations.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package to get the vignette for."
+            },
+            "vignetteName": {
+              "type": "string",
+              "description": "The name of the vignette to retrieve."
+            }
+          },
+          "required": [
+            "packageName",
+            "vignetteName"
+          ]
+        },
+        "canBeReferencedInPrompt": true,
+        "tags": [
+          "positron-assistant"
+        ]
+      },
+      {
+        "name": "getHelpPage",
+        "displayName": "Get an R Help Page",
+        "toolReferenceName": "getRHelpPage",
+        "userDescription": "Get a specific help page from R.",
+        "modelDescription": "Get a specific help page from R. This can be used to retrieve documentation for a specific function, dataset, or other topic in R. If you know which package the help topic is in, you can specify it to narrow down the search. If no package is specified, it will search all loaded packages.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "packageName": {
+              "type": "string",
+              "description": "The name of the R package in which to look for help. If not provided, the help page will be searched in all loaded packages."
+            },
+            "helpTopic": {
+              "type": "string",
+              "description": "The name of the help topic to retrieve."
+            }
+          },
+          "required": [
+            "helpTopic"
+          ]
+        },
+        "canBeReferencedInPrompt": true,
         "tags": [
           "positron-assistant"
         ]
@@ -815,7 +923,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.195"
+      "ark": "0.1.196"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
