@@ -230,10 +230,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// to see if it requires confirmation, but that information isn't
 					// currently exposed in `vscode.LanguageModelChatTool`.
 					case PositronAssistantToolName.ExecuteCode:
-						return inChatPane &&
-							// The execute code tool does not yet support notebook sessions.
-							positronContext.activeSession?.mode !== positron.LanguageRuntimeSessionMode.Notebook &&
-							isAgentMode;
+						return inChatPane && isAgentMode;
 					// Only include the documentEdit tool in an editor and if there is
 					// no selection.
 					case PositronAssistantToolName.DocumentEdit:
@@ -278,7 +275,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// not cached. Since the context message is transiently added to each request, caching it
 		// will write a prompt prefix to the cache that will never be read. We will want to keep
 		// an eye on whether the order of user prompt and context message affects model responses.
-		const contextMessage = await this.getContextMessage(request, response, positronContext);
+		const contextMessage = await this.getContextMessage(request, context, response, positronContext);
 		if (contextMessage) {
 			messages.push(contextMessage);
 		}
@@ -298,6 +295,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	private async getContextMessage(
 		request: vscode.ChatRequest,
+		context: vscode.ChatContext,
 		response: vscode.ChatResponseStream,
 		positronContext: positron.ai.ChatContext,
 	): Promise<vscode.LanguageModelChatMessage2 | undefined> {
@@ -452,37 +450,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Add Positron IDE context to the prompt.
 		const positronContextPrompts: string[] = [];
-		if (positronContext.activeSession) {
-			const executions = positronContext.activeSession.executions
-				.map((e) => xml.node('execution', JSON.stringify(e)))
-				.join('\n');
-			const sessionNode = xml.node('session',
-				xml.node('executions', executions ?? ''), {
-				description: 'Current active session',
-				language: positronContext.activeSession.language,
-				version: positronContext.activeSession.version,
-				mode: positronContext.activeSession.mode,
-				identifier: positronContext.activeSession.identifier,
-			});
-			positronContextPrompts.push(sessionNode);
-			log.debug(
-				`[context] adding active ${positronContext.activeSession.mode} ${positronContext.activeSession.language} session context: ` +
-				`${sessionNode.length} characters`
-			);
-		}
-		if (positronContext.variables) {
-			const content = positronContext.variables
-				.map((v) => xml.node('variable', JSON.stringify(v)))
-				.join('\n');
-			const description = content.length > 0 ?
-				'Variables defined in the current session' :
-				'No variables defined in the current session';
-			const variablesNode = xml.node('variables', content, {
-				description,
-			});
-			positronContextPrompts.push(variablesNode);
-			log.debug(`[context] adding variables context: ${variablesNode.length} characters`);
-		}
+
+		// Note: Runtime session information (active session, variables, execution history)
+		// is now provided through IChatRequestRuntimeSessionEntry mechanism rather than
+		// being included in the global positronContext. The chat system will automatically
+		// include this information when available.
 		if (positronContext.shell) {
 			const shellNode = xml.node('shell', positronContext.shell, {
 				description: 'Current active shell',

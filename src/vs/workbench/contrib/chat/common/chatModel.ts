@@ -203,7 +203,21 @@ export interface IElementVariableEntry extends IBaseChatRequestVariableEntry {
 // --- Start Positron ---
 export interface IChatRequestRuntimeSessionEntry extends IBaseChatRequestVariableEntry {
 	readonly kind: 'runtimeSession';
-	readonly value: { activeSession: any; variables: any };
+	readonly value: {
+		activeSession?: {
+			identifier: string;
+			language: string;
+			version: string;
+			mode: string;
+			notebookUri?: any;
+			executions: {
+				input: string;
+				output: string;
+				error?: any;
+			}[];
+		};
+		variables: any[];
+	};
 }
 // --- End Positron ---
 
