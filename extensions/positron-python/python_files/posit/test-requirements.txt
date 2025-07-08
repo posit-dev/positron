@@ -20,7 +20,7 @@ pytest
 pytest-asyncio
 pytest-mock
 torch
-scipy<=1.15.3
+scipy
 sqlalchemy
 
 # putting this last because holoviews is picky about dependency versions (including bokeh),
