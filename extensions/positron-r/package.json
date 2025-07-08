@@ -760,7 +760,10 @@
               "type": "string",
               "description": "The name of the R package to get the version of."
             }
-          }
+          },
+          "required": [
+            "packageName"
+          ]
         },
         "tags": [
           "positron-assistant"
@@ -779,7 +782,10 @@
               "type": "string",
               "description": "The name of the R package to list help topics for."
             }
-          }
+          },
+          "required": [
+            "packageName"
+          ]
         },
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -799,7 +805,10 @@
               "type": "string",
               "description": "The name of the R package to list vignettes for."
             }
-          }
+          },
+          "required": [
+            "packageName"
+          ]
         },
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -823,7 +832,11 @@
               "type": "string",
               "description": "The name of the vignette to retrieve."
             }
-          }
+          },
+          "required": [
+            "packageName",
+            "vignetteName"
+          ]
         },
         "canBeReferencedInPrompt": true,
         "tags": [
@@ -847,7 +860,10 @@
               "type": "string",
               "description": "The name of the help topic to retrieve."
             }
-          }
+          },
+          "required": [
+            "helpTopic"
+          ]
         },
         "canBeReferencedInPrompt": true,
         "tags": [
