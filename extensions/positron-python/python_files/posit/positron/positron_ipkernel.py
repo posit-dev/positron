@@ -30,7 +30,7 @@ from IPython.utils import PyColorize
 
 from .access_keys import encode_access_key
 from .connections import ConnectionsService
-from .data_explorer import DataExplorerImportWarning, DataExplorerService
+from .data_explorer import DataExplorerWarning, DataExplorerService
 from .help import HelpService, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
@@ -499,7 +499,7 @@ class PositronIPyKernel(IPythonKernel):
             module="jedi",
         )
 
-        warnings.filterwarnings("once", category=DataExplorerImportWarning)
+        warnings.filterwarnings("once", category=DataExplorerWarning)
 
         # Patch holoviews to use our custom notebook extension.
         set_holoviews_extension(self.ui_service)
@@ -584,7 +584,7 @@ class PositronIPyKernel(IPythonKernel):
         # also send warnings from attempted compiles from IPython to logs
         # https://github.com/ipython/ipython/blob/8.24.0/IPython/core/async_helpers.py#L151
         if (str(positron_files_path) in str(filename) or str(filename) == "<>") and not isinstance(
-            message, DataExplorerImportWarning
+            message, DataExplorerWarning
         ):
             msg = f"{filename}-{lineno}: {category}: {message}"
             logger.warning(msg)

@@ -105,10 +105,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-class DataExplorerImportWarning(UserWarning):
+class DataExplorerWarning(UserWarning):
     """
-    Warning raised when there are import-related issues
-    in the Data Explorer relevant to the user.
+    Warning raised when there are issues in the Data Explorer relevant to the user.
+
     This type of warning is shown once in the Console per session.
     """
 
@@ -1942,7 +1942,7 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
         warnings.warn(
             "Numpy not installed, histogram computation will not work. "
             "Please install NumPy to enable this feature.",
-            category=DataExplorerImportWarning,
+            category=DataExplorerWarning,
             stacklevel=1,
         )
         raise e
