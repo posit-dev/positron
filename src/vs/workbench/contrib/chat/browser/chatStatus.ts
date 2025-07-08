@@ -432,11 +432,12 @@ class ChatStatusDashboard extends Disposable {
 			const providers = this.languageModelsService.getLanguageModelProviders();
 			const details = new Array<HTMLSpanElement>();
 			providers.forEach(provider => {
-				const tokenCount = this.contextKeyService.getContextKeyValue(`assistant.${provider.id}.tokenCount`);
-				if (tokenCount && typeof tokenCount === 'number') {
+				const inputCount = this.contextKeyService.getContextKeyValue(`positron-assistant.${provider.id}.tokenCount.input`);
+				const outputCount = this.contextKeyService.getContextKeyValue(`positron-assistant.${provider.id}.tokenCount.output`);
+				if (inputCount && typeof inputCount === 'number') {
 					const span = document.createElement('div');
 
-					span.innerText = `${provider.displayName}: ${tokenCount} tokens`;
+					span.innerText = `${provider.displayName}: ↑${inputCount} ↓${outputCount ?? 0}`;
 					details.push(span);
 				} else {
 					// add an element to the container with the name and a message

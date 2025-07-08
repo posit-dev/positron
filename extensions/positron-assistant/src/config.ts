@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { getLanguageModels } from './models';
 import { completionModels } from './completion';
-import { disposeModels, log, registerModel } from './extension';
+import { clearTokenUsage, disposeModels, log, registerModel } from './extension';
 import { CopilotService } from './copilot.js';
 
 export interface StoredModelConfig extends Omit<positron.ai.LanguageModelConfig, 'apiKey'> {
@@ -329,6 +329,8 @@ export async function deleteConfiguration(context: vscode.ExtensionContext, stor
 	await storage.delete(`apiKey-${id}`);
 
 	disposeModels(id);
+
+	clearTokenUsage(context, targetConfig.provider);
 
 	positron.ai.removeLanguageModelConfig(expandConfigToSource(targetConfig));
 }

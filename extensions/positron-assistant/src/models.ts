@@ -20,6 +20,7 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
+import { recordTokenUsage } from './extension.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -32,6 +33,13 @@ class ErrorLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly identifier = 'error-language-model';
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
 	private readonly _message = 'This language model always throws an error message.';
+
+	constructor(
+		_config: ModelConfig,
+		private readonly _context?: vscode.ExtensionContext
+	) {
+		// No additional setup needed for error model
+	}
 
 	static source = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -69,7 +77,13 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 	readonly provider = 'echo';
 	readonly identifier = 'echo-language-model';
 	readonly maxOutputTokens = DEFAULT_MAX_TOKEN_OUTPUT;
-	tokenCount = 0;
+
+	constructor(
+		_config: ModelConfig,
+		private readonly _context?: vscode.ExtensionContext
+	) {
+		// No additional setup needed for echo model
+	}
 
 	static source = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -113,13 +127,6 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			throw new Error('Echo language model only supports text messages.');
 		}
 
-		// iterate messages and get a token count for each message
-		for (const msg in messages) {
-			this.tokenCount += await this.provideTokenCount(msg, token);
-		}
-
-		vscode.commands.executeCommand('setContext', `assistant.${this.provider}.tokenCount`, this.tokenCount);
-
 		const inputText = message.content[0].text;
 		let response: string;
 
@@ -133,6 +140,13 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		else {
 			// Default case: echo back the input message
 			response = inputText;
+		}
+
+		// Record token usage if context is available
+		if (this._context) {
+			const inputCount = await this.provideTokenCount(inputText, token);
+			const outputCount = await this.provideTokenCount(response, token);
+			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
 		}
 
 		// Output the response character by character
@@ -167,7 +181,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	public readonly provider;
 	public readonly identifier;
 	public readonly maxOutputTokens;
-	private tokenCount = 0;
 	protected abstract model: ai.LanguageModelV1;
 
 	capabilities = {
@@ -176,7 +189,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		agentMode: true,
 	};
 
-	constructor(protected readonly _config: ModelConfig) {
+	constructor(
+		protected readonly _config: ModelConfig,
+		protected readonly _context?: vscode.ExtensionContext
+	) {
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
@@ -293,12 +309,17 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 		}
 
-		for (const message of messages) {
-			this.tokenCount += await this.provideTokenCount(message, token);
-		}
+		// Record token usage if context is available
+		if (this._context) {
+			const outputCount = await this.provideTokenCount(await result.text, token);
+			let inputCount = 0;
 
-		// Update the context key with the token count when token count is more than a basic approximation
-		vscode.commands.executeCommand('setContext', `assistant.${this.provider}.tokenCount`, this.tokenCount);
+			for (const msg of messages) {
+				inputCount += await this.provideTokenCount(msg, token);
+			}
+
+			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
+		}
 	}
 
 	async provideTokenCount(text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
@@ -324,8 +345,8 @@ class AnthropicAILanguageModel extends AILanguageModel implements positron.ai.La
 		},
 	};
 
-	constructor(_config: ModelConfig) {
-		super(_config);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 		this.model = createAnthropic({ apiKey: this._config.apiKey })(this._config.model);
 	}
 
@@ -353,8 +374,8 @@ class OpenAILanguageModel extends AILanguageModel implements positron.ai.Languag
 		},
 	};
 
-	constructor(_config: ModelConfig) {
-		super(_config);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 		this.model = createOpenAI({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
@@ -385,8 +406,8 @@ class MistralLanguageModel extends AILanguageModel implements positron.ai.Langua
 		},
 	};
 
-	constructor(_config: ModelConfig) {
-		super(_config);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 		this.model = createMistral({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
@@ -416,8 +437,8 @@ class OpenRouterLanguageModel extends AILanguageModel implements positron.ai.Lan
 		},
 	};
 
-	constructor(_config: ModelConfig) {
-		super(_config);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 		this.model = createOpenRouter({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,
@@ -448,8 +469,8 @@ class OllamaLanguageModel extends AILanguageModel implements positron.ai.Languag
 		},
 	};
 
-	constructor(_config: ModelConfig) {
-		super(_config);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 		this.model = createOllama({ baseURL: this._config.baseUrl })(this._config.model, {
 			numCtx: this._config.numCtx,
 		});
@@ -478,8 +499,8 @@ class AzureLanguageModel extends AILanguageModel implements positron.ai.Language
 		},
 	};
 
-	constructor(_config: ModelConfig) {
-		super(_config);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 		this.model = createAzure({
 			apiKey: this._config.apiKey,
 			resourceName: this._config.resourceName
@@ -510,8 +531,8 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 		},
 	};
 
-	constructor(_config: ModelConfig) {
-		super(_config);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 		this.model = createVertex({
 			project: this._config.project,
 			location: this._config.location,
@@ -540,8 +561,8 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		},
 	};
 
-	constructor(_config: ModelConfig) {
-		super(_config);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 
 		this.model = createAmazonBedrock({
 			bedrockOptions: {
@@ -585,12 +606,12 @@ export function getLanguageModels() {
 	return languageModels;
 }
 
-export function newLanguageModel(config: ModelConfig): positron.ai.LanguageModelChatProvider {
+export function newLanguageModel(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider {
 	const providerClass = getLanguageModels().find((cls) => cls.source.provider.id === config.provider);
 	if (!providerClass) {
 		throw new Error(`Unsupported chat provider: ${config.provider}`);
 	}
-	return new providerClass(config);
+	return new providerClass(config, context);
 }
 
 class GoogleLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
@@ -613,8 +634,8 @@ class GoogleLanguageModel extends AILanguageModel implements positron.ai.Languag
 		},
 	};
 
-	constructor(_config: ModelConfig) {
-		super(_config);
+	constructor(_config: ModelConfig, _context?: vscode.ExtensionContext) {
+		super(_config, _context);
 		this.model = createGoogleGenerativeAI({
 			apiKey: this._config.apiKey,
 			baseURL: this._config.baseUrl,

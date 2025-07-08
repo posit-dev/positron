@@ -10,7 +10,7 @@ import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
-import { log } from './extension.js';
+import { log, recordTokenUsage } from './extension.js';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -59,6 +59,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 	constructor(
 		private readonly _config: ModelConfig,
+		private readonly _context?: vscode.ExtensionContext,
 		client?: Anthropic,
 	) {
 		this.name = _config.name;
@@ -94,11 +95,6 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			system,
 			messages: anthropicMessages,
 		};
-
-		for (const message of messages) {
-			this.tokenCount += await this.provideTokenCount(message, token);
-		}
-		vscode.commands.executeCommand('setContext', `assistant.${this._config.provider}.tokenCount`, this.tokenCount);
 
 		const stream = this._client.messages.stream(body);
 
@@ -168,6 +164,13 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 				`[anthropic] RECV messages.stream [${stream.request_id}]: ` +
 				`usage: ${JSON.stringify(message.usage)}`
 			);
+		}
+
+		// Record token usage
+		if (message.usage && this._context) {
+			const inputTokens = message.usage.input_tokens || 0;
+			const outputTokens = message.usage.output_tokens || 0;
+			recordTokenUsage(this._context, this.provider, inputTokens, outputTokens);
 		}
 	}
 
