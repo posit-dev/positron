@@ -30,7 +30,7 @@ from IPython.utils import PyColorize
 
 from .access_keys import encode_access_key
 from .connections import ConnectionsService
-from .data_explorer import DataExplorerService
+from .data_explorer import DataExplorerImportWarning, DataExplorerService
 from .help import HelpService, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
@@ -499,6 +499,8 @@ class PositronIPyKernel(IPythonKernel):
             module="jedi",
         )
 
+        warnings.filterwarnings("once", category=DataExplorerImportWarning)
+
         # Patch holoviews to use our custom notebook extension.
         set_holoviews_extension(self.ui_service)
         handle_bokeh_output(self.session_mode)
@@ -577,15 +579,18 @@ class PositronIPyKernel(IPythonKernel):
         if console_dir in str(filename):
             filename = f"<positron-console-cell-{self.execution_count}>"
 
+        # unless it is a DataExplorerImportWarning (which we want to show)
         # send to logs if warning is coming from Positron files
         # also send warnings from attempted compiles from IPython to logs
         # https://github.com/ipython/ipython/blob/8.24.0/IPython/core/async_helpers.py#L151
-        if str(positron_files_path) in str(filename) or str(filename) == "<>":
+        if (str(positron_files_path) in str(filename) or str(filename) == "<>") and not isinstance(
+            message, DataExplorerImportWarning
+        ):
             msg = f"{filename}-{lineno}: {category}: {message}"
             logger.warning(msg)
             return None
 
-        msg = warnings.WarningMessage(message, category, filename, lineno, file, line)
+        msg = warnings.WarningMessage(message, category, filename, lineno, file, line)  # type: ignore
 
         return original_showwarning(message, category, filename, lineno, file, line)  # type: ignore reportAttributeAccessIssue
 

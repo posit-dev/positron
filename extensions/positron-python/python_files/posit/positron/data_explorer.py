@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 import math
 import operator
+import warnings
 from datetime import datetime
 from decimal import Decimal
 from types import MappingProxyType
@@ -103,6 +104,13 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
+
+class DataExplorerImportWarning(UserWarning):
+    """
+    Warning raised when there are import-related issues
+    in the Data Explorer relevant to the user.
+    This type of warning is shown once in the Console per session.
+    """
 
 
 PathKey = Tuple[str, ...]
@@ -1925,8 +1933,22 @@ def _get_histogram_method(method: ColumnHistogramParamsMethod):
     }[method]
 
 
-def _get_histogram_numpy(data, num_bins, method="fd"):
-    import numpy as np
+def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
+    try:
+        import numpy as np
+    except ModuleNotFoundError as e:
+        # If NumPy is not installed, we cannot compute histograms
+        # intentionally printing since errors will not show up in the console
+        warnings.warn(
+            "Numpy not installed, histogram computation will not work. "
+            "Please install NumPy to enable this feature.",
+            category=DataExplorerImportWarning,
+            stacklevel=1,
+        )
+        raise e
+
+    if to_numpy:
+        data = data.to_numpy()
 
     assert num_bins is not None
     hist_params = {"bins": num_bins} if method == "fixed" else {"bins": method}
@@ -2691,7 +2713,7 @@ class PolarsView(DataExplorerTableView):
         method = _get_histogram_method(params.method)
 
         bin_counts, bin_edges = _get_histogram_numpy(
-            data.to_numpy(), params.num_bins, method=method
+            data, params.num_bins, method=method, to_numpy=True
         )
         bin_edges = pl.Series(bin_edges)
 
