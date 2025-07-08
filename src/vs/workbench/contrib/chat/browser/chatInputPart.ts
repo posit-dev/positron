@@ -1241,7 +1241,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		const hoverDelegate = store.add(createInstantHoverDelegate());
 
 		const attachments = [...this.attachmentModel.attachments.entries()];
-		const hasAttachments = Boolean(attachments.length) || Boolean(this.implicitContext?.value) || !this.promptInstructionsAttachmentsPart.empty;
+		// --- Start Positron ---
+		// Add runtime session context to the attachments
+		const hasAttachments = Boolean(attachments.length) || Boolean(this.implicitContext?.value) || Boolean(this.runtimeContext?.value) || !this.promptInstructionsAttachmentsPart.empty;
+		// --- End Positron ---
 		dom.setVisibility(Boolean(hasAttachments || (this.addFilesToolbar && !this.addFilesToolbar.isEmpty())), this.attachmentsContainer);
 		dom.setVisibility(hasAttachments, this.attachedContextContainer);
 		if (!attachments.length) {
