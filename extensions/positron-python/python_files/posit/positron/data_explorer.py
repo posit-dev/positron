@@ -105,6 +105,7 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+
 class DataExplorerWarning(UserWarning):
     """
     Warning raised when there are issues in the Data Explorer relevant to the user.
