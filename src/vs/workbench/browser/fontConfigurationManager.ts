@@ -108,12 +108,12 @@ export class FontConfigurationManager {
 			// apply the updated font info to the element.
 			if (configurationChangeEvent.affectsConfiguration(configurationSection)) {
 				if (configurationChangeEvent.affectedKeys.has(`${configurationSection}.fontFamily`) ||
-					configurationChangeEvent.affectedKeys.has(`${configurationSection}.fontWeight`) ||
-					configurationChangeEvent.affectedKeys.has(`${configurationSection}.fontSize`) ||
 					configurationChangeEvent.affectedKeys.has(`${configurationSection}.fontLigatures`) ||
+					configurationChangeEvent.affectedKeys.has(`${configurationSection}.fontSize`) ||
 					configurationChangeEvent.affectedKeys.has(`${configurationSection}.fontVariations`) ||
-					configurationChangeEvent.affectedKeys.has(`${configurationSection}.lineHeight`) ||
-					configurationChangeEvent.affectedKeys.has(`${configurationSection}.letterSpacing`)
+					configurationChangeEvent.affectedKeys.has(`${configurationSection}.fontWeight`) ||
+					configurationChangeEvent.affectedKeys.has(`${configurationSection}.letterSpacing`) ||
+					configurationChangeEvent.affectedKeys.has(`${configurationSection}.lineHeight`)
 				) {
 					// Get the font info for the specified configuration section.
 					const fontInfo = FontConfigurationManager.getFontInfo(configurationService, configurationSection, element);
