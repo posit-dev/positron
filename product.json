@@ -296,7 +296,11 @@
 		"https://open-vsx.org",
 		"https://github.com/posit-dev/positron",
 		"https://positron.posit.co",
-		"https://github.com/login/device"
+		"https://github.com/login/device",
+		"https://login.posit.cloud",
+		"https://connect.posit.cloud",
+		"https://login.staging.posit.cloud",
+		"https://staging.connect.posit.cloud"
 	],
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
