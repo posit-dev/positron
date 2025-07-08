@@ -8,6 +8,7 @@ import { Button } from '../../../../../base/browser/ui/button/button.js';
 import { getDefaultHoverDelegate } from '../../../../../base/browser/ui/hover/hoverDelegateFactory.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { Disposable, DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
 import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { ResourceLabels } from '../../../../browser/labels.js';
@@ -38,18 +39,25 @@ export class RuntimeSessionContextAttachmentWidget extends Disposable {
 
 		const ariaLabel = localize('chat.runtimeSessionAttachment', "Attached runtime session");
 
-		const currentFile = localize('openEditor', "Current runtime session context");
+		const currentFile = localize('sessionContext', "Current runtime session context");
 		const inactive = localize('enableHint', "disabled");
 		const currentFileHint = currentFile + (this.attachment.enabled ? '' : ` (${inactive})`);
 		const title = `${currentFileHint}`;
 
+		// Create icon URI from base64 encoded SVG if available
+		let iconPath: URI | undefined;
+		if (this.attachment.value?.runtimeMetadata.base64EncodedIconSvg) {
+			iconPath = URI.parse(`data:image/svg+xml;base64,${this.attachment.value.runtimeMetadata.base64EncodedIconSvg}`);
+		}
+
 		label.setLabel(this.attachment.name, undefined, {
 			title,
+			iconPath,
 		});
 		this.domNode.ariaLabel = ariaLabel;
 		this.domNode.tabIndex = 0;
 
-		const hintLabel = localize('hint.label.current', "Current Session");
+		const hintLabel = localize('hint.label.current', "Current session");
 		const hintElement = dom.append(this.domNode, dom.$('span.chat-implicit-hint', undefined, hintLabel));
 		this._register(this.hoverService.setupManagedHover(getDefaultHoverDelegate('element'), hintElement, title));
 

@@ -44,7 +44,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 	get name(): string {
 		if (this.value) {
-			return `session:${this.value.runtimeMetadata.runtimeName}`;
+			return this.value.getLabel();
 		} else {
 			return 'runtimeSession';
 		}
