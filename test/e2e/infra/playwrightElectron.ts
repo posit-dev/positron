@@ -9,12 +9,16 @@ import { PlaywrightDriver } from './playwrightDriver';
 import { IElectronConfiguration, resolveElectronConfiguration } from './electron';
 import { measureAndLog } from './logger';
 import { ChildProcess } from 'child_process';
+import * as fs from 'fs';
 
-export async function launch(options: LaunchOptions): Promise<{ electronProcess: ChildProcess; driver: PlaywrightDriver, electronApp: playwright.ElectronApplication }> {
+export async function launch(options: LaunchOptions): Promise<{ electronProcess: ChildProcess; driver: PlaywrightDriver; electronApp: playwright.ElectronApplication }> {
 
 	// Resolve electron config and update
 	const { electronPath, args, env } = await resolveElectronConfiguration(options);
 	args.push('--enable-smoke-test-driver');
+	if (fs.existsSync('/.dockerenv')) {
+		args.push('--disable-dev-shm-usage');
+	}
 
 	// Launch electron via playwright
 	const { electron, context, page } = await launchElectron({ electronPath, args, env }, options);
