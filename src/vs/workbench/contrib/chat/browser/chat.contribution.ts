@@ -106,6 +106,7 @@ import { ChatViewsWelcomeHandler } from './viewsWelcome/chatViewsWelcomeHandler.
 
 // --- Start Positron ---
 import { PositronBuiltinToolsContribution } from './tools/tools.js';
+import { ChatRuntimeSessionContextContribution } from './contrib/chatRuntimeSessionContext.js';
 // --- End Positron ---
 
 // Register configuration
@@ -624,6 +625,7 @@ registerWorkbenchContribution2(ChatTransferContribution.ID, ChatTransferContribu
 
 // --- Start Positron ---
 registerWorkbenchContribution2(PositronBuiltinToolsContribution.ID, PositronBuiltinToolsContribution, WorkbenchPhase.Eventually);
+registerWorkbenchContribution2(ChatRuntimeSessionContextContribution.ID, ChatRuntimeSessionContextContribution, WorkbenchPhase.Eventually);
 // --- End Positron ---
 
 registerChatActions();

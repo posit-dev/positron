@@ -99,6 +99,11 @@ import { resizeImage } from './imageUtils.js';
 import { IModelPickerDelegate, ModelPickerActionItem } from './modelPicker/modelPickerActionItem.js';
 import { IModePickerDelegate, ModePickerActionItem } from './modelPicker/modePickerActionItem.js';
 
+// --- Start Positron ---
+import { ChatRuntimeSessionContext } from './contrib/chatRuntimeSessionContext.js';
+import { RuntimeSessionContextAttachmentWidget } from './attachments/runtimeSessionContextAttachment.js';
+// --- End Positron ---
+
 const $ = dom.$;
 
 const INPUT_EDITOR_MAX_HEIGHT = 250;
@@ -219,6 +224,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private _indexOfLastAttachedContextDeletedWithKeyboard: number = -1;
 
 	private _implicitContext: ChatImplicitContext | undefined;
+
+	// --- Start Positron ---
+	private _runtimeContext: ChatRuntimeSessionContext | undefined;
+	public get runtimeContext(): ChatRuntimeSessionContext | undefined {
+		return this._runtimeContext;
+	}
+	// --- End Positron ---
+
 	public get implicitContext(): ChatImplicitContext | undefined {
 		return this._implicitContext;
 	}
@@ -960,6 +973,15 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			);
 
 			this._register(this._implicitContext.onDidChangeValue(() => this._handleAttachedContextChange()));
+
+			// --- Start Positron ---
+			// Add the runtime session implicit context
+			this._runtimeContext = this._register(
+				this.instantiationService.createInstance(ChatRuntimeSessionContext),
+			);
+
+			this._register(this._runtimeContext.onDidChangeValue(() => this._handleAttachedContextChange()));
+			// --- End Positron ---
 		}
 
 		this.renderAttachedContext();
@@ -1230,6 +1252,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			const implicitPart = store.add(this.instantiationService.createInstance(ImplicitContextAttachmentWidget, this.implicitContext, this._contextResourceLabels));
 			container.appendChild(implicitPart.domNode);
 		}
+
+		// --- Start Positron ---
+		if (this.runtimeContext?.value) {
+			const runtimePart = store.add(this.instantiationService.createInstance(RuntimeSessionContextAttachmentWidget, this.runtimeContext, this._contextResourceLabels));
+			container.appendChild(runtimePart.domNode);
+		}
+		// --- End Positron ---
 
 		this.promptFileAttached.set(this.hasPromptFileAttachments);
 		this.promptInstructionsAttachmentsPart.render(container);

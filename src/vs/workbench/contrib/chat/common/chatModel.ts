@@ -200,9 +200,19 @@ export interface IElementVariableEntry extends IBaseChatRequestVariableEntry {
 	readonly kind: 'element';
 }
 
+// --- Start Positron ---
+export interface IChatRequestRuntimeSessionEntry extends IBaseChatRequestVariableEntry {
+	readonly kind: 'runtimeSession';
+	readonly value: { activeSession: any; variables: any };
+}
+// --- End Positron ---
+
 export type IChatRequestVariableEntry = IGenericChatRequestVariableEntry | IChatRequestImplicitVariableEntry | IChatRequestPasteVariableEntry
 	| ISymbolVariableEntry | ICommandResultVariableEntry | IDiagnosticVariableEntry | IImageVariableEntry | IChatRequestToolEntry
-	| IChatRequestDirectoryEntry | IChatRequestFileEntry | INotebookOutputVariableEntry | IElementVariableEntry;
+	| IChatRequestDirectoryEntry | IChatRequestFileEntry | INotebookOutputVariableEntry | IElementVariableEntry
+	// --- Start Positron ---
+	| IChatRequestRuntimeSessionEntry;
+// --- End Positron ---
 
 export function isImplicitVariableEntry(obj: IChatRequestVariableEntry): obj is IChatRequestImplicitVariableEntry {
 	return obj.kind === 'implicit';
