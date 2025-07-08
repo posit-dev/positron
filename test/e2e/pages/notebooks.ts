@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@ import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import { basename } from 'path';
-import test, { expect } from '@playwright/test';
+import test, { expect, FrameLocator, Locator } from '@playwright/test';
 
 const KERNEL_DROPDOWN = 'a.kernel-label';
 const KERNEL_LABEL = '.codicon-notebook-kernel-select';
@@ -23,17 +23,30 @@ const MARKDOWN_TEXT = '#preview';
 const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
 
 /*
- *  Reuseable Positron notebook functionality for tests to leverage.  Includes selecting the notebook's interpreter.
+ * Shared Notebooks functionality for both Vscode and Positron notebooks.
  */
 export class Notebooks {
-	kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
-	kernelDropdown = this.code.driver.page.locator(KERNEL_DROPDOWN);
-	frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
-	notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
-	cellIndex = (num = 0) => this.code.driver.page.locator('.cell-inner-container > .cell').nth(num);
+	protected code: Code;
+	protected quickinput: QuickInput;
+	protected quickaccess: QuickAccess;
 
+	kernelLabel: Locator;
+	kernelDropdown: Locator;
+	frameLocator: FrameLocator;
+	notebookProgressBar: Locator;
+	cellIndex: (num?: number) => Locator;
 
-	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess) { }
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess) {
+		this.code = code;
+		this.quickinput = quickinput;
+		this.quickaccess = quickaccess;
+
+		this.kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
+		this.kernelDropdown = this.code.driver.page.locator(KERNEL_DROPDOWN);
+		this.frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
+		this.notebookProgressBar = this.code.driver.page.locator('[id="workbench\\.parts\\.editor"]').getByRole('progressbar');
+		this.cellIndex = (num = 0) => this.code.driver.page.locator('.cell-inner-container > .cell').nth(num);
+	}
 
 	async selectInterpreter(
 		kernelGroup: 'Python' | 'R',
@@ -90,13 +103,16 @@ export class Notebooks {
 	}
 
 	// Opens a Notebook that lives in the current workspace
-	async openNotebook(path: string) {
+	// checkForActiveCell is set to false for Positron notebooks which don't have the same cell structure as VS Code notebooks.
+	async openNotebook(path: string, checkForActiveCell = true) {
 		await test.step(`Open notebook: ${path}`, async () => {
 			await this.quickaccess.openFileQuickAccessAndWait(basename(path), 1);
 			await this.quickinput.selectQuickInputElement(0);
 
-			await expect(this.code.driver.page.locator(ACTIVE_ROW_SELECTOR)).toBeVisible();
-			await this.focusFirstCell();
+			if (checkForActiveCell) {
+				await expect(this.code.driver.page.locator(ACTIVE_ROW_SELECTOR)).toBeVisible();
+				await this.focusFirstCell();
+			}
 		});
 	}
 
@@ -146,7 +162,7 @@ export class Notebooks {
 			const stopExecutionLocator = this.code.driver.page.locator('a').filter({ hasText: /Stop Execution|Interrupt/ });
 			try {
 				await expect(stopExecutionLocator).toBeVisible();
-				await expect(stopExecutionLocator).not.toBeVisible({ timeout: timeout });
+				await expect(stopExecutionLocator).not.toBeVisible({ timeout });
 			} catch { } // can be normal with very fast execution
 		});
 	}

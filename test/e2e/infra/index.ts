@@ -18,6 +18,8 @@ export * from '../pages/dataExplorer';
 export * from '../pages/sideBar';
 export * from '../pages/plots';
 export * from '../pages/notebooks';
+export * from '../pages/notebooksVscode';
+export * from '../pages/notebooksPositron';
 export * from '../pages/newFolderFlow';
 export * from '../pages/connections';
 export * from '../pages/help';

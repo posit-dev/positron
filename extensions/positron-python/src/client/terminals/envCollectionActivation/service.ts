@@ -47,6 +47,7 @@ import {
 } from '../types';
 import { ProgressService } from '../../common/application/progressService';
 import { useEnvExtension } from '../../envExt/api.internal';
+import { registerPythonStartup } from '../pythonStartup';
 
 @injectable()
 export class TerminalEnvVarCollectionService implements IExtensionActivationService, ITerminalEnvVarCollectionService {
@@ -112,6 +113,7 @@ export class TerminalEnvVarCollectionService implements IExtensionActivationServ
                     );
                     this.registeredOnce = true;
                 }
+                await registerPythonStartup(this.context);
                 return;
             }
             if (!this.registeredOnce) {

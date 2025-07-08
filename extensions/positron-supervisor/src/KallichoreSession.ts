@@ -1151,9 +1151,26 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				vscode.window.withProgress({
 					location: vscode.ProgressLocation.Notification,
 					title: vscode.l10n.t('{0} is busy; waiting for it to become idle before reconnecting.', this.dynState.sessionName),
-					cancellable: false,
-				}, async () => {
-					await this.waitForIdle();
+					cancellable: true,
+				}, async (progress, token) => {
+					// If the user cancels the progress, we should interrupt the
+					// session. This can be destructive, so we ask the user for
+					// confirmation.
+					//
+					// It'd be nicer to make the progress cancel button read
+					// "Interrupt", but there is no way to do that with the
+					// current API.
+					const disposable = token.onCancellationRequested(() => {
+						this.requestReconnectInterrupt();
+					});
+					try {
+						// Await for the session to become idle. The session
+						// will become idle after the active code execution is
+						// done, or after the user interrupts it.
+						await this.waitForIdle();
+					} finally {
+						disposable.dispose();
+					}
 					this.markReady('idle after busy reconnect');
 				});
 			} else {
@@ -1168,6 +1185,72 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		return runtimeInfo;
+	}
+
+	/**
+	 * Requests that the user confirm whether they want to interrupt the
+	 * session that is currently busy so that we can reconnect to it.
+	 *
+	 * @param progress The progress report to update with the status of the
+	 *  interrupt request.
+	 */
+	private requestReconnectInterrupt() {
+		// Show a confirmation dialog to the user asking if they want to
+		// interrupt the session.
+		positron.window.showSimpleModalDialogPrompt(
+			vscode.l10n.t('Interrupt {0}', this.dynState.sessionName),
+			vscode.l10n.t('Positron is waiting for {0} to complete work; it will reconnect automatically when {1} becomes idle. Do you want to interrupt the active computation in order to reconnect now?', this.runtimeMetadata.languageName, this.runtimeMetadata.languageName),
+			vscode.l10n.t('Interrupt'),
+			vscode.l10n.t('Wait'),
+		).then((result) => {
+			if (!result) {
+				// A fun feature of the VS Code API is that it takes down
+				// progress dialogs after the user invokes the cancellation
+				// operation. So if the user chooses to wait, we need to show a
+				// new progress dialog to continue waiting for the session to
+				// become idle.
+				//
+				// It does NOT however prevent the original progress callback
+				// from running, so this callback differs from the one in
+				// `start()` in that it does not mark the session as ready (that
+				// will happen in the original callback).
+				vscode.window.withProgress({
+					location: vscode.ProgressLocation.Notification,
+					title: vscode.l10n.t('{0} is busy; continuing to wait for it to become idle.', this.dynState.sessionName),
+					cancellable: true,
+				}, async (_progress, token) => {
+					const disposable = token.onCancellationRequested(() => {
+						this.requestReconnectInterrupt();
+					});
+					try {
+						await this.waitForIdle();
+					} finally {
+						disposable.dispose();
+					}
+				});
+				return;
+			}
+
+			// The user chose to interrupt; send the interrupt request to the
+			// API. This will send an interrupt request to the kernel's control
+			// socket, which will then stop the current execution and
+			// (hopefully) return to idle.
+			vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: vscode.l10n.t('Interrupting {0}', this.dynState.sessionName),
+				cancellable: false,
+			}, async (_progress, _token) => {
+				try {
+					await this._api.interruptSession(this.metadata.sessionId);
+				} catch (err) {
+					// If the interrupt failed, log the error and report it to the
+					// user. The session will continue to be busy, so we keep the
+					// progress report up.
+					this.log(`Failed to interrupt session ${this.metadata.sessionId}: ${summarizeError(err)}`, vscode.LogLevel.Error);
+					vscode.window.showErrorMessage(vscode.l10n.t('Failed to interrupt {0}: {1}', this.dynState.sessionName, summarizeError(err)));
+				}
+			});
+		});
 	}
 
 	/**
@@ -1200,11 +1283,91 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Determines the WebSocket URI for the session based on the API base path
+	 * and transport type.
+	 *
+	 * @returns The websocket URI for the session.
+	 */
+	async getWebsocketUri(): Promise<string> {
+		const basePath = this._api.basePath;
+		let wsUri: string;
+
+		if (basePath && basePath.includes('unix:')) {
+			// Unix domain socket transport - get socket path from channelsUpgrade API
+			this.log(
+				`Using Unix domain socket transport, getting socket path for session ${this.metadata.sessionId}`,
+				vscode.LogLevel.Debug);
+			const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
+			const socketPath = channelsResponse.body;
+
+			// The socket path might be returned with or without the ws+unix:// prefix
+			if (socketPath.startsWith('ws+unix://')) {
+				// Already a complete WebSocket URI
+				wsUri = socketPath;
+			} else if (socketPath.startsWith('/')) {
+				// Raw socket path, construct WebSocket URI
+				wsUri = `ws+unix://${socketPath}:/api/channels/${this.metadata.sessionId}`;
+			} else {
+				// Fallback: assume it's a relative path from the Unix socket
+				const socketMatch = basePath.match(/unix:([^:]+):/);
+				if (socketMatch) {
+					const baseSocketPath = socketMatch[1];
+					wsUri = `ws+unix://${baseSocketPath}:/api/channels/${this.metadata.sessionId}`;
+				} else {
+					throw new Error(`Cannot extract socket path from base path: ${basePath}`);
+				}
+			}
+		} else if (basePath && basePath.includes('npipe:')) {
+			// Named pipe transport - get pipe name from channelsUpgrade API
+			this.log(
+				`Using named pipe transport, getting pipe name for session ${this.metadata.sessionId}`,
+				vscode.LogLevel.Debug
+			);
+			const channelsResponse = await this._api.channelsUpgrade(this.metadata.sessionId);
+			const pipeName = channelsResponse.body;
+
+			// The pipe name might be returned with or without the ws+npipe:// prefix
+			if (pipeName.startsWith('ws+npipe://')) {
+				// Already a complete WebSocket URI
+				wsUri = pipeName;
+			} else if (pipeName.startsWith('\\\\.\\pipe\\') || pipeName.includes('pipe\\')) {
+				// Raw pipe name with full path or partial path, construct WebSocket URI
+				wsUri = `ws+npipe://${pipeName}:/api/channels/${this.metadata.sessionId}`;
+			} else {
+				// Fallback: assume it's a relative pipe name from the base pipe
+				const pipeMatch = basePath.match(/npipe:([^:]+):/);
+				if (pipeMatch) {
+					const basePipeName = pipeMatch[1];
+					// If the base pipe name doesn't have the full path, construct it
+					const fullPipeName = basePipeName.startsWith('\\\\.\\pipe\\') ?
+						basePipeName :
+						(basePipeName.startsWith('pipe\\') ? `\\\\.\\${basePipeName}` : `\\\\.\\pipe\\${basePipeName}`);
+					wsUri = `ws+npipe://${fullPipeName}:/api/channels/${this.metadata.sessionId}`;
+				} else {
+					throw new Error(`Cannot extract pipe name from base path: ${basePath}`);
+				}
+			}
+		} else {
+			// TCP transport - construct WebSocket URI directly from base path
+			this.log(`Using TCP transport, constructing WebSocket URI from base path: ${basePath}`, vscode.LogLevel.Debug);
+			if (!basePath) {
+				throw new Error('API base path is not set for TCP transport');
+			}
+
+			// Convert HTTP base path to WebSocket URI
+			const wsScheme = basePath.startsWith('https://') ? 'wss://' : 'ws://';
+			const baseUrl = basePath.replace(/^https?:\/\//, '').replace(/\/$/, '');
+			wsUri = `${wsScheme}${baseUrl}/sessions/${this.metadata.sessionId}/channels`;
+		}
+		return wsUri;
+	}
+
+	/**
 	 * Connects or reconnects to the session's websocket.
 	 *
 	 * @returns A promise that resolves when the websocket is connected.
 	 */
-	connect(): Promise<void> {
+	async connect(): Promise<void> {
 		// Ensure we are eligible for reconnection. We can't reconnect if
 		// another client is connected to the session as it would disconnect the
 		// other client.
@@ -1212,18 +1375,30 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			return Promise.reject(new Error('This session cannot be reconnected.'));
 		}
 
+		// Get the WebSocket URI for the session. This will throw an error if
+		// the URI cannot be determined.
+		const wsUri = await this.getWebsocketUri();
+
 		return new Promise((resolve, reject) => {
 			// Ensure websocket is closed if it's open
 			if (this._socket) {
 				this._socket.close();
 			}
 
-			// Connect to the session's websocket. The websocket URL is based on
-			// the base path of the API.
-			const uri = vscode.Uri.parse(this._api.basePath);
-			const wsUri = `ws://${uri.authority}/sessions/${this.metadata.sessionId}/channels`;
-			this.log(`Connecting to websocket: ${wsUri}`, vscode.LogLevel.Debug);
-			this._socket = new SocketSession(wsUri, this.metadata.sessionId, this._consoleChannel);
+			this.log(`Connecting to session WebSocket via ${wsUri}`, vscode.LogLevel.Info);
+
+			// Get the Bearer token from the API for WebSocket authentication
+			const defaultAuth = (this._api as any).authentications?.default;
+			let accessToken: string | undefined;
+			const headers: { [key: string]: string } = {};
+			if (defaultAuth && typeof defaultAuth.accessToken !== 'undefined') {
+				accessToken = typeof defaultAuth.accessToken === 'function' ? defaultAuth.accessToken() : defaultAuth.accessToken;
+				headers['Authorization'] = `Bearer ${accessToken}`;
+			} else {
+				this.log(`Warning: No Bearer token found for WebSocket authentication`, vscode.LogLevel.Warning);
+			}
+
+			this._socket = new SocketSession(wsUri, this.metadata.sessionId, this._consoleChannel, headers);
 			this._disposables.push(this._socket);
 
 			// Handle websocket events
