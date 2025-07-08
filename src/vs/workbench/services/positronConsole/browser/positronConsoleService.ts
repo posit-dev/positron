@@ -217,7 +217,7 @@ configurationRegistry.registerConfiguration({
 				localize('console.fontWeight.normal', "Normal font weight."),
 				localize('console.fontWeight.bold', "Bold font weight.")
 			],
-			'default': EDITOR_FONT_DEFAULTS.fontWeight,
+			default: EDITOR_FONT_DEFAULTS.fontWeight,
 			description: localize('console.fontWeight', "Controls the font weight."),
 		},
 		// Letter spacing.
