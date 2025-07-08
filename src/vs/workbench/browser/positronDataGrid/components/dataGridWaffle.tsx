@@ -18,7 +18,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
-import { editorFontApplier } from '../../editorFontApplier.js';
+import { FontConfigurationManager } from '../../fontConfigurationManager.js';
 import { DataGridRow } from './dataGridRow.js';
 import { DataGridRowHeaders } from './dataGridRowHeaders.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
@@ -57,12 +57,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 		// Use the editor font, if so configured.
 		if (context.instance.useEditorFont) {
-			disposableStore.add(
-				editorFontApplier(
-					context.configurationService,
-					dataGridRowsRef.current
-				)
-			);
+			disposableStore.add(FontConfigurationManager.fontConfigurationWatcher(
+				context.configurationService,
+				'editor',
+				dataGridRowsRef.current
+			));
 		}
 
 		// Add the onDidUpdate event handler.

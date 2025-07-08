@@ -48,6 +48,7 @@ import { ContentHoverController } from '../../../../../editor/contrib/hover/brow
 import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { localize } from '../../../../../nls.js';
+import { IFontOptions } from '../../../../browser/fontConfigurationManager.js';
 
 // Position enumeration.
 const enum Position {
@@ -746,8 +747,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		 * @returns The full set of IEditorOptions for the CodeEditorWidget.
 		 */
 		const createEditorOptions = (): IEditorOptions => ({
-			// Configured IEditorOptions.
+			// Configured IEditorOptions is the base of editor options.
 			...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
+			// Console-specific font options overlay the configured editor options.
+			...positronConsoleContext.configurationService.getValue<IFontOptions>('console'),
 			// IEditorOptions we override from their configured values.
 			...{
 				readOnly: false,
@@ -835,7 +838,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		disposableStore.add(
 			positronConsoleContext.configurationService.onDidChangeConfiguration(
 				configurationChangeEvent => {
-					if (configurationChangeEvent.affectsConfiguration('editor')) {
+					if (configurationChangeEvent.affectsConfiguration('editor') || configurationChangeEvent.affectsConfiguration('console')) {
 						// When the editor configuration changes, we must update ALL the options.
 						// So, in this case, use createEditorOptions() to get the full set.
 						codeEditorWidget.updateOptions(createEditorOptions());

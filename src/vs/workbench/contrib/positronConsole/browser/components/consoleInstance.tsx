@@ -12,25 +12,21 @@ import React, { KeyboardEvent, MouseEvent, UIEvent, useCallback, useEffect, useL
 // Other dependencies.
 import * as nls from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
+import { ConsoleInstanceItems } from './consoleInstanceItems.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
-import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
-import { PixelRatio } from '../../../../../base/browser/pixelRatio.js';
 import { disposableTimeout } from '../../../../../base/common/async.js';
+import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
+import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
+import { isMacintosh, isWeb } from '../../../../../base/common/platform.js';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
-import { applyFontInfo } from '../../../../../editor/browser/config/domFontInfo.js';
-import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
-import { BareFontInfo, FontInfo } from '../../../../../editor/common/config/fontInfo.js';
-import { FontMeasurements } from '../../../../../editor/browser/config/fontMeasurements.js';
+import { FontConfigurationManager } from '../../../../browser/fontConfigurationManager.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { ConsoleInstanceItems } from './consoleInstanceItems.js';
-import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from '../positronConsoleIdentifiers.js';
+import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -40,33 +36,6 @@ interface ConsoleInstanceProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
 	readonly reactComponentContainer: IReactComponentContainer;
 }
-
-/**
- * Gets the font info for the editor font.
- *
- * @param editorContainer The HTML element containing the editor, if known.
- * @param configurationService The configuration service.
- *
- * @returns The font info.
- */
-const getEditorFontInfo = (
-	editorContainer: HTMLElement | undefined,
-	configurationService: IConfigurationService) => {
-
-	// Get the editor options and read the font info.
-	const editorOptions = configurationService.getValue<IEditorOptions>('editor');
-
-	// Use the editor container to get the window, if it's available. Otherwise, use the active
-	// window.
-	const window = editorContainer ?
-		DOM.getActiveWindow() :
-		DOM.getWindow(editorContainer);
-
-	return FontMeasurements.readFontInfo(
-		window,
-		BareFontInfo.createFromRawSettings(editorOptions, PixelRatio.getInstance(window).value)
-	);
-};
 
 /**
  * ConsoleInstance component.
@@ -82,8 +51,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const consoleInstanceContainerRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [editorFontInfo, setEditorFontInfo] =
-		useState<FontInfo>(getEditorFontInfo(undefined, positronConsoleContext.configurationService));
+	const [fontInfo, setFontInfo] = useState(FontConfigurationManager.getFontInfo(positronConsoleContext.configurationService, 'console'));
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
@@ -92,8 +60,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const [disconnected, setDisconnected] = useState(false);
 
 	// Determines whether the console is scrollable.
-	const scrollable = () =>
-		consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
+	const scrollable = () => consoleInstanceRef.current.scrollHeight > consoleInstanceRef.current.clientHeight;
 
 	// Scroll to the bottom.
 	// Wrapped in a `useCallback()` because the function is used as dependency
@@ -218,37 +185,12 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
-		// Apply the font info to the console instance.
-		applyFontInfo(consoleInstanceRef.current, editorFontInfo);
-
-		// Add the onDidChangeConfiguration event handler.
-		disposableStore.add(positronConsoleContext.configurationService.onDidChangeConfiguration(
-			configurationChangeEvent => {
-				// When something in the editor changes, determine whether it's font-related
-				// and, if it is, apply the new font info to the container.
-				if (configurationChangeEvent.affectsConfiguration('editor')) {
-					if (configurationChangeEvent.affectedKeys.has('editor.fontFamily') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontWeight') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontSize') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontLigatures') ||
-						configurationChangeEvent.affectedKeys.has('editor.fontVariations') ||
-						configurationChangeEvent.affectedKeys.has('editor.lineHeight') ||
-						configurationChangeEvent.affectedKeys.has('editor.letterSpacing')
-					) {
-						// Get the font info.
-						const editorFontInfo = getEditorFontInfo(
-							consoleInstanceRef.current,
-							positronConsoleContext.configurationService
-						);
-
-						// Set the editor font info.
-						setEditorFontInfo(editorFontInfo);
-
-						// Apply the font info to the console instance.
-						applyFontInfo(consoleInstanceRef.current, editorFontInfo);
-					}
-				}
-			}
+		// Add the font configuration watcher.
+		disposableStore.add(FontConfigurationManager.fontConfigurationWatcher(
+			positronConsoleContext.configurationService,
+			'console',
+			consoleInstanceRef.current,
+			(fontInfo: FontInfo) => setFontInfo(fontInfo)
 		));
 
 		// Add the onDidChangeState event handler.
@@ -346,7 +288,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [editorFontInfo, positronConsoleContext.activePositronConsoleInstance?.attachedRuntimeSession, positronConsoleContext.activePositronConsoleInstance, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom]);
+	}, [positronConsoleContext.activePositronConsoleInstance?.attachedRuntimeSession, positronConsoleContext.activePositronConsoleInstance, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom]);
 
 	useLayoutEffect(() => {
 		// If the view is not scroll locked, scroll to the bottom to reveal the most recent items.
@@ -394,9 +336,9 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Calculates the page height.
 		const pageHeight = () =>
 			Math.max(
-				Math.floor(consoleInstanceRef.current.clientHeight / editorFontInfo.lineHeight) - 1,
+				Math.floor(consoleInstanceRef.current.clientHeight / fontInfo.lineHeight) - 1,
 				1
-			) * editorFontInfo.lineHeight;
+			) * fontInfo.lineHeight;
 
 		// Handle the key.
 		if (noModifierKey) {
@@ -602,8 +544,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	}
 
 	// Forward the console input width to the console instance.
-	props.positronConsoleInstance.setWidthInChars(
-		Math.floor(consoleInputWidth / editorFontInfo.spaceWidth));
+	props.positronConsoleInstance.setWidthInChars(Math.floor(consoleInputWidth / fontInfo.spaceWidth));
 
 	// Render.
 	return (
@@ -633,7 +574,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 				<ConsoleInstanceItems
 					consoleInputWidth={consoleInputWidth}
 					disconnected={disconnected}
-					editorFontInfo={editorFontInfo}
+					fontInfo={fontInfo}
 					positronConsoleInstance={props.positronConsoleInstance}
 					runtimeAttached={runtimeAttached}
 					trace={trace}
