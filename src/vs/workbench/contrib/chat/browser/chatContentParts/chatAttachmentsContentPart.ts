@@ -337,6 +337,15 @@ export class ChatAttachmentsContentPart extends Disposable {
 					// Fallback to regular label if no icon
 					label.setLabel(attachment.name, undefined, { extraClasses: ['runtime-session-icon'] });
 				}
+
+				// Add click handler to focus the runtime session
+				if (sessionId) {
+					widget.style.cursor = 'pointer';
+					this.attachedContextDisposables.add(dom.addDisposableListener(widget, dom.EventType.CLICK, async (e: MouseEvent) => {
+						dom.EventHelper.stop(e, true);
+						this.runtimeSessionService.focusSession(sessionId);
+					}));
+				}
 			}
 			// --- End Positron ---
 
