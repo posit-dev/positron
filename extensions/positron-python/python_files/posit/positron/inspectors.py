@@ -66,6 +66,7 @@ if TYPE_CHECKING:
 
 
 # General display settings
+ELLIPSIS = "..."
 TRUNCATE_AT: int = 1024
 PRINT_WIDTH: int = 100
 
@@ -165,10 +166,10 @@ class PositronInspector(Generic[T]):
     def has_children(self) -> bool:
         return self.get_length() > 0
 
-    def has_child(self, _key: Any) -> bool:
+    def has_child(self, key: Any) -> bool:  # noqa: ARG002
         return False
 
-    def get_child(self, _key: Any) -> Any:
+    def get_child(self, key: Any) -> Any:  # noqa: ARG002
         raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
     def get_children(self) -> Iterable[Any]:
@@ -263,7 +264,7 @@ class BooleanInspector(PositronInspector[bool]):
         return self.value
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> bool:
+    def value_from_json(cls, type_name: str, data: JsonData) -> bool:  # noqa: ARG003
         if not isinstance(data, bool):
             raise ValueError(f"Expected data to be bool, got {data}")
 
@@ -283,7 +284,7 @@ class BytesInspector(PositronInspector[bytes]):
 
     def get_display_value(
         self,
-        _print_width: int | None = PRINT_WIDTH,
+        print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,
     ) -> tuple[str, bool]:
         # Ignore print_width for strings
@@ -299,7 +300,7 @@ class BytesInspector(PositronInspector[bytes]):
         return self.value.decode()
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> bytes:
+    def value_from_json(cls, type_name: str, data: JsonData) -> bytes:  # noqa: ARG003
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -340,7 +341,7 @@ class ClassInspector(ObjectInspector[type]):
         return str(self.value)
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> type:
+    def value_from_json(cls, type_name: str, data: JsonData) -> type:  # noqa: ARG003
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -366,8 +367,8 @@ class FunctionInspector(PositronInspector[Callable]):
 
     def get_display_value(
         self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
+        print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
+        truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
         sig = inspect.signature(self.value) if callable(self.value) else "()"
         return (f"{self.value.__qualname__}{sig}", False)
@@ -457,14 +458,15 @@ class StringInspector(PositronInspector[str]):
 
     def get_display_value(
         self,
-        _print_width: int | None = PRINT_WIDTH,
+        print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,
     ) -> tuple[str, bool]:
-        # Ignore print_width for strings
-        display_value, is_truncated = super().get_display_value(None, truncate_at)
+        # If the entire rendered string fits, return it as is
+        if len(self.value) <= truncate_at:
+            return repr(self.value), False
 
-        # Use repr() to show quotes around strings
-        return repr(display_value), is_truncated
+        # Truncate the string
+        return repr(f"{self.value[: truncate_at - len(ELLIPSIS)]}{ELLIPSIS}"), True
 
     def get_display_type(self) -> str:
         # Don't include the length for strings
@@ -480,7 +482,7 @@ class StringInspector(PositronInspector[str]):
         return self.value
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> str:
+    def value_from_json(cls, type_name: str, data: JsonData) -> str:  # noqa: ARG003
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -503,7 +505,7 @@ class _BaseTimestampInspector(PositronInspector[Timestamp], ABC):
         return self.value.isoformat()
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> Timestamp:
+    def value_from_json(cls, type_name: str, data: JsonData) -> Timestamp:  # noqa: ARG003
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -690,7 +692,7 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
     def get_display_value(
         self,
         print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
+        truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
         return (
             _numpy().array2string(
@@ -718,7 +720,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
     def get_display_value(
         self,
         print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
+        truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
         # NOTE:
         # Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
@@ -829,8 +831,8 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
     def get_display_value(
         self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
+        print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
+        truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
         display_value = _get_simplified_qualname(self.value)
         column_values = str(cast("Column", self.value[:100]).to_list())
@@ -898,8 +900,8 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
 
     def get_display_value(
         self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
+        print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
+        truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
         # RangeIndexes don't need to be truncated.
         if isinstance(self.value, _pandas().RangeIndex):
@@ -977,8 +979,8 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
     def get_display_value(
         self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
+        print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
+        truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
         display_value = _get_simplified_qualname(self.value)
         if hasattr(self.value, "shape"):
@@ -1033,8 +1035,8 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
 
     def get_display_value(
         self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
+        print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
+        truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
         qualname = _get_simplified_qualname(self.value)
         shape = self.value.shape
@@ -1114,8 +1116,8 @@ class IbisExprInspector(PositronInspector["ibis.Expr"]):
 
     def get_display_value(
         self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
+        print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
+        truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
         # Just use the default object.__repr__ for now
         simplified_name = get_qualname(self.value)

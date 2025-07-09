@@ -60,6 +60,7 @@ def verify_inspector(
     mutable: bool = False,
     mutate: Optional[Callable[[Any], None]] = None,
     comparison_cost: Optional[int] = None,
+    truncate_at: int = TRUNCATE_AT,
 ) -> None:
     # NOTE: Skip `get_size` for now, since it depends on platform, Python version, and package version.
 
@@ -68,7 +69,7 @@ def verify_inspector(
     assert inspector.get_length() == length
     assert inspector.has_children() == has_children
     assert inspector.has_viewer() == has_viewer
-    assert inspector.get_display_value() == (display_value, is_truncated)
+    assert inspector.get_display_value(truncate_at=truncate_at) == (display_value, is_truncated)
     assert inspector.get_kind() == kind
     assert inspector.get_display_type() == display_type
     assert inspector.get_type_info() == type_info
@@ -162,16 +163,17 @@ def test_inspect_string(value: str) -> None:
 
 
 def test_inspect_string_truncated() -> None:
-    value = "".join(random.choices(string.ascii_letters, k=(TRUNCATE_AT + 10)))
+    value = "Hello, world!"
     length = len(value)
     verify_inspector(
         value=value,
-        display_value=f"'{value[:TRUNCATE_AT]}'",
+        display_value="'Hello, ...'",
         kind=VariableKind.String,
         display_type="str",
         type_info="str",
         length=length,
         is_truncated=True,
+        truncate_at=10,
     )
 
 
