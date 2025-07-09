@@ -48,7 +48,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 
 export class ChatRuntimeSessionContext extends Disposable {
 	get id() {
-		return 'vscode.implicit.runtimeSession';
+		return 'positron.implicit.runtimeSession';
 	}
 
 	get name(): string {
@@ -207,7 +207,9 @@ export class ChatRuntimeSessionContext extends Disposable {
 		}
 
 		const activeSession = this.summarizeSession(this.value);
-		const variablesInstance = this._positronVariablesService?.activePositronVariablesInstance as PositronVariablesInstance | undefined;
+		const variablesInstance = this._positronVariablesService?.positronVariablesInstances.find(
+			instance => instance.session.sessionId === this.value!.metadata.sessionId
+		) as PositronVariablesInstance | undefined;
 		const variables = variablesInstance?.variableItems.map((item) => item.variable) ?? [];
 
 		return [
