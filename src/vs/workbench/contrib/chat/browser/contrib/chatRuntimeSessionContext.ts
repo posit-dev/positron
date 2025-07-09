@@ -24,7 +24,13 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 	) {
 		super();
 
-		this._register(this.runtimeSessionService.onDidChangeForegroundSession(() => this.updateRuntimeContext()));
+		this.updateRuntimeContext().then(() => {
+			// No-op, just to ensure the context is updated on startup
+		}).finally(() => {
+			// Register for changes to the runtime session service
+			this._register(this.runtimeSessionService.onDidChangeForegroundSession(() => this.updateRuntimeContext()));
+		});
+
 		this._register(this.chatWidgetService.onDidAddWidget(async (widget) => {
 			await this.updateRuntimeContext();
 		}));

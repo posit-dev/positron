@@ -331,12 +331,19 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			prompts.push(xml.node('tool-references', `${toolReferencesText}\n${referencePrompts.join('\n')}`));
 		}
 
+
 		// If the user has explicitly attached files as context, add them to the prompt.
 		if (request.references.length > 0) {
 			const attachmentPrompts: string[] = [];
+			const sessionPrompts: string[] = [];
 			for (const reference of request.references) {
-				const value = reference.value;
-				if (value instanceof vscode.Location) {
+				const value = reference.value as any;
+				if (value.activeSession) {
+					// The user attached a runtime session - usually the active session in the IDE.
+					const sessionSummary = JSON.stringify(value.activeSession, null, 2);
+					sessionPrompts.push(xml.node('session', sessionSummary));
+					log.debug(`[context] adding session context for session ${value.activeSession.identifier}: ${sessionSummary.length} characters`);
+				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
 					// usually the automatically attached visible region of the active file.
 
@@ -445,6 +452,13 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				const attachmentsText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
 				const attachmentsContent = `${attachmentsText}\n${attachmentPrompts.join('\n')}`;
 				prompts.push(xml.node('attachments', attachmentsContent));
+			}
+
+			if (sessionPrompts.length > 0) {
+				// Add the session prompts to the context.
+				const sessionText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'sessions.md'), 'utf8');
+				const sessionContent = `${sessionText}\n${sessionPrompts.join('\n')}`;
+				prompts.push(xml.node('sessions', sessionContent));
 			}
 		}
 
