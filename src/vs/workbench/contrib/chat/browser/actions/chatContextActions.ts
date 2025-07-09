@@ -69,6 +69,10 @@ import { runAttachInstructionsAction, registerPromptActions } from './promptActi
 
 // --- Start Positron ---
 import { IRuntimeSessionsQuickPickItem, showRuntimeSessionsPick } from './chatRuntimeSessions.js';
+import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { ChatRuntimeSessionContext } from '../contrib/chatRuntimeSessionContext.js';
 // --- End Positron ---
 
 export function registerChatContextActions() {
@@ -612,6 +616,28 @@ export class AttachContextAction extends Action2 {
 						kind: 'image',
 					});
 				}
+
+				// --- Start Positron ---
+				else if (pick.kind === 'runtime-sessions') {
+
+					const runtimeSessionService = accessor.get(IRuntimeSessionService);
+					const session = runtimeSessionService.getSession(pick.id);
+					if (session) {
+						// Create a runtime session context instance similar to the implicit one
+						const runtimeContext = new ChatRuntimeSessionContext();
+						runtimeContext.setServices(
+							accessor.get(IPositronVariablesService),
+							accessor.get(IExecutionHistoryService)
+						);
+						runtimeContext.setValue(session);
+
+						// Convert to runtime session entries
+						const runtimeEntries = await runtimeContext.toBaseEntries();
+						toAttach.push(...runtimeEntries);
+					}
+				}
+				// --- End Positron ---
+
 			} else if (isISymbolQuickPickItem(pick) && pick.symbol) {
 				// Workspace symbol
 				toAttach.push({
