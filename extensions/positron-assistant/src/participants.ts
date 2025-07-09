@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as xml from './xml.js';
 
-import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
+import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './types.js';
@@ -198,6 +198,15 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
 
+		// Build a list of languages for which we have active sessions.
+		const activeSessions: Set<string> = new Set();
+		for (const reference of request.references) {
+			const value = reference.value as any;
+			if (value.activeSession) {
+				activeSessions.add(value.activeSession.languageId);
+			}
+		}
+
 		// List of tools for use by the language model.
 		const tools: vscode.LanguageModelChatTool[] = vscode.lm.tools.filter(
 			tool => {
@@ -220,6 +229,22 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				// If the tool requires a workspace, but no workspace is open, don't allow the tool.
 				if (tool.tags.includes(TOOL_TAG_REQUIRES_WORKSPACE) && !isWorkspaceOpen()) {
 					return false;
+				}
+
+				// If the tool requires an active session, but no active session
+				// is available, don't allow the tool.
+				if (tool.tags.includes(TOOL_TAG_REQUIRES_ACTIVE_SESSION) && activeSessions.size === 0) {
+					return false;
+				}
+
+				// If the tool requires a session to be active for a specific
+				// language, but no active session is available for that
+				// language, don't allow the tool.
+				for (const tag of tool.tags) {
+					if (tag.startsWith(TOOL_TAG_REQUIRES_ACTIVE_SESSION + ':') &&
+						!activeSessions.has(tag.split(':')[1])) {
+						return false;
+					}
 				}
 
 				switch (tool.name) {

@@ -119,6 +119,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 		const sessionContext: any = {
 			identifier: session.metadata.sessionId,
 			language: session.runtimeMetadata.languageName,
+			languageId: session.runtimeMetadata.languageId,
 			version: session.runtimeMetadata.languageVersion,
 			mode: session.metadata.sessionMode,
 			executions,

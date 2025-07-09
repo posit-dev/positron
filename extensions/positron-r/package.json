@@ -755,7 +755,8 @@
           ]
         },
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-session:r"
         ]
       },
       {
@@ -788,7 +789,8 @@
           ]
         },
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-session:r"
         ]
       },
       {
@@ -816,7 +818,8 @@
         },
         "canBeReferencedInPrompt": true,
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-session:r"
         ]
       },
       {
@@ -844,7 +847,8 @@
         },
         "canBeReferencedInPrompt": true,
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-session:r"
         ]
       },
       {
@@ -877,7 +881,8 @@
         },
         "canBeReferencedInPrompt": true,
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-session:r"
         ]
       },
       {
@@ -909,7 +914,8 @@
         },
         "canBeReferencedInPrompt": true,
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-session:r"
         ]
       }
     ]

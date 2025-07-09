@@ -294,7 +294,8 @@
           }
         },
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-session"
         ]
       },
       {
@@ -324,7 +325,8 @@
           }
         },
         "tags": [
-          "positron-assistant"
+          "positron-assistant",
+          "requires-session"
         ]
       },
       {
