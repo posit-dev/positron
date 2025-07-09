@@ -137,6 +137,7 @@ class PositronInspector(Generic[T]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> tuple[str, bool]:
@@ -284,11 +285,12 @@ class BytesInspector(PositronInspector[bytes]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,
     ) -> tuple[str, bool]:
-        # Ignore print_width for strings
-        return super().get_display_value(None, truncate_at)
+        # Ignore print_width for bytes
+        return super().get_display_value(print_width=None, truncate_at=truncate_at)
 
     def get_kind(self) -> str:
         return "bytes"
@@ -367,6 +369,7 @@ class FunctionInspector(PositronInspector[Callable]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
@@ -444,6 +447,7 @@ class NumpyNumberInspector(NumberInspector["np.number"]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,
     ) -> tuple[str, bool]:
@@ -458,6 +462,7 @@ class StringInspector(PositronInspector[str]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,
     ) -> tuple[str, bool]:
@@ -691,6 +696,7 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
@@ -719,6 +725,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,
         truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
@@ -831,6 +838,7 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
@@ -900,6 +908,7 @@ class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
@@ -979,6 +988,7 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
@@ -1035,6 +1045,7 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
@@ -1116,6 +1127,7 @@ class IbisExprInspector(PositronInspector["ibis.Expr"]):
 
     def get_display_value(
         self,
+        *,
         print_width: int | None = PRINT_WIDTH,  # noqa: ARG002
         truncate_at: int = TRUNCATE_AT,  # noqa: ARG002
     ) -> tuple[str, bool]:
