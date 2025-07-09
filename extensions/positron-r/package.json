@@ -742,27 +742,49 @@
         "modelDescription": "Gets a list of the R packages that are loaded and attached in the current R session.",
         "toolReferenceName": "getAttachedRPackages",
         "canBeReferencedInPrompt": true,
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sessionIdentifier": {
+              "type": "string",
+              "description": "The identifier of the R session to query for installed packages."
+            }
+          },
+          "required": [
+            "sessionIdentifier"
+          ]
+        },
         "tags": [
           "positron-assistant"
         ]
       },
       {
-        "name": "getInstalledRPackageVersion",
-        "displayName": "Get Installed R Package Version",
-        "userDescription": "Get the version of an installed R package.",
-        "modelDescription": "Given the name of an R package, returns the version of the package that's installed in the current R session, or NULL if the package is not installed.",
+        "name": "getInstalledRPackageVersions",
+        "displayName": "Get Installed R Package Versions",
+        "userDescription": "Get the version of one or more installed R packages.",
+        "modelDescription": "Given an array of R package names, returns, for each package, the version of the package that's installed in the given R session, or NULL if the package is not installed.",
         "canBeReferencedInPrompt": true,
         "toolReferenceName": "getInstalledRPackageVersion",
         "inputSchema": {
           "type": "object",
           "properties": {
-            "packageName": {
+            "sessionIdentifier": {
               "type": "string",
-              "description": "The name of the R package to get the version of."
+              "description": "The identifier of the R session to query for installed packages."
+            },
+            "packageNames": {
+              "type": "array",
+              "description": "An array of R package names to get the version of.",
+              "items": {
+                "type": "string",
+                "description": "The name of an R package to get the version of."
+              },
+              "minItems": 1
             }
           },
           "required": [
-            "packageName"
+            "sessionIdentifier",
+            "packageNames"
           ]
         },
         "tags": [
@@ -778,12 +800,17 @@
         "inputSchema": {
           "type": "object",
           "properties": {
+            "sessionIdentifier": {
+              "type": "string",
+              "description": "The identifier of the R session to query for help topics."
+            },
             "packageName": {
               "type": "string",
               "description": "The name of the R package to list help topics for."
             }
           },
           "required": [
+            "sessionIdentifier",
             "packageName"
           ]
         },
@@ -801,12 +828,17 @@
         "inputSchema": {
           "type": "object",
           "properties": {
+            "sessionIdentifier": {
+              "type": "string",
+              "description": "The identifier of the R session to query for vignettes."
+            },
             "packageName": {
               "type": "string",
               "description": "The name of the R package to list vignettes for."
             }
           },
           "required": [
+            "sessionIdentifier",
             "packageName"
           ]
         },
@@ -824,6 +856,10 @@
         "inputSchema": {
           "type": "object",
           "properties": {
+            "sessionIdentifier": {
+              "type": "string",
+              "description": "The identifier of the R session to query for the vignette."
+            },
             "packageName": {
               "type": "string",
               "description": "The name of the R package to get the vignette for."
@@ -834,6 +870,7 @@
             }
           },
           "required": [
+            "sessionIdentifier",
             "packageName",
             "vignetteName"
           ]
@@ -852,6 +889,10 @@
         "inputSchema": {
           "type": "object",
           "properties": {
+            "sessionIdentifier": {
+              "type": "string",
+              "description": "The identifier of the R session to query for help."
+            },
             "packageName": {
               "type": "string",
               "description": "The name of the R package in which to look for help. If not provided, the help page will be searched in all loaded packages."
@@ -862,6 +903,7 @@
             }
           },
           "required": [
+            "sessionIdentifier",
             "helpTopic"
           ]
         },

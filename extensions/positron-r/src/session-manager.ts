@@ -181,6 +181,16 @@ export class RSessionManager implements vscode.Disposable {
 	}
 
 	/**
+	 * Gets an R session by its session identifier.
+	 *
+	 * @param sessionId The session identifier
+	 * @returns The R session, or undefined if not found
+	 */
+	getSessionById(sessionId: string): RSession | undefined {
+		return this._sessions.get(sessionId);
+	}
+
+	/**
 	 * Sets the last observed R binary path.
 	 *
 	 * @param path The path to the R binary
