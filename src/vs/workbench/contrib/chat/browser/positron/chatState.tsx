@@ -20,10 +20,13 @@ export interface PositronChatState extends PositronChatServices {
 
 export const usePositronChatState = (services: PositronChatServices): PositronChatState => {
 	const [providers, setProviders] = useState<IPositronChatProvider[]>([]);
-	const [currentProvider, setCurrentProvider] = useState<IPositronChatProvider | undefined>(services.languageModelsService.currentProvider);
+	const [currentProvider, setCurrentProvider] = useState<IPositronChatProvider | undefined>(undefined);
 
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
+
+		setProviders(services.languageModelsService.getLanguageModelProviders());
+		setCurrentProvider(services.languageModelsService.currentProvider);
 
 		disposableStore.add(services.languageModelsService.onDidChangeLanguageModels((event) => {
 			const newProviders = services.languageModelsService.getLanguageModelProviders();
