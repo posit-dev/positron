@@ -54,7 +54,7 @@ export const enum PositronDataExplorerCommandId {
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
 	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
-	ExportToCodeAction = 'workbench.action.positronDataExplorer.exportToCode'
+	ExportAsCodeAction = 'workbench.action.positronDataExplorer.exportAsCode'
 }
 
 /**
@@ -692,16 +692,16 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 /**
  * PositronDataExplorerExportToCodeAction action.
  */
-class PositronDataExplorerExportToCodeAction extends Action2 {
+class PositronDataExplorerExportAsCodeAction extends Action2 {
 	/**
 	 * Constructor.
 	 */
 	constructor() {
 		super({
-			id: PositronDataExplorerCommandId.ExportToCodeAction,
+			id: PositronDataExplorerCommandId.ExportAsCodeAction,
 			title: {
-				value: localize('positronDataExplorer.exportToCode', 'Export to Code'),
-				original: 'Export to Code'
+				value: localize('positronDataExplorer.exportAsCode', 'Export as Code'),
+				original: 'Export as Code'
 			},
 			positronActionBarOptions: {
 				controlType: 'button',
@@ -711,6 +711,7 @@ class PositronDataExplorerExportToCodeAction extends Action2 {
 			f1: true,
 			precondition: ContextKeyExpr.and(
 				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				IsDevelopmentContext // hide this from release until implemented
 			),
 			icon: Codicon.code,
 			menu: [
@@ -750,7 +751,7 @@ class PositronDataExplorerExportToCodeAction extends Action2 {
 			notificationService.notify({
 				severity: Severity.Info,
 				message: localize(
-					'positron.dataExplorer.exportToCode.copiedToClipboard',
+					'positron.dataExplorer.exportAsCode.copiedToClipboard',
 					"Successfully copied code to clipboard."
 				),
 				sticky: false
@@ -781,7 +782,7 @@ class PositronDataExplorerExportToCodeAction extends Action2 {
 		}
 
 		// Export filters as code.
-		await positronDataExplorerInstance.exportToCode();
+		await positronDataExplorerInstance.exportAsCode();
 		notifyUserThatCodeCopied();
 	}
 }
@@ -885,5 +886,5 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
-	registerAction2(PositronDataExplorerExportToCodeAction);
+	registerAction2(PositronDataExplorerExportAsCodeAction);
 }

@@ -50,8 +50,10 @@ from .data_explorer_comm import (
     DataSelectionIndices,
     DataSelectionRange,
     DataSelectionSingleCell,
+    ExportAsCodeRequest,
     ExportDataSelectionFeatures,
     ExportDataSelectionRequest,
+    ExportedCode,
     ExportedData,
     ExportFormat,
     FilterBetween,
@@ -402,6 +404,9 @@ class DataExplorerTableView:
             return self._export_tabular(slice(None), sel.indices, fmt)
         else:
             raise NotImplementedError(f"Unknown data export: {kind}")
+
+    def export_as_code(self, request: ExportAsCodeRequest):
+        return ExportedCode(data="import pandas as pd\n\n# TODO: Implement export to code").dict()
 
     def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
         raise NotImplementedError

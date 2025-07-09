@@ -55,6 +55,17 @@ export interface ExportedData {
 }
 
 /**
+ * Resulting code
+ */
+export interface ExportedCode {
+	/**
+	 * Exported code as a string suitable for copy and paste
+	 */
+	data?: string;
+
+}
+
+/**
  * The result of applying filters to a table
  */
 export interface FilterResult {
@@ -1170,6 +1181,17 @@ export enum ColumnHistogramParamsMethod {
 }
 
 /**
+ * Possible values for CodeSyntax
+ */
+export enum CodeSyntax {
+	Datatable = 'datatable',
+	Dplyr = 'dplyr',
+	Pandas = 'pandas',
+	Polars = 'polars',
+	BaseR = 'baseR'
+}
+
+/**
  * Possible values for Kind in TableSelection
  */
 export enum TableSelectionKind {
@@ -1284,6 +1306,31 @@ export interface ExportDataSelectionParams {
 	 * Result string format
 	 */
 	format: ExportFormat;
+}
+
+/**
+ * Parameters for the ExportAsCode method.
+ */
+export interface ExportAsCodeParams {
+	/**
+	 * Zero or more column filters to apply
+	 */
+	column_filters: Array<ColumnFilter>;
+
+	/**
+	 * Zero or more row filters to apply
+	 */
+	row_filters: Array<RowFilter>;
+
+	/**
+	 * Zero or more sort keys to apply
+	 */
+	sort_keys: Array<ColumnSortKey>;
+
+	/**
+	 * Exported code format
+	 */
+	code_syntax: string;
 }
 
 /**
@@ -1402,6 +1449,7 @@ export enum DataExplorerBackendRequest {
 	GetDataValues = 'get_data_values',
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
+	ExportAsCode = 'export_as_code',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
@@ -1508,6 +1556,23 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 */
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData> {
 		return super.performRpc('export_data_selection', ['selection', 'format'], [selection, format]);
+	}
+
+	/**
+	 * Export filters and sort keys as code
+	 *
+	 * Export filters and sort keys as code in different formats like pandas,
+	 * polars, data.table, dplyr
+	 *
+	 * @param columnFilters Zero or more column filters to apply
+	 * @param rowFilters Zero or more row filters to apply
+	 * @param sortKeys Zero or more sort keys to apply
+	 * @param codeSyntax Exported code format
+	 *
+	 * @returns Resulting code
+	 */
+	exportAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<ExportedCode> {
+		return super.performRpc('export_as_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax'], [columnFilters, rowFilters, sortKeys, codeSyntax]);
 	}
 
 	/**

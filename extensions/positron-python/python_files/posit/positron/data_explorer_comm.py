@@ -169,6 +169,23 @@ class ColumnHistogramParamsMethod(str, enum.Enum):
 
 
 @enum.unique
+class CodeSyntax(str, enum.Enum):
+    """
+    Possible values for CodeSyntax
+    """
+
+    Datatable = "datatable"
+
+    Dplyr = "dplyr"
+
+    Pandas = "pandas"
+
+    Polars = "polars"
+
+    BaseR = "baseR"
+
+
+@enum.unique
 class TableSelectionKind(str, enum.Enum):
     """
     Possible values for Kind in TableSelection
@@ -249,6 +266,17 @@ class ExportedData(BaseModel):
 
     format: ExportFormat = Field(
         description="The exported data format",
+    )
+
+
+class ExportedCode(BaseModel):
+    """
+    Resulting code
+    """
+
+    data: Optional[StrictStr] = Field(
+        default=None,
+        description="Exported code as a string suitable for copy and paste",
     )
 
 
@@ -1208,6 +1236,9 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
 
+    # Export filters and sort keys as code
+    ExportAsCode = "export_as_code"
+
     # Set column filters to select subset of table columns
     SetColumnFilters = "set_column_filters"
 
@@ -1422,6 +1453,49 @@ class ExportDataSelectionRequest(BaseModel):
     )
 
 
+class ExportAsCodeParams(BaseModel):
+    """
+    Export filters and sort keys as code in different formats like pandas,
+    polars, data.table, dplyr
+    """
+
+    column_filters: List[ColumnFilter] = Field(
+        description="Zero or more column filters to apply",
+    )
+
+    row_filters: List[RowFilter] = Field(
+        description="Zero or more row filters to apply",
+    )
+
+    sort_keys: List[ColumnSortKey] = Field(
+        description="Zero or more sort keys to apply",
+    )
+
+    code_syntax: StrictStr = Field(
+        description="Exported code format",
+    )
+
+
+class ExportAsCodeRequest(BaseModel):
+    """
+    Export filters and sort keys as code in different formats like pandas,
+    polars, data.table, dplyr
+    """
+
+    params: ExportAsCodeParams = Field(
+        description="Parameters to the ExportAsCode method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.ExportAsCode] = Field(
+        description="The JSON-RPC method name (export_as_code)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class SetColumnFiltersParams(BaseModel):
     """
     Set or clear column filters on table, replacing any previous filters
@@ -1575,6 +1649,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetDataValuesRequest,
         GetRowLabelsRequest,
         ExportDataSelectionRequest,
+        ExportAsCodeRequest,
         SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
@@ -1622,6 +1697,8 @@ OpenDatasetResult.update_forward_refs()
 SearchSchemaResult.update_forward_refs()
 
 ExportedData.update_forward_refs()
+
+ExportedCode.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
@@ -1740,6 +1817,10 @@ GetRowLabelsRequest.update_forward_refs()
 ExportDataSelectionParams.update_forward_refs()
 
 ExportDataSelectionRequest.update_forward_refs()
+
+ExportAsCodeParams.update_forward_refs()
+
+ExportAsCodeRequest.update_forward_refs()
 
 SetColumnFiltersParams.update_forward_refs()
 

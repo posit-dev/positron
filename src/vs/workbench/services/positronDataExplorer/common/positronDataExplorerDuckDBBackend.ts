@@ -9,6 +9,7 @@ import { DataExplorerUiEvent, IDataExplorerBackendClient } from '../../languageR
 import {
 	ArraySelection,
 	BackendState,
+	CodeSyntax,
 	ColumnFilter,
 	ColumnProfileRequest,
 	ColumnSelection,
@@ -17,6 +18,7 @@ import {
 	DataExplorerFrontendEvent,
 	DataUpdateEvent,
 	ExportDataSelectionParams,
+	ExportedCode,
 	ExportedData,
 	ExportFormat,
 	FilterResult,
@@ -204,6 +206,19 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 				selection,
 				format
 			} satisfies ExportDataSelectionParams
+		});
+	}
+
+	async exportAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: CodeSyntax): Promise<ExportedCode> {
+		return this._execRpc<ExportedCode>({
+			method: DataExplorerBackendRequest.ExportAsCode,
+			uri: this.uri.toString(),
+			params: {
+				column_filters: columnFilters,
+				row_filters: rowFilters,
+				sort_keys: sortKeys,
+				export_options: exportOptions
+			}
 		});
 	}
 

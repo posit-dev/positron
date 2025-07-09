@@ -123,5 +123,5 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	/**
 	 * Exports the table data to code.
 	 */
-	exportToCode(): Promise<void>;
+	exportAsCode(): Promise<void>;
 }

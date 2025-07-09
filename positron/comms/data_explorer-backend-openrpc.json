@@ -215,6 +215,73 @@
 				}
 			}
 		},
+{
+			"name": "export_as_code",
+			"summary": "Export filters and sort keys as code",
+			"description": "Export filters and sort keys as code in different formats like pandas, polars, data.table, dplyr",
+			"params": [
+				{
+					"name": "column_filters",
+					"description": "Zero or more column filters to apply",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_filter"
+						}
+					}
+				},
+				{
+					"name": "row_filters",
+					"description": "Zero or more row filters to apply",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/row_filter"
+						}
+					}
+				},
+				{
+					"name": "sort_keys",
+					"description": "Zero or more sort keys to apply",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_sort_key"
+						}
+					}
+				},
+				{
+					"name": "code_syntax",
+					"description": "Exported code format",
+					"required": true,
+					"schema": {
+						"type": "string",
+						"items": {
+							"$ref": "#/components/schemas/code_syntax"
+						}
+					}
+				}
+		],
+			"result": {
+				"schema": {
+					"name": "exported_code",
+					"type": "object",
+					"description": "Resulting code",
+					"required": [
+						"code"
+					],
+					"properties": {
+						"data": {
+							"type": "string",
+							"description": "Exported code as a string suitable for copy and paste"
+						}
+					}
+				}
+			}
+		},
 		{
 			"name": "set_column_filters",
 			"summary": "Set column filters to select subset of table columns",
@@ -1293,6 +1360,17 @@
 					}
 				}
 			},
+			"code_syntax": {
+				"type": "string",
+				"description": "The syntax for code",
+				"enum": [
+					"datatable",
+					"dplyr",
+					"pandas",
+					"polars",
+					"baseR"
+				]
+			},
 			"supported_features": {
 				"type": "object",
 				"description": "For each field, returns flags indicating supported features",
@@ -1302,7 +1380,8 @@
 					"set_row_filters",
 					"get_column_profiles",
 					"set_sort_columns",
-					"export_data_selection"
+					"export_data_selection",
+					"export_as_code"
 				],
 				"properties": {
 					"search_schema": {
