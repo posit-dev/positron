@@ -14,7 +14,7 @@ test.describe('Data Explorer - Python Polars', {
 	tag: [tags.WIN, tags.WEB, tags.CRITICAL, tags.DATA_EXPLORER]
 }, () => {
 
-	test.beforeAll(async function ({ app, openFile, runCommand, python }) {
+	test.beforeEach(async function ({ app, openFile, runCommand, python }) {
 		const { variables, dataExplorer, editors } = app.workbench;
 
 		await openFile(join('workspaces', 'polars-dataframe-py', 'polars_basic.py'));
@@ -26,8 +26,9 @@ test.describe('Data Explorer - Python Polars', {
 		await dataExplorer.maximizeDataExplorer(true);
 	});
 
-	test.afterEach(async function ({ app }) {
-		app.workbench.dataExplorer.clearAllFilters();
+	test.afterEach(async function ({ app, hotKeys }) {
+		await app.workbench.dataExplorer.clearAllFilters();
+		await hotKeys.closeAllEditors();
 	});
 
 	test('Python Polars - Verify table data, copy to clipboard, sparkline hover, null percentage hover', async function ({ app }) {
