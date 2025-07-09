@@ -102,6 +102,7 @@ import { IModePickerDelegate, ModePickerActionItem } from './modelPicker/modePic
 // --- Start Positron ---
 import { ChatRuntimeSessionContext } from './contrib/chatRuntimeSessionContext.js';
 import { RuntimeSessionContextAttachmentWidget } from './attachments/runtimeSessionContextAttachment.js';
+import { RuntimeSessionAttachmentWidget } from './chatRuntimeAttachmentWidget.js';
 // --- End Positron ---
 
 const $ = dom.$;
@@ -1293,7 +1294,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			}
 			// --- Start Positron ---
 			else if (attachment.kind === 'runtimeSession') {
-				attachmentWidget = this.instantiationService.createInstance(DefaultChatAttachmentWidget, resource, range, attachment, this._currentLanguageModel, shouldFocusClearButton, container, this._contextResourceLabels, hoverDelegate);
+				attachmentWidget = this.instantiationService.createInstance(RuntimeSessionAttachmentWidget, attachment, this._currentLanguageModel, shouldFocusClearButton, container, this._contextResourceLabels, hoverDelegate);
 			}
 			// --- End Positron ---
 			else {
