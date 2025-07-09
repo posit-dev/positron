@@ -171,6 +171,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			contextArr.push(...implicitChatVariables);
 		}
 
+		// --- Start Positron ---
+		// Add runtime session context if enabled and has value
+		if (this.runtimeContext?.enabled && this.runtimeContext.value) {
+			const runtimeChatVariables = await this.runtimeContext.toBaseEntries();
+			contextArr.push(...runtimeChatVariables);
+		}
+		// --- End Positron ---
+
 		// factor in nested file links of a prompt into the implicit context
 		const variables = this.variableService.getDynamicVariables(sessionId);
 		for (const variable of variables) {
