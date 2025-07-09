@@ -309,7 +309,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 		}
 
-		// Record token usage if context is available
 		if (this._context) {
 			const outputCount = await this.provideTokenCount(await result.text, token);
 			let inputCount = 0;

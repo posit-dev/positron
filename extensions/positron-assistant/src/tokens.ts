@@ -4,9 +4,12 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import { AnthropicLanguageModel } from './anthropic.js';
 
 export class TokenTracker {
+	private static DEFAULT_PROVIDERS = [AnthropicLanguageModel.source.provider.id];
 	private _tokenUsage: Map<string, { input: number; output: number }> = new Map();
+	private _enabledProviders: Set<string> = new Set([...TokenTracker.DEFAULT_PROVIDERS]);
 
 	private readonly TOKEN_COUNT_KEY = 'positron.assistant.tokenCounts';
 
@@ -45,9 +48,33 @@ export class TokenTracker {
 		for (const [provider, tokens] of this._tokenUsage.entries()) {
 			this.updateContext(provider, tokens.input, tokens.output);
 		}
+
+		// Read initial configuration
+		const initialEnabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
+		this._enabledProviders = new Set([...initialEnabledProviders, ...TokenTracker.DEFAULT_PROVIDERS]);
+
+		vscode.workspace.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration('positron.assistant.approximateTokenCount')) {
+				const enabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
+
+				const anthropicId = AnthropicLanguageModel.source.provider.id;
+				this._enabledProviders = new Set([...enabledProviders, anthropicId]); // ensure anthropicId is always included
+
+				// clear token counts for providers that are no longer enabled
+				for (const provider of this._tokenUsage.keys()) {
+					if (!this._enabledProviders.has(provider)) {
+						this.clearTokens(provider);
+					}
+				}
+			}
+		});
 	}
 
 	public addTokens(provider: string, inputTokens: number, outputTokens: number): void {
+		if (!this._enabledProviders.has(provider)) {
+			return; // Skip if token counting is disabled
+		}
+
 		if (!this._tokenUsage.has(provider)) {
 			this._tokenUsage.set(provider, { input: 0, output: 0 });
 		}
@@ -64,9 +91,14 @@ export class TokenTracker {
 	public clearTokens(provider: string): void {
 		if (this._tokenUsage.has(provider)) {
 			this._tokenUsage.delete(provider);
-			this.updateContext(provider, 0, 0);
+			this.deleteContext(provider);
 			this._context.workspaceState.update(this.TOKEN_COUNT_KEY, JSON.stringify(Array.from(this._tokenUsage.entries())));
 		}
+	}
+
+	private deleteContext(provider: string): void {
+		vscode.commands.executeCommand('setContext', `positron-assistant.${provider}.tokenCount.input`, undefined);
+		vscode.commands.executeCommand('setContext', `positron-assistant.${provider}.tokenCount.output`, undefined);
 	}
 
 	private updateContext(provider: string, input: number, output: number): void {
