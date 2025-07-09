@@ -42,7 +42,7 @@ import { localize } from '../../../../../nls.js';
  */
 interface ConsoleInstanceItemsProps {
 	readonly positronConsoleInstance: IPositronConsoleInstance;
-	readonly editorFontInfo: FontInfo;
+	readonly fontInfo: FontInfo;
 	readonly trace: boolean;
 	readonly runtimeAttached: boolean;
 	readonly consoleInputWidth: number;
@@ -82,9 +82,9 @@ export class ConsoleInstanceItems extends Component<ConsoleInstanceItemsProps> {
 				<div className='top-spacer' />
 				{this.props.positronConsoleInstance.runtimeItems.filter(runtimeItem => !runtimeItem.isHidden).map(runtimeItem => {
 					if (runtimeItem instanceof RuntimeItemActivity) {
-						return <RuntimeActivity key={runtimeItem.id} fontInfo={this.props.editorFontInfo} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemActivity={runtimeItem} />;
+						return <RuntimeActivity key={runtimeItem.id} fontInfo={this.props.fontInfo} positronConsoleInstance={this.props.positronConsoleInstance} runtimeItemActivity={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemPendingInput) {
-						return <RuntimePendingInput key={runtimeItem.id} fontInfo={this.props.editorFontInfo} runtimeItemPendingInput={runtimeItem} />;
+						return <RuntimePendingInput key={runtimeItem.id} fontInfo={this.props.fontInfo} runtimeItemPendingInput={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemStartup) {
 						return <RuntimeStartup key={runtimeItem.id} runtimeItemStartup={runtimeItem} />;
 					} else if (runtimeItem instanceof RuntimeItemReconnected) {
