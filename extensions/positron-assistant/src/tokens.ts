@@ -91,17 +91,12 @@ export class TokenTracker {
 	public clearTokens(provider: string): void {
 		if (this._tokenUsage.has(provider)) {
 			this._tokenUsage.delete(provider);
-			this.deleteContext(provider);
+			this.updateContext(provider);
 			this._context.workspaceState.update(this.TOKEN_COUNT_KEY, JSON.stringify(Array.from(this._tokenUsage.entries())));
 		}
 	}
 
-	private deleteContext(provider: string): void {
-		vscode.commands.executeCommand('setContext', `positron-assistant.${provider}.tokenCount.input`, undefined);
-		vscode.commands.executeCommand('setContext', `positron-assistant.${provider}.tokenCount.output`, undefined);
-	}
-
-	private updateContext(provider: string, input: number, output: number): void {
+	private updateContext(provider: string, input?: number, output?: number): void {
 		vscode.commands.executeCommand('setContext', `positron-assistant.${provider}.tokenCount.input`, input);
 		vscode.commands.executeCommand('setContext', `positron-assistant.${provider}.tokenCount.output`, output);
 	}
