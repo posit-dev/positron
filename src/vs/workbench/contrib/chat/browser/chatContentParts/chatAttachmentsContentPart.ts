@@ -264,7 +264,16 @@ export class ChatAttachmentsContentPart extends Disposable {
 						this.attachedContextDisposables.add(this.instantiationService.invokeFunction(accessor => hookUpResourceAttachmentDragAndContextMenu(accessor, widget, resource)));
 					}
 				}
-			} else {
+			}
+
+			// --- Start Positron ---
+			else if ((attachment as any).value.kind === 'runtimeSession') {
+				ariaLabel = localize('chat.attachedSession', "Attached session: {0}.", attachment.name);
+				label.setLabel(attachment.name + 'Fizzbuzz', undefined, { extraClasses: ['runtime-session-icon'] });
+			}
+			// --- End Positron ---
+
+			else {
 				ariaLabel = localize('chat.attachment3', "Attached context: {0}.", attachment.name);
 				renderLabelWithIcon(attachment);
 			}
