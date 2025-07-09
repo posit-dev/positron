@@ -300,7 +300,8 @@
 		"https://login.posit.cloud",
 		"https://connect.posit.cloud",
 		"https://login.staging.posit.cloud",
-		"https://staging.connect.posit.cloud"	],
+		"https://staging.connect.posit.cloud"
+	],
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"
 	],
