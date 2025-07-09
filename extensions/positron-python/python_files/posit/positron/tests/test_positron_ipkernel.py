@@ -214,7 +214,7 @@ def traceback_result(
 
 
 @pytest.mark.xfail(
-    cast(Tuple[int, int], (IPython.version_info[:2])) >= (9, 0),
+    cast("Tuple[int, int]", (IPython.version_info[:2])) >= (9, 0),
     reason="IPython >= 9.0.0 does not support the old traceback format",
 )
 def test_console_traceback(shell: PositronShell, traceback_result) -> None:
@@ -261,7 +261,7 @@ def test_console_traceback(shell: PositronShell, traceback_result) -> None:
 
 
 @pytest.mark.xfail(
-    cast(Tuple[int, int], (IPython.version_info[:2])) < (9, 0),
+    cast("Tuple[int, int]", (IPython.version_info[:2])) < (9, 0),
     reason="IPython < 9.0.0 does not support the new traceback format",
 )
 def test_console_traceback_ipy9(shell: PositronShell, traceback_result) -> None:
