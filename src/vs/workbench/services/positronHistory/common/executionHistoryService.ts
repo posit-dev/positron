@@ -135,7 +135,7 @@ export const replConfigurationBaseNode = Object.freeze<IConfigurationNode>({
 	id: 'repl',
 	order: 100,
 	type: 'object',
-	title: nls.localize('replConfigurationTitle', "Console"),
+	title: nls.localize('consoleConfigurationTitle', "Console"),
 	scope: ConfigurationScope.LANGUAGE_OVERRIDABLE,
 });
 
