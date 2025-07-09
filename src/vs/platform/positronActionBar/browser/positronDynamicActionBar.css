@@ -16,7 +16,7 @@
 	align-items: center;
 	box-sizing: border-box;
 	grid-template-rows: 1fr;
-	height: var(--positronActionBar-height);
+	height: var(--vscode-positronActionBar-height);
 }
 
 .positron-dynamic-action-bar .container {
@@ -28,7 +28,7 @@
 }
 
 .positron-dynamic-action-bar:not(.transparent-background) {
-	background-color: var(--positronActionBar-background);
+	background-color: var(--vscode-positronActionBar-background);
 }
 
 .positron-dynamic-action-bar.transparent-background {
@@ -36,9 +36,9 @@
 }
 
 .positron-dynamic-action-bar.border-top {
-	border-top: 1px solid var(--positronActionBar-border);
+	border-top: 1px solid var(--vscode-positronActionBar-border);
 }
 
 .positron-dynamic-action-bar.border-bottom {
-	border-bottom: 1px solid var(--positronActionBar-border);
+	border-bottom: 1px solid var(--vscode-positronActionBar-border);
 }

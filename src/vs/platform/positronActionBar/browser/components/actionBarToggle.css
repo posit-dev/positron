@@ -20,7 +20,7 @@
 	border-radius: 6px;
 	align-items: center;
 	grid-template-columns: [left] 1fr [right] 1fr [end];
-	background-color: var(--positronActionBar-hoverBackground);
+	background-color: var(--vscode-positronActionBar-hoverBackground);
 }
 
 .action-bar-toggle .toggle-container:focus {
@@ -38,11 +38,14 @@
 	padding: 0 6px;
 	border-radius: 6px;
 	align-items: center;
+	box-sizing: border-box;
 	justify-content: center;
+	border: 1px solid transparent;
 }
 
 .action-bar-toggle .toggle-container .toggle-button.highlighted {
-	background-color: var(--positronActionBar-background);
+	background-color: var(--vscode-positronActionBar-background);
+	border: 1px solid var(--vscode-positronActionBar-toggleButtonHighlightedBorder);
 }
 
 .action-bar-toggle .toggle-container .toggle-button.left {

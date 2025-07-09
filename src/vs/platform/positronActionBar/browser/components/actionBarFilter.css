@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -20,8 +20,8 @@
 	margin-right: 2px;
 	align-items: center;
 	font-size: 12px;
-	background: var(--positronActionBar-textInputBackground);
-	border: 1px solid var(--positronActionBar-textInputBorder);
+	background: var(--vscode-positronActionBar-textInputBackground);
+	border: 1px solid var(--vscode-positronActionBar-textInputBorder);
 }
 
 .action-bar-filter-input.focused {
@@ -40,12 +40,12 @@
 
 .action-bar-filter-input .text-input::placeholder {
 	opacity: 0.5;
-	color: var(--positronActionBar-foreground);
+	color: var(--vscode-positronActionBar-foreground);
 }
 
 .action-bar-filter-input .text-input::selection {
-	color: var(--positronActionBar-textInputSelectionForeground);
-	background: var(--positronActionBar-textInputSelectionBackground);
+	color: var(--vscode-positronActionBar-textInputSelectionForeground);
+	background: var(--vscode-positronActionBar-textInputSelectionBackground);
 }
 
 .action-bar-filter-input .clear-button {
