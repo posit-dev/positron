@@ -44,6 +44,7 @@ import { ExecutionEntryType, IExecutionHistoryEntry, IExecutionHistoryService } 
 import { Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { CodeAttributionSource, IConsoleCodeAttribution, ILanguageRuntimeCodeExecutedEvent } from '../common/positronConsoleCodeExecution.js';
+import { EDITOR_FONT_DEFAULTS } from '../../../../editor/common/config/editorOptions.js';
 
 /**
  * The onDidChangeRuntimeItems throttle threshold and throttle interval. The throttle threshold
@@ -172,16 +173,71 @@ const consoleServiceConfigurationBaseNode = Object.freeze<IConfigurationNode>({
 	id: 'console',
 	order: 100,
 	type: 'object',
-	title: localize('replConfigurationTitle', "Console"),
+	title: localize('consoleConfigurationTitle', "Console"),
 });
 
 /**
- * The scrollback size setting.
+ * Console configuration settings.
  */
 export const scrollbackSizeSettingId = 'console.scrollbackSize';
 configurationRegistry.registerConfiguration({
 	...consoleServiceConfigurationBaseNode,
 	properties: {
+		// Font family.
+		'console.fontFamily': {
+			type: 'string',
+			'default': EDITOR_FONT_DEFAULTS.fontFamily,
+			description: localize('console.fontFamily', "Controls the font family."),
+		},
+		// Font ligatures.
+		'console.fontLigatures': {
+			type: 'boolean',
+			default: false,
+			description: localize('console.fontLigatures.markdownDescription', "Enable font ligatures ('calt' and 'liga' font features)."),
+		},
+		// Font size.
+		'console.fontSize': {
+			type: 'number',
+			minimum: 6,
+			maximum: 100,
+			default: EDITOR_FONT_DEFAULTS.fontSize,
+			description: localize('console.fontSize', "Controls the font size in pixels."),
+		},
+		// Font variations.
+		'console.fontVariations': {
+			type: 'boolean',
+			default: false,
+			description: localize('console.fontVariations', "Enable the translation from font-weight to font-variation-settings."),
+		},
+		// Font weight.
+		'console.fontWeight': {
+			type: 'string',
+			enum: ['normal', 'bold'],
+			enumDescriptions: [
+				localize('console.fontWeight.normal', "Normal font weight."),
+				localize('console.fontWeight.bold', "Bold font weight.")
+			],
+			default: EDITOR_FONT_DEFAULTS.fontWeight,
+			description: localize('console.fontWeight', "Controls the font weight."),
+		},
+		// Letter spacing.
+		'console.letterSpacing': {
+			type: 'number',
+			minimum: -5,
+			maximum: 20,
+			default: EDITOR_FONT_DEFAULTS.letterSpacing,
+			markdownDescription: localize('console.letterSpacing', "Controls the letter spacing in pixels."),
+		},
+		// Line height.
+		'console.lineHeight': {
+			type: 'number',
+			minimum: 0,
+			maximum: 150,
+			default: EDITOR_FONT_DEFAULTS.lineHeight,
+			description: localize('console.lineHeight', "Controls the line height."),
+			markdownDescription: localize('console.lineHeight2', "Controls the line height. \n - Use 0 to automatically compute the line height from the font size.\n - Values between 0 and 8 will be used as a multiplier with the font size.\n - Values greater than or equal to 8 will be used as effective values."),
+		},
+		// Scrollback size.
 		'console.scrollbackSize': {
 			type: 'number',
 			'minimum': 500,

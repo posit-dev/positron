@@ -3,10 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-// FALSE POSITIVE: The ESLint rule of hooks is incorrectly flagging numerous lines in this file as a
-// violation of the rules of hooks. See: https://github.com/facebook/react/issues/31687
-/* eslint-disable react-hooks/rules-of-hooks */
-
 // CSS.
 import './dataGridWaffle.css';
 
@@ -18,7 +14,7 @@ import { generateUuid } from '../../../../base/common/uuid.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
-import { editorFontApplier } from '../../editorFontApplier.js';
+import { FontConfigurationManager } from '../../fontConfigurationManager.js';
 import { DataGridRow } from './dataGridRow.js';
 import { DataGridRowHeaders } from './dataGridRowHeaders.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
@@ -57,12 +53,11 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 		// Use the editor font, if so configured.
 		if (context.instance.useEditorFont) {
-			disposableStore.add(
-				editorFontApplier(
-					context.configurationService,
-					dataGridRowsRef.current
-				)
-			);
+			disposableStore.add(FontConfigurationManager.fontConfigurationWatcher(
+				context.configurationService,
+				'editor',
+				dataGridRowsRef.current
+			));
 		}
 
 		// Add the onDidUpdate event handler.
