@@ -58,8 +58,11 @@ export class RuntimeSessionContextAttachmentWidget extends Disposable {
 		this.domNode.ariaLabel = ariaLabel;
 		this.domNode.tabIndex = 0;
 
-		const hintLabel = localize('hint.label.current', "Current session");
-		const hintElement = dom.append(this.domNode, dom.$('span.chat-implicit-hint', undefined, hintLabel));
+		const consoleSessionLabel = localize('hint.label.console', "Console session");
+		const notebookSessionLabel = localize('hint.label.notebook', "Notebook session");
+		const hintElement = dom.append(this.domNode, dom.$('span.chat-implicit-hint', undefined,
+			this.attachment.value?.metadata.sessionMode === 'notebook' ? notebookSessionLabel : consoleSessionLabel
+		));
 		this._register(this.hoverService.setupManagedHover(getDefaultHoverDelegate('element'), hintElement, title));
 
 		const buttonMsg = this.attachment.enabled ? localize('disable', "Disable current session context") : localize('enable', "Enable current session context");

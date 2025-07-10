@@ -5,15 +5,20 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { isEqual } from '../../../../../base/common/resources.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { IChatRequestRuntimeSessionEntry } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 import { IChatWidgetService } from '../chat.js';
+import { IEditorService } from '../../../../services/editor/common/editorService.js';
+import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInput.js';
+import { PositronNotebookEditorInput } from '../../../positronNotebook/browser/PositronNotebookEditorInput.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { PositronVariablesInstance } from '../../../../services/positronVariables/common/positronVariablesInstance.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 
 export class ChatRuntimeSessionContextContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'chat.runtimeSessionContext';
@@ -27,6 +32,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 		@IExecutionHistoryService private readonly executionHistoryService: IExecutionHistoryService,
 		@IChatService private readonly chatService: IChatService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		@IEditorService private readonly editorService: IEditorService,
 	) {
 		super();
 
@@ -36,6 +42,13 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 			// Register for changes to the runtime session service
 			this._register(this.runtimeSessionService.onDidChangeForegroundSession(() => this.updateRuntimeContext()));
 		});
+
+		// Listen for active editor changes to update runtime context when notebook session changes
+		// This ensures that when the user switches between notebooks, the chat context switches
+		// to the runtime session associated with the active notebook
+		this._register(this.editorService.onDidActiveEditorChange(() => {
+			this.updateRuntimeContext();
+		}));
 
 		this._register(this.chatWidgetService.onDidAddWidget(async (widget) => {
 			await this.updateRuntimeContext();
@@ -61,7 +74,22 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 	}
 
 	private async updateRuntimeContext(): Promise<void> {
-		const session = this.runtimeSessionService.foregroundSession;
+		// Determine the active session - prioritize notebook sessions if a notebook editor is active
+		// This follows the same pattern as the positron variables service to ensure consistent behavior
+		let session = this.runtimeSessionService.foregroundSession;
+
+		// Check if we have an active notebook editor and find its corresponding session
+		const editorInput = this.editorService.activeEditor;
+		if (editorInput instanceof NotebookEditorInput || editorInput instanceof PositronNotebookEditorInput) {
+			// Find the notebook session that corresponds with the active notebook editor
+			const notebookSession = this.runtimeSessionService.activeSessions.find(
+				s => s.metadata.notebookUri && isEqual(s.metadata.notebookUri, editorInput.resource) && s.getRuntimeState() !== RuntimeState.Exited
+			);
+			if (notebookSession) {
+				session = notebookSession;
+			}
+		}
+
 		const widgets = [...this.chatWidgetService.getAllWidgets()];
 		for (const widget of widgets) {
 			if (!widget.input.runtimeContext) {

@@ -784,13 +784,6 @@ export class AttachContextAction extends Action2 {
 			id: 'folder',
 		});
 
-		quickPickItems.push({
-			kind: 'diagnostic',
-			label: localize('chatContext.diagnstic', 'Problems...'),
-			iconClass: ThemeIcon.asClassName(Codicon.error),
-			id: 'diagnostic'
-		});
-
 		// --- Start Positron ---
 		quickPickItems.push({
 			kind: 'runtime-sessions',
@@ -799,6 +792,13 @@ export class AttachContextAction extends Action2 {
 			id: 'runtime-sessions'
 		});
 		// --- End Positron ---
+
+		quickPickItems.push({
+			kind: 'diagnostic',
+			label: localize('chatContext.diagnstic', 'Problems...'),
+			iconClass: ThemeIcon.asClassName(Codicon.error),
+			id: 'diagnostic'
+		});
 
 		if (widget.location === ChatAgentLocation.Notebook) {
 			quickPickItems.push({
