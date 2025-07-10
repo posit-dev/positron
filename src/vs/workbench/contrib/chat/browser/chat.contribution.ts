@@ -166,18 +166,18 @@ configurationRegistry.registerConfiguration({
 			}
 		},
 		// --- Start Positron ---
-		'chat.implicitRuntimeContext.enabled': {
+		'chat.implicitSessionContext.enabled': {
 			type: 'object',
 			tags: ['experimental'],
-			description: nls.localize('chat.implicitRuntimeContext.enabled.1', "Enables automatically using the active interpreter session as chat context for specified chat locations."),
+			description: nls.localize('chat.implicitSessionContext.enabled.1', "Enables automatically using the active interpreter session as chat context for specified chat locations."),
 			additionalProperties: {
 				type: 'string',
 				enum: ['never', 'first', 'always'],
-				description: nls.localize('chat.implicitRuntimeContext.value', "The value for the implicit runtime context."),
+				description: nls.localize('chat.implicitSessionContext.value', "The value for the implicit runtime context."),
 				enumDescriptions: [
-					nls.localize('chat.implicitRuntimeContext.value.never', "Implicit session context is never enabled."),
-					nls.localize('chat.implicitRuntimeContext.value.first', "Implicit session context is enabled for the first interaction."),
-					nls.localize('chat.implicitRuntimeContext.value.always', "Implicit session context is always enabled.")
+					nls.localize('chat.implicitSessionContext.value.never', "Implicit session context is never enabled."),
+					nls.localize('chat.implicitSessionContext.value.first', "Implicit session context is enabled for the first interaction."),
+					nls.localize('chat.implicitSessionContext.value.always', "Implicit session context is always enabled.")
 				]
 			},
 			default: {

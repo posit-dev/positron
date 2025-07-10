@@ -23,7 +23,7 @@ import { RuntimeState } from '../../../../services/languageRuntime/common/langua
 export class ChatRuntimeSessionContextContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'chat.runtimeSessionContext';
 
-	private _implicitRuntimeContextEnablement = this.configurationService.getValue<{ [mode: string]: string }>('chat.implicitRuntimeContext.enabled');
+	private _implicitSessionContextEnablement = this.configurationService.getValue<{ [mode: string]: string }>('chat.implicitSessionContext.enabled');
 
 	constructor(
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
@@ -55,8 +55,8 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 		}));
 
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('chat.implicitRuntimeContext.enabled')) {
-				this._implicitRuntimeContextEnablement = this.configurationService.getValue<{ [mode: string]: string }>('chat.implicitRuntimeContext.enabled');
+			if (e.affectsConfiguration('chat.implicitSessionContext.enabled')) {
+				this._implicitSessionContextEnablement = this.configurationService.getValue<{ [mode: string]: string }>('chat.implicitSessionContext.enabled');
 				this.updateRuntimeContext();
 			}
 		}));
@@ -66,7 +66,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 			if (!widget?.input.runtimeContext) {
 				return;
 			}
-			if (this._implicitRuntimeContextEnablement[widget.location] === 'first' && widget.viewModel?.getItems().length !== 0) {
+			if (this._implicitSessionContextEnablement[widget.location] === 'first' && widget.viewModel?.getItems().length !== 0) {
 				widget.input.runtimeContext.enabled = false;
 				widget.input.runtimeContext.setValue(undefined);
 			}
@@ -100,7 +100,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 				this.executionHistoryService
 			);
 
-			const setting = this._implicitRuntimeContextEnablement[widget.location];
+			const setting = this._implicitSessionContextEnablement[widget.location];
 			const isFirstInteraction = widget.viewModel?.getItems().length === 0;
 			if (setting === 'first' && !isFirstInteraction) {
 				widget.input.runtimeContext.enabled = false;
