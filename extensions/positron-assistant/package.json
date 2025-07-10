@@ -123,7 +123,7 @@
         "command": "positron-assistant.exportChatToFileInWorkspace",
         "title": "%commands.exportChatToFileInWorkspace.title%",
         "category": "%commands.category%",
-        "enablement": "config.positron.assistant.enable"
+        "enablement": "config.positron.assistant.enable && workspaceFolderCount != 0"
       },
       {
         "command": "positron-assistant.exportChatTo",
