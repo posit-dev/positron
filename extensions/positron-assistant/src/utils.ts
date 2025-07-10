@@ -447,11 +447,23 @@ export function languageModelCacheBreakpointPart(): vscode.LanguageModelDataPart
 /**
  * Exports the current chat to a file in the workspace.
  */
-export async function exportChatToFile(): Promise<void> {
+export async function exportChatToFileInWorkspace(): Promise<void> {
+	// Write the chat export to a file in the workspace.
 	const chatJson = await positron.ai.getChatExport();
 	const fileBuffer = Buffer.from(JSON.stringify(chatJson, null, 2));
 	const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 	const fileName = `positron-chat-export-${timestamp}.json`;
 	const fileUri = vscode.Uri.joinPath(vscode.workspace.workspaceFolders?.[0].uri || vscode.Uri.file('.'), fileName);
 	await vscode.workspace.fs.writeFile(fileUri, fileBuffer);
+
+	// Show a message to the user with an option to open the file.
+	const chatExportedMessage = vscode.l10n.t('Chat log exported to: {0}', fileName);
+	const openFileButtonText = vscode.l10n.t('Open chat log');
+	const selection = await vscode.window.showInformationMessage(
+		chatExportedMessage,
+		openFileButtonText
+	);
+	if (selection === openFileButtonText) {
+		await vscode.window.showTextDocument(fileUri);
+	}
 }

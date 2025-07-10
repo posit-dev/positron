@@ -120,8 +120,8 @@
     },
     "commands": [
       {
-        "command": "positron-assistant.exportChatToFile",
-        "title": "%commands.exportChatToFile.title%",
+        "command": "positron-assistant.exportChatToFileInWorkspace",
+        "title": "%commands.exportChatToFileInWorkspace.title%",
         "category": "%commands.category%",
         "enablement": "config.positron.assistant.enable && config.positron.assistant.exportChatLogs.enable"
       },
