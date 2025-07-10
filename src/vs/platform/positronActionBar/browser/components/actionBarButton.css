@@ -34,7 +34,9 @@
 
 .action-bar-button.border {
 	height: 22px;
+
 	border: 1px solid var(--vscode-positronActionBar-border);
+	border: 1px solid var(--vscode-positronActionBar-selectBorder);
 	background-color: var(--vscode-positronActionBar-background);
 }
 
