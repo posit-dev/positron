@@ -4,5 +4,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-variables .action-bars {
-	height: calc(var(--vscode-positronActionBar-height) * 2)
+	height: calc(var(--vscode-positronActionBar-height) * 2);
 }
