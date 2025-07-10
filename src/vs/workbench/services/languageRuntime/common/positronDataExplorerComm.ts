@@ -1309,9 +1309,9 @@ export interface ExportDataSelectionParams {
 }
 
 /**
- * Parameters for the ExportAsCode method.
+ * Parameters for the CopyAsCode method.
  */
-export interface ExportAsCodeParams {
+export interface CopyAsCodeParams {
 	/**
 	 * Zero or more column filters to apply
 	 */
@@ -1449,7 +1449,7 @@ export enum DataExplorerBackendRequest {
 	GetDataValues = 'get_data_values',
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
-	ExportAsCode = 'export_as_code',
+	CopyAsCode = 'copy_as_code',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
@@ -1571,8 +1571,8 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * @returns Resulting code
 	 */
-	exportAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<ExportedCode> {
-		return super.performRpc('export_as_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax'], [columnFilters, rowFilters, sortKeys, codeSyntax]);
+	copyAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<ExportedCode> {
+		return super.performRpc('copy_as_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax'], [columnFilters, rowFilters, sortKeys, codeSyntax]);
 	}
 
 	/**

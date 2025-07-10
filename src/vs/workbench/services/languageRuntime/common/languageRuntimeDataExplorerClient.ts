@@ -66,7 +66,7 @@ export interface IDataExplorerBackendClient extends Disposable {
 	getDataValues(columns: Array<ColumnSelection>, formatOptions: FormatOptions): Promise<TableData>;
 	getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels>;
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData>;
-	exportAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: CodeSyntax): Promise<ExportedCode>;
+	copyAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: CodeSyntax): Promise<ExportedCode>;
 	setColumnFilters(filters: Array<ColumnFilter>): Promise<void>;
 	setRowFilters(filters: Array<RowFilter>): Promise<FilterResult>;
 	setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void>;
@@ -497,14 +497,14 @@ export class DataExplorerClientInstance extends Disposable {
 		}
 	}
 
-	async exportAsCode(): Promise<ExportedCode> {
+	async copyAsCode(): Promise<ExportedCode> {
 		const state = await this.getBackendState();
 		const columnFilters: Array<ColumnFilter> = state.column_filters;
 		const rowFilters: Array<RowFilter> = state.row_filters;
 		const sortKeys: Array<ColumnSortKey> = state.sort_keys;
 
 		return this.runBackendTask(
-			() => this._backendClient.exportAsCode(columnFilters, rowFilters, sortKeys, CodeSyntax.Datatable),
+			() => this._backendClient.copyAsCode(columnFilters, rowFilters, sortKeys, CodeSyntax.Datatable),
 			() => ({ 'data': 'import as pd' })
 		);
 	}

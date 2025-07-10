@@ -216,7 +216,7 @@
 			}
 		},
 {
-			"name": "export_as_code",
+			"name": "copy_as_code",
 			"summary": "Export filters and sort keys as code",
 			"description": "Export filters and sort keys as code in different formats like pandas, polars, data.table, dplyr",
 			"params": [

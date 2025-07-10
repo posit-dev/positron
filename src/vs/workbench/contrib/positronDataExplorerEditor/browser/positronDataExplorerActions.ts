@@ -782,7 +782,7 @@ class PositronDataExplorerExportAsCodeAction extends Action2 {
 		}
 
 		// Export filters as code.
-		await positronDataExplorerInstance.exportAsCode();
+		await positronDataExplorerInstance.copyAsCode();
 		notifyUserThatCodeCopied();
 	}
 }

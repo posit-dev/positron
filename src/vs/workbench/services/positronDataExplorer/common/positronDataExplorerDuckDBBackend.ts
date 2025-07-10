@@ -209,9 +209,9 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		});
 	}
 
-	async exportAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: CodeSyntax): Promise<ExportedCode> {
+	async copyAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: CodeSyntax): Promise<ExportedCode> {
 		return this._execRpc<ExportedCode>({
-			method: DataExplorerBackendRequest.ExportAsCode,
+			method: DataExplorerBackendRequest.CopyAsCode,
 			uri: this.uri.toString(),
 			params: {
 				column_filters: columnFilters,

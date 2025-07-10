@@ -1237,7 +1237,7 @@ class DataExplorerBackendRequest(str, enum.Enum):
     ExportDataSelection = "export_data_selection"
 
     # Export filters and sort keys as code
-    ExportAsCode = "export_as_code"
+    CopyAsCode = "copy_as_code"
 
     # Set column filters to select subset of table columns
     SetColumnFilters = "set_column_filters"
@@ -1453,7 +1453,7 @@ class ExportDataSelectionRequest(BaseModel):
     )
 
 
-class ExportAsCodeParams(BaseModel):
+class CopyAsCodeParams(BaseModel):
     """
     Export filters and sort keys as code in different formats like pandas,
     polars, data.table, dplyr
@@ -1476,18 +1476,18 @@ class ExportAsCodeParams(BaseModel):
     )
 
 
-class ExportAsCodeRequest(BaseModel):
+class CopyAsCodeRequest(BaseModel):
     """
     Export filters and sort keys as code in different formats like pandas,
     polars, data.table, dplyr
     """
 
-    params: ExportAsCodeParams = Field(
-        description="Parameters to the ExportAsCode method",
+    params: CopyAsCodeParams = Field(
+        description="Parameters to the CopyAsCode method",
     )
 
-    method: Literal[DataExplorerBackendRequest.ExportAsCode] = Field(
-        description="The JSON-RPC method name (export_as_code)",
+    method: Literal[DataExplorerBackendRequest.CopyAsCode] = Field(
+        description="The JSON-RPC method name (copy_as_code)",
     )
 
     jsonrpc: str = Field(
@@ -1649,7 +1649,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetDataValuesRequest,
         GetRowLabelsRequest,
         ExportDataSelectionRequest,
-        ExportAsCodeRequest,
+        CopyAsCodeRequest,
         SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
@@ -1818,9 +1818,9 @@ ExportDataSelectionParams.update_forward_refs()
 
 ExportDataSelectionRequest.update_forward_refs()
 
-ExportAsCodeParams.update_forward_refs()
+CopyAsCodeParams.update_forward_refs()
 
-ExportAsCodeRequest.update_forward_refs()
+CopyAsCodeRequest.update_forward_refs()
 
 SetColumnFiltersParams.update_forward_refs()
 
