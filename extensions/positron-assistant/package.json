@@ -169,6 +169,11 @@
             "markdownDescription": "%configuration.enable.markdownDescription%",
             "tags": ["preview"]
           },
+          "positron.assistant.toolDetails.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.toolDetails.enable%"
+          },
           "positron.assistant.useAnthropicSdk": {
             "type": "boolean",
             "default": true,

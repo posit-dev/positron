@@ -362,11 +362,11 @@ export class LanguageModelToolsService extends Disposable implements ILanguageMo
 
 	private ensureToolDetails(dto: IToolInvocation, toolResult: IToolResult, toolData: IToolData): void {
 		// --- Start Positron ---
-		const isExportChatLogsEnabled = this._configurationService.getValue<boolean>('positron.assistant.exportChatLogs.enable');
+		const areToolDetailsEnabled = this._configurationService.getValue<boolean>('positron.assistant.toolDetails.enable');
 		/*
 		if (!toolResult.toolResultDetails && toolData.alwaysDisplayInputOutput) {
 		*/
-		if (isExportChatLogsEnabled || (!toolResult.toolResultDetails && toolData.alwaysDisplayInputOutput)) {
+		if (areToolDetailsEnabled || (!toolResult.toolResultDetails && toolData.alwaysDisplayInputOutput)) {
 			// --- End Positron ---
 			toolResult.toolResultDetails = {
 				input: this.formatToolInput(dto),
