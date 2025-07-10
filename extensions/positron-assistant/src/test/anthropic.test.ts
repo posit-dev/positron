@@ -55,7 +55,7 @@ suite('AnthropicLanguageModel', () => {
 		};
 
 		// Create an instance of the AnthropicLanguageModel
-		model = new AnthropicLanguageModel(config, mockClient as unknown as Anthropic);
+		model = new AnthropicLanguageModel(config, undefined, mockClient as unknown as Anthropic);
 
 		// Create mock progress
 		progress = {
