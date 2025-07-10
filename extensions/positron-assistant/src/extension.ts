@@ -16,6 +16,7 @@ import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
 import { TokenTracker } from './tokens.js';
+import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -219,6 +220,19 @@ function registerGenerateCommitMessageCommand(context: vscode.ExtensionContext) 
 	);
 }
 
+function registerExportChatCommands(context: vscode.ExtensionContext) {
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.exportChatToFileInWorkspace', async () => {
+			await exportChatToFileInWorkspace();
+		})
+	);
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.exportChatTo', async () => {
+			await exportChatToUserSpecifiedLocation();
+		})
+	);
+}
+
 function registerAssistant(context: vscode.ExtensionContext) {
 
 	// Initialize secret storage. In web mode, we currently need to use global
@@ -242,6 +256,7 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	// Commands
 	registerConfigureModelsCommand(context, storage);
 	registerGenerateCommitMessageCommand(context);
+	registerExportChatCommands(context);
 
 	// Register mapped edits provider
 	registerMappedEditsProvider(context, participantService, log);

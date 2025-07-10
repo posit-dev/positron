@@ -197,6 +197,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
+		log.debug(`[context] Positron context for request ${request.id}:\n${JSON.stringify(positronContext, null, 2)}`);
 
 		// List of tools for use by the language model.
 		const tools: vscode.LanguageModelChatTool[] = vscode.lm.tools.filter(
@@ -258,7 +259,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		);
 
-		log.trace(`Available tools for participant ${this.id}:\n${tools.map(t => `- ${t.name}`).join('\n')}`);
+		log.debug(`[tools] Available tools for participant ${this.id}:\n${tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n')}`);
 
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
@@ -604,12 +605,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					break;
 				}
 
+				log.debug(`[tool] Invoking tool ${req.name} with input: ${JSON.stringify(req.input, null, 2)}`);
 				const result = await vscode.lm.invokeTool(req.name, {
 					input: req.input,
 					toolInvocationToken: request.toolInvocationToken,
 					model: request.model,
 					chatRequestId: request.id,
 				}, token);
+				log.debug(`[tool] Tool ${req.name} returned result: ${JSON.stringify(result.content, null, 2)}`);
 				toolResponses[req.callId] = result;
 			}
 
