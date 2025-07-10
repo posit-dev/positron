@@ -5,8 +5,10 @@
 
 import { Emitter } from '../../../../../base/common/event.js';
 import { Disposable } from '../../../../../base/common/lifecycle.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { IChatRequestRuntimeSessionEntry } from '../../common/chatModel.js';
+import { IChatService } from '../../common/chatService.js';
 import { IChatWidgetService } from '../chat.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
@@ -16,11 +18,15 @@ import { ExecutionEntryType, IExecutionHistoryService } from '../../../../servic
 export class ChatRuntimeSessionContextContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'chat.runtimeSessionContext';
 
+	private _implicitRuntimeContextEnablement = this.configurationService.getValue<{ [mode: string]: string }>('chat.implicitRuntimeContext.enabled');
+
 	constructor(
 		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IChatWidgetService private readonly chatWidgetService: IChatWidgetService,
 		@IPositronVariablesService private readonly positronVariablesService: IPositronVariablesService,
 		@IExecutionHistoryService private readonly executionHistoryService: IExecutionHistoryService,
+		@IChatService private readonly chatService: IChatService,
+		@IConfigurationService private readonly configurationService: IConfigurationService,
 	) {
 		super();
 
@@ -33,6 +39,24 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 
 		this._register(this.chatWidgetService.onDidAddWidget(async (widget) => {
 			await this.updateRuntimeContext();
+		}));
+
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('chat.implicitRuntimeContext.enabled')) {
+				this._implicitRuntimeContextEnablement = this.configurationService.getValue<{ [mode: string]: string }>('chat.implicitRuntimeContext.enabled');
+				this.updateRuntimeContext();
+			}
+		}));
+
+		this._register(this.chatService.onDidSubmitRequest(({ chatSessionId }) => {
+			const widget = this.chatWidgetService.getWidgetBySessionId(chatSessionId);
+			if (!widget?.input.runtimeContext) {
+				return;
+			}
+			if (this._implicitRuntimeContextEnablement[widget.location] === 'first' && widget.viewModel?.getItems().length !== 0) {
+				widget.input.runtimeContext.enabled = false;
+				widget.input.runtimeContext.setValue(undefined);
+			}
 		}));
 	}
 
@@ -47,7 +71,19 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 				this.positronVariablesService,
 				this.executionHistoryService
 			);
-			widget.input.runtimeContext.setValue(session);
+
+			const setting = this._implicitRuntimeContextEnablement[widget.location];
+			const isFirstInteraction = widget.viewModel?.getItems().length === 0;
+			if (setting === 'first' && !isFirstInteraction) {
+				widget.input.runtimeContext.enabled = false;
+				widget.input.runtimeContext.setValue(undefined);
+			} else if (setting === 'always' || setting === 'first' && isFirstInteraction) {
+				widget.input.runtimeContext.enabled = true;
+				widget.input.runtimeContext.setValue(session);
+			} else if (setting === 'never') {
+				widget.input.runtimeContext.enabled = false;
+				widget.input.runtimeContext.setValue(undefined);
+			}
 		}
 	}
 }

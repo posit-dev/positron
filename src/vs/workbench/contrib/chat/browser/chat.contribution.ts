@@ -165,6 +165,26 @@ configurationRegistry.registerConfiguration({
 				'panel': 'always',
 			}
 		},
+		// --- Start Positron ---
+		'chat.implicitRuntimeContext.enabled': {
+			type: 'object',
+			tags: ['experimental'],
+			description: nls.localize('chat.implicitRuntimeContext.enabled.1', "Enables automatically using the active interpreter session as chat context for specified chat locations."),
+			additionalProperties: {
+				type: 'string',
+				enum: ['never', 'first', 'always'],
+				description: nls.localize('chat.implicitRuntimeContext.value', "The value for the implicit runtime context."),
+				enumDescriptions: [
+					nls.localize('chat.implicitRuntimeContext.value.never', "Implicit session context is never enabled."),
+					nls.localize('chat.implicitRuntimeContext.value.first', "Implicit session context is enabled for the first interaction."),
+					nls.localize('chat.implicitRuntimeContext.value.always', "Implicit session context is always enabled.")
+				]
+			},
+			default: {
+				'panel': 'always',
+			}
+		},
+		// --- End Positron ---
 		'chat.editing.autoAcceptDelay': {
 			type: 'number',
 			markdownDescription: nls.localize('chat.editing.autoAcceptDelay', "Delay after which changes made by chat are automatically accepted. Values are in seconds, `0` means disabled and `100` seconds is the maximum."),
