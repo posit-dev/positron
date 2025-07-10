@@ -16,7 +16,7 @@ import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
 import { TokenTracker } from './tokens.js';
-import { exportChatToFileInWorkspace } from './utils.js';
+import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -226,7 +226,11 @@ function registerExportChatCommands(context: vscode.ExtensionContext) {
 			await exportChatToFileInWorkspace();
 		})
 	);
-	// TODO register command to select a location to export the chat to
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron-assistant.exportChatTo', async () => {
+			await exportChatToUserSpecifiedLocation();
+		})
+	);
 }
 
 function registerAssistant(context: vscode.ExtensionContext) {
