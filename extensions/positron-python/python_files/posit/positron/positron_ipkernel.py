@@ -483,6 +483,7 @@ class PositronIPyKernel(IPythonKernel):
         )
 
         warnings.showwarning = self._showwarning
+        self._show_dataexplorer_warning = True
 
         # Ignore warnings that the user can't do anything about
         warnings.filterwarnings(
@@ -498,8 +499,6 @@ class PositronIPyKernel(IPythonKernel):
             message=r"Module [^\s]+ not importable in path",
             module="jedi",
         )
-
-        warnings.filterwarnings("once", category=DataExplorerWarning)
 
         # Patch holoviews to use our custom notebook extension.
         set_holoviews_extension(self.ui_service)
@@ -578,6 +577,13 @@ class PositronIPyKernel(IPythonKernel):
         console_dir = get_tmp_directory()
         if console_dir in str(filename):
             filename = f"<positron-console-cell-{self.execution_count}>"
+
+        # switch to only show the "numpy not installed" data explorer warning only once
+        if isinstance(message, DataExplorerWarning):
+            if not self._show_dataexplorer_warning:
+                return None
+            else:
+                self._show_dataexplorer_warning = False
 
         # unless it is a DataExplorerImportWarning (which we want to show)
         # send to logs if warning is coming from Positron files
