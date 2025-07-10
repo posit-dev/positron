@@ -10,7 +10,7 @@ import { ModelConfig } from './config';
 import { isLanguageModelImagePart, LanguageModelImagePart } from './languageModelParts.js';
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
-import { log } from './extension.js';
+import { log, recordTokenUsage } from './extension.js';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -33,6 +33,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	provider: string;
 	identifier: string;
 	maxOutputTokens: number;
+	tokenCount: number = 0;
 
 	capabilities = {
 		vision: true,
@@ -58,6 +59,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 	constructor(
 		private readonly _config: ModelConfig,
+		private readonly _context?: vscode.ExtensionContext,
 		client?: Anthropic,
 	) {
 		this.name = _config.name;
@@ -93,6 +95,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			system,
 			messages: anthropicMessages,
 		};
+
 		const stream = this._client.messages.stream(body);
 
 		// Log request information - the request ID is only available upon connection.
@@ -162,6 +165,13 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 				`usage: ${JSON.stringify(message.usage)}`
 			);
 		}
+
+		// Record token usage
+		if (message.usage && this._context) {
+			const inputTokens = message.usage.input_tokens || 0;
+			const outputTokens = message.usage.output_tokens || 0;
+			recordTokenUsage(this._context, this.provider, inputTokens, outputTokens);
+		}
 	}
 
 	get providerName(): string {
@@ -189,7 +199,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		});
 	}
 
-	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
+	async provideTokenCount(text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
 		const messages: Anthropic.MessageParam[] = [];
 		if (typeof text === 'string') {
 			// For empty string, return 0 tokens

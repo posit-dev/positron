@@ -15,11 +15,13 @@ import { registerCopilotService } from './copilot.js';
 import { ALL_DOCUMENTS_SELECTOR, DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
+import { TokenTracker } from './tokens.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
 let modelDisposables: ModelDisposable[] = [];
 let assistantEnabled = false;
+let tokenTracker: TokenTracker;
 
 /** A chat or completion model provider disposable with associated configuration. */
 class ModelDisposable implements vscode.Disposable {
@@ -145,7 +147,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 		const models = availableModels.get(modelConfig.provider);
 		const modelsCopy = models ? [...models] : [];
 
-		const languageModel = newLanguageModel(modelConfig);
+		const languageModel = newLanguageModel(modelConfig, context);
 		const error = await languageModel.resolveConnection(new vscode.CancellationTokenSource().token);
 
 		if (error) {
@@ -169,7 +171,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				name: model.name,
 				maxOutputTokens: model.maxOutputTokens,
 			};
-			const languageModel = newLanguageModel(newConfig);
+			const languageModel = newLanguageModel(newConfig, context);
 
 			const modelDisp = vscode.lm.registerChatModelProvider(`${languageModel.identifier}-${model.identifier}`, languageModel, {
 				name: languageModel.name,
@@ -260,9 +262,20 @@ function registerAssistant(context: vscode.ExtensionContext) {
 	return participantService;
 }
 
+export function recordTokenUsage(context: vscode.ExtensionContext, provider: string, input: number, output: number) {
+	tokenTracker.addTokens(provider, input, output);
+}
+
+export function clearTokenUsage(context: vscode.ExtensionContext, provider: string) {
+	tokenTracker.clearTokens(provider);
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);
+
+	const tokenTrackerData = context.workspaceState.get('positron.assistant.tokenCounts');
+	tokenTracker = new TokenTracker(context);
 
 	// Check to see if the assistant is enabled
 	const enabled = vscode.workspace.getConfiguration('positron.assistant').get('enable');
