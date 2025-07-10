@@ -35,6 +35,7 @@ export class RuntimeSessionContextAttachmentWidget extends Disposable {
 		this.renderDisposables.clear();
 
 		this.domNode.classList.toggle('disabled', !this.attachment.enabled);
+		this.domNode.classList.add('runtime-session-context-attachment');
 		const label = this.resourceLabels.create(this.domNode, { supportIcons: true });
 
 		const ariaLabel = localize('chat.runtimeSessionAttachment', "Attached runtime session");
