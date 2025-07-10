@@ -1022,8 +1022,8 @@ export const POSITRON_ACTION_BAR_CHECKBOX_BORDER = registerColor('positronAction
 
 // Positron action bar toggle button highlighted border color.
 export const POSITRON_ACTION_BAR_TOGGLE_BUTTON_HIGHLIGHTED = registerColor('positronActionBar.toggleButtonHighlightedBorder', {
-	dark: null,
-	light: null,
+	dark: listInactiveSelectionBackground,
+	light: listInactiveSelectionBackground,
 	hcDark: contrastBorder,
 	hcLight: contrastBorder
 }, localize('positronActionBar.toggleButtonHighlightedBorder', "Positron action bar toggle button highlighted border color."));

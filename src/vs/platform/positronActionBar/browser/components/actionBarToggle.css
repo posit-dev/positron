@@ -15,7 +15,7 @@
 	height: 22px;
 	border: none;
 	display: grid;
-	padding: 0 1.0px;
+	padding: 0 .5px;
 	cursor: pointer;
 	border-radius: 6px;
 	align-items: center;
@@ -38,7 +38,6 @@
 	padding: 0 6px;
 	border-radius: 6px;
 	align-items: center;
-	box-sizing: border-box;
 	justify-content: center;
 	border: 1px solid transparent;
 }

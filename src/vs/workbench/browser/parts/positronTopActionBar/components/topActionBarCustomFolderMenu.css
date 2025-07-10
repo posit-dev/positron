@@ -13,8 +13,8 @@
 	grid-template-columns: 1fr 1fr;
 	height: var(--vscode-positronActionBar-iconSize);
 	color: var(--vscode-positronActionBar-foreground);
+	background-color: var(--vscode-positronActionBar-background);
 	border: 1px solid var(--vscode-positronActionBar-selectBorder);
-	background-color: var(--vscode-positronActionBar-selectBoxBackground);
 }
 
 .top-action-bar-custom-folder-menu:hover {
