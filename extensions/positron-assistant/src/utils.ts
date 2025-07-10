@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as ai from 'ai';
+import * as positron from 'positron';
 import { LanguageModelCacheBreakpoint, LanguageModelCacheBreakpointType, LanguageModelDataPartMimeType, PositronAssistantToolName } from './types.js';
 import { isLanguageModelImagePart } from './languageModelParts.js';
 import { log } from './extension.js';
