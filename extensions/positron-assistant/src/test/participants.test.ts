@@ -149,7 +149,7 @@ ${c.shell}
 </shell>
 
 <plots>
-A plot is visible.
+${c.plots!.hasPlots ? 'A plot is visible.' : ''}
 </plots>
 
 <version>
