@@ -119,8 +119,10 @@ class MockRuntimeSessionService implements Partial<IRuntimeSessionService> {
 	private _sessions: Map<string, ILanguageRuntimeSession> = new Map();
 	private _foregroundSession: ILanguageRuntimeSession | undefined;
 	private _onDidChangeForegroundSession = new Emitter<ILanguageRuntimeSession | undefined>();
+	private _onDidStartRuntime = new Emitter<ILanguageRuntimeSession>();
 
 	onDidChangeForegroundSession = this._onDidChangeForegroundSession.event;
+	onDidStartRuntime = this._onDidStartRuntime.event;
 
 	get foregroundSession() { return this._foregroundSession; }
 	get activeSessions() { return Array.from(this._sessions.values()); }
