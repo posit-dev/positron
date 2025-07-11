@@ -33,6 +33,7 @@ import { ILanguageRuntimeService } from '../../../services/languageRuntime/commo
 import { createSuggestedFileNameForPlot, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 export interface IPositronPlotsEditorOptions extends IEditorOptions {
 }
@@ -106,6 +107,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		@IPreferencesService private readonly _preferencesService: IPreferencesService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IHoverService private readonly _hoverService: IHoverService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
@@ -130,7 +132,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 	private renderContainer(plotClient: IPositronPlotClient): void {
 		if (!this._reactRenderer) {
-			this._reactRenderer = new PositronReactRenderer(this._container);
+			this._reactRenderer = this._instantiationService.createInstance(PositronReactRenderer, this._container);
 		}
 
 		this._reactRenderer.render(

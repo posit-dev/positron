@@ -49,15 +49,6 @@ export class PositronHistoryViewPane extends ViewPane {
 		this._register(this.onDidChangeBodyVisibility(() => this.onDidChangeVisibility(this.isBodyVisible())));
 	}
 
-	public override dispose(): void {
-		if (this.positronReactRenderer) {
-			this.positronReactRenderer.destroy();
-			this.positronReactRenderer = undefined;
-		}
-
-		super.dispose();
-	}
-
 	//#endregion Constructor & Dispose
 
 	//#region Protected Overrides
@@ -67,7 +58,7 @@ export class PositronHistoryViewPane extends ViewPane {
 		super.renderBody(container);
 
 		// Render the component.
-		this.positronReactRenderer = new PositronReactRenderer(this.element);
+		this.positronReactRenderer = this._register(this.instantiationService.createInstance(PositronReactRenderer, this.element));
 		this.positronReactRenderer.render(
 			<TestContent message='History React' />
 		);

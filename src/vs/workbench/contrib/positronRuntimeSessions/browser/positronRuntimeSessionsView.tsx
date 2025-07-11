@@ -232,8 +232,7 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 		container.appendChild(this._positronSessionsContainer);
 
 		// Create the PositronReactRenderer for the PositronSessions component and render it.
-		this._positronReactRenderer = new PositronReactRenderer(this._positronSessionsContainer);
-		this._register(this._positronReactRenderer);
+		this._positronReactRenderer = this._register(this.instantiationService.createInstance(PositronReactRenderer, this._positronSessionsContainer));
 		this._positronReactRenderer.render(
 			<PositronSessions
 				accessibilityService={this._accessibilityService}
