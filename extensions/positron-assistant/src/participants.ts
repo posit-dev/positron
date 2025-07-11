@@ -16,7 +16,7 @@ import { PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
-import { log } from './extension.js';
+import { log, getRequestTokenUsage } from './extension.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -286,12 +286,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		}
 
 		// Send the request to the language model.
-		await this.sendLanguageModelRequest(request, response, token, messages, tools, system);
+		const tokenUsage = await this.sendLanguageModelRequest(request, response, token, messages, tools, system);
 
 		return {
 			metadata: {
 				// Attach the model ID as metadata so that we can use the same model in the followup provider.
-				modelId: request.model.id
+				modelId: request.model.id,
+				// Include token usage if available
+				tokenUsage: tokenUsage
 			},
 		};
 	}
@@ -544,7 +546,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[],
 		tools: vscode.LanguageModelChatTool[],
 		system: string,
-	): Promise<void> {
+	): Promise<{ inputTokens?: number; outputTokens?: number } | undefined> {
 		if (token.isCancellationRequested) {
 			return;
 		}
@@ -560,6 +562,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			modelOptions: {
 				toolInvocationToken: request.toolInvocationToken,
 				system,
+				// Pass the request ID through modelOptions for token usage tracking
+				requestId: request.id,
 			},
 		}, token);
 
@@ -598,6 +602,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			await textProcessor.flush();
 		}
 
+		// Get actual token usage from the registry
+		const tokenUsage = getRequestTokenUsage(request.id);
+
 		// If we do have tool requests to follow up on, use vscode.lm.invokeTool recursively
 		if (toolRequests.length > 0) {
 			for (const req of toolRequests) {
@@ -628,6 +635,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			];
 			return this.sendLanguageModelRequest(request, response, token, newMessages, tools, system);
 		}
+
+		// Return token usage information
+		return tokenUsage;
 	}
 
 	/**

@@ -625,6 +625,12 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			}
 		}
 
+		// --- Start Positron ---
+		if (isResponseVM(element) && element.tokenUsage && element.isComplete) {
+			templateData.value.appendChild(dom.$('.token-usage', undefined, localize('tokenUsage', "Tokens: ↑{0} ↓{1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens)));
+		}
+		// --- End Positron ---
+
 		const newHeight = templateData.rowContainer.offsetHeight;
 		const fireEvent = !element.currentRenderedHeight || element.currentRenderedHeight !== newHeight;
 		element.currentRenderedHeight = newHeight;
