@@ -23,6 +23,7 @@ import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from './
 /**
  * PositronDataExplorerServices interface.
  */
+// HERE HERE HERE
 export interface PositronDataExplorerServices extends PositronActionBarServices {
 	readonly accessibilityService: IAccessibilityService;
 	readonly clipboardService: IClipboardService;

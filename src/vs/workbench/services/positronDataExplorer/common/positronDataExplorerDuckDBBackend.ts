@@ -16,7 +16,9 @@ import {
 	DataExplorerBackendRequest,
 	DataExplorerFrontendEvent,
 	DataUpdateEvent,
+	DesiredCodeTypes,
 	ExportDataSelectionParams,
+	ExportedCode,
 	ExportedData,
 	ExportFormat,
 	FilterResult,
@@ -204,6 +206,27 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 				selection,
 				format
 			} satisfies ExportDataSelectionParams
+		});
+	}
+
+	async getCodeTypes(): Promise<DesiredCodeTypes> {
+		return this._execRpc<DesiredCodeTypes>({
+			method: DataExplorerBackendRequest.GetCodeTypes,
+			uri: this.uri.toString(),
+			params: {}
+		});
+	}
+
+	async copyAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: string): Promise<ExportedCode> {
+		return this._execRpc<ExportedCode>({
+			method: DataExplorerBackendRequest.CopyAsCode,
+			uri: this.uri.toString(),
+			params: {
+				column_filters: columnFilters,
+				row_filters: rowFilters,
+				sort_keys: sortKeys,
+				export_options: exportOptions
+			}
 		});
 	}
 

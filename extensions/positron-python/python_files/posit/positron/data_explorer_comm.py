@@ -252,6 +252,27 @@ class ExportedData(BaseModel):
     )
 
 
+class ExportedCode(BaseModel):
+    """
+    Resulting code
+    """
+
+    data: Optional[StrictStr] = Field(
+        default=None,
+        description="Exported code as a string suitable for copy and paste",
+    )
+
+
+class DesiredCodeTypes(BaseModel):
+    """
+    Resulting code types
+    """
+
+    code_types: List[StrictStr] = Field(
+        description="tktk",
+    )
+
+
 class FilterResult(BaseModel):
     """
     The result of applying filters to a table
@@ -1208,6 +1229,12 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
 
+    # Export filters and sort keys as code
+    CopyAsCode = "copy_as_code"
+
+    # Get code syntaxes supported for export
+    GetCodeTypes = "get_code_types"
+
     # Set column filters to select subset of table columns
     SetColumnFilters = "set_column_filters"
 
@@ -1422,6 +1449,64 @@ class ExportDataSelectionRequest(BaseModel):
     )
 
 
+class CopyAsCodeParams(BaseModel):
+    """
+    Export filters and sort keys as code in different formats like pandas,
+    polars, data.table, dplyr
+    """
+
+    column_filters: List[ColumnFilter] = Field(
+        description="Zero or more column filters to apply",
+    )
+
+    row_filters: List[RowFilter] = Field(
+        description="Zero or more row filters to apply",
+    )
+
+    sort_keys: List[ColumnSortKey] = Field(
+        description="Zero or more sort keys to apply",
+    )
+
+    export_code_syntax: StrictStr = Field(
+        description="Exported code format",
+    )
+
+
+class CopyAsCodeRequest(BaseModel):
+    """
+    Export filters and sort keys as code in different formats like pandas,
+    polars, data.table, dplyr
+    """
+
+    params: CopyAsCodeParams = Field(
+        description="Parameters to the CopyAsCode method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.CopyAsCode] = Field(
+        description="The JSON-RPC method name (copy_as_code)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class GetCodeTypesRequest(BaseModel):
+    """
+    tktk
+    """
+
+    method: Literal[DataExplorerBackendRequest.GetCodeTypes] = Field(
+        description="The JSON-RPC method name (get_code_types)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class SetColumnFiltersParams(BaseModel):
     """
     Set or clear column filters on table, replacing any previous filters
@@ -1575,6 +1660,8 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetDataValuesRequest,
         GetRowLabelsRequest,
         ExportDataSelectionRequest,
+        CopyAsCodeRequest,
+        GetCodeTypesRequest,
         SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
@@ -1622,6 +1709,10 @@ OpenDatasetResult.update_forward_refs()
 SearchSchemaResult.update_forward_refs()
 
 ExportedData.update_forward_refs()
+
+ExportedCode.update_forward_refs()
+
+DesiredCodeTypes.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
@@ -1740,6 +1831,12 @@ GetRowLabelsRequest.update_forward_refs()
 ExportDataSelectionParams.update_forward_refs()
 
 ExportDataSelectionRequest.update_forward_refs()
+
+CopyAsCodeParams.update_forward_refs()
+
+CopyAsCodeRequest.update_forward_refs()
+
+GetCodeTypesRequest.update_forward_refs()
 
 SetColumnFiltersParams.update_forward_refs()
 

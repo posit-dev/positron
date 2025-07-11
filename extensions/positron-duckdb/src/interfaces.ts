@@ -1448,6 +1448,7 @@ export enum DataExplorerBackendRequest {
 	GetDataValues = 'get_data_values',
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
+	ExportToCode = 'export_to_code',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',

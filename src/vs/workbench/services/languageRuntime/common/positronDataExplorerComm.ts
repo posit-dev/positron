@@ -55,6 +55,28 @@ export interface ExportedData {
 }
 
 /**
+ * Resulting code
+ */
+export interface ExportedCode {
+	/**
+	 * Exported code as a string suitable for copy and paste
+	 */
+	data?: string;
+
+}
+
+/**
+ * Resulting code types
+ */
+export interface DesiredCodeTypes {
+	/**
+	 * tktk
+	 */
+	code_types: Array<string>;
+
+}
+
+/**
  * The result of applying filters to a table
  */
 export interface FilterResult {
@@ -1287,6 +1309,31 @@ export interface ExportDataSelectionParams {
 }
 
 /**
+ * Parameters for the CopyAsCode method.
+ */
+export interface CopyAsCodeParams {
+	/**
+	 * Zero or more column filters to apply
+	 */
+	column_filters: Array<ColumnFilter>;
+
+	/**
+	 * Zero or more row filters to apply
+	 */
+	row_filters: Array<RowFilter>;
+
+	/**
+	 * Zero or more sort keys to apply
+	 */
+	sort_keys: Array<ColumnSortKey>;
+
+	/**
+	 * Exported code format
+	 */
+	export_code_syntax: string;
+}
+
+/**
  * Parameters for the SetColumnFilters method.
  */
 export interface SetColumnFiltersParams {
@@ -1402,6 +1449,8 @@ export enum DataExplorerBackendRequest {
 	GetDataValues = 'get_data_values',
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
+	CopyAsCode = 'copy_as_code',
+	GetCodeTypes = 'get_code_types',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
@@ -1508,6 +1557,35 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 */
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData> {
 		return super.performRpc('export_data_selection', ['selection', 'format'], [selection, format]);
+	}
+
+	/**
+	 * Export filters and sort keys as code
+	 *
+	 * Export filters and sort keys as code in different formats like pandas,
+	 * polars, data.table, dplyr
+	 *
+	 * @param columnFilters Zero or more column filters to apply
+	 * @param rowFilters Zero or more row filters to apply
+	 * @param sortKeys Zero or more sort keys to apply
+	 * @param exportCodeSyntax Exported code format
+	 *
+	 * @returns Resulting code
+	 */
+	copyAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportCodeSyntax: string): Promise<ExportedCode> {
+		return super.performRpc('copy_as_code', ['column_filters', 'row_filters', 'sort_keys', 'export_code_syntax'], [columnFilters, rowFilters, sortKeys, exportCodeSyntax]);
+	}
+
+	/**
+	 * Get code syntaxes supported for export
+	 *
+	 * tktk
+	 *
+	 *
+	 * @returns Resulting code types
+	 */
+	getCodeTypes(): Promise<DesiredCodeTypes> {
+		return super.performRpc('get_code_types', [], []);
 	}
 
 	/**
