@@ -9,18 +9,6 @@
 	flex-direction: column;
 	color: var(--vscode-positronVariables-foreground);
 	background: var(--vscode-positronVariables-background);
-
-	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
-	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
-	--positronActionBar-background: var(--vscode-positronSideActionBar-background);
-	--positronActionBar-foreground: var(--vscode-positronSideActionBar-foreground);
-	--positronActionBar-hoverBackground: var(--vscode-positronSideActionBar-hoverBackground);
-	--positronActionBar-disabledForeground: var(--vscode-positronSideActionBar-disabledForeground);
-	--positronActionBar-checkboxBorder: var(--vscode-positronSideActionBar-checkboxBorder);
-	--positronActionBar-textInputBackground: var(--vscode-positronSideActionBar-textInputBackground);
-	--positronActionBar-textInputBorder: var(--vscode-positronSideActionBar-textInputBorder);
-	--positronActionBar-textInputSelectionForeground: var(--vscode-positronSideActionBar-textInputSelectionForeground);
-	--positronActionBar-textInputSelectionBackground: var(--vscode-positronSideActionBar-textInputSelectionBackground);
 }
 
 .positron-variables .positron-variables-action-bars {

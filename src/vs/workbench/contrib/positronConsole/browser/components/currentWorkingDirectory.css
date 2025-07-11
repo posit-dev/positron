@@ -8,12 +8,12 @@
 	font-size: 12px;
 	overflow: hidden;
 	align-items: center;
-	color: var(--positronActionBar-foreground);
+	color: var(--vscode-positronActionBar-foreground);
 }
 
 .current-working-directory-label .codicon {
 	padding-top: 1px;
-	color: var(--positronActionBar-foreground);
+	color: var(--vscode-positronActionBar-foreground);
 }
 
 .current-working-directory-label .label {

@@ -27,7 +27,7 @@
 }
 
 .positron-connections-list .action-bar-button.disabled .action-bar-button-label {
-	color: var(--vscode-positronSideActionBar-disabledForeground);
+	color: var(--vscode-positronActionBar-disabledForeground);
 }
 
 .connections-list-item {
@@ -65,7 +65,7 @@
 }
 
 .connections-list-item .col-status.disabled {
-	color: var(--vscode-positronSideActionBar-disabledForeground);
+	color: var(--vscode-positronActionBar-disabledForeground);
 }
 
 .connections-list-item .col-icon {

@@ -4,5 +4,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-sessions .action-bars {
-	height: var(--positronActionBar-height);
+	height: var(--vscode-positronActionBar-height);
 }
