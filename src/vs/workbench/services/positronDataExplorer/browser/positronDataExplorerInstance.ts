@@ -434,19 +434,10 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Export filters as code.
 	 * @returns A Promise<void> that resolves when generated code is copied to clipboard.
 	 */
-	async copyAsCode(): Promise<void> {
+	async generateCode(): Promise<string | undefined> {
 		const generatedCode = await this._dataExplorerClientInstance.copyAsCode();
-		if (!generatedCode.data) {
-			this._notificationService.error(
-				localize(
-					'positron.dataExplorer.exportAsCodeFailed',
-					'Failed to export data as code.'
-				)
-			);
-			return;
-		}
-		// Write the code to the clipboard.
-		this._clipboardService.writeText(generatedCode.data);
+
+		return generatedCode.data;
 
 	}
 

@@ -66,6 +66,17 @@ export interface ExportedCode {
 }
 
 /**
+ * Resulting code types
+ */
+export interface DesiredCodeTypes {
+	/**
+	 * tktk
+	 */
+	code_types: Array<string>;
+
+}
+
+/**
  * The result of applying filters to a table
  */
 export interface FilterResult {
@@ -1181,17 +1192,6 @@ export enum ColumnHistogramParamsMethod {
 }
 
 /**
- * Possible values for CodeSyntax
- */
-export enum CodeSyntax {
-	Datatable = 'datatable',
-	Dplyr = 'dplyr',
-	Pandas = 'pandas',
-	Polars = 'polars',
-	BaseR = 'baseR'
-}
-
-/**
  * Possible values for Kind in TableSelection
  */
 export enum TableSelectionKind {
@@ -1330,7 +1330,7 @@ export interface CopyAsCodeParams {
 	/**
 	 * Exported code format
 	 */
-	code_syntax: string;
+	export_code_syntax: string;
 }
 
 /**
@@ -1450,6 +1450,7 @@ export enum DataExplorerBackendRequest {
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
 	CopyAsCode = 'copy_as_code',
+	GetCodeTypes = 'get_code_types',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
@@ -1567,12 +1568,24 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * @param columnFilters Zero or more column filters to apply
 	 * @param rowFilters Zero or more row filters to apply
 	 * @param sortKeys Zero or more sort keys to apply
-	 * @param codeSyntax Exported code format
+	 * @param exportCodeSyntax Exported code format
 	 *
 	 * @returns Resulting code
 	 */
-	copyAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<ExportedCode> {
-		return super.performRpc('copy_as_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax'], [columnFilters, rowFilters, sortKeys, codeSyntax]);
+	copyAsCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportCodeSyntax: string): Promise<ExportedCode> {
+		return super.performRpc('copy_as_code', ['column_filters', 'row_filters', 'sort_keys', 'export_code_syntax'], [columnFilters, rowFilters, sortKeys, exportCodeSyntax]);
+	}
+
+	/**
+	 * Get code syntaxes supported for export
+	 *
+	 * tktk
+	 *
+	 *
+	 * @returns Resulting code types
+	 */
+	getCodeTypes(): Promise<DesiredCodeTypes> {
+		return super.performRpc('get_code_types', [], []);
 	}
 
 	/**

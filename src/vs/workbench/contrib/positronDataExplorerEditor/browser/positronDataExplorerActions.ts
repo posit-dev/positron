@@ -54,7 +54,7 @@ export const enum PositronDataExplorerCommandId {
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
 	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
-	ExportAsCodeAction = 'workbench.action.positronDataExplorer.exportAsCode'
+	CopyAsCodeAction = 'workbench.action.positronDataExplorer.copyAsCode'
 }
 
 /**
@@ -692,16 +692,16 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 /**
  * PositronDataExplorerExportToCodeAction action.
  */
-class PositronDataExplorerExportAsCodeAction extends Action2 {
+class PositronDataExplorerCopyAsCodeAction extends Action2 {
 	/**
 	 * Constructor.
 	 */
 	constructor() {
 		super({
-			id: PositronDataExplorerCommandId.ExportAsCodeAction,
+			id: PositronDataExplorerCommandId.CopyAsCodeAction,
 			title: {
-				value: localize('positronDataExplorer.exportAsCode', 'Export as Code'),
-				original: 'Export as Code'
+				value: localize('positronDataExplorer.copyAsCode', 'Copy as Code'),
+				original: 'Copy as Code'
 			},
 			positronActionBarOptions: {
 				controlType: 'button',
@@ -732,31 +732,15 @@ class PositronDataExplorerExportAsCodeAction extends Action2 {
 	 * Runs the action.
 	 * @param accessor The services accessor.
 	 */
-	async run(accessor: ServicesAccessor): Promise<void> {
+	async run(accessor: ServicesAccessor): Promise<string | undefined> {
 		// Access the services we need.
 		const editorService = accessor.get(IEditorService);
-		const notificationService = accessor.get(INotificationService);
 		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
 
 		// Get the Positron data explorer editor.
 		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
 			editorService.activeEditorPane
 		);
-
-		/**
-		 * Notifies the user that clear sorting failed.
-		 */
-		const notifyUserThatCodeCopied = () => {
-			// Notify the user.
-			notificationService.notify({
-				severity: Severity.Info,
-				message: localize(
-					'positron.dataExplorer.exportAsCode.copiedToClipboard',
-					"Successfully copied code to clipboard."
-				),
-				sticky: false
-			});
-		};
 
 		// Make sure that the Positron data explorer editor was returned.
 		if (!positronDataExplorerEditor) {
@@ -780,10 +764,9 @@ class PositronDataExplorerExportAsCodeAction extends Action2 {
 		if (!positronDataExplorerInstance) {
 			return;
 		}
-
+		const code = await positronDataExplorerInstance.generateCode();
 		// Export filters as code.
-		await positronDataExplorerInstance.copyAsCode();
-		notifyUserThatCodeCopied();
+		return code
 	}
 }
 
@@ -886,5 +869,5 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
-	registerAction2(PositronDataExplorerExportAsCodeAction);
+	registerAction2(PositronDataExplorerCopyAsCodeAction);
 }

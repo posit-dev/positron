@@ -169,23 +169,6 @@ class ColumnHistogramParamsMethod(str, enum.Enum):
 
 
 @enum.unique
-class CodeSyntax(str, enum.Enum):
-    """
-    Possible values for CodeSyntax
-    """
-
-    Datatable = "datatable"
-
-    Dplyr = "dplyr"
-
-    Pandas = "pandas"
-
-    Polars = "polars"
-
-    BaseR = "baseR"
-
-
-@enum.unique
 class TableSelectionKind(str, enum.Enum):
     """
     Possible values for Kind in TableSelection
@@ -277,6 +260,16 @@ class ExportedCode(BaseModel):
     data: Optional[StrictStr] = Field(
         default=None,
         description="Exported code as a string suitable for copy and paste",
+    )
+
+
+class DesiredCodeTypes(BaseModel):
+    """
+    Resulting code types
+    """
+
+    code_types: List[StrictStr] = Field(
+        description="tktk",
     )
 
 
@@ -1239,6 +1232,9 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Export filters and sort keys as code
     CopyAsCode = "copy_as_code"
 
+    # Get code syntaxes supported for export
+    GetCodeTypes = "get_code_types"
+
     # Set column filters to select subset of table columns
     SetColumnFilters = "set_column_filters"
 
@@ -1471,7 +1467,7 @@ class CopyAsCodeParams(BaseModel):
         description="Zero or more sort keys to apply",
     )
 
-    code_syntax: StrictStr = Field(
+    export_code_syntax: StrictStr = Field(
         description="Exported code format",
     )
 
@@ -1488,6 +1484,21 @@ class CopyAsCodeRequest(BaseModel):
 
     method: Literal[DataExplorerBackendRequest.CopyAsCode] = Field(
         description="The JSON-RPC method name (copy_as_code)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class GetCodeTypesRequest(BaseModel):
+    """
+    tktk
+    """
+
+    method: Literal[DataExplorerBackendRequest.GetCodeTypes] = Field(
+        description="The JSON-RPC method name (get_code_types)",
     )
 
     jsonrpc: str = Field(
@@ -1650,6 +1661,7 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetRowLabelsRequest,
         ExportDataSelectionRequest,
         CopyAsCodeRequest,
+        GetCodeTypesRequest,
         SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
@@ -1699,6 +1711,8 @@ SearchSchemaResult.update_forward_refs()
 ExportedData.update_forward_refs()
 
 ExportedCode.update_forward_refs()
+
+DesiredCodeTypes.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
@@ -1821,6 +1835,8 @@ ExportDataSelectionRequest.update_forward_refs()
 CopyAsCodeParams.update_forward_refs()
 
 CopyAsCodeRequest.update_forward_refs()
+
+GetCodeTypesRequest.update_forward_refs()
 
 SetColumnFiltersParams.update_forward_refs()
 

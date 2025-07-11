@@ -254,13 +254,13 @@
 					}
 				},
 				{
-					"name": "code_syntax",
+					"name": "export_code_syntax",
 					"description": "Exported code format",
 					"required": true,
 					"schema": {
 						"type": "string",
 						"items": {
-							"$ref": "#/components/schemas/code_syntax"
+							"$ref": "#/components/schemas/export_code_syntax"
 						}
 					}
 				}
@@ -277,6 +277,31 @@
 						"data": {
 							"type": "string",
 							"description": "Exported code as a string suitable for copy and paste"
+						}
+					}
+				}
+			}
+		},
+{
+			"name": "get_code_types",
+			"summary": "Get code syntaxes supported for export",
+			"description": "tktk",
+			"params": [],
+			"result": {
+				"schema": {
+					"name": "desired_code_types",
+					"type": "object",
+					"description": "Resulting code types",
+					"required": [
+						"code_types"
+					],
+					"properties": {
+						"code_types": {
+							"type": "array",
+							"description": "tktk",
+							"items": {
+								"type": "string"
+							}
 						}
 					}
 				}
@@ -1360,16 +1385,9 @@
 					}
 				}
 			},
-			"code_syntax": {
+			"export_code_syntax": {
 				"type": "string",
-				"description": "The syntax for code",
-				"enum": [
-					"datatable",
-					"dplyr",
-					"pandas",
-					"polars",
-					"baseR"
-				]
+				"description": "The syntax for code"
 			},
 			"supported_features": {
 				"type": "object",

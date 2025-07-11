@@ -25,6 +25,7 @@ import { CustomContextMenuItem } from '../../../../../positronComponents/customC
 import { CustomContextMenuSeparator } from '../../../../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../../positronComponents/customContextMenu/customContextMenu.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../../../../../services/positronDataExplorer/common/positronDataExplorerExperimentalConfig.js';
+import { CopyAsCodeModalPopup } from '../copyAsCodeModalPopup/copyAsCodeModalPopup.js';
 
 /**
  * Constants.
@@ -253,9 +254,34 @@ export const RowFilterBar = () => {
 		return () => disposableStore.dispose();
 	}, [addRowFilterHandler, context.instance, rowFilterDescriptors.length]);
 
+	const handleCopyAsCodePressed = async () => {
+		// Create the renderer.
+		const renderer = new PositronModalReactRenderer({
+			keybindingService: context.keybindingService,
+			layoutService: context.layoutService,
+			container: context.layoutService.getContainer(DOM.getWindow(ref.current)),
+			parent: ref.current
+		});
+
+		renderer.render(<CopyAsCodeModalPopup
+			anchorElement={addFilterButtonRef.current}
+			commandService={context.commandService}
+			dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
+			renderer={renderer}
+		/>)
+	}
+
 	// Render.
 	return (
 		<div ref={ref} className='row-filter-bar'>
+			<Button
+				ref={addFilterButtonRef}
+				ariaLabel={(() => localize('positron.dataExplorer.copyAsCode', "Copy as Code"))()}
+				className='copy-as-code-button'
+				onPressed={handleCopyAsCodePressed}
+			>
+				Copy as Code
+			</Button>
 			<Button
 				ref={rowFilterButtonRef}
 				ariaLabel={(() => localize('positron.dataExplorer.filtering', "Filtering"))()}

@@ -44,13 +44,14 @@ from .data_explorer_comm import (
     ColumnSortKey,
     ColumnSummaryStats,
     ColumnValue,
+    CopyAsCodeRequest,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     DataSelectionCellRange,
     DataSelectionIndices,
     DataSelectionRange,
     DataSelectionSingleCell,
-    ExportAsCodeRequest,
+    DesiredCodeTypes,
     ExportDataSelectionFeatures,
     ExportDataSelectionRequest,
     ExportedCode,
@@ -64,6 +65,7 @@ from .data_explorer_comm import (
     FilterSetMembership,
     FilterTextSearch,
     FormatOptions,
+    GetCodeTypesRequest,
     GetColumnProfilesFeatures,
     GetColumnProfilesRequest,
     GetDataValuesRequest,
@@ -405,7 +407,16 @@ class DataExplorerTableView:
         else:
             raise NotImplementedError(f"Unknown data export: {kind}")
 
-    def export_as_code(self, request: ExportAsCodeRequest):
+    def get_code_types(self, request: GetCodeTypesRequest):
+        """
+        Returns the supported code types for exporting data.
+        This is a placeholder implementation that returns an empty list.
+        """
+        # In a real implementation, this would return the supported code types
+        # based on the backend capabilities or configuration.
+        return DesiredCodeTypes(code_types=['hello']).dict()
+
+    def copy_as_code(self, request: CopyAsCodeRequest):
         return ExportedCode(data="import pandas as pd\n\n# TODO: Implement export to code").dict()
 
     def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
