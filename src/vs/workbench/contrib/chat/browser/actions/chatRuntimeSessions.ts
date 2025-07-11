@@ -42,7 +42,7 @@ export async function showRuntimeSessionsPick(accessor: ServicesAccessor, _widge
 		.sort((a, b) => a.metadata.createdTimestamp - b.metadata.createdTimestamp);
 
 	// Filter active sessions to only include those that are in a valid state
-	const activeRuntimeItems: IQuickPickItem[] = sortedActiveSessions.filter(
+	const validSessions = sortedActiveSessions.filter(
 		(session) => {
 			switch (session.getRuntimeState()) {
 				case RuntimeState.Initializing:
@@ -59,43 +59,81 @@ export async function showRuntimeSessionsPick(accessor: ServicesAccessor, _widge
 					return false;
 			}
 		}
-	).map(
-		(session) => {
-			const isForegroundSession =
-				session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
-			let label = session.dynState.sessionName;
-			if (session.metadata.sessionMode === 'notebook') {
-				// use the base name of the notebook URI for notebook sessions
-				label = session.metadata.notebookUri ? basename(session.metadata.notebookUri) : label;
-			}
-			return {
-				id: session.sessionId,
-				label,
-				detail: session.runtimeMetadata.runtimePath,
-				iconPath: {
-					dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
-				},
-				picked: isForegroundSession,
-			};
-		}
 	);
 
-	// Show quick pick to select an active runtime or show all runtimes.
-	const quickPickItems: QuickPickItem[] = [
-		{
-			label: localize('positron.languageRuntime.activeSessions', 'Active Interpreter Sessions'),
-			type: 'separator',
-		},
-		...activeRuntimeItems,
-		{
-			type: 'separator'
+	// Separate console and notebook sessions
+	const consoleSessions = validSessions.filter(session => session.metadata.sessionMode !== 'notebook');
+	const notebookSessions = validSessions.filter(session => session.metadata.sessionMode === 'notebook');
+
+	// Map sessions to quick pick items
+	const mapSessionToQuickPickItem = (session: any) => {
+		const isForegroundSession =
+			session.sessionId === runtimeSessionService.foregroundSession?.sessionId;
+		let label = session.dynState.sessionName;
+		if (session.metadata.sessionMode === 'notebook') {
+			// use the base name of the notebook URI for notebook sessions
+			label = session.metadata.notebookUri ? basename(session.metadata.notebookUri) : label;
 		}
-	];
+		return {
+			id: session.sessionId,
+			label,
+			detail: session.runtimeMetadata.runtimePath,
+			iconPath: {
+				dark: URI.parse(`data:image/svg+xml;base64, ${session.runtimeMetadata.base64EncodedIconSvg}`),
+			},
+			picked: isForegroundSession,
+		};
+	};
+
+	const consoleSessionItems = consoleSessions.map(mapSessionToQuickPickItem);
+	const notebookSessionItems = notebookSessions.map(mapSessionToQuickPickItem);
+
+	// Show quick pick to select an active runtime or show all runtimes.
+	const quickPickItems: QuickPickItem[] = [];
+
+	// Add console sessions section if there are any
+	if (consoleSessionItems.length > 0) {
+		quickPickItems.push(
+			{
+				label: localize('positron.languageRuntime.consoleSessions', 'Console Sessions'),
+				type: 'separator',
+			},
+			...consoleSessionItems
+		);
+	}
+
+	// Add notebook sessions section if there are any
+	if (notebookSessionItems.length > 0) {
+		// Add separator only if we already have console sessions
+		if (consoleSessionItems.length > 0) {
+			quickPickItems.push({
+				type: 'separator'
+			});
+		}
+		quickPickItems.push(
+			{
+				label: localize('positron.languageRuntime.notebookSessions', 'Notebook Sessions'),
+				type: 'separator',
+			},
+			...notebookSessionItems
+		);
+	}
+
+	// Add final separator if we have any sessions
+	if (quickPickItems.length > 0) {
+		quickPickItems.push({
+			type: 'separator'
+		});
+	}
+
+	// Find the picked item from both console and notebook sessions
+	const allSessionItems = [...consoleSessionItems, ...notebookSessionItems];
+	const pickedItem = allSessionItems.find(item => item.picked);
 
 	const result = await quickInputService.pick(quickPickItems, {
 		title: localize('positron.languageRuntime.selectSession', 'Select Interpreter Session'),
 		canPickMany: false,
-		activeItem: activeRuntimeItems.filter(item => item.picked)[0]
+		activeItem: pickedItem
 	});
 
 	// Handle the user's selection.
