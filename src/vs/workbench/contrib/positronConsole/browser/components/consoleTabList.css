@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .tabs-container {
-	border-top: 1px solid var(--positronActionBar-border);
+	border-top: 1px solid var(--vscode-positronActionBar-border);
 	background-color: var(--vscode-tab-inactiveBackground);
 	flex-grow: 1;
 	overflow-y: auto;

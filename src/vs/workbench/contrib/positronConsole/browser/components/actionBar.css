@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-console .action-bar {
-	height: var(--positronActionBar-height);
+	height: var(--vscode-positronActionBar-height);
 }
 
 .state-label {

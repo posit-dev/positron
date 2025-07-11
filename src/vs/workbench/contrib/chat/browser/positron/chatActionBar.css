@@ -1,21 +1,16 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 .chat-action-bar-container {
-	height: var(--positronActionBar-height);
+	height: var(--vscode-positronActionBar-height);
 }
 
 .chat-action-bar {
 	margin-left: 5px;
 	display: flex;
 	align-items: center;
-	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
-	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
-	--positronActionBar-foreground: var(--vscode-positronSideActionBar-foreground);
-	--positronActionBar-hoverBackground: var(--vscode-positronSideActionBar-hoverBackground);
-	--positronActionBar-disabledForeground: var(--vscode-positronSideActionBar-disabledForeground);
 }
 
 .chat-action-bar svg.language-model.icon,

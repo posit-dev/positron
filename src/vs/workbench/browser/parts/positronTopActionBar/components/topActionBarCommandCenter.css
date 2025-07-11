@@ -9,15 +9,15 @@
 	cursor: pointer;
 	border-radius: 4px;
 	box-sizing: border-box;
-	height: var(--positronActionBar-iconSize);
+	height: var(--vscode-positronActionBar-iconSize);
 	grid-template-columns: 1fr min-content 1fr;
-	color: var(--positronActionBar-foreground);
-	border: 1px solid var(--vscode-positronTopActionBar-selectBorder);
-	background-color: var(--vscode-positronTopActionBar-selectBoxBackground);
+	color: var(--vscode-positronActionBar-foreground);
+	border: 1px solid var(--vscode-positronActionBar-selectBorder);
+	background-color: var(--vscode-positronActionBar-selectBoxBackground);
 }
 
 .top-action-bar-command-center:hover {
-	background-color: var(--positronActionBar-hoverBackground);
+	background-color: var(--vscode-positronActionBar-hoverBackground);
 }
 
 .top-action-bar-command-center .left {
@@ -41,7 +41,7 @@
 	align-items: center;
 	background: transparent;
 	justify-content: center;
-	color: var(--positronActionBar-foreground);
+	color: var(--vscode-positronActionBar-foreground);
 }
 
 .top-action-bar-command-center .center .search:focus {

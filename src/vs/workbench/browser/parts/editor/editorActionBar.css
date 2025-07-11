@@ -4,16 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 .editor-action-bar {
-	height: var(--positronActionBar-height);
-	--positronActionBar-border: var(--vscode-positronSideActionBar-border);
-	--positronActionBar-separator: var(--vscode-positronSideActionBar-separator);
-	--positronActionBar-background: var(--vscode-tab-activeBackground);
-	--positronActionBar-foreground: var(--vscode-positronSideActionBar-foreground);
-	--positronActionBar-hoverBackground: var(--vscode-positronSideActionBar-hoverBackground);
-	--positronActionBar-disabledForeground: var(--vscode-positronSideActionBar-disabledForeground);
-	--positronActionBar-checkboxBorder: var(--vscode-positronSideActionBar-checkboxBorder);
-	--positronActionBar-textInputBackground: var(--vscode-positronSideActionBar-textInputBackground);
-	--positronActionBar-textInputBorder: var(--vscode-positronSideActionBar-textInputBorder);
-	--positronActionBar-textInputSelectionForeground: var(--vscode-positronSideActionBar-textInputSelectionForeground);
-	--positronActionBar-textInputSelectionBackground: var(--vscode-positronSideActionBar-textInputSelectionBackground);
+	height: var(--vscode-positronActionBar-height);
+	--vscode-positronActionBar-background: var(--vscode-tab-activeBackground);
 }

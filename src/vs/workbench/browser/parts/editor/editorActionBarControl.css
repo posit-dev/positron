@@ -4,5 +4,5 @@
  *--------------------------------------------------------------------------------------------*/
 
 .editor-action-bar-container {
-	height: var(--positronActionBar-height);
+	height: var(--vscode-positronActionBar-height);
 }

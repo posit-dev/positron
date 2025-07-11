@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 :root {
-	--positronActionBar-height: 28px;
-	--positronActionBar-iconSize: 24px;
-	--positronActionBar-tooltipTop: 26px;
+	--vscode-positronActionBar-height: 28px;
+	--vscode-positronActionBar-iconSize: 24px;
+	--vscode-positronActionBar-tooltipTop: 26px;
 }
