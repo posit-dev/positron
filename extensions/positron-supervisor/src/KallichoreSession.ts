@@ -18,6 +18,7 @@ import { ExecuteRequest, JupyterExecuteRequest } from './jupyter/ExecuteRequest'
 import { IsCompleteRequest, JupyterIsCompleteRequest } from './jupyter/IsCompleteRequest';
 import { CommInfoRequest } from './jupyter/CommInfoRequest';
 import { JupyterCommOpen } from './jupyter/JupyterCommOpen';
+import { substituteVariables } from './variableSubstitution';
 import { CommOpenCommand } from './jupyter/CommOpenCommand';
 import { JupyterCommand } from './jupyter/JupyterCommand';
 import { CommCloseCommand } from './jupyter/CommCloseCommand';
@@ -340,18 +341,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._kernelSpec = kernelSpec;
 		const varActions = await this.buildEnvVarActions(false);
 
-		// Prepare the working directory; use the workspace root if available,
-		// otherwise the home directory
-		let workingDir = vscode.workspace.workspaceFolders?.[0].uri.fsPath || os.homedir();
+		// Get the notebook working directory setting
+		const notebookConfig = vscode.workspace.getConfiguration('notebook');
+		const workingDirSetting = notebookConfig.get<string>('workingDirectory', '${fileDirname}');
 
-		// If we have a notebook URI, use its parent directory as the working
-		// directory instead. Note that not all notebooks have valid on-disk
-		// URIs since they may be transient or not yet saved; for these, we fall
-		// back to the workspace root or home directory.
-		if (this.metadata.notebookUri?.fsPath) {
-			const notebookPath = this.metadata.notebookUri.fsPath;
-			if (fs.existsSync(notebookPath)) {
-				workingDir = path.dirname(notebookPath);
+		// Apply variable substitution
+		let workingDir = substituteVariables(workingDirSetting, this.metadata.notebookUri);
+
+		// Validate the resolved path
+		if (!workingDir || !fs.existsSync(workingDir)) {
+			// Fall back to the old behavior: use the notebook's directory if available,
+			// otherwise use the workspace root or home directory
+			if (this.metadata.notebookUri?.fsPath && fs.existsSync(this.metadata.notebookUri.fsPath)) {
+				workingDir = path.dirname(this.metadata.notebookUri.fsPath);
+			} else {
+				workingDir = vscode.workspace.workspaceFolders?.[0].uri.fsPath || os.homedir();
 			}
 		}
 
