@@ -13,8 +13,8 @@
 	text-align: unset !important;
 }
 
-.hc-black .positron-button,
-.hc-light .positron-button {
+.hc-black .positron-button:not(.border),
+.hc-light .positron-button:not(.border) {
 	border: 1px solid transparent;
 }
 

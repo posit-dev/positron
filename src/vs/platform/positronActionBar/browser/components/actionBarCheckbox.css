@@ -20,8 +20,8 @@
 	border-radius: 3px;
 	justify-content: center;
 	background-color: transparent;
-	color: var(--positronActionBar-foreground);
-	border: 1px solid var(--positronActionBar-checkboxBorder);
+	color: var(--vscode-positronActionBar-foreground);
+	border: 1px solid var(--vscode-positronActionBar-checkboxBorder);
 }
 
 .action-bar-checkbox .checkbox-button:focus {
@@ -36,7 +36,7 @@
 .action-bar-checkbox .checkbox-button .check-indicator {
 	font-weight: bold;
 	font-size: 12px !important;
-	color: var(--positronActionBar-foreground);
+	color: var(--vscode-positronActionBar-foreground);
 }
 
 .action-bar-checkbox .checkbox-label {

@@ -94,7 +94,7 @@ export class Notebooks {
 
 	async expectKernelToBe(kernelName: string) {
 		await test.step(`Expect kernel to be: ${kernelName}`, async () => {
-			await expect(this.kernelDropdown).toHaveText(new RegExp(kernelName, 'i'), { timeout: 30000 });
+			await expect(this.kernelDropdown).toHaveText(new RegExp(escapeRegExp(kernelName), 'i'), { timeout: 30000 });
 		});
 	}
 
@@ -235,4 +235,8 @@ export class Notebooks {
 	async focusNextCell() {
 		await this.code.driver.page.keyboard.press('ArrowDown');
 	}
+}
+
+function escapeRegExp(str: string): string {
+	return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

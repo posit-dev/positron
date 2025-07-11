@@ -24,22 +24,22 @@
 	align-items: center;
 	box-sizing: border-box;
 	background: transparent;
-	height: var(--positronActionBar-iconSize);
-	color: var(--positronActionBar-foreground);
+	height: var(--vscode-positronActionBar-iconSize);
+	color: var(--vscode-positronActionBar-foreground);
 }
 
 .action-bar-button.checked {
-	background: var(--positronActionBar-hoverBackground);
+	background: var(--vscode-positronActionBar-hoverBackground);
 }
 
 .action-bar-button.border {
 	height: 22px;
-	background-color: var(--positronActionBar-textInputBackground);
-	border: 1px solid var(--positronActionBar-border);
+	background-color: var(--vscode-positronActionBar-background);
+	border: 1px solid var(--vscode-positronActionBar-selectBorder);
 }
 
 .action-bar-button:hover {
-	background: var(--positronActionBar-hoverBackground);
+	background: var(--vscode-positronActionBar-hoverBackground);
 }
 
 .hc-black .action-bar-button:hover,
@@ -89,7 +89,7 @@
 }
 
 .disabled .action-bar-button-label {
-	color: var(--positronActionBar-disabledForeground);
+	color: var(--vscode-positronActionBar-disabledForeground);
 }
 
 .action-bar-button-icon {
@@ -97,15 +97,15 @@
 	align-items: center;
 	justify-content: center;
 	display: flex !important;
-	height: var(--positronActionBar-iconSize);
+	height: var(--vscode-positronActionBar-iconSize);
 }
 
 .action-bar-button-icon::before {
-	color: var(--positronActionBar-foreground);
+	color: var(--vscode-positronActionBar-foreground);
 }
 
 .disabled .action-bar-button-icon::before {
-	color: var(--positronActionBar-disabledForeground);
+	color: var(--vscode-positronActionBar-disabledForeground);
 }
 
 .action-bar-button-icon.enabled-split {
@@ -117,7 +117,7 @@
 	padding: 0 4px;
 	border-radius: 4px;
 	filter: brightness(90%);
-	background: var(--positronActionBar-hoverBackground);
+	background: var(--vscode-positronActionBar-hoverBackground);
 }
 
 .action-bar-button-drop-down-container {
@@ -133,7 +133,7 @@
 .action-bar-button-drop-down-button:hover {
 	border-radius: 4px;
 	filter: brightness(90%);
-	background: var(--positronActionBar-hoverBackground);
+	background: var(--vscode-positronActionBar-hoverBackground);
 }
 
 .action-bar-button-drop-down-arrow {
@@ -142,13 +142,13 @@
 	justify-content: center;
 	display: flex !important;
 	font-size: 18px !important;
-	height: var(--positronActionBar-iconSize);
+	height: var(--vscode-positronActionBar-iconSize);
 }
 
 .action-bar-button-drop-down-arrow::before {
-	color: var(--positronActionBar-foreground);
+	color: var(--vscode-positronActionBar-foreground);
 }
 
 .disabled .action-bar-button-drop-down-arrow::before {
-	color: var(--positronActionBar-disabledForeground);
+	color: var(--vscode-positronActionBar-disabledForeground);
 }

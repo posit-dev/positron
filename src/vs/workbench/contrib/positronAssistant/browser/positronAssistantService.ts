@@ -18,6 +18,8 @@ import { IPositronModalDialogsService } from '../../../services/positronModalDia
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { URI } from '../../../../base/common/uri.js';
 import * as glob from '../../../../base/common/glob.js';
+import { IChatService } from '../../chat/common/chatService.js';
+import { IChatWidgetService } from '../../chat/browser/chat.js';
 
 /**
  * PositronAssistantService class.
@@ -42,6 +44,8 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
 		@IProductService protected readonly _productService: IProductService,
+		@IChatService private readonly _chatService: IChatService,
+		@IChatWidgetService private readonly _chatWidgetService: IChatWidgetService,
 	) {
 		super();
 	}
@@ -137,6 +141,20 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 			providers.push('bedrock', 'error', 'echo', 'google');
 		}
 		return providers;
+	}
+
+	getChatExport() {
+		const chatWidget = this._chatWidgetService.lastFocusedWidget;
+		if (!chatWidget || !chatWidget.viewModel) {
+			return undefined;
+		}
+
+		const model = this._chatService.getSession(chatWidget.viewModel.sessionId);
+		if (!model) {
+			return undefined;
+		}
+
+		return model.toExport();
 	}
 
 	//#endregion

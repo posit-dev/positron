@@ -120,6 +120,18 @@
     },
     "commands": [
       {
+        "command": "positron-assistant.exportChatToFileInWorkspace",
+        "title": "%commands.exportChatToFileInWorkspace.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable && workspaceFolderCount != 0"
+      },
+      {
+        "command": "positron-assistant.exportChatTo",
+        "title": "%commands.exportChatTo.title%",
+        "category": "%commands.category%",
+        "enablement": "config.positron.assistant.enable"
+      },
+      {
         "command": "positron-assistant.configureModels",
         "title": "%commands.configureModels.title%",
         "category": "%commands.category%",
@@ -156,6 +168,11 @@
             "default": false,
             "markdownDescription": "%configuration.enable.markdownDescription%",
             "tags": ["preview"]
+          },
+          "positron.assistant.toolDetails.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.toolDetails.enable%"
           },
           "positron.assistant.useAnthropicSdk": {
             "type": "boolean",

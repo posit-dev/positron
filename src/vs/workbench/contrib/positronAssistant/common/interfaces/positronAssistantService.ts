@@ -6,7 +6,10 @@
 import { createDecorator } from '../../../../../platform/instantiation/common/instantiation.js';
 import { Event } from '../../../../../base/common/event.js';
 import { ChatAgentLocation } from '../../../chat/common/constants.js';
-import { URI } from '../../../../../base/common/uri.js';
+import { Variable } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
+import { URI, UriComponents } from '../../../../../base/common/uri.js';
+import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IExportableChatData } from '../../../chat/common/chatModel.js';
 
 // Create the decorator for the Positron assistant service (used in dependency injection).
 export const IPositronAssistantService = createDecorator<IPositronAssistantService>('positronAssistantService');
@@ -106,6 +109,11 @@ export interface IPositronAssistantService {
 	 * Get the supported providers for Positron Assistant.
 	 */
 	getSupportedProviders(): string[];
+
+	/**
+	 * Get the chat export as a JSON object (IExportableChatData).
+	 */
+	getChatExport(): IExportableChatData | undefined;
 
 	/**
 	 * Add a language model configuration.

@@ -2065,6 +2065,11 @@ declare module 'positron' {
 		export function getSupportedProviders(): Thenable<string[]>;
 
 		/**
+		 * Get the chat export as a JSON object (IExportableChatData).
+		 */
+		export function getChatExport(): Thenable<object | undefined>;
+
+		/**
 		 * Show a modal dialog for language model configuration.
 		 */
 		export function showLanguageModelConfig(
