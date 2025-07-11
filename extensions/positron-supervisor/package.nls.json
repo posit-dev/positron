@@ -27,6 +27,7 @@
 	"configuration.transport.ipc.label": "Native IPC",
 	"configuration.transport.tcp.description": "Use local TCP sockets",
 	"configuration.transport.tcp.label": "Local TCP",
+	"configuration.notebook.workingDirectory.description": "The initial working directory for notebook kernels",
 	"command.positron.supervisor.category": "Kernel Supervisor",
 	"command.showKernelSupervisorLog.title": "Show the Kernel Supervisor Log",
 	"command.reconnectSession.title": "Reconnect the Current Session",

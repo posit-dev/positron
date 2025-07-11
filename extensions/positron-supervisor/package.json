@@ -127,6 +127,12 @@
             "%configuration.transport.tcp.label%"
           ],
           "default": "ipc"
+        },
+        "notebook.workingDirectory": {
+          "scope": "resource",
+          "type": "string",
+          "default": "${fileDirname}",
+          "markdownDescription": "%configuration.notebook.workingDirectory.description%"
         }
       }
     },
