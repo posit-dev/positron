@@ -1135,6 +1135,9 @@ export interface ISerializableChatRequestData {
 	timestamp?: number;
 	confirmation?: string;
 	editedFileEvents?: IChatAgentEditedFileEvent[];
+	// --- Start Positron ---
+	tokenUsage?: IChatTokenUsage;
+	// --- End Positron ---
 }
 
 export interface IExportableChatData {
@@ -1558,6 +1561,11 @@ export class ChatModel extends Disposable implements IChatModel {
 						restoredId: raw.responseId
 					});
 					request.response.shouldBeRemovedOnSend = raw.isHidden ? { requestId: raw.requestId } : raw.shouldBeRemovedOnSend;
+					// --- Start Positron ---
+					if (raw.tokenUsage) {
+						request.response.setTokenUsage(raw.tokenUsage);
+					}
+					// --- End Positron ---
 					if (raw.usedContext) { // @ulugbekna: if this's a new vscode sessions, doc versions are incorrect anyway?
 						request.response.applyReference(revive(raw.usedContext));
 					}
@@ -1878,6 +1886,9 @@ export class ChatModel extends Disposable implements IChatModel {
 					timestamp: r.timestamp,
 					confirmation: r.confirmation,
 					editedFileEvents: r.editedFileEvents,
+					// --- Start Positron ---
+					tokenUsage: r.response?.tokenUsage,
+					// --- End Positron ---
 				};
 			}),
 		};
