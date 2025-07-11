@@ -38,7 +38,10 @@ import { CellUri } from '../../notebook/common/notebookCommon.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 
-abstract class AbstractChatAttachmentWidget extends Disposable {
+// --- Start Positron ---
+// This class is exported so it can be extended in chatRuntimeAttachmentWidget.ts
+// --- End Positron ---
+export abstract class AbstractChatAttachmentWidget extends Disposable {
 	public readonly element: HTMLElement;
 	public readonly label: IResourceLabel;
 
