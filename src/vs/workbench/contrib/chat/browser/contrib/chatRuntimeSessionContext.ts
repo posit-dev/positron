@@ -18,7 +18,49 @@ import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../../ser
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { PositronVariablesInstance } from '../../../../services/positronVariables/common/positronVariablesInstance.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
-import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+
+/**
+ * A single summarized entry in the execution history provided to the chat model.
+ */
+export interface IHistorySummaryEntry {
+	/** The input code for the execution */
+	input: string;
+
+	/** The result of the execution */
+	output: string;
+
+	/** The error, if any, that occurred during the execution. Can be text or structured object */
+	error?: any;
+}
+
+/**
+ * The runtime session context for the chat model. Typically one of these will
+ * be attached implicitly, but users can attach additional runtime session
+ * contexts explicitly.
+ */
+export interface IChatRuntimeSessionContext {
+	/** The unique identifier for the runtime session (sessionId, e.g. 'python-12345678') */
+	identifier: string;
+
+	/** The language name of the runtime session (e.g. 'Python') */
+	language: string;
+
+	/** The language identifier of the runtime session (e.g. 'python') */
+	languageId: string;
+
+	/** The version of the language runtime (e.g. '3.10.4') */
+	version: string;
+
+	/** The mode of the runtime session (e.g. 'console') */
+	mode: LanguageRuntimeSessionMode;
+
+	/** The notebook URI, if applicable */
+	notebookUri?: string;
+
+	/** The summarized execution history for the session */
+	executions: Array<IHistorySummaryEntry>;
+};
 
 export class ChatRuntimeSessionContextContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'chat.runtimeSessionContext';
@@ -174,13 +216,13 @@ export class ChatRuntimeSessionContext extends Disposable {
 		this._onDidChangeValue.fire();
 	}
 
-	private summarizeSession(session: ILanguageRuntimeSession) {
+	private summarizeSession(session: ILanguageRuntimeSession): IChatRuntimeSessionContext | undefined {
 		if (!this._executionHistoryService) {
 			return undefined;
 		}
 
 		const executions = this.summarizeExecutionHistory(session.metadata.sessionId);
-		const sessionContext: any = {
+		const sessionContext: IChatRuntimeSessionContext = {
 			identifier: session.metadata.sessionId,
 			language: session.runtimeMetadata.languageName,
 			languageId: session.runtimeMetadata.languageId,
@@ -189,7 +231,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 			executions,
 		};
 		if (session.metadata.notebookUri) {
-			sessionContext.notebookUri = session.metadata.notebookUri.toJSON();
+			sessionContext.notebookUri = session.metadata.notebookUri.toString();
 		}
 		return sessionContext;
 	}
@@ -208,13 +250,13 @@ export class ChatRuntimeSessionContext extends Disposable {
 	 * @param sessionId The ID of the session to summarize
 	 * @returns Up to 8KB of the most recent execution history entries
 	 */
-	private summarizeExecutionHistory(sessionId: string) {
+	private summarizeExecutionHistory(sessionId: string): Array<IHistorySummaryEntry> {
 		if (!this._executionHistoryService) {
 			return [];
 		}
 
 		const history = this._executionHistoryService.getExecutionEntries(sessionId);
-		const summarized = [];
+		const summarized: Array<IHistorySummaryEntry> = [];
 		let currentCost = 0;
 		const maxCost = 8192; // 8KB. Should this be configurable?
 		for (let i = history.length - 1; i >= 0; i--) {

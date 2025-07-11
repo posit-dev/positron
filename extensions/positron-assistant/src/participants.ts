@@ -200,6 +200,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		log.debug(`[context] Positron context for request ${request.id}:\n${JSON.stringify(positronContext, null, 2)}`);
 
 		// Build a list of languages for which we have active sessions.
+		//
+		// See IChatRuntimeSessionContext for the structure of the active
+		// session context objects
 		const activeSessions: Set<string> = new Set();
 		let hasConsoleSessions = false;
 		for (const reference of request.references) {
