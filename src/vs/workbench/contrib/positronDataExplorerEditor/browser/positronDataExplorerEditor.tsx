@@ -36,6 +36,7 @@ import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
 import { POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -230,6 +231,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IHoverService private readonly _hoverService: IHoverService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
@@ -330,9 +332,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 			);
 
 			// Create the PositronReactRenderer.
-			this._positronReactRenderer = new PositronReactRenderer(
-				this._positronDataExplorerContainer
-			);
+			this._positronReactRenderer = this._instantiationService.createInstance(PositronReactRenderer, this._positronDataExplorerContainer);
 
 			// If the Positron data explorer instance was found, render the PositronDataExplorer
 			// component. Otherwise, render the PositronDataExplorerClosed component.

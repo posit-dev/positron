@@ -17,16 +17,18 @@ import { ILayoutService } from '../../../../platform/layout/browser/layoutServic
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 export const createWelcomePageLeft = (
 	container: HTMLElement,
+	instantiationService: IInstantiationService,
 	commandService: ICommandService,
 	configurationService: IConfigurationService,
 	keybindingService: IKeybindingService,
 	layoutService: ILayoutService,
 	workspaceContextService: IWorkspaceContextService
 ): PositronReactRenderer => {
-	const renderer = new PositronReactRenderer(container);
+	const renderer = instantiationService.createInstance(PositronReactRenderer, container);
 	renderer.render(
 		<PositronWelcomePageStart
 			commandService={commandService}

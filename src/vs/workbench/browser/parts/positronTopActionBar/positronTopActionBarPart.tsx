@@ -25,7 +25,7 @@ import { IContextKeyService } from '../../../../platform/contextkey/common/conte
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IWorkspacesService } from '../../../../platform/workspaces/common/workspaces.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -106,6 +106,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		@IContextMenuService private readonly contextMenuService: IContextMenuService,
 		@IHostService private readonly hostService: IHostService,
 		@IHoverService private readonly hoverService: IHoverService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IKeybindingService private readonly keybindingService: IKeybindingService,
 		@ILabelService private readonly labelService: ILabelService,
 		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
@@ -132,7 +133,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		this.element.tabIndex = -1;
 
 		// Render the Positron top action bar component.
-		this.positronReactRenderer = new PositronReactRenderer(this.element);
+		this.positronReactRenderer = this._register(this._instantiationService.createInstance(PositronReactRenderer, this.element));
 		this.positronReactRenderer.render(
 			<PositronTopActionBar
 				accessibilityService={this._accessibilityService}
@@ -175,14 +176,6 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		return {
 			type: Parts.POSITRON_TOP_ACTION_BAR_PART
 		};
-	}
-
-	public override dispose(): void {
-		if (this.positronReactRenderer) {
-			this.positronReactRenderer.destroy();
-			this.positronReactRenderer = undefined;
-		}
-		super.dispose();
 	}
 
 	//#endregion Part Class

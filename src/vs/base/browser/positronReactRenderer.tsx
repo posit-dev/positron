@@ -1,0 +1,276 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+// React.
+import React, { ReactElement } from 'react';
+import { createRoot, Root } from 'react-dom/client';
+
+// Other dependencies.
+import { Event } from '../common/event.js';
+import { ILogService } from '../../platform/log/common/log.js';
+import { Disposable, IDisposable } from '../common/lifecycle.js';
+import { ILabelService } from '../../platform/label/common/label.js';
+import { IModelService } from '../../editor/common/services/model.js';
+import { IHoverService } from '../../platform/hover/browser/hover.js';
+import { IOpenerService } from '../../platform/opener/common/opener.js';
+import { IViewDescriptorService } from '../../workbench/common/views.js';
+import { IThemeService } from '../../platform/theme/common/themeService.js';
+import { ILanguageService } from '../../editor/common/languages/language.js';
+import { ICommandService } from '../../platform/commands/common/commands.js';
+import { PositronReactServicesContext } from './positronReactRendererContext.js';
+import { IPathService } from '../../workbench/services/path/common/pathService.js';
+import { IContextKeyService } from '../../platform/contextkey/common/contextkey.js';
+import { IKeybindingService } from '../../platform/keybinding/common/keybinding.js';
+import { IQuickInputService } from '../../platform/quickinput/common/quickInput.js';
+import { IWorkspacesService } from '../../platform/workspaces/common/workspaces.js';
+import { IViewsService } from '../../workbench/services/views/common/viewsService.js';
+import { IWorkspaceContextService } from '../../platform/workspace/common/workspace.js';
+import { IClipboardService } from '../../platform/clipboard/common/clipboardService.js';
+import { IContextMenuService } from '../../platform/contextview/browser/contextView.js';
+import { IEditorService } from '../../workbench/services/editor/common/editorService.js';
+import { INotificationService } from '../../platform/notification/common/notification.js';
+import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
+import { IAccessibilityService } from '../../platform/accessibility/common/accessibility.js';
+import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
+import { IWorkbenchLayoutService } from '../../workbench/services/layout/browser/layoutService.js';
+import { IPositronPlotsService } from '../../workbench/services/positronPlots/common/positronPlots.js';
+import { IRuntimeSessionService } from '../../workbench/services/runtimeSession/common/runtimeSessionService.js';
+import { IRuntimeStartupService } from '../../workbench/services/runtimeStartup/common/runtimeStartupService.js';
+import { IWorkbenchEnvironmentService } from '../../workbench/services/environment/common/environmentService.js';
+import { ILanguageRuntimeService } from '../../workbench/services/languageRuntime/common/languageRuntimeService.js';
+import { IExecutionHistoryService } from '../../workbench/services/positronHistory/common/executionHistoryService.js';
+import { IPositronConsoleService } from '../../workbench/services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronVariablesService } from '../../workbench/services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
+
+/**
+ * ISize interface.
+ */
+export interface ISize {
+	width: number;
+	height: number;
+}
+
+/**
+ * IElementPosition interface.
+ */
+export interface IElementPosition {
+	x: number;
+	y: number;
+}
+
+/**
+ * IReactComponentContainer interface.
+ */
+export interface IReactComponentContainer {
+	/**
+	 * Gets the width.
+	 */
+	readonly width: number;
+
+	/**
+	 * Gets the height.
+	 */
+	readonly height: number;
+
+	/**
+	 * Gets the container visibility.
+	 */
+	readonly containerVisible: boolean;
+
+	/**
+	 * Directs the React component container to take focus.
+	 */
+	takeFocus(): void;
+
+	/**
+	 * Notifies the React component container when focus changes.
+	 */
+	focusChanged?(focused: boolean): void;
+
+	/**
+	 * Notifies the React component container when visibility changes.
+	 */
+	visibilityChanged?(visible: boolean): void;
+
+	/**
+	 * onFocused event.
+	 */
+	readonly onFocused: Event<void>;
+
+	/**
+	 * onSizeChanged event.
+	 */
+	readonly onSizeChanged: Event<ISize>;
+
+	/**
+	 * onVisibilityChanged event.
+	 */
+	readonly onVisibilityChanged: Event<boolean>;
+
+	/**
+	 * onSaveScrollPosition event.
+	 */
+	readonly onSaveScrollPosition: Event<void>;
+
+	/**
+	 * onRestoreScrollPosition event.
+	 */
+	readonly onRestoreScrollPosition: Event<void>;
+}
+
+/**
+ * PositronReactRenderer class.
+ * Manages rendering a React component in the specified container HTMLElement.
+ */
+export class PositronReactRenderer extends Disposable {
+	//#region Private Properties
+
+	/**
+	 * The root where the React element will be rendered.
+	 */
+	private root?: Root;
+
+	//#endregion Private Properties
+
+	//#region Constructor & Dispose
+
+	/**
+	 * Initializes a new instance of the ReactRenderer class.
+	 * @param container The container HTMLElement where the React component will be rendered.
+	 */
+	constructor(
+		container: HTMLElement,
+		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
+		@IClipboardService private readonly _clipboardService: IClipboardService,
+		@ICommandService private readonly _commandService: ICommandService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
+		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
+		@IEditorService private readonly _editorService: IEditorService,
+		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
+		@IHoverService private readonly _hoverService: IHoverService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IKeybindingService private readonly _keybindingService: IKeybindingService,
+		@ILabelService private readonly _labelService: ILabelService,
+		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
+		@ILanguageService private readonly _languageService: ILanguageService,
+		@ILogService private readonly _logService: ILogService,
+		@IModelService private readonly _modelService: IModelService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@IOpenerService private readonly _openerService: IOpenerService,
+		@IPathService private readonly _pathService: IPathService,
+		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
+		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
+		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
+		@IPositronTopActionBarService private readonly _positronTopActionBarService: IPositronTopActionBarService,
+		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
+		@IQuickInputService private readonly _quickInputService: IQuickInputService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@IThemeService private readonly _themeService: IThemeService,
+		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService,
+		@IViewsService private readonly _viewsService: IViewsService,
+		@IWorkbenchEnvironmentService private readonly _workbenchEnvironmentService: IWorkbenchEnvironmentService,
+		@IWorkbenchLayoutService private readonly _workbenchLayoutService: IWorkbenchLayoutService,
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IWorkspacesService private readonly _workspacesService: IWorkspacesService
+	) {
+		// Call the base class's constructor.
+		super();
+
+		// Create the root.
+		this.root = createRoot(container);
+	}
+
+	/**
+	 * dispose override method.
+	 */
+	public override dispose(): void {
+		// Unmount and dispose of the root.
+		if (this.root) {
+			this.root.unmount();
+			this.root = undefined;
+		}
+
+		// Call the base class's dispose method.
+		super.dispose();
+	}
+
+	//#endregion Constructor & Dispose
+
+	//#region Public Methods
+
+	/**
+	 * Renders the React element that was supplied.
+	 * @param reactElement The React element.
+	 */
+	public render(reactElement: ReactElement) {
+		if (this.root) {
+			this.root.render(
+				<PositronReactServicesContext.Provider value={{
+					accessibilityService: this._accessibilityService,
+					clipboardService: this._clipboardService,
+					commandService: this._commandService,
+					configurationService: this._configurationService,
+					contextKeyService: this._contextKeyService,
+					contextMenuService: this._contextMenuService,
+					editorService: this._editorService,
+					executionHistoryService: this._executionHistoryService,
+					hoverService: this._hoverService,
+					instantiationService: this._instantiationService,
+					keybindingService: this._keybindingService,
+					labelService: this._labelService,
+					languageRuntimeService: this._languageRuntimeService,
+					languageService: this._languageService,
+					logService: this._logService,
+					modelService: this._modelService,
+					notificationService: this._notificationService,
+					openerService: this._openerService,
+					pathService: this._pathService,
+					positronConsoleService: this._positronConsoleService,
+					positronDataExplorerService: this._positronDataExplorerService,
+					positronPlotsService: this._positronPlotsService,
+					positronTopActionBarService: this._positronTopActionBarService,
+					positronVariablesService: this._positronVariablesService,
+					quickInputService: this._quickInputService,
+					runtimeSessionService: this._runtimeSessionService,
+					runtimeStartupService: this._runtimeStartupService,
+					themeService: this._themeService,
+					viewDescriptorService: this._viewDescriptorService,
+					viewsService: this._viewsService,
+					workbenchEnvironmentService: this._workbenchEnvironmentService,
+					workbenchLayoutService: this._workbenchLayoutService,
+					workspaceContextService: this._workspaceContextService,
+					workspacesService: this._workspacesService
+				}}>
+					{reactElement}
+				</PositronReactServicesContext.Provider>
+			);
+		}
+	}
+
+	/**
+	 * Registers an IDisposable with the same lifecycle as the PositronReactRenderer.
+	 * @param disposable The IDisposable.
+	 */
+	public register(disposable: IDisposable) {
+		this._register(disposable);
+	}
+
+	/**
+	 * Destroys the ReactRenderer.
+	 * @deprecated Use Disposable instead.
+	 */
+	public destroy() {
+		if (this.root) {
+			this.root.unmount();
+			this.root = undefined;
+		}
+	}
+
+	//#endregion Public Methods
+}

@@ -262,7 +262,7 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 		};
 
 		// Create and register the PositronReactRenderer for the action bars.
-		this.positronReactRendererHelpActionBars = new PositronReactRenderer(this.helpActionBarsContainer);
+		this.positronReactRendererHelpActionBars = this._register(this.instantiationService.createInstance(PositronReactRenderer, this.helpActionBarsContainer));
 		this._register(this.positronReactRendererHelpActionBars);
 
 		// Render the ActionBars component.

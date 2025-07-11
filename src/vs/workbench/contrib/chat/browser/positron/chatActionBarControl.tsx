@@ -24,6 +24,7 @@ import { ILanguageModelsService, IPositronChatProvider } from '../../common/lang
 import { PositronChatContextProvider } from './chatContext.js';
 import { ChatInputPart } from '../chatInputPart.js';
 import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 
 export class ChatActionBarControl extends Disposable {
 	private _container?: HTMLElement;
@@ -33,6 +34,7 @@ export class ChatActionBarControl extends Disposable {
 
 	constructor(
 		private readonly _chatInput: ChatInputPart,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
@@ -49,7 +51,7 @@ export class ChatActionBarControl extends Disposable {
 		this._container = document.createElement('div');
 		this._container.className = 'chat-action-bar-container';
 
-		this._positronReactRenderer = new PositronReactRenderer(this._container);
+		this._positronReactRenderer = this._register(this._instantiationService.createInstance(PositronReactRenderer, this._container));
 		this._positronReactRenderer.render(
 			<PositronActionBarContextProvider
 				accessibilityService={this._accessibilityService}
@@ -94,15 +96,10 @@ export class ChatActionBarControl extends Disposable {
 	}
 
 	override dispose(): void {
-		if (this._positronReactRenderer) {
-			this._positronReactRenderer.dispose();
-			this._positronReactRenderer = undefined;
-		}
+		super.dispose();
 		if (this._container) {
 			this._container.remove();
 			this._container = undefined;
 		}
-
-		super.dispose();
 	}
 }

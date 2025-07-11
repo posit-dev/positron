@@ -961,6 +961,7 @@ export class GettingStartedPage extends EditorPane {
 			const leftContent = $('div.positron-welcome-left-column');
 			this.positronReactRenderer = createWelcomePageLeft(
 				leftContent,
+				this.instantiationService,
 				this.commandService,
 				this.configurationService,
 				this.keybindingService,
