@@ -85,11 +85,19 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 			this._register(this.runtimeSessionService.onDidChangeForegroundSession(() => this.updateRuntimeContext()));
 		});
 
-		// Listen for active editor changes to update runtime context when notebook session changes
-		// This ensures that when the user switches between notebooks, the chat context switches
-		// to the runtime session associated with the active notebook
+		// Listen for active editor changes to update runtime context when
+		// notebook session changes This ensures that when the user switches
+		// between notebooks, the chat context switches to the runtime session
+		// associated with the active notebook
 		this._register(this.editorService.onDidActiveEditorChange(() => {
 			this.updateRuntimeContext();
+		}));
+
+		// Same deal for runtime sessions. Notebooks open before the session
+		// finishes starting, so this catches new notebook sessions (vs.
+		// switching between existing ones).
+		this._register(this.runtimeSessionService.onDidStartRuntime(async (session) => {
+			await this.updateRuntimeContext()
 		}));
 
 		this._register(this.chatWidgetService.onDidAddWidget(async (widget) => {
