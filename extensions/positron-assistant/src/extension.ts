@@ -285,6 +285,21 @@ export function clearTokenUsage(context: vscode.ExtensionContext, provider: stri
 	tokenTracker.clearTokens(provider);
 }
 
+// Registry to store token usage by request ID for individual requests
+const requestTokenUsage = new Map<string, { inputTokens: number; outputTokens: number }>();
+
+export function recordRequestTokenUsage(requestId: string, inputTokens: number, outputTokens: number) {
+	requestTokenUsage.set(requestId, { inputTokens, outputTokens });
+	// Clean up old entries to prevent memory leaks
+	setTimeout(() => {
+		requestTokenUsage.delete(requestId);
+	}, 30000); // Clean up after 30 seconds
+}
+
+export function getRequestTokenUsage(requestId: string): { inputTokens: number; outputTokens: number } | undefined {
+	return requestTokenUsage.get(requestId);
+}
+
 export function activate(context: vscode.ExtensionContext) {
 	// Create the log output channel.
 	context.subscriptions.push(log);

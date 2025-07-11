@@ -484,6 +484,12 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			} else {
 				templateData.detail.textContent = localize('working', "Working");
 			}
+			// --- Start Positron ---
+		} else if (element.isComplete && element.tokenUsage) {
+			// Display token usage information when response is complete
+			const tokenText = localize('tokenUsage', "Input tokens: {0}, Output tokens: {1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens);
+			templateData.detail.textContent = tokenText;
+			// --- End Positron ---
 		}
 	}
 
