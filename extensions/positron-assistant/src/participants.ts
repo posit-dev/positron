@@ -201,10 +201,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Build a list of languages for which we have active sessions.
 		const activeSessions: Set<string> = new Set();
+		let hasConsoleSessions = false;
 		for (const reference of request.references) {
 			const value = reference.value as any;
 			if (value.activeSession) {
 				activeSessions.add(value.activeSession.languageId);
+				if (value.activeSession.mode === positron.LanguageRuntimeSessionMode.Console) {
+					hasConsoleSessions = true;
+				}
 			}
 		}
 
@@ -257,7 +261,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// to see if it requires confirmation, but that information isn't
 					// currently exposed in `vscode.LanguageModelChatTool`.
 					case PositronAssistantToolName.ExecuteCode:
-						return inChatPane && isAgentMode;
+						// The tool can only be used with console sessions and
+						// when in agent mode; it does not currently support
+						// notebook mode.
+						return inChatPane && hasConsoleSessions && isAgentMode;
 					// Only include the documentEdit tool in an editor and if there is
 					// no selection.
 					case PositronAssistantToolName.DocumentEdit:
