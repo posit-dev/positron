@@ -484,12 +484,6 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			} else {
 				templateData.detail.textContent = localize('working', "Working");
 			}
-			// --- Start Positron ---
-		} else if (element.isComplete && element.tokenUsage) {
-			// Display token usage information when response is complete
-			const tokenText = localize('tokenUsage', "Input tokens: {0}, Output tokens: {1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens);
-			templateData.detail.textContent = tokenText;
-			// --- End Positron ---
 		}
 	}
 
@@ -630,6 +624,12 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 				templateData.value.appendChild(renderedError.domNode);
 			}
 		}
+
+		// --- Start Positron ---
+		if (isResponseVM(element) && element.tokenUsage && element.isComplete) {
+			templateData.value.appendChild(dom.$('.token-usage', undefined, localize('tokenUsage', "Tokens: ↑{0} ↓{1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens)));
+		}
+		// --- End Positron ---
 
 		const newHeight = templateData.rowContainer.offsetHeight;
 		const fireEvent = !element.currentRenderedHeight || element.currentRenderedHeight !== newHeight;
