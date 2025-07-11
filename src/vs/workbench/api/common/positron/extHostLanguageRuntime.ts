@@ -21,7 +21,7 @@ import { SerializableObjectWithBuffers } from '../../../services/extensions/comm
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
-import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
+import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 
 /**
@@ -1219,6 +1219,16 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 		for (let i = 0; i < this._runtimeSessions.length; i++) {
 			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
 				return this._proxy.$getSessionVariables(i, accessKeys);
+			}
+		}
+		throw new Error(`Session with ID '${sessionId}' not found`);
+	}
+
+	public querySessionTables(sessionId: string, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
+		Promise<Array<QueryTableSummaryResult>> {
+		for (let i = 0; i < this._runtimeSessions.length; i++) {
+			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
+				return this._proxy.$querySessionTables(i, accessKeys, queryTypes);
 			}
 		}
 		throw new Error(`Session with ID '${sessionId}' not found`);

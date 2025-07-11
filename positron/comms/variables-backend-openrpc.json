@@ -189,6 +189,70 @@
 				},
 				"required": false
 			}
+		},
+		{
+			"name": "query_table_summary",
+			"summary": "Query table summary",
+			"description": "Request a data summary for a table variable.",
+			"params": [
+				{
+					"name": "path",
+					"description": "The path to the table to summarize, as an array of access keys.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				},
+				{
+					"name": "query_types",
+					"description": "A list of query types.",
+					"schema": {
+						"type": "array",
+						"items": {
+							"type": "string"
+						}
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "query_table_summary_result",
+					"description": "Result of the summarize operation",
+					"type": "object",
+					"properties": {
+						"num_rows": {
+							"type": "integer",
+							"description": "The total number of rows in the table."
+						},
+						"num_columns": {
+							"type": "integer",
+							"description": "The total number of columns in the table."
+						},
+						"column_schemas": {
+							"type": "array",
+							"description": "The column schemas in the table.",
+							"items": {
+								"type": "string"
+							}
+						},
+						"column_profiles": {
+							"type": "array",
+							"description": "The column profiles in the table.",
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"required": [
+						"num_rows",
+						"num_columns",
+						"column_schemas",
+						"column_profiles"
+					]
+				}
+			}
 		}
 	],
 	"components": {
