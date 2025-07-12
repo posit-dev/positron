@@ -12,14 +12,14 @@ import React, { PointerEvent, useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import * as DOM from '../../../dom.js';
 import { Delayer } from '../../../../common/async.js';
-import { isMacintosh } from '../../../../common/platform.js';
-import { DisposableStore } from '../../../../common/lifecycle.js';
 import { useStateRef } from '../../react/useStateRef.js';
-import { positronClassNames } from '../../../../common/positronUtilities.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { Button, KeyboardModifiers, MouseTrigger } from '../button/button.js';
+import { isMacintosh } from '../../../../common/platform.js';
 import { createStyleSheet } from '../../../domStylesheets.js';
+import { DisposableStore } from '../../../../common/lifecycle.js';
+import { positronClassNames } from '../../../../common/positronUtilities.js';
+import { Button, KeyboardModifiers, MouseTrigger } from '../button/button.js';
 import { usePositronReactServicesContext } from '../../../positronReactRendererContext.js';
+import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 
 /**
  * Constants.
