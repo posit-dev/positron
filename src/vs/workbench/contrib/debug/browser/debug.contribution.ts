@@ -66,6 +66,10 @@ import { BREAK_WHEN_VALUE_CHANGES_ID, BREAK_WHEN_VALUE_IS_ACCESSED_ID, BREAK_WHE
 import { ADD_WATCH_ID, ADD_WATCH_LABEL, REMOVE_WATCH_EXPRESSIONS_COMMAND_ID, REMOVE_WATCH_EXPRESSIONS_LABEL, WatchExpressionsView } from './watchExpressionsView.js';
 import { WelcomeView } from './welcomeView.js';
 
+// --- Start Positron ---
+import { ChatContextKeys } from '../../chat/common/chatContextKeys.js';
+// --- End Positron ---
+
 const debugCategory = nls.localize('debugCategory', "Debug");
 registerColors();
 registerSingleton(IDebugService, DebugService, InstantiationType.Delayed);
@@ -249,7 +253,13 @@ if (isMacintosh) {
 
 // Editor Title Menu's "Run/Debug" dropdown item
 
+// --- Start Positron ---
+/*
 MenuRegistry.appendMenuItem(MenuId.EditorTitle, { submenu: MenuId.EditorTitleRun, rememberDefaultAction: true, title: nls.localize2('run', "Run or Debug..."), icon: icons.debugRun, group: 'navigation', order: -1 });
+*/
+// Only include the Run/Debug menu item (play button) in the editor actions when **not** in a chat session. https://github.com/posit-dev/positron/issues/7638
+MenuRegistry.appendMenuItem(MenuId.EditorTitle, { submenu: MenuId.EditorTitleRun, rememberDefaultAction: true, title: nls.localize2('run', "Run or Debug..."), icon: icons.debugRun, group: 'navigation', order: -1, when: ChatContextKeys.inChatSession.toNegated() });
+// --- End Positron ---
 
 // Debug menu
 
