@@ -37,7 +37,6 @@ import { TabCompletionController } from '../../../snippets/browser/tabCompletion
 import { TerminalContextKeys } from '../../../terminal/common/terminalContextKey.js';
 import { ParameterHintsController } from '../../../../../editor/contrib/parameterHints/browser/parameterHints.js';
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { HistoryBrowserPopup } from './historyBrowserPopup.js';
 import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
@@ -49,6 +48,7 @@ import { IInputHistoryEntry } from '../../../../services/positronHistory/common/
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { localize } from '../../../../../nls.js';
 import { IFontOptions } from '../../../../browser/fontConfigurationManager.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Position enumeration.
 const enum Position {
@@ -75,7 +75,7 @@ interface ConsoleInputProps {
  */
 export const ConsoleInput = (props: ConsoleInputProps) => {
 	// Context hooks.
-	const positronConsoleContext = usePositronConsoleContext();
+	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const codeEditorWidgetContainerRef = useRef<HTMLDivElement>(undefined!);
@@ -104,7 +104,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// the user could be actively working in an editor.
 
 		// Get the context key service context.
-		const contextKeyContext = positronConsoleContext.contextKeyService.getContext(
+		const contextKeyContext = services.contextKeyService.getContext(
 			DOM.getActiveElement()
 		);
 
@@ -174,11 +174,11 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			status = await session.isCodeFragmentComplete(code);
 		} catch (err) {
 			if (err instanceof Error) {
-				positronConsoleContext.notificationService.error(
+				services.notificationService.error(
 					localize('positronConsole.incompleteError', 'Cannot execute code: {0} ({1})', err.name, err.message)
 				);
 			} else {
-				positronConsoleContext.notificationService.error(
+				services.notificationService.error(
 					localize('positronConsole.incompleteUnknownError', 'Cannot execute code: {0}', JSON.stringify(err))
 				);
 			}
@@ -200,7 +200,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// If the code fragment is invalid (contains syntax errors), log a warning but execute
 			// it anyway (so the user can see a syntax error from the interpreter).
 			case RuntimeCodeFragmentStatus.Invalid:
-				positronConsoleContext.logService.warn(
+				services.logService.warn(
 					`Executing invalid code fragment: '${code}'`
 				);
 				break;
@@ -208,7 +208,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// If the code fragment status is unknown, log a warning but execute it anyway (so the
 			// user can see an error from the interpreter).
 			case RuntimeCodeFragmentStatus.Unknown:
-				positronConsoleContext.logService.warn(
+				services.logService.warn(
 					`Could not determine whether code fragment: '${code}' is complete.`
 				);
 				break;
@@ -523,7 +523,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 								const value = textModel.getValueInRange(selection);
 
 								// Write the selection value to the clipboard.
-								await positronConsoleContext.clipboardService.writeText(value);
+								await services.clipboardService.writeText(value);
 							}
 						}
 					}
@@ -536,7 +536,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// When Ctrl-R is pressed, engage a reverse history search (like bash).
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
 					const entries =
-						positronConsoleContext.executionHistoryService.getInputEntries(
+						services.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
 						);
 					engageHistoryBrowser(new HistoryInfixMatchStrategy(entries));
@@ -550,7 +550,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// Bind Ctrl+U to `deleteAllLeft`
 				if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
 					consumeEvent();
-					positronConsoleContext.commandService.executeCommand('deleteAllLeft');
+					services.commandService.executeCommand('deleteAllLeft');
 					break;
 				}
 				break;
@@ -602,7 +602,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 					// browser is not up, engage the history browser with the
 					// prefix match strategy. This behavior mimics RStudio.
 					const entries =
-						positronConsoleContext.executionHistoryService.getInputEntries(
+						services.executionHistoryService.getInputEntries(
 							props.positronConsoleInstance.runtimeMetadata.languageId
 						);
 					engageHistoryBrowser(new HistoryPrefixMatchStrategy(entries));
@@ -624,7 +624,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			case KeyCode.Home: {
 				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
 					consumeEvent();
-					positronConsoleContext.commandService.executeCommand('cursorLineStart');
+					services.commandService.executeCommand('cursorLineStart');
 					break;
 				}
 				break;
@@ -634,7 +634,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			case KeyCode.End: {
 				if (!e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !e.altGraphKey) {
 					consumeEvent();
-					positronConsoleContext.commandService.executeCommand('cursorLineEnd');
+					services.commandService.executeCommand('cursorLineEnd');
 					break;
 				}
 				break;
@@ -669,7 +669,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				consumeEvent();
 				if (!await executeCodeEditorWidgetCodeIfPossible()) {
 					// The code was not executed, insert a new line.
-					positronConsoleContext.commandService.executeCommand('editor.action.insertLineAfter');
+					services.commandService.executeCommand('editor.action.insertLineAfter');
 				}
 
 				break;
@@ -696,7 +696,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// history is used for navigating inside this session with navigation
 		// keys (e.g. up, down), so it includes only the current session's
 		// input.
-		const inputHistoryEntries = positronConsoleContext.executionHistoryService.getSessionInputEntries(
+		const inputHistoryEntries = services.executionHistoryService.getSessionInputEntries(
 			props.positronConsoleInstance.sessionMetadata.sessionId
 		);
 		if (inputHistoryEntries.length) {
@@ -748,9 +748,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		 */
 		const createEditorOptions = (): IEditorOptions => ({
 			// Configured IEditorOptions is the base of editor options.
-			...positronConsoleContext.configurationService.getValue<IEditorOptions>('editor'),
+			...services.configurationService.getValue<IEditorOptions>('editor'),
 			// Console-specific font options overlay the configured editor options.
-			...positronConsoleContext.configurationService.getValue<IFontOptions>('console'),
+			...services.configurationService.getValue<IFontOptions>('console'),
 			// IEditorOptions we override from their configured values.
 			...{
 				readOnly: false,
@@ -784,7 +784,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		});
 
 		// Create the code editor widget.
-		const codeEditorWidget = positronConsoleContext.instantiationService.createInstance(
+		const codeEditorWidget = services.instantiationService.createInstance(
 			CodeEditorWidget,
 			codeEditorWidgetContainerRef.current,
 			createEditorOptions(),
@@ -822,9 +822,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		props.positronConsoleInstance.codeEditor = codeEditorWidget;
 
 		// Attach the text model.
-		codeEditorWidget.setModel(positronConsoleContext.modelService.createModel(
+		codeEditorWidget.setModel(services.modelService.createModel(
 			'',
-			positronConsoleContext.languageService.createById(
+			services.languageService.createById(
 				props.positronConsoleInstance.runtimeMetadata.languageId
 			),
 			URI.from({
@@ -836,7 +836,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
-			positronConsoleContext.configurationService.onDidChangeConfiguration(
+			services.configurationService.onDidChangeConfiguration(
 				configurationChangeEvent => {
 					if (configurationChangeEvent.affectsConfiguration('editor') || configurationChangeEvent.affectsConfiguration('console')) {
 						// When the editor configuration changes, we must update ALL the options.
@@ -904,7 +904,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 
 		// Add the onDidChangeActivePositronConsoleInstance event handler.
 		disposableStore.add(
-			positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(
+			services.positronConsoleService.onDidChangeActivePositronConsoleInstance(
 				positronConsoleInstance => {
 					if (positronConsoleInstance === props.positronConsoleInstance) {
 						// If it's OK to take focus, drive focus into the code editor widget.
@@ -1004,7 +1004,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 			// If the history browser is not active, engage the history browser with the prefix match
 			// strategy. Otherwise, navigate history up.
 			if (e.usingPrefixMatch && !historyBrowserActiveRef.current) {
-				engageHistoryBrowser(new HistoryPrefixMatchStrategy(positronConsoleContext.executionHistoryService.getInputEntries(
+				engageHistoryBrowser(new HistoryPrefixMatchStrategy(services.executionHistoryService.getInputEntries(
 					props.positronConsoleInstance.runtimeMetadata.languageId
 				)));
 			} else {

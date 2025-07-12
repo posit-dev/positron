@@ -20,6 +20,7 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js'
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
 const localizeShowKernelOutputChannel = (channelName: string) => localize('positron.console.info.showKernelOutputChannel', "Show {0} Output Channel", channelName);
@@ -37,6 +38,7 @@ function intersectionOutputChannels(availableChannels: string[]): LanguageRuntim
 
 export const ConsoleInstanceInfoButton = () => {
 	// Hooks.
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.
@@ -51,7 +53,7 @@ export const ConsoleInstanceInfoButton = () => {
 		if (!sessionId) {
 			return;
 		}
-		const session = positronConsoleContext.runtimeSessionService.getSession(sessionId);
+		const session = services.runtimeSessionService.getSession(sessionId);
 		if (!session) {
 			return;
 		}
@@ -67,9 +69,9 @@ export const ConsoleInstanceInfoButton = () => {
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: positronConsoleContext.keybindingService,
-			layoutService: positronConsoleContext.layoutService,
-			container: positronConsoleContext.layoutService.getContainer(DOM.getWindow(ref.current)),
+			keybindingService: services.keybindingService,
+			layoutService: services.workbenchLayoutService,
+			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
 		});
 

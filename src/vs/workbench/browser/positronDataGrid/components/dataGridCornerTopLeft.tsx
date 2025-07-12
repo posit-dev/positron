@@ -34,7 +34,6 @@ export const DataGridCornerTopLeft = (props: DataGridCornerTopLeftProps) => {
 		<div className='data-grid-corner-top-left' onClick={props.onClick}>
 			<div className='border-overlay' />
 			<VerticalSplitter
-				configurationService={context.configurationService}
 				onBeginResize={() => ({
 					minimumWidth: 20,
 					maximumWidth: context.instance.maximumColumnWidth,

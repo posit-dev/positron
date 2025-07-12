@@ -11,12 +11,12 @@ import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
 import { RuntimeStartupProgress } from './runtimeStartupProgress.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Load localized copy for control.
 const initalizing = localize('positron.console.initializing', "Starting up");
@@ -37,13 +37,13 @@ const discoveringIntrepreters = localize('positron.console.discoveringInterprete
 export const StartupStatus = () => {
 	const progressRef = React.useRef<HTMLDivElement>(null);
 
-	const positronConsoleContext = usePositronConsoleContext();
+	const services = usePositronReactServicesContext();
 
 	// Component state.
 	const [discovered, setDiscovered] =
-		useState(positronConsoleContext.languageRuntimeService.registeredRuntimes.length);
+		useState(services.languageRuntimeService.registeredRuntimes.length);
 	const [startupPhase, setStartupPhase] =
-		useState(positronConsoleContext.languageRuntimeService.startupPhase);
+		useState(services.languageRuntimeService.startupPhase);
 	const [runtimeStartupEvent, setRuntimeStartupEvent] =
 		useState<IRuntimeAutoStartEvent | undefined>(undefined);
 
@@ -61,15 +61,15 @@ export const StartupStatus = () => {
 
 		// When each interpreter is discovered, update the count.
 		disposableStore.add(
-			positronConsoleContext.languageRuntimeService.onDidRegisterRuntime(
+			services.languageRuntimeService.onDidRegisterRuntime(
 				_runtime => {
 					setDiscovered(
-						positronConsoleContext.languageRuntimeService.registeredRuntimes.length);
+						services.languageRuntimeService.registeredRuntimes.length);
 				}));
 
 		// When the startup phase changes, update the phase.
 		disposableStore.add(
-			positronConsoleContext.languageRuntimeService.onDidChangeRuntimeStartupPhase(
+			services.languageRuntimeService.onDidChangeRuntimeStartupPhase(
 				phase => {
 					setStartupPhase(phase);
 				}));
@@ -78,7 +78,7 @@ export const StartupStatus = () => {
 		// show it. Note that this event is not reliable as a signal that a
 		// runtime will actually start; see notes in the RuntimeStartupService.
 		disposableStore.add(
-			positronConsoleContext.runtimeStartupService.onWillAutoStartRuntime(
+			services.runtimeStartupService.onWillAutoStartRuntime(
 				evt => {
 					setRuntimeStartupEvent(evt);
 				}));

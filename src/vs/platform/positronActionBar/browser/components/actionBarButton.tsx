@@ -18,6 +18,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * ActionBarButtonIconProps type
@@ -79,6 +80,7 @@ export const ActionBarButton = forwardRef<
 	PropsWithChildren<ActionBarButtonProps>
 >((props, ref) => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const context = usePositronActionBarContext();
 
 	// Reference hooks.
@@ -104,7 +106,7 @@ export const ActionBarButton = forwardRef<
 			iconClassNames = ThemeIcon.asClassNameArray(props.icon);
 		} else {
 			// Get the color theme type.
-			const colorThemeType = context.themeService.getColorTheme().type;
+			const colorThemeType = services.themeService.getColorTheme().type;
 
 			// Determine the CSS background image based on the color theme type and icon.
 			let icon: URI | undefined;

@@ -12,19 +12,13 @@ import React, { PropsWithChildren, useEffect, useState } from 'react';
 // Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
-import { PositronSessionsServices } from './positronRuntimeSessionsState.js';
 import { PositronSessionsContextProvider } from './positronRuntimeSessionsContext.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { SessionsCore } from './components/sessionsCore.js';
 
 /**
  * PositronSessionsProps interface.
  */
-export interface PositronSessionsProps extends PositronSessionsServices {
-	// Services.
-	readonly runtimeSessionService: IRuntimeSessionService;
-	readonly layoutService: IWorkbenchLayoutService;
+export interface PositronSessionsProps {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 

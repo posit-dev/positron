@@ -8,8 +8,8 @@ import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { PlaceholderThumbnail } from './placeholderThumbnail.js';
-import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * DynamicPlotThumbnailProps interface.
@@ -25,14 +25,14 @@ interface DynamicPlotThumbnailProps {
  * @returns The rendered component.
  */
 export const DynamicPlotThumbnail = (props: DynamicPlotThumbnailProps) => {
-	const context = usePositronPlotsContext();
+	const services = usePositronReactServicesContext();
 	const [uri, setUri] = useState(() => {
 		// If the plot is already rendered, set the URI; otherwise, try to use the cached URI until
 		// the plot is rendered.
 		if (props.plotClient.lastRender) {
 			return props.plotClient.lastRender.uri;
 		} else {
-			return context.positronPlotsService.getCachedPlotThumbnailURI(props.plotClient.id);
+			return services.positronPlotsService.getCachedPlotThumbnailURI(props.plotClient.id);
 		}
 	});
 

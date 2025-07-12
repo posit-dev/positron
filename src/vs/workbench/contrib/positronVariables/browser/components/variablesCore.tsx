@@ -112,7 +112,7 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 	return (
 		<div className='variables-core'>
 			<div ref={progressRef} id='variables-progress' />
-			<ActionBars {...props} />
+			<ActionBars />
 			<div className='variables-instances-container' style={{ width: props.width, height: adjustedHeight }}>
 				{positronVariablesContext.positronVariablesInstances.map(positronVariablesInstance =>
 					<VariablesInstance

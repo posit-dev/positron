@@ -13,19 +13,20 @@ import React, { PropsWithChildren, useEffect, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { kPaddingLeft, kPaddingRight, PreviewActionBarsProps } from './actionBars.js';
+import { kPaddingLeft, kPaddingRight } from './actionBars.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { PreviewWebview } from '../previewWebview.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const clear = localize('positron.preview.html.clear', "Clear the content");
 
 /**
  * HtmlActionBarsProps interface.
  */
-export interface BasicActionBarsProps extends PreviewActionBarsProps {
+export interface BasicActionBarsProps {
 
 	// The active preview.
 	readonly preview: PreviewWebview;
@@ -33,11 +34,12 @@ export interface BasicActionBarsProps extends PreviewActionBarsProps {
 
 export const BasicActionBars = (props: PropsWithChildren<BasicActionBarsProps>) => {
 
+	const services = usePositronReactServicesContext();
 	const [title, setTitle] = useState(`${props.preview.name} output`);
 
 	// Handler for the clear button.
 	const clearHandler = () => {
-		props.positronPreviewService.clearAllPreviews();
+		services.positronPreviewService.clearAllPreviews();
 	};
 
 	// Main use effect.

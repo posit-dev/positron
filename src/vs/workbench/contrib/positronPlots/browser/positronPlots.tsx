@@ -10,27 +10,19 @@ import './positronPlots.css';
 import React, { PropsWithChildren, useCallback, useEffect, useState } from 'react';
 
 // Other dependencies.
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
-import { PositronPlotsServices } from './positronPlotsState.js';
 import { PositronPlotsContextProvider } from './positronPlotsContext.js';
-import { HistoryPolicy, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
+import { HistoryPolicy, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PlotsContainer } from './components/plotsContainer.js';
 import { ActionBars } from './components/actionBars.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { PositronPlotsViewPane } from './positronPlotsView.js';
-import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PositronPlotsProps interface.
  */
-export interface PositronPlotsProps extends PositronPlotsServices {
-	// Services.
-	readonly layoutService: IWorkbenchLayoutService;
+export interface PositronPlotsProps {
 	readonly reactComponentContainer: PositronPlotsViewPane;
-	readonly positronPlotsService: IPositronPlotsService;
-	readonly notificationService: INotificationService;
-	readonly preferencesService: IPreferencesService;
 }
 
 /**
@@ -39,6 +31,8 @@ export interface PositronPlotsProps extends PositronPlotsServices {
  * @returns The rendered component.
  */
 export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
 
 	// Compute the history visibility based on the history policy.
 	const computeHistoryVisibility = useCallback((policy: HistoryPolicy) => {
@@ -49,7 +43,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 				return false;
 			case HistoryPolicy.Automatic:
 				// Don't show the history if there aren't at least two plots.
-				if (props.positronPlotsService.positronPlotInstances.length < 2) {
+				if (services.positronPlotsService.positronPlotInstances.length < 2) {
 					return false;
 				}
 
@@ -62,15 +56,15 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 				// Show the history.
 				return true;
 		}
-	}, [props.positronPlotsService.positronPlotInstances.length, props.reactComponentContainer.height, props.reactComponentContainer.width]);
+	}, [services.positronPlotsService.positronPlotInstances.length, props.reactComponentContainer.height, props.reactComponentContainer.width]);
 
 	const zoomHandler = (zoom: number) => {
-		const currentPlotId = props.positronPlotsService.selectedPlotId;
+		const currentPlotId = services.positronPlotsService.selectedPlotId;
 		if (!currentPlotId) {
 			return;
 		}
 
-		const plot = props.positronPlotsService.positronPlotInstances.find(plot => plot.id === currentPlotId);
+		const plot = services.positronPlotsService.positronPlotInstances.find(plot => plot.id === currentPlotId);
 		if (isZoomablePlotClient(plot)) {
 			// Update the zoom level in the plot metadata.
 			plot.zoomLevel = zoom;
@@ -83,9 +77,8 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	const [posX, setPosX] = useState(0);
 	const [posY, setPosY] = useState(0);
 	const [visible, setVisible] = useState(props.reactComponentContainer.containerVisible);
-	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(
-		props.positronPlotsService.historyPolicy));
-	const [darkFilterMode, setDarkFilterMode] = useState(props.positronPlotsService.darkFilterMode);
+	const [showHistory, setShowHistory] = useState(computeHistoryVisibility(services.positronPlotsService.historyPolicy));
+	const [darkFilterMode, setDarkFilterMode] = useState(services.positronPlotsService.darkFilterMode);
 	const [zoom, setZoom] = useState(ZoomLevel.Fit);
 
 	// Add IReactComponentContainer event handlers.
@@ -97,7 +90,7 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 		disposableStore.add(props.reactComponentContainer.onSizeChanged(size => {
 			setWidth(size.width);
 			setHeight(size.height);
-			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+			setShowHistory(computeHistoryVisibility(services.positronPlotsService.historyPolicy));
 		}));
 
 		// Add the onSizeChanged event handler.
@@ -113,39 +106,39 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 
 		// Add event handlers so we can show/hide the history portion of the panel as the set
 		// of plots changes.
-		disposableStore.add(props.positronPlotsService.onDidEmitPlot(() => {
-			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		disposableStore.add(services.positronPlotsService.onDidEmitPlot(() => {
+			setShowHistory(computeHistoryVisibility(services.positronPlotsService.historyPolicy));
 		}));
-		disposableStore.add(props.positronPlotsService.onDidRemovePlot(() => {
-			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		disposableStore.add(services.positronPlotsService.onDidRemovePlot(() => {
+			setShowHistory(computeHistoryVisibility(services.positronPlotsService.historyPolicy));
 		}));
-		disposableStore.add(props.positronPlotsService.onDidReplacePlots(() => {
-			setShowHistory(computeHistoryVisibility(props.positronPlotsService.historyPolicy));
+		disposableStore.add(services.positronPlotsService.onDidReplacePlots(() => {
+			setShowHistory(computeHistoryVisibility(services.positronPlotsService.historyPolicy));
 		}));
 
 		// Add the event handler for history policy changes.
-		disposableStore.add(props.positronPlotsService.onDidChangeHistoryPolicy(policy => {
+		disposableStore.add(services.positronPlotsService.onDidChangeHistoryPolicy(policy => {
 			setShowHistory(computeHistoryVisibility(policy));
 		}));
 
 		// Add the event handler for dark filter mode changes.
-		disposableStore.add(props.positronPlotsService.onDidChangeDarkFilterMode(mode => {
+		disposableStore.add(services.positronPlotsService.onDidChangeDarkFilterMode(mode => {
 			setDarkFilterMode(mode);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [computeHistoryVisibility, props.positronPlotsService, props.reactComponentContainer]);
+	}, [computeHistoryVisibility, services.positronPlotsService, props.reactComponentContainer]);
 
 	useEffect(() => {
 		// Set the initial zoom level for the current plot.
 		const disposableStore = new DisposableStore();
 
-		disposableStore.add(props.positronPlotsService.onDidSelectPlot(plotId => {
-			const currentPlot = props.positronPlotsService.selectedPlotId;
+		disposableStore.add(services.positronPlotsService.onDidSelectPlot(plotId => {
+			const currentPlot = services.positronPlotsService.selectedPlotId;
 
 			if (currentPlot) {
-				const plot = props.positronPlotsService.positronPlotInstances.find(plot => plot.id === currentPlot);
+				const plot = services.positronPlotsService.positronPlotInstances.find(plot => plot.id === currentPlot);
 				if (isZoomablePlotClient(plot)) {
 					disposableStore.add(plot.onDidChangeZoomLevel((zoomLevel) => {
 						setZoom(zoomLevel);
@@ -161,21 +154,20 @@ export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 			// Dispose of the disposable store to clean up event handlers.
 			disposableStore.dispose();
 		}
-	}, [props.positronPlotsService]);
+	}, [services.positronPlotsService]);
 
 	// Render.
 	return (
 		<PositronPlotsContextProvider {...props}>
 			<ActionBars
 				{...props}
-				key={props.positronPlotsService.selectedPlotId}
+				key={services.positronPlotsService.selectedPlotId}
 				zoomHandler={zoomHandler}
 				zoomLevel={zoom}
 			/>
 			<PlotsContainer
 				darkFilterMode={darkFilterMode}
 				height={height > 0 ? height - 34 : 0}
-				positronPlotsService={props.positronPlotsService}
 				showHistory={showHistory}
 				visible={visible}
 				width={width}

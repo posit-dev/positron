@@ -19,6 +19,7 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -35,6 +36,7 @@ interface ConsoleTabProps {
 
 const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: ConsoleTabProps) => {
 	// Context
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// State
@@ -56,13 +58,13 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 
 		// Add the onDidUpdateSessionName event handler.
 		disposableStore.add(
-			positronConsoleContext.runtimeSessionService.onDidUpdateSessionName(session => {
+			services.runtimeSessionService.onDidUpdateSessionName(session => {
 				if (session.sessionId === positronConsoleInstance.sessionId) {
 					setSessionName(session.dynState.sessionName);
 				}
 			})
 		);
-	}, [positronConsoleContext.runtimeSessionService, positronConsoleInstance.sessionId])
+	}, [services.runtimeSessionService, positronConsoleInstance.sessionId])
 
 	/**
 	 * Handles the click event for the console tab.
@@ -120,7 +122,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		});
 
 		// Show the context menu.
-		positronConsoleContext.contextMenuService.showContextMenu({
+		services.contextMenuService.showContextMenu({
 			getActions: () => actions,
 			getAnchor: () => ({ x, y }),
 			anchorAlignment: AnchorAlignment.LEFT,
@@ -158,13 +160,13 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		}
 
 		try {
-			positronConsoleContext.runtimeSessionService.updateSessionName(
+			services.runtimeSessionService.updateSessionName(
 				positronConsoleInstance.sessionId,
 				newName
 			);
 			setSessionName(newName);
 		} catch (error) {
-			positronConsoleContext.notificationService.error(
+			services.notificationService.error(
 				localize('positron.console.renameSession.error',
 					"Failed to rename session {0}: {1}",
 					positronConsoleInstance.sessionId,
@@ -195,19 +197,19 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 		try {
 			// Updated to support proper deletion of sessions that have
 			// been shutdown or exited.
-			if (positronConsoleContext.runtimeSessionService.getSession(sessionId)) {
+			if (services.runtimeSessionService.getSession(sessionId)) {
 				// Attempt to delete the session from the runtime session service.
 				// This will throw an error if the session is not found.
-				await positronConsoleContext.runtimeSessionService.deleteSession(sessionId);
+				await services.runtimeSessionService.deleteSession(sessionId);
 			} else {
 				// If the session is not found, it may have been deleted already
 				// or is a provisional session. In this case, we can delete the
 				// session from the Positron Console service.
-				positronConsoleContext.positronConsoleService.deletePositronConsoleSession(sessionId);
+				services.positronConsoleService.deletePositronConsoleSession(sessionId);
 			}
 		} catch (error) {
 			// Show an error notification if the session could not be deleted.
-			positronConsoleContext.notificationService.error(
+			services.notificationService.error(
 				localize('positronDeleteSessionError', "Failed to delete session: {0}", error)
 			);
 			// Re-enable the button if the session could not be deleted.
@@ -278,7 +280,7 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				const start = inputRef.current!.selectionStart as number;
 				const end = inputRef.current!.selectionEnd as number;
 				const selectedText = sessionName.substring(start, end);
-				positronConsoleContext.clipboardService.writeText(selectedText);
+				services.clipboardService.writeText(selectedText);
 
 				// Remove the selected text from the input field
 				const newValue = sessionName.substring(0, start) + sessionName.substring(end);
@@ -297,14 +299,14 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				const start = inputRef.current!.selectionStart as number;
 				const end = inputRef.current!.selectionEnd as number;
 				const selectedText = sessionName.substring(start, end);
-				positronConsoleContext.clipboardService.writeText(selectedText);
+				services.clipboardService.writeText(selectedText);
 			}
 		} else if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
 			e.preventDefault();
 			// Avoid triggering this action in the console instance
 			e.stopPropagation();
 			// Paste the text from the clipboard into the input field
-			const newSessionName = await positronConsoleContext.clipboardService.readText();
+			const newSessionName = await services.clipboardService.readText();
 			setSessionName(newSessionName);
 		}
 	};
@@ -369,8 +371,9 @@ interface ConsoleTabListProps {
 }
 
 export const ConsoleTabList = (props: ConsoleTabListProps) => {
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
-	const positronConsoleTabFocusedContextKey = PositronConsoleTabFocused.bindTo(positronConsoleContext.contextKeyService);
+	const positronConsoleTabFocusedContextKey = PositronConsoleTabFocused.bindTo(services.contextKeyService);
 
 	const tabListRef = useRef<HTMLDivElement>(null);
 
@@ -425,11 +428,11 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 	const handleChangeForegroundSession = async (sessionId: string): Promise<void> => {
 		// Find the session
 		const session =
-			positronConsoleContext.runtimeSessionService.getSession(sessionId);
+			services.runtimeSessionService.getSession(sessionId);
 
 		if (session) {
 			// Set the session as the foreground session
-			positronConsoleContext.runtimeSessionService.foregroundSession = session;
+			services.runtimeSessionService.foregroundSession = session;
 		} else {
 			// It is possible for a console instance to exist without a
 			// session; this typically happens when we create a provisional
@@ -437,7 +440,7 @@ export const ConsoleTabList = (props: ConsoleTabListProps) => {
 			// session never connects. In this case we can't set the session as
 			// the foreground session, but we can still set the console
 			// instance as the active console instance.
-			positronConsoleContext.positronConsoleService.setActivePositronConsoleSession(sessionId);
+			services.positronConsoleService.setActivePositronConsoleSession(sessionId);
 		}
 	};
 

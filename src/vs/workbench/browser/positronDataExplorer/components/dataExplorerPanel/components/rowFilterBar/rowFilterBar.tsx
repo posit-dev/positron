@@ -25,6 +25,7 @@ import { CustomContextMenuItem } from '../../../../../positronComponents/customC
 import { CustomContextMenuSeparator } from '../../../../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../../positronComponents/customContextMenu/customContextMenu.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../../../../../services/positronDataExplorer/common/positronDataExplorerExperimentalConfig.js';
+import { usePositronReactServicesContext } from '../../../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -37,6 +38,7 @@ const MAX_ROW_FILTERS = 15;
  */
 export const RowFilterBar = () => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const context = usePositronDataExplorerContext();
 	const backendClient = context.instance.dataExplorerClientInstance;
 
@@ -68,9 +70,9 @@ export const RowFilterBar = () => {
 	) => {
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: context.keybindingService,
-			layoutService: context.layoutService,
-			container: context.layoutService.getContainer(DOM.getWindow(ref.current))
+			keybindingService: services.keybindingService,
+			layoutService: services.workbenchLayoutService,
+			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current))
 		});
 
 		// If a new row filter is being added, and we've reached the row filter limit, inform the
@@ -129,7 +131,7 @@ export const RowFilterBar = () => {
 			renderer.render(
 				<AddEditRowFilterModalPopup
 					anchorElement={anchorElement}
-					configurationService={context.configurationService}
+					configurationService={services.configurationService}
 					dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 					editRowFilter={editRowFilterDescriptor}
 					isFirstFilter={isFirstFilter}
@@ -140,16 +142,16 @@ export const RowFilterBar = () => {
 			);
 		}
 	}, [
-		context.configurationService,
+		services.configurationService,
 		context.instance.dataExplorerClientInstance,
 		context.instance.tableDataDataGridInstance,
-		context.keybindingService,
-		context.layoutService,
+		services.keybindingService,
+		services.workbenchLayoutService,
 		rowFilterDescriptors
 	]);
 
 	const features = backendClient.getSupportedFeatures();
-	const canFilter = dataExplorerExperimentalFeatureEnabled(features.set_row_filters.support_status, context.configurationService);
+	const canFilter = dataExplorerExperimentalFeatureEnabled(features.set_row_filters.support_status, services.configurationService);
 
 	/**
 	 * Filter button pressed handler.
@@ -197,9 +199,9 @@ export const RowFilterBar = () => {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			commandService: context.commandService,
-			keybindingService: context.keybindingService,
-			layoutService: context.layoutService,
+			commandService: services.commandService,
+			keybindingService: services.keybindingService,
+			layoutService: services.workbenchLayoutService,
 			anchorElement: rowFilterButtonRef.current,
 			popupPosition: 'auto',
 			popupAlignment: 'left',

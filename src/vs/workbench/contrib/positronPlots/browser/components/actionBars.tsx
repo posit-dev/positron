@@ -11,13 +11,7 @@ import React, { PropsWithChildren } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
@@ -28,16 +22,12 @@ import { HistoryPolicyMenuButton } from './historyPolicyMenuButton.js';
 import { ZoomPlotMenuButton } from './zoomPlotMenuButton.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
-import { INotificationService } from '../../../../../platform/notification/common/notification.js';
 import { PlotActionTarget, PlotsClearAction, PlotsCopyAction, PlotsNextAction, PlotsPopoutAction, PlotsPreviousAction, PlotsSaveAction } from '../positronPlotsActions.js';
-import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
 import { HtmlPlotClient } from '../htmlPlotClient.js';
-import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
-import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -56,18 +46,6 @@ const clearAllPlots = localize('positronClearAllPlots', "Clear all plots");
  * ActionBarsProps interface.
  */
 export interface ActionBarsProps {
-	// Services.
-	readonly accessibilityService: IAccessibilityService;
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
-	readonly contextMenuService: IContextMenuService;
-	readonly hoverService: IHoverService;
-	readonly keybindingService: IKeybindingService;
-	readonly layoutService: IWorkbenchLayoutService;
-	readonly notificationService: INotificationService;
-	readonly preferencesService: IPreferencesService;
-	readonly themeService: IThemeService;
 	readonly zoomHandler: (zoomLevel: number) => void;
 	readonly zoomLevel: number;
 }
@@ -79,6 +57,7 @@ export interface ActionBarsProps {
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
+	const services = usePositronReactServicesContext();
 	const positronPlotsContext = usePositronPlotsContext();
 
 	// Do we have any plots?
@@ -115,21 +94,21 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Clear all the plots from the service.
 	const clearAllPlotsHandler = () => {
 		if (hasPlots) {
-			props.commandService.executeCommand(PlotsClearAction.ID);
+			services.commandService.executeCommand(PlotsClearAction.ID);
 		}
 	};
 
 	// Navigate to the previous plot in the plot history.
 	const showPreviousPlotHandler = () => {
 		if (!disableLeft) {
-			props.commandService.executeCommand(PlotsPreviousAction.ID);
+			services.commandService.executeCommand(PlotsPreviousAction.ID);
 		}
 	};
 
 	// Navigate to the next plot in the plot history.
 	const showNextPlotHandler = () => {
 		if (!disableRight) {
-			props.commandService.executeCommand(PlotsNextAction.ID);
+			services.commandService.executeCommand(PlotsNextAction.ID);
 		}
 	};
 
@@ -137,15 +116,15 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 		props.zoomHandler(zoomLevel);
 	};
 	const savePlotHandler = () => {
-		props.commandService.executeCommand(PlotsSaveAction.ID, PlotActionTarget.VIEW);
+		services.commandService.executeCommand(PlotsSaveAction.ID, PlotActionTarget.VIEW);
 	};
 
 	const copyPlotHandler = () => {
-		props.commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.VIEW);
+		services.commandService.executeCommand(PlotsCopyAction.ID, PlotActionTarget.VIEW);
 	};
 
 	const popoutPlotHandler = () => {
-		props.commandService.executeCommand(PlotsPopoutAction.ID);
+		services.commandService.executeCommand(PlotsPopoutAction.ID);
 	};
 
 	// Render.
@@ -202,11 +181,11 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 							/>}
 						{enableSizingPolicy &&
 							<SizingPolicyMenuButton
-								keybindingService={props.keybindingService}
-								layoutService={props.layoutService}
-								notificationService={positronPlotsContext.notificationService}
+								keybindingService={services.keybindingService}
+								layoutService={services.workbenchLayoutService}
+								notificationService={services.notificationService}
 								plotClient={selectedPlot}
-								plotsService={positronPlotsContext.positronPlotsService}
+								plotsService={services.positronPlotsService}
 							/>
 						}
 						{enablePopoutPlot &&
@@ -221,21 +200,18 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						{enableEditorPlot &&
 							<OpenInEditorMenuButton
 								ariaLabel={openInEditorTab}
-								commandService={positronPlotsContext.commandService}
-								defaultGroup={positronPlotsContext.positronPlotsService.getPreferredEditorGroup()}
+								commandService={services.commandService}
+								defaultGroup={services.positronPlotsService.getPreferredEditorGroup()}
 								tooltip={openInEditorTab}
 							/>
 						}
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						{enableDarkFilter &&
-							<DarkFilterMenuButton
-								plotsService={positronPlotsContext.positronPlotsService}
-								preferencesService={positronPlotsContext.preferencesService}
-							/>
+							<DarkFilterMenuButton />
 						}
 						<HistoryPolicyMenuButton
-							plotsService={positronPlotsContext.positronPlotsService}
+							plotsService={services.positronPlotsService}
 						/>
 						<ActionBarSeparator />
 						<ActionBarButton

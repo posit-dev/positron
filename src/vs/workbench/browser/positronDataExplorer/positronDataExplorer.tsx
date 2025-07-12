@@ -11,28 +11,15 @@ import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../base/common/lifecycle.js';
-import { ILayoutService } from '../../../platform/layout/browser/layoutService.js';
 import { PositronDataExplorerContextProvider } from './positronDataExplorerContext.js';
 import { DataExplorerPanel } from './components/dataExplorerPanel/dataExplorerPanel.js';
-import { IClipboardService } from '../../../platform/clipboard/common/clipboardService.js';
-import { IAccessibilityService } from '../../../platform/accessibility/common/accessibility.js';
-import { PositronActionBarServices } from '../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { IPositronDataExplorerInstance } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from './components/dataExplorerClosed/positronDataExplorerClosed.js';
 
 /**
- * PositronDataExplorerServices interface.
- */
-export interface PositronDataExplorerServices extends PositronActionBarServices {
-	readonly accessibilityService: IAccessibilityService;
-	readonly clipboardService: IClipboardService;
-	readonly layoutService: ILayoutService;
-}
-
-/**
  * PositronDataExplorerConfiguration interface.
  */
-export interface PositronDataExplorerConfiguration extends PositronDataExplorerServices {
+export interface PositronDataExplorerConfiguration {
 	readonly instance: IPositronDataExplorerInstance;
 }
 

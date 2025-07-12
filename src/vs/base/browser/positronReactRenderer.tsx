@@ -19,6 +19,7 @@ import { IViewDescriptorService } from '../../workbench/common/views.js';
 import { IThemeService } from '../../platform/theme/common/themeService.js';
 import { ILanguageService } from '../../editor/common/languages/language.js';
 import { ICommandService } from '../../platform/commands/common/commands.js';
+import { IHostService } from '../../workbench/services/host/browser/host.js';
 import { PositronReactServicesContext } from './positronReactRendererContext.js';
 import { IPathService } from '../../workbench/services/path/common/pathService.js';
 import { IContextKeyService } from '../../platform/contextkey/common/contextkey.js';
@@ -34,17 +35,20 @@ import { INotificationService } from '../../platform/notification/common/notific
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 import { IAccessibilityService } from '../../platform/accessibility/common/accessibility.js';
 import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
+import { IPreferencesService } from '../../workbench/services/preferences/common/preferences.js';
 import { IWorkbenchLayoutService } from '../../workbench/services/layout/browser/layoutService.js';
 import { IPositronPlotsService } from '../../workbench/services/positronPlots/common/positronPlots.js';
+import { IPositronHelpService } from '../../workbench/contrib/positronHelp/browser/positronHelpService.js';
 import { IRuntimeSessionService } from '../../workbench/services/runtimeSession/common/runtimeSessionService.js';
 import { IRuntimeStartupService } from '../../workbench/services/runtimeStartup/common/runtimeStartupService.js';
 import { IWorkbenchEnvironmentService } from '../../workbench/services/environment/common/environmentService.js';
+import { IPositronPreviewService } from '../../workbench/contrib/positronPreview/browser/positronPreviewSevice.js';
 import { ILanguageRuntimeService } from '../../workbench/services/languageRuntime/common/languageRuntimeService.js';
 import { IExecutionHistoryService } from '../../workbench/services/positronHistory/common/executionHistoryService.js';
 import { IPositronConsoleService } from '../../workbench/services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { IPositronVariablesService } from '../../workbench/services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
 
 /**
  * ISize interface.
@@ -153,6 +157,7 @@ export class PositronReactRenderer extends Disposable {
 		@IEditorService private readonly _editorService: IEditorService,
 		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
 		@IHoverService private readonly _hoverService: IHoverService,
+		@IHostService private readonly _hostService: IHostService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILabelService private readonly _labelService: ILabelService,
@@ -165,9 +170,12 @@ export class PositronReactRenderer extends Disposable {
 		@IPathService private readonly _pathService: IPathService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
+		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
 		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
+		@IPositronPreviewService private readonly _positronPreviewService: IPositronPreviewService,
 		@IPositronTopActionBarService private readonly _positronTopActionBarService: IPositronTopActionBarService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
+		@IPreferencesService private readonly _preferencesService: IPreferencesService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
@@ -221,6 +229,7 @@ export class PositronReactRenderer extends Disposable {
 					editorService: this._editorService,
 					executionHistoryService: this._executionHistoryService,
 					hoverService: this._hoverService,
+					hostService: this._hostService,
 					instantiationService: this._instantiationService,
 					keybindingService: this._keybindingService,
 					labelService: this._labelService,
@@ -233,9 +242,12 @@ export class PositronReactRenderer extends Disposable {
 					pathService: this._pathService,
 					positronConsoleService: this._positronConsoleService,
 					positronDataExplorerService: this._positronDataExplorerService,
+					positronHelpService: this._positronHelpService,
 					positronPlotsService: this._positronPlotsService,
+					positronPreviewService: this._positronPreviewService,
 					positronTopActionBarService: this._positronTopActionBarService,
 					positronVariablesService: this._positronVariablesService,
+					preferencesService: this._preferencesService,
 					quickInputService: this._quickInputService,
 					runtimeSessionService: this._runtimeSessionService,
 					runtimeStartupService: this._runtimeStartupService,

@@ -11,8 +11,8 @@ import { PositronActionBar } from '../../../../../platform/positronActionBar/bro
 import { LanguageModelIcon } from '../../../positronAssistant/browser/components/languageModelButton.js';
 import { localize } from '../../../../../nls.js';
 import { IPositronChatProvider } from '../../common/languageModels.js';
-import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 interface ChatActionBarProps {
 	width: number;
@@ -23,7 +23,7 @@ const addModelProviderLabel = () => localize('positronChatSelector.addModelProvi
 const addModelProviderTooltip = () => localize('positronChatSelector.addModelProviderTooltip', 'Add a Language Model Provider');
 
 export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
-	const positronActionBarContext = usePositronActionBarContext();
+	const services = usePositronReactServicesContext();
 	const positronChatContext = usePositronChatContext();
 	const { providers, currentProvider } = positronChatContext;
 
@@ -54,12 +54,12 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 			class: undefined,
 			tooltip: addModelProviderTooltip(),
 			run: async () => {
-				await positronActionBarContext.commandService.executeCommand('positron-assistant.configureModels');
+				await services.commandService.executeCommand('positron-assistant.configureModels');
 			}
 		}];
 
 		return Separator.join(providerActions, otherActions);
-	}, [props, providers, currentProvider, positronActionBarContext.commandService]);
+	}, [props, providers, currentProvider, services.commandService]);
 
 	const renderCurrentProvider = () => {
 		if (!currentProvider) {
@@ -67,7 +67,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 				label={addModelProviderLabel()}
 				tooltip={addModelProviderTooltip()}
 				onPressed={async () => {
-					await positronActionBarContext.commandService.executeCommand('positron-assistant.configureModels');
+					await services.commandService.executeCommand('positron-assistant.configureModels');
 				}}
 			/>;
 		}

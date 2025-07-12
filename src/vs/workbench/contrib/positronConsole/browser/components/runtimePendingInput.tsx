@@ -13,7 +13,7 @@ import React from 'react';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
 import { RuntimeItemPendingInput } from '../../../../services/positronConsole/browser/classes/runtimeItemPendingInput.js';
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // RuntimePendingInputProps interface.
 export interface RuntimePendingInputProps {
@@ -28,7 +28,7 @@ export interface RuntimePendingInputProps {
  */
 export const RuntimePendingInput = (props: RuntimePendingInputProps) => {
 	// Get services from the context.
-	const { openerService, notificationService, environmentService, pathService } = usePositronConsoleContext();
+	const { openerService, notificationService, workbenchEnvironmentService, pathService } = usePositronReactServicesContext();
 
 	// Calculate the prompt width.
 	const promptWidth = Math.ceil(
@@ -47,7 +47,7 @@ export const RuntimePendingInput = (props: RuntimePendingInputProps) => {
 					{outputLine.outputRuns.map(outputRun =>
 						<OutputRun
 							key={outputRun.id}
-							environmentService={environmentService}
+							environmentService={workbenchEnvironmentService}
 							notificationService={notificationService}
 							openerService={openerService}
 							outputRun={outputRun}

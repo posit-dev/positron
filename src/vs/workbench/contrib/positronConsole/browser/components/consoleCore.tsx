@@ -20,6 +20,7 @@ import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common
 import { ConsoleTabList } from './consoleTabList.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants.
 const ACTION_BAR_HEIGHT = 28;
@@ -43,21 +44,22 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	const adjustedHeight = props.height - ACTION_BAR_HEIGHT;
 
 	// Hooks.
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// State hooks.
 	const [consoleWidth, setConsoleWidth] = useState(0);
 	const [consolePaneWidth, setConsolePaneWidth] = useState(0);
 	const [consoleTabListWidth, setConsoleTabListWidth] = useState(0);
-	const [startupPhase, setStartupPhase] = useState(positronConsoleContext.languageRuntimeService.startupPhase);
+	const [startupPhase, setStartupPhase] = useState(services.languageRuntimeService.startupPhase);
 
 	// Main useEffect hook.
 	useEffect(() => {
-		const disposables = positronConsoleContext.languageRuntimeService.onDidChangeRuntimeStartupPhase(e => {
+		const disposables = services.languageRuntimeService.onDidChangeRuntimeStartupPhase(e => {
 			setStartupPhase(e);
 		});
 		return () => disposables.dispose();
-	}, [positronConsoleContext.languageRuntimeService]);
+	}, [services.languageRuntimeService]);
 
 	// Console Width Effect
 	useEffect(() => {
@@ -144,7 +146,6 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 			</div>
 			{consoleTabListWidth > 0 &&
 				<VerticalSplitter
-					configurationService={positronConsoleContext.configurationService}
 					onBeginResize={handleBeginResize}
 					onResize={handleResize}
 				/>

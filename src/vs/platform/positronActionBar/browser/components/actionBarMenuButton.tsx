@@ -18,6 +18,7 @@ import { IContextMenuEvent } from '../../../../base/browser/contextmenu.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * ActionBarMenuButtonProps interface.
@@ -48,6 +49,7 @@ interface ActionBarMenuButtonProps {
  */
 export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext();
 
 	// Reference hooks.
@@ -100,11 +102,11 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 
 		// Set the menu showing state and show the context menu.
 		positronActionBarContext.setMenuShowing(true);
-		positronActionBarContext.contextMenuService.showContextMenu({
+		services.contextMenuService.showContextMenu({
 			getActions: () => actions,
 			getAnchor: () => buttonRef.current,
 			getKeyBinding: (action: IAction) => {
-				return positronActionBarContext.keybindingService.lookupKeybinding(action.id);
+				return services.keybindingService.lookupKeybinding(action.id);
 			},
 			getActionsContext: (event?: IContextMenuEvent) => {
 				if (event) {
@@ -121,7 +123,7 @@ export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 			onHide: () => positronActionBarContext.setMenuShowing(false),
 			anchorAlignment: props.align && props.align === 'right' ? AnchorAlignment.RIGHT : AnchorAlignment.LEFT,
 			anchorAxisAlignment: AnchorAxisAlignment.VERTICAL,
-			contextKeyService: positronActionBarContext.contextKeyService
+			contextKeyService: services.contextKeyService
 		});
 	};
 

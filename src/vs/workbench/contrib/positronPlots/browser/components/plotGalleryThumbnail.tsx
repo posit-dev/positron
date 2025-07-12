@@ -7,15 +7,14 @@
 import React, { PropsWithChildren, useRef } from 'react';
 
 // Other dependencies.
-import { PositronPlotsServices } from '../positronPlotsState.js';
 import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PlotGalleryThumbnailProps interface.
  */
 interface PlotGalleryThumbnailProps {
 	selected: boolean;
-	plotService: PositronPlotsServices;
 	plotClient: IPositronPlotClient;
 	focusPreviousPlotThumbnail: (currentPlotId: string) => void;
 	focusNextPlotThumbnail: (currentPlotId: string) => void;
@@ -29,15 +28,16 @@ interface PlotGalleryThumbnailProps {
  * @returns The rendered component.
  */
 export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbnailProps>) => {
+	const services = usePositronReactServicesContext();
 	const plotThumbnailButtonRef = useRef<HTMLButtonElement>(undefined!);
 	const plotRemoveButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	const selectPlot = () => {
-		props.plotService.positronPlotsService.selectPlot(props.plotClient.id);
+		services.positronPlotsService.selectPlot(props.plotClient.id);
 	};
 
 	const removePlot = () => {
-		props.plotService.positronPlotsService.removePlot(props.plotClient.id);
+		services.positronPlotsService.removePlot(props.plotClient.id);
 	};
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {

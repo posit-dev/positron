@@ -21,17 +21,17 @@ import { WebviewPlotThumbnail } from './webviewPlotThumbnail.js';
 import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { DarkFilter, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, PlotRenderFormat, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter, IPositronPlotClient, isZoomablePlotClient, PlotRenderFormat, ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
 import { StaticPlotClient } from '../../../../services/positronPlots/common/staticPlotClient.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PlotContainerProps interface.
  */
 interface PlotContainerProps {
-	positronPlotsService: IPositronPlotsService,
 	width: number;
 	height: number;
 	x: number;
@@ -54,7 +54,7 @@ export const HistoryPx = 100;
  * @returns The rendered component.
  */
 export const PlotsContainer = (props: PlotContainerProps) => {
-
+	const services = usePositronReactServicesContext();
 	const positronPlotsContext = usePositronPlotsContext();
 	const plotHistoryRef = React.createRef<HTMLDivElement>();
 	const containerRef = useRef<HTMLDivElement>(undefined!);
@@ -97,10 +97,10 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		const onKeyDown = (e: KeyboardEvent) => {
 			if (e.key === 'ArrowUp' || e.key === 'ArrowLeft') {
 				e.preventDefault();
-				props.positronPlotsService.selectPreviousPlot();
+				services.positronPlotsService.selectPreviousPlot();
 			} else if (e.key === 'ArrowDown' || e.key === 'ArrowRight') {
 				e.preventDefault();
-				props.positronPlotsService.selectNextPlot();
+				services.positronPlotsService.selectNextPlot();
 			}
 		};
 
@@ -141,7 +141,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			plotHistory.removeEventListener('wheel', onWheel);
 			container.removeEventListener('keydown', onKeyDown);
 		};
-	}, [historyBottom, containerRef, plotHistoryRef, props.positronPlotsService]);
+	}, [historyBottom, containerRef, plotHistoryRef, services.positronPlotsService]);
 
 	useEffect(() => {
 		// Be defensive against null sizes when pane is invisible
@@ -150,7 +150,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 		}
 
 		const notify = () => {
-			let policy = props.positronPlotsService.selectedSizingPolicy;
+			let policy = services.positronPlotsService.selectedSizingPolicy;
 
 			if (policy instanceof PlotSizingPolicyIntrinsic) {
 				policy = new PlotSizingPolicyAuto;
@@ -163,7 +163,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			let size = policy.getPlotSize(viewPortSize);
 			size = size ? size : viewPortSize;
 
-			props.positronPlotsService.setPlotsRenderSettings({
+			services.positronPlotsService.setPlotsRenderSettings({
 				size,
 				pixel_ratio: DOM.getWindow(containerRef.current).devicePixelRatio,
 				format: PlotRenderFormat.Png, // Currently hard-coded
@@ -172,7 +172,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 
 		// Renotify if the sizing policy changes
 		const disposables = new DisposableStore();
-		disposables.add(props.positronPlotsService.onDidChangeSizingPolicy((_policy) => {
+		disposables.add(services.positronPlotsService.onDidChangeSizingPolicy((_policy) => {
 			notify();
 		}));
 
@@ -186,7 +186,7 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			clearTimeout(debounceTimer);
 			disposables.dispose();
 		};
-	}, [plotWidth, plotHeight, props.positronPlotsService]);
+	}, [plotWidth, plotHeight, services.positronPlotsService]);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
@@ -324,7 +324,6 @@ export const PlotsContainer = (props: PlotContainerProps) => {
 			focusNextPlotThumbnail={focusNextPlotThumbnail}
 			focusPreviousPlotThumbnail={focusPreviousPlotThumbnail}
 			plotClient={plotInstance}
-			plotService={positronPlotsContext}
 			selected={selected}>
 			{renderThumbnailImage()}
 		</PlotGalleryThumbnail>;

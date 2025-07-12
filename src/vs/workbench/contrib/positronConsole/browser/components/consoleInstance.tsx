@@ -27,6 +27,7 @@ import { POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/commo
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from '../positronConsoleIdentifiers.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // ConsoleInstanceProps interface.
 interface ConsoleInstanceProps {
@@ -44,6 +45,7 @@ interface ConsoleInstanceProps {
  */
 export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.
@@ -51,7 +53,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const consoleInstanceContainerRef = useRef<HTMLDivElement>(undefined!);
 
 	// State hooks.
-	const [fontInfo, setFontInfo] = useState(FontConfigurationManager.getFontInfo(positronConsoleContext.configurationService, 'console'));
+	const [fontInfo, setFontInfo] = useState(FontConfigurationManager.getFontInfo(services.configurationService, 'console'));
 	const [trace, setTrace] = useState(props.positronConsoleInstance.trace);
 	const [wordWrap, setWordWrap] = useState(props.positronConsoleInstance.wordWrap);
 	const [marker, setMarker] = useState(generateUuid());
@@ -118,7 +120,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	const showContextMenu = async (x: number, y: number): Promise<void> => {
 		// Get the selection and the clipboard text.
 		const selection = getSelection();
-		const clipboardText = await positronConsoleContext.clipboardService.readText();
+		const clipboardText = await services.clipboardService.readText();
 
 		// The actions that are built below.
 		const actions: IAction[] = [];
@@ -133,7 +135,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			run: () => {
 				// Copy the selection to the clipboard.
 				if (selection) {
-					positronConsoleContext.clipboardService.writeText(selection.toString());
+					services.clipboardService.writeText(selection.toString());
 				}
 			}
 		});
@@ -162,7 +164,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		});
 
 		// Show the context menu.
-		positronConsoleContext.contextMenuService.showContextMenu({
+		services.contextMenuService.showContextMenu({
 			getActions: () => actions,
 			getAnchor: () => ({ x, y }),
 			anchorAlignment: AnchorAlignment.LEFT,
@@ -187,7 +189,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Add the font configuration watcher.
 		disposableStore.add(FontConfigurationManager.fontConfigurationWatcher(
-			positronConsoleContext.configurationService,
+			services.configurationService,
 			'console',
 			consoleInstanceRef.current,
 			(fontInfo: FontInfo) => setFontInfo(fontInfo)
@@ -261,10 +263,10 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 		// Add the onDidSelectPlot event handler.
 		disposableStore.add(props.positronConsoleInstance.onDidSelectPlot(plotId => {
 			// Ensure that the Plots pane is visible.
-			positronConsoleContext.viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
+			services.viewsService.openView(POSITRON_PLOTS_VIEW_ID, false);
 
 			// Select the plot in the Plots pane.
-			positronConsoleContext.positronPlotsService.selectPlot(plotId);
+			services.positronPlotsService.selectPlot(plotId);
 		}));
 
 		// Add the onDidRequestRestart event handler.
@@ -272,7 +274,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 			const sessionId =
 				positronConsoleContext.activePositronConsoleInstance?.sessionId;
 			if (sessionId) {
-				positronConsoleContext.runtimeSessionService.restartSession(
+				services.runtimeSessionService.restartSession(
 					sessionId,
 					'Restart requested from activity in the Console tab');
 			}
@@ -288,7 +290,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [positronConsoleContext.activePositronConsoleInstance?.attachedRuntimeSession, positronConsoleContext.activePositronConsoleInstance, positronConsoleContext.configurationService, positronConsoleContext.positronPlotsService, positronConsoleContext.runtimeSessionService, positronConsoleContext.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom]);
+	}, [positronConsoleContext.activePositronConsoleInstance?.attachedRuntimeSession, positronConsoleContext.activePositronConsoleInstance, services.configurationService, services.positronPlotsService, services.runtimeSessionService, services.viewsService, props.positronConsoleInstance, props.reactComponentContainer, scrollToBottom]);
 
 	useLayoutEffect(() => {
 		// If the view is not scroll locked, scroll to the bottom to reveal the most recent items.
@@ -405,7 +407,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					const selection = getSelection();
 					if (selection) {
 						// Copy the selection to the clipboard.
-						positronConsoleContext.clipboardService.writeText(selection.toString());
+						services.clipboardService.writeText(selection.toString());
 					}
 					return;
 				}
@@ -416,7 +418,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 					consumeEvent();
 
 					// Paste text.
-					pasteText(await positronConsoleContext.clipboardService.readText());
+					pasteText(await services.clipboardService.readText());
 					return;
 				}
 			}
@@ -479,7 +481,7 @@ export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 
 			// If the click was inside the selection, copy the selection to the clipboard.
 			if (insideSelection) {
-				positronConsoleContext.clipboardService.writeText(selection.toString());
+				services.clipboardService.writeText(selection.toString());
 				props.positronConsoleInstance.focusInput();
 				return;
 			}

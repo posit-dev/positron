@@ -13,7 +13,6 @@ import React, { CSSProperties, MouseEvent } from 'react';
 import { localize } from '../../../../../nls.js';
 import * as platform from '../../../../../base/common/platform.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { IVariableOverflow as IVariableOverflow } from '../../../../services/positronVariables/common/interfaces/variableOverflow.js';
 
@@ -39,11 +38,6 @@ export interface VariableOverflowProps {
  * @returns The rendered component.
  */
 export const VariableOverflow = (props: VariableOverflowProps) => {
-	/**
-	 * Context hooks.
-	 */
-	const positronVariablesContext = usePositronVariablesContext();
-
 	/**
 	 * onMouseDown handler.
 	 * @param e A MouseEvent<HTMLElement> that describes a user interaction with the mouse.
@@ -100,7 +94,6 @@ export const VariableOverflow = (props: VariableOverflowProps) => {
 				</div>
 			</div>
 			<VerticalSplitter
-				configurationService={positronVariablesContext.configurationService}
 				onBeginResize={props.onBeginResizeNameColumn}
 				onResize={props.onResizeNameColumn}
 			/>

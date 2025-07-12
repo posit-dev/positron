@@ -8,28 +8,9 @@ import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
-import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
-
-/**
- * PositronVariablesServices interface.
- */
-export interface PositronVariablesServices extends PositronActionBarServices {
-	readonly clipboardService: IClipboardService;
-	readonly languageRuntimeService: ILanguageRuntimeService;
-	readonly runtimeSessionService: IRuntimeSessionService;
-	readonly positronVariablesService: IPositronVariablesService;
-	readonly reactComponentContainer: IReactComponentContainer;
-	readonly dataExplorerService: IPositronDataExplorerService;
-	readonly notificationService: INotificationService;
-}
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { PositronVariablesServices } from './positronVariablesContext.js';
 
 /**
  * PositronVariablesState interface.
@@ -43,8 +24,9 @@ export interface PositronVariablesState extends PositronVariablesServices {
  * The usePositronVariablesState custom hook.
  * @returns The hook.
  */
-export const usePositronVariablesState = (services: PositronVariablesServices): PositronVariablesState => {
+export const usePositronVariablesState = (services1: PositronVariablesServices): PositronVariablesState => {
 	// Hooks.
+	const services = usePositronReactServicesContext();
 	const [positronVariablesInstances, setPositronVariablesInstances] =
 		useState<IPositronVariablesInstance[]>(
 			services.positronVariablesService.positronVariablesInstances
@@ -85,7 +67,7 @@ export const usePositronVariablesState = (services: PositronVariablesServices): 
 
 	// Return the Positron variables state.
 	return {
-		...services,
+		...services1,
 		positronVariablesInstances: positronVariablesInstances,
 		activePositronVariablesInstance: activePositronVariablesInstance
 	};

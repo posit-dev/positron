@@ -4,23 +4,14 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
-import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
-import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-
-/**
- * PositronSessionsServices interface.
- */
-export interface PositronSessionsServices extends PositronActionBarServices {
-	readonly runtimeSessionService: IRuntimeSessionService;
-	readonly reactComponentContainer: IReactComponentContainer;
-}
+import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PositronRuntimeSessionsState interface.
  */
-export interface PositronRuntimeSessionsState extends PositronSessionsServices {
+export interface PositronRuntimeSessionsState {
 	positronSessions: Map<string, ILanguageRuntimeSession>;
 }
 
@@ -28,7 +19,10 @@ export interface PositronRuntimeSessionsState extends PositronSessionsServices {
  * The usePositronRuntimeSessionsState custom hook.
  * @returns The hook.
  */
-export const usePositronRuntimeSessionsState = (services: PositronSessionsServices): PositronRuntimeSessionsState => {
+export const usePositronRuntimeSessionsState = (): PositronRuntimeSessionsState => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// Hooks.
 	const [positronSessions, setPositronSessions] =
 		useState(

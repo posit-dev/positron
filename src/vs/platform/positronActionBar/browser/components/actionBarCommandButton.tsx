@@ -15,6 +15,7 @@ import { CommandCenter } from '../../../commandCenter/common/commandCenter.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { ActionBarButton, ActionBarButtonProps } from './actionBarButton.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * ActionBarCommandButtonProps interface.
@@ -30,6 +31,7 @@ type ActionBarCommandButtonProps = ActionBarButtonProps & {
  */
 export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	// Hooks.
+	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext();
 	const [commandDisabled, setCommandDisabled] = useState(
 		!positronActionBarContext.isCommandEnabled(props.commandId)
@@ -48,17 +50,17 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 			const keys = new Set(commandInfo.precondition.keys());
 
 			// Add the context key service change tracker.
-			disposableStore.add(positronActionBarContext.contextKeyService.onDidChangeContext(e => {
+			disposableStore.add(services.contextKeyService.onDidChangeContext(e => {
 				// If any of the precondition keys are affected, update the enabled state.
 				if (e.affectsSome(keys)) {
-					setCommandDisabled(!positronActionBarContext.contextKeyService.contextMatchesRules(commandInfo.precondition));
+					setCommandDisabled(!services.contextKeyService.contextMatchesRules(commandInfo.precondition));
 				}
 			}));
 		}
 
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
-	}, [positronActionBarContext.contextKeyService, props.commandId]);
+	}, [services.contextKeyService, props.commandId]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
@@ -72,7 +74,7 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 		}
 
 		// Get the keybinding label for the command from the keybinding service.
-		const keybindingLabel = positronActionBarContext.keybindingService.lookupKeybinding(props.commandId)?.getLabel();
+		const keybindingLabel = services.keybindingService.lookupKeybinding(props.commandId)?.getLabel();
 
 		// If there's no keybinding label, return the title as the tooltip.
 		if (!keybindingLabel) {
@@ -91,7 +93,7 @@ export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 			disabled={props.disabled || commandDisabled}
 			tooltip={tooltip}
 			onPressed={() =>
-				positronActionBarContext.commandService.executeCommand(props.commandId)
+				services.commandService.executeCommand(props.commandId)
 			}
 		/>
 	);
