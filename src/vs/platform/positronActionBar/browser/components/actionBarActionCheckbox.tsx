@@ -14,8 +14,8 @@ import { ActionBarCheckbox } from './actionBarCheckbox.js';
 import { IAction } from '../../../../base/common/actions.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
-import { isPositronActionBarCheckboxOptions, PositronActionBarOptions } from '../../../action/common/action.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { isPositronActionBarCheckboxOptions, PositronActionBarOptions } from '../../../action/common/action.js';
 
 /**
  * Gets the Positron action bar checkbox options.
