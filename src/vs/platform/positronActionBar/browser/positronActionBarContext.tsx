@@ -7,7 +7,7 @@
 import React, { PropsWithChildren, createContext, useContext } from 'react';
 
 // Other dependencies.
-import { PositronActionBarServices, PositronActionBarState, usePositronActionBarState } from './positronActionBarState.js';
+import { PositronActionBarState, usePositronActionBarState } from './positronActionBarState.js';
 
 /**
  * Create the Positron action bar context.
@@ -17,9 +17,9 @@ const PositronActionBarContext = createContext<PositronActionBarState>(undefined
 /**
  * Export the PositronActionBarContextProvider provider
  */
-export const PositronActionBarContextProvider = (props: PropsWithChildren<PositronActionBarServices>) => {
+export const PositronActionBarContextProvider = (props: PropsWithChildren<{}>) => {
 	// Hooks.
-	const positronActionBarState = usePositronActionBarState(props);
+	const positronActionBarState = usePositronActionBarState();
 
 	// Render.
 	return (

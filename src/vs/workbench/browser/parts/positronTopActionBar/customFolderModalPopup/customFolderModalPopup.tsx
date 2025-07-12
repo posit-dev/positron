@@ -10,28 +10,16 @@ import './customFolderModalPopup.css';
 import React from 'react';
 
 // Other dependencies.
-import { ILabelService } from '../../../../../platform/label/common/label.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IHostService } from '../../../../services/host/browser/host.js';
-import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
-import { IRecentlyOpened, IWorkspacesService } from '../../../../../platform/workspaces/common/workspaces.js';
+import { IRecentlyOpened } from '../../../../../platform/workspaces/common/workspaces.js';
 import { PositronModalPopup } from '../../../positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { CustomFolderMenuItems } from './customFolderMenuItems.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * CustomFolderModalPopupProps interface.
  */
 interface CustomFolderModalPopupProps {
-	commandService: ICommandService;
-	contextKeyService: IContextKeyService;
-	hostService: IHostService;
-	keybindingService: IKeybindingService;
-	labelService: ILabelService;
-	layoutService: ILayoutService;
-	workspacesService: IWorkspacesService;
 	renderer: PositronModalReactRenderer;
 	recentlyOpened: IRecentlyOpened;
 	anchorElement: HTMLElement;
@@ -43,6 +31,9 @@ interface CustomFolderModalPopupProps {
  * @returns The rendered component.
  */
 export const CustomFolderModalPopup = (props: CustomFolderModalPopupProps) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// Render.
 	return (
 		<PositronModalPopup
@@ -56,10 +47,10 @@ export const CustomFolderModalPopup = (props: CustomFolderModalPopupProps) => {
 			width={'auto'}
 		>
 			<CustomFolderMenuItems
-				commandService={props.commandService}
-				contextKeyService={props.contextKeyService}
-				hostService={props.hostService}
-				labelService={props.labelService}
+				commandService={services.commandService}
+				contextKeyService={services.contextKeyService}
+				hostService={services.hostService}
+				labelService={services.labelService}
 				recentlyOpened={props.recentlyOpened}
 				onMenuItemSelected={() => props.renderer.dispose()}
 			/>

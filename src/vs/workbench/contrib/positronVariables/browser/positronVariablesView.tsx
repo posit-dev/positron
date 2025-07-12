@@ -15,26 +15,18 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { PositronVariablesFocused } from '../../../common/contextkeys.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { PositronVariables } from './positronVariables.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronVariablesViewPane class.
@@ -189,24 +181,16 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 	 */
 	constructor(
 		options: IViewPaneOptions,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@IClipboardService private readonly clipboardService: IClipboardService,
-		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
-		@IPositronDataExplorerService private readonly _dataExplorerService: IPositronDataExplorerService,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
-		@INotificationService private readonly _notificationService: INotificationService
 	) {
 		// Call the base class's constructor.
 		super(
@@ -267,24 +251,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 		// Create the PositronReactRenderer for the PositronVariables component and render it.
 		this._positronReactRenderer = this._register(this.instantiationService.createInstance(PositronReactRenderer, this._positronVariablesContainer));
 		this._positronReactRenderer.render(
-			<PositronVariables
-				accessibilityService={this._accessibilityService}
-				clipboardService={this.clipboardService}
-				commandService={this._commandService}
-				configurationService={this.configurationService}
-				contextKeyService={this.contextKeyService}
-				contextMenuService={this.contextMenuService}
-				dataExplorerService={this._dataExplorerService}
-				hoverService={this.hoverService}
-				keybindingService={this.keybindingService}
-				languageRuntimeService={this._languageRuntimeService}
-				layoutService={this._layoutService}
-				notificationService={this._notificationService}
-				positronVariablesService={this._positronVariablesService}
-				reactComponentContainer={this}
-				runtimeSessionService={this._runtimeSessionService}
-				themeService={this.themeService}
-			/>
+			<PositronVariables reactComponentContainer={this} />
 		);
 	}
 

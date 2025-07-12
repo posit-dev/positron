@@ -12,20 +12,19 @@ import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
-import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { SortingMenuButton } from './sortingMenuButton.js';
 import { GroupingMenuButton } from './groupingMenuButton.js';
-import { PositronVariablesServices } from '../positronVariablesState.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { VariablesInstanceMenuButton } from './variablesInstanceMenuButton.js';
 import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -40,19 +39,13 @@ const positronRefreshObjects = localize('positronRefreshObjects', "Refresh objec
 const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete all objects");
 
 /**
- * ActionBarsProps interface.
- */
-export interface ActionBarsProps extends PositronVariablesServices {
-	readonly layoutService: IWorkbenchLayoutService;
-}
-
-/**
  * ActionBars component.
  * @param props An ActionBarsProps that contains the component properties.
  * @returns The rendered component.
  */
-export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
+export const ActionBars = (props: PropsWithChildren<{}>) => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const positronVariablesContext = usePositronVariablesContext();
 
 	// State hooks.
@@ -95,9 +88,9 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const deleteAllObjectsHandler = async () => {
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: props.keybindingService,
-			layoutService: props.layoutService,
-			container: props.layoutService.activeContainer
+			keybindingService: services.keybindingService,
+			layoutService: services.workbenchLayoutService,
+			container: services.workbenchLayoutService.activeContainer
 		});
 
 		// Show the delete all variables modal dialog.

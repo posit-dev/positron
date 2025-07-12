@@ -21,6 +21,7 @@ import { optionalValue, positronClassNames } from '../../../base/common/positron
 import { CustomContextMenuSeparator } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenu.js';
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from '../../../workbench/browser/positronComponents/customContextMenu/customContextMenuItem.js';
+import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -102,6 +103,7 @@ type PositronDynamicActionBarProps =
  */
 export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const context = usePositronActionBarContext();
 
 	// Reference hooks.
@@ -396,9 +398,9 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 
 							// Show the custom context.
 							await showCustomContextMenu({
-								commandService: context.commandService,
-								keybindingService: context.keybindingService,
-								layoutService: context.layoutService,
+								commandService: services.commandService,
+								keybindingService: services.keybindingService,
+								layoutService: services.workbenchLayoutService,
 								anchorElement: refOverflowButton.current,
 								popupPosition: 'auto',
 								popupAlignment: 'auto',

@@ -12,7 +12,6 @@ import React, { PropsWithChildren, useEffect, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { IAction } from '../../../../../base/common/actions.js';
-import { IPositronHelpService } from '../positronHelpService.js';
 import { generateUuid } from '../../../../../base/common/uuid.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
@@ -20,10 +19,10 @@ import { IReactComponentContainer } from '../../../../../base/browser/positronRe
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
-import { PositronActionBarServices } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -46,12 +45,8 @@ const shortenUrl = (url: string) => url.replace(new URL(url).origin, '');
 /**
  * ActionBarsProps interface.
  */
-export interface ActionBarsProps extends PositronActionBarServices {
-	// Services.
-	positronHelpService: IPositronHelpService;
+export interface ActionBarsProps {
 	reactComponentContainer: IReactComponentContainer;
-
-	// Event callbacks.
 	onHome: () => void;
 }
 
@@ -61,11 +56,14 @@ export interface ActionBarsProps extends PositronActionBarServices {
  * @returns The rendered component.
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// State hooks.
-	const [canNavigateBackward, setCanNavigateBackward] = useState(props.positronHelpService.canNavigateBackward);
-	const [canNavigateForward, setCanNavigateForward] = useState(props.positronHelpService.canNavigateForward);
-	const [currentHelpEntry, setCurrentHelpEntry] = useState(props.positronHelpService.currentHelpEntry);
-	const [currentHelpTitle, setCurrentHelpTitle] = useState(props.positronHelpService.currentHelpEntry?.title);
+	const [canNavigateBackward, setCanNavigateBackward] = useState(services.positronHelpService.canNavigateBackward);
+	const [canNavigateForward, setCanNavigateForward] = useState(services.positronHelpService.canNavigateForward);
+	const [currentHelpEntry, setCurrentHelpEntry] = useState(services.positronHelpService.currentHelpEntry);
+	const [currentHelpTitle, setCurrentHelpTitle] = useState(services.positronHelpService.currentHelpEntry?.title);
 
 	/**
 	 * Returns the help history actions.
@@ -74,8 +72,8 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	const helpHistoryActions = () => {
 		// Build the help history actions.
 		const actions: IAction[] = [];
-		const currentHelpEntry = props.positronHelpService.currentHelpEntry;
-		const helpEntries = props.positronHelpService.helpEntries;
+		const currentHelpEntry = services.positronHelpService.currentHelpEntry;
+		const helpEntries = services.positronHelpService.helpEntries;
 		for (let helpEntryIndex = helpEntries.length - 1; helpEntryIndex >= 0; helpEntryIndex--) {
 			actions.push({
 				id: generateUuid(),
@@ -85,7 +83,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 				enabled: true,
 				checked: helpEntries[helpEntryIndex] === currentHelpEntry,
 				run: () => {
-					props.positronHelpService.openHelpEntryIndex(helpEntryIndex);
+					services.positronHelpService.openHelpEntryIndex(helpEntryIndex);
 				}
 			});
 		}
@@ -106,20 +104,20 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 
 		// Add the onDidChangeCurrentHelpEntry event handler.
 		disposableStore.add(
-			props.positronHelpService.onDidChangeCurrentHelpEntry(currentHelpEntry => {
+			services.positronHelpService.onDidChangeCurrentHelpEntry(currentHelpEntry => {
 				// Set the current help entry and the current help title.
 				setCurrentHelpEntry(currentHelpEntry);
 				setCurrentHelpTitle(currentHelpEntry?.title);
 
 				// Update navigation state.
-				setCanNavigateBackward(props.positronHelpService.canNavigateBackward);
-				setCanNavigateForward(props.positronHelpService.canNavigateForward);
+				setCanNavigateBackward(services.positronHelpService.canNavigateBackward);
+				setCanNavigateForward(services.positronHelpService.canNavigateForward);
 			})
 		);
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [props.positronHelpService, props.reactComponentContainer]);
+	}, [services.positronHelpService, props.reactComponentContainer]);
 
 	// useEffect for currentHelpEntry.
 	useEffect(() => {
@@ -155,14 +153,14 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 						disabled={!canNavigateBackward}
 						icon={ThemeIcon.fromId('positron-left-arrow')}
 						tooltip={tooltipPreviousTopic}
-						onPressed={() => props.positronHelpService.navigateBackward()}
+						onPressed={() => services.positronHelpService.navigateBackward()}
 					/>
 					<ActionBarButton
 						ariaLabel={tooltipNextTopic}
 						disabled={!canNavigateForward}
 						icon={ThemeIcon.fromId('positron-right-arrow')}
 						tooltip={tooltipNextTopic}
-						onPressed={() => props.positronHelpService.navigateForward()}
+						onPressed={() => services.positronHelpService.navigateForward()}
 					/>
 
 					<ActionBarSeparator />

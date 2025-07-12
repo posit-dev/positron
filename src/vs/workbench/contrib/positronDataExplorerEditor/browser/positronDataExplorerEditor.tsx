@@ -12,23 +12,15 @@ import React from 'react';
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IEditorOpenContext } from '../../../common/editor.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
+import { IContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { EditorActivation, IEditorOptions } from '../../../../platform/editor/common/editor.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { PositronDataExplorer } from '../../../browser/positronDataExplorer/positronDataExplorer.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
@@ -224,16 +216,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 */
 	constructor(
 		readonly _group: IEditorGroup,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@IClipboardService private readonly _clipboardService: IClipboardService,
-		@ICommandService private readonly _commandService: ICommandService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
-		@IHoverService private readonly _hoverService: IHoverService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@IKeybindingService private readonly _keybindingService: IKeybindingService,
-		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -372,17 +355,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				// Render the PositronDataExplorer.
 				this._positronReactRenderer.render(
 					<PositronDataExplorer
-						accessibilityService={this._accessibilityService}
-						clipboardService={this._clipboardService}
-						commandService={this._commandService}
-						configurationService={this._configurationService}
-						contextKeyService={this._contextKeyService}
-						contextMenuService={this._contextMenuService}
-						hoverService={this._hoverService}
 						instance={positronDataExplorerInstance}
-						keybindingService={this._keybindingService}
-						layoutService={this._layoutService}
-						themeService={this.themeService}
 						onClose={() => this._group.closeEditor(this.input)}
 					/>
 				);

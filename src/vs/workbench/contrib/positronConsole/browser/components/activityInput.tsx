@@ -11,7 +11,6 @@ import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { ttPolicy } from '../positronConsole.js';
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
 import { LineTokens } from '../../../../../editor/common/tokens/lineTokens.js';
@@ -22,6 +21,7 @@ import { RenderLineInput, renderViewLine2 } from '../../../../../editor/common/v
 import { ILanguageIdCodec, ITokenizationSupport, TokenizationRegistry } from '../../../../../editor/common/languages.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemInput, ActivityItemInputState } from '../../../../services/positronConsole/browser/classes/activityItemInput.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Colorizes code output lines.
@@ -104,7 +104,7 @@ export interface ActivityInputProps {
  */
 export const ActivityInput = (props: ActivityInputProps) => {
 	// Context hooks.
-	const positronConsoleContext = usePositronConsoleContext();
+	const services = usePositronReactServicesContext();
 
 	// State hooks.
 	const [state, setState] = useState(props.activityItemInput.state);
@@ -172,13 +172,13 @@ export const ActivityInput = (props: ActivityInputProps) => {
 			setColorizedOutputLines(colorizeCodeOutoutLines(
 				codeOutputLines,
 				tokenizationSupport,
-				positronConsoleContext.languageService.languageIdCodec
+				services.languageService.languageIdCodec
 			));
 		};
 
 		// Colorize the lines.
 		colorizeLines();
-	}, [positronConsoleContext.languageService.languageIdCodec, props.activityItemInput.codeOutputLines, props.positronConsoleInstance.attachedRuntimeSession]);
+	}, [props.activityItemInput.codeOutputLines, props.positronConsoleInstance.attachedRuntimeSession, services.languageService.languageIdCodec]);
 
 	// Calculate the prompt length.
 	const promptLength = Math.max(
@@ -240,11 +240,11 @@ export const ActivityInput = (props: ActivityInputProps) => {
 						{outputLine.outputRuns.map(outputRun =>
 							<OutputRun
 								key={outputRun.id}
-								environmentService={positronConsoleContext.environmentService}
-								notificationService={positronConsoleContext.notificationService}
-								openerService={positronConsoleContext.openerService}
+								environmentService={services.workbenchEnvironmentService}
+								notificationService={services.notificationService}
+								openerService={services.openerService}
 								outputRun={outputRun}
-								pathService={positronConsoleContext.pathService}
+								pathService={services.pathService}
 							/>
 						)}
 					</div>

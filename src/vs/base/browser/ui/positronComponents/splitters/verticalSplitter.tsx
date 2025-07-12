@@ -19,6 +19,7 @@ import { positronClassNames } from '../../../../common/positronUtilities.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { Button, KeyboardModifiers, MouseTrigger } from '../button/button.js';
 import { createStyleSheet } from '../../../domStylesheets.js';
+import { usePositronReactServicesContext } from '../../../positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -30,7 +31,6 @@ const EXPAND_COLLAPSE_BUTTON_SIZE = 25;
  * VerticalSplitterBaseProps type.
  */
 type VerticalSplitterBaseProps = | {
-	readonly configurationService: IConfigurationService;
 	readonly invert?: boolean;
 	readonly showSash?: boolean;
 	readonly onBeginResize: () => VerticalSplitterResizeParams;
@@ -132,7 +132,6 @@ const calculateSashWidth = (configurationService: IConfigurationService, collaps
  * @returns The rendered component.
  */
 export const VerticalSplitter = ({
-	configurationService,
 	invert,
 	showSash,
 	collapsible,
@@ -141,19 +140,22 @@ export const VerticalSplitter = ({
 	onBeginResize,
 	onResize,
 }: VerticalSplitterProps) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// Reference hooks.
 	const sashRef = useRef<HTMLDivElement>(undefined!);
 	const expandCollapseButtonRef = useRef<HTMLButtonElement>(undefined!);
 
 	// State hooks.
 	const [splitterWidth, setSplitterWidth] = useState(
-		calculateSplitterWidth(configurationService, collapsible)
+		calculateSplitterWidth(services.configurationService, collapsible)
 	);
 	const [sashWidth, setSashWidth] = useState(
-		calculateSashWidth(configurationService, collapsible)
+		calculateSashWidth(services.configurationService, collapsible)
 	);
-	const [sashIndicatorWidth, setSashIndicatorWidth] = useState(getSashSize(configurationService));
-	const [hoverDelay, setHoverDelay] = useState(getHoverDelay(configurationService));
+	const [sashIndicatorWidth, setSashIndicatorWidth] = useState(getSashSize(services.configurationService));
+	const [hoverDelay, setHoverDelay] = useState(getHoverDelay(services.configurationService));
 	const [hovering, setHovering] = useState(false);
 	const [highlightExpandCollapse, setHighlightExpandCollapse] = useState(false);
 	const [hoveringDelayer, setHoveringDelayer] = useState<Delayer<void>>(undefined!);
@@ -167,19 +169,19 @@ export const VerticalSplitter = ({
 
 		// Add the onDidChangeConfiguration event handler.
 		disposableStore.add(
-			configurationService.onDidChangeConfiguration(configurationChangeEvent => {
+			services.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
 				// When workbench.sash.* changes, update state.
 				if (configurationChangeEvent.affectsConfiguration('workbench.sash')) {
 					// Track changes to workbench.sash.size.
 					if (configurationChangeEvent.affectedKeys.has('workbench.sash.size')) {
-						setSplitterWidth(calculateSplitterWidth(configurationService, collapsible));
-						setSashWidth(calculateSashWidth(configurationService, collapsible));
-						setSashIndicatorWidth(getSashSize(configurationService));
+						setSplitterWidth(calculateSplitterWidth(services.configurationService, collapsible));
+						setSashWidth(calculateSashWidth(services.configurationService, collapsible));
+						setSashIndicatorWidth(getSashSize(services.configurationService));
 					}
 
 					// Track changes to workbench.sash.hoverDelay.
 					if (configurationChangeEvent.affectedKeys.has('workbench.sash.hoverDelay')) {
-						setHoverDelay(getHoverDelay(configurationService));
+						setHoverDelay(getHoverDelay(services.configurationService));
 					}
 				}
 			})
@@ -190,7 +192,7 @@ export const VerticalSplitter = ({
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [collapsible, configurationService]);
+	}, [collapsible, services.configurationService]);
 
 	// Collapsed useEffect.
 	useEffect(() => {

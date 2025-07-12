@@ -15,6 +15,7 @@ import { IViewDescriptorService } from '../../workbench/common/views.js';
 import { IThemeService } from '../../platform/theme/common/themeService.js';
 import { ICommandService } from '../../platform/commands/common/commands.js';
 import { ILanguageService } from '../../editor/common/languages/language.js';
+import { IHostService } from '../../workbench/services/host/browser/host.js';
 import { IPathService } from '../../workbench/services/path/common/pathService.js';
 import { IContextKeyService } from '../../platform/contextkey/common/contextkey.js';
 import { IQuickInputService } from '../../platform/quickinput/common/quickInput.js';
@@ -29,17 +30,20 @@ import { INotificationService } from '../../platform/notification/common/notific
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 import { IAccessibilityService } from '../../platform/accessibility/common/accessibility.js';
 import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
+import { IPreferencesService } from '../../workbench/services/preferences/common/preferences.js';
 import { IWorkbenchLayoutService } from '../../workbench/services/layout/browser/layoutService.js';
 import { IPositronPlotsService } from '../../workbench/services/positronPlots/common/positronPlots.js';
+import { IPositronHelpService } from '../../workbench/contrib/positronHelp/browser/positronHelpService.js';
 import { IRuntimeSessionService } from '../../workbench/services/runtimeSession/common/runtimeSessionService.js';
 import { IWorkbenchEnvironmentService } from '../../workbench/services/environment/common/environmentService.js';
+import { IRuntimeStartupService } from '../../workbench/services/runtimeStartup/common/runtimeStartupService.js';
+import { IPositronPreviewService } from '../../workbench/contrib/positronPreview/browser/positronPreviewSevice.js';
 import { ILanguageRuntimeService } from '../../workbench/services/languageRuntime/common/languageRuntimeService.js';
+import { IExecutionHistoryService } from '../../workbench/services/positronHistory/common/executionHistoryService.js';
 import { IPositronConsoleService } from '../../workbench/services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { IPositronVariablesService } from '../../workbench/services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { IRuntimeStartupService } from '../../workbench/services/runtimeStartup/common/runtimeStartupService.js';
-import { IExecutionHistoryService } from '../../workbench/services/positronHistory/common/executionHistoryService.js';
-import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
 
 export type PositronReactServices = {
 	readonly accessibilityService: IAccessibilityService;
@@ -51,6 +55,7 @@ export type PositronReactServices = {
 	readonly editorService: IEditorService;
 	readonly executionHistoryService: IExecutionHistoryService;
 	readonly hoverService: IHoverService;
+	readonly hostService: IHostService,
 	readonly instantiationService: IInstantiationService;
 	readonly keybindingService: IKeybindingService;
 	readonly labelService: ILabelService;
@@ -63,9 +68,12 @@ export type PositronReactServices = {
 	readonly pathService: IPathService;
 	readonly positronConsoleService: IPositronConsoleService;
 	readonly positronDataExplorerService: IPositronDataExplorerService;
+	readonly positronHelpService: IPositronHelpService;
 	readonly positronPlotsService: IPositronPlotsService;
+	readonly positronPreviewService: IPositronPreviewService;
 	readonly positronTopActionBarService: IPositronTopActionBarService;
 	readonly positronVariablesService: IPositronVariablesService;
+	readonly preferencesService: IPreferencesService;
 	readonly quickInputService: IQuickInputService;
 	readonly runtimeSessionService: IRuntimeSessionService;
 	readonly runtimeStartupService: IRuntimeStartupService;

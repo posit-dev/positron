@@ -15,7 +15,6 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -24,11 +23,8 @@ import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronSessions } from './positronRuntimeSessions.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronSessionsViewPane class.
@@ -159,8 +155,6 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 	/**
 	 * Constructor.
 	 * @param options The IViewPaneOptions for the view pane.
-	 * @param _accessibilityService The accessibility service.
-	 * @param _commandService The command service.
 	 * @param configurationService The configuration service.
 	 * @param contextKeyService The context key service.
 	 * @param contextMenuService The context menu service.
@@ -177,16 +171,12 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 	 */
 	constructor(
 		options: IViewPaneOptions,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@ICommandService private readonly _commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
-		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
-		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
@@ -234,19 +224,7 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 		// Create the PositronReactRenderer for the PositronSessions component and render it.
 		this._positronReactRenderer = this._register(this.instantiationService.createInstance(PositronReactRenderer, this._positronSessionsContainer));
 		this._positronReactRenderer.render(
-			<PositronSessions
-				accessibilityService={this._accessibilityService}
-				commandService={this._commandService}
-				configurationService={this.configurationService}
-				contextKeyService={this.contextKeyService}
-				contextMenuService={this.contextMenuService}
-				hoverService={this.hoverService}
-				keybindingService={this.keybindingService}
-				layoutService={this._layoutService}
-				reactComponentContainer={this}
-				runtimeSessionService={this._runtimeSessionService}
-				themeService={this.themeService}
-			/>
+			<PositronSessions reactComponentContainer={this} />
 		);
 	}
 

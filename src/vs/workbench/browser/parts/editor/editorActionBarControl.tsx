@@ -15,21 +15,15 @@ import { EditorActionBar } from './editorActionBar.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { EditorActionBarFactory } from './editorActionBarFactory.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IMenuService } from '../../../../platform/actions/common/actions.js';
-import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { NotebookEditorInput } from '../../../contrib/notebook/common/notebookEditorInput.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 import { SettingsEditor2Input } from '../../../services/preferences/common/preferencesEditorInput.js';
 import { NotebookOutputEditorInput } from '../../../contrib/notebook/browser/outputEditor/notebookOutputEditorInput.js';
 
@@ -63,33 +57,20 @@ export class EditorActionBarControl extends Disposable {
 	 * Constructor.
 	 * @param _parent The parent HTML element.
 	 * @param _editorGroup The editor group.
-	 * @param _accessibilityService The accessibility service.
-	 * @param _commandService The command service.
-	 * @param _configurationService The configuration service.
 	 * @param _contextKeyService The context key service.
-	 * @param _contextMenuService The context menu service.
-	 * @param _hoverService The hover service.
+	 * @param _instantiationService The instantiation service.
 	 * @param _keybindingService The keybinding service.
-	 * @param _layoutService The layout service.
 	 * @param _menuService The menu service.
 	 * @param _telemetryService The telemetry service.
-	 * @param _themeService The theme service.
 	 */
 	constructor(
 		private readonly _parent: HTMLElement,
 		private readonly _editorGroup: IEditorGroupView,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@ICommandService private readonly _commandService: ICommandService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
-		@IHoverService private readonly _hoverService: IHoverService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
-		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IMenuService private readonly _menuService: IMenuService,
 		@ITelemetryService _telemetryService: ITelemetryService,
-		@IThemeService private readonly _themeService: IThemeService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -110,18 +91,7 @@ export class EditorActionBarControl extends Disposable {
 		// Render the editor action bar component in the editor action bar container.
 		this._positronReactRenderer = this._register(this._instantiationService.createInstance(PositronReactRenderer, this._container));
 		this._positronReactRenderer.render(
-			<EditorActionBar
-				accessibilityService={this._accessibilityService}
-				commandService={this._commandService}
-				configurationService={this._configurationService}
-				contextKeyService={this._contextKeyService}
-				contextMenuService={this._contextMenuService}
-				editorActionBarFactory={editorActionBarFactory}
-				hoverService={this._hoverService}
-				keybindingService={this._keybindingService}
-				layoutService={this._layoutService}
-				themeService={this._themeService}
-			/>
+			<EditorActionBar editorActionBarFactory={editorActionBarFactory} />
 		);
 	}
 

@@ -14,8 +14,8 @@ import { ActionBarToggle } from './actionBarToggle.js';
 import { IAction } from '../../../../base/common/actions.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
-import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { isLocalizedString, isPositronActionBarToggleOptions, PositronActionBarOptions } from '../../../action/common/action.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Gets the Positron action bar toggle options.
@@ -39,7 +39,7 @@ interface ActionBarActionToggleProps {
  */
 export const ActionBarActionToggle = (props: ActionBarActionToggleProps) => {
 	// Context hooks.
-	const context = usePositronActionBarContext();
+	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
@@ -67,10 +67,10 @@ export const ActionBarActionToggle = (props: ActionBarActionToggleProps) => {
 			ariaLabel={props.action.label ?? props.action.tooltip}
 			leftTitle={isLocalizedString(positronActionBarToggleOptions.leftTitle) ? positronActionBarToggleOptions.leftTitle.value : positronActionBarToggleOptions.leftTitle}
 			rightTitle={isLocalizedString(positronActionBarToggleOptions.rightTitle) ? positronActionBarToggleOptions.rightTitle.value : positronActionBarToggleOptions.rightTitle}
-			toggled={context.contextKeyService.contextMatchesRules(positronActionBarToggleOptions.toggled)}
+			toggled={services.contextKeyService.contextMatchesRules(positronActionBarToggleOptions.toggled)}
 			tooltip={actionTooltip(
-				context.contextKeyService,
-				context.keybindingService,
+				services.contextKeyService,
+				services.keybindingService,
 				props.action,
 				false
 			)}
