@@ -10,19 +10,20 @@ import './customFolderModalPopup.css';
 import React from 'react';
 
 // Other dependencies.
+import { CustomFolderMenuItems } from './customFolderMenuItems.js';
 import { IRecentlyOpened } from '../../../../../platform/workspaces/common/workspaces.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalPopup } from '../../../positronComponents/positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
-import { CustomFolderMenuItems } from './customFolderMenuItems.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * CustomFolderModalPopupProps interface.
  */
 interface CustomFolderModalPopupProps {
-	renderer: PositronModalReactRenderer;
-	recentlyOpened: IRecentlyOpened;
 	anchorElement: HTMLElement;
+	recentlyOpened: IRecentlyOpened;
+	renderer: PositronModalReactRenderer;
+	services: PositronReactServices;
 }
 
 /**
@@ -31,9 +32,6 @@ interface CustomFolderModalPopupProps {
  * @returns The rendered component.
  */
 export const CustomFolderModalPopup = (props: CustomFolderModalPopupProps) => {
-	// Context hooks.
-	const services = usePositronReactServicesContext();
-
 	// Render.
 	return (
 		<PositronModalPopup
@@ -47,11 +45,8 @@ export const CustomFolderModalPopup = (props: CustomFolderModalPopupProps) => {
 			width={'auto'}
 		>
 			<CustomFolderMenuItems
-				commandService={services.commandService}
-				contextKeyService={services.contextKeyService}
-				hostService={services.hostService}
-				labelService={services.labelService}
 				recentlyOpened={props.recentlyOpened}
+				services={props.services}
 				onMenuItemSelected={() => props.renderer.dispose()}
 			/>
 		</PositronModalPopup>

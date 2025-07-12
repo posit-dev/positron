@@ -14,10 +14,10 @@ import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 import { CustomFolderModalPopup } from '../customFolderModalPopup/customFolderModalPopup.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Localized strings.
@@ -57,10 +57,10 @@ export const TopActionBarCustomFolderMenu = () => {
 		// Show the custom folder modal popup.
 		renderer.render(
 			<CustomFolderModalPopup
-				{...context}
 				anchorElement={ref.current}
 				recentlyOpened={recentlyOpened}
 				renderer={renderer}
+				services={services}
 			/>
 		);
 	};
