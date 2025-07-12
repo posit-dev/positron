@@ -770,7 +770,7 @@ Always verify results. AI assistants can sometimes produce incorrect code.`);
 
 Click on $(attach) or type \`#\` to add context, such as files to your chat.
 
-Type \`/\` to use predefined commands such as \`/help\` or \`/quarto\`.`,
+Type \`/\` to use predefined commands such as \`/help\`.`,
 			), { supportThemeIcons: true, isTrusted: true });
 			welcomeText = welcomeText.replace('{guide-link}', `[${guideLinkMessage}](https://positron.posit.co/assistant)`);
 		}

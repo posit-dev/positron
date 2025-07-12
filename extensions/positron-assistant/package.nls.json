@@ -14,7 +14,7 @@
 	"chatParticipants.ask.description": "Ask Assistant",
 	"chatParticipants.agent.description": "Complete tasks in your workspace",
 	"chatParticipants.edit.description": "Edit files in your workspace",
-	"chatParticipants.commands.quarto.description": "Convert the conversation so far into a new Quarto document.",
+	"chatParticipants.commands.exportQuarto.description": "Export the conversation so far into a new Quarto document.",
 	"configuration.title": "Positron Assistant",
 	"configuration.enable.markdownDescription": "Enable [Positron Assistant](https://positron.posit.co/assistant), an AI assistant for Positron.",
 	"configuration.toolDetails.enable": "Enable tool call input and output details in the chat view. Must be enabled to include tool call details in the chat export.",
