@@ -182,32 +182,6 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 	/**
 	 * Constructor.
 	 * @param options View pane options.
-	 * @param accessibilityService The accessibility service.
-	 * @param clipboardService The clipboard service.
-	 * @param commandService The command service.
-	 * @param configurationService The configuration service.
-	 * @param contextKeyService The context key service.
-	 * @param contextMenuService The context menu service.
-	 * @param editorService The editor service.
-	 * @param executionHistoryService The execution history service.
-	 * @param hoverService The hover service.
-	 * @param instantiationService The instantiation service.
-	 * @param keybindingService The keybinding service.
-	 * @param languageRuntimeService The language runtime service.
-	 * @param languageService The language service.
-	 * @param layoutService The layout service.
-	 * @param logService The log service.
-	 * @param modelService The model service.
-	 * @param notificationService The notification service.
-	 * @param openerService The opener service.
-	 * @param positronConsoleService The Positron console service.
-	 * @param positronPlotsService The Positron plots service.
-	 * @param runtimeSessionService The runtime session service.
-	 * @param runtimeStartupService The runtime startup service.
-	 * @param telemetryService The telemetry service.
-	 * @param themeService The theme service.
-	 * @param viewDescriptorService The view descriptor service.
-	 * @param viewsService The views service.
 	 */
 	constructor(
 		options: IViewPaneOptions,

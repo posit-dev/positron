@@ -133,10 +133,8 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 				<div className='column-selector-data-grid' onKeyDown={onKeyDown}>
 					<PositronDataGrid
 						ref={positronDataGridRef}
-						configurationService={props.configurationService}
 						id='column-selector-positron-data-grid'
 						instance={props.columnSelectorDataGridInstance}
-						layoutService={props.renderer.layoutService}
 					/>
 				</div>
 			</div>

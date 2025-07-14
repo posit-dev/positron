@@ -12,11 +12,11 @@ import React from 'react';
 // Other dependencies.
 import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
 import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
-import { useServices } from '../ServicesProvider.js';
 import { ParsedTextOutput } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 
@@ -88,7 +88,7 @@ function truncateToNumberOfLines(content: string, { outputScrolling, outputLineL
 
 export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
-	const { commandService } = useServices();
+	const services = usePositronReactServicesContext();
 	const { containerRef, truncation } = useLongOutputBehavior(content);
 
 	return <>
@@ -97,7 +97,7 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 			{
 				truncation.mode === 'truncate'
 					? <>
-						<TruncationMessage commandService={commandService} truncationResult={truncation} />
+						<TruncationMessage commandService={services.commandService} truncationResult={truncation} />
 						<OutputLines outputLines={ANSIOutput.processOutput(truncation.contentAfter)} />
 					</>
 					: null
@@ -105,7 +105,7 @@ export function CellTextOutput({ content, type }: ParsedTextOutput) {
 		</div>
 		{
 			truncation.mode === 'scroll'
-				? <TruncationMessage commandService={commandService} truncationResult={truncation} />
+				? <TruncationMessage commandService={services.commandService} truncationResult={truncation} />
 				: null
 		}
 	</>;

@@ -12,7 +12,7 @@ import { Emitter } from '../../../../../base/common/event.js';
 import { PositronReactRenderer } from '../../../../../base/browser/positronReactRenderer.js';
 import { ChatActionBar } from './chatActionBar.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { ILanguageModelsService, IPositronChatProvider } from '../../common/languageModels.js';
+import { IPositronChatProvider } from '../../common/languageModels.js';
 import { PositronChatContextProvider } from './chatContext.js';
 import { ChatInputPart } from '../chatInputPart.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
@@ -26,7 +26,6 @@ export class ChatActionBarControl extends Disposable {
 	constructor(
 		private readonly _chatInput: ChatInputPart,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
 	) {
 		super();
 
@@ -36,10 +35,7 @@ export class ChatActionBarControl extends Disposable {
 		this._positronReactRenderer = this._register(this._instantiationService.createInstance(PositronReactRenderer, this._container));
 		this._positronReactRenderer.render(
 			<PositronActionBarContextProvider>
-				<PositronChatContextProvider
-					chatInput={this._chatInput}
-					languageModelsService={this._languageModelsService}
-				>
+				<PositronChatContextProvider chatInput={this._chatInput}>
 					<ChatActionBar
 						width={this._container.parentElement?.clientWidth ?? 150}
 						onModelSelect={(newLanguageModel) => {

@@ -24,7 +24,5 @@ export interface ConsoleOutputLinesProps {
  */
 export const ConsoleOutputLines = (props: ConsoleOutputLinesProps) => {
 	// Render.
-	return (
-		<OutputLines {...props} />
-	);
+	return <OutputLines {...props} />;
 };

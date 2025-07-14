@@ -200,19 +200,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	/**
 	 * Constructor.
 	 * @param _group The editor group.
-	 * @param _accessibilityService The accessibility service.
-	 * @param _clipboardService The clipboard service.
-	 * @param _commandService The command service.
-	 * @param _configurationService The configuration service.
-	 * @param _contextKeyService The context key service.
-	 * @param _contextMenuService The context menu service.
-	 * @param _hoverService The hover service.
-	 * @param _keybindingService The keybinding service.
-	 * @param _layoutService The layout service.
-	 * @param _positronDataExplorerService The Positron data explorer service.
-	 * @param storageService The storage service.
-	 * @param telemetryService The telemetry service.
-	 * @param themeService The theme service.
 	 */
 	constructor(
 		readonly _group: IEditorGroup,

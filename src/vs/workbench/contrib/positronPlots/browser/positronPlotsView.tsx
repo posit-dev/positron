@@ -136,24 +136,6 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 	/**
 	 * Constructor.
 	 * @param options The options for the view pane.
-	 * @param accessibilityService The accessibility service.
-	 * @param commandService The command service.
-	 * @param configurationService The configuration service.
-	 * @param contextKeyService The context key service.
-	 * @param contextMenuService The context menu service.
-	 * @param hoverService The hover service.
-	 * @param instantiationService The instantiation service.
-	 * @param keybindingService The keybinding service.
-	 * @param languageRuntimeService The language runtime service.
-	 * @param notificationService The notification service.
-	 * @param openerService The opener service.
-	 * @param positronPlotsService The oositron plots service.
-	 * @param preferencesService The preferences service.
-	 * @param telemetryService The telemetry service.
-	 * @param themeService The theme service.
-	 * @param viewDescriptorService The view descriptor service.
-	 * @param layoutService The layout service.
-	 * @param workbenchLayoutService The workbench layout service.
 	 */
 	constructor(
 		options: IViewPaneOptions,

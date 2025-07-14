@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -53,7 +53,6 @@ export const usePositronRuntimeSessionsState = (): PositronRuntimeSessionsState 
 
 	// Return the Positron variables state.
 	return {
-		...services,
-		positronSessions: positronSessions
+		positronSessions
 	};
 };

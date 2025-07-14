@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -8,11 +8,11 @@ import { getWindow, addDisposableListener } from '../../../../../../base/browser
 import { INotebookOutputWebview } from '../../../../positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { isHTMLOutputWebviewMessage } from '../../../../positronWebviewPreloads/browser/notebookOutputUtils.js';
 import { useNotebookInstance } from '../../NotebookInstanceProvider.js';
-import { useServices } from '../../ServicesProvider.js';
 import { IOverlayWebview } from '../../../../webview/browser/webview.js';
 import { DisposableStore, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { useNotebookVisibility } from '../../NotebookVisibilityContext.js';
 import { Event } from '../../../../../../base/common/event.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants
 const MAX_OUTPUT_HEIGHT = 1000;
@@ -53,7 +53,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 	// Retrieve relevant context
 	const notebookInstance = useNotebookInstance();
 	const visibilityObservable = useNotebookVisibility();
-	const { editorService, layoutService } = useServices();
+	const services = usePositronReactServicesContext();
 
 	// Memoize the webview message handler
 	const handleWebviewMessage = React.useCallback(({ message }: { message: unknown }) => {
@@ -205,16 +205,16 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 				// React to editor or layout changes
 				const handleLayoutChange = () => updateWebviewLayout(false);
 				disposables.add(Event.any(
-					editorService.onDidActiveEditorChange,
-					editorService.onDidVisibleEditorsChange,
-					layoutService.onDidLayoutMainContainer,
-					layoutService.onDidLayoutContainer,
-					layoutService.onDidLayoutActiveContainer,
-					layoutService.onDidChangePartVisibility,
-					layoutService.onDidChangeWindowMaximized,
-					layoutService.onDidChangePanelAlignment,
-					layoutService.onDidChangePanelPosition,
-					layoutService.onDidChangeMainEditorCenteredLayout
+					services.editorService.onDidActiveEditorChange,
+					services.editorService.onDidVisibleEditorsChange,
+					services.workbenchLayoutService.onDidLayoutMainContainer,
+					services.workbenchLayoutService.onDidLayoutContainer,
+					services.workbenchLayoutService.onDidLayoutActiveContainer,
+					services.workbenchLayoutService.onDidChangePartVisibility,
+					services.workbenchLayoutService.onDidChangeWindowMaximized,
+					services.workbenchLayoutService.onDidChangePanelAlignment,
+					services.workbenchLayoutService.onDidChangePanelPosition,
+					services.workbenchLayoutService.onDidChangeMainEditorCenteredLayout
 				)(handleLayoutChange));
 
 				// Watch for container resize

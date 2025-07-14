@@ -89,8 +89,6 @@ export const VariablesInstanceMenuButton = () => {
 		return actions;
 	};
 
-	console.log(`VariablesInstanceMenuButton: ${sessionLabel}`);
-
 	// Render.
 	return (
 		<ActionBarMenuButton

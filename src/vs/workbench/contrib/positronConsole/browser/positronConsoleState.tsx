@@ -29,12 +29,8 @@ export const usePositronConsoleState = (): PositronConsoleState => {
 	const services = usePositronReactServicesContext();
 
 	// Hooks.
-	const [positronConsoleInstances, setPositronConsoleInstances] = useState<IPositronConsoleInstance[]>(
-		[]
-	);
-	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(
-		undefined
-	);
+	const [positronConsoleInstances, setPositronConsoleInstances] = useState<IPositronConsoleInstance[]>([]);
+	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(undefined);
 	const [consoleSessionListCollapsed, setConsoleSessionListCollapsed] = useState<boolean>(positronConsoleInstances.length <= 1);
 
 	// Add event handlers.

@@ -19,9 +19,10 @@ import { ServiceCollection } from '../../../../../platform/instantiation/common/
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useServices } from '../ServicesProvider.js';
+import { useEnvironment } from '../ServicesProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  *
@@ -46,10 +47,11 @@ const EDITOR_INSET_PADDING_PX = 1;
  * @returns Refs to place the editor and the wrapping div
  */
 export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
-	const services = useServices();
+	const services = usePositronReactServicesContext();
+	const environment = useEnvironment();
 	const instance = useNotebookInstance();
 
-	const sizeObservable = services.sizeObservable;
+	const sizeObservable = environment.sizeObservable;
 
 	// Grab the wrapping div for the editor. This is used for passing context key service
 	const editorPartRef = React.useRef<HTMLDivElement>(null);
@@ -71,7 +73,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 		editorPartRef.current.appendChild(nativeContainer);
 
 		const language = cell.cellModel.language;
-		const editorContextKeyService = services.scopedContextKeyProviderCallback(editorPartRef.current);
+		const editorContextKeyService = environment.scopedContextKeyProviderCallback(editorPartRef.current);
 		disposableStore.add(editorContextKeyService);
 		const editorInstaService = services.instantiationService.createChild(new ServiceCollection([IContextKeyService, editorContextKeyService]));
 		const editorOptions = new CellEditorOptions(instance.getBaseCellEditorOptions(language), instance.notebookOptions, services.configurationService);

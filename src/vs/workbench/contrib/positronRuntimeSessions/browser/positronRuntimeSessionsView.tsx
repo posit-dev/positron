@@ -155,19 +155,6 @@ export class PositronRuntimeSessionsViewPane extends PositronViewPane implements
 	/**
 	 * Constructor.
 	 * @param options The IViewPaneOptions for the view pane.
-	 * @param configurationService The configuration service.
-	 * @param contextKeyService The context key service.
-	 * @param contextMenuService The context menu service.
-	 * @param hoverService The hover service.
-	 * @param instantiationService The instantiation service.
-	 * @param keybindingService The keybinding service.
-	 * @param _layoutService The layout service.
-	 * @param _runtimeSessionService The runtime session service.
-	 * @param openerService The opener service.
-	 * @param _positronSessionsService The Positron variables service.
-	 * @param themeService The IThemeService.
-	 * @param viewDescriptorService The IViewDescriptorService.
-	 * @param _layoutService The layout service.
 	 */
 	constructor(
 		options: IViewPaneOptions,

@@ -4,21 +4,22 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
-import { ILanguageModelsService, IPositronChatProvider } from '../../common/languageModels.js';
+import { IPositronChatProvider } from '../../common/languageModels.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ChatInputPart } from '../chatInputPart.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
-export interface PositronChatServices {
-	readonly languageModelsService: ILanguageModelsService;
+export interface PositronChatEnvironment {
 	readonly chatInput: ChatInputPart;
 }
 
-export interface PositronChatState extends PositronChatServices {
+export interface PositronChatState extends PositronChatEnvironment {
 	readonly providers?: IPositronChatProvider[];
 	readonly currentProvider?: IPositronChatProvider;
 }
 
-export const usePositronChatState = (services: PositronChatServices): PositronChatState => {
+export const usePositronChatState = (environment: PositronChatEnvironment): PositronChatState => {
+	const services = usePositronReactServicesContext();
 	const [providers, setProviders] = useState<IPositronChatProvider[]>([]);
 	const [currentProvider, setCurrentProvider] = useState<IPositronChatProvider | undefined>(undefined);
 
@@ -38,11 +39,11 @@ export const usePositronChatState = (services: PositronChatServices): PositronCh
 		}));
 
 		return () => disposableStore.dispose();
-	}, [services.chatInput, services.languageModelsService]);
+	}, [environment.chatInput, services.languageModelsService]);
 
 	return {
 		providers: providers,
 		currentProvider: currentProvider,
-		...services,
+		...environment,
 	};
 }

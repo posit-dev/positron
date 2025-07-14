@@ -160,24 +160,6 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 	/**
 	 * Constructor.
 	 * @param options The IViewPaneOptions for the view pane.
-	 * @param _accessibilityService The accessibility service.
-	 * @param clipboardService The clipboard service.
-	 * @param _commandService The command service.
-	 * @param configurationService The configuration service.
-	 * @param contextKeyService The context key service.
-	 * @param contextMenuService The context menu service.
-	 * @param _dataExplorerService The data explorer service.
-	 * @param hoverService The hover service.
-	 * @param instantiationService The instantiation service.
-	 * @param keybindingService The keybinding service.
-	 * @param _languageRuntimeService The language runtime service.
-	 * @param _runtimeSessionService The runtime session service.
-	 * @param openerService The opener service.
-	 * @param _positronVariablesService The Positron variables service.
-	 * @param telemetryService The ITelemetryService.
-	 * @param themeService The IThemeService.
-	 * @param viewDescriptorService The IViewDescriptorService.
-	 * @param _layoutService The layout service.
 	 */
 	constructor(
 		options: IViewPaneOptions,

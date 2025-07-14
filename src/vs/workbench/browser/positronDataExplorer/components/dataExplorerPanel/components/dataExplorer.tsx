@@ -328,12 +328,10 @@ export const DataExplorer = () => {
 
 			<div ref={leftColumnRef} className='left-column'>
 				<PositronDataGrid
-					configurationService={services.configurationService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
 						context.instance.tableSchemaDataGridInstance :
 						context.instance.tableDataDataGridInstance
 					}
-					layoutService={services.workbenchLayoutService}
 				/>
 			</div>
 			{layout === PositronDataExplorerLayout.SummaryOnLeft && columnsCollapsed &&
@@ -362,12 +360,10 @@ export const DataExplorer = () => {
 			}
 			<div ref={rightColumnRef} className='right-column'>
 				<PositronDataGrid
-					configurationService={services.configurationService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
 						context.instance.tableDataDataGridInstance :
 						context.instance.tableSchemaDataGridInstance
 					}
-					layoutService={services.workbenchLayoutService}
 				/>
 			</div>
 		</div >

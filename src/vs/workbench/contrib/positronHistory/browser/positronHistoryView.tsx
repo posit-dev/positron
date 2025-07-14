@@ -7,18 +7,18 @@
 import React from 'react';
 
 // Other dependencies.
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { TestContent } from './components/testContent.js';
 import { IViewDescriptorService } from '../../../common/views.js';
+import { IHoverService } from '../../../../platform/hover/browser/hover.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
+import { ViewPane, IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { ViewPane, IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
-import { TestContent } from './components/testContent.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 
 /**
  * PositronHistoryViewPane class.

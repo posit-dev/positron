@@ -17,10 +17,12 @@ import { ICommandService } from '../../platform/commands/common/commands.js';
 import { ILanguageService } from '../../editor/common/languages/language.js';
 import { IHostService } from '../../workbench/services/host/browser/host.js';
 import { IPathService } from '../../workbench/services/path/common/pathService.js';
+import { ITextModelService } from '../../editor/common/services/resolverService.js';
 import { IContextKeyService } from '../../platform/contextkey/common/contextkey.js';
 import { IQuickInputService } from '../../platform/quickinput/common/quickInput.js';
 import { IWorkspacesService } from '../../platform/workspaces/common/workspaces.js';
 import { IKeybindingService } from '../../platform/keybinding/common/keybinding.js';
+import { IWebviewService } from '../../workbench/contrib/webview/browser/webview.js';
 import { IViewsService } from '../../workbench/services/views/common/viewsService.js';
 import { IWorkspaceContextService } from '../../platform/workspace/common/workspace.js';
 import { IClipboardService } from '../../platform/clipboard/common/clipboardService.js';
@@ -30,6 +32,7 @@ import { INotificationService } from '../../platform/notification/common/notific
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 import { IAccessibilityService } from '../../platform/accessibility/common/accessibility.js';
 import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
+import { ILanguageModelsService } from '../../workbench/contrib/chat/common/languageModels.js';
 import { IPreferencesService } from '../../workbench/services/preferences/common/preferences.js';
 import { IWorkbenchLayoutService } from '../../workbench/services/layout/browser/layoutService.js';
 import { IPositronPlotsService } from '../../workbench/services/positronPlots/common/positronPlots.js';
@@ -45,6 +48,8 @@ import { IPositronTopActionBarService } from '../../workbench/services/positronT
 import { IPositronVariablesService } from '../../workbench/services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronConnectionsService } from '../../workbench/services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { IPositronWebviewPreloadService } from '../../workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { IPositronNotebookOutputWebviewService } from '../../workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService.js';
 
 /**
  * PositronReactServices interface.
@@ -64,6 +69,7 @@ export type PositronReactServices = {
 	readonly keybindingService: IKeybindingService;
 	readonly labelService: ILabelService;
 	readonly languageRuntimeService: ILanguageRuntimeService;
+	readonly languageModelsService: ILanguageModelsService,
 	readonly languageService: ILanguageService;
 	readonly logService: ILogService;
 	readonly modelService: IModelService;
@@ -74,17 +80,21 @@ export type PositronReactServices = {
 	readonly positronConsoleService: IPositronConsoleService;
 	readonly positronDataExplorerService: IPositronDataExplorerService;
 	readonly positronHelpService: IPositronHelpService;
+	readonly positronNotebookOutputWebviewService: IPositronNotebookOutputWebviewService;
 	readonly positronPlotsService: IPositronPlotsService;
 	readonly positronPreviewService: IPositronPreviewService;
 	readonly positronTopActionBarService: IPositronTopActionBarService;
 	readonly positronVariablesService: IPositronVariablesService;
+	readonly positronWebviewPreloadService: IPositronWebviewPreloadService;
 	readonly preferencesService: IPreferencesService;
 	readonly quickInputService: IQuickInputService;
 	readonly runtimeSessionService: IRuntimeSessionService;
 	readonly runtimeStartupService: IRuntimeStartupService;
+	readonly textModelService: ITextModelService;
 	readonly themeService: IThemeService;
 	readonly viewDescriptorService: IViewDescriptorService;
 	readonly viewsService: IViewsService;
+	readonly webviewService: IWebviewService;
 	readonly workbenchEnvironmentService: IWorkbenchEnvironmentService;
 	readonly workbenchLayoutService: IWorkbenchLayoutService;
 	readonly workspaceContextService: IWorkspaceContextService;

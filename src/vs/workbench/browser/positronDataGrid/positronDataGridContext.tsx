@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,23 +7,13 @@
 import React, { PropsWithChildren, createContext, useContext, useEffect } from 'react';
 
 // Other dependencies.
-import { DisposableStore } from '../../../base/common/lifecycle.js';
-import { ILayoutService } from '../../../platform/layout/browser/layoutService.js';
-import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { DataGridInstance } from './classes/dataGridInstance.js';
-
-/**
- * PositronDataGridServices interface.
- */
-export interface PositronDataGridServices {
-	configurationService: IConfigurationService;
-	layoutService: ILayoutService;
-}
+import { DisposableStore } from '../../../base/common/lifecycle.js';
 
 /**
  * PositronDataGridConfiguration interface.
  */
-export interface PositronDataGridConfiguration extends PositronDataGridServices {
+export interface PositronDataGridConfiguration {
 	instance: DataGridInstance;
 }
 
@@ -63,9 +53,7 @@ const usePositronDataGridState = (
 /**
  * Export the PositronDataGridContextProvider.
  */
-export const PositronDataGridContextProvider = (
-	props: PropsWithChildren<PositronDataGridConfiguration>
-) => {
+export const PositronDataGridContextProvider = (props: PropsWithChildren<PositronDataGridConfiguration>) => {
 	// State hooks.
 	const state = usePositronDataGridState(props);
 

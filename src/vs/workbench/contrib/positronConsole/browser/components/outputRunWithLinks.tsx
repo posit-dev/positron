@@ -7,8 +7,8 @@
 import React from 'react';
 
 // Other dependencies.
-import { URI } from '../../../../../base/common/uri.js';
 import { localize } from '../../../../../nls.js';
+import { URI } from '../../../../../base/common/uri.js';
 import { detectHyperlinks } from '../../common/linkDetector.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
@@ -41,12 +41,11 @@ export const OutputRunWithLinks = (props: OutputRunWithLinksProps) => {
 
 		// Open the URI as external; this makes it possible for the Positron
 		// Viewer or Simple Browser to pick it up.
-		services.openerService.open(uri,
-			{
-				fromUserGesture: true,
-				openExternal: true,
-				allowContributedOpeners: true,
-			});
+		services.openerService.open(uri, {
+			fromUserGesture: true,
+			openExternal: true,
+			allowContributedOpeners: true,
+		});
 	};
 
 	// Look for a hyperlink in the text.

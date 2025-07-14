@@ -26,6 +26,8 @@ import { IContextKeyService } from '../../platform/contextkey/common/contextkey.
 import { IKeybindingService } from '../../platform/keybinding/common/keybinding.js';
 import { IQuickInputService } from '../../platform/quickinput/common/quickInput.js';
 import { IWorkspacesService } from '../../platform/workspaces/common/workspaces.js';
+import { ITextModelService } from '../../editor/common/services/resolverService.js';
+import { IWebviewService } from '../../workbench/contrib/webview/browser/webview.js';
 import { IViewsService } from '../../workbench/services/views/common/viewsService.js';
 import { IWorkspaceContextService } from '../../platform/workspace/common/workspace.js';
 import { IClipboardService } from '../../platform/clipboard/common/clipboardService.js';
@@ -35,6 +37,7 @@ import { INotificationService } from '../../platform/notification/common/notific
 import { IConfigurationService } from '../../platform/configuration/common/configuration.js';
 import { IAccessibilityService } from '../../platform/accessibility/common/accessibility.js';
 import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
+import { ILanguageModelsService } from '../../workbench/contrib/chat/common/languageModels.js';
 import { IPreferencesService } from '../../workbench/services/preferences/common/preferences.js';
 import { IWorkbenchLayoutService } from '../../workbench/services/layout/browser/layoutService.js';
 import { IPositronPlotsService } from '../../workbench/services/positronPlots/common/positronPlots.js';
@@ -49,6 +52,8 @@ import { IPositronConsoleService } from '../../workbench/services/positronConsol
 import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { IPositronVariablesService } from '../../workbench/services/positronVariables/common/interfaces/positronVariablesService.js';
 import { IPositronConnectionsService } from '../../workbench/services/positronConnections/common/interfaces/positronConnectionsService.js';
+import { IPositronWebviewPreloadService } from '../../workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { IPositronNotebookOutputWebviewService } from '../../workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 
 /**
@@ -162,6 +167,7 @@ export class PositronReactRenderer extends Disposable {
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@ILabelService private readonly _labelService: ILabelService,
+		@ILanguageModelsService private readonly _languageModelsService: ILanguageModelsService,
 		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
 		@ILanguageService private readonly _languageService: ILanguageService,
 		@ILogService private readonly _logService: ILogService,
@@ -173,17 +179,21 @@ export class PositronReactRenderer extends Disposable {
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
+		@IPositronNotebookOutputWebviewService private readonly _positronNotebookOutputWebviewService: IPositronNotebookOutputWebviewService,
 		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
 		@IPositronPreviewService private readonly _positronPreviewService: IPositronPreviewService,
 		@IPositronTopActionBarService private readonly _positronTopActionBarService: IPositronTopActionBarService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
+		@IPositronWebviewPreloadService private readonly _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IPreferencesService private readonly _preferencesService: IPreferencesService,
 		@IQuickInputService private readonly _quickInputService: IQuickInputService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
+		@ITextModelService private readonly _textModelService: ITextModelService,
 		@IThemeService private readonly _themeService: IThemeService,
 		@IViewDescriptorService private readonly _viewDescriptorService: IViewDescriptorService,
 		@IViewsService private readonly _viewsService: IViewsService,
+		@IWebviewService private readonly _webviewService: IWebviewService,
 		@IWorkbenchEnvironmentService private readonly _workbenchEnvironmentService: IWorkbenchEnvironmentService,
 		@IWorkbenchLayoutService private readonly _workbenchLayoutService: IWorkbenchLayoutService,
 		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
@@ -235,6 +245,7 @@ export class PositronReactRenderer extends Disposable {
 					instantiationService: this._instantiationService,
 					keybindingService: this._keybindingService,
 					labelService: this._labelService,
+					languageModelsService: this._languageModelsService,
 					languageRuntimeService: this._languageRuntimeService,
 					languageService: this._languageService,
 					logService: this._logService,
@@ -246,17 +257,21 @@ export class PositronReactRenderer extends Disposable {
 					positronConsoleService: this._positronConsoleService,
 					positronDataExplorerService: this._positronDataExplorerService,
 					positronHelpService: this._positronHelpService,
+					positronNotebookOutputWebviewService: this._positronNotebookOutputWebviewService,
 					positronPlotsService: this._positronPlotsService,
 					positronPreviewService: this._positronPreviewService,
 					positronTopActionBarService: this._positronTopActionBarService,
 					positronVariablesService: this._positronVariablesService,
+					positronWebviewPreloadService: this._positronWebviewPreloadService,
 					preferencesService: this._preferencesService,
 					quickInputService: this._quickInputService,
 					runtimeSessionService: this._runtimeSessionService,
 					runtimeStartupService: this._runtimeStartupService,
+					textModelService: this._textModelService,
 					themeService: this._themeService,
 					viewDescriptorService: this._viewDescriptorService,
 					viewsService: this._viewsService,
+					webviewService: this._webviewService,
 					workbenchEnvironmentService: this._workbenchEnvironmentService,
 					workbenchLayoutService: this._workbenchLayoutService,
 					workspaceContextService: this._workspaceContextService,

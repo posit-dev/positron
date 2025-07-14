@@ -11,11 +11,11 @@ import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
+import { RuntimeStartupProgress } from './runtimeStartupProgress.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { RuntimeStartupProgress } from './runtimeStartupProgress.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Load localized copy for control.
@@ -35,9 +35,11 @@ const discoveringIntrepreters = localize('positron.console.discoveringInterprete
  * @returns The rendered component.
  */
 export const StartupStatus = () => {
-	const progressRef = React.useRef<HTMLDivElement>(null);
-
+	// Context hooks.
 	const services = usePositronReactServicesContext();
+
+	// Reference hooks.
+	const progressRef = React.useRef<HTMLDivElement>(null);
 
 	// Component state.
 	const [discovered, setDiscovered] =

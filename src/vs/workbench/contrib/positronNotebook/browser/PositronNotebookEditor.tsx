@@ -17,10 +17,8 @@ import { observableValue } from '../../../../base/common/observableInternal/base
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { BareFontInfo, FontInfo } from '../../../../editor/common/config/fontInfo.js';
-import { ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import { ITextResourceConfigurationService } from '../../../../editor/common/services/textResourceConfiguration.js';
 import { localize } from '../../../../nls.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
@@ -46,22 +44,11 @@ import { ViewContext } from '../../notebook/browser/viewModel/viewContext.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 import { PositronNotebookComponent } from './PositronNotebookComponent.js';
-import { ServicesProvider } from './ServicesProvider.js';
+import { EnvironentProvider } from './ServicesProvider.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IWebviewService } from '../../webview/browser/webview.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IPositronNotebookOutputWebviewService } from '../../positronOutputWebview/browser/notebookOutputWebviewService.js';
-import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
-import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
-import { IPathService } from '../../../services/path/common/pathService.js';
-
 
 interface NotebookLayoutInfo {
 	width: number;
@@ -110,7 +97,6 @@ export class PositronNotebookEditor extends EditorPane {
 
 	constructor(
 		readonly _group: IEditorGroup,
-		@IClipboardService readonly _clipboardService: IClipboardService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
 		@IEditorGroupsService
@@ -120,19 +106,8 @@ export class PositronNotebookEditor extends EditorPane {
 		@IStorageService storageService: IStorageService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
-		@ITextModelService private readonly _textModelResolverService: ITextModelService,
-		@IWebviewService private readonly _webviewService: IWebviewService,
-		@IPositronNotebookOutputWebviewService private readonly _notebookWebviewService: IPositronNotebookOutputWebviewService,
-		@IPositronWebviewPreloadService private readonly _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
-		@ICommandService private readonly _commandService: ICommandService,
-		@IOpenerService private readonly _openerService: IOpenerService,
-		@INotificationService private readonly _notificationService: INotificationService,
-		@IEditorService private readonly _editorService: IEditorService,
-		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
-		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
-		@IPathService private readonly _pathService: IPathService,
 	) {
 		// Call the base class's constructor.
 		super(
@@ -471,26 +446,12 @@ export class PositronNotebookEditor extends EditorPane {
 		reactRenderer.render(
 			<NotebookVisibilityProvider isVisible={this._isVisible}>
 				<NotebookInstanceProvider instance={notebookInstance}>
-					<ServicesProvider services={{
-						configurationService: this._configurationService,
-						instantiationService: this._instantiationService,
-						textModelResolverService: this._textModelResolverService,
-						webviewService: this._webviewService,
-						notebookWebviewService: this._notebookWebviewService,
-						webviewPreloadService: this._positronWebviewPreloadService,
-						commandService: this._commandService,
-						logService: this._logService,
-						openerService: this._openerService,
-						notificationService: this._notificationService,
-						environmentService: this._environmentService,
-						pathService: this._pathService,
+					<EnvironentProvider environmentBundle={{
 						sizeObservable: this._size,
 						scopedContextKeyProviderCallback: container => scopedContextKeyService.createScoped(container),
-						editorService: this._editorService,
-						layoutService: this._layoutService
 					}}>
 						<PositronNotebookComponent />
-					</ServicesProvider>
+					</EnvironentProvider>
 				</NotebookInstanceProvider>
 			</NotebookVisibilityProvider>
 		);
