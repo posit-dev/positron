@@ -34,7 +34,7 @@ export const StatusBarActivityIndicator = () => {
 		const disposableStore = new DisposableStore();
 
 		// Set up onDidStatusUpdate event handler.
-		let debounceTimeout: NodeJS.Timeout | undefined = undefined;
+		let debounceTimeout: Timeout | undefined = undefined;
 		disposableStore.add(context.instance.dataExplorerClientInstance.onDidStatusUpdate(
 			newDataExplorerClientStatus => {
 				// If there is a debounce timeout in flight, clear it.

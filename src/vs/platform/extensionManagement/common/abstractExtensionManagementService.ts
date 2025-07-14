@@ -351,8 +351,8 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 							// Explicitly asked to install the release version
 							preferPreRelease = false;
 						}
-						const allDepsAndPackExtensionsToInstall = await this.getAllDepsAndPackExtensions(task.identifier, task.manifest, preferPreRelease, task.options.productVersion);
 						const installed = await this.getInstalled(undefined, task.options.profileLocation, task.options.productVersion);
+						const allDepsAndPackExtensionsToInstall = await this.getAllDepsAndPackExtensions(task.identifier, task.manifest, preferPreRelease, task.options.productVersion, installed);
 						const options: InstallExtensionTaskOptions = { ...task.options, pinned: false, installGivenVersion: false, context: { ...task.options.context, [EXTENSION_INSTALL_DEP_PACK_CONTEXT]: true } };
 						for (const { gallery, manifest } of distinct(allDepsAndPackExtensionsToInstall, ({ gallery }) => gallery.identifier.id)) {
 							const existing = installed.find(e => areSameExtensions(e.identifier, gallery.identifier));
@@ -589,7 +589,7 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 		throw error;
 	}
 
-	private async getAllDepsAndPackExtensions(extensionIdentifier: IExtensionIdentifier, manifest: IExtensionManifest, preferPreRelease: boolean, productVersion: IProductVersion): Promise<{ gallery: IGalleryExtension; manifest: IExtensionManifest }[]> {
+	private async getAllDepsAndPackExtensions(extensionIdentifier: IExtensionIdentifier, manifest: IExtensionManifest, preferPreRelease: boolean, productVersion: IProductVersion, installed: ILocalExtension[]): Promise<{ gallery: IGalleryExtension; manifest: IExtensionManifest }[]> {
 		if (!this.galleryService.isEnabled()) {
 			return [];
 		}
@@ -602,9 +602,13 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 			const dependecies: string[] = manifest.extensionDependencies || [];
 			const dependenciesAndPackExtensions = [...dependecies];
 			if (manifest.extensionPack) {
+				const existing = installed.find(e => areSameExtensions(e.identifier, extensionIdentifier));
 				for (const extension of manifest.extensionPack) {
-					if (dependenciesAndPackExtensions.every(e => !areSameExtensions({ id: e }, { id: extension }))) {
-						dependenciesAndPackExtensions.push(extension);
+					// add only those extensions which are new in currently installed extension
+					if (!(existing && existing.manifest.extensionPack && existing.manifest.extensionPack.some(old => areSameExtensions({ id: old }, { id: extension })))) {
+						if (dependenciesAndPackExtensions.every(e => !areSameExtensions({ id: e }, { id: extension }))) {
+							dependenciesAndPackExtensions.push(extension);
+						}
 					}
 				}
 			}
@@ -739,8 +743,16 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 		const allTasks: IUninstallExtensionTask[] = [];
 		const processedTasks: IUninstallExtensionTask[] = [];
 		const alreadyRequestedUninstalls: Promise<any>[] = [];
+		const extensionsToRemove: ILocalExtension[] = [];
 
 		const installedExtensionsMap = new ResourceMap<ILocalExtension[]>();
+		const getInstalledExtensions = async (profileLocation: URI) => {
+			let installed = installedExtensionsMap.get(profileLocation);
+			if (!installed) {
+				installedExtensionsMap.set(profileLocation, installed = await this.getInstalled(ExtensionType.User, profileLocation));
+			}
+			return installed;
+		};
 
 		for (const { extension, options } of extensions) {
 			const uninstallOptions: UninstallExtensionTaskOptions = {
@@ -754,14 +766,34 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 			} else {
 				allTasks.push(createUninstallExtensionTask(extension, uninstallOptions));
 			}
+
+			if (uninstallOptions.remove || extension.isApplicationScoped) {
+				if (uninstallOptions.remove) {
+					extensionsToRemove.push(extension);
+				}
+				for (const profile of this.userDataProfilesService.profiles) {
+					if (this.uriIdentityService.extUri.isEqual(profile.extensionsResource, uninstallOptions.profileLocation)) {
+						continue;
+					}
+					const installed = await getInstalledExtensions(profile.extensionsResource);
+					const profileExtension = installed.find(e => areSameExtensions(e.identifier, extension.identifier));
+					if (profileExtension) {
+						const uninstallOptionsWithProfile = { ...uninstallOptions, profileLocation: profile.extensionsResource };
+						const uninstallExtensionTask = this.uninstallingExtensions.get(getUninstallExtensionTaskKey(profileExtension, uninstallOptionsWithProfile));
+						if (uninstallExtensionTask) {
+							this.logService.info('Extensions is already requested to uninstall', profileExtension.identifier.id);
+							alreadyRequestedUninstalls.push(uninstallExtensionTask.waitUntilTaskIsFinished());
+						} else {
+							allTasks.push(createUninstallExtensionTask(profileExtension, uninstallOptionsWithProfile));
+						}
+					}
+				}
+			}
 		}
 
 		try {
 			for (const task of allTasks.slice(0)) {
-				let installed = installedExtensionsMap.get(task.options.profileLocation);
-				if (!installed) {
-					installedExtensionsMap.set(task.options.profileLocation, installed = await this.getInstalled(ExtensionType.User, task.options.profileLocation));
-				}
+				const installed = await getInstalledExtensions(task.options.profileLocation);
 
 				if (task.options.donotIncludePack) {
 					this.logService.info('Uninstalling the extension without including packed extension', `${task.extension.identifier.id}@${task.extension.manifest.version}`);
@@ -808,6 +840,10 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 
 			for (const task of allTasks) {
 				postUninstallExtension(task.extension, task.options);
+			}
+
+			if (extensionsToRemove.length) {
+				await this.joinAllSettled(extensionsToRemove.map(extension => this.deleteExtension(extension)));
 			}
 		} catch (e) {
 			const error = toExtensionManagementError(e);
@@ -905,6 +941,9 @@ export abstract class AbstractExtensionManagementService extends CommontExtensio
 	protected abstract createInstallExtensionTask(manifest: IExtensionManifest, extension: URI | IGalleryExtension, options: InstallExtensionTaskOptions): IInstallExtensionTask;
 	protected abstract createUninstallExtensionTask(extension: ILocalExtension, options: UninstallExtensionTaskOptions): IUninstallExtensionTask;
 	protected abstract copyExtension(extension: ILocalExtension, fromProfileLocation: URI, toProfileLocation: URI, metadata?: Partial<Metadata>): Promise<ILocalExtension>;
+	protected abstract moveExtension(extension: ILocalExtension, fromProfileLocation: URI, toProfileLocation: URI, metadata?: Partial<Metadata>): Promise<ILocalExtension>;
+	protected abstract removeExtension(extension: ILocalExtension, fromProfileLocation: URI): Promise<void>;
+	protected abstract deleteExtension(extension: ILocalExtension): Promise<void>;
 }
 
 export function toExtensionManagementError(error: Error, code?: ExtensionManagementErrorCode): ExtensionManagementError {

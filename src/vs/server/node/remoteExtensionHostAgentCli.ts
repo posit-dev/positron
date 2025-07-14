@@ -68,8 +68,7 @@ class CliMain extends Disposable {
 	}
 
 	private registerListeners(): void {
-		// Dispose on exit
-		process.once('exit', () => this.dispose());
+		process.once('exit', () => this.dispose()); // Dispose on exit
 	}
 
 	async run(): Promise<void> {
@@ -197,6 +196,7 @@ export async function run(args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, op
 		// --- End Positron ---
 		return;
 	}
+
 	// Version Info
 	if (args.version) {
 		// --- Start Positron ---
@@ -204,7 +204,6 @@ export async function run(args: ServerParsedArgs, REMOTE_DATA_FOLDER: string, op
 		// --- End Positron ---
 		return;
 	}
-
 
 	const cliMain = new CliMain(args, REMOTE_DATA_FOLDER);
 	try {
