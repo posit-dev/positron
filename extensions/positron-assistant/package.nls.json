@@ -21,5 +21,6 @@
 	"configuration.useAnthropicSdk.description": "Use the Anthropic SDK for Anthropic models rather than the generic AI SDK.",
 	"configuration.streamingEdits.enable": "Enable streaming edits in inline editor chats.",
 	"configuration.inlineCompletionExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from inline completions.",
-	"configuration.gitIntegration.description": "Enable Positron Assistant git integration."
+	"configuration.gitIntegration.description": "Enable Positron Assistant git integration.",
+	"configuration.showTokenUsage.description": "Show token usage in the chat view for supported providers."
 }
