@@ -441,7 +441,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	}
 
-
 	/**
 	 * onDidClose event.
 	 */
