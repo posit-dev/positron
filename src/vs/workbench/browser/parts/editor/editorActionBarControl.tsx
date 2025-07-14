@@ -57,11 +57,6 @@ export class EditorActionBarControl extends Disposable {
 	 * Constructor.
 	 * @param _parent The parent HTML element.
 	 * @param _editorGroup The editor group.
-	 * @param _contextKeyService The context key service.
-	 * @param _instantiationService The instantiation service.
-	 * @param _keybindingService The keybinding service.
-	 * @param _menuService The menu service.
-	 * @param _telemetryService The telemetry service.
 	 */
 	constructor(
 		private readonly _parent: HTMLElement,
