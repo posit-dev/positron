@@ -14,13 +14,10 @@ import { localize } from '../../../nls.js';
 import { Schemas } from '../../../base/common/network.js';
 import * as platform from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
-import { IOpenerService } from '../../../platform/opener/common/opener.js';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
-import { INotificationService } from '../../../platform/notification/common/notification.js';
 import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
 import { toLocalResource } from '../../../base/common/resources.js';
-import { IPathService } from '../../services/path/common/pathService.js';
-import { IWorkbenchEnvironmentService } from '../../services/environment/common/environmentService.js';
+import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -32,10 +29,6 @@ const fileURLWithLineAndColumn = /^(file:\/\/\/.+):(\d+):(\d+)$/;
 
 // OutputRunProps interface.
 export interface OutputRunProps {
-	readonly openerService: IOpenerService;
-	readonly notificationService: INotificationService;
-	readonly pathService: IPathService;
-	readonly environmentService: IWorkbenchEnvironmentService;
 	readonly outputRun: ANSIOutputRun;
 }
 
@@ -53,6 +46,9 @@ enum ColorType {
  * @returns The rendered component.
  */
 export const OutputRun = (props: OutputRunProps) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	/**
 	 * Builds the hyperlink URL for the output run.
 	 * @returns The hyperlink URL for the output run. Returns undefined if the output run's
@@ -95,8 +91,8 @@ export const OutputRun = (props: OutputRunProps) => {
 		if (platform.isWeb) {
 			uri = toLocalResource(
 				uri,
-				props.environmentService.remoteAuthority,
-				props.pathService.defaultUriScheme
+				services.workbenchEnvironmentService.remoteAuthority,
+				services.pathService.defaultUriScheme
 			);
 			url = uri.toString();
 		}
@@ -160,10 +156,10 @@ export const OutputRun = (props: OutputRunProps) => {
 		// Build the hyperlink URL. If there is one, open it.
 		const url = buildHyperlinkURL();
 		if (url) {
-			props.openerService.open(url);
+			services.openerService.open(url);
 		} else {
 			// Can't happen.
-			props.notificationService.error(localize(
+			services.notificationService.error(localize(
 				'positron.unableToOpenHyperlink',
 				"The hyperlink could not be opened."
 			));

@@ -12,14 +12,14 @@ import React, { PropsWithChildren } from 'react';
 // Other dependencies.
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { localize } from '../../../../../../nls.js';
-import { PositronConnectionsServices } from '../../positronConnectionsContext.js';
 import { LanguageRuntimeMetadata } from 'positron';
 import { DropDownListBox } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { IDriver } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
+import { PositronReactServices } from '../../../../../../base/browser/positronReactRendererContext.js';
 
 interface ListDriversProps {
-	readonly services: PositronConnectionsServices;
+	readonly services: PositronReactServices;
 	readonly onCancel: () => void;
 	readonly onSelection: (driver: IDriver) => void;
 	readonly languageId?: string;
@@ -33,7 +33,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	};
 
 	const { languageId, setLanguageId } = props;
-	const driverManager = props.services.connectionsService.driverManager;
+	const driverManager = props.services.positronConnectionsService.driverManager;
 
 	const drivers = languageId ?
 		driverManager.getDrivers().filter(driver => driver.metadata.languageId === languageId) :
@@ -68,7 +68,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 					});
 				})}
 				keybindingService={props.services.keybindingService}
-				layoutService={props.services.layoutService}
+				layoutService={props.services.workbenchLayoutService}
 				selectedIdentifier={languageId}
 				title={(() => localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language"))()}
 				onSelectionChanged={(item) => onLanguageChangeHandler(item.options.identifier)}
@@ -110,13 +110,13 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	</div>;
 };
 
-const getRegisteredLanguages = (services: PositronConnectionsServices) => {
+const getRegisteredLanguages = (services: PositronReactServices) => {
 	const languages = new Map<string, LanguageRuntimeMetadata>();
 	for (const runtime of services.languageRuntimeService.registeredRuntimes) {
 		if (languages.has(runtime.languageId)) {
 			continue;
 		}
-		const preferredMetadata = services.runtimeAffiliationService.getPreferredRuntime(runtime.languageId);
+		const preferredMetadata = services.runtimeStartupService.getPreferredRuntime(runtime.languageId);
 		if (preferredMetadata) {
 			languages.set(runtime.languageId, preferredMetadata);
 		}

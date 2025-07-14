@@ -17,7 +17,7 @@ import { ActionBarRegion } from '../../../../../platform/positronActionBar/brows
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ViewsProps } from '../positronConnections.js';
-import { PositronConnectionsServices, usePositronConnectionsContext } from '../positronConnectionsContext.js';
+import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
 import { FixedSizeList as List } from 'react-window';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { languageIdToName } from './schemaNavigation.js';
@@ -27,23 +27,24 @@ import { showResumeConnectionModalDialog } from './resumeConnectionModalDialog.j
 import { localize } from '../../../../../nls.js';
 import { showNewConnectionModalDialog } from './newConnectionModalDialog.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
 export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsProps>) => {
-
+	const services = usePositronReactServicesContext();
 	const context = usePositronConnectionsContext();
 	const { height, setActiveInstanceId } = props;
 
-	const [instances, setInstances] = useState<IPositronConnectionInstance[]>(context.connectionsService.getConnections);
+	const [instances, setInstances] = useState<IPositronConnectionInstance[]>(services.positronConnectionsService.getConnections);
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
-		disposableStore.add(context.connectionsService.onDidChangeConnections((connections) => {
+		disposableStore.add(services.positronConnectionsService.onDidChangeConnections((connections) => {
 			// Makes sure react recognises changes as this is a new array
 			setInstances([...connections]);
 		}));
 		return () => disposableStore.dispose();
-	}, [context.connectionsService]);
+	}, [services.positronConnectionsService]);
 
 	// We're required to save the scroll state because browsers will automatically
 	// scrollTop when an object becomes visible again.
@@ -104,7 +105,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 						if (itemProps.active) {
 							setActiveInstanceId(itemProps.id);
 						} else {
-							showResumeConnectionModalDialog(context, itemProps.id, setActiveInstanceId);
+							showResumeConnectionModalDialog(services, itemProps.id, setActiveInstanceId);
 						}
 					}}
 				>
@@ -126,12 +127,12 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 				onDeleteConnection={
 					selectedInstanceId ?
 						() => {
-							context.connectionsService.removeConnection(selectedInstanceId);
+							services.positronConnectionsService.removeConnection(selectedInstanceId);
 						} :
 						undefined
 				}
 				onNewConnection={() => {
-					showNewConnectionModalDialog(context);
+					showNewConnectionModalDialog(services);
 				}}
 			>
 			</ActionBar>
@@ -181,7 +182,7 @@ const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
 const ACTION_BAR_HEIGHT = 32;
 
-interface ActionBarProps extends PositronConnectionsServices {
+interface ActionBarProps {
 	onDeleteConnection?: () => void;
 	onNewConnection: () => void;
 }

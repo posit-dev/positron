@@ -19,17 +19,6 @@ import { IViewDescriptorService } from '../../../common/views.js';
 import * as DOM from '../../../../base/browser/dom.js';
 import { PositronConnections } from './positronConnections.js';
 import * as React from 'react';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IPositronConnectionsService } from '../../../services/positronConnections/common/interfaces/positronConnectionsService.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
-import { IModelService } from '../../../../editor/common/services/model.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 
 export class PositronConnectionsView
 	extends PositronViewPane
@@ -72,7 +61,6 @@ export class PositronConnectionsView
 
 	constructor(
 		options: IViewPaneOptions,
-		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
@@ -82,16 +70,6 @@ export class PositronConnectionsView
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@ICommandService private readonly commandService: ICommandService,
-		@IPositronConnectionsService private readonly connectionsService: IPositronConnectionsService,
-		@ILayoutService private readonly layoutService: ILayoutService,
-		@IClipboardService private readonly clipboardService: IClipboardService,
-		@INotificationService private readonly notificationService: INotificationService,
-		@IEditorService private readonly editorService: IEditorService,
-		@IModelService private readonly modelService: IModelService,
-		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
-		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
-		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService
 	) {
 		super(
 			options,
@@ -134,27 +112,7 @@ export class PositronConnectionsView
 		// Create the PositronReactRenderer for the PositronVariables component and render it.
 		this.positronReactRenderer = this._register(this.instantiationService.createInstance(PositronReactRenderer, this.positronConnectionsContainer));
 		this.positronReactRenderer.render(
-			<PositronConnections
-				accessibilityService={this.accessibilityService}
-				clipboardService={this.clipboardService}
-				commandService={this.commandService}
-				configurationService={this.configurationService}
-				connectionsService={this.connectionsService}
-				contextKeyService={this.contextKeyService}
-				contextMenuService={this.contextMenuService}
-				editorService={this.editorService}
-				hoverService={this.hoverService}
-				instantiationService={this.instantiationService}
-				keybindingService={this.keybindingService}
-				languageRuntimeService={this.languageRuntimeService}
-				layoutService={this.layoutService}
-				modelService={this.modelService}
-				notificationService={this.notificationService}
-				reactComponentContainer={this}
-				runtimeAffiliationService={this.runtimeStartupService}
-				runtimeSessionService={this.runtimeSessionService}
-				themeService={this.themeService}
-			/>
+			<PositronConnections reactComponentContainer={this} />
 		);
 	}
 

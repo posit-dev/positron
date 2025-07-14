@@ -10,17 +10,17 @@ import './consoleCore.css';
 import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { ActionBar } from './actionBar.js';
 import { EmptyConsole } from './emptyConsole.js';
+import { StartupStatus } from './startupStatus.js';
+import { ConsoleTabList } from './consoleTabList.js';
 import { ConsoleInstance } from './consoleInstance.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
-import { StartupStatus } from './startupStatus.js';
-import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { ConsoleTabList } from './consoleTabList.js';
-import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
+import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 
 // Constants.
 const ACTION_BAR_HEIGHT = 28;
@@ -43,7 +43,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	// Calculate the adjusted height (the height minus the action bar height).
 	const adjustedHeight = props.height - ACTION_BAR_HEIGHT;
 
-	// Hooks.
+	// Context hooks.
 	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 

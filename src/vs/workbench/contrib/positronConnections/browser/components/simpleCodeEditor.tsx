@@ -10,10 +10,10 @@ import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEdito
 import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
 import { IIdentifiedSingleEditOperation, ITextModel } from '../../../../../editor/common/model.js';
 import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../../codeEditor/browser/simpleEditorOptions.js';
-import { PositronConnectionsServices } from '../positronConnectionsContext.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactRendererContext.js';
 
 export interface SimpleCodeEditorProps {
-	readonly services: PositronConnectionsServices;
+	readonly services: PositronReactServices;
 	readonly code?: string;
 	readonly language?: string;
 	readonly editorOptions?: IEditorOptions;

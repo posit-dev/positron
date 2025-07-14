@@ -18,7 +18,6 @@ import { ITelemetryService } from '../../../../platform/telemetry/common/telemet
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { EditorPane } from '../../../browser/parts/editor/editorPane.js';
 import { IEditorOpenContext } from '../../../common/editor.js';
-import { PositronPreviewContextProvider } from '../../positronPreview/browser/positronPreviewContext.js';
 import { PositronPreviewEditorInput } from './positronPreviewEditorInput.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreview.js';
@@ -127,16 +126,12 @@ export class PositronPreviewEditor
 		this._preview = this._positronPreviewService.editorWebview(previewId);
 
 		this._positronReactRenderer.render(
-			<PositronPreviewContextProvider
-				positronPreviewService={this._positronPreviewService}
-			>
-				<EditorPreviewContainer
-					height={this._height}
-					preview={this._preview}
-					visible={this._visible}
-					width={this._width}
-				/>
-			</PositronPreviewContextProvider>
+			<EditorPreviewContainer
+				height={this._height}
+				preview={this._preview}
+				visible={this._visible}
+				width={this._width}
+			/>
 		);
 	}
 

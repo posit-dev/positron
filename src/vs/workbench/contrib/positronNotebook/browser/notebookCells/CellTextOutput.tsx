@@ -88,29 +88,17 @@ function truncateToNumberOfLines(content: string, { outputScrolling, outputLineL
 
 export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
-	const { openerService, notificationService, commandService, environmentService, pathService } = useServices();
+	const { commandService } = useServices();
 	const { containerRef, truncation } = useLongOutputBehavior(content);
 
 	return <>
 		<div ref={containerRef} className={`notebook-${type} positron-notebook-text-output long-output-${truncation.mode}`}>
-			<OutputLines
-				environmentService={environmentService}
-				notificationService={notificationService}
-				openerService={openerService}
-				outputLines={ANSIOutput.processOutput(truncation.content)}
-				pathService={pathService}
-			/>
+			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />
 			{
 				truncation.mode === 'truncate'
 					? <>
 						<TruncationMessage commandService={commandService} truncationResult={truncation} />
-						<OutputLines
-							environmentService={environmentService}
-							notificationService={notificationService}
-							openerService={openerService}
-							outputLines={ANSIOutput.processOutput(truncation.contentAfter)}
-							pathService={pathService}
-						/>
+						<OutputLines outputLines={ANSIOutput.processOutput(truncation.contentAfter)} />
 					</>
 					: null
 			}

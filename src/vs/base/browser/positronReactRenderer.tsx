@@ -48,6 +48,7 @@ import { IExecutionHistoryService } from '../../workbench/services/positronHisto
 import { IPositronConsoleService } from '../../workbench/services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { IPositronVariablesService } from '../../workbench/services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IPositronConnectionsService } from '../../workbench/services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 
 /**
@@ -168,6 +169,7 @@ export class PositronReactRenderer extends Disposable {
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private readonly _openerService: IOpenerService,
 		@IPathService private readonly _pathService: IPathService,
+		@IPositronConnectionsService private readonly _positronConnectionsService: IPositronConnectionsService,
 		@IPositronConsoleService private readonly _positronConsoleService: IPositronConsoleService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IPositronHelpService private readonly _positronHelpService: IPositronHelpService,
@@ -240,6 +242,7 @@ export class PositronReactRenderer extends Disposable {
 					notificationService: this._notificationService,
 					openerService: this._openerService,
 					pathService: this._pathService,
+					positronConnectionsService: this._positronConnectionsService,
 					positronConsoleService: this._positronConsoleService,
 					positronDataExplorerService: this._positronDataExplorerService,
 					positronHelpService: this._positronHelpService,

@@ -43,8 +43,12 @@ import { IExecutionHistoryService } from '../../workbench/services/positronHisto
 import { IPositronConsoleService } from '../../workbench/services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IPositronTopActionBarService } from '../../workbench/services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { IPositronVariablesService } from '../../workbench/services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IPositronConnectionsService } from '../../workbench/services/positronConnections/common/interfaces/positronConnectionsService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 
+/**
+ * PositronReactServices interface.
+ */
 export type PositronReactServices = {
 	readonly accessibilityService: IAccessibilityService;
 	readonly clipboardService: IClipboardService;
@@ -66,6 +70,7 @@ export type PositronReactServices = {
 	readonly notificationService: INotificationService;
 	readonly openerService: IOpenerService;
 	readonly pathService: IPathService;
+	readonly positronConnectionsService: IPositronConnectionsService,
 	readonly positronConsoleService: IPositronConsoleService;
 	readonly positronDataExplorerService: IPositronDataExplorerService;
 	readonly positronHelpService: IPositronHelpService;
@@ -86,6 +91,13 @@ export type PositronReactServices = {
 	readonly workspacesService: IWorkspacesService;
 };
 
+/**
+ * PositronReactServicesContext. This context provides access to the Positron React services.
+ */
 export const PositronReactServicesContext = createContext<PositronReactServices>(undefined!);
 
+/**
+ * usePositronReactServicesContext hook. This hook provides access to the Positron React services context.
+ * @returns The Positron React services context.
+ */
 export const usePositronReactServicesContext = () => useContext(PositronReactServicesContext);

@@ -19,13 +19,13 @@ import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { IsDevelopmentContext } from '../../../../../platform/contextkey/common/contextkeys.js';
 import { UiFrontendEvent } from '../../../../services/languageRuntime/common/positronUiComm.js';
-import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronDynamicActionBar, DynamicActionBarAction, DEFAULT_ACTION_BAR_BUTTON_WIDTH } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.

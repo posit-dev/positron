@@ -14,24 +14,24 @@ import { localize } from '../../../../../nls.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
-import { PositronConnectionsServices } from '../positronConnectionsContext.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import Severity from '../../../../../base/common/severity.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from './simpleCodeEditor.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const RESUME_CONNECTION_MODAL_DIALOG_HEIGHT = 430;
 
 export const showResumeConnectionModalDialog = (
-	services: PositronConnectionsServices,
+	services: PositronReactServices,
 	activeInstanceId: string,
 	setActiveInstanceId: (id: string) => void
 ) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
 		keybindingService: services.keybindingService,
-		layoutService: services.layoutService,
-		container: services.layoutService.activeContainer,
+		layoutService: services.workbenchLayoutService,
+		container: services.workbenchLayoutService.activeContainer,
 	});
 
 	renderer.render(
@@ -46,7 +46,7 @@ export const showResumeConnectionModalDialog = (
 
 interface ResumeConnectionModalDialogProps {
 	readonly renderer: PositronModalReactRenderer;
-	readonly services: PositronConnectionsServices;
+	readonly services: PositronReactServices;
 	readonly activeInstaceId: string;
 	readonly setActiveInstanceId: (id: string) => void;
 }
@@ -54,7 +54,7 @@ interface ResumeConnectionModalDialogProps {
 const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionModalDialogProps>) => {
 
 	const { services, activeInstaceId } = props;
-	const activeInstance = services.connectionsService.getConnections().find(item => item.id === activeInstaceId);
+	const activeInstance = services.positronConnectionsService.getConnections().find(item => item.id === activeInstaceId);
 
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
@@ -71,7 +71,7 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 		await services.clipboardService.writeText(code);
 		props.renderer.dispose();
 
-		const handle = services.connectionsService.notify(localize(
+		const handle = services.positronConnectionsService.notify(localize(
 			'positron.resumeConnectionModalDialog.codeCopied',
 			"Connection code copied to clipboard"
 		), Severity.Info);

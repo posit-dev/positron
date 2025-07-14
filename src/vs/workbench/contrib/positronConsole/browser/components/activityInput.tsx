@@ -17,11 +17,11 @@ import { LineTokens } from '../../../../../editor/common/tokens/lineTokens.js';
 import { ViewLineRenderingData } from '../../../../../editor/common/viewModel.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { RenderLineInput, renderViewLine2 } from '../../../../../editor/common/viewLayout/viewLineRenderer.js';
 import { ILanguageIdCodec, ITokenizationSupport, TokenizationRegistry } from '../../../../../editor/common/languages.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemInput, ActivityItemInputState } from '../../../../services/positronConsole/browser/classes/activityItemInput.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Colorizes code output lines.
@@ -238,14 +238,7 @@ export const ActivityInput = (props: ActivityInputProps) => {
 					<div key={outputLine.id}>
 						<Prompt index={index} />
 						{outputLine.outputRuns.map(outputRun =>
-							<OutputRun
-								key={outputRun.id}
-								environmentService={services.workbenchEnvironmentService}
-								notificationService={services.notificationService}
-								openerService={services.openerService}
-								outputRun={outputRun}
-								pathService={services.pathService}
-							/>
+							<OutputRun key={outputRun.id} outputRun={outputRun} />
 						)}
 					</div>
 				)}

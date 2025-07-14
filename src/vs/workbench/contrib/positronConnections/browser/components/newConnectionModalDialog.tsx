@@ -14,22 +14,22 @@ import React, { PropsWithChildren, useState } from 'react';
 import { localize } from '../../../../../nls.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
 import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
-import { PositronConnectionsServices } from '../positronConnectionsContext.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { CreateConnection } from './newConnectionModalDialog/createConnectionState.js';
 import { ListDrivers } from './newConnectionModalDialog/listDriversState.js';
 import { IDriver } from '../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
+import { PositronReactServices } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const NEW_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const NEW_CONNECTION_MODAL_DIALOG_HEIGHT = 630;
 
-export const showNewConnectionModalDialog = (services: PositronConnectionsServices) => {
+export const showNewConnectionModalDialog = (services: PositronReactServices) => {
 
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
 		keybindingService: services.keybindingService,
-		layoutService: services.layoutService,
-		container: services.layoutService.activeContainer,
+		layoutService: services.workbenchLayoutService,
+		container: services.workbenchLayoutService.activeContainer,
 	});
 
 	renderer.render(
@@ -42,7 +42,7 @@ export const showNewConnectionModalDialog = (services: PositronConnectionsServic
 
 interface NewConnectionModalDialogProps {
 	readonly renderer: PositronModalReactRenderer;
-	readonly services: PositronConnectionsServices;
+	readonly services: PositronReactServices;
 }
 
 const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDialogProps>) => {
@@ -89,7 +89,7 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 	</PositronModalDialog>;
 };
 
-const getPreferedLanguageId = (services: PositronConnectionsServices): string | undefined => {
+const getPreferedLanguageId = (services: PositronReactServices): string | undefined => {
 	// If threre is a foreground session, use its language ID as the preferred language id
 	return services.runtimeSessionService.foregroundSession?.runtimeMetadata.languageId;
 };

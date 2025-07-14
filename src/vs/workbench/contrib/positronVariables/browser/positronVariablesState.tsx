@@ -10,12 +10,12 @@ import { useEffect, useState } from 'react';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-import { PositronVariablesServices } from './positronVariablesContext.js';
+import { PositronVariablesEnvironment } from './positronVariablesContext.js';
 
 /**
  * PositronVariablesState interface.
  */
-export interface PositronVariablesState extends PositronVariablesServices {
+export interface PositronVariablesState extends PositronVariablesEnvironment {
 	readonly positronVariablesInstances: IPositronVariablesInstance[];
 	readonly activePositronVariablesInstance?: IPositronVariablesInstance;
 }
@@ -24,7 +24,7 @@ export interface PositronVariablesState extends PositronVariablesServices {
  * The usePositronVariablesState custom hook.
  * @returns The hook.
  */
-export const usePositronVariablesState = (services1: PositronVariablesServices): PositronVariablesState => {
+export const usePositronVariablesState = (positronVariablesEnvironment: PositronVariablesEnvironment): PositronVariablesState => {
 	// Hooks.
 	const services = usePositronReactServicesContext();
 	const [positronVariablesInstances, setPositronVariablesInstances] =
@@ -67,7 +67,7 @@ export const usePositronVariablesState = (services1: PositronVariablesServices):
 
 	// Return the Positron variables state.
 	return {
-		...services1,
+		...positronVariablesEnvironment,
 		positronVariablesInstances: positronVariablesInstances,
 		activePositronVariablesInstance: activePositronVariablesInstance
 	};

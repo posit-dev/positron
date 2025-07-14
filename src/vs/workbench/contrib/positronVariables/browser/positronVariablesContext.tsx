@@ -16,18 +16,16 @@ import { IReactComponentContainer } from '../../../../base/browser/positronReact
 const PositronVariablesContext = createContext<PositronVariablesState>(undefined!);
 
 /**
- * PositronVariablesServices interface.
+ * PositronVariablesEnvironment interface.
  */
-export interface PositronVariablesServices {
+export interface PositronVariablesEnvironment {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 
 /**
  * Export the PositronVariablesContextProvider.
  */
-export const PositronVariablesContextProvider = (
-	props: PropsWithChildren<PositronVariablesServices>
-) => {
+export const PositronVariablesContextProvider = (props: PropsWithChildren<PositronVariablesEnvironment>) => {
 	// State hooks.
 	const positronVariablesState = usePositronVariablesState(props);
 

@@ -10,13 +10,13 @@ import './activityPrompt.css';
 import React, { KeyboardEvent, useEffect, useRef } from 'react';
 
 // Other dependencies.
+import { ConsoleOutputLines } from './consoleOutputLines.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
-import { ConsoleOutputLines } from './consoleOutputLines.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemPrompt, ActivityItemPromptState } from '../../../../services/positronConsole/browser/classes/activityItemPrompt.js';
-import { isMacintosh } from '../../../../../base/common/platform.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // ActivityPromptProps interface.
 export interface ActivityPromptProps {
@@ -35,9 +35,6 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 
 	// Reference hooks.
 	const inputRef = useRef<HTMLInputElement>(undefined!);
-
-	// Get services from the context.
-	const { openerService, notificationService, workbenchEnvironmentService, pathService, clipboardService } = services;
 
 	/**
 	 * Readies the input.
@@ -158,7 +155,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 						return;
 					}
 
-					const clipboard = await clipboardService.readText();
+					const clipboard = await services.clipboardService.readText();
 
 					const start = input.selectionStart!;
 					const before = input.value.substring(0, start);
@@ -212,14 +209,7 @@ export const ActivityPrompt = (props: ActivityPromptProps) => {
 			<div className='prompt-line'>
 				{props.activityItemPrompt.outputLines.slice(-1).map(outputLine =>
 					outputLine.outputRuns.map(outputRun =>
-						<OutputRun
-							key={outputRun.id}
-							environmentService={workbenchEnvironmentService}
-							notificationService={notificationService}
-							openerService={openerService}
-							outputRun={outputRun}
-							pathService={pathService}
-						/>
+						<OutputRun key={outputRun.id} outputRun={outputRun} />
 					)
 				)}
 				{prompt}
