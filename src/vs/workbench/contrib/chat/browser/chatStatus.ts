@@ -173,8 +173,7 @@ export class ChatStatus extends Disposable {
 	private update(): void {
 		// --- Start Positron ---
 		// Remove the Chat status if the active editor is not a code editor
-		const codeEditor = getCodeEditor(this.editorService.activeEditorPane?.getControl());
-		if (!codeEditor) {
+		if (!this.shouldShowStatus()) {
 			this.entry?.dispose();
 			this.entry = undefined;
 			return;
@@ -216,6 +215,16 @@ export class ChatStatus extends Disposable {
 			});
 		}
 	}
+
+	// --- Start Positron ---
+	private shouldShowStatus(): boolean {
+		// Show the Chat status item if:
+		// - a Code editor is active
+		// - a Chat session is open in editor
+		return getCodeEditor(this.editorService.activeEditorPane?.getControl()) !== null ||
+			this.editorService.activeEditor?.editorId === 'workbench.editor.chatSession';
+	}
+	// --- End Positron ---
 
 	private getEntryProps(): IStatusbarEntry {
 		// --- Start Positron ---
