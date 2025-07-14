@@ -20,7 +20,10 @@ import { IParsedChatRequest } from './chatParserTypes.js';
 import { ChatAgentVoteDirection, ChatAgentVoteDownReason, IChatCodeCitation, IChatContentReference, IChatFollowup, IChatProgressMessage, IChatResponseErrorDetails, IChatTask, IChatUsedContext } from './chatService.js';
 import { countWords } from './chatWordCounter.js';
 import { CodeBlockModelCollection } from './codeBlockModelCollection.js';
-
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { IChatTokenUsage } from './chatModel.js';
+// --- End Positron ---
 export function isRequestVM(item: unknown): item is IChatRequestViewModel {
 	return !!item && typeof item === 'object' && 'message' in item;
 }
@@ -190,6 +193,9 @@ export interface IChatResponseViewModel {
 	readonly shouldBeRemovedOnSend: IChatRequestDisablement | undefined;
 	readonly isCompleteAddedRequest: boolean;
 	readonly isPaused: IObservable<boolean>;
+	// --- Start Positron ---
+	readonly tokenUsage?: IChatTokenUsage;
+	// --- End Positron ---
 	renderData?: IChatResponseRenderData;
 	currentRenderedHeight: number | undefined;
 	setVote(vote: ChatAgentVoteDirection): void;
@@ -527,6 +533,12 @@ export class ChatResponseViewModel extends Disposable implements IChatResponseVi
 	get isStale() {
 		return this._model.isStale;
 	}
+
+	// --- Start Positron ---
+	get tokenUsage() {
+		return this._model.tokenUsage;
+	}
+	// --- End Positron ---
 
 	get isLast(): boolean {
 		return this._chatViewModel.getItems().at(-1) === this;

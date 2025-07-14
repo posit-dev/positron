@@ -338,6 +338,13 @@ export interface IResponse {
 	toString(): string;
 }
 
+// --- Start Positron ---
+export interface IChatTokenUsage {
+	readonly inputTokens: number;
+	readonly outputTokens: number;
+}
+// --- End Positron ---
+
 export interface IChatResponseModel {
 	readonly onDidChange: Event<ChatResponseModelChangeReason>;
 	readonly id: string;
@@ -368,6 +375,9 @@ export interface IChatResponseModel {
 	readonly voteDownReason: ChatAgentVoteDownReason | undefined;
 	readonly followups?: IChatFollowup[] | undefined;
 	readonly result?: IChatAgentResult;
+	// --- Start Positron ---
+	readonly tokenUsage?: IChatTokenUsage;
+	// --- End Positron ---
 	addUndoStop(undoStop: IChatUndoStop): void;
 	setVote(vote: ChatAgentVoteDirection): void;
 	setVoteDownReason(reason: ChatAgentVoteDownReason | undefined): void;
@@ -769,6 +779,9 @@ export class ChatResponseModel extends Disposable implements IChatResponseModel 
 	private _voteDownReason?: ChatAgentVoteDownReason;
 	private _result?: IChatAgentResult;
 	private _shouldBeRemovedOnSend: IChatRequestDisablement | undefined;
+	// --- Start Positron ---
+	private _tokenUsage?: IChatTokenUsage;
+	// --- End Positron ---
 	public readonly isCompleteAddedRequest: boolean;
 
 	public get session() {
@@ -813,6 +826,12 @@ export class ChatResponseModel extends Disposable implements IChatResponseModel 
 	public get result(): IChatAgentResult | undefined {
 		return this._result;
 	}
+
+	// --- Start Positron ---
+	public get tokenUsage(): IChatTokenUsage | undefined {
+		return this._tokenUsage;
+	}
+	// --- End Positron ---
 
 	public get username(): string {
 		return this.session.responderUsername;
@@ -958,6 +977,14 @@ export class ChatResponseModel extends Disposable implements IChatResponseModel 
 
 	setResult(result: IChatAgentResult): void {
 		this._result = result;
+
+		// --- Start Positron ---
+		// Extract token usage from result metadata if available
+		if (result.metadata && result.metadata.tokenUsage) {
+			this.setTokenUsage(result.metadata.tokenUsage);
+		}
+		// --- End Positron ---
+
 		this._onDidChange.fire(defaultChatResponseModelChangeReason);
 	}
 
@@ -990,6 +1017,13 @@ export class ChatResponseModel extends Disposable implements IChatResponseModel 
 		this._voteDownReason = reason;
 		this._onDidChange.fire(defaultChatResponseModelChangeReason);
 	}
+
+	// --- Start Positron ---
+	setTokenUsage(tokenUsage: IChatTokenUsage | undefined): void {
+		this._tokenUsage = tokenUsage;
+		this._onDidChange.fire(defaultChatResponseModelChangeReason);
+	}
+	// --- End Positron ---
 
 	setEditApplied(edit: IChatTextEditGroup, editCount: number): boolean {
 		if (!this.response.value.includes(edit)) {
@@ -1101,6 +1135,9 @@ export interface ISerializableChatRequestData {
 	timestamp?: number;
 	confirmation?: string;
 	editedFileEvents?: IChatAgentEditedFileEvent[];
+	// --- Start Positron ---
+	tokenUsage?: IChatTokenUsage;
+	// --- End Positron ---
 }
 
 export interface IExportableChatData {
@@ -1524,6 +1561,11 @@ export class ChatModel extends Disposable implements IChatModel {
 						restoredId: raw.responseId
 					});
 					request.response.shouldBeRemovedOnSend = raw.isHidden ? { requestId: raw.requestId } : raw.shouldBeRemovedOnSend;
+					// --- Start Positron ---
+					if (raw.tokenUsage) {
+						request.response.setTokenUsage(raw.tokenUsage);
+					}
+					// --- End Positron ---
 					if (raw.usedContext) { // @ulugbekna: if this's a new vscode sessions, doc versions are incorrect anyway?
 						request.response.applyReference(revive(raw.usedContext));
 					}
@@ -1844,6 +1886,9 @@ export class ChatModel extends Disposable implements IChatModel {
 					timestamp: r.timestamp,
 					confirmation: r.confirmation,
 					editedFileEvents: r.editedFileEvents,
+					// --- Start Positron ---
+					tokenUsage: r.response?.tokenUsage,
+					// --- End Positron ---
 				};
 			}),
 		};
@@ -1933,3 +1978,10 @@ export interface IChatAgentEditedFileEvent {
 	readonly uri: URI;
 	readonly eventKind: ChatRequestEditedFileEventKind;
 }
+
+// --- Start Positron ---
+export interface IChatTokenUsage {
+	readonly inputTokens: number;
+	readonly outputTokens: number;
+}
+// --- End Positron ---
