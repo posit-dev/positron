@@ -11,7 +11,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 export const POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY = 'positron.notebooks.defaultEditor';
 
 /**
- * Get the user's preferred notebook editor
+ * Get the user's preferred notebook editor from the feature flag
  * @param configurationService Configuration service
  * @returns 'positron' | 'vscode'
  */
@@ -26,5 +26,6 @@ export function getPreferredNotebookEditor(configurationService: IConfigurationS
  * @returns true if Positron notebooks are the default editor, false otherwise
  */
 export function usingPositronNotebooks(configurationService: IConfigurationService): boolean {
-	return getPreferredNotebookEditor(configurationService) === 'positron';
+	const editorAssociations = configurationService.getValue<Record<string, string>>('workbench.editorAssociations') || {};
+	return editorAssociations['*.ipynb'] === 'workbench.editor.positronNotebook';
 }
