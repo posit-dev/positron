@@ -15,7 +15,7 @@ import { DeferredImage } from './DeferredImage.js';
 import { ExternalLink } from '../../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { localize } from '../../../../../nls.js';
 import { createCancelablePromise, raceTimeout } from '../../../../../base/common/async.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Component that render markdown content from a string.
@@ -48,7 +48,7 @@ type MarkdownRenderResults = {
 
 function useMarkdown(content: string): MarkdownRenderResults {
 
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const [renderedHtml, setRenderedHtml] = React.useState<MarkdownRenderResults>({
 		status: 'rendering'
 	});

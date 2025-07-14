@@ -4,10 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
+import { ChatInputPart } from '../chatInputPart.js';
 import { IPositronChatProvider } from '../../common/languageModels.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { ChatInputPart } from '../chatInputPart.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 export interface PositronChatEnvironment {
 	readonly chatInput: ChatInputPart;
@@ -19,7 +19,7 @@ export interface PositronChatState extends PositronChatEnvironment {
 }
 
 export const usePositronChatState = (environment: PositronChatEnvironment): PositronChatState => {
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const [providers, setProviders] = useState<IPositronChatProvider[]>([]);
 	const [currentProvider, setCurrentProvider] = useState<IPositronChatProvider | undefined>(undefined);
 

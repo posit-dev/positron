@@ -15,14 +15,14 @@ import { ViewsProps } from '../positronConnections.js';
 import Severity from '../../../../../base/common/severity.js';
 import { localize } from '../../../../../nls.js';
 import { IPositronConnectionEntry } from '../../../../services/positronConnections/common/interfaces/positronConnectionsInstance.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
 
 export interface SchemaNavigationProps extends ViewsProps { }
 
 export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigationProps>) => {
 
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const context = usePositronConnectionsContext();
 	const { height, activeInstanceId, setActiveInstanceId } = props;
 

@@ -52,9 +52,9 @@ import { IPositronWebviewPreloadService } from '../../workbench/services/positro
 import { IPositronNotebookOutputWebviewService } from '../../workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService.js';
 
 /**
- * PositronReactServices interface.
+ * PositronReactRendererServices interface.
  */
-export type PositronReactServices = {
+export type PositronReactRendererServices = {
 	readonly accessibilityService: IAccessibilityService;
 	readonly clipboardService: IClipboardService;
 	readonly commandService: ICommandService;
@@ -102,12 +102,12 @@ export type PositronReactServices = {
 };
 
 /**
- * PositronReactServicesContext. This context provides access to the Positron React services.
+ * PositronReactRendererServicesContext.
  */
-export const PositronReactServicesContext = createContext<PositronReactServices>(undefined!);
+export const PositronReactRendererServicesContext = createContext<PositronReactRendererServices>(undefined!);
 
 /**
- * usePositronReactServicesContext hook. This hook provides access to the Positron React services context.
- * @returns The Positron React services context.
+ * usePositronReactRendererServicesContext hook.
+ * @returns The Positron React renderer services context.
  */
-export const usePositronReactServicesContext = () => useContext(PositronReactServicesContext);
+export const usePositronReactRendererServicesContext = () => useContext(PositronReactRendererServicesContext);

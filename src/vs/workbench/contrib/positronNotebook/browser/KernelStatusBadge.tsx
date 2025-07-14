@@ -14,14 +14,14 @@ import { useNotebookInstance } from './NotebookInstanceProvider.js';
 import { useObservedValue } from './useObservedValue.js';
 import { ActionButton } from './utilityComponents/ActionButton.js';
 import { SELECT_KERNEL_ID_POSITRON } from './SelectPositronNotebookKernelAction.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 // This component will eventually be much more complicated and used to
 // control the kernel choice etc. For now, it just displays the kernel status.
 export function KernelStatusBadge() {
 	const notebookInstance = useNotebookInstance();
 	const kernelStatus = useObservedValue(notebookInstance.kernelStatus);
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	return <ActionButton
 		className='positron-notebook-kernel-status-badge'

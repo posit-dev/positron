@@ -20,7 +20,7 @@ import { useStateRef } from '../../../../base/browser/ui/react/useStateRef.js';
 import { isPositronActionBarButtonOptions } from '../../../action/common/action.js';
 import { IAccessibilityService } from '../../../accessibility/common/accessibility.js';
 import { IModifierKeyStatus, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Determines whether the alternative action should be used.
@@ -80,7 +80,7 @@ interface ActionBarActionButtonProps {
  */
 export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);

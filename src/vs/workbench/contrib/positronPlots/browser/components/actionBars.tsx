@@ -27,7 +27,7 @@ import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -57,7 +57,7 @@ export interface ActionBarsProps {
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const positronPlotsContext = usePositronPlotsContext();
 
 	// Do we have any plots?

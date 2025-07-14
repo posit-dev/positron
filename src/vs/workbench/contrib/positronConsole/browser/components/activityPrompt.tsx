@@ -14,7 +14,7 @@ import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemPrompt, ActivityItemPromptState } from '../../../../services/positronConsole/browser/classes/activityItemPrompt.js';
 
@@ -31,7 +31,7 @@ export interface ActivityPromptProps {
  */
 export const ActivityPrompt = (props: ActivityPromptProps) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	// Reference hooks.
 	const inputRef = useRef<HTMLInputElement>(undefined!);

@@ -27,12 +27,12 @@ import { showResumeConnectionModalDialog } from './resumeConnectionModalDialog.j
 import { localize } from '../../../../../nls.js';
 import { showNewConnectionModalDialog } from './newConnectionModalDialog.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
 export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsProps>) => {
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const context = usePositronConnectionsContext();
 	const { height, setActiveInstanceId } = props;
 

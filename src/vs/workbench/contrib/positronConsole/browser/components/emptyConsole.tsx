@@ -12,8 +12,8 @@ import React from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { LANGUAGE_RUNTIME_START_NEW_SESSION_ID } from '../../../languageRuntime/browser/languageRuntimeActions.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Load localized copy for control.
 const noSessionRunning = localize('positron.console.empty.noSessionRunning', "There is no session running.");
@@ -27,7 +27,7 @@ const toStartOne = localize('positron.toStartOne', "to start one.");
  */
 export const EmptyConsole = () => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	const handlePressed = () => {
 		services.commandService.executeCommand(LANGUAGE_RUNTIME_START_NEW_SESSION_ID);

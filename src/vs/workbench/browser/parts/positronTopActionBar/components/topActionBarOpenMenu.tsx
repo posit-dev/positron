@@ -27,7 +27,7 @@ import { usePositronActionBarContext } from '../../../../../platform/positronAct
 import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from '../../../actions/workspaceActions.js';
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -48,7 +48,7 @@ const positronOpenFileFolder = localize('positronOpenFileFolder', "Open File/Fol
  */
 export const TopActionBarOpenMenu = () => {
 	// Hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const positronActionBarContext = usePositronActionBarContext()!;
 	const positronTopActionBarContext = usePositronTopActionBarContext()!;
 

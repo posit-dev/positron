@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IWorkspaceContextService, IWorkspaceFolder } from '../../../../platform/workspace/common/workspace.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * The Positron top action bar state.
@@ -31,7 +31,7 @@ const singleWorkspaceFolder = (workspaceContextService: IWorkspaceContextService
  */
 export const usePositronTopActionBarState = (): PositronTopActionBarState => {
 	// Hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const [workspaceFolder, setWorkspaceFolder] = useState<IWorkspaceFolder | undefined>(singleWorkspaceFolder(services.workspaceContextService));
 
 	// Add event handlers.

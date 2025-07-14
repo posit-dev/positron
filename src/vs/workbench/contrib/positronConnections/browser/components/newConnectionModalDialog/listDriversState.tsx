@@ -16,10 +16,10 @@ import { LanguageRuntimeMetadata } from 'positron';
 import { DropDownListBox } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { IDriver } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
-import { PositronReactServices } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { PositronReactRendererServices } from '../../../../../../base/browser/positronReactRendererContext.js';
 
 interface ListDriversProps {
-	readonly services: PositronReactServices;
+	readonly services: PositronReactRendererServices;
 	readonly onCancel: () => void;
 	readonly onSelection: (driver: IDriver) => void;
 	readonly languageId?: string;
@@ -110,7 +110,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	</div>;
 };
 
-const getRegisteredLanguages = (services: PositronReactServices) => {
+const getRegisteredLanguages = (services: PositronReactRendererServices) => {
 	const languages = new Map<string, LanguageRuntimeMetadata>();
 	for (const runtime of services.languageRuntimeService.registeredRuntimes) {
 		if (languages.has(runtime.languageId)) {

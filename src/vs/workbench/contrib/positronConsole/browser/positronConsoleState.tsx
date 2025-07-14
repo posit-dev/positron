@@ -8,8 +8,8 @@ import { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
+import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { IPositronConsoleInstance } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * The Positron console state.
@@ -26,7 +26,7 @@ export interface PositronConsoleState {
  */
 export const usePositronConsoleState = (): PositronConsoleState => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	// Hooks.
 	const [positronConsoleInstances, setPositronConsoleInstances] = useState<IPositronConsoleInstance[]>([]);

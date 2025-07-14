@@ -17,7 +17,7 @@ import { CommandCenter } from '../../../../../platform/commandCenter/common/comm
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { localize } from '../../../../../nls.js';
 import { LANGUAGE_RUNTIME_SELECT_SESSION_ID, LANGUAGE_RUNTIME_START_NEW_SESSION_ID } from '../../../../contrib/languageRuntime/browser/languageRuntimeActions.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const startSession = localize('positron.console.startSession', "Start Session");
 
@@ -28,7 +28,7 @@ const startSession = localize('positron.console.startSession', "Start Session");
  * - It allows the user to start a new session
  */
 export const TopActionBarSessionManager = () => {
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	const [activeSession, setActiveSession] = useState<ILanguageRuntimeSession>();
 	const [labelText, setLabelText] = useState<string>(activeSession?.dynState?.sessionName ?? startSession);

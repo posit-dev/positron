@@ -12,8 +12,8 @@ import React from 'react';
 // Other dependencies.
 import { CustomFolderMenuItems } from './customFolderMenuItems.js';
 import { IRecentlyOpened } from '../../../../../platform/workspaces/common/workspaces.js';
-import { PositronReactServices } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalPopup } from '../../../positronComponents/positronModalPopup/positronModalPopup.js';
+import { PositronReactRendererServices } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
 
 /**
@@ -23,7 +23,7 @@ interface CustomFolderModalPopupProps {
 	anchorElement: HTMLElement;
 	recentlyOpened: IRecentlyOpened;
 	renderer: PositronModalReactRenderer;
-	services: PositronReactServices;
+	services: PositronReactRendererServices;
 }
 
 /**

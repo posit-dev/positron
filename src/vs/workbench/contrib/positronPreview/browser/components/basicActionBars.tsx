@@ -19,7 +19,7 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { PreviewWebview } from '../previewWebview.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const clear = localize('positron.preview.html.clear', "Clear the content");
 
@@ -34,7 +34,7 @@ export interface BasicActionBarsProps {
 
 export const BasicActionBars = (props: PropsWithChildren<BasicActionBarsProps>) => {
 
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const [title, setTitle] = useState(`${props.preview.name} output`);
 
 	// Handler for the clear button.

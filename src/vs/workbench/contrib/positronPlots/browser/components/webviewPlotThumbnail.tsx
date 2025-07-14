@@ -9,7 +9,7 @@ import React, { useEffect, useState } from 'react';
 // Other dependencies.
 import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlaceholderThumbnail } from './placeholderThumbnail.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * WebviewPlotThumbnailProps interface.
@@ -26,7 +26,7 @@ interface WebviewPlotThumbnailProps {
  * @returns The rendered component.
  */
 export const WebviewPlotThumbnail = (props: WebviewPlotThumbnailProps) => {
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const [uri, setUri] = useState(() => {
 		// If the plot is already rendered, set the URI; otherwise, try to use the cached URI until
 		// the plot is rendered.

@@ -24,7 +24,7 @@ import { PositronModalReactRenderer } from '../../../../browser/positronModalRea
 import { VariablesInstanceMenuButton } from './variablesInstanceMenuButton.js';
 import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -45,7 +45,7 @@ const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete al
  */
 export const ActionBars = (props: PropsWithChildren<{}>) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const positronVariablesContext = usePositronVariablesContext();
 
 	// State hooks.

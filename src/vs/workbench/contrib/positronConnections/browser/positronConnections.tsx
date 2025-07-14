@@ -3,14 +3,17 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// React.
 import React, { useEffect, useState } from 'react';
+
+// Other dependencies.
 import './positronConnections.css';
+import { ListConnections } from './components/listConnections.js';
 import { SchemaNavigation } from './components/schemaNavigation.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PositronConnectionsContextProvider } from './positronConnectionsContext.js';
-import { ListConnections } from './components/listConnections.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 export interface PositronConnectionsProps {
 	readonly reactComponentContainer: IReactComponentContainer;
@@ -25,7 +28,7 @@ export interface ViewsProps {
 
 export const PositronConnections = (props: React.PropsWithChildren<PositronConnectionsProps>) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	// This allows us to introspect the size of the component. Which then allows
 	// us to efficiently only render items that are in view.

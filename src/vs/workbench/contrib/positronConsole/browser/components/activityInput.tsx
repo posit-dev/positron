@@ -17,8 +17,8 @@ import { LineTokens } from '../../../../../editor/common/tokens/lineTokens.js';
 import { ViewLineRenderingData } from '../../../../../editor/common/viewModel.js';
 import { OutputRun } from '../../../../browser/positronAnsiRenderer/outputRun.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { RenderLineInput, renderViewLine2 } from '../../../../../editor/common/viewLayout/viewLineRenderer.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ILanguageIdCodec, ITokenizationSupport, TokenizationRegistry } from '../../../../../editor/common/languages.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemInput, ActivityItemInputState } from '../../../../services/positronConsole/browser/classes/activityItemInput.js';
@@ -104,7 +104,7 @@ export interface ActivityInputProps {
  */
 export const ActivityInput = (props: ActivityInputProps) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	// State hooks.
 	const [state, setState] = useState(props.activityItemInput.state);

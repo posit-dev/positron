@@ -20,9 +20,9 @@ import { AddEditRowFilterModalPopup } from '../addEditRowFilterModalPopup/addEdi
 import { ColumnSchema } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { OKModalDialog } from '../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { getRowFilterDescriptor, RowFilterDescriptor } from '../addEditRowFilterModalPopup/rowFilterDescriptor.js';
-import { usePositronReactServicesContext } from '../../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { CustomContextMenuItem } from '../../../../../positronComponents/customContextMenu/customContextMenuItem.js';
+import { usePositronReactRendererServicesContext } from '../../../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuSeparator } from '../../../../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../../positronComponents/customContextMenu/customContextMenu.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../../../../../services/positronDataExplorer/common/positronDataExplorerExperimentalConfig.js';
@@ -38,7 +38,7 @@ const MAX_ROW_FILTERS = 15;
  */
 export const RowFilterBar = () => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const context = usePositronDataExplorerContext();
 	const backendClient = context.instance.dataExplorerClientInstance;
 

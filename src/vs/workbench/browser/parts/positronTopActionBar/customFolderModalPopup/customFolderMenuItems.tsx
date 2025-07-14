@@ -22,9 +22,9 @@ import { IWindowOpenable } from '../../../../../platform/window/common/window.js
 import { CustomFolderRecentlyUsedMenuItem } from './customFolderRecentlyUsedMenuItem.js';
 import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
 import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
-import { PositronReactServices } from '../../../../../base/browser/positronReactRendererContext.js';
 import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from '../../../../common/contextkeys.js';
 import { CommandAction } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { PositronReactRendererServices } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from '../../../../../platform/workspaces/common/workspaces.js';
 import { PositronNewFolderFromTemplateAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from '../../../actions/positronActions.js';
 
@@ -38,7 +38,7 @@ const kCloseFolder = 'workbench.action.closeFolder';
  */
 interface CustomFolderMenuItemsProps {
 	recentlyOpened: IRecentlyOpened;
-	services: PositronReactServices;
+	services: PositronReactRendererServices;
 	onMenuItemSelected: () => void;
 }
 

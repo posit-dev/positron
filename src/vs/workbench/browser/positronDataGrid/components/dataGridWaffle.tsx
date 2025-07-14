@@ -10,20 +10,20 @@ import './dataGridWaffle.css';
 import React, { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
+import { DataGridRow } from './dataGridRow.js';
+import { DataGridScrollbar } from './dataGridScrollbar.js';
+import { DataGridRowHeaders } from './dataGridRowHeaders.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
-import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { pinToRange } from '../../../../base/common/positronUtilities.js';
-import { FontConfigurationManager } from '../../fontConfigurationManager.js';
-import { DataGridRow } from './dataGridRow.js';
-import { DataGridRowHeaders } from './dataGridRowHeaders.js';
-import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { DataGridCornerTopLeft } from './dataGridCornerTopLeft.js';
 import { DataGridColumnHeaders } from './dataGridColumnHeaders.js';
+import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { DataGridScrollbarCorner } from './dataGridScrollbarCorner.js';
-import { DataGridScrollbar } from './dataGridScrollbar.js';
+import { pinToRange } from '../../../../base/common/positronUtilities.js';
+import { usePositronDataGridContext } from '../positronDataGridContext.js';
+import { FontConfigurationManager } from '../../fontConfigurationManager.js';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * DataGridWaffle component.
@@ -32,7 +32,7 @@ import { usePositronReactServicesContext } from '../../../../base/browser/positr
  */
 export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const context = usePositronDataGridContext();
 
 	// Reference hooks.

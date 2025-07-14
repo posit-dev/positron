@@ -11,8 +11,8 @@ import React, { MouseEvent } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { AnythingQuickAccessProviderRunOptions } from '../../../../../platform/quickinput/common/quickAccess.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
 
 /**
@@ -26,7 +26,7 @@ const positronShowQuickAccess = localize('positronShowQuickAccess', "Show Quick 
  */
 export const TopActionBarCommandCenter = () => {
 	// Hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	// Ref.
 	const searchRef = React.useRef<HTMLButtonElement>(undefined!);

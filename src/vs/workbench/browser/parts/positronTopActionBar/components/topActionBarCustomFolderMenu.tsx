@@ -14,9 +14,9 @@ import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 import { CustomFolderModalPopup } from '../customFolderModalPopup/customFolderModalPopup.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
 
 /**
@@ -30,7 +30,7 @@ const positronFolderSelector = localize('positron.folderSelector', "Folder Selec
  */
 export const TopActionBarCustomFolderMenu = () => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const context = usePositronTopActionBarContext();
 
 	// Reference hooks.

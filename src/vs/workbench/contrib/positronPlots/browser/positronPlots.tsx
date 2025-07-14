@@ -16,7 +16,7 @@ import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PlotsContainer } from './components/plotsContainer.js';
 import { ActionBars } from './components/actionBars.js';
 import { PositronPlotsViewPane } from './positronPlotsView.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PositronPlotsProps interface.
@@ -32,7 +32,7 @@ export interface PositronPlotsProps {
  */
 export const PositronPlots = (props: PropsWithChildren<PositronPlotsProps>) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	// Compute the history visibility based on the history policy.
 	const computeHistoryVisibility = useCallback((policy: HistoryPolicy) => {

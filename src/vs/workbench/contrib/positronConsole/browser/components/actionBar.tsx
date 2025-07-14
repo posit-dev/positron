@@ -20,9 +20,9 @@ import { IReactComponentContainer } from '../../../../../base/browser/positronRe
 import { IsDevelopmentContext } from '../../../../../platform/contextkey/common/contextkeys.js';
 import { UiFrontendEvent } from '../../../../services/languageRuntime/common/positronUiComm.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronDynamicActionBar, DynamicActionBarAction, DEFAULT_ACTION_BAR_BUTTON_WIDTH } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
@@ -99,7 +99,7 @@ function labelForState(state: RuntimeState): string {
  */
 export const ActionBar = (props: ActionBarProps) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Constants.

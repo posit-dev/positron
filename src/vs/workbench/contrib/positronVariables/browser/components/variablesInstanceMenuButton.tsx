@@ -16,7 +16,7 @@ import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/com
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * VariablesInstanceMenuButton component.
@@ -24,7 +24,7 @@ import { usePositronReactServicesContext } from '../../../../../base/browser/pos
  */
 export const VariablesInstanceMenuButton = () => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const positronVariablesContext = usePositronVariablesContext();
 
 	// Helper method to calculate the label for a runtime.

@@ -12,7 +12,7 @@ import { LanguageModelIcon } from '../../../positronAssistant/browser/components
 import { localize } from '../../../../../nls.js';
 import { IPositronChatProvider } from '../../common/languageModels.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 interface ChatActionBarProps {
 	width: number;
@@ -23,7 +23,7 @@ const addModelProviderLabel = () => localize('positronChatSelector.addModelProvi
 const addModelProviderTooltip = () => localize('positronChatSelector.addModelProviderTooltip', 'Add a Language Model Provider');
 
 export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const positronChatContext = usePositronChatContext();
 	const { providers, currentProvider } = positronChatContext;
 

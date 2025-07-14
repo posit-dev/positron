@@ -25,7 +25,7 @@ import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { RuntimeClientState } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -53,7 +53,7 @@ interface VariablesInstanceProps {
 */
 export const VariablesInstance = (props: VariablesInstanceProps) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const positronVariablesContext = usePositronVariablesContext();
 
 	// Reference hooks.

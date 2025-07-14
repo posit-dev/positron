@@ -11,13 +11,13 @@ import React, { CSSProperties, MouseEvent } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
+import { URI } from '../../../base/common/uri.js';
 import { Schemas } from '../../../base/common/network.js';
 import * as platform from '../../../base/common/platform.js';
-import { URI } from '../../../base/common/uri.js';
+import { toLocalResource } from '../../../base/common/resources.js';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
 import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
-import { toLocalResource } from '../../../base/common/resources.js';
-import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -47,7 +47,7 @@ enum ColorType {
  */
 export const OutputRun = (props: OutputRunProps) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	/**
 	 * Builds the hyperlink URL for the output run.

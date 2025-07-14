@@ -16,7 +16,7 @@ import { ParsedTextOutput } from '../../../../services/positronNotebook/browser/
 import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 
@@ -88,7 +88,7 @@ function truncateToNumberOfLines(content: string, { outputScrolling, outputLineL
 
 export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const { containerRef, truncation } = useLongOutputBehavior(content);
 
 	return <>

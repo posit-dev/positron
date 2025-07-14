@@ -20,7 +20,7 @@ import { IThemeService } from '../../platform/theme/common/themeService.js';
 import { ILanguageService } from '../../editor/common/languages/language.js';
 import { ICommandService } from '../../platform/commands/common/commands.js';
 import { IHostService } from '../../workbench/services/host/browser/host.js';
-import { PositronReactServicesContext } from './positronReactRendererContext.js';
+import { PositronReactRendererServicesContext } from './positronReactRendererContext.js';
 import { IPathService } from '../../workbench/services/path/common/pathService.js';
 import { IContextKeyService } from '../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../platform/keybinding/common/keybinding.js';
@@ -231,7 +231,7 @@ export class PositronReactRenderer extends Disposable {
 	public render(reactElement: ReactElement) {
 		if (this.root) {
 			this.root.render(
-				<PositronReactServicesContext.Provider value={{
+				<PositronReactRendererServicesContext.Provider value={{
 					accessibilityService: this._accessibilityService,
 					clipboardService: this._clipboardService,
 					commandService: this._commandService,
@@ -278,7 +278,7 @@ export class PositronReactRenderer extends Disposable {
 					workspacesService: this._workspacesService
 				}}>
 					{reactElement}
-				</PositronReactServicesContext.Provider>
+				</PositronReactRendererServicesContext.Provider>
 			);
 		}
 	}

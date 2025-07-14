@@ -14,7 +14,7 @@ import { ActionBarToggle } from './actionBarToggle.js';
 import { IAction } from '../../../../base/common/actions.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
-import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { isLocalizedString, isPositronActionBarToggleOptions, PositronActionBarOptions } from '../../../action/common/action.js';
 
 /**
@@ -39,7 +39,7 @@ interface ActionBarActionToggleProps {
  */
 export const ActionBarActionToggle = (props: ActionBarActionToggleProps) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);

@@ -22,7 +22,7 @@ import { IPositronVariablesInstance, PositronVariablesSorting } from '../../../.
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from '../positronVariablesIdentifiers.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Event } from '../../../../../base/common/event.js';
-import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Formats a size for display.
@@ -120,7 +120,7 @@ export const VariableItem = (props: VariableItemProps) => {
 	/**
 	 * Context hooks.
 	 */
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 
 	/**
 	 * State hooks.

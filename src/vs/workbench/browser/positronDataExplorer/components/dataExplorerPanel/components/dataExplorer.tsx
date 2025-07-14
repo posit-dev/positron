@@ -14,15 +14,15 @@ import * as DOM from '../../../../../../base/browser/dom.js';
 import { PixelRatio } from '../../../../../../base/browser/pixelRatio.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { BareFontInfo } from '../../../../../../editor/common/config/fontInfo.js';
+import { PositronDataGrid } from '../../../../positronDataGrid/positronDataGrid.js';
 import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
 import { IEditorOptions } from '../../../../../../editor/common/config/editorOptions.js';
-import { FontMeasurements } from '../../../../../../editor/browser/config/fontMeasurements.js';
-import { PositronDataGrid } from '../../../../positronDataGrid/positronDataGrid.js';
-import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/dataGridColumnHeader.js';
 import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
-import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { FontMeasurements } from '../../../../../../editor/browser/config/fontMeasurements.js';
+import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/dataGridColumnHeader.js';
+import { usePositronReactRendererServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 
 /**
  * Constants.
@@ -36,7 +36,7 @@ const DEFAULT_SUMMARY_WIDTH = 350;
  */
 export const DataExplorer = () => {
 	// Context hooks.
-	const services = usePositronReactServicesContext();
+	const services = usePositronReactRendererServicesContext();
 	const context = usePositronDataExplorerContext();
 
 	// Reference hooks.
