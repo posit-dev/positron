@@ -130,11 +130,13 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 
 	private createChatStatus(part: IEditorPart): void {
 		const disposables = new DisposableStore();
-		part.onWillDispose(() => {
-			if (!disposables.isDisposed) {
-				disposables.dispose();
-			}
-		});
+		this._register(
+			part.onWillDispose(() => {
+				if (!disposables.isDisposed) {
+					disposables.dispose();
+				}
+			})
+		);
 
 		const scopedInstantiationService = this.editorGroupService.getScopedInstantiationService(part);
 		disposables.add(scopedInstantiationService.createInstance(ChatStatus));
