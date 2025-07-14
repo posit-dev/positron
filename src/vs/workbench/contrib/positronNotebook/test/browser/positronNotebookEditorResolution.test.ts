@@ -42,7 +42,7 @@ import { RegisteredEditorPriority, ResolvedStatus } from '../../../../services/e
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
-import { POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY, getPreferredNotebookEditor } from '../../browser/positronNotebook.contribution.js';
+import { POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY, getPreferredNotebookEditor } from '../../../../services/positronNotebook/common/positronNotebookUtils.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
 
 suite('Positron Notebook Editor Resolution', () => {

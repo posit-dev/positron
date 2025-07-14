@@ -14,7 +14,7 @@ import { IEditorResolverService, RegisteredEditorPriority } from '../../../../se
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { Event } from '../../../../../base/common/event.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
-import { POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY, getPreferredNotebookEditor } from '../../browser/positronNotebook.contribution.js';
+import { POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY, getPreferredNotebookEditor } from '../../../../services/positronNotebook/common/positronNotebookUtils.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
 
 // Mock implementation for testing configuration-driven editor registration

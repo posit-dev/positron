@@ -5,9 +5,11 @@
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { createDecorator } from '../../../../platform/instantiation/common/instantiation.js';
 import { IPositronNotebookInstance } from './IPositronNotebookInstance.js';
+import { usingPositronNotebooks as utilUsingPositronNotebooks } from '../common/positronNotebookUtils.js';
 
 export const IPositronNotebookService = createDecorator<IPositronNotebookService>('positronNotebookService');
 export interface IPositronNotebookService {
@@ -47,6 +49,12 @@ export interface IPositronNotebookService {
 	 * Get instance by resource if it exists.
 	 */
 	getInstance(resource: URI): IPositronNotebookInstance | undefined;
+
+	/**
+	 * Check if Positron notebooks are configured as the default editor for .ipynb files
+	 * @returns true if Positron notebooks are the default editor, false otherwise
+	 */
+	usingPositronNotebooks(): boolean;
 }
 
 class PositronNotebookService extends Disposable implements IPositronNotebookService {
@@ -60,7 +68,9 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 	//#endregion Private Properties
 
 	//#region Constructor & Dispose
-	constructor() {
+	constructor(
+		@IConfigurationService private readonly _configurationService: IConfigurationService
+	) {
 		// Call the disposable constrcutor.
 		super();
 	}
@@ -104,6 +114,10 @@ class PositronNotebookService extends Disposable implements IPositronNotebookSer
 			}
 		}
 		return undefined;
+	}
+
+	public usingPositronNotebooks(): boolean {
+		return utilUsingPositronNotebooks(this._configurationService);
 	}
 	//#endregion Public Methods
 }

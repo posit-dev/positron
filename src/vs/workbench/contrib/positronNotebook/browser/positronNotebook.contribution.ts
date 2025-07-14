@@ -30,9 +30,9 @@ import { ICommandAndKeybindingRule, KeybindingsRegistry, KeybindingWeight } from
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY, getPreferredNotebookEditor } from '../../../services/positronNotebook/common/positronNotebookUtils.js';
 
 // Configuration constants
-export const POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY = 'positron.notebooks.defaultEditor';
 const LEGACY_CONFIG_KEY = 'positron.notebooks.usePositronNotebooksExperimental';
 
 // Register the new configuration
@@ -56,16 +56,6 @@ Registry.as<IConfigurationRegistry>(ConfigurationExtensions.Configuration).regis
 		}
 	}
 });
-
-/**
- * Get the user's preferred notebook editor
- * @param configurationService Configuration service
- * @returns 'positron' | 'vscode'
- */
-export function getPreferredNotebookEditor(configurationService: IConfigurationService): 'positron' | 'vscode' {
-	const value = configurationService.getValue<'positron' | 'vscode'>(POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY) || 'vscode';
-	return value === 'positron' || value === 'vscode' ? value : 'vscode';
-}
 
 /**
  * Handle migration from old experimental setting (log-only approach)
