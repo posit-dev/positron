@@ -16,7 +16,6 @@ import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../
 
 import { parse } from '../../../../base/common/marshalling.js';
 import { assertType } from '../../../../base/common/types.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
 
 import { EditorInput } from '../../../common/editor/editorInput.js';
@@ -30,7 +29,6 @@ import { ICommandAndKeybindingRule, KeybindingsRegistry, KeybindingWeight } from
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
-import { POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY, getPreferredNotebookEditor } from '../../../services/positronNotebook/common/positronNotebookUtils.js';
 
 
 
@@ -45,7 +43,6 @@ class PositronNotebookContribution extends Disposable {
 	constructor(
 		@IEditorResolverService editorResolverService: IEditorResolverService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@INotebookService private readonly notebookService: INotebookService
 	) {
 		super();
@@ -57,7 +54,7 @@ class PositronNotebookContribution extends Disposable {
 				id: PositronNotebookEditorInput.EditorID,
 				label: localize('positronNotebook', "Positron Notebook"),
 				detail: localize('positronNotebook.detail', "Provided by Positron"),
-				priority: this.getEditorPriority()
+				priority: RegisteredEditorPriority.option
 			},
 			{
 				singlePerResource: true,
@@ -83,23 +80,6 @@ class PositronNotebookContribution extends Disposable {
 				}
 			}
 		));
-
-		// Set initial editor associations
-		this.updateEditorPriority();
-
-		// Re-register when configuration changes
-		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration(POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY)) {
-				this.updateEditorPriority();
-			}
-		}));
-	}
-
-	private getEditorPriority(): RegisteredEditorPriority {
-		const defaultEditor = getPreferredNotebookEditor(this.configurationService);
-		return defaultEditor === 'positron'
-			? RegisteredEditorPriority.default  // Default priority - opens by default
-			: RegisteredEditorPriority.option; // Option priority - available in "Open With"
 	}
 
 	private async detectNotebookViewType(resource: URI): Promise<string> {
@@ -114,30 +94,6 @@ class PositronNotebookContribution extends Disposable {
 
 		// Default to jupyter-notebook if detection fails
 		return notebookProviders[0]?.id || 'jupyter-notebook';
-	}
-
-	private updateEditorPriority(): void {
-		// Manage workbench.editorAssociations to ensure proper notebook editor selection
-		const defaultEditor = getPreferredNotebookEditor(this.configurationService);
-		const currentAssociations = this.configurationService.getValue<Record<string, string>>('workbench.editorAssociations') || {};
-
-		if (defaultEditor === 'positron') {
-			// Add association to ensure Positron opens .ipynb files
-			if (currentAssociations['*.ipynb'] !== PositronNotebookEditorInput.EditorID) {
-				const newAssociations = {
-					...currentAssociations,
-					'*.ipynb': PositronNotebookEditorInput.EditorID
-				};
-				this.configurationService.updateValue('workbench.editorAssociations', newAssociations);
-			}
-		} else {
-			// Remove association to allow VS Code's default behavior
-			if (currentAssociations['*.ipynb'] === PositronNotebookEditorInput.EditorID) {
-				const newAssociations = { ...currentAssociations };
-				delete newAssociations['*.ipynb'];
-				this.configurationService.updateValue('workbench.editorAssociations', newAssociations);
-			}
-		}
 	}
 }
 
