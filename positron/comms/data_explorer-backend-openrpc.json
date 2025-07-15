@@ -269,12 +269,12 @@
 				"schema": {
 					"name": "exported_code",
 					"type": "object",
-					"description": "Resulting code",
+					"description": "Code snippet for the data view",
 					"required": [
 						"code"
 					],
 					"properties": {
-						"data": {
+						"code": {
 							"type": "string",
 							"description": "Exported code as a string suitable for copy and paste"
 						}

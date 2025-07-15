@@ -254,11 +254,10 @@ class ExportedData(BaseModel):
 
 class ExportedCode(BaseModel):
     """
-    Resulting code
+    Code snippet for the data view
     """
 
-    data: Optional[StrictStr] = Field(
-        default=None,
+    code: StrictStr = Field(
         description="Exported code as a string suitable for copy and paste",
     )
 

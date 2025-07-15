@@ -217,7 +217,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		});
 	}
 
-	async translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: string): Promise<ExportedCode> {
+	async translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<ExportedCode> {
 		return this._execRpc<ExportedCode>({
 			method: DataExplorerBackendRequest.TranslateToCode,
 			uri: this.uri.toString(),
@@ -225,7 +225,7 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 				column_filters: columnFilters,
 				row_filters: rowFilters,
 				sort_keys: sortKeys,
-				export_options: exportOptions
+				code_syntax: codeSyntax
 			}
 		});
 	}

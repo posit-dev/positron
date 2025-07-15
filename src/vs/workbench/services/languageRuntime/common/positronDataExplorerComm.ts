@@ -55,13 +55,13 @@ export interface ExportedData {
 }
 
 /**
- * Resulting code
+ * Code snippet for the data view
  */
 export interface ExportedCode {
 	/**
 	 * Exported code as a string suitable for copy and paste
 	 */
-	data?: string;
+	code: string;
 
 }
 
@@ -1570,7 +1570,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * @param sortKeys Zero or more sort keys to apply
 	 * @param codeSyntax The code syntax to use for translation
 	 *
-	 * @returns Resulting code
+	 * @returns Code snippet for the data view
 	 */
 	translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<ExportedCode> {
 		return super.performRpc('translate_to_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax'], [columnFilters, rowFilters, sortKeys, codeSyntax]);
