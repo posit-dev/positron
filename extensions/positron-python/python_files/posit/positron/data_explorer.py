@@ -1367,7 +1367,7 @@ class PandasView(DataExplorerTableView):
 
     def translate_to_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return ExportedCode(data="import pandas as pd\n\n# TODO: Implement export to code").dict()
+        return ExportedCode(code="import pandas as pd\n\n# TODO: Implement export to code").dict()
 
     @classmethod
     def _construct_schema(
@@ -2305,7 +2305,7 @@ class PolarsView(DataExplorerTableView):
 
     def translate_to_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return ExportedCode(data="import polars as pl\n\n# TODO: Implement export to code").dict()
+        return ExportedCode(code="import polars as pl\n\n# TODO: Implement export to code").dict()
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
