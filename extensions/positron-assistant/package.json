@@ -198,8 +198,8 @@
             "description": "%configuration.gitIntegration.description%",
             "tags": ["experimental"]
           },
-          "positron.assistant.showTokenUsage": {
-            "type":"boolean",
+          "positron.assistant.showTokenUsage.enable": {
+            "type": "boolean",
             "default": false,
             "description": "%configuration.showTokenUsage.description%"
           }
