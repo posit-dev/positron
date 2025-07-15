@@ -310,6 +310,8 @@ export const DataExplorer = () => {
 		context.instance.summaryWidth = newColumnsWidth;
 	};
 
+	const FilterBar = <p className='summary-filter-bar'>Filter Bar</p>;
+
 	// Render.
 	return (
 		<div
@@ -325,6 +327,7 @@ export const DataExplorer = () => {
 			<div ref={sortIndexExemplarRef} className='sort-index-exemplar' />
 
 			<div ref={leftColumnRef} className='left-column'>
+				{layout === PositronDataExplorerLayout.SummaryOnLeft && FilterBar}
 				<PositronDataGrid
 					configurationService={context.configurationService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
@@ -360,6 +363,7 @@ export const DataExplorer = () => {
 				<div className='collapsed-right-spacer' />
 			}
 			<div ref={rightColumnRef} className='right-column'>
+				{layout !== PositronDataExplorerLayout.SummaryOnLeft && FilterBar}
 				<PositronDataGrid
 					configurationService={context.configurationService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
