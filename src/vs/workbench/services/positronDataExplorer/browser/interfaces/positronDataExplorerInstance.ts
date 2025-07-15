@@ -121,7 +121,12 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	copyTableDataToClipboard(): Promise<void>;
 
 	/**
+	 * Get possible code syntaxes for copy-to-code generation.
+	 */
+	getCodeSyntaxes(): Promise<Array<string>>;
+
+	/**
 	 * Exports the table data to code.
 	 */
-	generateCode(): Promise<string | undefined>;
+	translateToCode(desiredSyntax: string): Promise<string | undefined>;
 }

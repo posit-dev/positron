@@ -698,7 +698,7 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 /**
  * PositronDataExplorerExportToCodeAction action.
  */
-class PositronDataExplorerCopyAsCodeAction extends Action2 {
+class PositronDataExplorerGenerateCodeAction extends Action2 {
 	/**
 	 * Constructor.
 	 */
@@ -706,30 +706,15 @@ class PositronDataExplorerCopyAsCodeAction extends Action2 {
 		super({
 			id: PositronDataExplorerCommandId.CopyAsCodeAction,
 			title: {
-				value: localize('positronDataExplorer.copyAsCode', 'Copy as Code'),
-				original: 'Copy as Code'
-			},
-			positronActionBarOptions: {
-				controlType: 'button',
-				displayTitle: true,
+				value: localize('positronDataExplorer.generateCode', 'Generate Code'),
+				original: 'Generate Code'
 			},
 			category,
 			f1: true,
 			precondition: ContextKeyExpr.and(
 				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 				IsDevelopmentContext // hide this from release until implemented
-			),
-			menu: [
-				{
-					id: MenuId.EditorActionsLeft,
-					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				},
-				{
-					id: MenuId.EditorTitle,
-					group: 'navigation',
-					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				}
-			]
+			)
 		});
 	}
 
@@ -737,7 +722,7 @@ class PositronDataExplorerCopyAsCodeAction extends Action2 {
 	 * Runs the action.
 	 * @param accessor The services accessor.
 	 */
-	async run(accessor: ServicesAccessor): Promise<string | undefined> {
+	async run(accessor: ServicesAccessor, desiredSyntax: string): Promise<string | undefined> {
 		// Access the services we need.
 		const editorService = accessor.get(IEditorService);
 		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
@@ -769,7 +754,7 @@ class PositronDataExplorerCopyAsCodeAction extends Action2 {
 		if (!positronDataExplorerInstance) {
 			return;
 		}
-		const code = await positronDataExplorerInstance.generateCode();
+		const code = await positronDataExplorerInstance.translateToCode(desiredSyntax);
 		// Export filters as code.
 		return code;
 	}
@@ -813,7 +798,7 @@ class PositronDataExplorerGetCodeSyntaxesAction extends Action2 {
 	 * Runs the action.
 	 * @param accessor The services accessor.
 	 */
-	async run(accessor: ServicesAccessor): Promise<Array<string> | undefined> {
+	async run(accessor: ServicesAccessor): Promise<Array<string>> {
 		// Access the services we need.
 		const editorService = accessor.get(IEditorService);
 		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
@@ -825,7 +810,7 @@ class PositronDataExplorerGetCodeSyntaxesAction extends Action2 {
 
 		// Make sure that the Positron data explorer editor was returned.
 		if (!positronDataExplorerEditor) {
-			return;
+			return ['No active Positron Data Explorer editor found.'];
 		}
 
 		// Get the identifier.
@@ -833,7 +818,7 @@ class PositronDataExplorerGetCodeSyntaxesAction extends Action2 {
 
 		// Make sure the identifier was returned.
 		if (!identifier) {
-			return;
+			return ['No active Positron Data Explorer editor found.'];
 		}
 
 		// Get the Positron data explorer instance.
@@ -843,11 +828,11 @@ class PositronDataExplorerGetCodeSyntaxesAction extends Action2 {
 
 		// Make sure the Positron data explorer instance was returned.
 		if (!positronDataExplorerInstance) {
-			return;
+			return ['No active Positron Data Explorer editor found.'];
 		}
-		//const code = await positronDataExplorerInstance.getCodeSyntaxes();
+		const code = await positronDataExplorerInstance.getCodeSyntaxes();
 		// Export filters as code.
-		return ['example-syntax-1', 'example-syntax-2', 'example-syntax-3']; // Placeholder for actual code syntax retrieval
+		return code; // Placeholder for actual code syntax retrieval
 	}
 }
 
@@ -864,7 +849,7 @@ class PositronDataExplorerCopyAsCodeModalAction extends Action2 {
 		super({
 			id: PositronDataExplorerCommandId.CopyAsCodeModalAction,
 			title: {
-				value: localize('positronDataExplorer.copyAsCodeModal', 'Copy as Code2'),
+				value: localize('positronDataExplorer.copyAsCodeModal', 'Copy as Code'),
 				original: 'Copy as Code'
 			},
 			category,
@@ -1038,7 +1023,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
-	registerAction2(PositronDataExplorerCopyAsCodeAction);
+	registerAction2(PositronDataExplorerGenerateCodeAction);
 	registerAction2(PositronDataExplorerGetCodeSyntaxesAction);
 	registerAction2(PositronDataExplorerCopyAsCodeModalAction);
 }

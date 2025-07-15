@@ -263,13 +263,13 @@ class ExportedCode(BaseModel):
     )
 
 
-class DesiredCodeTypes(BaseModel):
+class CodeSyntaxOptions(BaseModel):
     """
-    Resulting code types
+    Code syntaxes available for export
     """
 
-    code_types: List[StrictStr] = Field(
-        description="tktk",
+    code_syntaxes: List[StrictStr] = Field(
+        description="Available code syntaxes supported for export",
     )
 
 
@@ -1229,11 +1229,11 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
 
-    # Export filters and sort keys as code
-    CopyAsCode = "copy_as_code"
+    # Translate filters and sort keys as code
+    TranslateToCode = "translate_to_code"
 
     # Get code syntaxes supported for export
-    GetCodeTypes = "get_code_types"
+    GetCodeSyntaxes = "get_code_syntaxes"
 
     # Set column filters to select subset of table columns
     SetColumnFilters = "set_column_filters"
@@ -1449,10 +1449,10 @@ class ExportDataSelectionRequest(BaseModel):
     )
 
 
-class CopyAsCodeParams(BaseModel):
+class TranslateToCodeParams(BaseModel):
     """
-    Export filters and sort keys as code in different formats like pandas,
-    polars, data.table, dplyr
+    Translate filters and sort keys as code in different syntaxes like
+    pandas, polars, data.table, dplyr
     """
 
     column_filters: List[ColumnFilter] = Field(
@@ -1467,23 +1467,23 @@ class CopyAsCodeParams(BaseModel):
         description="Zero or more sort keys to apply",
     )
 
-    export_code_syntax: StrictStr = Field(
-        description="Exported code format",
+    code_syntax: StrictStr = Field(
+        description="The code syntax to use for translation",
     )
 
 
-class CopyAsCodeRequest(BaseModel):
+class TranslateToCodeRequest(BaseModel):
     """
-    Export filters and sort keys as code in different formats like pandas,
-    polars, data.table, dplyr
+    Translate filters and sort keys as code in different syntaxes like
+    pandas, polars, data.table, dplyr
     """
 
-    params: CopyAsCodeParams = Field(
-        description="Parameters to the CopyAsCode method",
+    params: TranslateToCodeParams = Field(
+        description="Parameters to the TranslateToCode method",
     )
 
-    method: Literal[DataExplorerBackendRequest.CopyAsCode] = Field(
-        description="The JSON-RPC method name (copy_as_code)",
+    method: Literal[DataExplorerBackendRequest.TranslateToCode] = Field(
+        description="The JSON-RPC method name (translate_to_code)",
     )
 
     jsonrpc: str = Field(
@@ -1492,13 +1492,14 @@ class CopyAsCodeRequest(BaseModel):
     )
 
 
-class GetCodeTypesRequest(BaseModel):
+class GetCodeSyntaxesRequest(BaseModel):
     """
-    tktk
+    Get all available code syntaxes supported for export for a certain
+    dataset
     """
 
-    method: Literal[DataExplorerBackendRequest.GetCodeTypes] = Field(
-        description="The JSON-RPC method name (get_code_types)",
+    method: Literal[DataExplorerBackendRequest.GetCodeSyntaxes] = Field(
+        description="The JSON-RPC method name (get_code_syntaxes)",
     )
 
     jsonrpc: str = Field(
@@ -1660,8 +1661,8 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetDataValuesRequest,
         GetRowLabelsRequest,
         ExportDataSelectionRequest,
-        CopyAsCodeRequest,
-        GetCodeTypesRequest,
+        TranslateToCodeRequest,
+        GetCodeSyntaxesRequest,
         SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
@@ -1712,7 +1713,7 @@ ExportedData.update_forward_refs()
 
 ExportedCode.update_forward_refs()
 
-DesiredCodeTypes.update_forward_refs()
+CodeSyntaxOptions.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
@@ -1832,11 +1833,11 @@ ExportDataSelectionParams.update_forward_refs()
 
 ExportDataSelectionRequest.update_forward_refs()
 
-CopyAsCodeParams.update_forward_refs()
+TranslateToCodeParams.update_forward_refs()
 
-CopyAsCodeRequest.update_forward_refs()
+TranslateToCodeRequest.update_forward_refs()
 
-GetCodeTypesRequest.update_forward_refs()
+GetCodeSyntaxesRequest.update_forward_refs()
 
 SetColumnFiltersParams.update_forward_refs()
 

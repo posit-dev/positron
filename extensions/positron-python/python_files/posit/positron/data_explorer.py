@@ -65,7 +65,7 @@ from .data_explorer_comm import (
     FilterSetMembership,
     FilterTextSearch,
     FormatOptions,
-    GetCodeTypesRequest,
+    GetCodeSyntaxesRequest,
     GetColumnProfilesFeatures,
     GetColumnProfilesRequest,
     GetDataValuesRequest,
@@ -407,16 +407,18 @@ class DataExplorerTableView:
         else:
             raise NotImplementedError(f"Unknown data export: {kind}")
 
-    def get_code_types(self, request: GetCodeTypesRequest):
+    def get_code_syntaxes(self, request: GetCodeSyntaxesRequest):
         """
         Returns the supported code types for exporting data.
         This is a placeholder implementation that returns an empty list.
         """
         # In a real implementation, this would return the supported code types
         # based on the backend capabilities or configuration.
-        return DesiredCodeTypes(code_types=['hello']).dict()
+        return DesiredCodeTypes(code_types=[]).dict()
 
     def copy_as_code(self, request: CopyAsCodeRequest):
+        if request.params.export_code_syntax == "polars":
+            return ExportedCode(data="import polars as pl\n\n# TODO: Implement export to code").dict()
         return ExportedCode(data="import pandas as pd\n\n# TODO: Implement export to code").dict()
 
     def _export_cell(self, row_index: int, column_index: int, fmt: ExportFormat):
@@ -1358,6 +1360,15 @@ class PandasView(DataExplorerTableView):
 
         return schema_updated, new_state
 
+    def get_code_syntaxes(self, request: GetCodeSyntaxesRequest):
+        """
+        Returns the supported code types for exporting data.
+        This is a placeholder implementation that returns an empty list.
+        """
+        # In a real implementation, this would return the supported code types
+        # based on the backend capabilities or configuration.
+        return DesiredCodeTypes(code_types=['pandas', 'polars']).dict()
+
     @classmethod
     def _construct_schema(
         cls, column, column_name, column_index: int, state: DataExplorerState
@@ -2273,6 +2284,15 @@ class PolarsView(DataExplorerTableView):
         )
 
         return schema_updated, new_state
+
+    def get_code_syntaxes(self, request: GetCodeSyntaxesRequest):
+        """
+        Returns the supported code types for exporting data.
+        This is a placeholder implementation that returns an empty list.
+        """
+        # In a real implementation, this would return the supported code types
+        # based on the backend capabilities or configuration.
+        return DesiredCodeTypes(code_types=['polars']).dict()
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:

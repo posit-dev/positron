@@ -1,10 +1,7 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-
-// CSS.
-import './newFolderFromGitModalDialog.css';
 
 // React.
 import React, { useEffect, useState } from 'react';
@@ -19,14 +16,17 @@ import { PositronModalReactRenderer } from '../positronModalReactRenderer/positr
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { IPositronDataExplorerInstance } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { PositronDataExplorerCommandId } from '../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
+import { DropDownListBox } from '../positronComponents/dropDownListBox/dropDownListBox.js';
+import { DropDownListBoxItem } from '../positronComponents/dropDownListBox/dropDownListBoxItem.js';
+import { DropdownEntry } from './components/dropdownEntry.js';
 
 /**
  * Shows the new folder from Git modal dialog.
  * @param commandService The command service.
- * @param configService The config service.
- * @param fileDialogService The file dialog service.
  * @param keybindingService The keybinding service.
  * @param layoutService The layout service.
+ * @param dataExplorerClientInstance The data explorer client instance.
+ * @returns A promise that resolves when the dialog is closed.
  */
 export const copyAsCodeModalDialog = async (
 	commandService: ICommandService,
@@ -41,53 +41,100 @@ export const copyAsCodeModalDialog = async (
 		container: layoutService.activeContainer
 	});
 
-	// Show the new folder from git modal dialog.
+	// Show the copy as code dialog.
 	renderer.render(
 		<NewCopyAsCodeModalDialog
 			commandService={commandService}
 			dataExplorerClientInstance={dataExplorerClientInstance}
+			keybindingService={keybindingService}
+			layoutService={layoutService}
 			renderer={renderer}
 		/>
 	);
 };
 
 /**
- * NewFolderFromGitModalDialogProps interface.
+ * CopyAsCodeDialogProps interface.
  */
 interface CopyAsCodeDialogProps {
 	commandService: ICommandService;
 	dataExplorerClientInstance: IPositronDataExplorerInstance
+	keybindingService: IKeybindingService;
+	layoutService: IWorkbenchLayoutService;
 	renderer: PositronModalReactRenderer;
 }
 
 
 /**
- * NewFolderFromGitModalDialog component.
+ * NewCopyAsCodeModalDialog component.
  * @param props The component properties.
  * @returns The rendered component.
  */
 export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 	// State hooks.
-	const [codeSyntax, setcodeSyntax] = useState<string | undefined>('positron-duckdb');
+	const [codeSyntaxOptions, setcodeSyntaxOptions] = useState<Array<string>>(['No available syntaxes.']);
+	const [selectedSyntax, setSelectedSyntax] = useState<string | undefined>(undefined);
 
-	const [codeString, setCodeString] = useState<string | undefined>('1234');
+	const [codeString, setCodeString] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		const getCodeString = async () => {
-			const codeString = await props.commandService.executeCommand<string>(PositronDataExplorerCommandId.CopyAsCodeAction);
+			if (!selectedSyntax) {
+				return;
+			}
+			// Execute the command to get the code string based on the selected syntax.
+			const codeString = await props.commandService.executeCommand<string>(PositronDataExplorerCommandId.CopyAsCodeAction, selectedSyntax);
 			setCodeString(codeString);
 		}
 		getCodeString();
-	}, [props.commandService]);
+	}, [props.commandService, selectedSyntax]);
 
 
 	useEffect(() => {
 		const getCodeSyntax = async () => {
-			const codeSyntax = await props.commandService.executeCommand<string>(PositronDataExplorerCommandId.GetCodeSyntaxesAction);
-			setcodeSyntax(codeSyntax);
+			const codeSyntaxes = await props.commandService.executeCommand<Array<string>>(PositronDataExplorerCommandId.GetCodeSyntaxesAction);
+			if (!codeSyntaxes) {
+				return;
+			}
+			setcodeSyntaxOptions(codeSyntaxes);
+			setSelectedSyntax(codeSyntaxes[0]);
 		}
 		getCodeSyntax();
 	}, [props.commandService]);
+
+	// Construct the syntax options dropdown entries
+	const syntaxDropdownEntries = () => {
+		if (codeSyntaxOptions.length === 0) {
+			return [];
+		}
+		return syntaxInfoToDropDownItems(codeSyntaxOptions);
+	};
+
+	const syntaxInfoToDropDownItems = (
+		syntaxes: string[]
+	): DropDownListBoxItem<string, string>[] => {
+		return syntaxes.map(
+			(syntax) =>
+				new DropDownListBoxItem<string, string>({
+					identifier: syntax,
+					value: syntax,
+				})
+		);
+	};
+
+	// Construct the interpreter dropdown title.
+	const interpreterDropdownTitle = () => {
+		return codeSyntaxOptions[0]
+	};
+
+	const onSelectionChanged = async (item: DropDownListBoxItem<unknown, unknown>) => {
+		const typedItem = item as DropDownListBoxItem<string, string>;
+		setSelectedSyntax(typedItem.options.identifier);
+
+		// Execute the command asynchronously without blocking
+		const exc = await props.commandService.executeCommand<string>(PositronDataExplorerCommandId.CopyAsCodeAction, typedItem.options.identifier)
+		setCodeString(exc);
+	};
 
 	// Render.
 	return (
@@ -106,11 +153,22 @@ export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 			onCancel={() => props.renderer.dispose()}
 		>
 			<VerticalStack>
+				<DropDownListBox
+					createItem={(item) => (
+						<DropdownEntry
+							title={item.options.identifier}
+						/>
+					)}
+					entries={syntaxDropdownEntries()}
+					keybindingService={props.keybindingService}
+					layoutService={props.layoutService}
+					title={interpreterDropdownTitle()}
+					onSelectionChanged={onSelectionChanged}
+				/>
 				<pre>
-					{codeSyntax ?? 'hello'}
-				</pre>
-				<pre>
-					{codeString ?? 'hello'}
+					// TODO: Add code to copy the code string to clipboard.
+					// TODO: Make this a real code block with syntax highlighting.
+					{codeString}
 				</pre>
 			</VerticalStack>
 
