@@ -1229,10 +1229,10 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
 
-    # Translate filters and sort keys as code
+    # Translates the current data view into a code snippet.
     TranslateToCode = "translate_to_code"
 
-    # Get code syntaxes supported for export
+    # Get code syntaxes supported for code translation
     GetCodeSyntaxes = "get_code_syntaxes"
 
     # Set column filters to select subset of table columns
@@ -1494,8 +1494,8 @@ class TranslateToCodeRequest(BaseModel):
 
 class GetCodeSyntaxesRequest(BaseModel):
     """
-    Get all available code syntaxes supported for export for a certain
-    dataset
+    Get all available code syntaxes supported for translation for a data
+    view
     """
 
     method: Literal[DataExplorerBackendRequest.GetCodeSyntaxes] = Field(

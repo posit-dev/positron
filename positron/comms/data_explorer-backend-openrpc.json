@@ -217,7 +217,7 @@
 		},
 {
 			"name": "translate_to_code",
-			"summary": "Translate filters and sort keys as code",
+			"summary": "Translates the current data view into a code snippet.",
 			"description": "Translate filters and sort keys as code in different syntaxes like pandas, polars, data.table, dplyr",
 			"params": [
 				{
@@ -284,8 +284,8 @@
 		},
 {
 			"name": "get_code_syntaxes",
-			"summary": "Get code syntaxes supported for export",
-			"description": "Get all available code syntaxes supported for export for a certain dataset",
+			"summary": "Get code syntaxes supported for code translation",
+			"description": "Get all available code syntaxes supported for translation for a data view",
 			"params": [],
 			"result": {
 				"schema": {

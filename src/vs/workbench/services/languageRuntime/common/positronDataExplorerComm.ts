@@ -1560,7 +1560,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Translate filters and sort keys as code
+	 * Translates the current data view into a code snippet.
 	 *
 	 * Translate filters and sort keys as code in different syntaxes like
 	 * pandas, polars, data.table, dplyr
@@ -1577,10 +1577,10 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Get code syntaxes supported for export
+	 * Get code syntaxes supported for code translation
 	 *
-	 * Get all available code syntaxes supported for export for a certain
-	 * dataset
+	 * Get all available code syntaxes supported for translation for a data
+	 * view
 	 *
 	 *
 	 * @returns Code syntaxes available for export
