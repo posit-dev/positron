@@ -28,7 +28,7 @@
  * levels, including error conditions, edge cases, and proper resource cleanup.
  *
  * @see {@link PositronNotebookEditorInput} - The editor input class being tested
- * @see {@link getPreferredNotebookEditor} - Configuration utility function
+ * @see {@link usingPositronNotebooks} - Configuration utility function
  * @see {@link EditorResolverService} - Core service for editor resolution
  */
 
@@ -36,20 +36,18 @@ import assert from 'assert';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
-import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
 import { EditorResolverService } from '../../../../services/editor/browser/editorResolverService.js';
 import { RegisteredEditorPriority, ResolvedStatus } from '../../../../services/editor/common/editorResolverService.js';
 import { ITestInstantiationService } from '../../../../test/browser/workbenchTestServices.js';
 import { EditorPart } from '../../../../browser/parts/editor/editorPart.js';
 import { PositronNotebookEditorInput } from '../../browser/PositronNotebookEditorInput.js';
-import { POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY, getPreferredNotebookEditor } from '../../../../services/positronNotebook/common/positronNotebookUtils.js';
+import { usingPositronNotebooks } from '../../../../services/positronNotebook/common/positronNotebookUtils.js';
 import { createPositronNotebookTestServices } from './testUtils.js';
 
 suite('Positron Notebook Editor Resolution', () => {
 
 	const disposables = new DisposableStore();
 	let instantiationService: ITestInstantiationService;
-	let configurationService: TestConfigurationService;
 	let editorResolverService: EditorResolverService;
 	let part: EditorPart;
 
@@ -60,7 +58,6 @@ suite('Positron Notebook Editor Resolution', () => {
 	async function createTestServices(): Promise<void> {
 		const services = await createPositronNotebookTestServices(disposables);
 		instantiationService = services.instantiationService;
-		configurationService = services.configurationService;
 		editorResolverService = services.editorResolverService;
 		part = services.part;
 	}
@@ -96,28 +93,9 @@ suite('Positron Notebook Editor Resolution', () => {
 	}
 
 
-	test('getPreferredNotebookEditor defaults to vscode when no setting', async () => {
-		await createTestServices();
-
-		const preferred = getPreferredNotebookEditor(configurationService);
-		assert.strictEqual(preferred, 'vscode');
-	});
-
-
-	test('Invalid configuration value defaults to vscode', async () => {
-		await createTestServices();
-
-		// Set invalid value
-		configurationService.setUserConfiguration(POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY, 'invalid-value');
-
-		const preferred = getPreferredNotebookEditor(configurationService);
-		assert.strictEqual(preferred, 'vscode');
-	});
-
 	test('Only ipynb files are handled by Positron notebook editor', async () => {
 		await createTestServices();
 
-		configurationService.setUserConfiguration(POSITRON_NOTEBOOK_DEFAULT_EDITOR_CONFIG_KEY, 'positron');
 		registerPositronNotebookEditor(RegisteredEditorPriority.default);
 
 		// Test .ipynb file - should resolve
