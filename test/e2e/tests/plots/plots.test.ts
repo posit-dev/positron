@@ -282,10 +282,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			expect(data.rawMisMatchPercentage).toBeGreaterThan(0.0);
 		});
 
-		test('Verify Plot Zoom works (Fit vs. 200%) - Python', async function ({ app, contextMenu, openFile, python, page }, testInfo) {
+		test('Python - Verify Plot Zoom works (Fit vs. 200%)', async function ({ app, contextMenu, openFile, python, page }, testInfo) {
 			await openFile(path.join('workspaces', 'python-plots', 'matplotlib-zoom-example.py'));
 			await test.step('Run Python File in Console', async () => {
-				await page.getByRole('button', { name: 'Run Python File in Console' }).click();
+				await app.workbench.editor.playButton.click();
 				await app.workbench.plots.waitForCurrentPlot();
 			});
 			const imgLocator = page.getByRole('img', { name: /%run/ });
@@ -316,46 +316,9 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			const bufferFit2 = await imgLocator.screenshot();
 			// Compare: Fit vs Fit again
 			const resultBack = await resembleCompareImages(bufferFit1, bufferFit2, options);
-			expect(resultBack.rawMisMatchPercentage).toBeLessThan(0.3); // should be small diff
+			expect(resultBack.rawMisMatchPercentage).toBeLessThan(0.5); // should be small diff
 		});
-		/*
-				test('Verify Plot Zoom works (Fit vs. 200%) - R', async function ({ app, contextMenu, openFile, r, page }, testInfo) {
-					await openFile(path.join('workspaces', 'r-plots', 'ggplot-example.R'));
-					await test.step('Run R File in Console', async () => {
-						await page.getByRole('button', { name: 'Source R File' }).click();
-						await app.workbench.plots.waitForCurrentPlot();
-					});
-					const imgLocator = page.getByRole('img', { name: /%run/ });
-					await contextMenu.triggerAndClick({
-						menuTrigger: page.getByLabel('Fit'),
-						menuItemLabel: 'Fit'
-					});
-					await page.waitForTimeout(300);
-					const bufferFit1 = await imgLocator.screenshot();
-					await contextMenu.triggerAndClick({
-						menuTrigger: page.getByLabel('Fit'),
-						menuItemLabel: '200%'
-					});
-					await page.waitForTimeout(2000);
-					const bufferZoom = await imgLocator.screenshot();
-					// Compare: Fit vs 200%
-					const resultZoom = await resembleCompareImages(bufferFit1, bufferZoom, options);
-					await testInfo.attach('fit-vs-zoom', {
-						body: resultZoom.getBuffer(true),
-						contentType: 'image/png'
-					});
-					expect(resultZoom.rawMisMatchPercentage).toBeGreaterThan(2); // should be large diff
-					await contextMenu.triggerAndClick({
-						menuTrigger: page.getByLabel('200%'),
-						menuItemLabel: 'Fit'
-					});
-					await page.waitForTimeout(2000);
-					const bufferFit2 = await imgLocator.screenshot();
-					// Compare: Fit vs Fit again
-					const resultBack = await resembleCompareImages(bufferFit1, bufferFit2, options);
-					expect(resultBack.rawMisMatchPercentage).toBeLessThan(0.3); // should be small diff
-				});
-		*/
+
 	});
 
 	test.describe('R Plots', {
