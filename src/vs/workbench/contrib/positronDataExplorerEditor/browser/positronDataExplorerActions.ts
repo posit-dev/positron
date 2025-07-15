@@ -710,10 +710,8 @@ class PositronDataExplorerGenerateCodeAction extends Action2 {
 				original: 'Generate Code'
 			},
 			category,
-			f1: true,
 			precondition: ContextKeyExpr.and(
 				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				IsDevelopmentContext // hide this from release until implemented
 			)
 		});
 	}
@@ -755,6 +753,7 @@ class PositronDataExplorerGenerateCodeAction extends Action2 {
 			return;
 		}
 		const code = await positronDataExplorerInstance.translateToCode(desiredSyntax);
+
 		// Export filters as code.
 		return code;
 	}
@@ -772,25 +771,12 @@ class PositronDataExplorerGetCodeSyntaxesAction extends Action2 {
 			id: PositronDataExplorerCommandId.GetCodeSyntaxesAction,
 			title: {
 				value: localize('positronDataExplorer.getCodeSyntaxes', 'Get Code Syntaxes'),
-				original: 'Copy as Code'
+				original: 'Get Code Syntaxes'
 			},
 			category,
-			f1: true,
 			precondition: ContextKeyExpr.and(
 				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				IsDevelopmentContext // hide this from release until implemented
-			),
-			menu: [
-				{
-					id: MenuId.EditorActionsLeft,
-					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				},
-				{
-					id: MenuId.EditorTitle,
-					group: 'navigation',
-					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				}
-			]
+			)
 		});
 	}
 
@@ -831,15 +817,15 @@ class PositronDataExplorerGetCodeSyntaxesAction extends Action2 {
 			return ['No active Positron Data Explorer editor found.'];
 		}
 		const code = await positronDataExplorerInstance.getCodeSyntaxes();
-		// Export filters as code.
-		return code; // Placeholder for actual code syntax retrieval
+
+		return code;
 	}
 }
 
 
 
 /**
- * The PositronNewFolderFromGitAction.
+ * The PositronDataExplorerCopyAsCodeModalAction.
  */
 class PositronDataExplorerCopyAsCodeModalAction extends Action2 {
 	/**
