@@ -122,8 +122,8 @@ export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 		);
 	};
 
-	// Construct the interpreter dropdown title.
-	const interpreterDropdownTitle = () => {
+	// Construct the syntax dropdown title.
+	const syntaxDropdownTitle = () => {
 		return codeSyntaxOptions[0]
 	};
 
@@ -131,7 +131,7 @@ export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 		const typedItem = item as DropDownListBoxItem<string, string>;
 		setSelectedSyntax(typedItem.options.identifier);
 
-		// Execute the command asynchronously without blocking
+		// Execute the command to get the code string based on the selected syntax.
 		const exc = await props.commandService.executeCommand<string>(PositronDataExplorerCommandId.CopyAsCodeAction, typedItem.options.identifier)
 		setCodeString(exc);
 	};
@@ -162,7 +162,7 @@ export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 					entries={syntaxDropdownEntries()}
 					keybindingService={props.keybindingService}
 					layoutService={props.layoutService}
-					title={interpreterDropdownTitle()}
+					title={syntaxDropdownTitle()}
 					onSelectionChanged={onSelectionChanged}
 				/>
 				<pre>
