@@ -25,6 +25,10 @@ import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { copyAsCodeModalDialog } from '../../../browser/positronModalDialogs/copyAsCodeModalDialog.js';
+import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
+import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 
 /**
  * Positron data explorer action category.
@@ -53,7 +57,10 @@ export const enum PositronDataExplorerCommandId {
 	SummaryOnLeftAction = 'workbench.action.positronDataExplorer.summaryOnLeft',
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
-	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext'
+	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
+	CopyAsCodeAction = 'workbench.action.positronDataExplorer.copyAsCode',
+	GetCodeSyntaxesAction = 'workbench.action.positronDataExplorer.getCodeSyntaxes',
+	CopyAsCodeModalAction = 'workbench.action.positronDataExplorer.copyAsCodeModal',
 }
 
 /**
@@ -689,6 +696,235 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerExportToCodeAction action.
+ */
+class PositronDataExplorerGenerateCodeAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.CopyAsCodeAction,
+			title: {
+				value: localize('positronDataExplorer.generateCode', 'Generate Code'),
+				original: 'Generate Code'
+			},
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				IsDevelopmentContext // hide this from release until implemented
+			)
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor, desiredSyntax: string): Promise<string | undefined> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			return;
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			return;
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			return;
+		}
+		const code = await positronDataExplorerInstance.translateToCode(desiredSyntax);
+		// Export filters as code.
+		return code;
+	}
+}
+
+/**
+ * PositronDataExplorerExportToCodeAction action.
+ */
+class PositronDataExplorerGetCodeSyntaxesAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.GetCodeSyntaxesAction,
+			title: {
+				value: localize('positronDataExplorer.getCodeSyntaxes', 'Get Code Syntaxes'),
+				original: 'Copy as Code'
+			},
+			category,
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				IsDevelopmentContext // hide this from release until implemented
+			),
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor): Promise<Array<string>> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			return ['No active Positron Data Explorer editor found.'];
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			return ['No active Positron Data Explorer editor found.'];
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			return ['No active Positron Data Explorer editor found.'];
+		}
+		const code = await positronDataExplorerInstance.getCodeSyntaxes();
+		// Export filters as code.
+		return code; // Placeholder for actual code syntax retrieval
+	}
+}
+
+
+
+/**
+ * The PositronNewFolderFromGitAction.
+ */
+class PositronDataExplorerCopyAsCodeModalAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.CopyAsCodeModalAction,
+			title: {
+				value: localize('positronDataExplorer.copyAsCodeModal', 'Copy as Code'),
+				original: 'Copy as Code'
+			},
+			category,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true,
+			},
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				IsDevelopmentContext // hide this from release until implemented
+			),
+			icon: Codicon.code,
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const editorService = accessor.get(IEditorService);
+		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+		const commandService = accessor.get(ICommandService);
+		const keybindingService = accessor.get(IKeybindingService);
+		const layoutService = accessor.get(IWorkbenchLayoutService);
+
+		// Get the Positron data explorer editor.
+		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+			editorService.activeEditorPane
+		);
+
+		// Make sure that the Positron data explorer editor was returned.
+		if (!positronDataExplorerEditor) {
+			return;
+		}
+
+		// Get the identifier.
+		const identifier = positronDataExplorerEditor.identifier;
+
+		// Make sure the identifier was returned.
+		if (!identifier) {
+			return;
+		}
+
+		// Get the Positron data explorer instance.
+		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
+			identifier
+		);
+
+		// Make sure the Positron data explorer instance was returned.
+		if (!positronDataExplorerInstance) {
+			return;
+		}
+		await copyAsCodeModalDialog(
+			commandService,
+			keybindingService,
+			layoutService,
+			positronDataExplorerInstance,
+		);
+	}
+}
+/**
  * PositronDataExplorerOpenAsPlaintextAction action.
  */
 class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
@@ -787,4 +1023,7 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
+	registerAction2(PositronDataExplorerGenerateCodeAction);
+	registerAction2(PositronDataExplorerGetCodeSyntaxesAction);
+	registerAction2(PositronDataExplorerCopyAsCodeModalAction);
 }
