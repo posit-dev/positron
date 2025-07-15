@@ -55,6 +55,28 @@ export interface ExportedData {
 }
 
 /**
+ * Resulting code
+ */
+export interface ExportedCode {
+	/**
+	 * Exported code as a string suitable for copy and paste
+	 */
+	data?: string;
+
+}
+
+/**
+ * Code syntaxes available for export
+ */
+export interface CodeSyntaxOptions {
+	/**
+	 * Available code syntaxes supported for export
+	 */
+	code_syntaxes: Array<string>;
+
+}
+
+/**
  * The result of applying filters to a table
  */
 export interface FilterResult {
@@ -1287,6 +1309,31 @@ export interface ExportDataSelectionParams {
 }
 
 /**
+ * Parameters for the TranslateToCode method.
+ */
+export interface TranslateToCodeParams {
+	/**
+	 * Zero or more column filters to apply
+	 */
+	column_filters: Array<ColumnFilter>;
+
+	/**
+	 * Zero or more row filters to apply
+	 */
+	row_filters: Array<RowFilter>;
+
+	/**
+	 * Zero or more sort keys to apply
+	 */
+	sort_keys: Array<ColumnSortKey>;
+
+	/**
+	 * The code syntax to use for translation
+	 */
+	code_syntax: string;
+}
+
+/**
  * Parameters for the SetColumnFilters method.
  */
 export interface SetColumnFiltersParams {
@@ -1402,6 +1449,8 @@ export enum DataExplorerBackendRequest {
 	GetDataValues = 'get_data_values',
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
+	TranslateToCode = 'translate_to_code',
+	GetCodeSyntaxes = 'get_code_syntaxes',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
@@ -1508,6 +1557,36 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 */
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData> {
 		return super.performRpc('export_data_selection', ['selection', 'format'], [selection, format]);
+	}
+
+	/**
+	 * Translates the current data view into a code snippet.
+	 *
+	 * Translate filters and sort keys as code in different syntaxes like
+	 * pandas, polars, data.table, dplyr
+	 *
+	 * @param columnFilters Zero or more column filters to apply
+	 * @param rowFilters Zero or more row filters to apply
+	 * @param sortKeys Zero or more sort keys to apply
+	 * @param codeSyntax The code syntax to use for translation
+	 *
+	 * @returns Resulting code
+	 */
+	translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<ExportedCode> {
+		return super.performRpc('translate_to_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax'], [columnFilters, rowFilters, sortKeys, codeSyntax]);
+	}
+
+	/**
+	 * Get code syntaxes supported for code translation
+	 *
+	 * Get all available code syntaxes supported for translation for a data
+	 * view
+	 *
+	 *
+	 * @returns Code syntaxes available for export
+	 */
+	getCodeSyntaxes(): Promise<CodeSyntaxOptions> {
+		return super.performRpc('get_code_syntaxes', [], []);
 	}
 
 	/**

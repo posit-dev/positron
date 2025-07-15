@@ -252,6 +252,27 @@ class ExportedData(BaseModel):
     )
 
 
+class ExportedCode(BaseModel):
+    """
+    Resulting code
+    """
+
+    data: Optional[StrictStr] = Field(
+        default=None,
+        description="Exported code as a string suitable for copy and paste",
+    )
+
+
+class CodeSyntaxOptions(BaseModel):
+    """
+    Code syntaxes available for export
+    """
+
+    code_syntaxes: List[StrictStr] = Field(
+        description="Available code syntaxes supported for export",
+    )
+
+
 class FilterResult(BaseModel):
     """
     The result of applying filters to a table
@@ -1208,6 +1229,12 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
 
+    # Translates the current data view into a code snippet.
+    TranslateToCode = "translate_to_code"
+
+    # Get code syntaxes supported for code translation
+    GetCodeSyntaxes = "get_code_syntaxes"
+
     # Set column filters to select subset of table columns
     SetColumnFilters = "set_column_filters"
 
@@ -1422,6 +1449,65 @@ class ExportDataSelectionRequest(BaseModel):
     )
 
 
+class TranslateToCodeParams(BaseModel):
+    """
+    Translate filters and sort keys as code in different syntaxes like
+    pandas, polars, data.table, dplyr
+    """
+
+    column_filters: List[ColumnFilter] = Field(
+        description="Zero or more column filters to apply",
+    )
+
+    row_filters: List[RowFilter] = Field(
+        description="Zero or more row filters to apply",
+    )
+
+    sort_keys: List[ColumnSortKey] = Field(
+        description="Zero or more sort keys to apply",
+    )
+
+    code_syntax: StrictStr = Field(
+        description="The code syntax to use for translation",
+    )
+
+
+class TranslateToCodeRequest(BaseModel):
+    """
+    Translate filters and sort keys as code in different syntaxes like
+    pandas, polars, data.table, dplyr
+    """
+
+    params: TranslateToCodeParams = Field(
+        description="Parameters to the TranslateToCode method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.TranslateToCode] = Field(
+        description="The JSON-RPC method name (translate_to_code)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class GetCodeSyntaxesRequest(BaseModel):
+    """
+    Get all available code syntaxes supported for translation for a data
+    view
+    """
+
+    method: Literal[DataExplorerBackendRequest.GetCodeSyntaxes] = Field(
+        description="The JSON-RPC method name (get_code_syntaxes)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class SetColumnFiltersParams(BaseModel):
     """
     Set or clear column filters on table, replacing any previous filters
@@ -1575,6 +1661,8 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetDataValuesRequest,
         GetRowLabelsRequest,
         ExportDataSelectionRequest,
+        TranslateToCodeRequest,
+        GetCodeSyntaxesRequest,
         SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
@@ -1622,6 +1710,10 @@ OpenDatasetResult.update_forward_refs()
 SearchSchemaResult.update_forward_refs()
 
 ExportedData.update_forward_refs()
+
+ExportedCode.update_forward_refs()
+
+CodeSyntaxOptions.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
@@ -1740,6 +1832,12 @@ GetRowLabelsRequest.update_forward_refs()
 ExportDataSelectionParams.update_forward_refs()
 
 ExportDataSelectionRequest.update_forward_refs()
+
+TranslateToCodeParams.update_forward_refs()
+
+TranslateToCodeRequest.update_forward_refs()
+
+GetCodeSyntaxesRequest.update_forward_refs()
 
 SetColumnFiltersParams.update_forward_refs()
 
