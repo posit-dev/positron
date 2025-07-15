@@ -126,7 +126,7 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	getCodeSyntaxes(): Promise<Array<string>>;
 
 	/**
-	 * Exports the table data to code.
+	 * Translates the current data view's filters and sorts to code in the desired syntax.
 	 */
 	translateToCode(desiredSyntax: string): Promise<string | undefined>;
 }

@@ -431,25 +431,25 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	}
 
 	/**
-	 * Export filters as code.
-	 * @returns A Promise<void> that resolves when generated code is copied to clipboard.
+	 * Gets the available code syntaxes.
+	 * @returns A Promise<Array<string>> that resolves with the available code syntaxes.
 	 */
 	async getCodeSyntaxes(): Promise<Array<string>> {
 		const syntaxes = await this._dataExplorerClientInstance.getCodeSyntaxes();
 		if (!syntaxes.code_syntaxes) {
-			return ['No available syntaxes'];
+			return ['No available syntaxes.'];
 		}
 		return syntaxes.code_syntaxes;
 
 	}
 
 	/**
-	 * Export filters as code.
-	 * @returns A Promise<void> that resolves when generated code is copied to clipboard.
+	 * Translates the data explorer view to code in the desired syntax.
+	 * @returns A Promise<string> that resolves when generated code is returned.
 	 */
-	async translateToCode(desiredSyntax: string): Promise<string | undefined> {
+	async translateToCode(desiredSyntax: string): Promise<string> {
 		const generatedCode = await this._dataExplorerClientInstance.translateToCode(desiredSyntax);
-		return generatedCode.data;
+		return generatedCode.code;
 	}
 
 	/**
