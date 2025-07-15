@@ -509,7 +509,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 		return this.runBackendTask(
 			() => this._backendClient.translateToCode(columnFilters, rowFilters, sortKeys, desiredSyntax),
-			() => ({ 'data': '' })
+			() => ({ 'code': '' })
 		);
 	}
 
