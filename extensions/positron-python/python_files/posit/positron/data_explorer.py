@@ -277,6 +277,12 @@ class DataExplorerTableView:
     def _get_single_column_schema(self, column_index: int) -> ColumnSchema:
         raise NotImplementedError
 
+    def get_code_syntaxes(self, request: GetCodeSyntaxesRequest):
+        raise NotImplementedError
+
+    def translate_to_code(self, request: TranslateToCodeRequest):
+        raise NotImplementedError
+
     def search_schema(self, request: SearchSchemaRequest):
         filters = request.params.filters
         start_index = request.params.start_index
@@ -1350,7 +1356,7 @@ class PandasView(DataExplorerTableView):
         """Returns the supported code types for exporting data."""
         return CodeSyntaxOptions(code_syntaxes=["pandas"]).dict()
 
-    def translate_as_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
+    def translate_to_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
         """Translates the current data view, including filters and sorts, into a code snippet."""
         return ExportedCode(data="import pandas as pd\n\n# TODO: Implement export to code").dict()
 
@@ -2274,7 +2280,7 @@ class PolarsView(DataExplorerTableView):
         """Returns the supported code types for exporting data."""
         return CodeSyntaxOptions(code_syntaxes=["polars"]).dict()
 
-    def translate_as_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
+    def translate_to_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
         """Translates the current data view, including filters and sorts, into a code snippet."""
         return ExportedCode(data="import polars as pl\n\n# TODO: Implement export to code").dict()
 

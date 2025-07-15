@@ -166,8 +166,6 @@ export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 					onSelectionChanged={onSelectionChanged}
 				/>
 				<pre>
-					// TODO: Add code to copy the code string to clipboard.
-					// TODO: Make this a real code block with syntax highlighting.
 					{codeString}
 				</pre>
 			</VerticalStack>
