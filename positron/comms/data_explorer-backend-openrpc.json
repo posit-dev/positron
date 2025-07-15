@@ -283,7 +283,7 @@
 			}
 		},
 {
-			"name": "get_code_types",
+			"name": "get_code_syntaxes",
 			"summary": "Get code syntaxes supported for export",
 			"description": "tktk",
 			"params": [],
