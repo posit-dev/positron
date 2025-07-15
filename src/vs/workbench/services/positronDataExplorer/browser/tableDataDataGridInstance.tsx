@@ -695,6 +695,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @param rowFilters The row filters.
 	 * @returns A Promise<FilterResult> that resolves when the operation is complete.
 	 */
+	// TODO @ dhruvisompura: implement pinning columns in the same way that row filters are implemented.
 	async setRowFilters(filters: Array<RowFilter>): Promise<void> {
 		// Set the row filters.
 		await this._dataExplorerClientInstance.setRowFilters(filters);
