@@ -216,9 +216,9 @@
 			}
 		},
 {
-			"name": "copy_as_code",
-			"summary": "Export filters and sort keys as code",
-			"description": "Export filters and sort keys as code in different formats like pandas, polars, data.table, dplyr",
+			"name": "translate_to_code",
+			"summary": "Translate filters and sort keys as code",
+			"description": "Translate filters and sort keys as code in different syntaxes like pandas, polars, data.table, dplyr",
 			"params": [
 				{
 					"name": "column_filters",
@@ -254,13 +254,13 @@
 					}
 				},
 				{
-					"name": "export_code_syntax",
-					"description": "Exported code format",
+					"name": "code_syntax",
+					"description": "The code syntax to use for translation",
 					"required": true,
 					"schema": {
 						"type": "string",
 						"items": {
-							"$ref": "#/components/schemas/export_code_syntax"
+							"$ref": "#/components/schemas/code_syntax"
 						}
 					}
 				}
@@ -285,20 +285,20 @@
 {
 			"name": "get_code_syntaxes",
 			"summary": "Get code syntaxes supported for export",
-			"description": "tktk",
+			"description": "Get all available code syntaxes supported for export for a certain dataset",
 			"params": [],
 			"result": {
 				"schema": {
-					"name": "desired_code_types",
+					"name": "code_syntax_options",
 					"type": "object",
-					"description": "Resulting code types",
+					"description": "Code syntaxes available for export",
 					"required": [
-						"code_types"
+						"code_syntaxes"
 					],
 					"properties": {
-						"code_types": {
+						"code_syntaxes": {
 							"type": "array",
-							"description": "tktk",
+							"description": "Available code syntaxes supported for export",
 							"items": {
 								"type": "string"
 							}
@@ -1385,9 +1385,9 @@
 					}
 				}
 			},
-			"export_code_syntax": {
+			"code_syntax": {
 				"type": "string",
-				"description": "The syntax for code"
+				"description": "The syntax for translated code"
 			},
 			"supported_features": {
 				"type": "object",
