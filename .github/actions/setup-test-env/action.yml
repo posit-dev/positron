@@ -43,6 +43,13 @@ runs:
         miniforge-version: latest
         auto-activate-base: false
 
+    - name: Enforce conda-forge channel only
+      shell: bash -l {0}
+      run: |
+        conda config --remove-key channels || true
+        conda config --add channels conda-forge
+        conda config --set channel_priority strict
+
     - name: Setup Python
       uses: ./.github/actions/install-python
       with:
