@@ -177,5 +177,25 @@ export class Assistant {
 		await expect(this.code.driver.page.locator(CHAT_INPUT)).toBeVisible();
 	}
 
+	async verifyTokenUsageVisible() {
+		await expect(this.code.driver.page.locator('.token-usage')).toBeVisible();
+		await expect(this.code.driver.page.locator('.token-usage')).toHaveText(/Tokens: ↑\d+ ↓\d+/);
+	}
 
+	async verifyTokenUsageNotVisible() {
+		await expect(this.code.driver.page.locator('.token-usage')).not.toBeVisible();
+	}
+
+	async getTokenUsage() {
+		const tokenUsageElement = this.code.driver.page.locator('.token-usage');
+		await expect(tokenUsageElement).toBeVisible();
+		const text = await tokenUsageElement.textContent();
+		expect(text).not.toBeNull();
+		const inputMatch = text ? text.match(/↑(\d+)/) : null;
+		const outputMatch = text ? text.match(/↓(\d+)/) : null;
+		return {
+			inputTokens: inputMatch ? parseInt(inputMatch[1], 10) : 0,
+			outputTokens: outputMatch ? parseInt(outputMatch[1], 10) : 0
+		};
+	}
 }

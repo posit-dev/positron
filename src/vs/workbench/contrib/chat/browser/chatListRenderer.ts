@@ -159,7 +159,9 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		private readonly codeBlockModelCollection: CodeBlockModelCollection,
 		overflowWidgetsDomNode: HTMLElement | undefined,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@IConfigurationService configService: IConfigurationService,
+		// --- Start Positron ---
+		@IConfigurationService private readonly configService: IConfigurationService,
+		// --- End Positron ---
 		@ILogService private readonly logService: ILogService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IThemeService private readonly themeService: IThemeService,
@@ -626,7 +628,8 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		}
 
 		// --- Start Positron ---
-		if (isResponseVM(element) && element.tokenUsage && element.isComplete) {
+		const showTokens = this.configService.getValue<boolean>('positron.assistant.showTokenUsage.enable');
+		if (isResponseVM(element) && element.tokenUsage && element.isComplete && showTokens) {
 			templateData.value.appendChild(dom.$('.token-usage', undefined, localize('tokenUsage', "Tokens: ↑{0} ↓{1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens)));
 		}
 		// --- End Positron ---
