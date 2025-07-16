@@ -186,6 +186,13 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright (Electron)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      - name: Debug Conda Fun
+        run: |
+          which conda
+          conda --version
+          conda config --show channels
+          ls -l "$(which conda)"
+
       - name: Run Playwright Tests (Electron)
         env:
           POSITRON_PY_VER_SEL: 3.12.6

@@ -39,23 +39,24 @@ runs:
     - name: Setup Conda (Miniforge3)
       shell: bash
       run: |
+        # Download and install Miniforge to $HOME/conda
         wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
         sudo bash Miniforge3.sh -b -p "${HOME}/conda"
+
+        # Source conda so it's usable in this shell
         echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
         source "${HOME}/conda/etc/profile.d/conda.sh"
 
-        # 1. Clean up default config
-        conda config --remove channels https://repo.anaconda.com/pkgs/main || true
-        conda config --remove channels https://repo.anaconda.com/pkgs/r || true
+        # Clean up all channel config and enforce conda-forge only
+        conda config --remove-key channels || true
         conda config --add channels conda-forge
         conda config --set channel_priority strict
 
-        # 2. Accept ToS in case some script still forces those channels
-        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main || true
-        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r || true
-
-        # 3. Debug: show effective channels
+        # Debug info to confirm config and version
+        echo "✅ Conda installed at: $(which conda)"
+        conda --version
         conda config --show channels
+        conda info
 
     - name: Setup Python
       uses: ./.github/actions/install-python
