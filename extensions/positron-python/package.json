@@ -439,7 +439,8 @@
                 "category": "Python",
                 "command": "python.runAndDebugCell",
                 "icon": "$(debug-alt-small)",
-                "title": "Debug Cell"
+                "title": "Debug Cell",
+                "enablement": "notebookKernel =~ /^positron.runtime-notebook-kernels\\//"
             },
             {
                 "category": "Python",
@@ -1374,8 +1375,8 @@
                 "hiddenWhen": "true"
             },
             {
-                "type": "pythonNotebook",
-                "label": "Python Notebook"
+                "type": "runtimeNotebook",
+                "label": "Runtime Notebook"
             }
         ],
         "grammars": [

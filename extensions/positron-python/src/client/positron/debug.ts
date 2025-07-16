@@ -39,26 +39,28 @@ function logMessage(message: DebugProtocol.ProtocolMessage) {
     }
 }
 
-class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter {
+class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
     private readonly _disposables: vscode.Disposable[] = [];
 
     private readonly _onDidSendMessage = new vscode.EventEmitter<vscode.DebugProtocolMessage>();
+    private readonly _onDidCompleteConfiguration = new vscode.EventEmitter<void>();
 
     public readonly onDidSendMessage = this._onDidSendMessage.event;
+    public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
 
     private _cellUriByTempFilePath = new Map<string, string>();
 
     private sequence = 1;
 
     constructor(
-        private readonly _debugSession: vscode.DebugSession,
-        private readonly _runtimeSession: positron.LanguageRuntimeSession,
-        private readonly _notebook: vscode.NotebookDocument,
+        public readonly debugSession: vscode.DebugSession,
+        public readonly runtimeSession: positron.LanguageRuntimeSession,
+        public readonly notebook: vscode.NotebookDocument,
     ) {
-        this._disposables.push(this._onDidSendMessage);
+        this._disposables.push(this._onDidSendMessage, this._onDidCompleteConfiguration);
 
         this._disposables.push(
-            this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
+            this.runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
                 // TODO: Could the event be for another debug session?
                 if (message.type === positron.LanguageRuntimeMessageType.DebugEvent) {
                     const debugEvent = message as positron.LanguageRuntimeDebugEvent;
@@ -105,6 +107,10 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter {
         );
     }
 
+    public get notebookUri(): vscode.Uri {
+        return this.notebook.uri;
+    }
+
     public handleMessage(message: DebugProtocol.ProtocolMessage): void {
         this.handleMessageAsync(message).catch((error) => {
             log.error(`[adapter] Error handling message: ${logMessage(message)}`, error);
@@ -136,7 +142,7 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter {
         if (!cellUri) {
             throw new Error('No cell URI provided.');
         }
-        const cell = this._notebook.getCells().find((cell) => cell.document.uri.toString() === cellUri);
+        const cell = this.notebook.getCells().find((cell) => cell.document.uri.toString() === cellUri);
 
         if (!cell) {
             this.emitClientMessage<DebugProtocol.SetBreakpointsResponse>({
@@ -220,7 +226,7 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter {
     }
 
     private async dumpCell(args: DumpCellArguments): Promise<DumpCellResponseBody> {
-        return await this._debugSession.customRequest('dumpCell', args);
+        return await this.debugSession.customRequest('dumpCell', args);
     }
 
     // private async stackTrace(
@@ -234,13 +240,21 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter {
     // }
 
     private emitClientMessage<P extends DebugProtocol.ProtocolMessage>(message: Omit<P, 'seq'>): void {
-        const messageWithSeq: DebugProtocol.ProtocolMessage = {
+        const emittedMessage: DebugProtocol.ProtocolMessage = {
             ...message,
             seq: this.sequence,
         };
+
+        if (
+            emittedMessage.type === 'response' &&
+            (emittedMessage as DebugProtocol.Response).command === 'configurationDone'
+        ) {
+            this._onDidCompleteConfiguration.fire();
+        }
+
         this.sequence++;
-        log.debug(`[adapter] >>> SEND ${logMessage(messageWithSeq)}`);
-        this._onDidSendMessage.fire(messageWithSeq);
+        log.debug(`[adapter] >>> SEND ${logMessage(emittedMessage)}`);
+        this._onDidSendMessage.fire(emittedMessage);
     }
 
     private async sendKernelRequest<P extends DebugProtocol.Request, R extends DebugProtocol.Response>(
@@ -250,7 +264,7 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter {
 
         // TODO: Timeout?
         const responsePromise = new Promise<R>((resolve, reject) => {
-            const disposable = this._runtimeSession.onDidReceiveRuntimeMessage((message) => {
+            const disposable = this.runtimeSession.onDidReceiveRuntimeMessage((message) => {
                 if (message.parent_id !== id) {
                     return;
                 }
@@ -267,7 +281,7 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter {
         });
 
         log.debug(`[kernel] <<< RECV ${logMessage(request)}`);
-        this._runtimeSession.debug(request, id);
+        this.runtimeSession.debug(request, id);
 
         const response = await responsePromise;
         return response;
@@ -278,8 +292,73 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter {
     }
 }
 
+class DebugCellManager implements vscode.Disposable {
+    private readonly _disposables: vscode.Disposable[] = [];
+
+    private _executionId?: string;
+
+    constructor(
+        private readonly _adapter: RuntimeNotebookDebugAdapter,
+        private readonly _debugSession: vscode.DebugSession,
+        private readonly _notebook: vscode.NotebookDocument,
+        private readonly _runtimeSession: positron.LanguageRuntimeSession,
+        private readonly _cellIndex: number,
+    ) {
+        // TODO: Check that the cell belongs to the notebook? Or pass in cell index?
+
+        // Execute the cell when the debug session is ready.
+        // TODO: If we attach to an existing debug session, would this work?
+        //       Or we could also track configuration completed state in an adapter property
+        const configDisposable = this._adapter.onDidCompleteConfiguration(async () => {
+            configDisposable.dispose();
+            // TODO: Can this throw?
+            await vscode.commands.executeCommand('notebook.cell.execute', {
+                ranges: [{ start: this._cellIndex, end: this._cellIndex + 1 }],
+                document: this._notebook.uri,
+            });
+        });
+        this._disposables.push(configDisposable);
+
+        // Track the runtime execution ID when the cell is executed.
+        const executeDisposable = positron.runtime.onDidExecuteCode((event) => {
+            // TODO: restrict to cell and session ID as well?
+            if (
+                event.attribution.source === positron.CodeAttributionSource.Notebook &&
+                // TODO: what does this look like for untitled/unsaved files?
+                event.attribution.metadata?.notebook === this._notebook.uri.fsPath
+            ) {
+                executeDisposable.dispose();
+                this._executionId = event.executionId;
+            }
+        });
+        this._disposables.push(executeDisposable);
+
+        // End the debug session when the cell execution is complete.
+        const messageDisposable = this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
+            // TODO: Throw or wait if execution ID is not set?
+            if (
+                this._executionId &&
+                message.parent_id === this._executionId &&
+                message.type === positron.LanguageRuntimeMessageType.State &&
+                (message as positron.LanguageRuntimeState).state === positron.RuntimeOnlineState.Idle
+            ) {
+                messageDisposable.dispose();
+                await vscode.debug.stopDebugging(this._debugSession);
+                // TODO: this.dispose()? Or ensure its disposed elsewhere?
+            }
+        });
+        this._disposables.push(messageDisposable);
+    }
+
+    dispose() {
+        this._disposables.forEach((disposable) => disposable.dispose());
+    }
+}
+
 // TODO: How do we handle reusing a debug adapter/session across cells?
-class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory {
+class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory, vscode.Disposable {
+    private readonly _disposables: vscode.Disposable[] = [];
+
     async createDebugAdapterDescriptor(debugSession: vscode.DebugSession, _executable: vscode.DebugAdapterExecutable) {
         const notebook = vscode.workspace.notebookDocuments.find(
             (doc) => doc.uri.toString() === debugSession.configuration.__notebookUri,
@@ -295,69 +374,23 @@ class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
             return undefined;
         }
 
+        // TODO: A given runtime session can only have one debug session at a time...
+
         const runtimeSession = await positron.runtime.getNotebookSession(notebook.uri);
         if (!runtimeSession) {
             return undefined;
         }
 
+        // Create a new debug adapter for the notebook.
+        // TODO: Reuse adapter if it already exists for the notebook?
         const adapter = new RuntimeNotebookDebugAdapter(debugSession, runtimeSession, notebook);
+        this._disposables.push(adapter);
 
-        // Execute the cell when the debug session is ready.
-        const disposable = adapter.onDidSendMessage((message) => {
-            console.log(message);
-            if (
-                'type' in message &&
-                message.type === 'response' &&
-                'command' in message &&
-                message.command === 'configurationDone'
-            ) {
-                disposable.dispose();
+        // Create a debug cell manager to handle the cell execution and debugging.
+        const debugCellManager = new DebugCellManager(adapter, debugSession, notebook, runtimeSession, cell.index);
+        this._disposables.push(debugCellManager);
 
-                // Execute the cell.
-                vscode.commands.executeCommand('notebook.cell.execute', {
-                    ranges: [{ start: cell.index, end: cell.index + 1 }],
-                    document: cell.notebook.uri,
-                });
-            }
-        });
-
-        // End the debug session when the cell execution is complete.
-        (async () => {
-            const codeExecutionEvent = await new Promise<positron.CodeExecutionEvent>((resolve) => {
-                const disposable = positron.runtime.onDidExecuteCode((event) => {
-                    // TODO: restrict to cell and session ID as well?
-                    if (
-                        event.attribution.source === positron.CodeAttributionSource.Notebook &&
-                        // TODO: what does this look like for untitled/unsaved files?
-                        event.attribution.metadata?.notebook === notebook.uri.fsPath
-                    ) {
-                        disposable.dispose();
-                        resolve(event);
-                    }
-                });
-            });
-
-            // Now wait for the execution to complete...
-            await new Promise<void>((resolve) => {
-                const disposable = runtimeSession.onDidReceiveRuntimeMessage((message) => {
-                    if (
-                        message.parent_id === codeExecutionEvent.executionId &&
-                        message.type === positron.LanguageRuntimeMessageType.State &&
-                        (message as positron.LanguageRuntimeState).state === positron.RuntimeOnlineState.Idle
-                    ) {
-                        disposable.dispose();
-                        resolve();
-                    }
-                });
-            });
-
-            // End the debug session.
-            await vscode.debug.stopDebugging(debugSession);
-        })();
-
-        // End the debug session when an interrupt is received.
-        // TODO: need to also dispose things from above in each end case...
-        //       does the adapter get disposed?
+        // End the debug session when the kernel is interrupted.
         const stateDisposable = runtimeSession.onDidChangeRuntimeState(async (state) => {
             console.log(`Runtime state changed: ${state}`);
             if (state === positron.RuntimeState.Interrupting) {
@@ -365,16 +398,31 @@ class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
                 await vscode.debug.stopDebugging(debugSession);
             }
         });
+        this._disposables.push(stateDisposable);
 
-        // const adapter = new PythonNotebookDebugAdapter(debugSession, runtimeSession, notebook, cell);
+        // Clean up when the debug session terminates.
+        this._disposables.push(
+            vscode.debug.onDidTerminateDebugSession((session) => {
+                if (session.id === debugSession.id) {
+                    stateDisposable.dispose();
+                    debugCellManager.dispose();
+                    adapter.dispose();
+                }
+            }),
+        );
+
         return new vscode.DebugAdapterInlineImplementation(adapter);
+    }
+
+    dispose() {
+        this._disposables.forEach((disposable) => disposable.dispose());
     }
 }
 
 export function activateRuntimeNotebookDebugging(disposables: vscode.Disposable[]) {
-    disposables.push(
-        vscode.debug.registerDebugAdapterDescriptorFactory('pythonNotebook', new RuntimeNotebookDebugAdapterFactory()),
-    );
+    const adapterFactory = new RuntimeNotebookDebugAdapterFactory();
+    disposables.push(adapterFactory);
+    disposables.push(vscode.debug.registerDebugAdapterDescriptorFactory('runtimeNotebook', adapterFactory));
 
     disposables.push(
         vscode.commands.registerCommand('python.runAndDebugCell', async () => {
@@ -389,7 +437,7 @@ export function activateRuntimeNotebookDebugging(disposables: vscode.Disposable[
             }
 
             await vscode.debug.startDebugging(undefined, {
-                type: 'pythonNotebook',
+                type: 'runtimeNotebook',
                 name: path.basename(notebookEditor.notebook.uri.fsPath),
                 request: 'attach',
                 // TODO: Get from config.
