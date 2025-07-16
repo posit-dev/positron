@@ -459,5 +459,3 @@ import './services/positronConnections/browser/positronConnectionsService.js';
 import './contrib/positronWebviewPreloads/browser/positronWebviewPreloadsService.js';
 import './contrib/positronAssistant/browser/positronAssistantService.js';
 // --- End Positron ---
-
-console.log('HELLO')
