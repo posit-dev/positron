@@ -35,6 +35,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
+	 * Gets the Positron React services.
+	 */
+	private readonly _services = PositronReactServices.services;
+
+	/**
 	 * The onDidSelectColumn event emitter.
 	 */
 	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
@@ -47,13 +52,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Constructor.
-	 * @param _configurationService The configuration service.
-	 * @param _hoverService The hover service.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 * @param _tableSummaryCache The table summary cache.
 	 */
 	constructor(
-		private readonly _services: PositronReactServices,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _tableSummaryCache: TableSummaryCache
 	) {

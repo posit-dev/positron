@@ -31,6 +31,11 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	//#region Private Properties
 
 	/**
+	 * Gets the Positron React services.
+	 */
+	private readonly _services = PositronReactServices.services;
+
+	/**
 	 * Gets the table summary cache.
 	 */
 	private readonly _tableSummaryCache: TableSummaryCache;
@@ -111,8 +116,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	//#region Constructor & Dispose
 
-	private readonly _services: PositronReactServices;
-
 	/**
 	 * Constructor.
 	 * @param _languageName The language name.
@@ -143,7 +146,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Create the table summary data grid instance.
 		this._register(this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
-			this._services,
 			this._dataExplorerClientInstance,
 			this._tableSummaryCache
 		));
@@ -153,7 +155,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Create the table data data grid instance.
 		this._register(this._tableDataDataGridInstance = new TableDataDataGridInstance(
-			this._services,
 			this._dataExplorerClientInstance,
 			this._tableDataCache
 		));

@@ -38,6 +38,11 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
+	 * Gets the Positron React services.
+	 */
+	private readonly _services = PositronReactServices.services;
+
+	/**
 	 * The onAddFilter event emitter.
 	 */
 	private readonly _onAddFilterEmitter = this._register(new Emitter<ColumnSchema>);
@@ -53,16 +58,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Constructor.
-	 * @param _commandService The command service.
-	 * @param _configurationService The configuration service.
-	 * @param _hoverService The hover service.
-	 * @param _keybindingService The keybinding service.
-	 * @param _layoutService The layout service.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 * @param _tableDataCache The table data cache.
 	 */
 	constructor(
-		private readonly _services: PositronReactServices,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _tableDataCache: TableDataCache,
 	) {
