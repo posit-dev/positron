@@ -283,6 +283,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// Only include the documentCreate tool in the chat pane in edit or agent mode.
 					case PositronAssistantToolName.DocumentCreate:
 						return inChatPane && (isEditMode || isAgentMode);
+					// Only include the getTableSummary tool for Python sessions until supported in R
+					case PositronAssistantToolName.GetTableSummary:
+						return positronContext.activeSession?.language.toLowerCase() === 'python';
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
 					// Allow all tools in Agent mode.
 					default:
