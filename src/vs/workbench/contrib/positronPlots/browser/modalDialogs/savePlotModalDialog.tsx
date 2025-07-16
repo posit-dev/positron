@@ -306,8 +306,6 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Pdf, title: PlotRenderFormat.Pdf.toUpperCase(), value: PlotRenderFormat.Pdf }),
 											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Tiff, title: PlotRenderFormat.Tiff.toUpperCase(), value: PlotRenderFormat.Tiff }),
 										]}
-										keybindingService={props.renderer.services.keybindingService}
-										layoutService={props.renderer.services.workbenchLayoutService}
 										selectedIdentifier={format}
 										title={(() => localize(
 											'positron.savePlotModalDialog.format',

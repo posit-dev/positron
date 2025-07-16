@@ -138,7 +138,7 @@ export const RowFilterBar = () => {
 				/>
 			);
 		}
-	}, [context.instance.dataExplorerClientInstance, context.instance.tableDataDataGridInstance, rowFilterDescriptors, services.instantiationService, services.workbenchLayoutService]);
+	}, [context.instance.dataExplorerClientInstance, context.instance.tableDataDataGridInstance, rowFilterDescriptors, services.workbenchLayoutService]);
 
 	const features = backendClient.getSupportedFeatures();
 	const canFilter = dataExplorerExperimentalFeatureEnabled(features.set_row_filters.support_status, services.configurationService);

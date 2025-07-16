@@ -30,21 +30,6 @@ export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 		<NewFolderFlowContextProvider
 			initialStep={NewFolderFlowStep.FolderTemplateSelection}
 			parentFolder={await renderer.services.fileDialogService.defaultFolderPath()}
-			services={{
-				commandService: renderer.services.commandService,
-				configurationService: renderer.services.configurationService,
-				fileDialogService: renderer.services.fileDialogService,
-				fileService: renderer.services.fileService,
-				keybindingService: renderer.services.keybindingService,
-				labelService: renderer.services.labelService,
-				languageRuntimeService: renderer.services.languageRuntimeService,
-				layoutService: renderer.services.workbenchLayoutService,
-				logService: renderer.services.logService,
-				openerService: renderer.services.openerService,
-				pathService: renderer.services.pathService,
-				runtimeSessionService: renderer.services.runtimeSessionService,
-				runtimeStartupService: renderer.services.runtimeStartupService,
-			}}
 		>
 			<NewFolderFlowModalDialog
 				createFolder={async result => {

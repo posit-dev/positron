@@ -106,7 +106,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 						message,
 						{
 							componentOverrides: {
-								a: (props) => <ExternalLink {...props} openerService={renderer.services.openerService} />
+								a: (props) => <ExternalLink {...props} />
 							}
 						}
 					)}
@@ -174,7 +174,7 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 						message,
 						{
 							componentOverrides: {
-								a: (props) => <ExternalLink {...props} openerService={renderer.services.openerService} />
+								a: (props) => <ExternalLink {...props} />
 							}
 						}
 					)}

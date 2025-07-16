@@ -68,8 +68,6 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 						value: item
 					});
 				})}
-				keybindingService={services.keybindingService}
-				layoutService={services.workbenchLayoutService}
 				selectedIdentifier={languageId}
 				title={(() => localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language"))()}
 				onSelectionChanged={(item) => onLanguageChangeHandler(item.options.identifier)}

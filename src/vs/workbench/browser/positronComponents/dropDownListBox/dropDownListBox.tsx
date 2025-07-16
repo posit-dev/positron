@@ -15,10 +15,9 @@ import { DropDownListBoxItem } from './dropDownListBoxItem.js';
 import { DropDownListBoxSeparator } from './dropDownListBoxSeparator.js';
 import { PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * DropDownListBoxEntry type.
@@ -33,8 +32,6 @@ interface DropDownListBoxProps<T extends NonNullable<any>, V extends NonNullable
 	createItem?: (dropDownListBoxItem: DropDownListBoxItem<T, V>) => JSX.Element;
 	disabled?: boolean;
 	entries: DropDownListBoxEntry<T, V>[];
-	keybindingService: IKeybindingService;
-	layoutService: ILayoutService;
 	selectedIdentifier?: T;
 	title: string;
 	onSelectionChanged: (dropDownListBoxItem: DropDownListBoxItem<T, V>) => void;
@@ -72,6 +69,8 @@ const DropDownListBoxActual = <T extends NonNullable<any>, V extends NonNullable
 	props: DropDownListBoxProps<T, V>,
 	ref: React.Ref<HTMLButtonElement>
 ) => {
+	const services = usePositronReactServicesContext();
+
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
@@ -125,7 +124,7 @@ const DropDownListBoxActual = <T extends NonNullable<any>, V extends NonNullable
 			onPressed={() => {
 				// Create the renderer.
 				const renderer = new PositronModalReactRenderer({
-					container: props.layoutService.getContainer(DOM.getWindow(buttonRef.current)),
+					container: services.workbenchLayoutService.getContainer(DOM.getWindow(buttonRef.current)),
 					onDisposed: () => {
 						setHighlightedDropDownListBoxItem(undefined);
 						buttonRef.current.focus();

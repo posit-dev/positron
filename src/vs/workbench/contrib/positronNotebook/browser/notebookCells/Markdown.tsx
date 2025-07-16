@@ -73,7 +73,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 				nodes: renderHtml(html, {
 					componentOverrides: {
 						img: DeferredImage,
-						a: (props) => <ExternalLink {...props} openerService={services.openerService} />
+						a: (props) => <ExternalLink {...props} />
 					}
 				})
 			});

@@ -25,6 +25,7 @@ import { interpretersToDropdownItems } from '../../utilities/interpreterDropDown
 import { condaInterpretersToDropdownItems } from '../../utilities/condaUtils.js';
 import { uvInterpretersToDropdownItems } from '../../utilities/uvUtils.js';
 import { PathDisplay } from '../pathDisplay.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // NOTE: If you are making changes to this file, the equivalent R component may benefit from similar
 // changes. See src/vs/workbench/browser/positronNewFolderFlow/components/steps/rConfigurationStep.tsx
@@ -36,13 +37,8 @@ import { PathDisplay } from '../pathDisplay.js';
  */
 export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStepProps>) => {
 	// State.
+	const services = usePositronReactServicesContext();
 	const context = useNewFolderFlowContext();
-	const {
-		keybindingService,
-		layoutService,
-		logService,
-		languageRuntimeService,
-	} = context.services;
 
 	// Hooks.
 	const [envSetupType, setEnvSetupType] = useState(context.pythonEnvSetupType);
@@ -243,11 +239,11 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 		}
 
 		// Update the selected interpreter.
-		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
+		const selectedRuntime = services.languageRuntimeService.getRegisteredRuntime(identifier);
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
 			// runtimes
-			logService.error(`No Python runtime found for identifier: ${identifier}`);
+			services.logService.error(`No Python runtime found for identifier: ${identifier}`);
 			return;
 		}
 		context.selectedRuntime = selectedRuntime;
@@ -471,8 +467,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 						)}
 						disabled={!envProvidersAvailable()}
 						entries={envProviderDropdownEntries()}
-						keybindingService={keybindingService}
-						layoutService={layoutService}
 						selectedIdentifier={envProviderId}
 						title={envProviderDropdownTitle()}
 						onSelectionChanged={(item) =>
@@ -510,8 +504,6 @@ export const PythonEnvironmentStep = (props: PropsWithChildren<NewFolderFlowStep
 					)}
 					disabled={!interpretersAvailable()}
 					entries={interpreterDropdownEntries()}
-					keybindingService={keybindingService}
-					layoutService={layoutService}
 					selectedIdentifier={selectedInterpreterId()}
 					title={interpreterDropdownTitle()}
 					onSelectionChanged={(item) =>

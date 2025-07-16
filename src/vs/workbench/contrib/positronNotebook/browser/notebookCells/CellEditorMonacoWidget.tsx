@@ -146,7 +146,7 @@ export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
 			nativeContainer.remove();
 			cell.detachEditor();
 		};
-	}, [cell, instance, services, sizeObservable]);
+	}, [cell, environment, instance, services.configurationService, services.instantiationService, services.logService, sizeObservable]);
 
 
 

@@ -790,8 +790,6 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					ref={dropDownRowFilterRef}
 					disabled={selectedColumnSchema === undefined}
 					entries={conditionEntries()}
-					keybindingService={props.renderer.services.keybindingService}
-					layoutService={props.renderer.services.workbenchLayoutService}
 					selectedIdentifier={selectedFilterType}
 					title={(() => localize(
 						'positron.addEditRowFilter.selectCondition',
