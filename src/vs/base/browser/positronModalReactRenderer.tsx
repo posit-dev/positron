@@ -105,7 +105,7 @@ export class PositronModalReactRenderer extends Disposable {
 
 	//#endregion Private Properties
 
-	//#region Creator, Constructor, Dispose
+	//#region Constructor & Dispose
 
 	/**
 	 * Initializes a new instance of the PositronModalReactRenderer class.
@@ -133,9 +133,6 @@ export class PositronModalReactRenderer extends Disposable {
 		if (DOM.isHTMLElement(activeElement)) {
 			this._lastFocusedElement = activeElement;
 		}
-
-		// Set the options.
-		// this._options = options;
 	}
 
 	/**
@@ -174,7 +171,7 @@ export class PositronModalReactRenderer extends Disposable {
 		}
 	}
 
-	//#endregion Creator, Constructor, Dispose
+	//#endregion Constructor & Dispose
 
 	//#region Public Properties
 

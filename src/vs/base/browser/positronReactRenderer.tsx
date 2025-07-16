@@ -103,7 +103,7 @@ export class PositronReactRenderer extends Disposable {
 
 	//#endregion Private Properties
 
-	//#region Creator, Constructor & Dispose
+	//#region Constructor & Dispose
 
 	/**
 	 * Initializes a new instance of the ReactRenderer class.
@@ -131,7 +131,7 @@ export class PositronReactRenderer extends Disposable {
 		super.dispose();
 	}
 
-	//#endregion Creator, Constructor & Dispose
+	//#endregion Constructor & Dispose
 
 	//#region Public Methods
 
