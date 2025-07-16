@@ -11,7 +11,7 @@ import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
-import { quartoHandler } from './commands/quarto';
+import { EXPORT_QUARTO_COMMAND, quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
@@ -161,7 +161,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Select request handler based on the command issued by the user for this request
 		try {
 			switch (request.command) {
-				case 'quarto':
+				case EXPORT_QUARTO_COMMAND:
 					return await quartoHandler(request, context, response, token);
 				default:
 					return await this.defaultRequestHandler(request, context, response, token);
