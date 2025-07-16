@@ -3,18 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './summaryRowFilterBar.css';
-
 import React from 'react';
 
-import { SummaryRowSortDropdown } from './summaryRowSortDropdown.js';
-import { SummaryRowFilterInput } from './summaryRowFilterInput.js';
-
-export const SummaryRowFilterBar = () => {
+export const SummaryRowSortDropdown = () => {
 	return (
-		<div className='summary-row-filter-bar'>
-			<SummaryRowSortDropdown />
-			<SummaryRowFilterInput />
+		<div className='summary-row-sort-dropdown'>
+			{/* Placeholder for sort dropdown */}
+			<span>Sort by original</span>
 		</div>
 	);
 }
