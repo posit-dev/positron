@@ -59,7 +59,6 @@ export const enum PositronDataExplorerCommandId {
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
 	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
 	CopyAsCodeAction = 'workbench.action.positronDataExplorer.copyAsCode',
-	GetCodeSyntaxesAction = 'workbench.action.positronDataExplorer.getCodeSyntaxes',
 	CopyAsCodeModalAction = 'workbench.action.positronDataExplorer.copyAsCodeModal',
 }
 
