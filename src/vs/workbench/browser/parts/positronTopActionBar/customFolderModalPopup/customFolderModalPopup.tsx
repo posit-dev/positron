@@ -13,7 +13,7 @@ import React from 'react';
 import { CustomFolderMenuItems } from './customFolderMenuItems.js';
 import { IRecentlyOpened } from '../../../../../platform/workspaces/common/workspaces.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { PositronModalPopup2 } from '../../../positronComponents/positronModalPopup/positronModalPopup2.js';
+import { PositronModalPopup } from '../../../positronComponents/positronModalPopup/positronModalPopup.js';
 
 /**
  * CustomFolderModalPopupProps interface.
@@ -32,7 +32,7 @@ interface CustomFolderModalPopupProps {
 export const CustomFolderModalPopup = (props: CustomFolderModalPopupProps) => {
 	// Render.
 	return (
-		<PositronModalPopup2
+		<PositronModalPopup
 			anchorElement={props.anchorElement}
 			height={'auto'}
 			keyboardNavigationStyle='menu'
@@ -46,6 +46,6 @@ export const CustomFolderModalPopup = (props: CustomFolderModalPopupProps) => {
 				recentlyOpened={props.recentlyOpened}
 				onMenuItemSelected={() => props.renderer.dispose()}
 			/>
-		</PositronModalPopup2>
+		</PositronModalPopup>
 	);
 };
