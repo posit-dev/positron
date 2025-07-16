@@ -229,9 +229,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				const hasSelection = inEditor && request.location2.selection?.isEmpty === false;
 				const isEditMode = this.id === ParticipantID.Edit;
 				const isAgentMode = this.id === ParticipantID.Agent;
+				const isNotebookSession = positronContext.activeSession?.mode === positron.LanguageRuntimeSessionMode.Notebook;
+				const isStreamingInlineEditor = isStreamingEditsEnabled() && (this.id === ParticipantID.Editor || this.id === ParticipantID.Notebook);
+
 
 				// If streaming edits are enabled, don't allow any tools in inline editor chats.
-				if (isStreamingEditsEnabled() && this.id === ParticipantID.Editor) {
+				if (isStreamingInlineEditor) {
 					return false;
 				}
 
@@ -291,7 +294,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		);
 
-		log.debug(`[tools] Available tools for participant ${this.id}:\n${tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n')}`);
+		log.debug(`[tools] Available tools for participant ${this.id}:\n${tools.length > 0 ? tools.map((tool, i) => `${i + 1}. ${tool.name}`).join('\n') : 'No tools available'}`);
 
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
@@ -828,12 +831,9 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 }
 
 /** The participant used in notebook inline chats. */
-class PositronAssistantNotebookParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
+class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Notebook;
-
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-	}
+	// For now, the Notebook Participant inherits everything from the Editor Participant.
 }
 
 /** The participant used in the chat pane in Edit mode. */
