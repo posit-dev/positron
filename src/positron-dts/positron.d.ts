@@ -56,6 +56,10 @@ declare module 'positron' {
 		/** A message indicating that a comm (client instance) was closed from the server side */
 		CommClosed = 'comm_closed',
 
+		DebugEvent = 'debug_event',
+
+		DebugReply = 'debug_reply',
+
 		/** A message that should be handled by an IPyWidget */
 		IPyWidget = 'ipywidget',
 
@@ -458,6 +462,76 @@ declare module 'positron' {
 		data: object;
 	}
 
+	export enum DebugMessageType {
+		Request = 'request',
+		Response = 'response',
+		Event = 'event'
+	}
+
+	export interface DebugRequest {
+		/** Sequence number of the message (also known as message ID). The `seq` for the first message sent by a client or debug adapter is 1, and for each subsequent message is 1 greater than the previous message sent by that actor. `seq` can be used to order requests, responses, and events, and to associate requests with their corresponding responses. For protocol messages of type `request` the sequence number can be used to cancel the request. */
+		seq: number;
+		/** Message type.
+			Values: 'request', 'response', 'event', etc.
+		*/
+		type: string;
+		/** The command to execute. */
+		command: string;
+		/** Object containing arguments for the command. */
+		arguments?: any;
+	}
+
+	export interface DebugResponse {
+		/** Sequence number of the message (also known as message ID). The `seq` for the first message sent by a client or debug adapter is 1, and for each subsequent message is 1 greater than the previous message sent by that actor. `seq` can be used to order requests, responses, and events, and to associate requests with their corresponding responses. For protocol messages of type `request` the sequence number can be used to cancel the request. */
+		seq: number;
+		/** Message type.
+			Values: 'request', 'response', 'event', etc.
+		*/
+		type: string;
+		/** Sequence number of the corresponding request. */
+		request_seq: number;
+		/** Outcome of the request.
+			If true, the request was successful and the `body` attribute may contain the result of the request.
+			If the value is false, the attribute `message` contains the error in short form and the `body` may contain additional information (see `ErrorResponse.body.error`).
+		*/
+		success: boolean;
+		/** The command requested. */
+		command: string;
+		/** Contains the raw error in short form if `success` is false.
+			This raw error might be interpreted by the client and is not shown in the UI.
+			Some predefined values exist.
+			Values:
+			'cancelled': the request was cancelled.
+			'notStopped': the request may be retried once the adapter is in a 'stopped' state.
+			etc.
+		*/
+		// TODO: Use enum
+		message?: 'cancelled' | 'notStopped' | string;
+		/** Contains request result if success is true and error details if success is false. */
+		body?: any;
+	}
+
+	export interface DebugEvent {
+		/** Sequence number of the message (also known as message ID). The `seq` for the first message sent by a client or debug adapter is 1, and for each subsequent message is 1 greater than the previous message sent by that actor. `seq` can be used to order requests, responses, and events, and to associate requests with their corresponding responses. For protocol messages of type `request` the sequence number can be used to cancel the request. */
+		seq: number;
+		/** Message type.
+			Values: 'request', 'response', 'event', etc.
+		*/
+		type: string;
+		/** Type of event. */
+		event: string;
+		/** Event-specific information. */
+		body?: any;
+	}
+
+	export interface LanguageRuntimeDebugReply extends LanguageRuntimeMessage {
+		content: DebugResponse;
+	}
+
+	export interface LanguageRuntimeDebugEvent extends LanguageRuntimeMessage {
+		content: DebugEvent;
+	}
+
 	/**
 	 * LanguageRuntimeMetadata contains information about a language runtime that is known
 	 * before the runtime is started.
@@ -836,6 +910,8 @@ declare module 'positron' {
 	 * An event that is emitted when code is executed in Positron.
 	 */
 	export interface CodeExecutionEvent {
+		executionId: string;
+
 		/** The ID of the language in which the code was executed (e.g. 'python') */
 		languageId: string;
 
@@ -1021,6 +1097,8 @@ declare module 'positron' {
 		 * @returns true if the resource was opened; otherwise, false.
 		 */
 		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
+
+		debug(content: DebugRequest, id: string): void;
 
 		/**
 		 * Execute code in the runtime

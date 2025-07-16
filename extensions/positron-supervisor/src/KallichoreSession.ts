@@ -39,6 +39,7 @@ import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
+import { DebugRequest, JupyterDebugReply, JupyterDebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 
 /**
@@ -661,6 +662,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	onDidChangeRuntimeState: vscode.Event<positron.RuntimeState>;
 
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
+
+	debug(content: positron.DebugRequest, id: string): void {
+		const debug = new DebugRequest(id, content);
+		this.sendRequest(debug).then((reply) => {
+			this.log(`Debug reply: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
+		}).catch((err) => {
+			// This should be exceedingly rare; it represents a failure to send
+			// the request to Kallichore rather than a failure to debug
+			this.log(`Failed to send debug request: ${err}`, vscode.LogLevel.Error);
+		});
+	}
 
 	/**
 	 * Requests that the kernel execute a code fragment.
@@ -1444,6 +1456,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * been sent. Note that the kernel may not be interrupted immediately.
 	 */
 	async interrupt(): Promise<void> {
+		// Mark the session as interrupting
+		this.onStateChange(positron.RuntimeState.Interrupting, 'interrupting kernel');
+
 		// Clear current input request if any
 		this._activeBackendRequestHeader = null;
 

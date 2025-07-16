@@ -16,6 +16,7 @@ import { activateWebAppCommands } from './webAppCommands';
 import { activateWalkthroughCommands } from './walkthroughCommands';
 import { printInterpreterDebugInfo } from './interpreterSettings';
 import { registerLanguageServerManager } from './languageServerManager';
+import { activateRuntimeNotebookDebugging } from './debug';
 
 export async function activatePositron(serviceContainer: IServiceContainer): Promise<void> {
     try {
@@ -90,6 +91,9 @@ export async function activatePositron(serviceContainer: IServiceContainer): Pro
 
         // Activate web application commands.
         activateWebAppCommands(serviceContainer, disposables);
+
+        // Activate debugging for notebooks backed by language runtimes.
+        activateRuntimeNotebookDebugging(disposables);
 
         // Activate walkthrough commands.
         activateWalkthroughCommands(disposables);
