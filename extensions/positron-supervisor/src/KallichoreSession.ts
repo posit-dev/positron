@@ -236,16 +236,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			value: positron.version
 		});
 
-		// RUST_LOG sets the log level for Rust components started by the
-		// supervisor; it mirrors our own log level.
-		const config = vscode.workspace.getConfiguration('kernelSupervisor');
-		const logLevel = config.get<string>('logLevel') ?? 'warn';
-		varActions.push({
-			action: VarActionType.Replace,
-			name: 'RUST_LOG',
-			value: logLevel
-		});
-
 		// The long form of the Positron version (includes build number).
 		varActions.push({
 			action: VarActionType.Replace, name: 'POSITRON_LONG_VERSION',
