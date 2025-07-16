@@ -51,6 +51,10 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 	readonly onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>
 		= this._onDidEndSession.event;
 
+	debug(content: positron.DebugRequest, id: string): void {
+		throw new Error('Method not implemented.');
+	}
+
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
 		// Echo the input code
 		this.emitInput(id, code);

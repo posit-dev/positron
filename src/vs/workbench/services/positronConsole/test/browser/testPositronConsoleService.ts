@@ -208,6 +208,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		languageId: string,
 		code: string,
 		attribution: IConsoleCodeAttribution = { source: CodeAttributionSource.Interactive },
+		executionId = 'test-execution-id',
 		runtimeName: string = 'Test Runtime',
 		mode: RuntimeCodeExecutionMode = RuntimeCodeExecutionMode.Interactive,
 		errorBehavior: RuntimeErrorBehavior = RuntimeErrorBehavior.Continue
@@ -215,6 +216,7 @@ export class TestPositronConsoleService implements IPositronConsoleService {
 		// Try to use the active console, or fall back to a dummy session ID
 		const sessionId = this._activePositronConsoleInstance?.sessionId || 'test-session-id';
 		return {
+			executionId,
 			sessionId,
 			languageId,
 			code,
@@ -474,9 +476,10 @@ export class TestPositronConsoleInstance implements IPositronConsoleInstance {
 		attribution: IConsoleCodeAttribution,
 		mode?: RuntimeCodeExecutionMode,
 		errorBehavior?: RuntimeErrorBehavior,
-		executionId?: string
+		executionId = 'test-execution-id'
 	): void {
 		const event: ILanguageRuntimeCodeExecutedEvent = {
+			executionId,
 			sessionId: this.sessionId,
 			languageId: this.runtimeMetadata.languageId,
 			code,

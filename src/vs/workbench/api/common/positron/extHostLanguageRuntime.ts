@@ -838,6 +838,7 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 
 		// Create the event object
 		const evt: positron.CodeExecutionEvent = {
+			executionId: event.executionId,
 			languageId: event.languageId,
 			code: event.code,
 			attribution,

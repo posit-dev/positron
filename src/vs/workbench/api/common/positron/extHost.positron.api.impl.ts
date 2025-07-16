@@ -304,6 +304,7 @@ export function createPositronApiFactoryAndRegisterActors(accessor: ServicesAcce
 			CodeAttributionSource: extHostTypes.CodeAttributionSource,
 			PositronLanguageModelType: extHostTypes.PositronLanguageModelType,
 			PositronChatAgentLocation: extHostTypes.PositronChatAgentLocation,
+			DebugMessageType: extHostTypes.DebugMessageType,
 			PositronOutputLocation: extHostTypes.PositronOutputLocation,
 			PositronChatMode: extHostTypes.PositronChatMode,
 			RuntimeClientType: extHostTypes.RuntimeClientType,

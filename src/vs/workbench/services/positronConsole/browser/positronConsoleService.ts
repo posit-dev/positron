@@ -2107,6 +2107,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 				// Fire the onDidExecuteCode event so the code gets added to the console history.
 				this._onDidExecuteCodeEmitter.fire({
+					executionId: languageRuntimeMessageInput.parent_id,
 					sessionId: this.sessionId,
 					languageId,
 					code: languageRuntimeMessageInput.code,
@@ -2803,6 +2804,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
+			executionId: id,
 			sessionId: this._session.sessionId,
 			code,
 			mode,
@@ -2903,6 +2905,7 @@ class PositronConsoleInstance extends Disposable implements IPositronConsoleInst
 
 		// Create and fire the onDidExecuteCode event.
 		const event: ILanguageRuntimeCodeExecutedEvent = {
+			executionId: id,
 			sessionId: this._session.sessionId,
 			code,
 			mode,

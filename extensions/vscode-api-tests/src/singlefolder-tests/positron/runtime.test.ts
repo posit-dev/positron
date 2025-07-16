@@ -194,6 +194,10 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		this._currentExecutionId = '';
 	}
 
+	debug(_content: unknown, _id: string): void {
+		throw new Error('Not implemented.');
+	}
+
 	async isCodeFragmentComplete(_code: string): Promise<positron.RuntimeCodeFragmentStatus> {
 		return Promise.resolve(positron.RuntimeCodeFragmentStatus.Complete);
 	}

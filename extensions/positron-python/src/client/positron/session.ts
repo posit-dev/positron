@@ -161,6 +161,14 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
     }
 
+    debug(content: positron.DebugRequest, id: string): void {
+        if (this._kernel) {
+            this._kernel.debug(content, id);
+        } else {
+            throw new Error(`Cannot debug; kernel not started`);
+        }
+    }
+
     execute(
         code: string,
         id: string,

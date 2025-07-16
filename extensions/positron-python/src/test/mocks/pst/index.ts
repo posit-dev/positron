@@ -66,6 +66,8 @@ export enum LanguageRuntimeMessageType {
     CommOpen = 'comm_open',
     CommData = 'comm_data',
     CommClosed = 'comm_closed',
+    DebugEvent = 'debug_event',
+    DebugReply = 'debug_reply',
     IPyWidget = 'ipywidget',
     UpdateOutput = 'update_output',
 }
