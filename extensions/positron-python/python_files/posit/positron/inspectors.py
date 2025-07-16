@@ -315,7 +315,7 @@ class BytesInspector(PositronInspector[Bytes]):
     @classmethod
     def value_from_json(cls, type_name: str, data: JsonData) -> Bytes:
         if isinstance(data, str):
-            return cast(Bytes, data.encode())
+            return cast("Bytes", data.encode())
         return super().value_from_json(type_name, data)
 
 
@@ -432,17 +432,17 @@ class NumberInspector(PositronInspector[NT], ABC):
         if type_name == "int":
             if not isinstance(data, numbers.Integral):
                 raise ValueError(f"Expected data to be int, got {data}")
-            return cast(NT, data)
+            return cast("NT", data)
 
         if type_name == "float":
             if not isinstance(data, numbers.Real):
                 raise ValueError(f"Expected data to be float, got {data}")
-            return cast(NT, data)
+            return cast("NT", data)
 
         if type_name == "complex":
             if not isinstance(data, str):
                 raise ValueError(f"Expected data to be str, got {data}")
-            return cast(NT, complex(data))
+            return cast("NT", complex(data))
 
         return super().value_from_json(type_name, data)
 
