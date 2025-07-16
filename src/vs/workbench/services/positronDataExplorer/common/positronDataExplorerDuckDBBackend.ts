@@ -9,7 +9,7 @@ import { DataExplorerUiEvent, IDataExplorerBackendClient } from '../../languageR
 import {
 	ArraySelection,
 	BackendState,
-	CodeSyntaxOptions,
+	CodeSyntax,
 	ColumnFilter,
 	ColumnProfileRequest,
 	ColumnSelection,
@@ -18,7 +18,6 @@ import {
 	DataExplorerFrontendEvent,
 	DataUpdateEvent,
 	ExportDataSelectionParams,
-	ExportedCode,
 	ExportedData,
 	ExportFormat,
 	FilterResult,
@@ -38,7 +37,8 @@ import {
 	TableData,
 	TableRowLabels,
 	TableSchema,
-	TableSelection
+	TableSelection,
+	TranslatedCode
 } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ICommandService, CommandsRegistry } from '../../../../platform/commands/common/commands.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -209,16 +209,16 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 		});
 	}
 
-	async getCodeSyntaxes(): Promise<CodeSyntaxOptions> {
-		return this._execRpc<CodeSyntaxOptions>({
-			method: DataExplorerBackendRequest.GetCodeSyntaxes,
+	async guessCodeSyntax(): Promise<CodeSyntax> {
+		return this._execRpc<CodeSyntax>({
+			method: DataExplorerBackendRequest.GuessCodeSyntax,
 			uri: this.uri.toString(),
 			params: {}
 		});
 	}
 
-	async translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<ExportedCode> {
-		return this._execRpc<ExportedCode>({
+	async translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<TranslatedCode> {
+		return this._execRpc<TranslatedCode>({
 			method: DataExplorerBackendRequest.TranslateToCode,
 			uri: this.uri.toString(),
 			params: {

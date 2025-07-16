@@ -57,22 +57,22 @@ export interface ExportedData {
 /**
  * Code snippet for the data view
  */
-export interface ExportedCode {
+export interface TranslatedCode {
 	/**
-	 * Exported code as a string suitable for copy and paste
+	 * Lines of code translating filters and sort keys
 	 */
-	code: string;
+	translated_code: Array<string>;
 
 }
 
 /**
- * Code syntaxes available for export
+ * Best guess of syntax to use for code translation
  */
-export interface CodeSyntaxOptions {
+export interface CodeSyntax {
 	/**
-	 * Available code syntaxes supported for export
+	 * Best guess of syntax to use for code translation
 	 */
-	code_syntaxes: Array<string>;
+	code_syntax?: string;
 
 }
 
@@ -878,6 +878,11 @@ export interface SupportedFeatures {
 	 */
 	export_data_selection: ExportDataSelectionFeatures;
 
+	/**
+	 * List of supported code syntax names
+	 */
+	code_syntaxes: Array<string>;
+
 }
 
 /**
@@ -1450,7 +1455,7 @@ export enum DataExplorerBackendRequest {
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
 	TranslateToCode = 'translate_to_code',
-	GetCodeSyntaxes = 'get_code_syntaxes',
+	GuessCodeSyntax = 'guess_code_syntax',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
@@ -1572,21 +1577,20 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 *
 	 * @returns Code snippet for the data view
 	 */
-	translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<ExportedCode> {
+	translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<TranslatedCode> {
 		return super.performRpc('translate_to_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax'], [columnFilters, rowFilters, sortKeys, codeSyntax]);
 	}
 
 	/**
-	 * Get code syntaxes supported for code translation
+	 * Guess code syntax for code translation
 	 *
-	 * Get all available code syntaxes supported for translation for a data
-	 * view
+	 * Guess desired code syntax for translation of a data view based on type
 	 *
 	 *
-	 * @returns Code syntaxes available for export
+	 * @returns Best guess of syntax to use for code translation
 	 */
-	getCodeSyntaxes(): Promise<CodeSyntaxOptions> {
-		return super.performRpc('get_code_syntaxes', [], []);
+	guessCodeSyntax(): Promise<CodeSyntax> {
+		return super.performRpc('guess_code_syntax', [], []);
 	}
 
 	/**

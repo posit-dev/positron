@@ -434,12 +434,13 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 * Gets the available code syntaxes.
 	 * @returns A Promise<Array<string>> that resolves with the available code syntaxes.
 	 */
-	async getCodeSyntaxes(): Promise<Array<string>> {
-		const syntaxes = await this._dataExplorerClientInstance.getCodeSyntaxes();
-		if (!syntaxes.code_syntaxes) {
-			return ['No available syntaxes.'];
+	async guessCodeSyntax(): Promise<string> {
+		const syntaxes = await this._dataExplorerClientInstance.guessCodeSyntax();
+
+		if (!syntaxes.code_syntax) {
+			return 'No available syntaxes.';
 		}
-		return syntaxes.code_syntaxes;
+		return syntaxes.code_syntax;
 
 	}
 
@@ -449,7 +450,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	async translateToCode(desiredSyntax: string): Promise<string> {
 		const generatedCode = await this._dataExplorerClientInstance.translateToCode(desiredSyntax);
-		return generatedCode.code;
+		return generatedCode.translated_code.join('\n');
 	}
 
 	/**

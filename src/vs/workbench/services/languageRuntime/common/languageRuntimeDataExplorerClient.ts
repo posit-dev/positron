@@ -8,7 +8,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { ArraySelection, BackendState, CodeSyntaxOptions, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedCode, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from './positronDataExplorerComm.js';
+import { ArraySelection, BackendState, CodeSyntax, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, TranslatedCode, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from './positronDataExplorerComm.js';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -66,8 +66,8 @@ export interface IDataExplorerBackendClient extends Disposable {
 	getDataValues(columns: Array<ColumnSelection>, formatOptions: FormatOptions): Promise<TableData>;
 	getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels>;
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData>;
-	getCodeSyntaxes(): Promise<CodeSyntaxOptions>;
-	translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: string): Promise<ExportedCode>;
+	guessCodeSyntax(): Promise<CodeSyntax>;
+	translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: string): Promise<TranslatedCode>;
 	setColumnFilters(filters: Array<ColumnFilter>): Promise<void>;
 	setRowFilters(filters: Array<RowFilter>): Promise<FilterResult>;
 	setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void>;
@@ -104,7 +104,8 @@ export const DATA_EXPLORER_DISCONNECTED_STATE: BackendState = {
 		export_data_selection: {
 			support_status: SupportStatus.Unsupported,
 			supported_formats: []
-		}
+		},
+		code_syntaxes: []
 	}
 };
 
@@ -181,6 +182,8 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Promises for asynchronous tasks requested of the backend, keyed by callback ID.
 	 */
 	private readonly _asyncTasks = new Map<string, DeferredPromise<any>>();
+
+	public guessedSyntax: CodeSyntax | undefined = undefined;
 
 	//#endregion Private Properties
 
@@ -498,10 +501,8 @@ export class DataExplorerClientInstance extends Disposable {
 		}
 	}
 
-
-	async translateToCode(desiredSyntax: string): Promise<ExportedCode> {
+	async translateToCode(desiredSyntax: string): Promise<TranslatedCode> {
 		const state = await this.getBackendState();
-		//const codeTypes = await this.getCodeTypes();
 
 		const columnFilters: Array<ColumnFilter> = state.column_filters;
 		const rowFilters: Array<RowFilter> = state.row_filters;
@@ -509,20 +510,26 @@ export class DataExplorerClientInstance extends Disposable {
 
 		return this.runBackendTask(
 			() => this._backendClient.translateToCode(columnFilters, rowFilters, sortKeys, desiredSyntax),
-			() => ({ 'code': '' })
+			() => ({ 'translated_code': [''] })
 		);
 	}
 
 	/**
-	 * Get the code syntaxes supported for export.
+	 * Guess the code syntax for export.
 	 * @returns A promise that resolves to the available code syntaxes.
 	 */
-	async getCodeSyntaxes(): Promise<CodeSyntaxOptions> {
-		return this.runBackendTask(
-			() => this._backendClient.getCodeSyntaxes(),
-			() => ({ code_syntaxes: [] })
-		);
+	async guessCodeSyntax(): Promise<CodeSyntax> {
+		// first time
+		if (this.guessedSyntax === undefined) {
+			this.guessedSyntax = await this.runBackendTask(
+				() => this._backendClient.guessCodeSyntax(),
+				() => ({ code_syntax: '' })
+			);
+			return this.guessedSyntax as CodeSyntax;
+		}
+		return this.guessedSyntax;
 	}
+
 
 	//#endregion Public Methods
 

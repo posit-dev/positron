@@ -267,41 +267,41 @@
 		],
 			"result": {
 				"schema": {
-					"name": "exported_code",
+					"name": "translated_code",
 					"type": "object",
 					"description": "Code snippet for the data view",
 					"required": [
-						"code"
+						"translated_code"
 					],
 					"properties": {
-						"code": {
-							"type": "string",
-							"description": "Exported code as a string suitable for copy and paste"
+						"translated_code": {
+							"type": "array",
+							"description": "Lines of code translating filters and sort keys",
+							"items": {
+								"type": "string"
+							}
 						}
 					}
 				}
 			}
 		},
 {
-			"name": "get_code_syntaxes",
-			"summary": "Get code syntaxes supported for code translation",
-			"description": "Get all available code syntaxes supported for translation for a data view",
+			"name": "guess_code_syntax",
+			"summary": "Guess code syntax for code translation",
+			"description": "Guess desired code syntax for translation of a data view based on type",
 			"params": [],
 			"result": {
 				"schema": {
-					"name": "code_syntax_options",
+					"name": "code_syntax",
 					"type": "object",
-					"description": "Code syntaxes available for export",
+					"description": "Best guess of syntax to use for code translation",
 					"required": [
 						"code_syntaxes"
 					],
 					"properties": {
-						"code_syntaxes": {
-							"type": "array",
-							"description": "Available code syntaxes supported for export",
-							"items": {
-								"type": "string"
-							}
+						"code_syntax": {
+							"type": "string",
+							"description": "Best guess of syntax to use for code translation"
 						}
 					}
 				}
@@ -1399,7 +1399,8 @@
 					"get_column_profiles",
 					"set_sort_columns",
 					"export_data_selection",
-					"export_as_code"
+					"export_as_code",
+					"code_syntaxes"
 				],
 				"properties": {
 					"search_schema": {
@@ -1425,6 +1426,13 @@
 					"export_data_selection": {
 						"description": "Support for 'export_data_selection' RPC and its features",
 						"$ref": "#/components/schemas/export_data_selection_features"
+					},
+					"code_syntaxes": {
+						"type": "array",
+						"description": "List of supported code syntax names",
+						"items": {
+							"type": "string"
+						}
 					}
 				}
 			},

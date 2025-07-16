@@ -121,9 +121,9 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	copyTableDataToClipboard(): Promise<void>;
 
 	/**
-	 * Get possible code syntaxes for copy-to-code generation.
+	 * Guess default code syntax for copy-to-code generation.
 	 */
-	getCodeSyntaxes(): Promise<Array<string>>;
+	guessCodeSyntax(): Promise<string>;
 
 	/**
 	 * Translates the current data view's filters and sorts to code in the desired syntax.

@@ -27,7 +27,7 @@ from .access_keys import decode_access_key
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
-    CodeSyntaxOptions,
+    CodeSyntax,
     ColumnDisplayType,
     ColumnFilter,
     ColumnFilterType,
@@ -54,7 +54,6 @@ from .data_explorer_comm import (
     DataSelectionSingleCell,
     ExportDataSelectionFeatures,
     ExportDataSelectionRequest,
-    ExportedCode,
     ExportedData,
     ExportFormat,
     FilterBetween,
@@ -65,13 +64,13 @@ from .data_explorer_comm import (
     FilterSetMembership,
     FilterTextSearch,
     FormatOptions,
-    GetCodeSyntaxesRequest,
     GetColumnProfilesFeatures,
     GetColumnProfilesRequest,
     GetDataValuesRequest,
     GetRowLabelsRequest,
     GetSchemaRequest,
     GetStateRequest,
+    GuessCodeSyntaxRequest,
     RowFilter,
     RowFilterCondition,
     RowFilterType,
@@ -97,6 +96,7 @@ from .data_explorer_comm import (
     TableSelectionKind,
     TableShape,
     TextSearchType,
+    TranslatedCode,
     TranslateToCodeRequest,
 )
 from .positron_comm import CommMessage, PositronComm
@@ -815,6 +815,7 @@ class DataExplorerTableView:
             support_status=SupportStatus.Unsupported,
             supported_formats=[],
         ),
+        code_syntaxes=["pandas", "polars"],
     )
 
 
@@ -1361,13 +1362,15 @@ class PandasView(DataExplorerTableView):
 
         return schema_updated, new_state
 
-    def get_code_syntaxes(self, request: GetCodeSyntaxesRequest):  # noqa: ARG002
+    def guess_code_syntaxes(self, request: GuessCodeSyntaxRequest):  # noqa: ARG002
         """Returns the supported code types for exporting data."""
-        return CodeSyntaxOptions(code_syntaxes=["pandas"]).dict()
+        return CodeSyntax(code_syntax="pandas").dict()
 
     def translate_to_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return ExportedCode(code="import pandas as pd\n\n# TODO: Implement export to code").dict()
+        return TranslatedCode(
+            translated_code=["import pandas as pd", "# TODO: Implement export to code"]
+        ).dict()
 
     @classmethod
     def _construct_schema(
@@ -1930,6 +1933,7 @@ class PandasView(DataExplorerTableView):
                 ExportFormat.Html,
             ],
         ),
+        code_syntaxes=["pandas"],
     )
 
 
@@ -2299,13 +2303,15 @@ class PolarsView(DataExplorerTableView):
 
         return schema_updated, new_state
 
-    def get_code_syntaxes(self, request: GetCodeSyntaxesRequest):  # noqa: ARG002
+    def guess_code_syntaxes(self, request: GuessCodeSyntaxRequest):  # noqa: ARG002
         """Returns the supported code types for exporting data."""
-        return CodeSyntaxOptions(code_syntaxes=["polars"]).dict()
+        return CodeSyntax(code_syntax="polars").dict()
 
     def translate_to_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return ExportedCode(code="import polars as pl\n\n# TODO: Implement export to code").dict()
+        return TranslatedCode(
+            translated_code=["import polars as pl", "# TODO: Implement export to code"]
+        ).dict()
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
@@ -2789,6 +2795,7 @@ class PolarsView(DataExplorerTableView):
             supported_formats=[ExportFormat.Csv, ExportFormat.Tsv],
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
+        code_syntaxes=["polars"],
     )
 
 
