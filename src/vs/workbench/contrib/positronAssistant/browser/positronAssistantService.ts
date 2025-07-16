@@ -68,9 +68,12 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 			timeZoneName: 'short',
 		};
 
+		// Use the product service to get the Positron version if known;
+		// otherwise, use a default format based on the current date (E.g.,
+		// 2026.01.0-dev)
 		const positronVersion = this._productService ?
 			`${this._productService.positronVersion}-${this._productService.positronBuildNumber}`
-			: undefined;
+			: `${now.getFullYear()}.${(now.getMonth() + 1).toString().padStart(2, '0')}.0-dev`;
 
 		const context: IPositronChatContext = {
 			positronVersion,
