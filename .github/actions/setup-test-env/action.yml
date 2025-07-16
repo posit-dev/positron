@@ -47,14 +47,26 @@ runs:
         echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
         source "${HOME}/conda/etc/profile.d/conda.sh"
 
-        # Clean up all channel config and enforce conda-forge only
+        # Debug: show base version
+        echo "✅ Conda installed at: $(which conda)"
+        conda --version
+
+        # Install the conda-anaconda-tos plugin (requires temporarily enabling 'defaults')
+        conda config --add channels defaults
+        conda install -n base -y conda-anaconda-tos
+        conda config --remove channels defaults || true
+
+        # Accept Anaconda ToS in CI (required as of July 15, 2025)
+        conda tos accept --channel https://repo.anaconda.com/pkgs/main
+        conda tos accept --channel https://repo.anaconda.com/pkgs/r
+
+        # Clean up all other channels and enforce conda-forge only
         conda config --remove-key channels || true
         conda config --add channels conda-forge
         conda config --set channel_priority strict
 
-        # Debug info to confirm config and version
-        echo "✅ Conda installed at: $(which conda)"
-        conda --version
+        # Final verification logs
+        echo "🔍 Conda config:"
         conda config --show channels
         conda info
 
