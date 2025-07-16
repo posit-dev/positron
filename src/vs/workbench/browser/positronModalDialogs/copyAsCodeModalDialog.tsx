@@ -73,9 +73,9 @@ interface CopyAsCodeDialogProps {
 export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 	// State hooks.
 	const instance = props.dataExplorerClientInstance.dataExplorerClientInstance;
-	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.code_syntaxes ?? ['No available syntaxes'];
+	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.code_syntaxes ?? [];
 
-	const [selectedSyntax, setSelectedSyntax] = useState<string | undefined>(undefined);
+	const [selectedSyntax, setSelectedSyntax] = useState<string>(instance.guessedSyntax.code_syntax ?? 'Select Code Syntax');
 
 	const [codeString, setCodeString] = useState<string | undefined>(undefined);
 
@@ -113,7 +113,7 @@ export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 
 	// Construct the syntax dropdown title.
 	const syntaxDropdownTitle = () => {
-		return instance.guessedSyntax?.code_syntax ?? 'Select Code Syntax';
+		return selectedSyntax;
 	};
 
 	const onSelectionChanged = async (item: DropDownListBoxItem<unknown, unknown>) => {
