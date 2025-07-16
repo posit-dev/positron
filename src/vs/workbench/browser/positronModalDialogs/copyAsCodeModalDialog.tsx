@@ -72,7 +72,9 @@ interface CopyAsCodeDialogProps {
  */
 export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 	// State hooks.
-	const [codeSyntaxOptions, setcodeSyntaxOptions] = useState<Array<string>>(['No available syntaxes.']);
+	const instance = props.dataExplorerClientInstance.dataExplorerClientInstance;
+	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.code_syntaxes ?? ['No available syntaxes'];
+
 	const [selectedSyntax, setSelectedSyntax] = useState<string | undefined>(undefined);
 
 	const [codeString, setCodeString] = useState<string | undefined>(undefined);
@@ -88,19 +90,6 @@ export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 		}
 		getCodeString();
 	}, [props.commandService, selectedSyntax]);
-
-
-	useEffect(() => {
-		const getCodeSyntax = async () => {
-			const codeSyntaxes = await props.commandService.executeCommand<Array<string>>(PositronDataExplorerCommandId.GetCodeSyntaxesAction);
-			if (!codeSyntaxes) {
-				return;
-			}
-			setcodeSyntaxOptions(codeSyntaxes);
-			setSelectedSyntax(codeSyntaxes[0]);
-		}
-		getCodeSyntax();
-	}, [props.commandService]);
 
 	// Construct the syntax options dropdown entries
 	const syntaxDropdownEntries = () => {
@@ -124,7 +113,7 @@ export const NewCopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 
 	// Construct the syntax dropdown title.
 	const syntaxDropdownTitle = () => {
-		return codeSyntaxOptions[0]
+		return instance.guessedSyntax?.code_syntax ?? 'Select Code Syntax';
 	};
 
 	const onSelectionChanged = async (item: DropDownListBoxItem<unknown, unknown>) => {

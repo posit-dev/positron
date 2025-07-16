@@ -759,70 +759,6 @@ class PositronDataExplorerGenerateCodeAction extends Action2 {
 	}
 }
 
-/**
- * PositronDataExplorerExportToCodeAction action.
- */
-class PositronDataExplorerGetCodeSyntaxesAction extends Action2 {
-	/**
-	 * Constructor.
-	 */
-	constructor() {
-		super({
-			id: PositronDataExplorerCommandId.GetCodeSyntaxesAction,
-			title: {
-				value: localize('positronDataExplorer.getCodeSyntaxes', 'Get Code Syntaxes'),
-				original: 'Get Code Syntaxes'
-			},
-			category,
-			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-			)
-		});
-	}
-
-	/**
-	 * Runs the action.
-	 * @param accessor The services accessor.
-	 */
-	async run(accessor: ServicesAccessor): Promise<Array<string>> {
-		// Access the services we need.
-		const editorService = accessor.get(IEditorService);
-		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
-
-		// Get the Positron data explorer editor.
-		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
-			editorService.activeEditorPane
-		);
-
-		// Make sure that the Positron data explorer editor was returned.
-		if (!positronDataExplorerEditor) {
-			return ['No active Positron Data Explorer editor found.'];
-		}
-
-		// Get the identifier.
-		const identifier = positronDataExplorerEditor.identifier;
-
-		// Make sure the identifier was returned.
-		if (!identifier) {
-			return ['No active Positron Data Explorer editor found.'];
-		}
-
-		// Get the Positron data explorer instance.
-		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
-			identifier
-		);
-
-		// Make sure the Positron data explorer instance was returned.
-		if (!positronDataExplorerInstance) {
-			return ['No active Positron Data Explorer editor found.'];
-		}
-		const code = await positronDataExplorerInstance.getCodeSyntaxes();
-
-		return code;
-	}
-}
-
-
 
 /**
  * The PositronDataExplorerCopyAsCodeModalAction.
@@ -1010,6 +946,5 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
 	registerAction2(PositronDataExplorerGenerateCodeAction);
-	registerAction2(PositronDataExplorerGetCodeSyntaxesAction);
 	registerAction2(PositronDataExplorerCopyAsCodeModalAction);
 }
