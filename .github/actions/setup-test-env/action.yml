@@ -44,6 +44,14 @@ runs:
         echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
         source "${HOME}/conda/etc/profile.d/conda.sh"
 
+        # Remove problematic channels to avoid ToS issues
+        conda config --remove channels https://repo.anaconda.com/pkgs/main || true
+        conda config --remove channels https://repo.anaconda.com/pkgs/r || true
+
+        # Just to be sure, set conda-forge explicitly
+        conda config --add channels conda-forge
+        conda config --set channel_priority strict
+
     - name: Setup Python
       uses: ./.github/actions/install-python
       with:
