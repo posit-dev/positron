@@ -37,38 +37,11 @@ runs:
         tinytex: true
 
     - name: Setup Conda (Miniforge3)
-      shell: bash
-      run: |
-        # Download and install Miniforge to $HOME/conda
-        wget -O Miniforge3.sh "https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-$(uname)-$(uname -m).sh"
-        sudo bash Miniforge3.sh -b -p "${HOME}/conda"
-
-        # Source conda so it's usable in this shell
-        echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
-        source "${HOME}/conda/etc/profile.d/conda.sh"
-
-        # Debug: show base version
-        echo "✅ Conda installed at: $(which conda)"
-        conda --version
-
-        # Install the conda-anaconda-tos plugin (requires temporarily enabling 'defaults')
-        conda config --add channels defaults
-        conda install -n base -y conda-anaconda-tos
-        conda config --remove channels defaults || true
-
-        # Accept Anaconda ToS in CI (required as of July 15, 2025)
-        conda tos accept --channel https://repo.anaconda.com/pkgs/main
-        conda tos accept --channel https://repo.anaconda.com/pkgs/r
-
-        # Clean up all other channels and enforce conda-forge only
-        conda config --remove-key channels || true
-        conda config --add channels conda-forge
-        conda config --set channel_priority strict
-
-        # Final verification logs
-        echo "🔍 Conda config:"
-        conda config --show channels
-        conda info
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniforge-variant: Miniforge3
+        miniforge-version: latest
+        auto-activate-base: false
 
     - name: Setup Python
       uses: ./.github/actions/install-python
