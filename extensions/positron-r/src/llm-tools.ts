@@ -12,13 +12,13 @@ import { RSessionManager } from './session-manager.js';
  * @param context The extension context for registering disposables
  */
 export function registerRLanguageModelTools(context: vscode.ExtensionContext): void {
-	const rLoadedPackagesTool = vscode.lm.registerTool<{}>('getAttachedRPackages', {
+	const rLoadedPackagesTool = vscode.lm.registerTool<{ sessionIdentifier: string }>('getAttachedRPackages', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getConsoleSession();
+			const session = manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active R session'),
+					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),
 				]);
 			}
 			const packages = await session.callMethod('get_attached_packages');
@@ -34,30 +34,30 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	});
 	context.subscriptions.push(rLoadedPackagesTool);
 
-	const rPackageVersionTool = vscode.lm.registerTool<{ packageName: string }>('getInstalledRPackageVersion', {
+	const rPackageVersionTool = vscode.lm.registerTool<{ sessionIdentifier: string; packageNames: string[] }>('getInstalledRPackageVersions', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getConsoleSession();
+			const session = manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active R session'),
+					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),
 				]);
 			}
 
-			if (!options.input.packageName) {
+			if (!options.input.packageNames || options.input.packageNames.length === 0) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('Package name is required'),
+					new vscode.LanguageModelTextPart('At least one package name is required'),
 				]);
 			}
 
-			const version = await session.callMethod('packageVersion', options.input.packageName, null);
-			if (version === null) {
+			const versions = await session.callMethod('get_package_versions', options.input.packageNames, null);
+			if (versions === null) {
 				return new vscode.LanguageModelToolResult([
 					new vscode.LanguageModelTextPart(`NULL`),
 				]);
 			} else {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart(JSON.stringify(version)),
+					new vscode.LanguageModelTextPart(JSON.stringify(versions)),
 				]);
 			}
 		}
@@ -65,13 +65,13 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 
 	context.subscriptions.push(rPackageVersionTool);
 
-	const rListPackageHelpTopicsTool = vscode.lm.registerTool<{ packageName: string }>('listPackageHelpTopics', {
+	const rListPackageHelpTopicsTool = vscode.lm.registerTool<{ sessionIdentifier: string; packageName: string }>('listPackageHelpTopics', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getConsoleSession();
+			const session = manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active R session'),
+					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),
 				]);
 			}
 
@@ -94,13 +94,13 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	});
 	context.subscriptions.push(rListPackageHelpTopicsTool);
 
-	const rListAvailableVignettesTool = vscode.lm.registerTool<{ packageName: string }>('listAvailableVignettes', {
+	const rListAvailableVignettesTool = vscode.lm.registerTool<{ sessionIdentifier: string; packageName: string }>('listAvailableVignettes', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getConsoleSession();
+			const session = manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active R session'),
+					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),
 				]);
 			}
 
@@ -123,13 +123,13 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	});
 	context.subscriptions.push(rListAvailableVignettesTool);
 
-	const rGetPackageVignetteTool = vscode.lm.registerTool<{ packageName: string; vignetteName: string }>('getPackageVignette', {
+	const rGetPackageVignetteTool = vscode.lm.registerTool<{ sessionIdentifier: string; packageName: string; vignetteName: string }>('getPackageVignette', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getConsoleSession();
+			const session = manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active R session'),
+					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),
 				]);
 			}
 
@@ -153,13 +153,13 @@ export function registerRLanguageModelTools(context: vscode.ExtensionContext): v
 	});
 	context.subscriptions.push(rGetPackageVignetteTool);
 
-	const rGetHelpPageTool = vscode.lm.registerTool<{ packageName?: string; helpTopic: string }>('getHelpPage', {
+	const rGetHelpPageTool = vscode.lm.registerTool<{ sessionIdentifier: string; packageName?: string; helpTopic: string }>('getHelpPage', {
 		invoke: async (options, token) => {
 			const manager = RSessionManager.instance;
-			const session = manager.getConsoleSession();
+			const session = manager.getSessionById(options.input.sessionIdentifier);
 			if (!session) {
 				return new vscode.LanguageModelToolResult([
-					new vscode.LanguageModelTextPart('No active R session'),
+					new vscode.LanguageModelTextPart(`No active R session with identifier ${options.input.sessionIdentifier}`),
 				]);
 			}
 

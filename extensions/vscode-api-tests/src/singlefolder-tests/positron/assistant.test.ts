@@ -97,9 +97,8 @@ suite('positron API - ai', () => {
 		const context = await positron.ai.getPositronChatContext(request as vscode.ChatRequest);
 
 		assert.ok(context, 'Context should be returned');
-		// Context may contain console, variables, shell, but these may be undefined
-		// depending on the current state, so we just check the type
-		assert.ok('console' in context || 'variables' in context || 'shell' in context,
+		// See IPositronChatContext for expected properties
+		assert.ok('currentDate' in context || 'positronVersion' in context,
 			'Context should have expected structure');
 	});
 });
