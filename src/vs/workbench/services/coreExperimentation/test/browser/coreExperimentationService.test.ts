@@ -64,9 +64,13 @@ class MockProductService implements IProductService {
 	get urlProtocol() { return 'test-vscode'; }
 	get extensionAllowedProposedApi() { return []; }
 	get extensionProperties() { return {}; }
+
+	// --- Start Positron ---
+	// Positron specific product services
 	get companyName() { return 'Test Company'; }
 	get positronVersion() { return 'test-positron-version'; }
-	get positronBuildNumber() { return 'test-positron-build'; }
+	get positronBuildNumber() { return 0; }
+	// --- End Positron ---
 }
 
 suite('CoreExperimentationService', () => {

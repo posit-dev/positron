@@ -10,7 +10,6 @@ import './activityInput.css';
 import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { ttPolicy } from '../positronConsole.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { FontInfo } from '../../../../../editor/common/config/fontInfo.js';
@@ -22,6 +21,7 @@ import { RenderLineInput, renderViewLine2 } from '../../../../../editor/common/v
 import { ILanguageIdCodec, ITokenizationSupport, TokenizationRegistry } from '../../../../../editor/common/languages.js';
 import { IPositronConsoleInstance } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ActivityItemInput, ActivityItemInputState } from '../../../../services/positronConsole/browser/classes/activityItemInput.js';
+import { ttPolicy } from '../positronConsolePolicy.js';
 
 /**
  * Colorizes code output lines.
