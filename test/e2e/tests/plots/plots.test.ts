@@ -285,7 +285,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		test('Python - Verify Plot Zoom works (Fit vs. 200%)', async function ({ app, contextMenu, openFile, python, page }, testInfo) {
 			await openFile(path.join('workspaces', 'python-plots', 'matplotlib-zoom-example.py'));
 			await test.step('Run Python File in Console', async () => {
-				await app.workbench.editor.playButton.click();
+				await page.getByRole('button', { name: 'Run Python File in Console' }).click();
 				await app.workbench.plots.waitForCurrentPlot();
 			});
 			const imgLocator = page.getByRole('img', { name: /%run/ });
