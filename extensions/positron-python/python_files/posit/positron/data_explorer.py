@@ -1362,7 +1362,7 @@ class PandasView(DataExplorerTableView):
 
         return schema_updated, new_state
 
-    def guess_code_syntaxes(self, request: GuessCodeSyntaxRequest):  # noqa: ARG002
+    def guess_code_syntax(self, request: GuessCodeSyntaxRequest):  # noqa: ARG002
         """Returns the supported code types for exporting data."""
         return CodeSyntax(code_syntax="pandas").dict()
 
@@ -2303,7 +2303,7 @@ class PolarsView(DataExplorerTableView):
 
         return schema_updated, new_state
 
-    def guess_code_syntaxes(self, request: GuessCodeSyntaxRequest):  # noqa: ARG002
+    def guess_code_syntax(self, request: GuessCodeSyntaxRequest):  # noqa: ARG002
         """Returns the supported code types for exporting data."""
         return CodeSyntax(code_syntax="polars").dict()
 
