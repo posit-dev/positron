@@ -90,7 +90,7 @@ import '../platform/webContentExtractor/electron-browser/webContentExtractorServ
 import './services/process/electron-browser/processService.js';
 
 // --- Start Positron ---
-import './services/ephemeralState/electron-sandbox/ephemeralStateService.js';
+import './services/ephemeralState/electron-browser/ephemeralStateService.js';
 // --- End Positron ---
 
 import { registerSingleton } from '../platform/instantiation/common/extensions.js';
@@ -181,7 +181,7 @@ import './contrib/encryption/electron-browser/encryption.contribution.js';
 import './contrib/emergencyAlert/electron-browser/emergencyAlert.contribution.js';
 
 // --- Start Positron ---
-import './contrib/positronPreview/electron-sandbox/positronPreview.contribution.js';
+import './contrib/positronPreview/electron-browser/positronPreview.contribution.js';
 // --- End Positron ---
 
 // MCP
