@@ -19,6 +19,7 @@ import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageR
 import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { NotebookSetting } from '../../../../../workbench/contrib/notebook/common/notebookCommon.js';
 
 type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
@@ -1181,5 +1182,46 @@ suite('Positron - RuntimeSessionService', () => {
 		// Verify the session's name has been updated
 		assert.strictEqual(session.dynState.sessionName, newName, 'Session name should be updated correctly');
 		assert.strictEqual(otherSession.dynState.sessionName, runtime.runtimeName, 'Other session name should remain unchanged');
+	});
+
+	test('working directory configuration is passed to session start', async () => {
+		// Set working directory configuration
+		const testWorkingDir = '/test/working/directory';
+		configService.setUserConfiguration(NotebookSetting.workingDirectory, testWorkingDir);
+
+		// Create session and verify working directory is passed
+		const session = await startConsole(runtime);
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		// Verify that the session received the working directory
+		const startCall = sinon.spy(session, 'start');
+		// For this test, we need to restart to verify the parameter passing
+		await runtimeSessionService.restartSession(session.sessionId, 'test');
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		// Check that start was called with the working directory
+		sinon.assert.calledWith(startCall, testWorkingDir);
+	});
+
+	test('working directory configuration is resource-scoped for notebooks', async () => {
+		const testWorkingDir = '/test/notebook/directory';
+		const notebookUri = URI.file('/path/to/test.ipynb');
+
+		// Set resource-scoped working directory configuration
+		configService.setUserConfiguration(NotebookSetting.workingDirectory, testWorkingDir, notebookUri);
+
+		// Start a notebook session
+		await runtimeSessionService.selectRuntime(runtime.runtimeId, 'test', notebookUri);
+		const session = runtimeSessionService.getNotebookSessionForNotebookUri(notebookUri);
+		assert.ok(session, 'Notebook session should be created');
+
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		// Verify working directory was applied (by checking that the start method was called correctly)
+		const startSpy = sinon.spy(session, 'start');
+		await runtimeSessionService.restartSession(session.sessionId, 'test');
+		await waitForRuntimeState(session, RuntimeState.Ready);
+
+		sinon.assert.calledWith(startSpy, testWorkingDir);
 	});
 });

@@ -215,8 +215,13 @@ export class TestLanguageRuntimeSession extends Disposable implements ILanguageR
 		return this._workingDirectory;
 	}
 
-	async start(): Promise<ILanguageRuntimeInfo> {
+	async start(workingDirectory?: string): Promise<ILanguageRuntimeInfo> {
 		this._onDidChangeRuntimeState.fire(RuntimeState.Starting);
+
+		// Set the working directory if provided
+		if (workingDirectory) {
+			this._workingDirectory = workingDirectory;
+		}
 
 		// Complete the startup on the next tick, trying to match real runtime behavior.
 		setTimeout(() => {

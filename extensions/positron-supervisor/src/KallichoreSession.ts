@@ -159,6 +159,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private _activeSession: ActiveSession | undefined;
 
 	/**
+	 * The working directory provided when starting the session, if any.
+	 */
+	private _providedWorkingDirectory: string | undefined;
+
+	/**
 	 * The message header for the current requests if any is active.  This is
 	 * used for input requests (e.g. from `readline()` in R) Concurrent requests
 	 * are not supported.
@@ -340,18 +345,23 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._kernelSpec = kernelSpec;
 		const varActions = await this.buildEnvVarActions(false);
 
-		// Prepare the working directory; use the workspace root if available,
-		// otherwise the home directory
-		let workingDir = vscode.workspace.workspaceFolders?.[0].uri.fsPath || os.homedir();
+		// Prepare the working directory; use the configured working directory if provided,
+		// otherwise use the workspace root if available, otherwise the home directory
+		let workingDir = this._providedWorkingDirectory;
 
-		// If we have a notebook URI, use its parent directory as the working
-		// directory instead. Note that not all notebooks have valid on-disk
-		// URIs since they may be transient or not yet saved; for these, we fall
-		// back to the workspace root or home directory.
-		if (this.metadata.notebookUri?.fsPath) {
-			const notebookPath = this.metadata.notebookUri.fsPath;
-			if (fs.existsSync(notebookPath)) {
-				workingDir = path.dirname(notebookPath);
+		if (!workingDir) {
+			// Default to workspace root or home directory
+			workingDir = vscode.workspace.workspaceFolders?.[0].uri.fsPath || os.homedir();
+
+			// If we have a notebook URI, use its parent directory as the working
+			// directory instead. Note that not all notebooks have valid on-disk
+			// URIs since they may be transient or not yet saved; for these, we fall
+			// back to the workspace root or home directory.
+			if (this.metadata.notebookUri?.fsPath) {
+				const notebookPath = this.metadata.notebookUri.fsPath;
+				if (fs.existsSync(notebookPath)) {
+					workingDir = path.dirname(notebookPath);
+				}
 			}
 		}
 
@@ -1034,7 +1044,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 *
 	 * @returns The kernel info for the session.
 	 */
-	async start(): Promise<positron.LanguageRuntimeInfo> {
+	async start(workingDirectory?: string): Promise<positron.LanguageRuntimeInfo> {
+		// Store the provided working directory for use during session creation
+		this._providedWorkingDirectory = workingDirectory;
+
 		// If this session needs to be started by an external provider, do that
 		// instead of asking the supervisor to start it.
 		if (this._kernelSpec?.startKernel) {

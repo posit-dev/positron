@@ -202,7 +202,7 @@ export interface ILanguageRuntimeSession extends IDisposable {
 	 */
 	setWorkingDirectory(directory: string): Thenable<void>;
 
-	start(): Thenable<ILanguageRuntimeInfo>;
+	start(workingDirectory?: string): Thenable<ILanguageRuntimeInfo>;
 
 	/** Interrupt the runtime */
 	interrupt(): void;
@@ -408,6 +408,7 @@ export interface IRuntimeSessionService {
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is
 	 * started.
+	 * @param workingDirectory Optional working directory for the runtime session.
 	 *
 	 * Returns a promise that resolves to the session ID of the new session.
 	 */
@@ -418,7 +419,8 @@ export interface IRuntimeSessionService {
 		notebookUri: URI | undefined,
 		source: string,
 		startMode: RuntimeStartMode,
-		activate: boolean): Promise<string>;
+		activate: boolean,
+		workingDirectory?: string): Promise<string>;
 
 	/**
 	 * Validates a persisted runtime session before reconnecting to it.
