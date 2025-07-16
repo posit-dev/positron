@@ -18,10 +18,10 @@ import { IDriver, Input } from '../../../../../services/positronConnections/comm
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { RadioGroup } from '../../../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
-import { IPositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 
 interface CreateConnectionProps {
-	readonly renderer: IPositronModalReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly onCancel: () => void;
 	readonly onBack: () => void;
 	readonly selectedDriver: IDriver;

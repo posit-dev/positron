@@ -23,7 +23,6 @@ import { IEditorGroup } from '../../../services/editor/common/editorGroupsServic
 import { IPositronPreviewService } from '../../positronPreview/browser/positronPreview.js';
 import { EditorPreviewContainer } from './editorPreviewContainer.js';
 import { PreviewWebview } from '../../positronPreview/browser/previewWebview.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 export interface IPositronPreviewEditorOptions extends IEditorOptions {
 	get identifier(): string | undefined;
@@ -99,7 +98,6 @@ export class PositronPreviewEditor
 		readonly _group: IEditorGroup,
 		@IPositronPreviewService
 		private readonly _positronPreviewService: IPositronPreviewService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService
@@ -116,7 +114,7 @@ export class PositronPreviewEditor
 
 	private renderContainer(previewId: string): void {
 		if (!this._positronReactRenderer) {
-			this._positronReactRenderer = PositronReactRenderer.create(this._instantiationService, this._container);
+			this._positronReactRenderer = new PositronReactRenderer(this._container);
 		}
 
 		if (this._preview) {

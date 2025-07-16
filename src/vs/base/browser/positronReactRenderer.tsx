@@ -12,8 +12,6 @@ import { Event } from '../common/event.js';
 import { Disposable, IDisposable } from '../common/lifecycle.js';
 import { PositronReactServices } from './positronReactServices.js';
 import { PositronReactServicesContext } from './positronReactRendererContext.js';
-import { IInstantiationService } from '../../platform/instantiation/common/instantiation.js';
-import { PositronModalReactRenderer } from './positronModalReactRenderer.js';
 
 /**
  * ISize interface.
@@ -96,15 +94,6 @@ export interface IReactComponentContainer {
  * Manages rendering a React component in the specified container HTMLElement.
  */
 export class PositronReactRenderer extends Disposable {
-	//#region Private Static Properties
-
-	/**
-	 * The services that are made available to React components.
-	 */
-	private static _services: PositronReactServices;
-
-	//#endregion Private Static Properties
-
 	//#region Private Properties
 
 	/**
@@ -117,28 +106,10 @@ export class PositronReactRenderer extends Disposable {
 	//#region Creator, Constructor & Dispose
 
 	/**
-	 * Creates a new instance of the PositronReactRenderer class.
-	 * @param instantiationService The instantiation service used to create instances of services.
-	 * @param container The container HTMLElement where the React component will be rendered.
-	 * @returns A new instance of the PositronReactRenderer class.
-	 */
-	static create(instantiationService: IInstantiationService, container: HTMLElement) {
-		// Create the PositronReactServices instance once and reuse it.
-		if (!PositronReactRenderer._services) {
-			const services = instantiationService.createInstance(PositronReactServices);
-			PositronReactRenderer._services = services;
-			PositronModalReactRenderer.doNotCallOrYouWIllBeFired(services);
-		}
-
-		// Return a new instance of the PositronReactRenderer.
-		return new PositronReactRenderer(container);
-	}
-
-	/**
 	 * Initializes a new instance of the ReactRenderer class.
 	 * @param container The container HTMLElement where the React component will be rendered.
 	 */
-	private constructor(container: HTMLElement) {
+	constructor(container: HTMLElement) {
 		// Call the base class's constructor.
 		super();
 
@@ -171,7 +142,7 @@ export class PositronReactRenderer extends Disposable {
 	public render(reactElement: ReactElement) {
 		if (this._root) {
 			this._root.render(
-				<PositronReactServicesContext.Provider value={PositronReactRenderer._services}>
+				<PositronReactServicesContext.Provider value={PositronReactServices.services}>
 					{reactElement}
 				</PositronReactServicesContext.Provider>
 			);

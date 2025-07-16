@@ -18,7 +18,7 @@ import { positronClassNames } from '../../../../base/common/positronUtilities.js
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * DropDownListBoxEntry type.
@@ -164,7 +164,7 @@ const DropDownListBoxActual = <T extends NonNullable<any>, V extends NonNullable
  * DropDownListBoxModalPopupProps interface.
  */
 interface DropDownListBoxModalPopupProps<T, V> {
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	anchorElement: HTMLElement;
 	entries: DropDownListBoxEntry<T, V>[];
 	createItem?: (dropDownListBoxItem: DropDownListBoxItem<T, V>) => JSX.Element;

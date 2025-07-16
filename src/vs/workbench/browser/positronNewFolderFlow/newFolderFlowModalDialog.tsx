@@ -16,13 +16,12 @@ import { NewFolderConfiguration } from '../../services/positronNewFolder/common/
 import { NewFolderFlowStep } from './interfaces/newFolderFlowEnums.js';
 import { showChooseNewFolderWindowModalDialog } from './chooseNewFolderWindowModalDialog.js';
 import { URI } from '../../../base/common/uri.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
-import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
+import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Shows the NewFolderFlowModalDialog.
  */
-export const showNewFolderFlowModalDialog = async (instantiationService: IInstantiationService): Promise<void> => {
+export const showNewFolderFlowModalDialog = async (): Promise<void> => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer()
 
@@ -116,7 +115,6 @@ export const showNewFolderFlowModalDialog = async (instantiationService: IInstan
 					// whether the folder is opened in a new window or in the existing window.
 					// Ask the user where to open the new folder and open it.
 					showChooseNewFolderWindowModalDialog(
-						renderer.services.instantiationService,
 						folder.path,
 						folder,
 						result.openInNewWindow
@@ -132,7 +130,7 @@ export const showNewFolderFlowModalDialog = async (instantiationService: IInstan
  * NewFolderFlowModalDialogProps interface.
  */
 interface NewFolderFlowModalDialogProps {
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	createFolder: (result: NewFolderFlowState) => Promise<void>;
 }
 

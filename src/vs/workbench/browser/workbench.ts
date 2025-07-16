@@ -196,9 +196,10 @@ export class Workbench extends Layout {
 
 		const instantiationService = new InstantiationService(serviceCollection, true);
 
-		// BRIAN BRIAN
-		PositronReactServices.create(instantiationService);
-		// BRIAN BRIAN
+		// --- Start Positron ---
+		// Initialize Positron React Services. This is done once and reused by all components.
+		PositronReactServices.initialize(instantiationService);
+		// --- End Positron ---
 
 		// Wrap up
 		instantiationService.invokeFunction(accessor => {

@@ -24,7 +24,6 @@ import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js
 import { URI } from '../../../../base/common/uri.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
  * DataExplorerRuntime class.
@@ -145,20 +144,8 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 
 	/**
 	 * Constructor.
-	 * @param _clipboardService The clipboard service.
-	 * @param _contextKeyService The context key service.
-	 * @param _commandService The command service.
-	 * @param _configurationService The configuration service.
-	 * @param _editorService The editor service.
-	 * @param _hoverService The hover service.
-	 * @param _keybindingService The keybinding service.
-	 * @param _layoutService The layout service.
-	 * @pararm _logService The log service.
-	 * @param _notificationService The notification service.
-	 * @param _runtimeSessionService The language runtime session service.
 	 */
 	constructor(
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@IEditorService private readonly _editorService: IEditorService,
@@ -450,7 +437,6 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		this._positronDataExplorerInstances.set(
 			client.identifier,
 			new PositronDataExplorerInstance(
-				this._instantiationService,
 				languageName,
 				client
 			)

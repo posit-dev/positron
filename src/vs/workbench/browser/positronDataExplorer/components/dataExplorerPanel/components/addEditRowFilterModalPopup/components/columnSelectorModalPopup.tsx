@@ -14,9 +14,9 @@ import { ColumnSearch } from './columnSearch.js';
 import { DisposableStore } from '../../../../../../../../base/common/lifecycle.js';
 import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
 import { PositronDataGrid } from '../../../../../../positronDataGrid/positronDataGrid.js';
+import { PositronModalReactRenderer } from '../../../../../../../../base/browser/positronModalReactRenderer.js';
 import { ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronModalPopup } from '../../../../../../positronComponents/positronModalPopup/positronModalPopup.js';
-import { IPositronModalReactRenderer } from '../../../../../../../../base/browser/positronModalReactRenderer.js';
 
 // Constants.
 const SEARCH_AREA_HEIGHT = 34;
@@ -25,7 +25,7 @@ const SEARCH_AREA_HEIGHT = 34;
  * ColumnSelectorModalPopupProps interface.
  */
 interface ColumnSelectorModalPopupProps {
-	readonly renderer: IPositronModalReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly columnSelectorDataGridInstance: ColumnSelectorDataGridInstance;
 	readonly anchorElement: HTMLElement;
 	readonly searchInput?: string;

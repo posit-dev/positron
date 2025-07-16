@@ -11,7 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { IPositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { VerticalStack } from '../../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
 import { ConfirmDeleteModalDialog } from '../../../../browser/positronComponents/positronModalDialog/confirmDeleteModalDialog.js';
 
@@ -26,7 +26,7 @@ export interface DeleteAllVariablesResult {
  * DeleteAllVariablesModalDialogProps interface.
  */
 interface DeleteAllVariablesModalDialogProps {
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	deleteAllVariablesAction: (result: DeleteAllVariablesResult) => Promise<void>;
 }
 

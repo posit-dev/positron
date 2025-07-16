@@ -105,7 +105,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 						if (itemProps.active) {
 							setActiveInstanceId(itemProps.id);
 						} else {
-							showResumeConnectionModalDialog(services.instantiationService, itemProps.id, setActiveInstanceId);
+							showResumeConnectionModalDialog(itemProps.id, setActiveInstanceId);
 						}
 					}}
 				>
@@ -132,7 +132,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 						undefined
 				}
 				onNewConnection={() => {
-					showNewConnectionModalDialog(services.instantiationService);
+					showNewConnectionModalDialog();
 				}}
 			>
 			</ActionBar>

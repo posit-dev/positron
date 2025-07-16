@@ -31,8 +31,7 @@ import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/uti
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -46,21 +45,11 @@ const BASE_DPI = 100; // matplotlib default DPI
 /**
  * Show the save plot modal dialog for dynamic plots.
  * @param selectedSizingPolicy the selected sizing policy for the plot
- * @param layoutService the layout service for the modal
- * @param keybindingService the keybinding service to intercept shortcuts
- * @param modalDialogService the dialog service to confirm the save
- * @param fileService the file service to check if paths exist
- * @param fileDialogService the file dialog service to prompt where to save the plot
- * @param logService the log service
- * @param notificationService the notification service to show user-facing notifications
- * @param labelService the label service
- * @param pathService the path service
  * @param plotClient the dynamic plot client to render previews and the final image
  * @param savePlotCallback the action to take when the dialog closes
  * @param suggestedPath the pre-filled save path
  */
 export const showSavePlotModalDialog = (
-	instantiationService: IInstantiationService,
 	selectedSizingPolicy: IPositronPlotSizingPolicy,
 	plotClient: PlotClientInstance,
 	savePlotCallback: (options: SavePlotOptions) => void,
@@ -83,7 +72,7 @@ export const showSavePlotModalDialog = (
 };
 
 interface SavePlotModalDialogProps {
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	enableIntrinsicSize: boolean;
 	plotSize: IPlotSize | undefined;
 	plotIntrinsicSize: IntrinsicSize | undefined;

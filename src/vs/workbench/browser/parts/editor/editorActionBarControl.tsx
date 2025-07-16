@@ -62,7 +62,6 @@ export class EditorActionBarControl extends Disposable {
 		private readonly _parent: HTMLElement,
 		private readonly _editorGroup: IEditorGroupView,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IKeybindingService private readonly _keybindingService: IKeybindingService,
 		@IMenuService private readonly _menuService: IMenuService,
 		@ITelemetryService _telemetryService: ITelemetryService,
@@ -84,7 +83,7 @@ export class EditorActionBarControl extends Disposable {
 		));
 
 		// Render the editor action bar component in the editor action bar container.
-		this._positronReactRenderer = this._register(PositronReactRenderer.create(this._instantiationService, this._container));
+		this._positronReactRenderer = this._register(new PositronReactRenderer(this._container));
 		this._positronReactRenderer.render(
 			<EditorActionBar editorActionBarFactory={editorActionBarFactory} />
 		);

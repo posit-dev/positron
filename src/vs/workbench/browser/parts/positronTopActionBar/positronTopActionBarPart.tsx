@@ -18,7 +18,7 @@ import { IThemeService } from '../../../../platform/theme/common/themeService.js
 import { PositronTopActionBarFocused } from '../../../common/contextkeys.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
+import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
@@ -86,7 +86,6 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 
 	constructor(
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IStorageService storageService: IStorageService,
 		@IThemeService themeService: IThemeService,
 		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService
@@ -105,7 +104,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		this.element.tabIndex = -1;
 
 		// Render the Positron top action bar component.
-		this.positronReactRenderer = this._register(PositronReactRenderer.create(this._instantiationService, this.element));
+		this.positronReactRenderer = this._register(new PositronReactRenderer(this.element));
 		this.positronReactRenderer.render(
 			<PositronTopActionBar positronTopActionBarContainer={this} />
 		);

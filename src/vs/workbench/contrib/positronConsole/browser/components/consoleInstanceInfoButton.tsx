@@ -19,7 +19,7 @@ import { PositronButton } from '../../../../../base/browser/ui/positronComponent
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js'
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
@@ -99,7 +99,7 @@ export const ConsoleInstanceInfoButton = () => {
 
 interface ConsoleInstanceInfoModalPopupProps {
 	anchorElement: HTMLElement;
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	session: ILanguageRuntimeSession;
 	channels: LanguageRuntimeSessionChannel[];
 }

@@ -262,7 +262,7 @@ export class PositronConsoleViewPane extends PositronViewPane implements IReactC
 		container.appendChild(this._positronConsoleContainer);
 
 		// Render the Positron console.
-		this._positronReactRenderer = this._register(PositronReactRenderer.create(this.instantiationService, this._positronConsoleContainer));
+		this._positronReactRenderer = this._register(new PositronReactRenderer(this._positronConsoleContainer));
 		this._positronReactRenderer.render(
 			<PositronConsole reactComponentContainer={this} />
 		);

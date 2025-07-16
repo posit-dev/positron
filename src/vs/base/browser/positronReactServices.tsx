@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { ILogService } from '../../platform/log/common/log.js';
+import { IFileService } from '../../platform/files/common/files.js';
 import { ILabelService } from '../../platform/label/common/label.js';
 import { IModelService } from '../../editor/common/services/model.js';
 import { IHoverService } from '../../platform/hover/browser/hover.js';
@@ -52,21 +53,24 @@ import { IPositronConnectionsService } from '../../workbench/services/positronCo
 import { IPositronWebviewPreloadService } from '../../workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronNotebookOutputWebviewService } from '../../workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
-import { IFileService } from '../../platform/files/common/files.js';
 
 /**
  * PositronReactServices interface.
  */
 export class PositronReactServices {
+	/**
+	 * The singleton instance of PositronReactServices.
+	 */
+	public static services: PositronReactServices;
 
-	private static services: PositronReactServices;
-
-	static create(instantiationService: IInstantiationService): PositronReactServices {
+	/**
+	 * Initializes the PositronReactServices.
+	 * @param instantiationService The instantiation service used to create instances of services.
+	 */
+	static initialize(instantiationService: IInstantiationService) {
 		if (!PositronReactServices.services) {
 			PositronReactServices.services = instantiationService.createInstance(PositronReactServices);
 		}
-
-		return PositronReactServices.services;
 	}
 
 	/**

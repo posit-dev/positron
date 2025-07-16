@@ -21,7 +21,7 @@ import { RadioButtonItem } from '../../../browser/positronComponents/positronMod
 import { RadioGroup } from '../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { AuthMethod, AuthStatus } from './types.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 
 export const showLanguageModelModalDialog = (
 	sources: IPositronLanguageModelSource[],
@@ -53,7 +53,7 @@ const providerSourceToConfig = (source: IPositronLanguageModelSource): IPositron
 
 interface LanguageModelConfigurationProps {
 	sources: IPositronLanguageModelSource[];
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	// To find available actions, search for positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	onClose: () => void;

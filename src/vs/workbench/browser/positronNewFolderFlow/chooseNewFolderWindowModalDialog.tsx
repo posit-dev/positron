@@ -15,11 +15,9 @@ import { VerticalStack } from '../positronComponents/positronModalDialog/compone
 import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
 import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
 import { URI } from '../../../base/common/uri.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
-import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
+import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 
 export const showChooseNewFolderWindowModalDialog = (
-	instantiationService: IInstantiationService,
 	folderName: string,
 	folderUri: URI,
 	openInNewWindow: boolean,
@@ -52,7 +50,7 @@ export const showChooseNewFolderWindowModalDialog = (
  * ChooseNewFolderWindowModalDialogProps interface.
  */
 interface ChooseNewFolderWindowModalDialogProps {
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	folderName: string;
 	openInNewWindow: boolean;
 	chooseNewFolderWindowAction: (openInNewWindow: boolean) => Promise<void>;

@@ -15,7 +15,6 @@ import { PositronActionBarContextProvider } from '../../../../../platform/positr
 import { IPositronChatProvider } from '../../common/languageModels.js';
 import { PositronChatContextProvider } from './chatContext.js';
 import { ChatInputPart } from '../chatInputPart.js';
-import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 
 export class ChatActionBarControl extends Disposable {
 	private _container?: HTMLElement;
@@ -25,14 +24,13 @@ export class ChatActionBarControl extends Disposable {
 
 	constructor(
 		private readonly _chatInput: ChatInputPart,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 	) {
 		super();
 
 		this._container = document.createElement('div');
 		this._container.className = 'chat-action-bar-container';
 
-		this._positronReactRenderer = this._register(PositronReactRenderer.create(this._instantiationService, this._container));
+		this._positronReactRenderer = this._register(new PositronReactRenderer(this._container));
 		this._positronReactRenderer.render(
 			<PositronActionBarContextProvider>
 				<PositronChatContextProvider chatInput={this._chatInput}>

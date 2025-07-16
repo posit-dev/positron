@@ -17,14 +17,12 @@ import { PositronButton } from '../../../../../base/browser/ui/positronComponent
 import Severity from '../../../../../base/common/severity.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from './simpleCodeEditor.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const RESUME_CONNECTION_MODAL_DIALOG_HEIGHT = 430;
 
 export const showResumeConnectionModalDialog = (
-	instantiationService: IInstantiationService,
 	activeInstanceId: string,
 	setActiveInstanceId: (id: string) => void
 ) => {
@@ -41,7 +39,7 @@ export const showResumeConnectionModalDialog = (
 };
 
 interface ResumeConnectionModalDialogProps {
-	readonly renderer: IPositronModalReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly activeInstaceId: string;
 	readonly setActiveInstanceId: (id: string) => void;
 }

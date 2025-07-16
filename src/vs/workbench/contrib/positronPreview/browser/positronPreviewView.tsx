@@ -163,7 +163,7 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 		container.appendChild(this._positronPreviewContainer);
 
 		// Create the PositronReactRenderer for the PositronPreview component and render it.
-		this._positronReactRenderer = PositronReactRenderer.create(this.instantiationService, this._positronPreviewContainer);
+		this._positronReactRenderer = new PositronReactRenderer(this._positronPreviewContainer);
 		this._register(this._positronReactRenderer);
 		this._positronReactRenderer.render(
 			<PositronPreview reactComponentContainer={this} />

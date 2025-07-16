@@ -17,7 +17,7 @@ import { Button } from '../../../../base/browser/ui/positronComponents/button/bu
 import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from './customContextMenuItem.js';
 import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
@@ -54,7 +54,6 @@ export interface CustomContextMenuProps {
  * @param entries The context menu entries.
  */
 export const showCustomContextMenu = async ({
-	instantiationService,
 	layoutService,
 	anchorElement,
 	anchorPoint,
@@ -99,7 +98,7 @@ export const showCustomContextMenu = async ({
  * CustomContextMenuModalPopupProps interface.
  */
 interface CustomContextMenuModalPopupProps {
-	readonly renderer: IPositronModalReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 	readonly anchorElement: HTMLElement;
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;

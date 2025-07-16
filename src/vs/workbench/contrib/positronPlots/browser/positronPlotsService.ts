@@ -50,7 +50,6 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -187,7 +186,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
 		@IFileService private readonly _fileService: IFileService,
-		@IInstantiationService private _instantiationService: IInstantiationService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IOpenerService private _openerService: IOpenerService,
@@ -1172,7 +1170,6 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					} else if (plotClient instanceof PlotClientInstance) {
 						// if it's a dynamic plot, present options dialog
 						showSavePlotModalDialog(
-							this._instantiationService,
 							this._selectedSizingPolicy,
 							plotClient,
 							this.savePlotAs,

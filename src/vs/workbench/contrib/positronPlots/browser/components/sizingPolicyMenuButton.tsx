@@ -134,7 +134,6 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			enabled: true,
 			run: () => {
 				showSetPlotSizeModalDialog(
-					services.instantiationService,
 					customPolicy ? customPolicy.size : undefined,
 					result => {
 						if (result === null) {

@@ -5,20 +5,19 @@
 
 import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { Severity } from '../../../../platform/notification/common/notification.js';
 import { TableDataCache } from '../common/tableDataCache.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
-import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
 import { TableDataDataGridInstance } from './tableDataDataGridInstance.js';
-import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
 import { TableSummaryDataGridInstance } from './tableSummaryDataGridInstance.js';
+import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
-import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
-import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
+import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 
 /**
  * Constants.
@@ -116,27 +115,19 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	/**
 	 * Constructor.
-	 * @param _clipboardService The clipboard service.
-	 * @param _commandService The command service.
-	 * @param _configurationService The configuration service.
-	 * @param _hoverService The hover service.
-	 * @param _keybindingService The keybinding service.
-	 * @param _layoutService The layout service.
-	 * @param _notificationService The notification service.
 	 * @param _languageName The language name.
 	 * @param _dataExplorerClientInstance The DataExplorerClientInstance. The data explorer takes
 	 * ownership of the client instance and will dispose it when it is disposed.
 	 */
 	constructor(
-		private readonly _instantiationService: IInstantiationService,
 		private readonly _languageName: string,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance
 	) {
 		// Call the base class's constructor.
 		super();
 
-		// Create the PositronReactServices instance.
-		this._services = PositronReactServices.create(this._instantiationService);
+		// Initialize the services.
+		this._services = PositronReactServices.services;
 
 		this._layout = DefaultDataExplorerSummaryLayout(this._services.configurationService);
 		this._isSummaryCollapsed = DataExplorerSummaryCollapseEnabled(this._services.configurationService);

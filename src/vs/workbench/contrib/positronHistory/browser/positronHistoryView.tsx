@@ -58,7 +58,7 @@ export class PositronHistoryViewPane extends ViewPane {
 		super.renderBody(container);
 
 		// Render the component.
-		this.positronReactRenderer = this._register(PositronReactRenderer.create(this.instantiationService, this.element));
+		this.positronReactRenderer = this._register(new PositronReactRenderer(this.element));
 		this.positronReactRenderer.render(
 			<TestContent message='History React' />
 		);

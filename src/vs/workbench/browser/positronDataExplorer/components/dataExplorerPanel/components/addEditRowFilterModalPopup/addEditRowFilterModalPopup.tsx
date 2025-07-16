@@ -14,6 +14,7 @@ import { localize } from '../../../../../../../nls.js';
 import { RowFilterParameter } from './components/rowFilterParameter.js';
 import { DropDownColumnSelector } from './components/dropDownColumnSelector.js';
 import { Button } from '../../../../../../../base/browser/ui/positronComponents/button/button.js';
+import { PositronModalReactRenderer } from '../../../../../../../base/browser/positronModalReactRenderer.js';
 import { DropDownListBoxItem } from '../../../../../positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { PositronModalPopup } from '../../../../../positronComponents/positronModalPopup/positronModalPopup.js';
 import { DropDownListBoxSeparator } from '../../../../../positronComponents/dropDownListBox/dropDownListBoxSeparator.js';
@@ -21,7 +22,6 @@ import { DropDownListBox, DropDownListBoxEntry } from '../../../../../positronCo
 import { DataExplorerClientInstance } from '../../../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { ColumnSchema, ColumnDisplayType, RowFilterCondition } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { RangeRowFilterDescriptor, RowFilterDescriptor, RowFilterDescrType, RowFilterDescriptorComparison, RowFilterDescriptorIsBetween, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsNotBetween, RowFilterDescriptorIsNotEmpty, SingleValueRowFilterDescriptor, RowFilterDescriptorIsNotNull, RowFilterDescriptorIsNull, RowFilterDescriptorSearch, RowFilterDescriptorIsTrue, RowFilterDescriptorIsFalse } from './rowFilterDescriptor.js';
-import { IPositronModalReactRenderer } from '../../../../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Validates a row filter value.
@@ -119,7 +119,7 @@ const isSingleParam = (filterType: RowFilterDescrType | undefined) => {
  */
 interface AddEditRowFilterModalPopupProps {
 	dataExplorerClientInstance: DataExplorerClientInstance;
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	anchorElement: HTMLElement;
 	isFirstFilter: boolean;
 	schema?: ColumnSchema;

@@ -12,16 +12,16 @@ import React, { useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../nls.js';
 import { URI } from '../../../base/common/uri.js';
+import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
 import { Checkbox } from '../positronComponents/positronModalDialog/components/checkbox.js';
+import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
+import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 import { VerticalSpacer } from '../positronComponents/positronModalDialog/components/verticalSpacer.js';
+import { isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
 import { LabeledTextInput } from '../positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledFolderInput } from '../positronComponents/positronModalDialog/components/labeledFolderInput.js';
-import { isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
-import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
-import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
 /**
  * NewFolderFromGitResult interface.
@@ -36,7 +36,7 @@ interface NewFolderFromGitResult {
  * NewFolderFromGitModalDialogProps interface.
  */
 interface NewFolderFromGitModalDialogProps {
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	parentFolder: URI;
 	createFolder: (result: NewFolderFromGitResult) => Promise<void>;
 }
@@ -153,11 +153,6 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 
 /**
  * Shows the new folder from Git modal dialog.
- * @param commandService The command service.
- * @param configService The config service.
- * @param fileDialogService The file dialog service.
- * @param keybindingService The keybinding service.
- * @param layoutService The layout service.
  */
 export const showNewFolderFromGitModalDialog = async (): Promise<void> => {
 	// Create the renderer.

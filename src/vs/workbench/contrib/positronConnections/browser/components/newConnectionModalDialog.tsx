@@ -18,13 +18,12 @@ import { CreateConnection } from './newConnectionModalDialog/createConnectionSta
 import { ListDrivers } from './newConnectionModalDialog/listDriversState.js';
 import { IDriver } from '../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 const NEW_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const NEW_CONNECTION_MODAL_DIALOG_HEIGHT = 630;
 
-export const showNewConnectionModalDialog = (instantiationService: IInstantiationService) => {
+export const showNewConnectionModalDialog = () => {
 
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer();
@@ -35,7 +34,7 @@ export const showNewConnectionModalDialog = (instantiationService: IInstantiatio
 };
 
 interface NewConnectionModalDialogProps {
-	readonly renderer: IPositronModalReactRenderer;
+	readonly renderer: PositronModalReactRenderer;
 }
 
 const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDialogProps>) => {

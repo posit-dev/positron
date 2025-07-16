@@ -17,8 +17,7 @@ import { PositronModalDialog } from '../../../../browser/positronComponents/posi
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { PlatformNativeDialogActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
-import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
-import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * SetPlotSizeResult interface.
@@ -29,13 +28,10 @@ export interface SetPlotSizeResult {
 
 /**
  * Shows a dialog that allows the user to set a custom plot size.
- * @param keybindingService The keybinding service.
- * @param layoutService The layout service.
  * @param customSize The custom size, or, undefined.
  * @param setPlotSize The set plot size callback.
  */
 export const showSetPlotSizeModalDialog = async (
-	instantiationService: IInstantiationService,
 	customSize: IPlotSize | undefined,
 	setPlotSize: (result?: SetPlotSizeResult | null) => void
 ) => {
@@ -56,7 +52,7 @@ export const showSetPlotSizeModalDialog = async (
  * SetPlotSizeModalDialogProps interface.
  */
 interface SetPlotSizeModalDialogProps {
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	customSize: IPlotSize | undefined;
 	setPlotSize: (result?: SetPlotSizeResult | null) => void;
 }

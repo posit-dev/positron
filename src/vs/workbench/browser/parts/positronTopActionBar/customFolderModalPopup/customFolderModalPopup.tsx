@@ -12,7 +12,7 @@ import React from 'react';
 // Other dependencies.
 import { CustomFolderMenuItems } from './customFolderMenuItems.js';
 import { IRecentlyOpened } from '../../../../../platform/workspaces/common/workspaces.js';
-import { IPositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { PositronModalPopup2 } from '../../../positronComponents/positronModalPopup/positronModalPopup2.js';
 
 /**
@@ -21,7 +21,7 @@ import { PositronModalPopup2 } from '../../../positronComponents/positronModalPo
 interface CustomFolderModalPopupProps {
 	anchorElement: HTMLElement;
 	recentlyOpened: IRecentlyOpened;
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 }
 
 /**

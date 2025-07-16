@@ -13,7 +13,6 @@ import { Action2, MenuId, registerAction2 } from '../../../platform/actions/comm
 import { EnterMultiRootWorkspaceSupportContext } from '../../common/contextkeys.js';
 import { showNewFolderFromGitModalDialog } from '../positronModalDialogs/newFolderFromGitModalDialog.js';
 import { showNewFolderFlowModalDialog } from '../positronNewFolderFlow/newFolderFlowModalDialog.js';
-import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 
 /**
  * The PositronNewFolderFromTemplateAction.
@@ -54,7 +53,7 @@ export class PositronNewFolderFromTemplateAction extends Action2 {
 		// to the dialog so we can show a warning next to the git init checkbox if git is not configured.
 
 		// Show the new folder flow modal dialog.
-		await showNewFolderFlowModalDialog(accessor.get(IInstantiationService));
+		await showNewFolderFlowModalDialog();
 	}
 }
 

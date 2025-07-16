@@ -110,7 +110,7 @@ export class PositronConnectionsView
 
 
 		// Create the PositronReactRenderer for the PositronVariables component and render it.
-		this.positronReactRenderer = this._register(PositronReactRenderer.create(this.instantiationService, this.positronConnectionsContainer));
+		this.positronReactRenderer = this._register(new PositronReactRenderer(this.positronConnectionsContainer));
 		this.positronReactRenderer.render(
 			<PositronConnections reactComponentContainer={this} />
 		);

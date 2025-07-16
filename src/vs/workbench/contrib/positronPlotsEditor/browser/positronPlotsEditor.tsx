@@ -23,7 +23,6 @@ import { EditorPlotsContainer } from './editorPlotsContainer.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
 import { createSuggestedFileNameForPlot, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 export interface IPositronPlotsEditorOptions extends IEditorOptions {
 }
@@ -91,7 +90,6 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 	constructor(
 		readonly _group: IEditorGroup,
 		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
-		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@IStorageService private readonly storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -112,7 +110,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 	private renderContainer(plotClient: IPositronPlotClient): void {
 		if (!this._reactRenderer) {
-			this._reactRenderer = PositronReactRenderer.create(this._instantiationService, this._container);
+			this._reactRenderer = new PositronReactRenderer(this._container);
 		}
 
 		this._reactRenderer.render(

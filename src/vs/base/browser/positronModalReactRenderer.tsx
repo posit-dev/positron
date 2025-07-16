@@ -12,9 +12,9 @@ import { createRoot, Root } from 'react-dom/client';
 
 // Other dependencies.
 import * as DOM from './dom.js';
-import { Emitter, Event } from '../common/event.js';
+import { Emitter } from '../common/event.js';
+import { Disposable } from '../common/lifecycle.js';
 import { StandardKeyboardEvent } from './keyboardEvent.js';
-import { Disposable, IDisposable } from '../common/lifecycle.js';
 import { PositronReactServices } from './positronReactServices.js';
 import { PositronReactServicesContext } from './positronReactRendererContext.js';
 import { ResultKind } from '../../platform/keybinding/common/keybindingResolver.js';
@@ -52,50 +52,12 @@ interface PositronModalReactRendererOptions {
 	disableCaptures?: boolean;
 }
 
-export interface IPositronModalReactRenderer extends IDisposable {
-	/**
-	 * Gets the services.
-	 */
-	get services(): PositronReactServices;
-
-	/**
-	 * Gets the container.
-	 */
-	get container(): HTMLElement;
-
-	/**
-	 * The onKeyDown event emitter.
-	 */
-	readonly onKeyDown: Event<KeyboardEvent>;
-
-	/**
-	 * The onMouseDown event emitter.
-	 */
-	readonly onMouseDown: Event<MouseEvent>;
-
-	/**
-	 * The onResize event emitter.
-	 */
-	readonly onResize: Event<UIEvent>;
-
-	/**
-	 * Renders the ReactElement that was supplied.
-	 * @param reactElement The ReactElement to render.
-	 */
-	render(reactElement: ReactElement): void;
-}
-
 /**
  * PositronModalReactRenderer class.
  * Manages rendering a React element as a modal popup.
  */
-export class PositronModalReactRenderer extends Disposable implements IPositronModalReactRenderer {
+export class PositronModalReactRenderer extends Disposable {
 	//#region Private Static Properties
-
-	/**
-	 * The services that are made available to React components. These are created once and reused.
-	 */
-	static _services: PositronReactServices;
 
 	/**
 	 * The renderers stack.
@@ -145,26 +107,6 @@ export class PositronModalReactRenderer extends Disposable implements IPositronM
 
 	//#region Creator, Constructor, Dispose
 
-	static doNotCallOrYouWIllBeFired(_services: PositronReactServices) {
-		PositronModalReactRenderer._services = _services;
-	}
-
-	// /**
-	//  * Creates a new instance of the PositronReactRenderer class.
-	//  * @param instantiationService The instantiation service used to create instances of services.
-	//  * @param container The container HTMLElement where the React component will be rendered.
-	//  * @returns A new instance of the PositronReactRenderer class.
-	//  */
-	// static create(instantiationService: IInstantiationService, options?: PositronModalReactRendererOptions): PositronModalReactRenderer {
-	// 	// Create the PositronReactServices instance.
-	// 	if (!PositronModalReactRenderer._services) {
-	// 		PositronModalReactRenderer._services = instantiationService.createInstance(PositronReactServices);
-	// 	}
-
-	// 	// Return a new instance of the PositronReactRenderer.
-	// 	return new PositronModalReactRenderer({...options});
-	// }
-
 	/**
 	 * Initializes a new instance of the PositronModalReactRenderer class.
 	 * @param _options The options for the PositronModalReactRenderer.
@@ -175,7 +117,7 @@ export class PositronModalReactRenderer extends Disposable implements IPositronM
 
 		// If the container is not provided, use the active container.
 		if (!_options.container) {
-			_options.container = PositronModalReactRenderer._services.workbenchLayoutService.activeContainer;
+			_options.container = PositronReactServices.services.workbenchLayoutService.activeContainer;
 		}
 
 		// Get the active element.
@@ -240,7 +182,7 @@ export class PositronModalReactRenderer extends Disposable implements IPositronM
 	 * Gets the services.
 	 */
 	get services(): PositronReactServices {
-		return PositronModalReactRenderer._services;
+		return PositronReactServices.services;
 	}
 
 	/**
@@ -294,7 +236,7 @@ export class PositronModalReactRenderer extends Disposable implements IPositronM
 
 			// Render the ReactElement that was supplied.
 			this._root.render(
-				<PositronReactServicesContext.Provider value={PositronModalReactRenderer._services}>
+				<PositronReactServicesContext.Provider value={PositronReactServices.services}>
 					{reactElement}
 				</PositronReactServicesContext.Provider>
 			);
@@ -341,9 +283,9 @@ export class PositronModalReactRenderer extends Disposable implements IPositronM
 
 			// Soft dispatch the keyboard event so we can determine whether it is bound to a
 			// command.
-			const resolutionResult = PositronModalReactRenderer._services.keybindingService.softDispatch(
+			const resolutionResult = PositronReactServices.services.keybindingService.softDispatch(
 				event,
-				PositronModalReactRenderer._services.workbenchLayoutService.activeContainer
+				PositronReactServices.services.workbenchLayoutService.activeContainer
 			);
 
 			// If a keybinding to a command was found, stop it from being processed if it is not one

@@ -13,7 +13,7 @@ import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 import * as DOM from '../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { DraggableTitleBar } from './components/draggableTitleBar.js';
-import { IPositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Focusable element selectors.
@@ -37,7 +37,7 @@ const kGutter = 40;
  * PositronModalDialogProps interface.
  */
 export interface PositronModalDialogProps {
-	renderer: IPositronModalReactRenderer;
+	renderer: PositronModalReactRenderer;
 	title: string;
 	width: number;
 	height: number;

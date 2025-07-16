@@ -18,12 +18,10 @@ import { OpenFolderAction } from '../../../browser/actions/workspaceActions.js';
 import { LogoPythonProject } from '../../../browser/positronNewFolderFlow/components/logos/logoPythonProject.js';
 import { LogoRProject } from '../../../browser/positronNewFolderFlow/components/logos/logoRProject.js';
 import { WelcomeMenuButton } from './positronWelcomeMenuButton.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 
 export interface PositronWelcomePageStartProps {
-	instantiationService: IInstantiationService;
 	layoutService: ILayoutService;
 }
 
@@ -50,7 +48,6 @@ const WelcomePageWorkspace = (props: PositronWelcomePageStartProps) => {
 				]}
 				ariaLabel={(() => localize('positron.welcome.newNotebookDescription', "Create a Python or R Notebook"))()}
 				codicon='positron-new-notebook'
-				instantiationService={props.instantiationService}
 				label={(() => localize('positron.welcome.newNotebook', "New Notebook"))()}
 				layoutService={props.layoutService}
 			/>
