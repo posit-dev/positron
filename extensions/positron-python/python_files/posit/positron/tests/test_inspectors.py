@@ -691,7 +691,7 @@ def test_inspect_pandas_series(value: pd.Series) -> None:
     (rows,) = value.shape
 
     def mutate(x):
-        x[0] = 1
+        x.iloc[0] = 1
 
     verify_inspector(
         value=value,
@@ -724,7 +724,7 @@ def test_inspect_geopandas_series(value: geopandas.GeoSeries) -> None:
     (rows,) = value.shape
 
     def mutate(x):
-        x[0] = x[1]
+        x.iloc[0] = x.iloc[1]
 
     verify_inspector(
         value=value,

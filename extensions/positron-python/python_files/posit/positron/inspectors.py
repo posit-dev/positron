@@ -102,7 +102,8 @@ SIMPLER_NAMES = {
     "pandas.core.indexes.datetimes.DatetimeIndex": "pandas.DatetimeIndex",
     "pandas.core.indexes.range.RangeIndex": "pandas.RangeIndex",
     "pandas.core.indexes.multi.MultiIndex": "pandas.MultiIndex",
-    "pandas.core.indexes.numeric.Int64Index": "pandas.Int64Index",
+    # Just display Int64Index as pandas.Index, since the former is deprecated since pandas v1.4.0.
+    "pandas.core.indexes.numeric.Int64Index": "pandas.Index",
 }
 
 
