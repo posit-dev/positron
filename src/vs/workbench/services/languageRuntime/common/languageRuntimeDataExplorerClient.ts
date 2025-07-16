@@ -215,9 +215,6 @@ export class DataExplorerClientInstance extends Disposable {
 			max_value_length: 1000,
 			thousands_sep: ','
 		};
-		// Initialize the guessed syntax
-		this.guessCodeSyntax();
-
 		// Create and register the PositronDataExplorerComm on the client.
 		this._backendClient = backendClient;
 		this._register(this._backendClient);
@@ -254,6 +251,13 @@ export class DataExplorerClientInstance extends Disposable {
 				this._asyncTasks.delete(e.callback_id);
 			}
 		}));
+
+		// Initialize the guessed syntax
+		this.guessCodeSyntax().then(syntax => {
+			this.guessedSyntax = syntax;
+		}).catch(err => {
+			this.guessedSyntax = { code_syntax: err.message };
+		});
 	}
 
 	override dispose(): void {
@@ -523,15 +527,11 @@ export class DataExplorerClientInstance extends Disposable {
 	 * Guess the code syntax for export.
 	 * @returns A promise that resolves to the available code syntaxes.
 	 */
-	async guessCodeSyntax(): Promise<string | undefined> {
-		if (this.guessedSyntax === undefined) {
-			this.guessedSyntax = await this.runBackendTask(
-				() => this._backendClient.guessCodeSyntax(),
-				() => ({ code_syntax: '' })
-			);
-			return this.guessedSyntax?.code_syntax;
-		}
-		return this.guessedSyntax.code_syntax;
+	async guessCodeSyntax(): Promise<CodeSyntax> {
+		return await this.runBackendTask(
+			() => this._backendClient.guessCodeSyntax(),
+			() => ({ code_syntax: 'No available syntaxes' })
+		);
 	}
 
 
