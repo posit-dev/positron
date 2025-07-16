@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import ANY, Mock
 
@@ -223,6 +224,39 @@ def test_change_detection_over_limit(shell: PositronShell, variables_comm: Dummy
     _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
     _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
     _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
+
+
+def test_change_detection_run_cell_performance(shell: PositronShell, variables_comm) -> None:  # noqa: ARG001 need the variables comm to be connected but don't actually use it
+    # Test that change detection hooks do not cause unreasonable performance overhead: https://github.com/posit-dev/positron/issues/8245
+
+    # First, measure baseline performance without large objects.
+    start_ns = time.perf_counter_ns()
+    shell.run_cell("1+1").raise_error()
+    baseline_ns = time.perf_counter_ns() - start_ns
+
+    # Create a large list similar to the reproduction case.
+    shell.run_cell("""
+sample_dict = {"a": 1, "b": "hello world", "c": 3.14}
+large_list = [sample_dict for _ in range(1_000_000)]
+""").raise_error()
+
+    # Now measure performance with large object in namespace.
+    start_ns = time.perf_counter_ns()
+    shell.run_cell("1+1").raise_error()
+    large_object_ns = time.perf_counter_ns() - start_ns
+
+    # The execution time should not increase dramatically.
+    # NOTE: 10x isn't great performance, but this test is mainly to catch major regressions.
+    slowdown_factor = large_object_ns / baseline_ns
+    assert slowdown_factor < 10, (
+        f"Console became {slowdown_factor:.1f}x slower with large object "
+        f"(baseline: {baseline_ns / 1e6:.3f}ms, with large object: {large_object_ns / 1e6:.3f}ms)"
+    )
+
+    # Also check absolute time - should complete within 1 second.
+    assert large_object_ns < 1e9, (
+        f"Simple cell execution took {large_object_ns / 1e6:.3f}ms with large object in namespace"
+    )
 
 
 def _do_list(variables_comm: DummyComm):

@@ -45,7 +45,6 @@ from .utils import (
     JsonData,
     get_qualname,
     numpy_numeric_scalars,
-    pretty_format,
     safe_isinstance,
 )
 
@@ -66,10 +65,18 @@ if TYPE_CHECKING:
 
 
 # General display settings
-TRUNCATE_AT: int = 1024
-PRINT_WIDTH: int = 100
+ELLIPSIS = "…"
+# Max characters after which the display value of a standalone object is truncated.
+MAX_CHARACTERS = 2**16
+# Max characters after which the display value of an object in a collection is truncated.
+MAX_CHARACTERS_NESTED = 128
+# Max number of items included in the display value of a collection, keyed by the level of nesting
+# of the collection. Collections nested deeper than specified here will be totally truncated.
+MAX_ITEMS_BY_LEVEL = (60, 20)
+
 
 # Array-specific display settings
+ARRAY_MAX_LINE_WIDTH = 1000
 ARRAY_THRESHOLD = 20
 ARRAY_EDGEITEMS = 9
 
@@ -91,6 +98,11 @@ SIMPLER_NAMES = {
     "polars.series.series.Series": "polars.Series",
     "polars.internals.series.series.Series": "polars.Series",
     "polars.internals.dataframe.frame.DataFrame": "polars.DataFrame",
+    "pandas.core.indexes.base.Index": "pandas.Index",
+    "pandas.core.indexes.datetimes.DatetimeIndex": "pandas.DatetimeIndex",
+    "pandas.core.indexes.range.RangeIndex": "pandas.RangeIndex",
+    "pandas.core.indexes.multi.MultiIndex": "pandas.MultiIndex",
+    "pandas.core.indexes.numeric.Int64Index": "pandas.Int64Index",
 }
 
 
@@ -134,12 +146,8 @@ class PositronInspector(Generic[T]):
     def get_display_name(self, key: Any) -> str:
         return str(key)
 
-    def get_display_value(
-        self,
-        print_width: int | None = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
-        return pretty_format(self.value, print_width, truncate_at)
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        return _get_default_display_value(self.value, level=level)
 
     def get_display_type(self) -> str:
         type_name = type(self.value).__name__
@@ -165,10 +173,10 @@ class PositronInspector(Generic[T]):
     def has_children(self) -> bool:
         return self.get_length() > 0
 
-    def has_child(self, _key: Any) -> bool:
+    def has_child(self, key: Any) -> bool:  # noqa: ARG002
         return False
 
-    def get_child(self, _key: Any) -> Any:
+    def get_child(self, key: Any) -> Any:  # noqa: ARG002
         raise TypeError(f"get_child() is not implemented for type: {type(self.value)}")
 
     def get_children(self) -> Iterable[Any]:
@@ -263,47 +271,52 @@ class BooleanInspector(PositronInspector[bool]):
         return self.value
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> bool:
+    def value_from_json(cls, type_name: str, data: JsonData) -> bool:  # noqa: ARG003
         if not isinstance(data, bool):
             raise ValueError(f"Expected data to be bool, got {data}")
 
         return data
 
 
-class BytesInspector(PositronInspector[bytes]):
-    def is_mutable(self) -> bool:
-        return not isinstance(self.value, bytes)
+Bytes = TypeVar("Bytes", bytes, "bytearray", "memoryview")
 
-    def deepcopy(self) -> bytes:
+
+class BytesInspector(PositronInspector[Bytes]):
+    def is_mutable(self) -> bool:
+        if isinstance(self.value, (bytearray, memoryview)):
+            return True
+        if isinstance(self.value, bytes):
+            return False
+        return super().is_mutable()
+
+    def deepcopy(self) -> Bytes:
         if isinstance(self.value, bytearray):
             # Bytearrays are mutable, but can only hold bytes, so it's safe to use the default
             # deepcopy implementation.
             return copy.deepcopy(self.value)
         return super().deepcopy()
 
-    def get_display_value(
-        self,
-        _print_width: int | None = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
-        # Ignore print_width for strings
-        return super().get_display_value(None, truncate_at)
-
     def get_kind(self) -> str:
         return "bytes"
+
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        if isinstance(self.value, memoryview):
+            return _get_default_display_value(self.value, level=level)
+        return _get_string_display_value(self.value, level=level)
 
     def has_children(self) -> bool:
         return False
 
-    def value_to_json(self) -> str:
-        return self.value.decode()
+    def value_to_json(self) -> JsonData:
+        if isinstance(self.value, bytes):
+            return self.value.decode()
+        return super().value_to_json()
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> bytes:
-        if not isinstance(data, str):
-            raise ValueError(f"Expected data to be str, got {data}")
-
-        return data.encode()
+    def value_from_json(cls, type_name: str, data: JsonData) -> Bytes:
+        if isinstance(data, str):
+            return cast(Bytes, data.encode())
+        return super().value_from_json(type_name, data)
 
 
 #
@@ -340,7 +353,7 @@ class ClassInspector(ObjectInspector[type]):
         return str(self.value)
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> type:
+    def value_from_json(cls, type_name: str, data: JsonData) -> type:  # noqa: ARG003
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -364,13 +377,9 @@ class FunctionInspector(PositronInspector[Callable]):
     def is_mutable(self) -> bool:
         return False
 
-    def get_display_value(
-        self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         sig = inspect.signature(self.value) if callable(self.value) else "()"
-        return (f"{self.value.__qualname__}{sig}", False)
+        return _maybe_truncate_string(f"{self.value.__qualname__}{sig}", level=level)
 
     def get_kind(self) -> str:
         return "function"
@@ -419,21 +428,21 @@ class NumberInspector(PositronInspector[NT], ABC):
         return super().value_to_json()
 
     @classmethod
-    def value_from_json(cls, type_name: str, data: JsonData) -> NT | numbers.Number:
+    def value_from_json(cls, type_name: str, data: JsonData) -> NT:
         if type_name == "int":
             if not isinstance(data, numbers.Integral):
                 raise ValueError(f"Expected data to be int, got {data}")
-            return data
+            return cast(NT, data)
 
         if type_name == "float":
             if not isinstance(data, numbers.Real):
                 raise ValueError(f"Expected data to be float, got {data}")
-            return data
+            return cast(NT, data)
 
         if type_name == "complex":
             if not isinstance(data, str):
                 raise ValueError(f"Expected data to be str, got {data}")
-            return cast("numbers.Number", complex(data))
+            return cast(NT, complex(data))
 
         return super().value_from_json(type_name, data)
 
@@ -441,30 +450,18 @@ class NumberInspector(PositronInspector[NT], ABC):
 class NumpyNumberInspector(NumberInspector["np.number"]):
     CLASS_QNAME = numpy_numeric_scalars
 
-    def get_display_value(
-        self,
-        print_width: int | None = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         # numpy numbers do not print cleanly as of numpy 2.0
         # use the self.value.item() to retrieve the actual number
-        return pretty_format(self.value.item(), print_width, truncate_at)
+        return _get_default_display_value(self.value.item(), level=level)
 
 
 class StringInspector(PositronInspector[str]):
     def is_mutable(self) -> bool:
         return False
 
-    def get_display_value(
-        self,
-        _print_width: int | None = PRINT_WIDTH,
-        truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
-        # Ignore print_width for strings
-        display_value, is_truncated = super().get_display_value(None, truncate_at)
-
-        # Use repr() to show quotes around strings
-        return repr(display_value), is_truncated
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        return _get_string_display_value(self.value, level=level)
 
     def get_display_type(self) -> str:
         # Don't include the length for strings
@@ -480,7 +477,7 @@ class StringInspector(PositronInspector[str]):
         return self.value
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> str:
+    def value_from_json(cls, type_name: str, data: JsonData) -> str:  # noqa: ARG003
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -503,7 +500,7 @@ class _BaseTimestampInspector(PositronInspector[Timestamp], ABC):
         return self.value.isoformat()
 
     @classmethod
-    def value_from_json(cls, _type_name: str, data: JsonData) -> Timestamp:
+    def value_from_json(cls, type_name: str, data: JsonData) -> Timestamp:  # noqa: ARG003
         if not isinstance(data, str):
             raise ValueError(f"Expected data to be str, got {data}")
 
@@ -530,7 +527,7 @@ class PandasTimestampInspector(_BaseTimestampInspector["pd.Timestamp"]):
 # Collections
 #
 
-CollectionT = Union[range, FrozenSet, Sequence, AbstractSet, Tuple]
+CollectionT = Union[bytearray, range, FrozenSet, Sequence, AbstractSet, Tuple]
 CT = TypeVar("CT", CollectionT, "np.ndarray", "torch.Tensor")
 
 
@@ -581,6 +578,27 @@ class CollectionInspector(_BaseCollectionInspector[CollectionT]):
             return f"{type_name} ({length})"
         else:
             return f"{type_name} [{length}]"
+
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        if isinstance(self.value, AbstractSet):
+            if len(self.value) == 0:
+                prefix, suffix = "set(", ")"
+            else:
+                prefix, suffix = "{", "}"
+        elif isinstance(self.value, FrozenSet):
+            if len(self.value) == 0:
+                prefix, suffix = "frozenset(", ")"
+            else:
+                prefix, suffix = "{", "}"
+        elif isinstance(self.value, bytearray):
+            prefix, suffix = "bytearray(b'", "')"
+        elif isinstance(self.value, range):
+            return _get_default_display_value(self.value, level=level)
+        elif isinstance(self.value, tuple):
+            prefix, suffix = "(", ")"
+        else:
+            prefix, suffix = "[", "]"
+        return _get_collection_display_value(self.value, prefix=prefix, suffix=suffix, level=level)
 
     def get_comparison_cost(self) -> int:
         # Placeholder estimate
@@ -687,15 +705,13 @@ class _BaseArrayInspector(_BaseCollectionInspector[Array], ABC):
 class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
     CLASS_QNAME = "numpy.ndarray"
 
-    def get_display_value(
-        self,
-        print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        if level >= len(MAX_ITEMS_BY_LEVEL):
+            return f"numpy.array({ELLIPSIS})", True
         return (
             _numpy().array2string(
                 self.value,
-                max_line_width=print_width,
+                max_line_width=ARRAY_MAX_LINE_WIDTH,
                 threshold=ARRAY_THRESHOLD,
                 edgeitems=ARRAY_EDGEITEMS,
                 separator=",",
@@ -715,11 +731,10 @@ class NumpyNdarrayInspector(_BaseArrayInspector["np.ndarray"]):
 class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
     CLASS_QNAME = "torch.Tensor"
 
-    def get_display_value(
-        self,
-        print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        if level >= len(MAX_ITEMS_BY_LEVEL):
+            return f"torch.Tensor({ELLIPSIS})", True
+
         # NOTE:
         # Once https://github.com/pytorch/pytorch/commit/e03800a93af55ef61f2e610d65ac7194c0614edc
         # is in a stable version we can use it to temporarily set print options
@@ -728,7 +743,7 @@ class TorchTensorInspector(_BaseArrayInspector["torch.Tensor"]):
         new_options = {
             "threshold": ARRAY_THRESHOLD,
             "edgeitems": ARRAY_EDGEITEMS,
-            "linewidth": print_width,
+            "linewidth": ARRAY_MAX_LINE_WIDTH,
         }
         options_obj = torch._tensor_str.PRINT_OPTS  # type: ignore[reportGeneralTypeIssues]  # noqa: SLF001
         original_options = {k: getattr(options_obj, k) for k in new_options}
@@ -810,6 +825,64 @@ class MapInspector(_BaseMapInspector[Mapping]):
     def is_mutable(self) -> bool:
         return isinstance(self.value, MutableMapping)
 
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        prefix, suffix = "{", "}"
+
+        # If the mapping is empty, return the empty representation.
+        if not self.value:
+            return f"{prefix}{suffix}", False
+
+        # If we're at the max nested level, just return ellipsis e.g. `{...}`.
+        if level >= len(MAX_ITEMS_BY_LEVEL):
+            return f"{prefix}{ELLIPSIS}{suffix}", True
+
+        # Loop through the items in the mapping and build the display value.
+        parts = [prefix]
+        item_allowance = MAX_ITEMS_BY_LEVEL[level]
+        should_add_separator = False
+        truncated = False
+        # From Python 3.6, dictionaries retain insertion order, so no need to sort.
+        for key in self.value:
+            # Add a separator, if needed.
+            if should_add_separator:
+                parts.append(", ")
+            should_add_separator = True
+
+            # If we've reached the item allowance, add ellipsis and break.
+            item_allowance -= 1
+            if item_allowance <= 0:
+                parts.append(ELLIPSIS)
+                truncated = True
+                break
+
+            # Get the display value for the key.
+            key_inspector = get_inspector(key)
+            key_repr, key_truncated = key_inspector.get_display_value(level=level + 1)
+            truncated = truncated or key_truncated
+
+            parts.append(key_repr)
+            parts.append(": ")
+
+            # Get the display value for the item.
+            try:
+                item = self.value[key]
+            except Exception:
+                parts.append("<?>")
+            else:
+                # For items that are the same object as the parent, avoid infinite recursion
+                # and represent the item with ellipsis.
+                if item is self.value:
+                    item_repr, item_truncated = f"{prefix}{ELLIPSIS}{suffix}", True
+                else:
+                    item_inspector = get_inspector(item)
+                    item_repr, item_truncated = item_inspector.get_display_value(level=level + 1)
+                truncated = truncated or item_truncated
+
+                parts.append(item_repr)
+
+        parts.append(suffix)
+        return "".join(parts), truncated
+
 
 Column = TypeVar("Column", "pd.Series", "pl.Series", "pd.Index")
 
@@ -827,16 +900,11 @@ class BaseColumnInspector(_BaseMapInspector[Column], ABC):
     def get_display_type(self) -> str:
         return f"{self.value.dtype} [{self.get_length()}]"
 
-    def get_display_value(
-        self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
-        display_value = _get_simplified_qualname(self.value)
-        column_values = str(cast("Column", self.value[:100]).to_list())
-        display_value = f"{display_value} {column_values}"
-
-        return (display_value, True)
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
+        qualname = _get_simplified_qualname(self.value)
+        return _get_collection_display_value(
+            self.value, prefix=f"{qualname} [", suffix="]", level=level
+        )
 
     def get_size(self) -> int:
         dtype = self.value.dtype
@@ -886,27 +954,21 @@ class PandasSeriesInspector(BaseColumnInspector["pd.Series"]):
 
 class PandasIndexInspector(BaseColumnInspector["pd.Index"]):
     CLASS_QNAME = (
-        "pandas.core.indexes.base.Index",
-        "pandas.core.indexes.datetimes.DatetimeIndex",
-        "pandas.core.indexes.range.RangeIndex",
-        "pandas.core.indexes.multi.MultiIndex",
-        "pandas.core.indexes.numeric.Int64Index",
+        "pandas.Index",
+        "pandas.DatetimeIndex",
+        "pandas.RangeIndex",
+        "pandas.MultiIndex",
+        "pandas.Int64Index",
     )
 
     def is_mutable(self) -> bool:
         return False
 
-    def get_display_value(
-        self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         # RangeIndexes don't need to be truncated.
         if isinstance(self.value, _pandas().RangeIndex):
             return str(self.value), False
-
-        display_value = str(self.value[:100].to_list())
-        return display_value, True
+        return super().get_display_value(level=level)
 
     def has_children(self) -> bool:
         # For ranges, we don't visualize the children as they're
@@ -975,17 +1037,13 @@ class BaseTableInspector(_BaseMapInspector[Table], Generic[Table, Column], ABC):
     def is_mutable(self) -> bool:
         return True
 
-    def get_display_value(
-        self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         display_value = _get_simplified_qualname(self.value)
         if hasattr(self.value, "shape"):
             shape = self.value.shape
             display_value = f"[{shape[0]} rows x {shape[1]} columns] {display_value}"
 
-        return (display_value, True)
+        return (_maybe_truncate_string(display_value, level=level)[0], True)
 
 
 #
@@ -1030,16 +1088,6 @@ class PolarsDataFrameInspector(BaseTableInspector["pl.DataFrame", "pl.Series"]):
 
     def get_children(self):
         return self.value.columns
-
-    def get_display_value(
-        self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
-        qualname = _get_simplified_qualname(self.value)
-        shape = self.value.shape
-        display_value = f"[{shape[0]} rows x {shape[1]} columns] {qualname}"
-        return (display_value, True)
 
     def equals(self, value: pl.DataFrame) -> bool:
         try:
@@ -1112,23 +1160,18 @@ class IbisExprInspector(PositronInspector["ibis.Expr"]):
     def is_mutable(self):
         return False
 
-    def get_display_value(
-        self,
-        _print_width: int | None = PRINT_WIDTH,
-        _truncate_at: int = TRUNCATE_AT,
-    ) -> tuple[str, bool]:
-        # Just use the default object.__repr__ for now
+    def get_display_value(self, *, level: int = 0) -> tuple[str, bool]:
         simplified_name = get_qualname(self.value)
-        return (f"{simplified_name}", True)
+        return _maybe_truncate_string(simplified_name, level=level)[0], True
 
     def get_display_type(self) -> str:
         return "ibis.Expr"
 
     def to_html(self) -> str:
-        return self.get_display_value()[0]
+        return get_qualname(self.value)
 
     def to_plaintext(self) -> str:
-        return self.get_display_value()[0]
+        return get_qualname(self.value)
 
 
 INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
@@ -1206,3 +1249,115 @@ def _get_kind(value: Any) -> str:
         return "other"
     else:
         return "empty"
+
+
+def _get_default_display_value(value: Any, *, level: int = 0) -> tuple[str, bool]:
+    # Try to get the representation of the object.
+    try:
+        display_value = repr(value)
+    except Exception:
+        try:
+            display_value = object.__repr__(value)
+        except Exception:
+            try:
+                display_value = f"<no repr available for {get_qualname(value)}>"
+            except Exception:
+                display_value = "<no repr available for object>"
+
+    return _maybe_truncate_string(display_value, level=level)
+
+
+def _get_string_display_value(
+    value: str | bytes | bytearray, *, level: int = 0
+) -> tuple[str, bool]:
+    # Limit the length of the displayed string; the limit depends on whether the string
+    # is nested in another object.
+    max_characters = MAX_CHARACTERS_NESTED if level > 0 else MAX_CHARACTERS
+
+    # If the string fits the limit, return it as is.
+    # NOTE: We check the actual string length but return the repr which may differ e.g.
+    #       some characters may be escaped.
+    if len(value) <= max_characters:
+        return repr(value), False
+
+    # Split the character budget into two parts: 2/3 for the start and 1/3 for the end.
+    start_characters = max(1, int(2 * max_characters / 3))
+    end_characters = max(1, int(max_characters / 3))
+
+    # Only compute the repr after slicing to avoid duplicating large strings
+    # and remove surrounding quotes (and string prefixes).
+    start = repr(value[:start_characters])
+    start = start[: start.rindex("'")]
+    end = repr(value[-end_characters:])
+    end = end[end.index("'") + 1 :]
+    return f"{start}{ELLIPSIS}{end}", True
+
+
+def _get_collection_display_value(
+    value: CollectionT | Column,
+    *,
+    prefix: str,
+    suffix: str,
+    level: int = 0,
+):
+    # If the collection is empty, return the empty representation.
+    if len(value) == 0:
+        return f"{prefix}{suffix}", False
+
+    # If we're at the max nested level, just return ellipsis e.g. `[...]`.
+    if level >= len(MAX_ITEMS_BY_LEVEL):
+        return f"{prefix}{ELLIPSIS}{suffix}", True
+
+    # Loop through the items in the collection and build the display value.
+    parts = [prefix]
+    item_allowance = MAX_ITEMS_BY_LEVEL[level]
+    should_add_separator = False
+    truncated = False
+    for item in value:
+        # Add a separator, if needed.
+        if should_add_separator:
+            parts.append(", ")
+        should_add_separator = True
+
+        # If we've reached the item allowance, add ellipsis and break.
+        item_allowance -= 1
+        if item_allowance <= 0:
+            parts.append(ELLIPSIS)
+            truncated = True
+            break
+
+        # Get the display value for the item.
+        #
+        # For items that are the same object as the parent, avoid infinite recursion
+        # and represent the item with ellipsis.
+        if item is value:
+            item_repr, item_truncated = f"{prefix}{ELLIPSIS}{suffix}", True
+        else:
+            item_inspector = get_inspector(item)
+            item_repr, item_truncated = item_inspector.get_display_value(level=level + 1)
+        truncated = truncated or item_truncated
+
+        parts.append(item_repr)
+
+    # Special case: add a trailing comma for single-element tuples.
+    if isinstance(value, tuple) and len(value) == 1:
+        parts.append(",")
+
+    parts.append(suffix)
+    return "".join(parts), truncated
+
+
+def _maybe_truncate_string(value: str, *, level: int = 0) -> tuple[str, bool]:
+    # Limit the length of the displayed string; the limit depends on whether the string
+    # is nested in another object.
+    max_characters = MAX_CHARACTERS if level == 0 else MAX_CHARACTERS_NESTED
+
+    # If the string is short enough, return it as is.
+    if len(value) <= max_characters:
+        return value, False
+
+    # Truncate the string.
+    # Split the character budget into two parts: 2/3 for the start and 1/3 for the end.
+    start_characters = max(1, int(2 * max_characters / 3))
+    end_characters = max(1, int(max_characters / 3))
+    return f"{value[:start_characters]}{ELLIPSIS}{value[-end_characters:]}", True
