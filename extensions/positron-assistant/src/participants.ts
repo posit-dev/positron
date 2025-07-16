@@ -229,9 +229,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				const hasSelection = inEditor && request.location2.selection?.isEmpty === false;
 				const isEditMode = this.id === ParticipantID.Edit;
 				const isAgentMode = this.id === ParticipantID.Agent;
-				const isNotebookSession = positronContext.activeSession?.mode === positron.LanguageRuntimeSessionMode.Notebook;
 				const isStreamingInlineEditor = isStreamingEditsEnabled() && (this.id === ParticipantID.Editor || this.id === ParticipantID.Notebook);
-
 
 				// If streaming edits are enabled, don't allow any tools in inline editor chats.
 				if (isStreamingInlineEditor) {
