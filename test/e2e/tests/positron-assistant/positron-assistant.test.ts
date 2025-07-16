@@ -113,6 +113,12 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 		await app.workbench.assistant.clickNewChatButton();
 	});
 
+	test.afterAll('Sign out of Assistant', async function ({ app }) {
+		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		await app.workbench.assistant.selectModelProvider('echo');
+		await app.workbench.assistant.clickSignOutButton();
+		await app.workbench.assistant.clickCloseButton();
+	});
 	/**
 	 * Tests that Python code from chat responses can be executed in the console.
 	 * Verifies that code execution creates the expected variable with the correct value.
@@ -157,6 +163,13 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 
 	test.beforeEach('Clear chat', async function ({ app }) {
 		await app.workbench.assistant.clickNewChatButton();
+	});
+
+	test.afterAll('Sign out of Assistant', async function ({ app }) {
+		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+		await app.workbench.assistant.selectModelProvider('echo');
+		await app.workbench.assistant.clickSignOutButton();
+		await app.workbench.assistant.clickCloseButton();
 	});
 
 	test('Token usage is displayed in chat response', async function ({ app }) {
