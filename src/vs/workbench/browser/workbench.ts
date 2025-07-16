@@ -196,9 +196,9 @@ export class Workbench extends Layout {
 
 		const instantiationService = new InstantiationService(serviceCollection, true);
 
-		// FUCK
+		// BRIAN BRIAN
 		PositronReactServices.create(instantiationService);
-		// FUCK
+		// BRIAN BRIAN
 
 		// Wrap up
 		instantiationService.invokeFunction(accessor => {
