@@ -128,7 +128,7 @@ export class DataExplorerClientInstance extends Disposable {
 	/**
 	 * The guessed code syntax for the data explorer instance, if we generate code.
 	 */
-	public guessedSyntax: CodeSyntax | undefined = undefined;
+	public guessedSyntax: CodeSyntax = { code_syntax: 'No available syntaxes' };
 
 	/**
 	 * A promise resolving to an active request for the backend state.
@@ -255,8 +255,6 @@ export class DataExplorerClientInstance extends Disposable {
 		// Initialize the guessed syntax
 		this.guessCodeSyntax().then(syntax => {
 			this.guessedSyntax = syntax;
-		}).catch(err => {
-			this.guessedSyntax = { code_syntax: err.message };
 		});
 	}
 
