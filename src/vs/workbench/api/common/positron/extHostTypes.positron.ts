@@ -92,6 +92,10 @@ export enum LanguageRuntimeMessageType {
 	/** A message indicating that a comm (client instance) was closed from the server side */
 	CommClosed = 'comm_closed',
 
+	DebugReply = 'debug_reply',
+
+	DebugEvent = 'debug_event',
+
 	/** A message that should be handled by an IPyWidget */
 	IPyWidget = 'ipywidget',
 
@@ -140,6 +144,12 @@ export enum RuntimeCodeFragmentStatus {
 
 	/** It was not possible to ascertain the code fragment's status */
 	Unknown = 'unknown'
+}
+
+export enum DebugMessageType {
+	Request = 'request',
+	Response = 'response',
+	Event = 'event'
 }
 
 /**

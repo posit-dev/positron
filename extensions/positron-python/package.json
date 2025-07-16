@@ -437,6 +437,13 @@
             },
             {
                 "category": "Python",
+                "command": "python.runAndDebugCell",
+                "icon": "$(debug-alt-small)",
+                "title": "Debug Cell",
+                "enablement": "notebookKernel =~ /^positron.runtime-notebook-kernels\\//"
+            },
+            {
+                "category": "Python",
                 "command": "python.debugDashInTerminal",
                 "icon": "$(debug-alt)",
                 "title": "%python.command.python.debugDashInTerminal.title%",
@@ -1366,6 +1373,10 @@
                 },
                 "when": "!virtualWorkspace && shellExecutionSupported",
                 "hiddenWhen": "true"
+            },
+            {
+                "type": "runtimeNotebook",
+                "label": "Runtime Notebook"
             }
         ],
         "grammars": [
@@ -1841,6 +1852,11 @@
                     "command": "python.createNewFile",
                     "group": "file",
                     "when": "!virtualWorkspace"
+                }
+            ],
+            "notebook/cell/execute": [
+                {
+                    "command": "python.runAndDebugCell"
                 }
             ],
             "view/title": [

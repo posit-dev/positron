@@ -258,6 +258,10 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 	 */
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit> = this._onDidEndSession.event;
 
+	debug(content: positron.DebugRequest, id: string): void {
+		// Not implemented.
+	}
+
 	/**
 	 * Execute code in the runtime.
 	 * @param code The code to exeucte.

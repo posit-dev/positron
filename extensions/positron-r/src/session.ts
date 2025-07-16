@@ -175,6 +175,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
+	debug(content: positron.DebugRequest, id: string): void {
+
+	}
+
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {
 		if (this._kernel) {
 			this._kernel.execute(code, id, mode, errorBehavior);
