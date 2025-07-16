@@ -9,11 +9,6 @@ import React, { JSX } from 'react';
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { IColumnSortKey } from '../../../browser/positronDataGrid/interfaces/columnSortKey.js';
 import { TableDataCell } from './components/tableDataCell.js';
@@ -29,6 +24,7 @@ import { CustomContextMenuEntry, showCustomContextMenu } from '../../../browser/
 import { dataExplorerExperimentalFeatureEnabled } from '../common/positronDataExplorerExperimentalConfig.js';
 import { BackendState, ColumnSchema, DataSelectionCellRange, DataSelectionIndices, DataSelectionRange, DataSelectionSingleCell, ExportFormat, RowFilter, SupportStatus, TableSelection, TableSelectionKind } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardData, ClipboardRowIndexes, ClipboardRowRange, ColumnSelectionState, ColumnSortKeyDescriptor, DataGridInstance, RowSelectionState } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 
 /**
  * Localized strings.
@@ -66,11 +62,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * @param _tableDataCache The table data cache.
 	 */
 	constructor(
-		private readonly _commandService: ICommandService,
-		private readonly _configurationService: IConfigurationService,
-		private readonly _keybindingService: IKeybindingService,
-		private readonly _layoutService: ILayoutService,
-		private readonly _hoverService: IHoverService,
+		private readonly _services: PositronReactServices,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _tableDataCache: TableDataCache,
 	) {
@@ -99,7 +91,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			cursorOffset: 0.5,
 		});
 
-		this._cellHoverManager = this._register(new PositronActionBarHoverManager(false, this._configurationService, this._hoverService));
+		this._cellHoverManager = this._register(new PositronActionBarHoverManager(false, this._services.configurationService, this._services.hoverService));
 		this._cellHoverManager.setCustomHoverDelay(500);
 
 		/**
@@ -428,9 +420,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			commandService: this._commandService,
-			keybindingService: this._keybindingService,
-			layoutService: this._layoutService,
+			instantiationService: this._services.instantiationService,
+			layoutService: this._services.workbenchLayoutService,
 			anchorElement,
 			anchorPoint,
 			popupPosition: 'auto',
@@ -476,9 +467,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			commandService: this._commandService,
-			keybindingService: this._keybindingService,
-			layoutService: this._layoutService,
+			instantiationService: this._services.instantiationService,
+			layoutService: this._services.workbenchLayoutService,
 			anchorElement,
 			anchorPoint,
 			popupPosition: 'auto',
@@ -582,9 +572,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			commandService: this._commandService,
-			keybindingService: this._keybindingService,
-			layoutService: this._layoutService,
+			instantiationService: this._services.instantiationService,
+			layoutService: this._services.workbenchLayoutService,
 			anchorElement,
 			anchorPoint,
 			popupPosition: 'auto',
@@ -722,7 +711,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 	 * Given a status check if the feature is enabled.
 	 */
 	isFeatureEnabled(status: SupportStatus): boolean {
-		return dataExplorerExperimentalFeatureEnabled(status, this._configurationService);
+		return dataExplorerExperimentalFeatureEnabled(status, this._services.configurationService);
 	}
 
 	//#endregion Public Methods

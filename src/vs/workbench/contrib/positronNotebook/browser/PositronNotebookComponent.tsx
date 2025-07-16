@@ -23,7 +23,7 @@ import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurem
 import { BareFontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCells/PositronNotebookCell.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 
 export function PositronNotebookComponent() {
@@ -54,7 +54,7 @@ export function PositronNotebookComponent() {
  * @returns A css properties object that sets css variables associated with fonts in the notebook.
  */
 function useFontStyles(): React.CSSProperties {
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	const editorOptions = services.configurationService.getValue<IEditorOptions>('editor');
 	const targetWindow = DOM.getActiveWindow();

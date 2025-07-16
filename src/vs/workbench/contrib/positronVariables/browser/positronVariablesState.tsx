@@ -9,7 +9,7 @@ import { useEffect, useState } from 'react';
 // Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PositronVariablesEnvironment } from './positronVariablesContext.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 
 /**
@@ -26,7 +26,7 @@ export interface PositronVariablesState extends PositronVariablesEnvironment {
  */
 export const usePositronVariablesState = (positronVariablesEnvironment: PositronVariablesEnvironment): PositronVariablesState => {
 	// Hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const [positronVariablesInstances, setPositronVariablesInstances] =
 		useState<IPositronVariablesInstance[]>(
 			services.positronVariablesService.positronVariablesInstances

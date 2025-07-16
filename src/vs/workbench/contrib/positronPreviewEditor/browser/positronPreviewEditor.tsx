@@ -116,7 +116,7 @@ export class PositronPreviewEditor
 
 	private renderContainer(previewId: string): void {
 		if (!this._positronReactRenderer) {
-			this._positronReactRenderer = this._instantiationService.createInstance(PositronReactRenderer, this._container);
+			this._positronReactRenderer = PositronReactRenderer.create(this._instantiationService, this._container);
 		}
 
 		if (this._preview) {

@@ -6,7 +6,7 @@
 import { useEffect, useState } from 'react';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PositronRuntimeSessionsState interface.
@@ -21,7 +21,7 @@ export interface PositronRuntimeSessionsState {
  */
 export const usePositronRuntimeSessionsState = (): PositronRuntimeSessionsState => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Hooks.
 	const [positronSessions, setPositronSessions] =

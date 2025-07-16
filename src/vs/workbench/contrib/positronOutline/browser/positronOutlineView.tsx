@@ -51,7 +51,7 @@ export class PositronOutlineViewPane extends ViewPane {
 		super.renderBody(container);
 
 		// Render the Positron top action bar component.
-		this.positronReactRenderer = this._register(this.instantiationService.createInstance(PositronReactRenderer, this.element));
+		this.positronReactRenderer = this._register(PositronReactRenderer.create(this.instantiationService, this.element));
 		this.positronReactRenderer.render(
 			<TestContent message='Outline React' />
 		);

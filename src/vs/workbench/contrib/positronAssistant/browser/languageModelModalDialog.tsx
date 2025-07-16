@@ -10,47 +10,29 @@ import './languageModelModalDialog.css';
 import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { PositronModalReactRenderer } from '../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { VerticalStack } from '../../../browser/positronComponents/positronModalDialog/components/verticalStack.js';
-import { IPositronAssistantService, IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
+import { IPositronLanguageModelConfig, IPositronLanguageModelSource, PositronLanguageModelType } from '../common/interfaces/positronAssistantService.js';
 import { localize } from '../../../../nls.js';
 import { ProgressBar } from '../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LanguageModelButton } from './components/languageModelButton.js';
 import { OKModalDialog } from '../../../browser/positronComponents/positronModalDialog/positronOKModalDialog.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { LanguageModelConfigComponent } from './components/languageModelConfigComponent.js';
 import { RadioButtonItem } from '../../../browser/positronComponents/positronModalDialog/components/radioButton.js';
 import { RadioGroup } from '../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import { AuthMethod, AuthStatus } from './types.js';
-import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
+import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 
 export const showLanguageModelModalDialog = (
-	keybindingService: IKeybindingService,
-	layoutService: ILayoutService,
-	configurationService: IConfigurationService,
-	positronAssistantService: IPositronAssistantService,
-	positronModalDialogsService: IPositronModalDialogsService,
 	sources: IPositronLanguageModelSource[],
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 	onClose: () => void,
 ) => {
-	const renderer = new PositronModalReactRenderer({
-		keybindingService: keybindingService,
-		layoutService: layoutService,
-		container: layoutService.activeContainer
-	});
+	const renderer = new PositronModalReactRenderer();
 
 	renderer.render(
 		<div className='language-model-modal-dialog'>
 			<LanguageModelConfiguration
-				configurationService={configurationService}
-				keybindingService={keybindingService}
-				layoutService={layoutService}
-				positronAssistantService={positronAssistantService}
-				positronModalDialogsService={positronModalDialogsService}
 				renderer={renderer}
 				sources={sources}
 				onAction={onAction}
@@ -70,13 +52,8 @@ const providerSourceToConfig = (source: IPositronLanguageModelSource): IPositron
 }
 
 interface LanguageModelConfigurationProps {
-	keybindingService: IKeybindingService;
-	layoutService: ILayoutService;
-	positronAssistantService: IPositronAssistantService;
-	positronModalDialogsService: IPositronModalDialogsService;
 	sources: IPositronLanguageModelSource[];
-	configurationService: IConfigurationService;
-	renderer: PositronModalReactRenderer;
+	renderer: IPositronModalReactRenderer;
 	// To find available actions, search for positron.ai.showLanguageModelConfig in extensions/positron-assistant/src/config.ts
 	onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>;
 	onClose: () => void;
@@ -119,7 +96,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 	// This occurs when a user signs in or out of a provider.
 	useEffect(() => {
 		const disposables: IDisposable[] = [];
-		disposables.push(props.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
+		disposables.push(props.renderer.services.positronAssistantService.onChangeLanguageModelConfig((newSource) => {
 			// Note: newSource is technically an IPositronLanguageModelSource, but it may not be in the same format and may be missing
 			// some properties from the original source. See expandConfigToSource in extensions/positron-assistant/src/config.ts
 			// for how the source is expanded from the stored model config.
@@ -138,7 +115,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			});
 		}));
 		return () => { disposables.forEach(d => d.dispose()); }
-	}, [props.positronAssistantService]);
+	}, [props.renderer.services.positronAssistantService]);
 
 	// Keep selectedProvider in sync with providerSources
 	useEffect(() => {
@@ -212,7 +189,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 		}
 
 		if (isOauthInProgress()) {
-			return await props.positronModalDialogsService.showSimpleModalDialogPrompt(
+			return await props.renderer.services.positronModalDialogsService.showSimpleModalDialogPrompt(
 				localize('positron.languageModelProviderModalDialog.oauthInProgressTitle', "{0} Authentication in Progress", selectedProvider.provider.displayName),
 				localize('positron.languageModelProviderModalDialog.oauthInProgressMessage', "The sign in flow is in progress. If you close this dialog, your sign in may not complete. Are you sure you want to close and abandon signing in?"),
 				localize('positron.languageModelProviderModalDialog.ok', "Yes"),
@@ -220,7 +197,7 @@ const LanguageModelConfiguration = (props: React.PropsWithChildren<LanguageModel
 			)
 		}
 		if (isApiKeyAuthInProgress()) {
-			return await props.positronModalDialogsService.showSimpleModalDialogPrompt(
+			return await props.renderer.services.positronModalDialogsService.showSimpleModalDialogPrompt(
 				localize('positron.languageModelProviderModalDialog.apiKeySignInIncompleteTitle', "{0} Authentication Incomplete", selectedProvider.provider.displayName),
 				localize('positron.languageModelProviderModalDialog.apiKeySignInIncompleteMessage', "You have entered an API key, but have not signed in. If you close this dialog, your API key will not be saved. Are you sure you want to close and abandon signing in?"),
 				localize('positron.languageModelProviderModalDialog.ok', "Yes"),

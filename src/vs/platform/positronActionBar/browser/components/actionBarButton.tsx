@@ -18,7 +18,7 @@ import { ThemeIcon } from '../../../../base/common/themables.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { Button, MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { optionalBoolean, optionalValue, positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * ActionBarButtonIconProps type
@@ -80,7 +80,7 @@ export const ActionBarButton = forwardRef<
 	PropsWithChildren<ActionBarButtonProps>
 >((props, ref) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const context = usePositronActionBarContext();
 
 	// Reference hooks.

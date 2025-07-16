@@ -231,7 +231,7 @@ export class PositronVariablesViewPane extends PositronViewPane implements IReac
 		);
 
 		// Create the PositronReactRenderer for the PositronVariables component and render it.
-		this._positronReactRenderer = this._register(this.instantiationService.createInstance(PositronReactRenderer, this._positronVariablesContainer));
+		this._positronReactRenderer = this._register(PositronReactRenderer.create(this.instantiationService, this._positronVariablesContainer));
 		this._positronReactRenderer.render(
 			<PositronVariables reactComponentContainer={this} />
 		);

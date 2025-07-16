@@ -16,7 +16,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progressbar.js';
 import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IRuntimeAutoStartEvent } from '../../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Load localized copy for control.
 const initalizing = localize('positron.console.initializing', "Starting up");
@@ -36,7 +36,7 @@ const discoveringIntrepreters = localize('positron.console.discoveringInterprete
  */
 export const StartupStatus = () => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const progressRef = React.useRef<HTMLDivElement>(null);

@@ -32,7 +32,7 @@ export class ChatActionBarControl extends Disposable {
 		this._container = document.createElement('div');
 		this._container.className = 'chat-action-bar-container';
 
-		this._positronReactRenderer = this._register(this._instantiationService.createInstance(PositronReactRenderer, this._container));
+		this._positronReactRenderer = this._register(PositronReactRenderer.create(this._instantiationService, this._container));
 		this._positronReactRenderer.render(
 			<PositronActionBarContextProvider>
 				<PositronChatContextProvider chatInput={this._chatInput}>

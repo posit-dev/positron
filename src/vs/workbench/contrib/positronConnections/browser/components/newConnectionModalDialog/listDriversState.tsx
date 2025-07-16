@@ -16,10 +16,10 @@ import { LanguageRuntimeMetadata } from 'positron';
 import { DropDownListBox } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { IDriver } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
-import { PositronReactRendererServices } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { PositronReactServices } from '../../../../../../base/browser/positronReactServices.js';
 
 interface ListDriversProps {
-	readonly services: PositronReactRendererServices;
 	readonly onCancel: () => void;
 	readonly onSelection: (driver: IDriver) => void;
 	readonly languageId?: string;
@@ -27,13 +27,14 @@ interface ListDriversProps {
 }
 
 export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
+	const services = usePositronReactServicesContext();
 
 	const onDriverSelectedHandler = (driver: IDriver) => {
 		props.onSelection(driver);
 	};
 
 	const { languageId, setLanguageId } = props;
-	const driverManager = props.services.positronConnectionsService.driverManager;
+	const driverManager = services.positronConnectionsService.driverManager;
 
 	const drivers = languageId ?
 		driverManager.getDrivers().filter(driver => driver.metadata.languageId === languageId) :
@@ -61,14 +62,14 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 						</div>
 					</div>;
 				}}
-				entries={getRegisteredLanguages(props.services).map((item) => {
+				entries={getRegisteredLanguages(services).map((item) => {
 					return new DropDownListBoxItem({
 						identifier: item.languageId,
 						value: item
 					});
 				})}
-				keybindingService={props.services.keybindingService}
-				layoutService={props.services.workbenchLayoutService}
+				keybindingService={services.keybindingService}
+				layoutService={services.workbenchLayoutService}
 				selectedIdentifier={languageId}
 				title={(() => localize('positron.newConnectionModalDialog.listDrivers.selectLanguage', "Select a language"))()}
 				onSelectionChanged={(item) => onLanguageChangeHandler(item.options.identifier)}
@@ -110,7 +111,7 @@ export const ListDrivers = (props: PropsWithChildren<ListDriversProps>) => {
 	</div>;
 };
 
-const getRegisteredLanguages = (services: PositronReactRendererServices) => {
+const getRegisteredLanguages = (services: PositronReactServices) => {
 	const languages = new Map<string, LanguageRuntimeMetadata>();
 	for (const runtime of services.languageRuntimeService.registeredRuntimes) {
 		if (languages.has(runtime.languageId)) {

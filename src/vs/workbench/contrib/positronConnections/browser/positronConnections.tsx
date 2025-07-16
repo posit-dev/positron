@@ -13,7 +13,7 @@ import { SchemaNavigation } from './components/schemaNavigation.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PositronConnectionsContextProvider } from './positronConnectionsContext.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 export interface PositronConnectionsProps {
 	readonly reactComponentContainer: IReactComponentContainer;
@@ -28,7 +28,7 @@ export interface ViewsProps {
 
 export const PositronConnections = (props: React.PropsWithChildren<PositronConnectionsProps>) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// This allows us to introspect the size of the component. Which then allows
 	// us to efficiently only render items that are in view.

@@ -27,12 +27,12 @@ import { showResumeConnectionModalDialog } from './resumeConnectionModalDialog.j
 import { localize } from '../../../../../nls.js';
 import { showNewConnectionModalDialog } from './newConnectionModalDialog.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 export interface ListConnnectionsProps extends ViewsProps { }
 
 export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsProps>) => {
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const context = usePositronConnectionsContext();
 	const { height, setActiveInstanceId } = props;
 
@@ -105,7 +105,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 						if (itemProps.active) {
 							setActiveInstanceId(itemProps.id);
 						} else {
-							showResumeConnectionModalDialog(services, itemProps.id, setActiveInstanceId);
+							showResumeConnectionModalDialog(services.instantiationService, itemProps.id, setActiveInstanceId);
 						}
 					}}
 				>
@@ -132,7 +132,7 @@ export const ListConnections = (props: React.PropsWithChildren<ListConnnectionsP
 						undefined
 				}
 				onNewConnection={() => {
-					showNewConnectionModalDialog(services);
+					showNewConnectionModalDialog(services.instantiationService);
 				}}
 			>
 			</ActionBar>

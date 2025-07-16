@@ -18,7 +18,7 @@ import { IContextMenuEvent } from '../../../../base/browser/contextmenu.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { MouseTrigger } from '../../../../base/browser/ui/positronComponents/button/button.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../base/browser/ui/contextview/contextview.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * ActionBarMenuButtonProps interface.
@@ -49,7 +49,7 @@ interface ActionBarMenuButtonProps {
  */
 export const ActionBarMenuButton = (props: ActionBarMenuButtonProps) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext();
 
 	// Reference hooks.

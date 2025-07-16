@@ -27,7 +27,7 @@ import { HtmlPlotClient } from '../htmlPlotClient.js';
 import { OpenInEditorMenuButton } from './openInEditorMenuButton.js';
 import { DarkFilterMenuButton } from './darkFilterMenuButton.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants.
 const kPaddingLeft = 14;
@@ -57,7 +57,7 @@ export interface ActionBarsProps {
  */
 export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 	// Hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const positronPlotsContext = usePositronPlotsContext();
 
 	// Do we have any plots?
@@ -180,13 +180,7 @@ export const ActionBars = (props: PropsWithChildren<ActionBarsProps>) => {
 								zoomLevel={props.zoomLevel}
 							/>}
 						{enableSizingPolicy &&
-							<SizingPolicyMenuButton
-								keybindingService={services.keybindingService}
-								layoutService={services.workbenchLayoutService}
-								notificationService={services.notificationService}
-								plotClient={selectedPlot}
-								plotsService={services.positronPlotsService}
-							/>
+							<SizingPolicyMenuButton plotClient={selectedPlot} />
 						}
 						{enablePopoutPlot &&
 							<ActionBarButton

@@ -14,7 +14,7 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isAuxiliaryWindow } from '../../../../base/browser/window.js';
 import { EditorActionBarFactory } from './editorActionBarFactory.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { PositronActionBarContextProvider } from '../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 /**
@@ -30,7 +30,7 @@ interface EditorActionBarProps {
  */
 export const EditorActionBar = (props: EditorActionBarProps) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);

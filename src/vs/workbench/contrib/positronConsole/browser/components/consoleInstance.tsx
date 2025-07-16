@@ -25,7 +25,7 @@ import { FontConfigurationManager } from '../../../../browser/fontConfigurationM
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { POSITRON_PLOTS_VIEW_ID } from '../../../../services/positronPlots/common/positronPlots.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { POSITRON_CONSOLE_COPY, POSITRON_CONSOLE_PASTE, POSITRON_CONSOLE_SELECT_ALL } from '../positronConsoleIdentifiers.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
@@ -45,7 +45,7 @@ interface ConsoleInstanceProps {
  */
 export const ConsoleInstance = (props: ConsoleInstanceProps) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.

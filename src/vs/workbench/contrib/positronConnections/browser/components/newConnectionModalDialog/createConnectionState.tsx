@@ -17,22 +17,21 @@ import Severity from '../../../../../../base/common/severity.js';
 import { IDriver, Input } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { RadioGroup } from '../../../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
-import { PositronModalReactRenderer } from '../../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
-import { PositronReactRendererServices } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { IPositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 
 interface CreateConnectionProps {
-	readonly services: PositronReactRendererServices;
-	readonly renderer: PositronModalReactRenderer;
+	readonly renderer: IPositronModalReactRenderer;
 	readonly onCancel: () => void;
 	readonly onBack: () => void;
 	readonly selectedDriver: IDriver;
 }
 
 export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
-
+	const services = usePositronReactServicesContext();
 	const { generateCode, metadata } = props.selectedDriver;
 	const { name, languageId } = metadata;
-	const { onBack, onCancel, services } = props;
+	const { onBack, onCancel } = props;
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
 	const [inputs, setInputs] = useState<Array<Input>>(metadata.inputs);
@@ -132,7 +131,6 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 					cursorBlinking: 'solid'
 				}}
 				language={languageId}
-				services={props.services}
 			>
 			</SimpleCodeEditor>
 		</div>

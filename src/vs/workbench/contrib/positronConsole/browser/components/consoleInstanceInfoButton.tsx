@@ -16,10 +16,10 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js'
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
-import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
@@ -38,7 +38,7 @@ function intersectionOutputChannels(availableChannels: string[]): LanguageRuntim
 
 export const ConsoleInstanceInfoButton = () => {
 	// Hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.
@@ -69,8 +69,6 @@ export const ConsoleInstanceInfoButton = () => {
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: services.keybindingService,
-			layoutService: services.workbenchLayoutService,
 			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
 		});
@@ -101,7 +99,7 @@ export const ConsoleInstanceInfoButton = () => {
 
 interface ConsoleInstanceInfoModalPopupProps {
 	anchorElement: HTMLElement;
-	renderer: PositronModalReactRenderer;
+	renderer: IPositronModalReactRenderer;
 	session: ILanguageRuntimeSession;
 	channels: LanguageRuntimeSessionChannel[];
 }

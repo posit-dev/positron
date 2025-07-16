@@ -20,11 +20,10 @@ import { SortingMenuButton } from './sortingMenuButton.js';
 import { GroupingMenuButton } from './groupingMenuButton.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
-import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { VariablesInstanceMenuButton } from './variablesInstanceMenuButton.js';
 import { DeleteAllVariablesModalDialog } from '../modalDialogs/deleteAllVariablesModalDialog.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 // Constants.
 const kSecondaryActionBarGap = 4;
@@ -45,7 +44,6 @@ const positronDeleteAllObjects = localize('positronDeleteAllObjects', "Delete al
  */
 export const ActionBars = (props: PropsWithChildren<{}>) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
 	const positronVariablesContext = usePositronVariablesContext();
 
 	// State hooks.
@@ -87,11 +85,7 @@ export const ActionBars = (props: PropsWithChildren<{}>) => {
 	 */
 	const deleteAllObjectsHandler = async () => {
 		// Create the renderer.
-		const renderer = new PositronModalReactRenderer({
-			keybindingService: services.keybindingService,
-			layoutService: services.workbenchLayoutService,
-			container: services.workbenchLayoutService.activeContainer
-		});
+		const renderer = new PositronModalReactRenderer();
 
 		// Show the delete all variables modal dialog.
 		renderer.render(

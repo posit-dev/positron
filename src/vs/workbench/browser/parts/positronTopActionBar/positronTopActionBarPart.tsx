@@ -105,7 +105,7 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		this.element.tabIndex = -1;
 
 		// Render the Positron top action bar component.
-		this.positronReactRenderer = this._register(this._instantiationService.createInstance(PositronReactRenderer, this.element));
+		this.positronReactRenderer = this._register(PositronReactRenderer.create(this._instantiationService, this.element));
 		this.positronReactRenderer.render(
 			<PositronTopActionBar positronTopActionBarContainer={this} />
 		);

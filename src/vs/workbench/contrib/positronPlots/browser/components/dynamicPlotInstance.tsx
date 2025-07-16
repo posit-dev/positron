@@ -17,7 +17,7 @@ import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/co
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -42,7 +42,7 @@ interface DynamicPlotInstanceProps {
  */
 export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const [uri, setUri] = useState('');
 	const [error, setError] = useState('');
 	const progressRef = React.useRef<HTMLDivElement>(null);

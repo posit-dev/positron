@@ -96,7 +96,7 @@ export interface PositronModalPopupProps {
  * @param props A PositronModalPopupProps that contains the component properties.
  * @returns The rendered component.
  */
-export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupProps>) => {
+export const PositronModalPopup2 = (props: PropsWithChildren<PositronModalPopupProps>) => {
 	// Reference hooks.
 	const popupContainerRef = useRef<HTMLDivElement>(undefined!);
 	const popupRef = useRef<HTMLDivElement>(undefined!);

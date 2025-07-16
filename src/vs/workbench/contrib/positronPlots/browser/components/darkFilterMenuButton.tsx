@@ -15,7 +15,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { Icon } from '../../../../../platform/action/common/action.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Labels for the menu.
 const darkFilterLabel = nls.localize('positron.darkFilter', "Dark Filter");
@@ -30,7 +30,7 @@ const darkFilterTooltip = nls.localize('positronDarkFilterTooltip', "Set whether
  * @returns The rendered component.
  */
 export const DarkFilterMenuButton = () => {
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const [darkFilterMode, setDarkFilterMode] = useState(services.positronPlotsService.darkFilterMode);
 
 	useEffect(() => {

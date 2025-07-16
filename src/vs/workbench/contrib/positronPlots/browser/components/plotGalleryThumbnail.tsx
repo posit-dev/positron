@@ -8,7 +8,7 @@ import React, { PropsWithChildren, useRef } from 'react';
 
 // Other dependencies.
 import { IPositronPlotClient } from '../../../../services/positronPlots/common/positronPlots.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PlotGalleryThumbnailProps interface.
@@ -28,7 +28,7 @@ interface PlotGalleryThumbnailProps {
  * @returns The rendered component.
  */
 export const PlotGalleryThumbnail = (props: PropsWithChildren<PlotGalleryThumbnailProps>) => {
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const plotThumbnailButtonRef = useRef<HTMLButtonElement>(undefined!);
 	const plotRemoveButtonRef = useRef<HTMLButtonElement>(undefined!);
 

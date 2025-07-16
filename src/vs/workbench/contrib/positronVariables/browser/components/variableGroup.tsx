@@ -17,7 +17,7 @@ import { positronClassNames } from '../../../../../base/common/positronUtilities
 import { IVariableGroup } from '../../../../services/positronVariables/common/interfaces/variableGroup.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_EXPAND } from '../positronVariablesIdentifiers.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 
 /**
@@ -41,7 +41,7 @@ interface VariableGroupProps {
  */
 export const VariableGroup = (props: VariableGroupProps) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	/**
 	 * MouseDown handler for the row.

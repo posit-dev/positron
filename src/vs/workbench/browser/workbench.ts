@@ -48,6 +48,7 @@ import { AccessibilityProgressSignalScheduler } from '../../platform/accessibili
 import { setProgressAcccessibilitySignalScheduler } from '../../base/browser/ui/progressbar/progressAccessibilitySignal.js';
 import { AccessibleViewRegistry } from '../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { NotificationAccessibleView } from './parts/notifications/notificationAccessibleView.js';
+import { PositronReactServices } from '../../base/browser/positronReactServices.js';
 
 export interface IWorkbenchOptions {
 
@@ -194,6 +195,10 @@ export class Workbench extends Layout {
 		}
 
 		const instantiationService = new InstantiationService(serviceCollection, true);
+
+		// FUCK
+		PositronReactServices.create(instantiationService);
+		// FUCK
 
 		// Wrap up
 		instantiationService.invokeFunction(accessor => {

@@ -10,7 +10,7 @@ import React from 'react';
 import { localize } from '../../../../../nls.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { detectHyperlinks } from '../../common/linkDetector.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // OutputRunWithLinksProps interface.
 export interface OutputRunWithLinksProps {
@@ -24,7 +24,7 @@ export interface OutputRunWithLinksProps {
  */
 export const OutputRunWithLinks = (props: OutputRunWithLinksProps) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Click handler for each hyperlink.
 	const clickHandler = async (url: string) => {

@@ -20,7 +20,7 @@ import { PreviewUrl } from './previewUrl.js';
 import { PreviewHtml } from './previewHtml.js';
 import { HtmlActionBars } from './components/htmlActionBars.js';
 import { BasicActionBars } from './components/basicActionBars.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PositronPreviewProps interface.
@@ -36,7 +36,7 @@ export interface PositronPreviewProps {
  */
 export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Hooks.
 	const [width, setWidth] = useState(props.reactComponentContainer.width);

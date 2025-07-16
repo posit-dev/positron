@@ -20,7 +20,7 @@ import { IEditorOptions } from '../../../../../../editor/common/config/editorOpt
 import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
 import { FontMeasurements } from '../../../../../../editor/browser/config/fontMeasurements.js';
 import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/dataGridColumnHeader.js';
-import { usePositronReactRendererServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 
@@ -36,7 +36,7 @@ const DEFAULT_SUMMARY_WIDTH = 350;
  */
 export const DataExplorer = () => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const context = usePositronDataExplorerContext();
 
 	// Reference hooks.

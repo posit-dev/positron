@@ -15,7 +15,7 @@ import { CommandCenter } from '../../../commandCenter/common/commandCenter.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { ActionBarButton, ActionBarButtonProps } from './actionBarButton.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * ActionBarCommandButtonProps interface.
@@ -31,7 +31,7 @@ type ActionBarCommandButtonProps = ActionBarButtonProps & {
  */
 export const ActionBarCommandButton = (props: ActionBarCommandButtonProps) => {
 	// Hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext();
 	const [commandDisabled, setCommandDisabled] = useState(
 		!positronActionBarContext.isCommandEnabled(props.commandId)

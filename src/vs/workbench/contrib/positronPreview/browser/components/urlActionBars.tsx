@@ -21,7 +21,7 @@ import { URI } from '../../../../../base/common/uri.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { kPaddingLeft, kPaddingRight } from './actionBars.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';
@@ -51,7 +51,7 @@ const openInEditor = localize('positron.preview.html.openInEditor', "Open the co
  */
 export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Save the current URL.
 	const currentUri = props.preview.currentUri;

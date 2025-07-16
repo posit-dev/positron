@@ -26,7 +26,7 @@ import { StaticPlotClient } from '../../../../services/positronPlots/common/stat
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PlotContainerProps interface.
@@ -54,7 +54,7 @@ export const HistoryPx = 100;
  * @returns The rendered component.
  */
 export const PlotsContainer = (props: PlotContainerProps) => {
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const positronPlotsContext = usePositronPlotsContext();
 	const plotHistoryRef = React.createRef<HTMLDivElement>();
 	const containerRef = useRef<HTMLDivElement>(undefined!);

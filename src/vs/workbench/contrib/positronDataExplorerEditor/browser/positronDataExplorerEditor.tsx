@@ -302,7 +302,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 			);
 
 			// Create the PositronReactRenderer.
-			this._positronReactRenderer = this._instantiationService.createInstance(PositronReactRenderer, this._positronDataExplorerContainer);
+			this._positronReactRenderer = PositronReactRenderer.create(this._instantiationService, this._positronDataExplorerContainer);
 
 			// If the Positron data explorer instance was found, render the PositronDataExplorer
 			// component. Otherwise, render the PositronDataExplorerClosed component.

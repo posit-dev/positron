@@ -20,7 +20,7 @@ import { ActionBarButton } from '../../../../../platform/positronActionBar/brows
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 const reload = localize('positron.preview.html.reload', "Reload the content");
 const clear = localize('positron.preview.html.clear', "Clear the content");
@@ -38,7 +38,7 @@ export interface HtmlActionBarsProps {
 
 export const HtmlActionBars = (props: PropsWithChildren<HtmlActionBarsProps>) => {
 
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const [title, setTitle] = useState(props.preview.html?.title);
 
 	// Handler for the reload button.

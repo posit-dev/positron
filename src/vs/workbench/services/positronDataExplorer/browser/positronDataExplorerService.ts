@@ -6,15 +6,10 @@
 import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { CommandsRegistry, ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { PositronDataExplorerFocused } from '../../../common/contextkeys.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { IEditorService } from '../../editor/common/editorService.js';
 import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
@@ -29,6 +24,7 @@ import { ServicesAccessor } from '../../../../editor/browser/editorExtensions.js
 import { URI } from '../../../../base/common/uri.js';
 import { RuntimeState } from '../../languageRuntime/common/languageRuntimeService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /**
  * DataExplorerRuntime class.
@@ -162,14 +158,10 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 	 * @param _runtimeSessionService The language runtime session service.
 	 */
 	constructor(
-		@IClipboardService private readonly _clipboardService: IClipboardService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
 		@ICommandService private readonly _commandService: ICommandService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IEditorService private readonly _editorService: IEditorService,
-		@IHoverService private readonly _hoverService: IHoverService,
-		@IKeybindingService private readonly _keybindingService: IKeybindingService,
-		@ILayoutService private readonly _layoutService: ILayoutService,
 		@ILogService private readonly _logService: ILogService,
 		@INotificationService private readonly _notificationService: INotificationService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService
@@ -458,14 +450,7 @@ class PositronDataExplorerService extends Disposable implements IPositronDataExp
 		this._positronDataExplorerInstances.set(
 			client.identifier,
 			new PositronDataExplorerInstance(
-				this._clipboardService,
-				this._commandService,
-				this._configurationService,
-				this._hoverService,
-				this._keybindingService,
-				this._layoutService,
-				this._notificationService,
-				this._editorService,
+				this._instantiationService,
 				languageName,
 				client
 			)

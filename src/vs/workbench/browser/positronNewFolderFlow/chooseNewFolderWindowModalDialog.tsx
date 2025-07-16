@@ -12,35 +12,27 @@ import React, { useRef } from 'react';
 // Other dependencies.
 import { localize } from '../../../nls.js';
 import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
-import { PositronModalReactRenderer } from '../positronModalReactRenderer/positronModalReactRenderer.js';
 import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
 import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
-import { ICommandService } from '../../../platform/commands/common/commands.js';
-import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
-import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
 import { URI } from '../../../base/common/uri.js';
+import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
+import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 
 export const showChooseNewFolderWindowModalDialog = (
-	commandService: ICommandService,
-	keybindingService: IKeybindingService,
-	layoutService: IWorkbenchLayoutService,
+	instantiationService: IInstantiationService,
 	folderName: string,
 	folderUri: URI,
 	openInNewWindow: boolean,
 ) => {
 	// Create the renderer.
-	const renderer = new PositronModalReactRenderer({
-		keybindingService,
-		layoutService,
-		container: layoutService.activeContainer
-	});
+	const renderer = new PositronModalReactRenderer();
 
 	// Show the choose new folder window modal dialog.
 	renderer.render(
 		<ChooseNewFolderWindowModalDialog
 			chooseNewFolderWindowAction={async (openInNewWindow: boolean) => {
 				// Open the folder in the selected window.
-				await commandService.executeCommand(
+				await renderer.services.commandService.executeCommand(
 					'vscode.openFolder',
 					folderUri,
 					{
@@ -60,7 +52,7 @@ export const showChooseNewFolderWindowModalDialog = (
  * ChooseNewFolderWindowModalDialogProps interface.
  */
 interface ChooseNewFolderWindowModalDialogProps {
-	renderer: PositronModalReactRenderer;
+	renderer: IPositronModalReactRenderer;
 	folderName: string;
 	openInNewWindow: boolean;
 	chooseNewFolderWindowAction: (openInNewWindow: boolean) => Promise<void>;

@@ -19,7 +19,7 @@ import { IAction } from '../../../../../base/common/actions.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { isMacintosh } from '../../../../../base/common/platform.js';
 import { PositronConsoleTabFocused } from '../../../../common/contextkeys.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * The minimum width required for the delete action to be displayed on the console tab.
@@ -36,7 +36,7 @@ interface ConsoleTabProps {
 
 const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: ConsoleTabProps) => {
 	// Context
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// State
@@ -371,7 +371,7 @@ interface ConsoleTabListProps {
 }
 
 export const ConsoleTabList = (props: ConsoleTabListProps) => {
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 	const positronConsoleTabFocusedContextKey = PositronConsoleTabFocused.bindTo(services.contextKeyService);
 

@@ -22,7 +22,7 @@ import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { useEnvironment } from '../ServicesProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  *
@@ -47,7 +47,7 @@ const EDITOR_INSET_PADDING_PX = 1;
  * @returns Refs to place the editor and the wrapping div
  */
 export function useCellEditorWidget(cell: PositronNotebookCellGeneral) {
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const environment = useEnvironment();
 	const instance = useNotebookInstance();
 

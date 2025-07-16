@@ -10,10 +10,9 @@ import { CodeEditorWidget } from '../../../../../editor/browser/widget/codeEdito
 import { IEditorOptions } from '../../../../../editor/common/config/editorOptions.js';
 import { IIdentifiedSingleEditOperation, ITextModel } from '../../../../../editor/common/model.js';
 import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../../codeEditor/browser/simpleEditorOptions.js';
-import { PositronReactRendererServices } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 export interface SimpleCodeEditorProps {
-	readonly services: PositronReactRendererServices;
 	readonly code?: string;
 	readonly language?: string;
 	readonly editorOptions?: IEditorOptions;
@@ -38,6 +37,7 @@ export const SimpleCodeEditor = forwardRef<
 	SimpleCodeEditorWidget,
 	PropsWithChildren<SimpleCodeEditorProps>
 >((props, ref) => {
+	const services = usePositronReactServicesContext();
 	const editorContainerRef = useRef<HTMLDivElement>(undefined!);
 	const editorRef = useRef<CodeEditorWidget>(undefined!);
 
@@ -51,7 +51,7 @@ export const SimpleCodeEditor = forwardRef<
 		executeEdits: (source, edits) => editorRef.current.executeEdits(source, edits)
 	}));
 
-	const { code, language, services, editorOptions } = props;
+	const { code, language, editorOptions } = props;
 
 	useEffect(() => {
 		const disposableStore = new DisposableStore();

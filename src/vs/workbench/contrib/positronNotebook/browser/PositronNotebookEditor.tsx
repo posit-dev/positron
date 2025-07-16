@@ -441,7 +441,7 @@ export class PositronNotebookEditor extends EditorPane {
 		// Create a new context service that has the output overlay container as the root element.
 		const scopedContextKeyService = this.contextKeyService.createScoped(this._parentDiv);
 
-		const reactRenderer: PositronReactRenderer = this._positronReactRenderer ?? this._instantiationService.createInstance(PositronReactRenderer, this._parentDiv);
+		const reactRenderer: PositronReactRenderer = this._positronReactRenderer ?? PositronReactRenderer.create(this._instantiationService, this._parentDiv);
 
 		reactRenderer.render(
 			<NotebookVisibilityProvider isVisible={this._isVisible}>

@@ -9,12 +9,9 @@ import { PlotClientInstance } from '../../../services/languageRuntime/common/lan
 import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { IChatRequestData, IPositronAssistantService, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../common/interfaces/positronAssistantService.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { showLanguageModelModalDialog } from './languageModelModalDialog.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { URI } from '../../../../base/common/uri.js';
 import * as glob from '../../../../base/common/glob.js';
@@ -37,15 +34,12 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 	//#region Constructor
 
 	constructor(
-		@IPositronPlotsService private readonly _plotService: IPositronPlotsService,
-		@ITerminalService private readonly _terminalService: ITerminalService,
-		@IKeybindingService private readonly _keybindingService: IKeybindingService,
-		@ILayoutService private readonly _layoutService: ILayoutService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IPositronModalDialogsService private readonly _positronModalDialogsService: IPositronModalDialogsService,
-		@IProductService protected readonly _productService: IProductService,
 		@IChatService private readonly _chatService: IChatService,
 		@IChatWidgetService private readonly _chatWidgetService: IChatWidgetService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IPositronPlotsService private readonly _plotService: IPositronPlotsService,
+		@IProductService protected readonly _productService: IProductService,
+		@ITerminalService private readonly _terminalService: ITerminalService,
 	) {
 		super();
 	}
@@ -133,7 +127,11 @@ export class PositronAssistantService extends Disposable implements IPositronAss
 		onAction: (config: IPositronLanguageModelConfig, action: string) => Promise<void>,
 		onClose: () => void,
 	): void {
-		showLanguageModelModalDialog(this._keybindingService, this._layoutService, this._configurationService, this, this._positronModalDialogsService, sources, onAction, onClose);
+		showLanguageModelModalDialog(
+			sources,
+			onAction,
+			onClose
+		);
 	}
 
 	getSupportedProviders(): string[] {

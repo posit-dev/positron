@@ -112,7 +112,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 	private renderContainer(plotClient: IPositronPlotClient): void {
 		if (!this._reactRenderer) {
-			this._reactRenderer = this._instantiationService.createInstance(PositronReactRenderer, this._container);
+			this._reactRenderer = PositronReactRenderer.create(this._instantiationService, this._container);
 		}
 
 		this._reactRenderer.render(

@@ -17,7 +17,7 @@ import * as platform from '../../../base/common/platform.js';
 import { toLocalResource } from '../../../base/common/resources.js';
 import { ANSIColor, ANSIOutputRun, ANSIStyle } from '../../../base/common/ansiOutput.js';
 import { OutputRunWithLinks } from '../../contrib/positronConsole/browser/components/outputRunWithLinks.js';
-import { usePositronReactRendererServicesContext } from '../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -47,7 +47,7 @@ enum ColorType {
  */
 export const OutputRun = (props: OutputRunProps) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	/**
 	 * Builds the hyperlink URL for the output run.

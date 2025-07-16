@@ -18,7 +18,7 @@ import { createStyleSheet } from '../../../domStylesheets.js';
 import { DisposableStore } from '../../../../common/lifecycle.js';
 import { positronClassNames } from '../../../../common/positronUtilities.js';
 import { Button, KeyboardModifiers, MouseTrigger } from '../button/button.js';
-import { usePositronReactRendererServicesContext } from '../../../positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../positronReactRendererContext.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 
 /**
@@ -141,7 +141,7 @@ export const VerticalSplitter = ({
 	onResize,
 }: VerticalSplitterProps) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const sashRef = useRef<HTMLDivElement>(undefined!);

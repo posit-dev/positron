@@ -28,14 +28,11 @@ export const createWelcomePageLeft = (
 	layoutService: ILayoutService,
 	workspaceContextService: IWorkspaceContextService
 ): PositronReactRenderer => {
-	const renderer = instantiationService.createInstance(PositronReactRenderer, container);
+	const renderer = PositronReactRenderer.create(instantiationService, container);
 	renderer.render(
 		<PositronWelcomePageStart
-			commandService={commandService}
-			configurationService={configurationService}
-			keybindingService={keybindingService}
+			instantiationService={instantiationService}
 			layoutService={layoutService}
-			workspaceContextService={workspaceContextService}
 		/>
 	);
 	return renderer;

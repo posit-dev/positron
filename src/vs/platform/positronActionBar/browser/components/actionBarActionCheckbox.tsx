@@ -15,7 +15,7 @@ import { IAction } from '../../../../base/common/actions.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
 import { isPositronActionBarCheckboxOptions, PositronActionBarOptions } from '../../../action/common/action.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Gets the Positron action bar checkbox options.
@@ -39,7 +39,7 @@ interface ActionBarActionCheckboxProps {
  */
 export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);

@@ -14,15 +14,14 @@ import { localize } from '../../../../../../../nls.js';
 import { RowFilterParameter } from './components/rowFilterParameter.js';
 import { DropDownColumnSelector } from './components/dropDownColumnSelector.js';
 import { Button } from '../../../../../../../base/browser/ui/positronComponents/button/button.js';
-import { IConfigurationService } from '../../../../../../../platform/configuration/common/configuration.js';
 import { DropDownListBoxItem } from '../../../../../positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { PositronModalPopup } from '../../../../../positronComponents/positronModalPopup/positronModalPopup.js';
-import { PositronModalReactRenderer } from '../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { DropDownListBoxSeparator } from '../../../../../positronComponents/dropDownListBox/dropDownListBoxSeparator.js';
 import { DropDownListBox, DropDownListBoxEntry } from '../../../../../positronComponents/dropDownListBox/dropDownListBox.js';
 import { DataExplorerClientInstance } from '../../../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { ColumnSchema, ColumnDisplayType, RowFilterCondition } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { RangeRowFilterDescriptor, RowFilterDescriptor, RowFilterDescrType, RowFilterDescriptorComparison, RowFilterDescriptorIsBetween, RowFilterDescriptorIsEmpty, RowFilterDescriptorIsNotBetween, RowFilterDescriptorIsNotEmpty, SingleValueRowFilterDescriptor, RowFilterDescriptorIsNotNull, RowFilterDescriptorIsNull, RowFilterDescriptorSearch, RowFilterDescriptorIsTrue, RowFilterDescriptorIsFalse } from './rowFilterDescriptor.js';
+import { IPositronModalReactRenderer } from '../../../../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Validates a row filter value.
@@ -119,9 +118,8 @@ const isSingleParam = (filterType: RowFilterDescrType | undefined) => {
  * AddEditRowFilterModalPopupProps interface.
  */
 interface AddEditRowFilterModalPopupProps {
-	configurationService: IConfigurationService;
 	dataExplorerClientInstance: DataExplorerClientInstance;
-	renderer: PositronModalReactRenderer;
+	renderer: IPositronModalReactRenderer;
 	anchorElement: HTMLElement;
 	isFirstFilter: boolean;
 	schema?: ColumnSchema;
@@ -771,10 +769,7 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 			<div className='add-edit-row-filter-modal-popup-body'>
 				<DropDownColumnSelector
 					ref={dropDownColumnSelectorRef}
-					configurationService={props.configurationService}
 					dataExplorerClientInstance={props.dataExplorerClientInstance}
-					keybindingService={props.renderer.keybindingService}
-					layoutService={props.renderer.layoutService}
 					selectedColumnSchema={selectedColumnSchema}
 					title={(() => localize(
 						'positron.addEditRowFilter.selectColumn',
@@ -795,8 +790,8 @@ export const AddEditRowFilterModalPopup = (props: AddEditRowFilterModalPopupProp
 					ref={dropDownRowFilterRef}
 					disabled={selectedColumnSchema === undefined}
 					entries={conditionEntries()}
-					keybindingService={props.renderer.keybindingService}
-					layoutService={props.renderer.layoutService}
+					keybindingService={props.renderer.services.keybindingService}
+					layoutService={props.renderer.services.workbenchLayoutService}
 					selectedIdentifier={selectedFilterType}
 					title={(() => localize(
 						'positron.addEditRowFilter.selectCondition',

@@ -23,7 +23,7 @@ import { pinToRange } from '../../../../base/common/positronUtilities.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { FontConfigurationManager } from '../../fontConfigurationManager.js';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * DataGridWaffle component.
@@ -32,7 +32,7 @@ import { usePositronReactRendererServicesContext } from '../../../../base/browse
  */
 export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const context = usePositronDataGridContext();
 
 	// Reference hooks.

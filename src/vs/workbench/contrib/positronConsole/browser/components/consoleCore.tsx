@@ -19,7 +19,7 @@ import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { RuntimeStartupPhase } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 
 // Constants.
@@ -44,7 +44,7 @@ export const ConsoleCore = (props: ConsoleCoreProps) => {
 	const adjustedHeight = props.height - ACTION_BAR_HEIGHT;
 
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// State hooks.

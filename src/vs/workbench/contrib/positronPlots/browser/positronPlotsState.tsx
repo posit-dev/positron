@@ -7,7 +7,7 @@ import { useEffect, useState } from 'react';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { IPositronPlotClient } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { usePositronReactRendererServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * The Positron plots state.
@@ -24,7 +24,7 @@ export interface PositronPlotsState {
  */
 export const usePositronPlotsState = (): PositronPlotsState => {
 	// Hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Initial set of plot instances.
 	const [positronPlotInstances, setPositronPlotInstances] = useState<IPositronPlotClient[]>(

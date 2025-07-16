@@ -12,7 +12,7 @@ import { IOverlayWebview } from '../../../../webview/browser/webview.js';
 import { DisposableStore, toDisposable } from '../../../../../../base/common/lifecycle.js';
 import { useNotebookVisibility } from '../../NotebookVisibilityContext.js';
 import { Event } from '../../../../../../base/common/event.js';
-import { usePositronReactRendererServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants
 const MAX_OUTPUT_HEIGHT = 1000;
@@ -53,7 +53,7 @@ export function useWebviewMount(webview: Promise<INotebookOutputWebview>) {
 	// Retrieve relevant context
 	const notebookInstance = useNotebookInstance();
 	const visibilityObservable = useNotebookVisibility();
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 
 	// Memoize the webview message handler
 	const handleWebviewMessage = React.useCallback(({ message }: { message: unknown }) => {

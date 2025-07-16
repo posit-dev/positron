@@ -17,12 +17,12 @@ import { DisposableStore } from '../../../../../../../base/common/lifecycle.js';
 import { usePositronDataExplorerContext } from '../../../../positronDataExplorerContext.js';
 import { Button } from '../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { AddEditRowFilterModalPopup } from '../addEditRowFilterModalPopup/addEditRowFilterModalPopup.js';
+import { PositronModalReactRenderer } from '../../../../../../../base/browser/positronModalReactRenderer.js';
 import { ColumnSchema } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { OKModalDialog } from '../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { getRowFilterDescriptor, RowFilterDescriptor } from '../addEditRowFilterModalPopup/rowFilterDescriptor.js';
-import { PositronModalReactRenderer } from '../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../../positronComponents/customContextMenu/customContextMenuItem.js';
-import { usePositronReactRendererServicesContext } from '../../../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuSeparator } from '../../../../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../../positronComponents/customContextMenu/customContextMenu.js';
 import { dataExplorerExperimentalFeatureEnabled } from '../../../../../../services/positronDataExplorer/common/positronDataExplorerExperimentalConfig.js';
@@ -38,7 +38,7 @@ const MAX_ROW_FILTERS = 15;
  */
 export const RowFilterBar = () => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const context = usePositronDataExplorerContext();
 	const backendClient = context.instance.dataExplorerClientInstance;
 
@@ -70,8 +70,6 @@ export const RowFilterBar = () => {
 	) => {
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: services.keybindingService,
-			layoutService: services.workbenchLayoutService,
 			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current))
 		});
 
@@ -131,7 +129,6 @@ export const RowFilterBar = () => {
 			renderer.render(
 				<AddEditRowFilterModalPopup
 					anchorElement={anchorElement}
-					configurationService={services.configurationService}
 					dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 					editRowFilter={editRowFilterDescriptor}
 					isFirstFilter={isFirstFilter}
@@ -141,14 +138,7 @@ export const RowFilterBar = () => {
 				/>
 			);
 		}
-	}, [
-		services.configurationService,
-		context.instance.dataExplorerClientInstance,
-		context.instance.tableDataDataGridInstance,
-		services.keybindingService,
-		services.workbenchLayoutService,
-		rowFilterDescriptors
-	]);
+	}, [context.instance.dataExplorerClientInstance, context.instance.tableDataDataGridInstance, rowFilterDescriptors, services.instantiationService, services.workbenchLayoutService]);
 
 	const features = backendClient.getSupportedFeatures();
 	const canFilter = dataExplorerExperimentalFeatureEnabled(features.set_row_filters.support_status, services.configurationService);
@@ -199,8 +189,7 @@ export const RowFilterBar = () => {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			commandService: services.commandService,
-			keybindingService: services.keybindingService,
+			instantiationService: services.instantiationService,
 			layoutService: services.workbenchLayoutService,
 			anchorElement: rowFilterButtonRef.current,
 			popupPosition: 'auto',

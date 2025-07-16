@@ -14,10 +14,10 @@ import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 import { CustomFolderModalPopup } from '../customFolderModalPopup/customFolderModalPopup.js';
-import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
-import { usePositronReactRendererServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Localized strings.
@@ -30,7 +30,7 @@ const positronFolderSelector = localize('positron.folderSelector', "Folder Selec
  */
 export const TopActionBarCustomFolderMenu = () => {
 	// Context hooks.
-	const services = usePositronReactRendererServicesContext();
+	const services = usePositronReactServicesContext();
 	const context = usePositronTopActionBarContext();
 
 	// Reference hooks.
@@ -48,8 +48,6 @@ export const TopActionBarCustomFolderMenu = () => {
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: services.keybindingService,
-			layoutService: services.workbenchLayoutService,
 			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
 		});
@@ -60,7 +58,6 @@ export const TopActionBarCustomFolderMenu = () => {
 				anchorElement={ref.current}
 				recentlyOpened={recentlyOpened}
 				renderer={renderer}
-				services={services}
 			/>
 		);
 	};

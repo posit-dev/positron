@@ -209,7 +209,7 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		this._positronPlotsContainerResizeObserver.observe(this._positronPlotsContainer);
 
 		// Create the PositronReactRenderer for the PositronPlots component and render it.
-		this._positronReactRenderer = this._register(this.instantiationService.createInstance(PositronReactRenderer, this._positronPlotsContainer));
+		this._positronReactRenderer = this._register(PositronReactRenderer.create(this.instantiationService, this._positronPlotsContainer));
 		this._positronReactRenderer.render(
 			<PositronPlots reactComponentContainer={this} />
 		);

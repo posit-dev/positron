@@ -84,7 +84,7 @@ export class EditorActionBarControl extends Disposable {
 		));
 
 		// Render the editor action bar component in the editor action bar container.
-		this._positronReactRenderer = this._register(this._instantiationService.createInstance(PositronReactRenderer, this._container));
+		this._positronReactRenderer = this._register(PositronReactRenderer.create(this._instantiationService, this._container));
 		this._positronReactRenderer.render(
 			<EditorActionBar editorActionBarFactory={editorActionBarFactory} />
 		);

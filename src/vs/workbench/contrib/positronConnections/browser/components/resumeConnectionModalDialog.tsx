@@ -13,47 +13,43 @@ import React, { PropsWithChildren, useRef } from 'react';
 import { localize } from '../../../../../nls.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import Severity from '../../../../../base/common/severity.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from './simpleCodeEditor.js';
-import { PositronReactRendererServices } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { IPositronModalReactRenderer, PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
+import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 
 const RESUME_CONNECTION_MODAL_DIALOG_WIDTH = 700;
 const RESUME_CONNECTION_MODAL_DIALOG_HEIGHT = 430;
 
 export const showResumeConnectionModalDialog = (
-	services: PositronReactRendererServices,
+	instantiationService: IInstantiationService,
 	activeInstanceId: string,
 	setActiveInstanceId: (id: string) => void
 ) => {
 	// Create the renderer.
-	const renderer = new PositronModalReactRenderer({
-		keybindingService: services.keybindingService,
-		layoutService: services.workbenchLayoutService,
-		container: services.workbenchLayoutService.activeContainer,
-	});
+	const renderer = new PositronModalReactRenderer();
 
 	renderer.render(
 		<ResumeConnectionModalDialog
 			activeInstaceId={activeInstanceId}
 			renderer={renderer}
-			services={services}
 			setActiveInstanceId={setActiveInstanceId}
 		/>
 	);
 };
 
 interface ResumeConnectionModalDialogProps {
-	readonly renderer: PositronModalReactRenderer;
-	readonly services: PositronReactRendererServices;
+	readonly renderer: IPositronModalReactRenderer;
 	readonly activeInstaceId: string;
 	readonly setActiveInstanceId: (id: string) => void;
 }
 
 const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionModalDialogProps>) => {
+	const services = usePositronReactServicesContext();
 
-	const { services, activeInstaceId } = props;
+	const { activeInstaceId } = props;
 	const activeInstance = services.positronConnectionsService.getConnections().find(item => item.id === activeInstaceId);
 
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
@@ -147,7 +143,6 @@ const ResumeConnectionModalDialog = (props: PropsWithChildren<ResumeConnectionMo
 									cursorBlinking: 'solid',
 								}}
 								language={language_id}
-								services={services}
 							></SimpleCodeEditor>
 						</div>
 						<div className='buttons'>

@@ -28,8 +28,6 @@ import { Schemas } from '../../../../base/common/network.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { decodeBase64 } from '../../../../base/common/buffer.js';
 import { SavePlotOptions, showSavePlotModalDialog } from './modalDialogs/savePlotModalDialog.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
 import { localize } from '../../../../nls.js';
 import { UiFrontendEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
@@ -47,14 +45,12 @@ import { WebviewPlotClient } from './webviewPlotClient.js';
 import { ACTIVE_GROUP, IEditorService } from '../../../services/editor/common/editorService.js';
 import { URI } from '../../../../base/common/uri.js';
 import { PositronPlotCommProxy } from '../../../services/languageRuntime/common/positronPlotCommProxy.js';
-import { IPositronModalDialogsService } from '../../../services/positronModalDialogs/common/positronModalDialogs.js';
-import { ILabelService } from '../../../../platform/label/common/label.js';
-import { IPathService } from '../../../services/path/common/pathService.js';
 import { DynamicPlotInstance } from './components/dynamicPlotInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 import { joinPath } from '../../../../base/common/resources.js';
 import { PositronPlotRenderQueue } from '../../../services/languageRuntime/common/positronPlotRenderQueue.js';
+import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 
 /** The maximum number of recent executions to store. */
 const MaxRecentExecutions = 10;
@@ -185,27 +181,23 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 
 	/** Creates the Positron plots service instance */
 	constructor(
+		@IClipboardService private _clipboardService: IClipboardService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@IEditorService private readonly _editorService: IEditorService,
+		@IExtensionService private readonly _extensionService: IExtensionService,
+		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
+		@IFileService private readonly _fileService: IFileService,
+		@IInstantiationService private _instantiationService: IInstantiationService,
+		@ILogService private readonly _logService: ILogService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@IOpenerService private _openerService: IOpenerService,
+		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
+		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
+		@IPositronPreviewService private _positronPreviewService: IPositronPreviewService,
+		@IPositronWebviewPreloadService private _positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IRuntimeSessionService private _runtimeSessionService: IRuntimeSessionService,
 		@IStorageService private _storageService: IStorageService,
 		@IViewsService private _viewsService: IViewsService,
-		@IOpenerService private _openerService: IOpenerService,
-		@IPositronNotebookOutputWebviewService private _notebookOutputWebviewService: IPositronNotebookOutputWebviewService,
-		@IPositronIPyWidgetsService private _positronIPyWidgetsService: IPositronIPyWidgetsService,
-		@IPositronWebviewPreloadService private _positronWebviewPreloadService: IPositronWebviewPreloadService,
-		@IPositronPreviewService private _positronPreviewService: IPositronPreviewService,
-		@IFileService private readonly _fileService: IFileService,
-		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
-		@IWorkbenchLayoutService private readonly _layoutService: IWorkbenchLayoutService,
-		@IKeybindingService private readonly _keybindingService: IKeybindingService,
-		@IClipboardService private _clipboardService: IClipboardService,
-		@IPositronModalDialogsService private readonly _modalDialogService: IPositronModalDialogsService,
-		@IExtensionService private readonly _extensionService: IExtensionService,
-		@ILogService private readonly _logService: ILogService,
-		@INotificationService private readonly _notificationService: INotificationService,
-		@IEditorService private readonly _editorService: IEditorService,
-		@ILabelService private readonly _labelService: ILabelService,
-		@IPathService private readonly _pathService: IPathService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService
 	) {
 		super();
 
@@ -1180,16 +1172,8 @@ export class PositronPlotsService extends Disposable implements IPositronPlotsSe
 					} else if (plotClient instanceof PlotClientInstance) {
 						// if it's a dynamic plot, present options dialog
 						showSavePlotModalDialog(
+							this._instantiationService,
 							this._selectedSizingPolicy,
-							this._layoutService,
-							this._keybindingService,
-							this._modalDialogService,
-							this._fileService,
-							this._fileDialogService,
-							this._logService,
-							this._notificationService,
-							this._labelService,
-							this._pathService,
 							plotClient,
 							this.savePlotAs,
 							suggestedPath
