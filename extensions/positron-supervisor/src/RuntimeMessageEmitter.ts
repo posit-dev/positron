@@ -5,7 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { DebugProtocol } from 'vscode-debugprotocol';
+import { DebugProtocol } from '@vscode/debugprotocol';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus';
 import { JupyterExecuteInput } from './jupyter/JupyterExecuteInput';

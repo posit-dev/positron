@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DebugProtocol } from 'vscode-debugprotocol';
+import { DebugProtocol } from '@vscode/debugprotocol';
 import { JupyterRequest } from './JupyterRequest';
 import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageType } from './JupyterMessageType.js';
