@@ -99,7 +99,7 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		const { electronProcess, driver, electronApp } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
 		const { safeToKill } = registerInstance(electronProcess, options.logger, 'electron');
 
-		return new Code(driver, options.logger, electronProcess, safeToKill, options.quality, options.version);
+		return new Code(driver, options.logger, electronProcess, safeToKill, options.quality, options.version, electronApp);
 	}
 }
 
@@ -113,7 +113,9 @@ export class Code {
 		private readonly mainProcess: cp.ChildProcess,
 		private readonly safeToKill: Promise<void> | undefined,
 		readonly quality: Quality,
-		readonly version: { major: number; minor: number; patch: number }
+		readonly version: { major: number; minor: number; patch: number },
+		// Only available when running against Electron
+		readonly electronApp?: ElectronApplication,
 	) {
 		this.driver = new Proxy(driver, {
 			get(target, prop) {
