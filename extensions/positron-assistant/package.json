@@ -32,8 +32,8 @@
         "isDefault": true,
         "commands": [
           {
-            "name": "quarto",
-            "description": "%chatParticipants.commands.quarto.description%"
+            "name": "exportQuarto",
+            "description": "%chatParticipants.commands.exportQuarto.description%"
           }
         ],
         "locations": [
@@ -197,6 +197,11 @@
             "default": false,
             "description": "%configuration.gitIntegration.description%",
             "tags": ["experimental"]
+          },
+          "positron.assistant.showTokenUsage.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.showTokenUsage.description%"
           }
         }
       }
