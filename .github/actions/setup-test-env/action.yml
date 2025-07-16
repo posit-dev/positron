@@ -44,13 +44,18 @@ runs:
         echo "source \"${HOME}/conda/etc/profile.d/conda.sh\"" >> ~/.bashrc
         source "${HOME}/conda/etc/profile.d/conda.sh"
 
-        # Remove problematic channels to avoid ToS issues
+        # 1. Clean up default config
         conda config --remove channels https://repo.anaconda.com/pkgs/main || true
         conda config --remove channels https://repo.anaconda.com/pkgs/r || true
-
-        # Just to be sure, set conda-forge explicitly
         conda config --add channels conda-forge
         conda config --set channel_priority strict
+
+        # 2. Accept ToS in case some script still forces those channels
+        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main || true
+        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r || true
+
+        # 3. Debug: show effective channels
+        conda config --show channels
 
     - name: Setup Python
       uses: ./.github/actions/install-python
