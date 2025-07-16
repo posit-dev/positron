@@ -458,7 +458,7 @@ export default tseslint.config(
 	{
 		files: [
 			// --- Start Positron ---
-			'src/**/{browser,electron-browser}/**/*.ts'
+			'src/**/{browser,electron-browser}/**/*.ts',
 			'src/**/*.tsx'	// Added for Positron.
 			// --- End  Positron ---
 		],
