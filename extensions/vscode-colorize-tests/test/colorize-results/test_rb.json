@@ -103,42 +103,30 @@
 		"c": "Azure::ARM",
 		"t": "source.ruby meta.module.ruby entity.name.type.module.ruby",
 		"r": {
-			"dark_plus": "entity.name.type: #4EC9B0",
-			"light_plus": "entity.name.type: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "entity.name.type: #4EC9B0",
-			"dark_modern": "entity.name.type: #4EC9B0",
-			"hc_light": "entity.name.type: #185E73",
-			"light_modern": "entity.name.type: #267F99"
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
 		}
 	},
 	{
 		"c": "::",
 		"t": "source.ruby meta.module.ruby entity.name.type.module.ruby punctuation.separator.namespace.ruby",
 		"r": {
-			"dark_plus": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"light_plus": "punctuation.separator.namespace.ruby: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"dark_modern": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"hc_light": "punctuation.separator.namespace.ruby: #185E73",
-			"light_modern": "punctuation.separator.namespace.ruby: #267F99"
+			"positron_dark": "punctuation.separator.namespace.ruby: #4EC9B0",
+			"positron_light": "punctuation.separator.namespace.ruby: #267F99",
+			"hc_light": "punctuation.separator.namespace.ruby: #185E73"
 		}
 	},
 	{
 		"c": "Scheduler",
 		"t": "source.ruby meta.module.ruby entity.name.type.module.ruby",
 		"r": {
-			"dark_plus": "entity.name.type: #4EC9B0",
-			"light_plus": "entity.name.type: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "entity.name.type: #4EC9B0",
-			"dark_modern": "entity.name.type: #4EC9B0",
-			"hc_light": "entity.name.type: #185E73",
-			"light_modern": "entity.name.type: #267F99"
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
 		}
 	},
 	{
@@ -245,14 +233,10 @@
 		"c": "SchedulerManagementClient",
 		"t": "source.ruby meta.class.ruby entity.name.type.class.ruby",
 		"r": {
-			"dark_plus": "entity.name.type: #4EC9B0",
-			"light_plus": "entity.name.type: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "entity.name.type: #4EC9B0",
-			"dark_modern": "entity.name.type: #4EC9B0",
-			"hc_light": "entity.name.type: #185E73",
-			"light_modern": "entity.name.type: #267F99"
+			"positron_dark": "entity.name.type: #4EC9B0",
+			"positron_light": "entity.name.type: #267F99",
+			"hc_light": "entity.name.type: #185E73"
 		}
 	},
 	{
@@ -269,10 +253,10 @@
 		"c": "<",
 		"t": "source.ruby meta.class.ruby punctuation.separator.inheritance.ruby",
 		"r": {
-			"hc_black": "keyword.operator: #D4D4D4",
-			"positron_dark": "keyword.operator: #D4D4D4",
-			"positron_light": "keyword.operator: #000000",
-			"hc_light": "keyword.operator: #000000"
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -289,42 +273,30 @@
 		"c": "MsRestAzure",
 		"t": "source.ruby meta.class.ruby entity.other.inherited-class.ruby",
 		"r": {
-			"dark_plus": "entity.other.inherited-class: #4EC9B0",
-			"light_plus": "entity.other.inherited-class: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "entity.other.inherited-class: #4EC9B0",
-			"dark_modern": "entity.other.inherited-class: #4EC9B0",
-			"hc_light": "entity.other.inherited-class: #185E73",
-			"light_modern": "entity.other.inherited-class: #267F99"
+			"positron_dark": "entity.other.inherited-class: #4EC9B0",
+			"positron_light": "entity.other.inherited-class: #267F99",
+			"hc_light": "entity.other.inherited-class: #185E73"
 		}
 	},
 	{
 		"c": "::",
 		"t": "source.ruby meta.class.ruby entity.other.inherited-class.ruby punctuation.separator.namespace.ruby",
 		"r": {
-			"dark_plus": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"light_plus": "punctuation.separator.namespace.ruby: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"dark_modern": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"hc_light": "punctuation.separator.namespace.ruby: #185E73",
-			"light_modern": "punctuation.separator.namespace.ruby: #267F99"
+			"positron_dark": "punctuation.separator.namespace.ruby: #4EC9B0",
+			"positron_light": "punctuation.separator.namespace.ruby: #267F99",
+			"hc_light": "punctuation.separator.namespace.ruby: #185E73"
 		}
 	},
 	{
 		"c": "AzureServiceClient",
 		"t": "source.ruby meta.class.ruby entity.other.inherited-class.ruby",
 		"r": {
-			"dark_plus": "entity.other.inherited-class: #4EC9B0",
-			"light_plus": "entity.other.inherited-class: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "entity.other.inherited-class: #4EC9B0",
-			"dark_modern": "entity.other.inherited-class: #4EC9B0",
-			"hc_light": "entity.other.inherited-class: #185E73",
-			"light_modern": "entity.other.inherited-class: #267F99"
+			"positron_dark": "entity.other.inherited-class: #4EC9B0",
+			"positron_light": "entity.other.inherited-class: #267F99",
+			"hc_light": "entity.other.inherited-class: #185E73"
 		}
 	},
 	{
@@ -371,14 +343,10 @@
 		"c": "::",
 		"t": "source.ruby punctuation.separator.namespace.ruby",
 		"r": {
-			"dark_plus": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"light_plus": "punctuation.separator.namespace.ruby: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"dark_modern": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"hc_light": "punctuation.separator.namespace.ruby: #185E73",
-			"light_modern": "punctuation.separator.namespace.ruby: #267F99"
+			"positron_dark": "punctuation.separator.namespace.ruby: #4EC9B0",
+			"positron_light": "punctuation.separator.namespace.ruby: #267F99",
+			"hc_light": "punctuation.separator.namespace.ruby: #185E73"
 		}
 	},
 	{
@@ -395,14 +363,10 @@
 		"c": "::",
 		"t": "source.ruby punctuation.separator.namespace.ruby",
 		"r": {
-			"dark_plus": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"light_plus": "punctuation.separator.namespace.ruby: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"dark_modern": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"hc_light": "punctuation.separator.namespace.ruby: #185E73",
-			"light_modern": "punctuation.separator.namespace.ruby: #267F99"
+			"positron_dark": "punctuation.separator.namespace.ruby: #4EC9B0",
+			"positron_light": "punctuation.separator.namespace.ruby: #267F99",
+			"hc_light": "punctuation.separator.namespace.ruby: #185E73"
 		}
 	},
 	{
@@ -419,14 +383,10 @@
 		"c": "::",
 		"t": "source.ruby punctuation.separator.namespace.ruby",
 		"r": {
-			"dark_plus": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"light_plus": "punctuation.separator.namespace.ruby: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"dark_modern": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"hc_light": "punctuation.separator.namespace.ruby: #185E73",
-			"light_modern": "punctuation.separator.namespace.ruby: #267F99"
+			"positron_dark": "punctuation.separator.namespace.ruby: #4EC9B0",
+			"positron_light": "punctuation.separator.namespace.ruby: #267F99",
+			"hc_light": "punctuation.separator.namespace.ruby: #185E73"
 		}
 	},
 	{
@@ -483,14 +443,10 @@
 		"c": "    ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
@@ -517,42 +473,30 @@
 		"c": "@",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.keyword.punctuation.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "return",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.keyword.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " job_collections",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.string.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
@@ -589,28 +533,20 @@
 		"c": ":",
 		"t": "source.ruby constant.language.symbol.ruby punctuation.definition.constant.ruby",
 		"r": {
-			"dark_plus": "constant.language: #569CD6",
-			"light_plus": "constant.language: #0000FF",
-			"dark_vs": "constant.language: #569CD6",
-			"light_vs": "constant.language: #0000FF",
 			"hc_black": "constant.language: #569CD6",
-			"dark_modern": "constant.language: #569CD6",
-			"hc_light": "constant.language: #0F4A85",
-			"light_modern": "constant.language: #0000FF"
+			"positron_dark": "constant.language: #569CD6",
+			"positron_light": "constant.language: #0000FF",
+			"hc_light": "constant.language: #0F4A85"
 		}
 	},
 	{
 		"c": "job_collections",
 		"t": "source.ruby constant.language.symbol.ruby",
 		"r": {
-			"dark_plus": "constant.language: #569CD6",
-			"light_plus": "constant.language: #0000FF",
-			"dark_vs": "constant.language: #569CD6",
-			"light_vs": "constant.language: #0000FF",
 			"hc_black": "constant.language: #569CD6",
-			"dark_modern": "constant.language: #569CD6",
-			"hc_light": "constant.language: #0F4A85",
-			"light_modern": "constant.language: #0000FF"
+			"positron_dark": "constant.language: #569CD6",
+			"positron_light": "constant.language: #0000FF",
+			"hc_light": "constant.language: #0F4A85"
 		}
 	},
 	{
@@ -707,14 +643,10 @@
 		"c": "param",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.keyword.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
@@ -731,98 +663,70 @@
 		"c": "credentials",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.parameter.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "[",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.type.yard.ruby comment.line.punctuation.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "MsRest::ServiceClientCredentials",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.type.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "]",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.type.yard.ruby comment.line.punctuation.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " credentials to authorize HTTP requests made by the service client.",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.string.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "    ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
@@ -839,322 +743,230 @@
 		"c": " ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "@",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.keyword.punctuation.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "param",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.keyword.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "base_url",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.parameter.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "[",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.type.yard.ruby comment.line.punctuation.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "String",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.type.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "]",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.type.yard.ruby comment.line.punctuation.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " the base URI of the service.",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.string.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "    ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "#",
 		"t": "source.ruby comment.line.number-sign.ruby punctuation.definition.comment.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "@",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.keyword.punctuation.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "param",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.keyword.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "options",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.parameter.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " ",
 		"t": "source.ruby comment.line.number-sign.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "[",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.type.yard.ruby comment.line.punctuation.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "Array",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.type.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "]",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.type.yard.ruby comment.line.punctuation.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": " filters to be applied to the HTTP requests.",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.string.yard.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
 		"c": "    #",
 		"t": "source.ruby comment.line.number-sign.ruby comment.line.string.yard.ruby punctuation.definition.comment.ruby",
 		"r": {
-			"dark_plus": "comment: #6A9955",
-			"light_plus": "comment: #008000",
-			"dark_vs": "comment: #6A9955",
-			"light_vs": "comment: #008000",
 			"hc_black": "comment: #7CA668",
-			"dark_modern": "comment: #6A9955",
-			"hc_light": "comment: #515151",
-			"light_modern": "comment: #008000"
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
 		}
 	},
 	{
@@ -1221,14 +1033,10 @@
 		"c": ",",
 		"t": "source.ruby meta.function.method.with-arguments.ruby punctuation.separator.object.ruby",
 		"r": {
-			"dark_plus": "default: #D4D4D4",
-			"light_plus": "default: #000000",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "default: #FFFFFF",
-			"dark_modern": "default: #CCCCCC",
-			"hc_light": "default: #292929",
-			"light_modern": "default: #3B3B3B"
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -1295,14 +1103,10 @@
 		"c": ",",
 		"t": "source.ruby meta.function.method.with-arguments.ruby punctuation.separator.object.ruby",
 		"r": {
-			"dark_plus": "default: #D4D4D4",
-			"light_plus": "default: #000000",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "default: #FFFFFF",
-			"dark_modern": "default: #CCCCCC",
-			"hc_light": "default: #292929",
-			"light_modern": "default: #3B3B3B"
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -1689,14 +1493,10 @@
 		"c": "nil?",
 		"t": "source.ruby meta.function-call.ruby entity.name.function.ruby",
 		"r": {
-			"dark_plus": "entity.name.function: #DCDCAA",
-			"light_plus": "entity.name.function: #795E26",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "entity.name.function: #DCDCAA",
-			"dark_modern": "entity.name.function: #DCDCAA",
-			"hc_light": "entity.name.function: #5E2CBC",
-			"light_modern": "entity.name.function: #795E26"
+			"positron_dark": "entity.name.function: #DCDCAA",
+			"positron_light": "entity.name.function: #795E26",
+			"hc_light": "entity.name.function: #5E2CBC"
 		}
 	},
 	{
@@ -1833,14 +1633,10 @@
 		"c": "is_a?",
 		"t": "source.ruby meta.function-call.ruby entity.name.function.ruby",
 		"r": {
-			"dark_plus": "entity.name.function: #DCDCAA",
-			"light_plus": "entity.name.function: #795E26",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "entity.name.function: #DCDCAA",
-			"dark_modern": "entity.name.function: #DCDCAA",
-			"hc_light": "entity.name.function: #5E2CBC",
-			"light_modern": "entity.name.function: #795E26"
+			"positron_dark": "entity.name.function: #DCDCAA",
+			"positron_light": "entity.name.function: #795E26",
+			"hc_light": "entity.name.function: #5E2CBC"
 		}
 	},
 	{
@@ -1867,14 +1663,10 @@
 		"c": "::",
 		"t": "source.ruby punctuation.separator.namespace.ruby",
 		"r": {
-			"dark_plus": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"light_plus": "punctuation.separator.namespace.ruby: #267F99",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"dark_modern": "punctuation.separator.namespace.ruby: #4EC9B0",
-			"hc_light": "punctuation.separator.namespace.ruby: #185E73",
-			"light_modern": "punctuation.separator.namespace.ruby: #267F99"
+			"positron_dark": "punctuation.separator.namespace.ruby: #4EC9B0",
+			"positron_light": "punctuation.separator.namespace.ruby: #267F99",
+			"hc_light": "punctuation.separator.namespace.ruby: #185E73"
 		}
 	},
 	{
@@ -2481,14 +2273,10 @@
 		"c": "version",
 		"t": "source.ruby meta.function-call.ruby entity.name.function.ruby",
 		"r": {
-			"dark_plus": "entity.name.function: #DCDCAA",
-			"light_plus": "entity.name.function: #795E26",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "entity.name.function: #DCDCAA",
-			"dark_modern": "entity.name.function: #DCDCAA",
-			"hc_light": "entity.name.function: #5E2CBC",
-			"light_modern": "entity.name.function: #795E26"
+			"positron_dark": "entity.name.function: #DCDCAA",
+			"positron_light": "entity.name.function: #795E26",
+			"hc_light": "entity.name.function: #5E2CBC"
 		}
 	},
 	{
@@ -2525,28 +2313,20 @@
 		"c": ":",
 		"t": "source.ruby constant.language.symbol.ruby punctuation.definition.constant.ruby",
 		"r": {
-			"dark_plus": "constant.language: #569CD6",
-			"light_plus": "constant.language: #0000FF",
-			"dark_vs": "constant.language: #569CD6",
-			"light_vs": "constant.language: #0000FF",
 			"hc_black": "constant.language: #569CD6",
-			"dark_modern": "constant.language: #569CD6",
-			"hc_light": "constant.language: #0F4A85",
-			"light_modern": "constant.language: #0000FF"
+			"positron_dark": "constant.language: #569CD6",
+			"positron_light": "constant.language: #0000FF",
+			"hc_light": "constant.language: #0F4A85"
 		}
 	},
 	{
 		"c": "mavericks",
 		"t": "source.ruby constant.language.symbol.ruby",
 		"r": {
-			"dark_plus": "constant.language: #569CD6",
-			"light_plus": "constant.language: #0000FF",
-			"dark_vs": "constant.language: #569CD6",
-			"light_vs": "constant.language: #0000FF",
 			"hc_black": "constant.language: #569CD6",
-			"dark_modern": "constant.language: #569CD6",
-			"hc_light": "constant.language: #0F4A85",
-			"light_modern": "constant.language: #0000FF"
+			"positron_dark": "constant.language: #569CD6",
+			"positron_light": "constant.language: #0000FF",
+			"hc_light": "constant.language: #0F4A85"
 		}
 	},
 	{
@@ -2563,42 +2343,30 @@
 		"c": "version",
 		"t": "source.ruby variable.ruby",
 		"r": {
-			"dark_plus": "variable: #9CDCFE",
-			"light_plus": "variable: #001080",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "variable: #9CDCFE",
-			"dark_modern": "variable: #9CDCFE",
-			"hc_light": "variable: #001080",
-			"light_modern": "variable: #001080"
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
 		"c": " ",
 		"t": "source.ruby",
 		"r": {
-			"dark_plus": "default: #D4D4D4",
-			"light_plus": "default: #000000",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "default: #FFFFFF",
-			"dark_modern": "default: #CCCCCC",
-			"hc_light": "default: #292929",
-			"light_modern": "default: #3B3B3B"
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "=",
 		"t": "source.ruby keyword.operator.assignment.ruby",
 		"r": {
-			"dark_plus": "keyword.operator: #D4D4D4",
-			"light_plus": "keyword.operator: #000000",
-			"dark_vs": "keyword.operator: #D4D4D4",
-			"light_vs": "keyword.operator: #000000",
 			"hc_black": "keyword.operator: #D4D4D4",
-			"dark_modern": "keyword.operator: #D4D4D4",
-			"hc_light": "keyword.operator: #000000",
-			"light_modern": "keyword.operator: #000000"
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
 		}
 	},
 	{
@@ -2705,42 +2473,30 @@
 		"c": "version",
 		"t": "source.ruby variable.ruby",
 		"r": {
-			"dark_plus": "variable: #9CDCFE",
-			"light_plus": "variable: #001080",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "variable: #9CDCFE",
-			"dark_modern": "variable: #9CDCFE",
-			"hc_light": "variable: #001080",
-			"light_modern": "variable: #001080"
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
 		"c": " ",
 		"t": "source.ruby",
 		"r": {
-			"dark_plus": "default: #D4D4D4",
-			"light_plus": "default: #000000",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "default: #FFFFFF",
-			"dark_modern": "default: #CCCCCC",
-			"hc_light": "default: #292929",
-			"light_modern": "default: #3B3B3B"
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "=",
 		"t": "source.ruby keyword.operator.assignment.ruby",
 		"r": {
-			"dark_plus": "keyword.operator: #D4D4D4",
-			"light_plus": "keyword.operator: #000000",
-			"dark_vs": "keyword.operator: #D4D4D4",
-			"light_vs": "keyword.operator: #000000",
 			"hc_black": "keyword.operator: #D4D4D4",
-			"dark_modern": "keyword.operator: #D4D4D4",
-			"hc_light": "keyword.operator: #000000",
-			"light_modern": "keyword.operator: #000000"
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
 		}
 	},
 	{
@@ -2817,42 +2573,30 @@
 		"c": "version",
 		"t": "source.ruby variable.ruby",
 		"r": {
-			"dark_plus": "variable: #9CDCFE",
-			"light_plus": "variable: #001080",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "variable: #9CDCFE",
-			"dark_modern": "variable: #9CDCFE",
-			"hc_light": "variable: #001080",
-			"light_modern": "variable: #001080"
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
 		"c": " ",
 		"t": "source.ruby",
 		"r": {
-			"dark_plus": "default: #D4D4D4",
-			"light_plus": "default: #000000",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "default: #FFFFFF",
-			"dark_modern": "default: #CCCCCC",
-			"hc_light": "default: #292929",
-			"light_modern": "default: #3B3B3B"
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
 		"c": "=",
 		"t": "source.ruby keyword.operator.assignment.ruby",
 		"r": {
-			"dark_plus": "keyword.operator: #D4D4D4",
-			"light_plus": "keyword.operator: #000000",
-			"dark_vs": "keyword.operator: #D4D4D4",
-			"light_vs": "keyword.operator: #000000",
 			"hc_black": "keyword.operator: #D4D4D4",
-			"dark_modern": "keyword.operator: #D4D4D4",
-			"hc_light": "keyword.operator: #000000",
-			"light_modern": "keyword.operator: #000000"
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
 		}
 	},
 	{
