@@ -96,7 +96,7 @@ runs:
         conda create -y -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
 
         # Activate environment
-        conda activate "$CONDA_ENV_DIR"
+        # conda activate "$CONDA_ENV_DIR"
 
         # Verify Python installation
         PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
