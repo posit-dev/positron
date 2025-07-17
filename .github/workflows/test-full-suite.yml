@@ -2,6 +2,7 @@ name: "Test: Full Suite"
 
 on:
 
+  pull_request:
   workflow_dispatch:
       inputs:
         run_e2e_linux:
@@ -50,7 +51,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
-      grep: ""
+      grep: "@:new-folder-flow,@:interpreter"
       project: "e2e-electron"
       display_name: "electron (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
@@ -65,7 +66,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-windows.yml
     secrets: inherit
     with:
-      grep: ""
+      grep: "@:new-folder-flow,@:interpreter"
       display_name: "electron (win)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
       report_testrail: false
@@ -77,7 +78,7 @@ jobs:
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
-      grep: ""
+      grep: "@:new-folder-flow,@:interpreter"
       project: "e2e-browser"
       display_name: "browser (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/ubuntu' || 'browser/ubuntu' }}
