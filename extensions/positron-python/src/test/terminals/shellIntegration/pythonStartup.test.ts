@@ -134,8 +134,10 @@ suite('Terminal - Shell Integration with PYTHONSTARTUP', () => {
 
         globalEnvironmentVariableCollection.verify((c) => c.delete('PYTHONSTARTUP'), TypeMoq.Times.once());
     });
-
-    test('Ensure registering terminal link calls registerTerminalLinkProvider', async () => {
+    // --- Start Positron ---
+    // We don't use the terminal link provider for the native repl, so we skip this test.
+    test.skip('Ensure registering terminal link calls registerTerminalLinkProvider', async () => {
+        // --- End Positron ---
         const registerTerminalLinkProviderStub = sinon.stub(
             pythonStartupLinkProvider,
             'registerCustomTerminalLinkProvider',
