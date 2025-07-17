@@ -9,7 +9,7 @@ import { isEqual } from '../../../../../base/common/resources.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
 import { IChatService } from '../../common/chatService.js';
-import { IChatWidgetService } from '../chat.js';
+import { IChatWidget, IChatWidgetService } from '../chat.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInput.js';
 import { PositronNotebookEditorInput } from '../../../positronNotebook/browser/PositronNotebookEditorInput.js';
@@ -19,6 +19,10 @@ import { PositronVariablesInstance } from '../../../../services/positronVariable
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IChatRequestRuntimeSessionEntry } from '../../common/chatVariableEntries.js';
+import { IChatContextPicker, IChatContextPickerItem, IChatContextPickerPickItem, IChatContextPickService } from '../chatContextPickService.js';
+import { localize } from '../../../../../nls.js';
+import { Codicon } from '../../../../../base/common/codicons.js';
+import { ThemeIcon } from '../../../../../base/common/themables.js';
 
 /**
  * A single summarized entry in the execution history provided to the chat model.
@@ -62,6 +66,75 @@ export interface IChatRuntimeSessionContext {
 	executions: Array<IHistorySummaryEntry>;
 };
 
+class RuntimeSessionContextValuePick implements IChatContextPickerItem {
+
+	readonly type = 'pickerPick';
+	readonly label: string = localize('chatContext.tools', 'Interpreter Sessions...');
+	readonly icon: ThemeIcon = Codicon.positronNewConsole;
+	readonly ordinal = -500;
+
+	constructor(
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
+		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
+	) { }
+
+	toPickItem(session: ILanguageRuntimeSession): IChatContextPickerPickItem {
+		return {
+			label: session.getLabel(),
+			iconClass: '',
+			description: '',
+			disabled: false,
+			asAttachment: () => {
+				// Create a temporary context object to generate the attachment
+				const tempContext = new ChatRuntimeSessionContext();
+				tempContext.setValue(session);
+				tempContext.setServices(this._positronVariablesService, this._executionHistoryService);
+
+				try {
+					const entries = tempContext.toBaseEntries();
+					return entries[0]; // Return the first (and only) entry
+				} finally {
+					tempContext.dispose(); // Clean up the temporary context
+				}
+			}
+		};
+	}
+
+	asPicker(_widget: IChatWidget): IChatContextPicker {
+		const picks: IChatContextPickerPickItem[] = [];
+
+		const consoleSessions: ILanguageRuntimeSession[] = [];
+		const notebookSessions: ILanguageRuntimeSession[] = [];
+		for (const s of this._runtimeSessionService.getActiveSessions()) {
+			// Discard exited sessions
+			if (s.session.getRuntimeState() === RuntimeState.Exited) {
+				continue;
+			}
+
+			// Add the session to the appropriate list based on its mode
+			if (s.session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
+				consoleSessions.push(s.session);
+			}
+			else if (s.session.metadata.sessionMode === LanguageRuntimeSessionMode.Notebook) {
+				notebookSessions.push(s.session);
+			}
+		}
+
+		for (const consoleSession of consoleSessions) {
+			picks.push(this.toPickItem(consoleSession));
+		}
+		for (const notebookSession of notebookSessions) {
+			picks.push(this.toPickItem(notebookSession));
+		}
+
+		return {
+			placeholder: localize('chatContext.runtimeSessions.placeholder', 'Select an Interpreter Session'),
+			picks: Promise.resolve(picks)
+		};
+	}
+}
+
 export class ChatRuntimeSessionContextContribution extends Disposable implements IWorkbenchContribution {
 	static readonly ID = 'chat.runtimeSessionContext';
 
@@ -75,6 +148,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 		@IChatService private readonly chatService: IChatService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IEditorService private readonly editorService: IEditorService,
+		@IChatContextPickService private readonly contextPickService: IChatContextPickService,
 	) {
 		super();
 
@@ -121,6 +195,15 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 				widget.input.runtimeContext.setValue(undefined);
 			}
 		}));
+
+		this._register(
+			this.contextPickService.registerChatContextItem(
+				new RuntimeSessionContextValuePick(
+					this.runtimeSessionService,
+					this.positronVariablesService,
+					this.executionHistoryService
+				)
+			));
 	}
 
 	private async updateRuntimeContext(): Promise<void> {
