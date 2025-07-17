@@ -48,6 +48,7 @@ import { ILanguageFeaturesService } from '../../../../editor/common/services/lan
 import { ILanguageModelsService } from '../common/languageModels.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IEditorGroupsService, IEditorPart } from '../../../services/editor/common/editorGroupsService.js';
+import { ChatContextKeys } from '../common/chatContextKeys.js';
 // --- End Positron ---
 
 const gaugeBackground = registerColor('gauge.background', {
@@ -163,6 +164,9 @@ export class ChatStatus extends Disposable {
 		@IStatusbarService private readonly statusbarService: IStatusbarService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		// --- Start Positron ---
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -200,6 +204,14 @@ export class ChatStatus extends Disposable {
 				this.update();
 			}
 		}));
+		// --- Start Positron ---
+		this._register(this.contextKeyService.onDidChangeContext(e => {
+			const expr = ChatContextKeys.inChatSession.isEqualTo(true);
+			if (e.affectsSome(new Set(expr.keys()))) {
+				this.update();
+			}
+		}));
+		// --- End Positron ---
 	}
 
 	private onDidActiveEditorChange(): void {
@@ -218,11 +230,15 @@ export class ChatStatus extends Disposable {
 
 	// --- Start Positron ---
 	private shouldShowStatus(): boolean {
-		// Show the Chat status item if:
-		// - a Code editor is active
-		// - a Chat session is open in editor
-		return getCodeEditor(this.editorService.activeEditorPane?.getControl()) !== null ||
-			this.editorService.activeEditor?.editorId === 'workbench.editor.chatSession';
+		// Hide the Chat status item if:
+		// - only plot or data explorer editors are open, and
+		// - the user is not in a chat session
+		const inChat = ChatContextKeys.inChatSession.getValue(this.contextKeyService);
+		const isEditor = !this.editorService.editors.every(editor => {
+			return editor.editorId === 'workbench.editor.positronPlots' ||
+				editor.editorId === 'workbench.editor.positronDataExplorer';
+		});
+		return inChat || isEditor;
 	}
 	// --- End Positron ---
 
