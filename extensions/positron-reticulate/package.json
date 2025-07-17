@@ -28,7 +28,7 @@
       "properties": {
         "positron.reticulate.enabled": {
           "type": "boolean",
-          "default": false,
+          "default": true,
           "description": "%enabledDescription%"
         }
       }
