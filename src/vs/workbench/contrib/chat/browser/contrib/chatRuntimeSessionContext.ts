@@ -8,7 +8,6 @@ import { Disposable } from '../../../../../base/common/lifecycle.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
 import { IWorkbenchContribution } from '../../../../common/contributions.js';
-import { IChatRequestRuntimeSessionEntry } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 import { IChatWidgetService } from '../chat.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -19,6 +18,7 @@ import { IPositronVariablesService } from '../../../../services/positronVariable
 import { PositronVariablesInstance } from '../../../../services/positronVariables/common/positronVariablesInstance.js';
 import { ExecutionEntryType, IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { LanguageRuntimeSessionMode, RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
+import { IChatRequestRuntimeSessionEntry } from '../../common/chatVariableEntries.js';
 
 /**
  * A single summarized entry in the execution history provided to the chat model.
@@ -322,7 +322,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 		return summarized;
 	}
 
-	public async toBaseEntries(): Promise<IChatRequestRuntimeSessionEntry[]> {
+	public toBaseEntries(): IChatRequestRuntimeSessionEntry[] {
 		if (!this.value) {
 			return [];
 		}

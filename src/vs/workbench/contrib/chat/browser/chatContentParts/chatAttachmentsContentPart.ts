@@ -12,41 +12,13 @@ import { URI } from '../../../../../base/common/uri.js';
 import { Range } from '../../../../../editor/common/core/range.js';
 import { IInstantiationService } from '../../../../../platform/instantiation/common/instantiation.js';
 import { ResourceLabels } from '../../../../browser/labels.js';
-import { IChatRequestVariableEntry, isElementVariableEntry, isImageVariableEntry, isNotebookOutputVariableEntry, isPasteVariableEntry, isPromptFileVariableEntry, isPromptTextVariableEntry, isSCMHistoryItemVariableEntry, OmittedState } from '../../common/chatVariableEntries.js';
+import { IChatRequestVariableEntry, isElementVariableEntry, isImageVariableEntry, isNotebookOutputVariableEntry, isPasteVariableEntry, isPromptFileVariableEntry, isPromptTextVariableEntry, isRuntimeSessionEntry, isSCMHistoryItemVariableEntry, OmittedState } from '../../common/chatVariableEntries.js';
 import { ChatResponseReferencePartStatusKind, IChatContentReference } from '../../common/chatService.js';
 import { DefaultChatAttachmentWidget, ElementChatAttachmentWidget, FileAttachmentWidget, ImageAttachmentWidget, NotebookCellOutputChatAttachmentWidget, PasteAttachmentWidget, PromptFileAttachmentWidget, PromptTextAttachmentWidget, SCMHistoryItemAttachmentWidget, ToolSetOrToolItemAttachmentWidget } from '../chatAttachmentWidgets.js';
 
 // --- Start Positron ---
-/**
- * Helper function to get the icon for a runtime session.
- *
- * @param sessionId The session ID of the runtime session.
- * @param runtimeSessionService The runtime session service to retrieve the session metadata.
- *
- * @returns The base64 encoded SVG icon string if available, otherwise an empty string.
- */
-function getIconForSession(
-	sessionId: string,
-	runtimeSessionService: IRuntimeSessionService,
-): string {
-	const session = runtimeSessionService.getSession(sessionId);
-	if (!session) {
-		return '';
-	}
-
-	const runtimeMetadata = session.runtimeMetadata;
-	if (!runtimeMetadata) {
-		return '';
-	}
-
-	if (runtimeMetadata?.base64EncodedIconSvg) {
-		return runtimeMetadata.base64EncodedIconSvg;
-	}
-
-	return '';
-}
+import { RuntimeSessionAttachmentWidget } from '../chatRuntimeAttachmentWidget.js';
 // --- End Positron ---
-
 
 export class ChatAttachmentsContentPart extends Disposable {
 	private readonly attachedContextDisposables = this._register(new DisposableStore());
@@ -61,9 +33,6 @@ export class ChatAttachmentsContentPart extends Disposable {
 		private readonly contentReferences: ReadonlyArray<IChatContentReference> = [],
 		public readonly domNode: HTMLElement | undefined = dom.$('.chat-attached-context'),
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		// --- Start Positron ---
-		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
-		// --- End Positron ---
 	) {
 		super();
 		this._contextResourceLabels = this._register(this.instantiationService.createInstance(ResourceLabels, { onDidChangeVisibility: this._onDidChangeVisibility.event }));
@@ -112,49 +81,10 @@ export class ChatAttachmentsContentPart extends Disposable {
 				widget = this.instantiationService.createInstance(NotebookCellOutputChatAttachmentWidget, resource, attachment, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels, hoverDelegate);
 			} else if (isSCMHistoryItemVariableEntry(attachment)) {
 				widget = this.instantiationService.createInstance(SCMHistoryItemAttachmentWidget, attachment, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels, hoverDelegate);
-			// --- Start Positron ---
-			} else if () {
-				ariaLabel = localize('chat.attachedSession', "Attached session: {0}.", attachment.name);
-
-				// Get the session ID and icon
-				const activeSession = (attachment as any).value?.activeSession;
-				const sessionId = activeSession?.identifier;
-				const iconSvg = sessionId ? getIconForSession(sessionId, this.runtimeSessionService) : '';
-
-				if (iconSvg) {
-					// Create a data URI for the runtime icon
-					const iconDataUri = `data:image/svg+xml;base64,${iconSvg}`;
-
-					// Set the label without icon initially
-					label.setLabel(attachment.name, undefined, { extraClasses: ['runtime-session-icon'] });
-
-					// Create and insert the runtime icon
-					const iconElement = dom.$('img.runtime-session-icon', {
-						src: iconDataUri,
-						style: 'width: 14px; height: 14px; margin-right: 3px; margin-left: 1px; margin-top: 2px; vertical-align: text-bottom; display: inline-block;'
-					});
-
-					// Insert the icon at the beginning of the label container
-					const labelContainer = label.element;
-					if (labelContainer.firstChild) {
-						labelContainer.insertBefore(iconElement, labelContainer.firstChild);
-					} else {
-						labelContainer.appendChild(iconElement);
-					}
-				} else {
-					// Fallback to regular label if no icon
-					label.setLabel(attachment.name, undefined, { extraClasses: ['runtime-session-icon'] });
-				}
-
-				// Add click handler to focus the runtime session
-				if (sessionId) {
-					widget.style.cursor = 'pointer';
-					this.attachedContextDisposables.add(dom.addDisposableListener(widget, dom.EventType.CLICK, async (e: MouseEvent) => {
-						dom.EventHelper.stop(e, true);
-						this.runtimeSessionService.focusSession(sessionId);
-					}));
-				}
-			// --- End Positron ---
+				// --- Start Positron ---
+			} else if (isRuntimeSessionEntry(attachment)) {
+				widget = this.instantiationService.createInstance(RuntimeSessionAttachmentWidget, attachment, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels, hoverDelegate);
+				// --- End Positron ---
 			} else {
 				widget = this.instantiationService.createInstance(DefaultChatAttachmentWidget, resource, range, attachment, correspondingContentReference, undefined, { shouldFocusClearButton: false, supportsDeletion: false }, container, this._contextResourceLabels, hoverDelegate);
 			}

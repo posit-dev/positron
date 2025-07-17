@@ -18,10 +18,10 @@ import { IChatService } from '../../common/chatService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
 import { LanguageRuntimeSessionMode, RuntimeState, RuntimeCodeFragmentStatus, ILanguageRuntimeInfo, ILanguageRuntimeMetadata, ILanguageRuntimeSessionState, LanguageRuntimeStartupBehavior, LanguageRuntimeSessionLocation } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { Emitter } from '../../../../../base/common/event.js';
-import { IChatRequestRuntimeSessionEntry } from '../../common/chatModel.js';
 import { PositronVariablesInstance } from '../../../../services/positronVariables/common/positronVariablesInstance.js';
 import { Variable, VariableKind } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IExecutionHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { IChatRequestRuntimeSessionEntry } from '../../common/chatVariableEntries.js';
 
 // Mock runtime session
 class MockRuntimeSession implements ILanguageRuntimeSession {

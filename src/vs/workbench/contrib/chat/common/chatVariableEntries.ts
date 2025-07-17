@@ -204,12 +204,36 @@ export interface ISCMHistoryItemVariableEntry extends IBaseChatRequestVariableEn
 	readonly historyItem: ISCMHistoryItem;
 }
 
+// --- Start Positron ---
+export interface IChatRequestRuntimeSessionEntry extends IBaseChatRequestVariableEntry {
+	readonly kind: 'runtimeSession';
+	readonly value: {
+		activeSession?: {
+			identifier: string;
+			language: string;
+			version: string;
+			mode: string;
+			notebookUri?: any;
+			executions: {
+				input: string;
+				output: string;
+				error?: any;
+			}[];
+		};
+		variables: any[];
+	};
+}
+// --- End Positron ---
+
 export type IChatRequestVariableEntry = IGenericChatRequestVariableEntry | IChatRequestImplicitVariableEntry | IChatRequestPasteVariableEntry
 	| ISymbolVariableEntry | ICommandResultVariableEntry | IDiagnosticVariableEntry | IImageVariableEntry
 	| IChatRequestToolEntry | IChatRequestToolSetEntry
 	| IChatRequestDirectoryEntry | IChatRequestFileEntry | INotebookOutputVariableEntry | IElementVariableEntry
-	| IPromptFileVariableEntry | IPromptTextVariableEntry | ISCMHistoryItemVariableEntry;
-
+	| IPromptFileVariableEntry | IPromptTextVariableEntry | ISCMHistoryItemVariableEntry
+	// --- Start Positron ---
+	// Add Positron runtime session variable entry
+	| IChatRequestRuntimeSessionEntry;
+// --- End Positron ---
 
 export namespace IChatRequestVariableEntry {
 
@@ -273,6 +297,12 @@ export function isChatRequestVariableEntry(obj: unknown): obj is IChatRequestVar
 export function isSCMHistoryItemVariableEntry(obj: IChatRequestVariableEntry): obj is ISCMHistoryItemVariableEntry {
 	return obj.kind === 'scmHistoryItem';
 }
+
+// --- Start Positron ---
+export function isRuntimeSessionEntry(obj: IChatRequestVariableEntry): obj is IChatRequestRuntimeSessionEntry {
+	return obj.kind === 'runtimeSession';
+}
+// --- End Positron ---
 
 export enum PromptFileVariableKind {
 	Instruction = 'vscode.prompt.instructions.root',

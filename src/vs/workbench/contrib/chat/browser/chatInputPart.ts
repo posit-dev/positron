@@ -183,8 +183,8 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// --- Start Positron ---
 		// Add runtime session context if enabled and has value
 		if (this.runtimeContext?.enabled && this.runtimeContext.value) {
-			const runtimeChatVariables = await this.runtimeContext.toBaseEntries();
-			contextArr.push(...runtimeChatVariables);
+			const runtimeChatVariables = this.runtimeContext.toBaseEntries();
+			contextArr.add(...runtimeChatVariables);
 		}
 		// --- End Positron ---
 
@@ -1425,11 +1425,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				attachmentWidget = this.instantiationService.createInstance(PasteAttachmentWidget, attachment, this._currentLanguageModel, options, container, this._contextResourceLabels, hoverDelegate);
 			} else if (isSCMHistoryItemVariableEntry(attachment)) {
 				attachmentWidget = this.instantiationService.createInstance(SCMHistoryItemAttachmentWidget, attachment, this._currentLanguageModel, options, container, this._contextResourceLabels, hoverDelegate);
-			// --- Start Positron ---
-			else if (attachment.kind === 'runtimeSession') {
-				attachmentWidget = this.instantiationService.createInstance(RuntimeSessionAttachmentWidget, attachment, this._currentLanguageModel, shouldFocusClearButton, container, this._contextResourceLabels, hoverDelegate);
-			}
-			// --- End Positron ---
+				// --- Start Positron ---
+			} else if (attachment.kind === 'runtimeSession') {
+				attachmentWidget = this.instantiationService.createInstance(RuntimeSessionAttachmentWidget, attachment, this._currentLanguageModel, options, container, this._contextResourceLabels, hoverDelegate);
+				// --- End Positron ---
 			} else {
 				attachmentWidget = this.instantiationService.createInstance(DefaultChatAttachmentWidget, resource, range, attachment, undefined, this._currentLanguageModel, options, container, this._contextResourceLabels, hoverDelegate);
 			}

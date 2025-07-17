@@ -75,10 +75,8 @@ import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/w
 
 // --- Start Positron ---
 import './media/positronChat.css';
-import { ThemeIcon } from '../../../../base/common/themables.js';
 import { ILanguageModelsService } from '../common/languageModels.js';
 import { ChatActionBarControl } from './positron/chatActionBarControl.js';
-// eslint-disable-next-line no-duplicate-imports
 // --- End Positron ---
 
 const $ = dom.$;
