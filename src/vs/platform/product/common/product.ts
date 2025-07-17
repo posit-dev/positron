@@ -83,12 +83,13 @@ else {
 			reportIssueUrl: 'https://github.com/posit-dev/positron/issues/new',
 			licenseName: 'Software Evaluation License',
 			licenseUrl: 'https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file',
-			serverLicenseUrl: 'https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file',
+			serverLicenseUrl: 'https://posit.co/about/eula/',
 			linkProtectionTrustedDomains: [
 				'https://open-vsx.org',
 				'https://github.com/posit-dev/positron',
 				'https://positron.posit.co',
 				'https://github.com/login/device',
+				'https://posit.co'
 			]
 			// --- End Positron ---
 		});

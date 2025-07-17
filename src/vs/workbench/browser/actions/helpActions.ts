@@ -242,7 +242,7 @@ class OpenRequestFeatureUrlAction extends Action2 {
 class OpenLicenseUrlAction extends Action2 {
 
 	static readonly ID = 'workbench.action.openLicenseUrl';
-	static readonly AVAILABLE = !!(isWeb ? product.serverLicense : product.licenseUrl);
+	static readonly AVAILABLE = !!(isWeb ? product.serverLicenseUrl : product.licenseUrl);
 
 	constructor() {
 		super({
@@ -264,16 +264,22 @@ class OpenLicenseUrlAction extends Action2 {
 	run(accessor: ServicesAccessor): void {
 		const productService = accessor.get(IProductService);
 		const openerService = accessor.get(IOpenerService);
-		const url = isWeb ? productService.serverLicenseUrl : productService.licenseUrl;
+		// --- Start Positron ---
+		let url = isWeb ? productService.serverLicenseUrl : productService.licenseUrl;
 
 		if (url) {
 			if (language) {
 				const queryArgChar = url.indexOf('?') > 0 ? '&' : '?';
-				openerService.open(URI.parse(`${url}${queryArgChar}lang=${language}`));
+				url = `${url}${queryArgChar}lang=${language}`;
+			}
+
+			if (isWeb) {
+				openerService.open(URI.parse(url));
 			} else {
 				openerService.open(URI.parse(url));
 			}
 		}
+		// --- End Positron ---
 	}
 }
 
