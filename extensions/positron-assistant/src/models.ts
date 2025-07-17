@@ -150,6 +150,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			const outputCount = await this.provideTokenCount(response, token);
 			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
 			tokenUsage = {
+				provider: this.provider,
 				inputTokens: inputCount,
 				outputTokens: outputCount,
 			};
@@ -157,7 +158,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {
-				recordRequestTokenUsage(requestId, inputCount, outputCount);
+				recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
 			}
 		}
 
@@ -324,14 +325,18 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		if (this._context) {
-			const outputCount = await this.provideTokenCount(await result.text, token);
-			let inputCount = 0;
-
-			for (const msg of messages) {
-				inputCount += await this.provideTokenCount(msg, token);
-			}
+			// ai-sdk provides token usage in the result but it's not clear how it is calculated
+			const usage = await result.usage;
+			const outputCount = usage.completionTokens;
+			const inputCount = usage.promptTokens;
+			const requestId = (options.modelOptions as any)?.requestId;
 
 			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
+
+			if (requestId) {
+				recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+			}
+
 		}
 	}
 
