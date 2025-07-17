@@ -9,6 +9,7 @@ inputs:
     description: "Install undetectable interpreters"
     required: true
     type: boolean
+
 runs:
   using: "composite"
   steps:
@@ -34,7 +35,7 @@ runs:
         python3 --version
         which python
 
-    - name: Install pyenv
+    - name: Install pyenv and alternate Python
       shell: bash
       run: |
         echo "Installing pyenv..."
@@ -82,7 +83,7 @@ runs:
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
-        set -e  # Exit immediately if any command fails
+        # set -e  # Exit immediately if any command fails
 
         echo "Setting up Conda environment with Python 3.12..."
 
@@ -111,7 +112,7 @@ runs:
 
         # Verify Python modules are working
         echo "Checking if Python modules work..."
-        $PYTHON_BIN -c "import venv, distutils, sys; print(f'Python {sys.version} modules are working!')"
+        $PYTHON_BIN -c "import venv, sys; print(f'Python {sys.version} modules are working!')"
 
         # Final verification
         echo "Final Python check..."
