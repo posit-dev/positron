@@ -88,7 +88,7 @@ runs:
         echo "Setting up Conda environment with Python 3.12..."
 
         # Ensure Conda is available
-        source "${HOME}/conda/etc/profile.d/conda.sh"
+        source "${CONDA}/etc/profile.d/conda.sh"
 
         # Define environment path
         CONDA_ENV_DIR="$HOME/scratch/python-env"
