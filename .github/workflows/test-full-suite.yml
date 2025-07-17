@@ -2,9 +2,6 @@ name: "Test: Full Suite"
 
 on:
 
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
       inputs:
         run_e2e_linux:
@@ -49,11 +46,11 @@ concurrency:
 jobs:
   e2e-electron:
     name: e2e
-    if: ${{ github.event_name == 'pull_request' || inputs.run_e2e_linux  }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_linux  }}
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
-      grep: "@:new-folder-flow,@:interpreter"
+      grep: ""
       project: "e2e-electron"
       display_name: "electron (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/ubuntu' || 'electron/ubuntu' }}
@@ -64,11 +61,11 @@ jobs:
 
   e2e-windows:
     name: e2e
-    if: ${{ github.event_name == 'pull_request' || inputs.run_e2e_windows }}
+    if: ${{ github.event_name == 'schedule' || inputs.run_e2e_windows }}
     uses: ./.github/workflows/test-e2e-windows.yml
     secrets: inherit
     with:
-      grep: "@:new-folder-flow,@:interpreter"
+      grep: ""
       display_name: "electron (win)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,electron/win' || 'electron/win' }}
       report_testrail: false
@@ -76,11 +73,11 @@ jobs:
 
   e2e-browser:
     name: e2e
-    if: ${{  github.event_name == 'pull_request' || inputs.run_e2e_browser }}
+    if: ${{  github.event_name == 'schedule' || inputs.run_e2e_browser }}
     uses: ./.github/workflows/test-e2e-ubuntu.yml
     secrets: inherit
     with:
-      grep: "@:new-folder-flow,@:interpreter"
+      grep: ""
       project: "e2e-browser"
       display_name: "browser (ubuntu)"
       currents_tags: ${{ github.event_name == 'schedule' && 'nightly,browser/ubuntu' || 'browser/ubuntu' }}
@@ -103,20 +100,20 @@ jobs:
     with:
       pull_request: false
 
-  # slack-notify:
-  #   if: always()
-  #   needs: [e2e-electron, e2e-windows, e2e-browser, unit-tests, integration-tests]
-  #   runs-on: ubuntu-latest
-  #   env:
-  #     notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
-  #   steps:
-  #     - run: |
-  #         echo "Will notify on: ${{ env.notify_on }}"
-  #     - name: Notify Slack
-  #       uses: midleman/slack-workflow-status@v3.1.2
-  #       with:
-  #         gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
-  #         slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
-  #         slack_channel: "#positron-test-results"
-  #         notify_on: ${{ env.notify_on }}
+  slack-notify:
+    if: always()
+    needs: [e2e-electron, e2e-windows, e2e-browser, unit-tests, integration-tests]
+    runs-on: ubuntu-latest
+    env:
+      notify_on: ${{ github.event_name == 'schedule' && 'always' || inputs.notify_on || 'failure' }}
+    steps:
+      - run: |
+          echo "Will notify on: ${{ env.notify_on }}"
+      - name: Notify Slack
+        uses: midleman/slack-workflow-status@v3.1.2
+        with:
+          gh_repo_token: ${{ secrets.GITHUB_TOKEN }}
+          slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
+          slack_channel: "#positron-test-results"
+          notify_on: ${{ env.notify_on }}
 
