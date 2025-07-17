@@ -182,7 +182,7 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter",
-			"version": "2025.4.1",
+			"version": "2025.6.0",
 			"sha256sum": "7c6dfe9cfdfb7a6accc6973d730c1607ad6483c6405b912dd606002525aedb5a",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
@@ -269,7 +269,7 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.112.0",
+			"version": "0.114.1",
 			"sha256": "77643a428f6311b64121cfdb3ba436e3c1832bddaf80d800a7eba370405a635f",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
