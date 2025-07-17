@@ -12,11 +12,11 @@ import React from 'react';
 // Other dependencies.
 import { ANSIOutput } from '../../../../../base/common/ansiOutput.js';
 import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
-import { useServices } from '../ServicesProvider.js';
 import { ParsedTextOutput } from '../../../../services/positronNotebook/browser/IPositronNotebookCell.js';
 import { useNotebookOptions } from '../NotebookInstanceProvider.js';
 import { ICommandService } from '../../../../../platform/commands/common/commands.js';
 import { NotebookDisplayOptions } from '../../../notebook/browser/notebookOptions.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 type LongOutputOptions = Pick<NotebookDisplayOptions, 'outputLineLimit' | 'outputScrolling'>;
 
@@ -88,36 +88,24 @@ function truncateToNumberOfLines(content: string, { outputScrolling, outputLineL
 
 export function CellTextOutput({ content, type }: ParsedTextOutput) {
 
-	const { openerService, notificationService, commandService, environmentService, pathService } = useServices();
+	const services = usePositronReactServicesContext();
 	const { containerRef, truncation } = useLongOutputBehavior(content);
 
 	return <>
 		<div ref={containerRef} className={`notebook-${type} positron-notebook-text-output long-output-${truncation.mode}`}>
-			<OutputLines
-				environmentService={environmentService}
-				notificationService={notificationService}
-				openerService={openerService}
-				outputLines={ANSIOutput.processOutput(truncation.content)}
-				pathService={pathService}
-			/>
+			<OutputLines outputLines={ANSIOutput.processOutput(truncation.content)} />
 			{
 				truncation.mode === 'truncate'
 					? <>
-						<TruncationMessage commandService={commandService} truncationResult={truncation} />
-						<OutputLines
-							environmentService={environmentService}
-							notificationService={notificationService}
-							openerService={openerService}
-							outputLines={ANSIOutput.processOutput(truncation.contentAfter)}
-							pathService={pathService}
-						/>
+						<TruncationMessage commandService={services.commandService} truncationResult={truncation} />
+						<OutputLines outputLines={ANSIOutput.processOutput(truncation.contentAfter)} />
 					</>
 					: null
 			}
 		</div>
 		{
 			truncation.mode === 'scroll'
-				? <TruncationMessage commandService={commandService} truncationResult={truncation} />
+				? <TruncationMessage commandService={services.commandService} truncationResult={truncation} />
 				: null
 		}
 	</>;

@@ -10,11 +10,7 @@ import React from 'react';
 import * as nls from '../../../../../nls.js';
 import { DisposableStore, IDisposable } from '../../../../../base/common/lifecycle.js';
 import { IAction, Separator } from '../../../../../base/common/actions.js';
-import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
-import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 import { PlotSizingPolicyCustom } from '../../../../services/positronPlots/common/sizingPolicyCustom.js';
-import { IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { showSetPlotSizeModalDialog } from '../modalDialogs/setPlotSizeModalDialog.js';
 import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
@@ -22,12 +18,9 @@ import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/co
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { disposableTimeout } from '../../../../../base/common/async.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 interface SizingPolicyMenuButtonProps {
-	readonly keybindingService: IKeybindingService;
-	readonly layoutService: IWorkbenchLayoutService;
-	readonly notificationService: INotificationService;
-	readonly plotsService: IPositronPlotsService;
 	readonly plotClient: PlotClientInstance;
 }
 
@@ -41,6 +34,8 @@ const changeCustomPolicyTooltip = nls.localize('positronChangeCustomSize', "Chan
  * @returns The rendered component.
  */
 export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
 
 	// State.
 	const [activePolicyLabel, setActivePolicyLabel] =
@@ -74,7 +69,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			return disposables;
 		};
 
-		let policyDisposables = attachPolicy(props.plotsService.selectedSizingPolicy);
+		let policyDisposables = attachPolicy(services.positronPlotsService.selectedSizingPolicy);
 
 		// Update the active policy label when the selected policy changes.
 		disposables.add(props.plotClient.onDidChangeSizingPolicy(policy => {
@@ -85,15 +80,15 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			disposables.dispose();
 			policyDisposables.dispose();
 		};
-	}, [props.plotsService, props.plotClient, props.plotsService.selectedSizingPolicy]);
+	}, [props.plotClient, services.positronPlotsService.selectedSizingPolicy]);
 
 	// Builds the actions.
 	const actions = () => {
-		const selectedPolicy = props.plotsService.selectedSizingPolicy;
+		const selectedPolicy = services.positronPlotsService.selectedSizingPolicy;
 
 		// Build the actions for all sizing policies except the custom policy.
 		const actions: IAction[] = [];
-		props.plotsService.sizingPolicies.map(policy => {
+		services.positronPlotsService.sizingPolicies.map(policy => {
 			if (policy.id !== PlotSizingPolicyCustom.ID) {
 				// Only enable the intrinsic policy if the plot's intrinsic size is known.
 				const enabled = policy instanceof PlotSizingPolicyIntrinsic ?
@@ -115,7 +110,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 
 		// Add a separator and the custom policy, if it exists.
 		actions.push(new Separator());
-		const customPolicy = props.plotsService.sizingPolicies.find(
+		const customPolicy = services.positronPlotsService.sizingPolicies.find(
 			policy => policy.id === PlotSizingPolicyCustom.ID) as PlotSizingPolicyCustom;
 		if (customPolicy) {
 			actions.push({
@@ -139,20 +134,18 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 			enabled: true,
 			run: () => {
 				showSetPlotSizeModalDialog(
-					props.keybindingService,
-					props.layoutService,
 					customPolicy ? customPolicy.size : undefined,
 					result => {
 						if (result === null) {
 							// The user clicked the delete button; this results in a special `null`
 							// value that signals that the custom policy should be deleted.
-							props.plotsService.clearCustomPlotSize();
+							services.positronPlotsService.clearCustomPlotSize();
 						} else if (result) {
 							if (result.size.width < 100 || result.size.height < 100) {
 								// The user entered a size that's too small. Plots drawn at this
 								// size would be too small to be useful, so we show an error
 								// message.
-								props.notificationService.error(
+								services.notificationService.error(
 									nls.localize(
 										'positronPlotSizeTooSmall',
 										"The custom plot size {0}×{1} is invalid. The size must be at least 100×100.",
@@ -162,7 +155,7 @@ export const SizingPolicyMenuButton = (props: SizingPolicyMenuButtonProps) => {
 								);
 							} else {
 								// The user entered a valid size; set the custom policy.
-								props.plotsService.setCustomPlotSize(result.size);
+								services.positronPlotsService.setCustomPlotSize(result.size);
 								props.plotClient.sizingPolicy = new PlotSizingPolicyCustom(result.size);
 							}
 						}

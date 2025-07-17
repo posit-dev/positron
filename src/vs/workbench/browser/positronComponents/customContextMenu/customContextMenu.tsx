@@ -12,14 +12,13 @@ import React from 'react';
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
-import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
+import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
+import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from './customContextMenuItem.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
 
 /**
@@ -31,9 +30,6 @@ export type CustomContextMenuEntry = CustomContextMenuItem | CustomContextMenuSe
  * CustomContextMenuProps interface.
  */
 export interface CustomContextMenuProps {
-	readonly commandService: ICommandService;
-	readonly keybindingService: IKeybindingService;
-	readonly layoutService: ILayoutService;
 	readonly anchorElement: HTMLElement;
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
@@ -45,9 +41,6 @@ export interface CustomContextMenuProps {
 
 /**
  * Shows a custom context menu.
- * @param commandService The command service.
- * @param keybindingService The keybinding service.
- * @param layoutService The layout service.
  * @param anchorElement The anchor element.
  * @param anchorPoint The anchor point.
  * @param popupPosition The popup position.
@@ -57,9 +50,6 @@ export interface CustomContextMenuProps {
  * @param entries The context menu entries.
  */
 export const showCustomContextMenu = async ({
-	commandService,
-	keybindingService,
-	layoutService,
 	anchorElement,
 	anchorPoint,
 	popupPosition,
@@ -70,9 +60,7 @@ export const showCustomContextMenu = async ({
 }: CustomContextMenuProps) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
-		keybindingService,
-		layoutService,
-		container: layoutService.getContainer(DOM.getWindow(anchorElement)),
+		container: PositronReactServices.services.workbenchLayoutService.getContainer(DOM.getWindow(anchorElement)),
 		parent: anchorElement
 	});
 
@@ -91,9 +79,7 @@ export const showCustomContextMenu = async ({
 		<CustomContextMenuModalPopup
 			anchorElement={anchorElement}
 			anchorPoint={anchorPoint}
-			commandService={commandService}
 			entries={entries}
-			keybindingService={keybindingService}
 			minWidth={minWidth}
 			popupAlignment={popupAlignment}
 			popupPosition={popupPosition}
@@ -107,8 +93,6 @@ export const showCustomContextMenu = async ({
  * CustomContextMenuModalPopupProps interface.
  */
 interface CustomContextMenuModalPopupProps {
-	readonly commandService: ICommandService;
-	readonly keybindingService: IKeybindingService;
 	readonly renderer: PositronModalReactRenderer;
 	readonly anchorElement: HTMLElement;
 	readonly anchorPoint?: AnchorPoint;
@@ -125,6 +109,9 @@ interface CustomContextMenuModalPopupProps {
  * @returns The rendered component.
  */
 const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	/**
 	 * Dismisses the  modal popup.
 	 */
@@ -150,7 +137,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 		// Get the shortcut, if there is a command ID.
 		let shortcut = '';
 		if (options.commandId) {
-			const keybinding = props.keybindingService.lookupKeybinding(options.commandId);
+			const keybinding = services.keybindingService.lookupKeybinding(options.commandId);
 			if (keybinding) {
 				let label = keybinding.getLabel();
 				if (label) {
@@ -175,7 +162,7 @@ const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) =>
 				onPressed={e => {
 					dismiss();
 					if (options.commandId) {
-						props.commandService.executeCommand(options.commandId);
+						services.commandService.executeCommand(options.commandId);
 					}
 					options.onSelected(e);
 				}}

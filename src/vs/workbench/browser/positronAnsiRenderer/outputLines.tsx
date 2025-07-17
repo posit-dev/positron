@@ -12,17 +12,9 @@ import React from 'react';
 // Other dependencies.
 import { OutputLine } from './outputLine.js';
 import { ANSIOutputLine } from '../../../base/common/ansiOutput.js';
-import { IOpenerService } from '../../../platform/opener/common/opener.js';
-import { INotificationService } from '../../../platform/notification/common/notification.js';
-import { IWorkbenchEnvironmentService } from '../../services/environment/common/environmentService.js';
-import { IPathService } from '../../services/path/common/pathService.js';
 
 // OutputLinesProps interface.
 export interface OutputLinesProps {
-	readonly openerService: IOpenerService;
-	readonly notificationService: INotificationService;
-	readonly environmentService: IWorkbenchEnvironmentService;
-	readonly pathService: IPathService;
 	readonly outputLines: readonly ANSIOutputLine[];
 }
 
@@ -36,14 +28,7 @@ export const OutputLines = (props: OutputLinesProps) => {
 	return (
 		<>
 			{props.outputLines.map(outputLine =>
-				<OutputLine
-					key={outputLine.id}
-					environmentService={props.environmentService}
-					notificationService={props.notificationService}
-					openerService={props.openerService}
-					outputLine={outputLine}
-					pathService={props.pathService}
-				/>
+				<OutputLine key={outputLine.id} outputLine={outputLine} />
 			)}
 		</>
 	);

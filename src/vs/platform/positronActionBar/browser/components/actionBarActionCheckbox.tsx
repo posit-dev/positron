@@ -14,8 +14,8 @@ import { ActionBarCheckbox } from './actionBarCheckbox.js';
 import { IAction } from '../../../../base/common/actions.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
 import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
-import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { isPositronActionBarCheckboxOptions, PositronActionBarOptions } from '../../../action/common/action.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Gets the Positron action bar checkbox options.
@@ -39,7 +39,7 @@ interface ActionBarActionCheckboxProps {
  */
 export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => {
 	// Context hooks.
-	const context = usePositronActionBarContext();
+	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
@@ -65,11 +65,11 @@ export const ActionBarActionCheckbox = (props: ActionBarActionCheckboxProps) => 
 		<ActionBarCheckbox
 			ref={buttonRef}
 			ariaLabel={props.action.label ?? props.action.tooltip}
-			checked={context.contextKeyService.contextMatchesRules(positronActionBarCheckboxOptions.checked)}
+			checked={services.contextKeyService.contextMatchesRules(positronActionBarCheckboxOptions.checked)}
 			label={menuItemAction?.label ?? props.action.label}
 			tooltip={actionTooltip(
-				context.contextKeyService,
-				context.keybindingService,
+				services.contextKeyService,
+				services.keybindingService,
 				props.action,
 				false
 			)}

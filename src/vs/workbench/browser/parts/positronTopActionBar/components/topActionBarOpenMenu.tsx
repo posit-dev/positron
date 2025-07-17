@@ -24,10 +24,10 @@ import { ClearRecentFilesAction } from '../../editor/editorActions.js';
 import { IRecent, isRecentFolder, isRecentWorkspace } from '../../../../../platform/workspaces/common/workspaces.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-import { PositronTopActionBarState } from '../positronTopActionBarState.js';
 import { OpenFileAction, OpenFileFolderAction, OpenFolderAction } from '../../../actions/workspaceActions.js';
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -48,14 +48,67 @@ const positronOpenFileFolder = localize('positronOpenFileFolder', "Open File/Fol
  */
 export const TopActionBarOpenMenu = () => {
 	// Hooks.
+	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext()!;
 	const positronTopActionBarContext = usePositronTopActionBarContext()!;
+
+
+	function recentMenuActions(recent: IRecent[]) {
+		const actions: IAction[] = [];
+		if (recent.length > 0) {
+			for (let i = 0; i < MAX_MENU_RECENT_ENTRIES && i < recent.length; i++) {
+				actions.push(createOpenRecentMenuAction(recent[i]));
+			}
+			actions.push(new Separator());
+		}
+		return actions;
+	}
+
+	// based on code in menubarControl.ts
+	function createOpenRecentMenuAction(recent: IRecent): IOpenRecentAction {
+
+		let label: string;
+		let uri: URI;
+		let commandId: string;
+		let openable: IWindowOpenable;
+		const remoteAuthority = recent.remoteAuthority;
+
+		if (isRecentFolder(recent)) {
+			uri = recent.folderUri;
+			label = recent.label || services.labelService.getWorkspaceLabel(uri, { verbose: Verbosity.LONG });
+			commandId = 'openRecentFolder';
+			openable = { folderUri: uri };
+		} else if (isRecentWorkspace(recent)) {
+			uri = recent.workspace.configPath;
+			label = recent.label || services.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
+			commandId = 'openRecentWorkspace';
+			openable = { workspaceUri: uri };
+		} else {
+			uri = recent.fileUri;
+			label = recent.label || services.labelService.getUriLabel(uri);
+			commandId = 'openRecentFile';
+			openable = { fileUri: uri };
+		}
+
+		const ret: IAction = new Action(commandId, unmnemonicLabel(label), undefined, undefined, event => {
+			const browserEvent = event as KeyboardEvent;
+			const openInNewWindow = event && ((!isMacintosh && (browserEvent.ctrlKey || browserEvent.shiftKey)) || (isMacintosh && (browserEvent.metaKey || browserEvent.altKey)));
+
+			return services.hostService.openWindow([openable], {
+				forceNewWindow: !!openInNewWindow,
+				remoteAuthority: remoteAuthority || null // local window if remoteAuthority is not set or can not be deducted from the openable
+			});
+		});
+
+		return Object.assign(ret, { uri, remoteAuthority });
+	}
+
 
 	// fetch actions when menu is shown
 	const actions = async () => {
 		// core open actions
 		const actions: IAction[] = [];
-		if (IsMacNativeContext.getValue(positronActionBarContext.contextKeyService)) {
+		if (IsMacNativeContext.getValue(services.contextKeyService)) {
 			positronActionBarContext.appendCommandAction(actions, {
 				id: OpenFileFolderAction.ID,
 				label: positronOpenFile
@@ -72,11 +125,11 @@ export const TopActionBarOpenMenu = () => {
 		actions.push(new Separator());
 
 		// recent files/workspaces actions
-		const recent = await positronTopActionBarContext.workspacesService.getRecentlyOpened();
+		const recent = await services.workspacesService.getRecentlyOpened();
 		if (recent && positronTopActionBarContext) {
 			const recentActions = [
-				...recentMenuActions(recent.workspaces, positronTopActionBarContext),
-				...recentMenuActions(recent.files, positronTopActionBarContext)
+				...recentMenuActions(recent.workspaces),
+				...recentMenuActions(recent.files)
 			];
 			if (recentActions.length > 0) {
 				actions.push(...recentActions);
@@ -104,53 +157,3 @@ export const TopActionBarOpenMenu = () => {
 		/>
 	);
 };
-
-export function recentMenuActions(recent: IRecent[], context: PositronTopActionBarState,) {
-	const actions: IAction[] = [];
-	if (recent.length > 0) {
-		for (let i = 0; i < MAX_MENU_RECENT_ENTRIES && i < recent.length; i++) {
-			actions.push(createOpenRecentMenuAction(context, recent[i]));
-		}
-		actions.push(new Separator());
-	}
-	return actions;
-}
-
-// based on code in menubarControl.ts
-function createOpenRecentMenuAction(context: PositronTopActionBarState, recent: IRecent): IOpenRecentAction {
-
-	let label: string;
-	let uri: URI;
-	let commandId: string;
-	let openable: IWindowOpenable;
-	const remoteAuthority = recent.remoteAuthority;
-
-	if (isRecentFolder(recent)) {
-		uri = recent.folderUri;
-		label = recent.label || context.labelService.getWorkspaceLabel(uri, { verbose: Verbosity.LONG });
-		commandId = 'openRecentFolder';
-		openable = { folderUri: uri };
-	} else if (isRecentWorkspace(recent)) {
-		uri = recent.workspace.configPath;
-		label = recent.label || context.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
-		commandId = 'openRecentWorkspace';
-		openable = { workspaceUri: uri };
-	} else {
-		uri = recent.fileUri;
-		label = recent.label || context.labelService.getUriLabel(uri);
-		commandId = 'openRecentFile';
-		openable = { fileUri: uri };
-	}
-
-	const ret: IAction = new Action(commandId, unmnemonicLabel(label), undefined, undefined, event => {
-		const browserEvent = event as KeyboardEvent;
-		const openInNewWindow = event && ((!isMacintosh && (browserEvent.ctrlKey || browserEvent.shiftKey)) || (isMacintosh && (browserEvent.metaKey || browserEvent.altKey)));
-
-		return context.hostService.openWindow([openable], {
-			forceNewWindow: !!openInNewWindow,
-			remoteAuthority: remoteAuthority || null // local window if remoteAuthority is not set or can not be deducted from the openable
-		});
-	});
-
-	return Object.assign(ret, { uri, remoteAuthority });
-}

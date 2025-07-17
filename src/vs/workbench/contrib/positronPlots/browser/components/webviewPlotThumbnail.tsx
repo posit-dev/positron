@@ -9,7 +9,7 @@ import React, { useEffect, useState } from 'react';
 // Other dependencies.
 import { WebviewPlotClient } from '../webviewPlotClient.js';
 import { PlaceholderThumbnail } from './placeholderThumbnail.js';
-import { usePositronPlotsContext } from '../positronPlotsContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * WebviewPlotThumbnailProps interface.
@@ -26,14 +26,14 @@ interface WebviewPlotThumbnailProps {
  * @returns The rendered component.
  */
 export const WebviewPlotThumbnail = (props: WebviewPlotThumbnailProps) => {
-	const context = usePositronPlotsContext();
+	const services = usePositronReactServicesContext();
 	const [uri, setUri] = useState(() => {
 		// If the plot is already rendered, set the URI; otherwise, try to use the cached URI until
 		// the plot is rendered.
 		if (props.plotClient.thumbnailUri) {
 			return props.plotClient.thumbnailUri;
 		} else {
-			return context.positronPlotsService.getCachedPlotThumbnailURI(props.plotClient.id);
+			return services.positronPlotsService.getCachedPlotThumbnailURI(props.plotClient.id);
 		}
 	});
 
@@ -45,7 +45,7 @@ export const WebviewPlotThumbnail = (props: WebviewPlotThumbnailProps) => {
 		});
 
 		return () => disposable.dispose();
-	}, [context.positronPlotsService, props.plotClient]);
+	}, [services.positronPlotsService, props.plotClient]);
 
 	// If the plot is not yet rendered yet (no URI), show a placeholder;
 	// otherwise, show the rendered thumbnail.

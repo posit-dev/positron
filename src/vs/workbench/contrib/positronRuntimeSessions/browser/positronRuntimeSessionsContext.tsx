@@ -7,7 +7,7 @@
 import React, { PropsWithChildren, createContext, useContext } from 'react';
 
 // Other dependencies.
-import { PositronSessionsServices, PositronRuntimeSessionsState, usePositronRuntimeSessionsState } from './positronRuntimeSessionsState.js';
+import { PositronRuntimeSessionsState, usePositronRuntimeSessionsState } from './positronRuntimeSessionsState.js';
 
 /**
  * Create the Positron sessions context.
@@ -17,11 +17,9 @@ const PositronRuntimeSessionsContext = createContext<PositronRuntimeSessionsStat
 /**
  * Export the PositronSessionsContextProvider.
  */
-export const PositronSessionsContextProvider = (
-	props: PropsWithChildren<PositronSessionsServices>
-) => {
+export const PositronSessionsContextProvider = (props: PropsWithChildren<{}>) => {
 	// State hooks.
-	const positronSessionsState = usePositronRuntimeSessionsState(props);
+	const positronSessionsState = usePositronRuntimeSessionsState();
 
 	// Render.
 	return (
