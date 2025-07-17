@@ -1277,7 +1277,8 @@ def _get_string_display_value(
 
     # If the string fits the limit, return it as is.
     # NOTE: We check the actual string length but return the repr which may differ e.g.
-    #       some characters may be escaped.
+    #       some characters may be escaped. We don't check `len(repr(value))` to avoid
+    #       possibly copying a huge string.
     if len(value) <= max_characters:
         return repr(value), False
 
