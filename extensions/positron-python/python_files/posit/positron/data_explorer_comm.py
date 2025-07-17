@@ -252,24 +252,23 @@ class ExportedData(BaseModel):
     )
 
 
-class TranslatedCode(BaseModel):
+class ConvertedCode(BaseModel):
     """
     Code snippet for the data view
     """
 
-    translated_code: List[StrictStr] = Field(
+    converted_code: List[StrictStr] = Field(
         description="Lines of code translating filters and sort keys",
     )
 
 
-class CodeSyntax(BaseModel):
+class CodeSyntaxName(BaseModel):
     """
-    Best guess of syntax to use for code translation
+    Suggestion of syntax to use for code translation
     """
 
-    code_syntax: Optional[StrictStr] = Field(
-        default=None,
-        description="Best guess of syntax to use for code translation",
+    code_syntax_name: StrictStr = Field(
+        description="The syntax for converted code",
     )
 
 
@@ -993,7 +992,7 @@ class SupportedFeatures(BaseModel):
         description="Support for 'export_data_selection' RPC and its features",
     )
 
-    code_syntaxes: List[StrictStr] = Field(
+    code_syntaxes: CodeSyntaxFeatures = Field(
         description="List of supported code syntax names",
     )
 
@@ -1079,6 +1078,21 @@ class SetSortColumnsFeatures(BaseModel):
 
     support_status: SupportStatus = Field(
         description="The support status for this RPC method",
+    )
+
+
+class CodeSyntaxFeatures(BaseModel):
+    """
+    A list of supported code syntax names for exporting data selections
+    """
+
+    support_status: SupportStatus = Field(
+        description="The support status for this RPC method",
+    )
+
+    code_syntaxes: Optional[List[StrictStr]] = Field(
+        default=None,
+        description="The syntaxes for converted code",
     )
 
 
@@ -1233,11 +1247,11 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
 
-    # Translates the current data view into a code snippet.
-    TranslateToCode = "translate_to_code"
+    # Converts the current data view into a code snippet.
+    ConvertToCode = "convert_to_code"
 
-    # Guess code syntax for code translation
-    GuessCodeSyntax = "guess_code_syntax"
+    # Suggest code syntax for code conversion
+    SuggestCodeSyntax = "suggest_code_syntax"
 
     # Set column filters to select subset of table columns
     SetColumnFilters = "set_column_filters"
@@ -1453,9 +1467,9 @@ class ExportDataSelectionRequest(BaseModel):
     )
 
 
-class TranslateToCodeParams(BaseModel):
+class ConvertToCodeParams(BaseModel):
     """
-    Translate filters and sort keys as code in different syntaxes like
+    Converts filters and sort keys as code in different syntaxes like
     pandas, polars, data.table, dplyr
     """
 
@@ -1471,23 +1485,23 @@ class TranslateToCodeParams(BaseModel):
         description="Zero or more sort keys to apply",
     )
 
-    code_syntax: StrictStr = Field(
+    code_syntax_name: StrictStr = Field(
         description="The code syntax to use for translation",
     )
 
 
-class TranslateToCodeRequest(BaseModel):
+class ConvertToCodeRequest(BaseModel):
     """
-    Translate filters and sort keys as code in different syntaxes like
+    Converts filters and sort keys as code in different syntaxes like
     pandas, polars, data.table, dplyr
     """
 
-    params: TranslateToCodeParams = Field(
-        description="Parameters to the TranslateToCode method",
+    params: ConvertToCodeParams = Field(
+        description="Parameters to the ConvertToCode method",
     )
 
-    method: Literal[DataExplorerBackendRequest.TranslateToCode] = Field(
-        description="The JSON-RPC method name (translate_to_code)",
+    method: Literal[DataExplorerBackendRequest.ConvertToCode] = Field(
+        description="The JSON-RPC method name (convert_to_code)",
     )
 
     jsonrpc: str = Field(
@@ -1496,13 +1510,13 @@ class TranslateToCodeRequest(BaseModel):
     )
 
 
-class GuessCodeSyntaxRequest(BaseModel):
+class SuggestCodeSyntaxRequest(BaseModel):
     """
-    Guess desired code syntax for translation of a data view based on type
+    Suggest code syntax for code conversion
     """
 
-    method: Literal[DataExplorerBackendRequest.GuessCodeSyntax] = Field(
-        description="The JSON-RPC method name (guess_code_syntax)",
+    method: Literal[DataExplorerBackendRequest.SuggestCodeSyntax] = Field(
+        description="The JSON-RPC method name (suggest_code_syntax)",
     )
 
     jsonrpc: str = Field(
@@ -1664,8 +1678,8 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetDataValuesRequest,
         GetRowLabelsRequest,
         ExportDataSelectionRequest,
-        TranslateToCodeRequest,
-        GuessCodeSyntaxRequest,
+        ConvertToCodeRequest,
+        SuggestCodeSyntaxRequest,
         SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
@@ -1714,9 +1728,9 @@ SearchSchemaResult.update_forward_refs()
 
 ExportedData.update_forward_refs()
 
-TranslatedCode.update_forward_refs()
+ConvertedCode.update_forward_refs()
 
-CodeSyntax.update_forward_refs()
+CodeSyntaxName.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
@@ -1800,6 +1814,8 @@ ExportDataSelectionFeatures.update_forward_refs()
 
 SetSortColumnsFeatures.update_forward_refs()
 
+CodeSyntaxFeatures.update_forward_refs()
+
 TableSelection.update_forward_refs()
 
 DataSelectionSingleCell.update_forward_refs()
@@ -1836,11 +1852,11 @@ ExportDataSelectionParams.update_forward_refs()
 
 ExportDataSelectionRequest.update_forward_refs()
 
-TranslateToCodeParams.update_forward_refs()
+ConvertToCodeParams.update_forward_refs()
 
-TranslateToCodeRequest.update_forward_refs()
+ConvertToCodeRequest.update_forward_refs()
 
-GuessCodeSyntaxRequest.update_forward_refs()
+SuggestCodeSyntaxRequest.update_forward_refs()
 
 SetColumnFiltersParams.update_forward_refs()
 

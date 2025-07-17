@@ -216,9 +216,9 @@
 			}
 		},
 {
-			"name": "translate_to_code",
-			"summary": "Translates the current data view into a code snippet.",
-			"description": "Translate filters and sort keys as code in different syntaxes like pandas, polars, data.table, dplyr",
+			"name": "convert_to_code",
+			"summary": "Converts the current data view into a code snippet.",
+			"description": "Converts filters and sort keys as code in different syntaxes like pandas, polars, data.table, dplyr",
 			"params": [
 				{
 					"name": "column_filters",
@@ -254,27 +254,25 @@
 					}
 				},
 				{
-					"name": "code_syntax",
+					"name": "code_syntax_name",
 					"description": "The code syntax to use for translation",
 					"required": true,
 					"schema": {
 						"type": "string",
-						"items": {
-							"$ref": "#/components/schemas/code_syntax"
-						}
+						"description": "The syntax for converted code"
 					}
 				}
 		],
 			"result": {
 				"schema": {
-					"name": "translated_code",
+					"name": "converted_code",
 					"type": "object",
 					"description": "Code snippet for the data view",
 					"required": [
-						"translated_code"
+						"converted_code"
 					],
 					"properties": {
-						"translated_code": {
+						"converted_code": {
 							"type": "array",
 							"description": "Lines of code translating filters and sort keys",
 							"items": {
@@ -286,22 +284,22 @@
 			}
 		},
 {
-			"name": "guess_code_syntax",
-			"summary": "Guess code syntax for code translation",
-			"description": "Guess desired code syntax for translation of a data view based on type",
+			"name": "suggest_code_syntax",
+			"summary": "Suggest code syntax for code conversion",
+			"description": "Suggest code syntax for code conversion",
 			"params": [],
 			"result": {
 				"schema": {
-					"name": "code_syntax",
+					"name": "code_syntax_name",
 					"type": "object",
-					"description": "Best guess of syntax to use for code translation",
+					"description": "Suggestion of syntax to use for code translation",
 					"required": [
-						"code_syntax"
+						"code_syntax_name"
 					],
 					"properties": {
-						"code_syntax": {
+						"code_syntax_name": {
 							"type": "string",
-							"description": "Best guess of syntax to use for code translation"
+							"description": "The syntax for converted code"
 						}
 					}
 				}
@@ -1385,10 +1383,6 @@
 					}
 				}
 			},
-			"code_syntax": {
-				"type": "string",
-				"description": "The syntax for translated code"
-			},
 			"supported_features": {
 				"type": "object",
 				"description": "For each field, returns flags indicating supported features",
@@ -1428,11 +1422,8 @@
 						"$ref": "#/components/schemas/export_data_selection_features"
 					},
 					"code_syntaxes": {
-						"type": "array",
 						"description": "List of supported code syntax names",
-						"items": {
-							"type": "string"
-						}
+						"$ref": "#/components/schemas/code_syntax_features"
 					}
 				}
 			},
@@ -1556,6 +1547,27 @@
 					"support_status": {
 						"$ref": "#/components/schemas/support_status",
 						"description": "The support status for this RPC method"
+					}
+				}
+			},
+			"code_syntax_features": {
+				"type": "object",
+				"description": "A list of supported code syntax names for exporting data selections",
+				"required": [
+					"support_status"
+				],
+				"properties": {
+					"support_status": {
+						"$ref": "#/components/schemas/support_status",
+						"description": "The support status for this RPC method"
+					},
+					"code_syntaxes": {
+						"type": "array",
+						"description": "The syntaxes for converted code",
+						"items": {
+							"type": "string",
+							"description": "The syntaxes for converted code"
+						}
 					}
 				}
 			},

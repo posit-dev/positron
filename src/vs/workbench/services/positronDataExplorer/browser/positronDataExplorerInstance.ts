@@ -24,6 +24,7 @@ import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerSer
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
+import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -432,25 +433,20 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	/**
 	 * Gets the available code syntaxes.
-	 * @returns A Promise<Array<string>> that resolves with the available code syntaxes.
+	 * @returns A Promise<Array<CodeSyntaxName | undefined>> that resolves with the available code syntaxes.
 	 */
-	async guessCodeSyntax(): Promise<string> {
-		const syntaxes = await this._dataExplorerClientInstance.guessCodeSyntax();
-
-		if (!syntaxes.code_syntax) {
-			return 'No available syntaxes.';
-		}
-		return syntaxes.code_syntax;
-
+	async suggestCodeSyntax(): Promise<CodeSyntaxName | undefined> {
+		const syntax = await this._dataExplorerClientInstance.suggestCodeSyntax();
+		return syntax;
 	}
 
 	/**
 	 * Translates the data explorer view to code in the desired syntax.
 	 * @returns A Promise<string> that resolves when generated code is returned.
 	 */
-	async translateToCode(desiredSyntax: string): Promise<string> {
-		const generatedCode = await this._dataExplorerClientInstance.translateToCode(desiredSyntax);
-		return generatedCode.translated_code.join('\n');
+	async convertToCode(desiredSyntax: CodeSyntaxName): Promise<string | undefined> {
+		const generatedCode = await this._dataExplorerClientInstance.convertToCode(desiredSyntax.code_syntax_name);
+		return generatedCode.converted_code.join('\n');
 	}
 
 	/**
