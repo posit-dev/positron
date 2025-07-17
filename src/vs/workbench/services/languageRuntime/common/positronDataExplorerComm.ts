@@ -879,7 +879,7 @@ export interface SupportedFeatures {
 	export_data_selection: ExportDataSelectionFeatures;
 
 	/**
-	 * List of supported code syntax names
+	 * Support for converting data selections to code
 	 */
 	code_syntaxes: CodeSyntaxFeatures;
 
@@ -1600,7 +1600,8 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	/**
 	 * Suggest code syntax for code conversion
 	 *
-	 * Suggest code syntax for code conversion
+	 * Suggest code syntax for code conversion based on the current backend
+	 * state
 	 *
 	 *
 	 * @returns Suggestion of syntax to use for code translation

@@ -256,11 +256,8 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Initialize the guessed syntax
 		this.suggestCodeSyntax()?.then(syntax => {
-			if (syntax !== undefined) {
-				this.suggestedSyntax = syntax;
-			}
+			this.suggestedSyntax = syntax;
 		}).catch(() => {
-			// Handle error if suggestCodeSyntax fails
 			this.suggestedSyntax = undefined;
 		});
 	}

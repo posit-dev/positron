@@ -993,7 +993,7 @@ class SupportedFeatures(BaseModel):
     )
 
     code_syntaxes: CodeSyntaxFeatures = Field(
-        description="List of supported code syntax names",
+        description="Support for converting data selections to code",
     )
 
 
@@ -1512,7 +1512,8 @@ class ConvertToCodeRequest(BaseModel):
 
 class SuggestCodeSyntaxRequest(BaseModel):
     """
-    Suggest code syntax for code conversion
+    Suggest code syntax for code conversion based on the current backend
+    state
     """
 
     method: Literal[DataExplorerBackendRequest.SuggestCodeSyntax] = Field(

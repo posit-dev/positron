@@ -286,7 +286,7 @@
 {
 			"name": "suggest_code_syntax",
 			"summary": "Suggest code syntax for code conversion",
-			"description": "Suggest code syntax for code conversion",
+			"description": "Suggest code syntax for code conversion based on the current backend state",
 			"params": [],
 			"result": {
 				"schema": {
@@ -1422,7 +1422,7 @@
 						"$ref": "#/components/schemas/export_data_selection_features"
 					},
 					"code_syntaxes": {
-						"description": "List of supported code syntax names",
+						"description": "Support for converting data selections to code",
 						"$ref": "#/components/schemas/code_syntax_features"
 					}
 				}
