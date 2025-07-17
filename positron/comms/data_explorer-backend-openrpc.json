@@ -296,7 +296,7 @@
 					"type": "object",
 					"description": "Best guess of syntax to use for code translation",
 					"required": [
-						"code_syntaxes"
+						"code_syntax"
 					],
 					"properties": {
 						"code_syntax": {
