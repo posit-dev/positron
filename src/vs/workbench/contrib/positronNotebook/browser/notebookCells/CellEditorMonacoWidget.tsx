@@ -19,7 +19,7 @@ import { ServiceCollection } from '../../../../../platform/instantiation/common/
 import { FloatingEditorClickMenu } from '../../../../browser/codeeditor.js';
 import { CellEditorOptions } from '../../../notebook/browser/view/cellParts/cellEditorOptions.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
-import { useEnvironment } from '../ServicesProvider.js';
+import { useEnvironment } from '../EnvironmentProvider.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronNotebookCellGeneral } from '../PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';

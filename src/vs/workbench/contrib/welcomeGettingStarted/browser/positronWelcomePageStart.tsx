@@ -12,7 +12,6 @@ import React from 'react';
 // Other dependencies.
 import { localize } from '../../../../nls.js';
 import { WelcomeButton } from './positronWelcomeButton.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { PositronNewFolderFromGitAction, PositronNewFolderFromTemplateAction } from '../../../browser/actions/positronActions.js';
 import { OpenFolderAction } from '../../../browser/actions/workspaceActions.js';
 import { LogoPythonProject } from '../../../browser/positronNewFolderFlow/components/logos/logoPythonProject.js';
@@ -21,11 +20,7 @@ import { WelcomeMenuButton } from './positronWelcomeMenuButton.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 
-export interface PositronWelcomePageStartProps {
-	layoutService: ILayoutService;
-}
-
-const WelcomePageWorkspace = (props: PositronWelcomePageStartProps) => {
+const WelcomePageWorkspace = () => {
 	const services = usePositronReactServicesContext();
 	return (
 		<>
@@ -49,7 +44,6 @@ const WelcomePageWorkspace = (props: PositronWelcomePageStartProps) => {
 				ariaLabel={(() => localize('positron.welcome.newNotebookDescription', "Create a Python or R Notebook"))()}
 				codicon='positron-new-notebook'
 				label={(() => localize('positron.welcome.newNotebook', "New Notebook"))()}
-				layoutService={props.layoutService}
 			/>
 			<WelcomeButton
 				ariaLabel={localize('positron.welcome.newFile', "New File")}
@@ -61,7 +55,7 @@ const WelcomePageWorkspace = (props: PositronWelcomePageStartProps) => {
 	);
 };
 
-const WelcomePageNoWorkspace = (props: PositronWelcomePageStartProps) => {
+const WelcomePageNoWorkspace = () => {
 	const services = usePositronReactServicesContext();
 	return (
 		<>
@@ -87,15 +81,15 @@ const WelcomePageNoWorkspace = (props: PositronWelcomePageStartProps) => {
 	);
 };
 
-export const PositronWelcomePageStart = (props: PositronWelcomePageStartProps) => {
+export const PositronWelcomePageStart = () => {
 	const services = usePositronReactServicesContext();
 	const workspaceFolders = services.workspaceContextService.getWorkspace().folders;
 
 	return (
 		<div className='positron-welcome-page-start buttons'>
 			{workspaceFolders.length > 0
-				? (<WelcomePageWorkspace {...props} />)
-				: (<WelcomePageNoWorkspace {...props} />)}
+				? (<WelcomePageWorkspace />)
+				: (<WelcomePageNoWorkspace />)}
 		</div>
 	)
 };

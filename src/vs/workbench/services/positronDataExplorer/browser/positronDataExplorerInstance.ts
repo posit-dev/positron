@@ -129,9 +129,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		// Call the base class's constructor.
 		super();
 
-		// Initialize the services.
-		this._services = PositronReactServices.services;
-
+		// Initialize the layout and summary collapsed state.
 		this._layout = DefaultDataExplorerSummaryLayout(this._services.configurationService);
 		this._isSummaryCollapsed = DataExplorerSummaryCollapseEnabled(this._services.configurationService);
 

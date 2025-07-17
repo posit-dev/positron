@@ -12,15 +12,14 @@ import React from 'react';
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { isMacintosh } from '../../../../base/common/platform.js';
+import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { Button } from '../../../../base/browser/ui/positronComponents/button/button.js';
-import { CustomContextMenuSeparator } from './customContextMenuSeparator.js';
+import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { CustomContextMenuItem, CustomContextMenuItemOptions } from './customContextMenuItem.js';
-import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
 import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { AnchorPoint, PopupAlignment, PopupPosition, PositronModalPopup } from '../positronModalPopup/positronModalPopup.js';
 
 /**
  * CustomContextMenuEntry type.
@@ -31,8 +30,6 @@ export type CustomContextMenuEntry = CustomContextMenuItem | CustomContextMenuSe
  * CustomContextMenuProps interface.
  */
 export interface CustomContextMenuProps {
-	readonly instantiationService: IInstantiationService;
-	readonly layoutService: ILayoutService;
 	readonly anchorElement: HTMLElement;
 	readonly anchorPoint?: AnchorPoint;
 	readonly popupPosition: PopupPosition;
@@ -44,7 +41,6 @@ export interface CustomContextMenuProps {
 
 /**
  * Shows a custom context menu.
- * @param
  * @param anchorElement The anchor element.
  * @param anchorPoint The anchor point.
  * @param popupPosition The popup position.
@@ -54,7 +50,6 @@ export interface CustomContextMenuProps {
  * @param entries The context menu entries.
  */
 export const showCustomContextMenu = async ({
-	layoutService,
 	anchorElement,
 	anchorPoint,
 	popupPosition,
@@ -65,7 +60,7 @@ export const showCustomContextMenu = async ({
 }: CustomContextMenuProps) => {
 	// Create the renderer.
 	const renderer = new PositronModalReactRenderer({
-		container: layoutService.getContainer(DOM.getWindow(anchorElement)),
+		container: PositronReactServices.services.workbenchLayoutService.getContainer(DOM.getWindow(anchorElement)),
 		parent: anchorElement
 	});
 
@@ -115,8 +110,8 @@ interface CustomContextMenuModalPopupProps {
  */
 const CustomContextMenuModalPopup = (props: CustomContextMenuModalPopupProps) => {
 	// Context hooks.
-	const services = usePositronReactServicesContext()
-		;
+	const services = usePositronReactServicesContext();
+
 	/**
 	 * Dismisses the  modal popup.
 	 */

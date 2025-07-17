@@ -79,8 +79,6 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 
 			// Show the context menu.
 			await showCustomContextMenu({
-				instantiationService: services.instantiationService,
-				layoutService: services.workbenchLayoutService,
 				anchorElement: ref.current,
 				anchorPoint: {
 					clientX: e.clientX,

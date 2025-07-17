@@ -17,7 +17,6 @@ import { ContentArea } from '../../../../browser/positronComponents/positronModa
 import { CreateConnection } from './newConnectionModalDialog/createConnectionState.js';
 import { ListDrivers } from './newConnectionModalDialog/listDriversState.js';
 import { IDriver } from '../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
-import { PositronReactServices } from '../../../../../base/browser/positronReactServices.js';
 import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 const NEW_CONNECTION_MODAL_DIALOG_WIDTH = 700;
@@ -39,7 +38,10 @@ interface NewConnectionModalDialogProps {
 
 const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDialogProps>) => {
 	const [selectedDriver, setSelectedDriver] = useState<IDriver | undefined>();
-	const [languageId, setLanguageId] = useState<string | undefined>(getPreferedLanguageId(props.renderer.services));
+	// If threre is a foreground session, use its language ID as the preferred language id.
+	const [languageId, setLanguageId] = useState<string | undefined>(
+		props.renderer.services.runtimeSessionService.foregroundSession?.runtimeMetadata.languageId
+	);
 
 	const cancelHandler = () => {
 		props.renderer.dispose();
@@ -76,9 +78,4 @@ const NewConnectionModalDialog = (props: PropsWithChildren<NewConnectionModalDia
 			</ContentArea>
 		</div>
 	</PositronModalDialog>;
-};
-
-const getPreferedLanguageId = (services: PositronReactServices): string | undefined => {
-	// If threre is a foreground session, use its language ID as the preferred language id
-	return services.runtimeSessionService.foregroundSession?.runtimeMetadata.languageId;
 };

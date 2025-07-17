@@ -44,7 +44,7 @@ import { ViewContext } from '../../notebook/browser/viewModel/viewContext.js';
 import { NotebookTextModel } from '../../notebook/common/model/notebookTextModel.js';
 import { NotebookInstanceProvider } from './NotebookInstanceProvider.js';
 import { PositronNotebookComponent } from './PositronNotebookComponent.js';
-import { EnvironentProvider } from './ServicesProvider.js';
+import { EnvironentProvider } from './EnvironmentProvider.js';
 import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';

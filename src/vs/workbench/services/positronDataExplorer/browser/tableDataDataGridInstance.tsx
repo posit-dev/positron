@@ -419,8 +419,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			instantiationService: this._services.instantiationService,
-			layoutService: this._services.workbenchLayoutService,
 			anchorElement,
 			anchorPoint,
 			popupPosition: 'auto',
@@ -466,8 +464,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			instantiationService: this._services.instantiationService,
-			layoutService: this._services.workbenchLayoutService,
 			anchorElement,
 			anchorPoint,
 			popupPosition: 'auto',
@@ -571,8 +567,6 @@ export class TableDataDataGridInstance extends DataGridInstance {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			instantiationService: this._services.instantiationService,
-			layoutService: this._services.workbenchLayoutService,
 			anchorElement,
 			anchorPoint,
 			popupPosition: 'auto',

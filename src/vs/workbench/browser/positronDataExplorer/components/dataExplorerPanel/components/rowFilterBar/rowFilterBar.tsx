@@ -189,8 +189,6 @@ export const RowFilterBar = () => {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			instantiationService: services.instantiationService,
-			layoutService: services.workbenchLayoutService,
 			anchorElement: rowFilterButtonRef.current,
 			popupPosition: 'auto',
 			popupAlignment: 'left',

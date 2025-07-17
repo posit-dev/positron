@@ -12,15 +12,11 @@ import React from 'react';
 // Other dependencies.
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronWelcomePageStart } from './positronWelcomePageStart.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
-export const createWelcomePageLeft = (
-	container: HTMLElement,
-	layoutService: ILayoutService,
-): PositronReactRenderer => {
+export const createWelcomePageLeft = (container: HTMLElement): PositronReactRenderer => {
 	const renderer = new PositronReactRenderer(container);
 	renderer.render(
-		<PositronWelcomePageStart layoutService={layoutService} />
+		<PositronWelcomePageStart />
 	);
 	return renderer;
 };

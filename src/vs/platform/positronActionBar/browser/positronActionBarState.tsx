@@ -40,7 +40,6 @@ export interface PositronActionBarState {
 
 /**
  * The usePositronActionBarState custom hook.
- * @param services A PositronActionBarServices that contains the Positron action bar services.
  * @returns The hook.
  */
 export const usePositronActionBarState = (): PositronActionBarState => {
