@@ -182,8 +182,8 @@
 		},
 		{
 			"name": "ms-toolsai.jupyter",
-			"version": "2025.4.1",
-			"sha256sum": "7c6dfe9cfdfb7a6accc6973d730c1607ad6483c6405b912dd606002525aedb5a",
+			"version": "2025.6.0",
+			"sha256sum": "f2fc51969e3c58c3b30093d39801d8d4aaa1da4a04fc4bd4362f58f2d146fcde",
 			"repo": "https://github.com/Microsoft/vscode-jupyter",
 			"metadata": {
 				"id": "6c2f1801-1e7f-45b2-9b5c-7782f1e076e8",
@@ -269,8 +269,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.112.0",
-			"sha256": "77643a428f6311b64121cfdb3ba436e3c1832bddaf80d800a7eba370405a635f",
+			"version": "0.114.1",
+			"sha256": "0ca8efe894f1b12e0543896f3038bde53dff56f279178f986291c31563aa27ef",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
