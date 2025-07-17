@@ -23,6 +23,7 @@ import { IChatContextPicker, IChatContextPickerItem, IChatContextPickerPickItem,
 import { localize } from '../../../../../nls.js';
 import { Codicon } from '../../../../../base/common/codicons.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { IQuickPickSeparator } from '../../../../../platform/quickinput/common/quickInput.js';
 
 /**
  * A single summarized entry in the execution history provided to the chat model.
@@ -82,7 +83,9 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 	toPickItem(session: ILanguageRuntimeSession): IChatContextPickerPickItem {
 		return {
 			label: session.getLabel(),
-			iconClass: '',
+			iconClass: session.metadata.sessionMode === LanguageRuntimeSessionMode.Console ?
+				ThemeIcon.asClassName(Codicon.positronNewConsole) :
+				ThemeIcon.asClassName(Codicon.notebook),
 			description: '',
 			disabled: false,
 			asAttachment: () => {
@@ -102,7 +105,7 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 	}
 
 	asPicker(_widget: IChatWidget): IChatContextPicker {
-		const picks: IChatContextPickerPickItem[] = [];
+		const picks: (IQuickPickSeparator | IChatContextPickerPickItem)[] = [];
 
 		const consoleSessions: ILanguageRuntimeSession[] = [];
 		const notebookSessions: ILanguageRuntimeSession[] = [];
@@ -121,9 +124,22 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 			}
 		}
 
+		// Sort each session by recently used, descending, so that the most
+		// recently used sessions appear first
+		consoleSessions.sort((a, b) => b.lastUsed - a.lastUsed);
+		notebookSessions.sort((a, b) => b.lastUsed - a.lastUsed);
+
+		picks.push({
+			type: 'separator',
+			label: localize('chatContext.runtimeSessions.notebook', 'Console Sessions')
+		});
 		for (const consoleSession of consoleSessions) {
 			picks.push(this.toPickItem(consoleSession));
 		}
+		picks.push({
+			type: 'separator',
+			label: localize('chatContext.runtimeSessions.notebook', 'Notebook Sessions')
+		});
 		for (const notebookSession of notebookSessions) {
 			picks.push(this.toPickItem(notebookSession));
 		}
