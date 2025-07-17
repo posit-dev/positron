@@ -242,7 +242,10 @@ class OpenRequestFeatureUrlAction extends Action2 {
 class OpenLicenseUrlAction extends Action2 {
 
 	static readonly ID = 'workbench.action.openLicenseUrl';
+	// --- Start Positron ---
+	// modify to be available in web by checking product.serverLicenseUrl instead of product.serverLicense
 	static readonly AVAILABLE = !!(isWeb ? product.serverLicenseUrl : product.licenseUrl);
+	// --- End Positron ---
 
 	constructor() {
 		super({
@@ -264,22 +267,20 @@ class OpenLicenseUrlAction extends Action2 {
 	run(accessor: ServicesAccessor): void {
 		const productService = accessor.get(IProductService);
 		const openerService = accessor.get(IOpenerService);
-		// --- Start Positron ---
-		let url = isWeb ? productService.serverLicenseUrl : productService.licenseUrl;
+		const url = isWeb ? productService.serverLicenseUrl : productService.licenseUrl;
 
 		if (url) {
-			if (language) {
+			// --- Start Positron ---
+			// we don't need the language but it's kept here to make merge conflicts easier to resolve
+			// checks !productService to never enter that code path since we don't need language
+			if (language && !productService) {
 				const queryArgChar = url.indexOf('?') > 0 ? '&' : '?';
-				url = `${url}${queryArgChar}lang=${language}`;
-			}
-
-			if (isWeb) {
-				openerService.open(URI.parse(url));
+				openerService.open(URI.parse(`${url}${queryArgChar}lang=${language}`));
 			} else {
 				openerService.open(URI.parse(url));
 			}
+			// --- End Positron ---
 		}
-		// --- End Positron ---
 	}
 }
 
