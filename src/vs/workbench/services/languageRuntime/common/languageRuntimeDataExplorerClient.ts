@@ -522,7 +522,8 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async convertToCode(desiredSyntax: string): Promise<ConvertedCode> {
 		const state = await this.getBackendState();
-		if (state.supported_features.code_syntaxes.support_status === SupportStatus.Unsupported) {
+		const supportedSyntaxes = state.supported_features.code_syntaxes.code_syntaxes;
+		if (state.supported_features.code_syntaxes.support_status === SupportStatus.Unsupported || !supportedSyntaxes?.includes(desiredSyntax)) {
 			throw new Error('Code syntax conversion is not supported by the backend.');
 		}
 		const columnFilters: Array<ColumnFilter> = state.column_filters;

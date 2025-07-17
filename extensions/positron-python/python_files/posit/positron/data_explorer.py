@@ -27,7 +27,6 @@ from .access_keys import decode_access_key
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
-    CodeSyntaxes,
     CodeSyntaxFeatures,
     CodeSyntaxName,
     ColumnDisplayType,
@@ -74,7 +73,6 @@ from .data_explorer_comm import (
     GetRowLabelsRequest,
     GetSchemaRequest,
     GetStateRequest,
-    GuessCodeSyntaxRequest,
     RowFilter,
     RowFilterCondition,
     RowFilterType,
@@ -1939,7 +1937,9 @@ class PandasView(DataExplorerTableView):
                 ExportFormat.Html,
             ],
         ),
-        code_syntaxes=["pandas"],
+        code_syntaxes=CodeSyntaxFeatures(
+            support_status=SupportStatus.Supported, code_syntaxes=["pandas"]
+        ),
     )
 
 
@@ -2801,7 +2801,9 @@ class PolarsView(DataExplorerTableView):
             supported_formats=[ExportFormat.Csv, ExportFormat.Tsv],
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
-        code_syntaxes=["polars"],
+        code_syntaxes=CodeSyntaxFeatures(
+            support_status=SupportStatus.Supported, code_syntaxes=["polars"]
+        ),
     )
 
 
