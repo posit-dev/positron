@@ -38,9 +38,26 @@ export const CHAT_ATTACHABLE_IMAGE_MIME_TYPES: Record<string, string> = {
 	webp: 'image/webp',
 };
 
-export function getAttachableImageExtension(mimeType: string): string | undefined {
-	return Object.entries(CHAT_ATTACHABLE_IMAGE_MIME_TYPES).find(([_, value]) => value === mimeType)?.[0];
+// --- Start Positron ---
+export interface IChatRequestRuntimeSessionEntry extends IBaseChatRequestVariableEntry {
+	readonly kind: 'runtimeSession';
+	readonly value: {
+		activeSession?: {
+			identifier: string;
+			language: string;
+			version: string;
+			mode: string;
+			notebookUri?: any;
+			executions: {
+				input: string;
+				output: string;
+				error?: any;
+			}[];
+		};
+		variables: any[];
+	};
 }
+// --- End Positron ---
 
 export interface IChatRequestVariableData {
 	variables: IChatRequestVariableEntry[];

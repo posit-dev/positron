@@ -56,7 +56,10 @@ import { ILanguageModelChatMetadataAndIdentifier, ILanguageModelsService } from 
 import { ILanguageModelToolsService, ToolSet } from '../common/languageModelToolsService.js';
 import { getCleanPromptName } from '../common/promptSyntax/config/promptFileLocations.js';
 
-abstract class AbstractChatAttachmentWidget extends Disposable {
+// --- Start Positron ---
+// This class is exported so it can be extended in chatRuntimeAttachmentWidget.ts
+// --- End Positron ---
+export abstract class AbstractChatAttachmentWidget extends Disposable {
 	public readonly element: HTMLElement;
 	public readonly label: IResourceLabel;
 

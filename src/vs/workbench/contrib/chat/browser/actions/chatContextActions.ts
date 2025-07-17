@@ -47,6 +47,14 @@ import { resizeImage } from '../imageUtils.js';
 import { registerPromptActions } from '../promptSyntax/promptFileActions.js';
 import { CHAT_CATEGORY } from './chatActions.js';
 
+// --- Start Positron ---
+import { IRuntimeSessionsQuickPickItem, showRuntimeSessionsPick } from './chatRuntimeSessions.js';
+import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { ChatRuntimeSessionContext } from '../contrib/chatRuntimeSessionContext.js';
+// --- End Positron ---
+
 export function registerChatContextActions() {
 	registerAction2(AttachContextAction);
 	registerAction2(AttachFileToChatAction);

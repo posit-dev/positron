@@ -116,6 +116,7 @@ import { PromptUrlHandler } from './promptSyntax/promptUrlHandler.js';
 
 // --- Start Positron ---
 import { PositronBuiltinToolsContribution } from './tools/tools.js';
+import { ChatRuntimeSessionContextContribution } from './contrib/chatRuntimeSessionContext.js';
 // --- End Positron ---
 
 // Register configuration
@@ -174,6 +175,26 @@ configurationRegistry.registerConfiguration({
 				'panel': 'always',
 			}
 		},
+		// --- Start Positron ---
+		'chat.implicitSessionContext.enabled': {
+			type: 'object',
+			tags: ['experimental'],
+			description: nls.localize('chat.implicitSessionContext.enabled.1', "Enables automatically using the active interpreter session as chat context for specified chat locations."),
+			additionalProperties: {
+				type: 'string',
+				enum: ['never', 'first', 'always'],
+				description: nls.localize('chat.implicitSessionContext.value', "The value for the implicit runtime context."),
+				enumDescriptions: [
+					nls.localize('chat.implicitSessionContext.value.never', "Implicit session context is never enabled."),
+					nls.localize('chat.implicitSessionContext.value.first', "Implicit session context is enabled for the first interaction."),
+					nls.localize('chat.implicitSessionContext.value.always', "Implicit session context is always enabled.")
+				]
+			},
+			default: {
+				'panel': 'always',
+			}
+		},
+		// --- End Positron ---
 		'chat.editing.autoAcceptDelay': {
 			type: 'number',
 			markdownDescription: nls.localize('chat.editing.autoAcceptDelay', "Delay after which changes made by chat are automatically accepted. Values are in seconds, `0` means disabled and `100` seconds is the maximum."),
@@ -714,6 +735,7 @@ registerWorkbenchContribution2(PromptUrlHandler.ID, PromptUrlHandler, WorkbenchP
 
 // --- Start Positron ---
 registerWorkbenchContribution2(PositronBuiltinToolsContribution.ID, PositronBuiltinToolsContribution, WorkbenchPhase.Eventually);
+registerWorkbenchContribution2(ChatRuntimeSessionContextContribution.ID, ChatRuntimeSessionContextContribution, WorkbenchPhase.Eventually);
 // --- End Positron ---
 
 registerChatActions();

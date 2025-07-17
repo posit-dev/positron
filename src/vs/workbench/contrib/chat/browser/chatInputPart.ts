@@ -103,6 +103,12 @@ import { resizeImage } from './imageUtils.js';
 import { IModelPickerDelegate, ModelPickerActionItem } from './modelPicker/modelPickerActionItem.js';
 import { IModePickerDelegate, ModePickerActionItem } from './modelPicker/modePickerActionItem.js';
 
+// --- Start Positron ---
+import { ChatRuntimeSessionContext } from './contrib/chatRuntimeSessionContext.js';
+import { RuntimeSessionContextAttachmentWidget } from './attachments/runtimeSessionContextAttachment.js';
+import { RuntimeSessionAttachmentWidget } from './chatRuntimeAttachmentWidget.js';
+// --- End Positron ---
+
 const $ = dom.$;
 
 const INPUT_EDITOR_MAX_HEIGHT = 250;
@@ -173,6 +179,15 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			const implicitChatVariables = this.implicitContext.toBaseEntries();
 			contextArr.add(...implicitChatVariables);
 		}
+
+		// --- Start Positron ---
+		// Add runtime session context if enabled and has value
+		if (this.runtimeContext?.enabled && this.runtimeContext.value) {
+			const runtimeChatVariables = await this.runtimeContext.toBaseEntries();
+			contextArr.push(...runtimeChatVariables);
+		}
+		// --- End Positron ---
+
 		return contextArr;
 	}
 
@@ -189,6 +204,14 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 	private _indexOfLastOpenedContext: number;
 
 	private _implicitContext: ChatImplicitContext | undefined;
+
+	// --- Start Positron ---
+	private _runtimeContext: ChatRuntimeSessionContext | undefined;
+	public get runtimeContext(): ChatRuntimeSessionContext | undefined {
+		return this._runtimeContext;
+	}
+	// --- End Positron ---
+
 	public get implicitContext(): ChatImplicitContext | undefined {
 		return this._implicitContext;
 	}
@@ -1073,6 +1096,15 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				this._indexOfLastAttachedContextDeletedWithKeyboard = -1;
 				this._handleAttachedContextChange();
 			}));
+
+			// --- Start Positron ---
+			// Add the runtime session implicit context
+			this._runtimeContext = this._register(
+				this.instantiationService.createInstance(ChatRuntimeSessionContext),
+			);
+
+			this._register(this._runtimeContext.onDidChangeValue(() => this._handleAttachedContextChange()));
+			// --- End Positron ---
 		}
 
 		this.renderAttachedContext();
@@ -1343,7 +1375,10 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		}));
 
 		const attachments = [...this.attachmentModel.attachments.entries()];
-		const hasAttachments = Boolean(attachments.length) || Boolean(this.implicitContext?.value);
+		// --- Start Positron ---
+		// Add runtime session context to the attachments
+		const hasAttachments = Boolean(attachments.length) || Boolean(this.implicitContext?.value) || Boolean(this.runtimeContext?.value);
+		// --- End Positron ---
 		dom.setVisibility(Boolean(hasAttachments || (this.addFilesToolbar && !this.addFilesToolbar.isEmpty())), this.attachmentsContainer);
 		dom.setVisibility(hasAttachments, this.attachedContextContainer);
 		if (!attachments.length) {
@@ -1355,6 +1390,13 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 			const implicitPart = store.add(this.instantiationService.createInstance(ImplicitContextAttachmentWidget, this.implicitContext, this._contextResourceLabels));
 			container.appendChild(implicitPart.domNode);
 		}
+
+		// --- Start Positron ---
+		if (this.runtimeContext?.value) {
+			const runtimePart = store.add(this.instantiationService.createInstance(RuntimeSessionContextAttachmentWidget, this.runtimeContext, this._contextResourceLabels));
+			container.appendChild(runtimePart.domNode);
+		}
+		// --- End Positron ---
 
 		this.promptFileAttached.set(this.hasPromptFileAttachments);
 
@@ -1383,6 +1425,11 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				attachmentWidget = this.instantiationService.createInstance(PasteAttachmentWidget, attachment, this._currentLanguageModel, options, container, this._contextResourceLabels, hoverDelegate);
 			} else if (isSCMHistoryItemVariableEntry(attachment)) {
 				attachmentWidget = this.instantiationService.createInstance(SCMHistoryItemAttachmentWidget, attachment, this._currentLanguageModel, options, container, this._contextResourceLabels, hoverDelegate);
+			// --- Start Positron ---
+			else if (attachment.kind === 'runtimeSession') {
+				attachmentWidget = this.instantiationService.createInstance(RuntimeSessionAttachmentWidget, attachment, this._currentLanguageModel, shouldFocusClearButton, container, this._contextResourceLabels, hoverDelegate);
+			}
+			// --- End Positron ---
 			} else {
 				attachmentWidget = this.instantiationService.createInstance(DefaultChatAttachmentWidget, resource, range, attachment, undefined, this._currentLanguageModel, options, container, this._contextResourceLabels, hoverDelegate);
 			}

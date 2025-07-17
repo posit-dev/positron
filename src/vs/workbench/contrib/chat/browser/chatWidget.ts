@@ -74,6 +74,8 @@ import { startupExpContext, StartupExperimentGroup } from '../../../services/cor
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
 
 // --- Start Positron ---
+import './media/positronChat.css';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 import { ILanguageModelsService } from '../common/languageModels.js';
 import { ChatActionBarControl } from './positron/chatActionBarControl.js';
 // eslint-disable-next-line no-duplicate-imports
