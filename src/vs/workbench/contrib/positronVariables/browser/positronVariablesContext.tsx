@@ -7,7 +7,8 @@
 import React, { PropsWithChildren, createContext, useContext } from 'react';
 
 // Other dependencies.
-import { PositronVariablesServices, PositronVariablesState, usePositronVariablesState } from './positronVariablesState.js';
+import { PositronVariablesState, usePositronVariablesState } from './positronVariablesState.js';
+import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
 
 /**
  * Create the Positron variables context.
@@ -15,11 +16,16 @@ import { PositronVariablesServices, PositronVariablesState, usePositronVariables
 const PositronVariablesContext = createContext<PositronVariablesState>(undefined!);
 
 /**
+ * PositronVariablesEnvironment interface.
+ */
+export interface PositronVariablesEnvironment {
+	readonly reactComponentContainer: IReactComponentContainer;
+}
+
+/**
  * Export the PositronVariablesContextProvider.
  */
-export const PositronVariablesContextProvider = (
-	props: PropsWithChildren<PositronVariablesServices>
-) => {
+export const PositronVariablesContextProvider = (props: PropsWithChildren<PositronVariablesEnvironment>) => {
 	// State hooks.
 	const positronVariablesState = usePositronVariablesState(props);
 

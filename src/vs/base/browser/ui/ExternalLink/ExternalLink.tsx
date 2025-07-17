@@ -7,14 +7,11 @@
 import React from 'react';
 
 // Other dependencies.
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
+import { usePositronReactServicesContext } from '../../positronReactRendererContext.js';
 
 interface ExternalLinkProps extends React.ComponentPropsWithoutRef<'a'> {
-	/**
-	 * The opener service to use to open the link
-	 */
-	openerService: IOpenerService;
 }
+
 /**
  * Special link that opens in the opener service. Used to make links that behave like normal links
  * while in the UI/React layer.
@@ -22,8 +19,10 @@ interface ExternalLinkProps extends React.ComponentPropsWithoutRef<'a'> {
  * @returns The rendered link component that opens in the opener service.
  */
 export function ExternalLink(props: ExternalLinkProps) {
-	// eslint-disable-next-line react/prop-types
-	const { href, openerService, ...otherProps } = props;
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
+	const { href, ...otherProps } = props;
 
 	return <a
 		{...otherProps}
@@ -33,7 +32,7 @@ export function ExternalLink(props: ExternalLinkProps) {
 				return;
 			}
 			e.preventDefault();
-			openerService.open(href);
+			services.openerService.open(href);
 		}}
 	>
 		{props.children}

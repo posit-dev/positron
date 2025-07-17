@@ -11,15 +11,8 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IContextKey, IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { EditorActivation, IEditorOptions } from '../../../../platform/editor/common/editor.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { ITelemetryService } from '../../../../platform/telemetry/common/telemetry.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
@@ -29,10 +22,7 @@ import { PositronPlotsContextProvider } from '../../positronPlots/browser/positr
 import { EditorPlotsContainer } from './editorPlotsContainer.js';
 import { PositronPlotsEditorInput } from './positronPlotsEditorInput.js';
 import { IEditorGroup } from '../../../services/editor/common/editorGroupsService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { createSuggestedFileNameForPlot, IPositronPlotClient, IPositronPlotsService, isZoomablePlotClient, ZoomLevel } from '../../../services/positronPlots/common/positronPlots.js';
-import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
 export interface IPositronPlotsEditorOptions extends IEditorOptions {
 }
@@ -99,21 +89,11 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 
 	constructor(
 		readonly _group: IEditorGroup,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
 		@IPositronPlotsService private readonly _positronPlotsService: IPositronPlotsService,
-		@ILanguageRuntimeService private readonly _languageRuntimeService: ILanguageRuntimeService,
-		@INotificationService private readonly _notificationService: INotificationService,
-		@IPreferencesService private readonly _preferencesService: IPreferencesService,
-		@ICommandService private readonly _commandService: ICommandService,
-		@IHoverService private readonly _hoverService: IHoverService,
-		@IKeybindingService private readonly _keybindingService: IKeybindingService,
-		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IContextKeyService private readonly _contextKeyService: IContextKeyService,
-		@IContextMenuService private readonly _contextMenuService: IContextMenuService,
 		@IStorageService private readonly storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
 		@IThemeService themeService: IThemeService,
-		@ILayoutService private readonly _layoutService: ILayoutService,
 	) {
 		super(
 			PositronPlotsEditorInput.EditorID,
@@ -134,21 +114,7 @@ export class PositronPlotsEditor extends EditorPane implements IPositronPlotsEdi
 		}
 
 		this._reactRenderer.render(
-			<PositronPlotsContextProvider
-				accessibilityService={this._accessibilityService}
-				commandService={this._commandService}
-				configurationService={this._configurationService}
-				contextKeyService={this._contextKeyService}
-				contextMenuService={this._contextMenuService}
-				hoverService={this._hoverService}
-				keybindingService={this._keybindingService}
-				languageRuntimeService={this._languageRuntimeService}
-				layoutService={this._layoutService}
-				notificationService={this._notificationService}
-				positronPlotsService={this._positronPlotsService}
-				preferencesService={this._preferencesService}
-				themeService={this.themeService}
-			>
+			<PositronPlotsContextProvider>
 				<EditorPlotsContainer
 					height={this._height}
 					plotClient={plotClient}

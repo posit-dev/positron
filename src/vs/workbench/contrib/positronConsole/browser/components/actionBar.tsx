@@ -19,10 +19,11 @@ import { ConsoleInstanceInfoButton } from './consoleInstanceInfoButton.js';
 import { IReactComponentContainer } from '../../../../../base/browser/positronReactRenderer.js';
 import { IsDevelopmentContext } from '../../../../../platform/contextkey/common/contextkeys.js';
 import { UiFrontendEvent } from '../../../../services/languageRuntime/common/positronUiComm.js';
-import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { RuntimeState } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
-import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { PositronDynamicActionBar, DynamicActionBarAction, DEFAULT_ACTION_BAR_BUTTON_WIDTH } from '../../../../../platform/positronActionBar/browser/positronDynamicActionBar.js';
 
@@ -98,14 +99,14 @@ function labelForState(state: RuntimeState): string {
  */
 export const ActionBar = (props: ActionBarProps) => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Constants.
-	const showDeveloperUI = IsDevelopmentContext.getValue(positronConsoleContext.contextKeyService);
+	const showDeveloperUI = IsDevelopmentContext.getValue(services.contextKeyService);
 
 	// State hooks.
-	const [activePositronConsoleInstance, setActivePositronConsoleInstance] =
-		useState(positronConsoleContext.positronConsoleService.activePositronConsoleInstance);
+	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState(services.positronConsoleService.activePositronConsoleInstance);
 
 	// Hooks to track when the console can be interrupted and when the interrupt is in progress.
 	const [interruptible, setInterruptible] = useState(false);
@@ -130,7 +131,7 @@ export const ActionBar = (props: ActionBarProps) => {
 	useEffect(() => {
 		const disposables = new DisposableStore();
 		// Register for active Positron console instance changes.
-		disposables.add(positronConsoleContext.positronConsoleService.onDidChangeActivePositronConsoleInstance(activePositronConsoleInstance => {
+		disposables.add(services.positronConsoleService.onDidChangeActivePositronConsoleInstance(activePositronConsoleInstance => {
 			setActivePositronConsoleInstance(activePositronConsoleInstance);
 			setInterruptible(activePositronConsoleInstance?.state === PositronConsoleState.Busy);
 			setInterrupting(false);
@@ -140,7 +141,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		return () => {
 			disposables.dispose();
 		};
-	}, [positronConsoleContext.positronConsoleService]);
+	}, [services.positronConsoleService]);
 
 	// Active Positron console instance useEffect hook.
 	useEffect(() => {
@@ -322,7 +323,7 @@ export const ActionBar = (props: ActionBarProps) => {
 		}
 
 		setRestarting(true);
-		await positronConsoleContext.runtimeSessionService.restartSession(
+		await services.runtimeSessionService.restartSession(
 			activePositronConsoleInstance!.sessionId,
 			'User-requested restart from console action bar'
 		);
@@ -334,7 +335,7 @@ export const ActionBar = (props: ActionBarProps) => {
 			return;
 		}
 
-		await positronConsoleContext.runtimeSessionService.deleteSession(
+		await services.runtimeSessionService.deleteSession(
 			positronConsoleContext.activePositronConsoleInstance.sessionId
 		);
 	};
@@ -348,7 +349,7 @@ export const ActionBar = (props: ActionBarProps) => {
 
 		// Open an editor on the clipboard representation of the active console. R and Python use the same comment prefix,
 		// so nothing more fancy is needed.
-		positronConsoleContext.editorService.openEditor({
+		services.editorService.openEditor({
 			resource: undefined,
 			languageId: positronConsoleContext.activePositronConsoleInstance.runtimeMetadata.languageId,
 			contents: positronConsoleContext.activePositronConsoleInstance.getClipboardRepresentation('# ').join('\n'),

@@ -14,14 +14,15 @@ import * as DOM from '../../../../../../base/browser/dom.js';
 import { PixelRatio } from '../../../../../../base/browser/pixelRatio.js';
 import { DisposableStore } from '../../../../../../base/common/lifecycle.js';
 import { BareFontInfo } from '../../../../../../editor/common/config/fontInfo.js';
+import { PositronDataGrid } from '../../../../positronDataGrid/positronDataGrid.js';
 import { positronClassNames } from '../../../../../../base/common/positronUtilities.js';
 import { IEditorOptions } from '../../../../../../editor/common/config/editorOptions.js';
-import { FontMeasurements } from '../../../../../../editor/browser/config/fontMeasurements.js';
-import { PositronDataGrid } from '../../../../positronDataGrid/positronDataGrid.js';
-import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/dataGridColumnHeader.js';
 import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
-import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { FontMeasurements } from '../../../../../../editor/browser/config/fontMeasurements.js';
+import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/dataGridColumnHeader.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 
 /**
  * Constants.
@@ -35,6 +36,7 @@ const DEFAULT_SUMMARY_WIDTH = 350;
  */
 export const DataExplorer = () => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const context = usePositronDataExplorerContext();
 
 	// Reference hooks.
@@ -141,7 +143,7 @@ export const DataExplorer = () => {
 		const { spaceWidth } = FontMeasurements.readFontInfo(
 			window,
 			BareFontInfo.createFromRawSettings(
-				context.configurationService.getValue<IEditorOptions>('editor'),
+				services.configurationService.getValue<IEditorOptions>('editor'),
 				PixelRatio.getInstance(window).value
 			)
 		);
@@ -160,7 +162,7 @@ export const DataExplorer = () => {
 		const disposableStore = new DisposableStore();
 
 		// Add the onDidChangeConfiguration event handler.
-		disposableStore.add(context.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
+		disposableStore.add(services.configurationService.onDidChangeConfiguration(configurationChangeEvent => {
 			// When something in the editor changes, determine whether it's font-related and, if it
 			// is, apply the new font info.
 			if (configurationChangeEvent.affectsConfiguration('editor')) {
@@ -176,7 +178,7 @@ export const DataExplorer = () => {
 					const { spaceWidth } = FontMeasurements.readFontInfo(
 						window,
 						BareFontInfo.createFromRawSettings(
-							context.configurationService.getValue<IEditorOptions>('editor'),
+							services.configurationService.getValue<IEditorOptions>('editor'),
 							PixelRatio.getInstance(window).value
 						)
 					);
@@ -198,7 +200,7 @@ export const DataExplorer = () => {
 			context.instance.tableDataDataGridInstance.setWidthCalculators(undefined);
 			disposableStore.dispose();
 		};
-	}, [context.configurationService, context.instance.tableDataDataGridInstance]);
+	}, [services.configurationService, context.instance.tableDataDataGridInstance]);
 
 	// Main useEffect. This is where we set up event handlers.
 	useEffect(() => {
@@ -213,7 +215,7 @@ export const DataExplorer = () => {
 		// Add the onDidCollapseSummary event handler.
 		disposableStore.add(context.instance.onDidCollapseSummary(() => {
 			if (!columnsCollapsed) {
-				setAnimateColumnsWidth(!context.accessibilityService.isMotionReduced());
+				setAnimateColumnsWidth(!services.accessibilityService.isMotionReduced());
 				setColumnsCollapsed(true);
 			}
 		}));
@@ -221,14 +223,14 @@ export const DataExplorer = () => {
 		// Add the onDidExpandSummary event handler.
 		disposableStore.add(context.instance.onDidExpandSummary(() => {
 			if (columnsCollapsed) {
-				setAnimateColumnsWidth(!context.accessibilityService.isMotionReduced());
+				setAnimateColumnsWidth(!services.accessibilityService.isMotionReduced());
 				setColumnsCollapsed(false);
 			}
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [columnsCollapsed, context.accessibilityService, context.instance]);
+	}, [columnsCollapsed, services.accessibilityService, context.instance]);
 
 	// Automatic layout useEffect.
 	useLayoutEffect(() => {
@@ -326,12 +328,10 @@ export const DataExplorer = () => {
 
 			<div ref={leftColumnRef} className='left-column'>
 				<PositronDataGrid
-					configurationService={context.configurationService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
 						context.instance.tableSchemaDataGridInstance :
 						context.instance.tableDataDataGridInstance
 					}
-					layoutService={context.layoutService}
 				/>
 			</div>
 			{layout === PositronDataExplorerLayout.SummaryOnLeft && columnsCollapsed &&
@@ -340,13 +340,12 @@ export const DataExplorer = () => {
 			<div ref={splitterRef} className='splitter'>
 				<VerticalSplitter
 					collapsible={true}
-					configurationService={context.configurationService}
 					invert={layout === PositronDataExplorerLayout.SummaryOnRight}
 					isCollapsed={columnsCollapsed}
 					showSash={true}
 					onBeginResize={beginResizeHandler}
 					onCollapsedChanged={collapsed => {
-						setAnimateColumnsWidth(!context.accessibilityService.isMotionReduced());
+						setAnimateColumnsWidth(!services.accessibilityService.isMotionReduced());
 						if (collapsed) {
 							context.instance.collapseSummary();
 						} else {
@@ -361,12 +360,10 @@ export const DataExplorer = () => {
 			}
 			<div ref={rightColumnRef} className='right-column'>
 				<PositronDataGrid
-					configurationService={context.configurationService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
 						context.instance.tableDataDataGridInstance :
 						context.instance.tableSchemaDataGridInstance
 					}
-					layoutService={context.layoutService}
 				/>
 			</div>
 		</div >

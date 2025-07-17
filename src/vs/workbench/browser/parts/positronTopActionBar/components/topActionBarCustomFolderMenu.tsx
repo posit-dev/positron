@@ -14,9 +14,10 @@ import { localize } from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { usePositronTopActionBarContext } from '../positronTopActionBarContext.js';
 import { CustomFolderModalPopup } from '../customFolderModalPopup/customFolderModalPopup.js';
-import { PositronModalReactRenderer } from '../../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { useRegisterWithActionBar } from '../../../../../platform/positronActionBar/browser/useRegisterWithActionBar.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Localized strings.
@@ -29,6 +30,7 @@ const positronFolderSelector = localize('positron.folderSelector', "Folder Selec
  */
 export const TopActionBarCustomFolderMenu = () => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const context = usePositronTopActionBarContext();
 
 	// Reference hooks.
@@ -42,20 +44,17 @@ export const TopActionBarCustomFolderMenu = () => {
 	 */
 	const showPopup = async () => {
 		// Gets the recently opened workspaces.
-		const recentlyOpened = await context.workspacesService.getRecentlyOpened();
+		const recentlyOpened = await services.workspacesService.getRecentlyOpened();
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: context.keybindingService,
-			layoutService: context.layoutService,
-			container: context.layoutService.getContainer(DOM.getWindow(ref.current)),
+			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
 		});
 
 		// Show the custom folder modal popup.
 		renderer.render(
 			<CustomFolderModalPopup
-				{...context}
 				anchorElement={ref.current}
 				recentlyOpened={recentlyOpened}
 				renderer={renderer}

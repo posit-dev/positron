@@ -52,7 +52,7 @@ export const SessionsCore = (props: SessionsCoreProps) => {
 
 	return (
 		<div className='sessions-core'>
-			<ActionBars {...props} />
+			<ActionBars />
 			<div className='sessions-container' style={{ width: props.width, height: adjustedHeight }}>
 				<table className='sessions-list'>
 					<thead>

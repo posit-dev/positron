@@ -19,15 +19,9 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
-import { IPositronPreviewService } from './positronPreviewSevice.js';
 import { PositronPreview } from './positronPreview.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronPreviewViewPane class.
@@ -76,20 +70,14 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 
 	constructor(
 		options: IViewPaneOptions,
-		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
-		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
-		@ICommandService private readonly commandService: ICommandService,
-		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
-		@IPositronPreviewService private readonly positronPreviewService: IPositronPreviewService,
 		@IHoverService hoverService: IHoverService,
 	) {
 		super({ ...options, openFromCollapsedSize: '50%' }, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
@@ -178,22 +166,7 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 		this._positronReactRenderer = new PositronReactRenderer(this._positronPreviewContainer);
 		this._register(this._positronReactRenderer);
 		this._positronReactRenderer.render(
-			<PositronPreview
-				accessibilityService={this.accessibilityService}
-				commandService={this.commandService}
-				configurationService={this.configurationService}
-				contextKeyService={this.contextKeyService}
-				contextMenuService={this.contextMenuService}
-				hoverService={this.hoverService}
-				keybindingService={this.keybindingService}
-				layoutService={this.layoutService}
-				notificationService={this.notificationService}
-				openerService={this.openerService}
-				positronPreviewService={this.positronPreviewService}
-				reactComponentContainer={this}
-				runtimeSessionService={this.runtimeSessionService}
-				themeService={this.themeService}
-			/>
+			<PositronPreview reactComponentContainer={this} />
 		);
 	}
 
@@ -281,4 +254,3 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 
 	//#endregion Private Methods
 }
-

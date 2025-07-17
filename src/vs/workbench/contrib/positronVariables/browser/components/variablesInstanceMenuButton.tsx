@@ -16,6 +16,7 @@ import { ILanguageRuntimeSession } from '../../../../services/runtimeSession/com
 import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { LanguageRuntimeSessionMode } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * VariablesInstanceMenuButton component.
@@ -23,6 +24,7 @@ import { DisposableStore } from '../../../../../base/common/lifecycle.js';
  */
 export const VariablesInstanceMenuButton = () => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const positronVariablesContext = usePositronVariablesContext();
 
 	// Helper method to calculate the label for a runtime.
@@ -43,18 +45,18 @@ export const VariablesInstanceMenuButton = () => {
 		const disposables = new DisposableStore();
 
 		// Update label when active instance changes
-		disposables.add(positronVariablesContext.positronVariablesService.onDidChangeActivePositronVariablesInstance(instance => {
+		disposables.add(services.positronVariablesService.onDidChangeActivePositronVariablesInstance(instance => {
 			setSessionLabel(labelForRuntime(instance?.session));
 		}));
 
-		disposables.add(positronVariablesContext.runtimeSessionService.onDidUpdateSessionName(session => {
+		disposables.add(services.runtimeSessionService.onDidUpdateSessionName(session => {
 			if (session.sessionId === positronVariablesContext.activePositronVariablesInstance?.session.sessionId) {
 				setSessionLabel(labelForRuntime(session));
 			}
 		}));
 
 		return () => disposables.dispose();
-	}, [positronVariablesContext.positronVariablesService, positronVariablesContext.runtimeSessionService, positronVariablesContext.activePositronVariablesInstance]);
+	}, [services.positronVariablesService, services.runtimeSessionService, positronVariablesContext.activePositronVariablesInstance]);
 
 	// Builds the actions.
 	const actions = () => {
@@ -70,13 +72,13 @@ export const VariablesInstanceMenuButton = () => {
 				run: () => {
 					// Set the active variables session to the one the user selected.
 					const session = positronVariablesInstance.session;
-					positronVariablesContext.positronVariablesService
+					services.positronVariablesService
 						.setActivePositronVariablesSession(session.sessionId);
 
 					// If this is a console session, set it as the foreground
 					// session, too, so that the rest of the UI can pick it up.
 					if (session.metadata.sessionMode === LanguageRuntimeSessionMode.Console) {
-						positronVariablesContext.runtimeSessionService.foregroundSession =
+						services.runtimeSessionService.foregroundSession =
 							positronVariablesInstance.session;
 					}
 				}
@@ -86,8 +88,6 @@ export const VariablesInstanceMenuButton = () => {
 		// Done. Return the actions.
 		return actions;
 	};
-
-	console.log(`VariablesInstanceMenuButton: ${sessionLabel}`);
 
 	// Render.
 	return (

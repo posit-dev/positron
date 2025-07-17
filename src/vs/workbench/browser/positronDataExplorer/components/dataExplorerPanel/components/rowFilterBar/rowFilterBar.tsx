@@ -17,10 +17,11 @@ import { DisposableStore } from '../../../../../../../base/common/lifecycle.js';
 import { usePositronDataExplorerContext } from '../../../../positronDataExplorerContext.js';
 import { Button } from '../../../../../../../base/browser/ui/positronComponents/button/button.js';
 import { AddEditRowFilterModalPopup } from '../addEditRowFilterModalPopup/addEditRowFilterModalPopup.js';
+import { PositronModalReactRenderer } from '../../../../../../../base/browser/positronModalReactRenderer.js';
 import { ColumnSchema } from '../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { OKModalDialog } from '../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { getRowFilterDescriptor, RowFilterDescriptor } from '../addEditRowFilterModalPopup/rowFilterDescriptor.js';
-import { PositronModalReactRenderer } from '../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../../positronComponents/customContextMenu/customContextMenuItem.js';
 import { CustomContextMenuSeparator } from '../../../../../positronComponents/customContextMenu/customContextMenuSeparator.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../../positronComponents/customContextMenu/customContextMenu.js';
@@ -37,6 +38,7 @@ const MAX_ROW_FILTERS = 15;
  */
 export const RowFilterBar = () => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const context = usePositronDataExplorerContext();
 	const backendClient = context.instance.dataExplorerClientInstance;
 
@@ -68,9 +70,7 @@ export const RowFilterBar = () => {
 	) => {
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: context.keybindingService,
-			layoutService: context.layoutService,
-			container: context.layoutService.getContainer(DOM.getWindow(ref.current))
+			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current))
 		});
 
 		// If a new row filter is being added, and we've reached the row filter limit, inform the
@@ -129,7 +129,6 @@ export const RowFilterBar = () => {
 			renderer.render(
 				<AddEditRowFilterModalPopup
 					anchorElement={anchorElement}
-					configurationService={context.configurationService}
 					dataExplorerClientInstance={context.instance.dataExplorerClientInstance}
 					editRowFilter={editRowFilterDescriptor}
 					isFirstFilter={isFirstFilter}
@@ -139,17 +138,10 @@ export const RowFilterBar = () => {
 				/>
 			);
 		}
-	}, [
-		context.configurationService,
-		context.instance.dataExplorerClientInstance,
-		context.instance.tableDataDataGridInstance,
-		context.keybindingService,
-		context.layoutService,
-		rowFilterDescriptors
-	]);
+	}, [context.instance.dataExplorerClientInstance, context.instance.tableDataDataGridInstance, rowFilterDescriptors, services.workbenchLayoutService]);
 
 	const features = backendClient.getSupportedFeatures();
-	const canFilter = dataExplorerExperimentalFeatureEnabled(features.set_row_filters.support_status, context.configurationService);
+	const canFilter = dataExplorerExperimentalFeatureEnabled(features.set_row_filters.support_status, services.configurationService);
 
 	/**
 	 * Filter button pressed handler.
@@ -197,9 +189,6 @@ export const RowFilterBar = () => {
 
 		// Show the context menu.
 		await showCustomContextMenu({
-			commandService: context.commandService,
-			keybindingService: context.keybindingService,
-			layoutService: context.layoutService,
 			anchorElement: rowFilterButtonRef.current,
 			popupPosition: 'auto',
 			popupAlignment: 'left',

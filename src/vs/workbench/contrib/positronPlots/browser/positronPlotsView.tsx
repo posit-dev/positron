@@ -15,23 +15,16 @@ import { Event, Emitter } from '../../../../base/common/event.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { PositronPlots } from './positronPlots.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IElementPosition, IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
 import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
-import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 
 /**
  * PositronPlotsViewPane class.
@@ -143,43 +136,18 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 	/**
 	 * Constructor.
 	 * @param options The options for the view pane.
-	 * @param accessibilityService The accessibility service.
-	 * @param commandService The command service.
-	 * @param configurationService The configuration service.
-	 * @param contextKeyService The context key service.
-	 * @param contextMenuService The context menu service.
-	 * @param hoverService The hover service.
-	 * @param instantiationService The instantiation service.
-	 * @param keybindingService The keybinding service.
-	 * @param languageRuntimeService The language runtime service.
-	 * @param notificationService The notification service.
-	 * @param openerService The opener service.
-	 * @param positronPlotsService The oositron plots service.
-	 * @param preferencesService The preferences service.
-	 * @param telemetryService The telemetry service.
-	 * @param themeService The theme service.
-	 * @param viewDescriptorService The view descriptor service.
-	 * @param layoutService The layout service.
-	 * @param workbenchLayoutService The workbench layout service.
 	 */
 	constructor(
 		options: IViewPaneOptions,
-		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
-		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
-		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
-		@INotificationService private readonly notificationService: INotificationService,
 		@IOpenerService openerService: IOpenerService,
-		@IPositronPlotsService private readonly positronPlotsService: IPositronPlotsService,
-		@IPreferencesService private readonly preferencesService: IPreferencesService,
 		@IThemeService themeService: IThemeService,
 		@IViewDescriptorService viewDescriptorService: IViewDescriptorService,
-		@IWorkbenchLayoutService private readonly layoutService: IWorkbenchLayoutService,
 	) {
 		// Call the base class's constructor.
 		super(options, keybindingService, contextMenuService, configurationService, contextKeyService, viewDescriptorService, instantiationService, openerService, themeService, hoverService);
@@ -243,22 +211,7 @@ export class PositronPlotsViewPane extends PositronViewPane implements IReactCom
 		// Create the PositronReactRenderer for the PositronPlots component and render it.
 		this._positronReactRenderer = this._register(new PositronReactRenderer(this._positronPlotsContainer));
 		this._positronReactRenderer.render(
-			<PositronPlots
-				accessibilityService={this.accessibilityService}
-				commandService={this.commandService}
-				configurationService={this.configurationService}
-				contextKeyService={this.contextKeyService}
-				contextMenuService={this.contextMenuService}
-				hoverService={this.hoverService}
-				keybindingService={this.keybindingService}
-				languageRuntimeService={this.languageRuntimeService}
-				layoutService={this.layoutService}
-				notificationService={this.notificationService}
-				positronPlotsService={this.positronPlotsService}
-				preferencesService={this.preferencesService}
-				reactComponentContainer={this}
-				themeService={this.themeService}
-			/>
+			<PositronPlots reactComponentContainer={this} />
 		);
 	}
 

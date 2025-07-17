@@ -8,11 +8,10 @@ import React from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { PositronModalPopup } from '../../../browser/positronComponents/positronModalPopup/positronModalPopup.js';
-import { PositronModalReactRenderer } from '../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { WelcomeButton } from './positronWelcomeButton.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 export interface WelcomeMenuButtonAction {
 	id: string;
@@ -28,11 +27,10 @@ interface WelcomeMenuButtonProps {
 	codicon: string;
 	ariaLabel: string;
 	actions: WelcomeMenuButtonAction[];
-	keybindingService: IKeybindingService;
-	layoutService: ILayoutService;
 }
 
 export function WelcomeMenuButton(props: WelcomeMenuButtonProps) {
+	const services = usePositronReactServicesContext();
 	const ref = React.createRef<HTMLDivElement>();
 	const showPopup = React.useCallback(() => {
 		if (ref.current === null) {
@@ -40,9 +38,7 @@ export function WelcomeMenuButton(props: WelcomeMenuButtonProps) {
 		}
 
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: props.keybindingService,
-			layoutService: props.layoutService,
-			container: props.layoutService.getContainer(DOM.getWindow(ref.current)),
+			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current,
 		});
 
@@ -73,7 +69,7 @@ export function WelcomeMenuButton(props: WelcomeMenuButtonProps) {
 				</div>
 			</PositronModalPopup>
 		);
-	}, [props, ref]);
+	}, [props.actions, ref, services.workbenchLayoutService]);
 
 	// Render.
 	return (

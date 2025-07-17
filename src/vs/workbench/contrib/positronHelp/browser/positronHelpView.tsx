@@ -10,26 +10,23 @@ import './positronHelpView.css';
 import React from 'react';
 
 // Other dependencies.
+import { IHelpEntry } from './helpEntry.js';
 import * as DOM from '../../../../base/browser/dom.js';
+import { ActionBars } from './components/actionBars.js';
+import { IPositronHelpService } from './positronHelpService.js';
 import { Event, Emitter } from '../../../../base/common/event.js';
+import { IViewDescriptorService } from '../../../common/views.js';
+import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
 import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { IViewDescriptorService } from '../../../common/views.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IViewPaneOptions } from '../../../browser/parts/views/viewPane.js';
+import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IHelpEntry } from './helpEntry.js';
 import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
 import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { PositronViewPane } from '../../../browser/positronViewPane/positronViewPane.js';
-import { ActionBars } from './components/actionBars.js';
-import { IPositronHelpService } from './positronHelpService.js';
 import { IReactComponentContainer, ISize, PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 
 /**
  * PositronHelpView class.
@@ -151,33 +148,15 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 	/**
 	 * Constructor.
 	 * @param options The options for the view pane.
-	 * @param _accessibilityService The accessibility service.
-	 * @param commandService The command service.
-	 * @param configurationService The configuration service.
-	 * @param contextKeyService The context key service.
-	 * @param contextMenuService The context menu service.
-	 * @param hoverService The hover service.
-	 * @param instantiationService The instantiation service.
-	 * @param keybindingService The keybinding service.
-	 * @param layoutService The layout service.
-	 * @param openerService The opener service.
-	 * @param positronHelpService The positron help service.
-	 * @param telemetryService The telemetry service.
-	 * @param themeService The theme service.
-	 * @param viewDescriptorService The view descriptor service.
-	 * @param webviewService The webview service.
 	 */
 	constructor(
 		options: IViewPaneOptions,
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@ICommandService private readonly commandService: ICommandService,
 		@IConfigurationService configurationService: IConfigurationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@IContextMenuService contextMenuService: IContextMenuService,
 		@IHoverService hoverService: IHoverService,
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IKeybindingService keybindingService: IKeybindingService,
-		@ILayoutService private readonly _layoutService: ILayoutService,
 		@IOpenerService openerService: IOpenerService,
 		@IPositronHelpService private readonly positronHelpService: IPositronHelpService,
 		@IThemeService themeService: IThemeService,
@@ -262,25 +241,12 @@ export class PositronHelpView extends PositronViewPane implements IReactComponen
 		};
 
 		// Create and register the PositronReactRenderer for the action bars.
-		this.positronReactRendererHelpActionBars = new PositronReactRenderer(this.helpActionBarsContainer);
+		this.positronReactRendererHelpActionBars = this._register(new PositronReactRenderer(this.helpActionBarsContainer));
 		this._register(this.positronReactRendererHelpActionBars);
 
 		// Render the ActionBars component.
 		this.positronReactRendererHelpActionBars.render(
-			<ActionBars
-				accessibilityService={this._accessibilityService}
-				commandService={this.commandService}
-				configurationService={this.configurationService}
-				contextKeyService={this.contextKeyService}
-				contextMenuService={this.contextMenuService}
-				hoverService={this.hoverService}
-				keybindingService={this.keybindingService}
-				layoutService={this._layoutService}
-				positronHelpService={this.positronHelpService}
-				reactComponentContainer={this}
-				themeService={this.themeService}
-				onHome={homeHandler}
-			/>
+			<ActionBars reactComponentContainer={this} onHome={homeHandler} />
 		);
 
 		// Update the current help entry.

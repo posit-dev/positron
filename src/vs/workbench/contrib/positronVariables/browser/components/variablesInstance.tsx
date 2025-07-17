@@ -25,6 +25,7 @@ import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { VariableEntry, IPositronVariablesInstance, isVariableGroup, isVariableItem, isVariableOverflow } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { RuntimeClientState } from '../../../../services/languageRuntime/common/languageRuntimeClientInstance.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Constants.
@@ -52,6 +53,7 @@ interface VariablesInstanceProps {
 */
 export const VariablesInstance = (props: VariablesInstanceProps) => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const positronVariablesContext = usePositronVariablesContext();
 
 	// Reference hooks.
@@ -350,7 +352,7 @@ export const VariablesInstance = (props: VariablesInstanceProps) => {
 							const text = await selectedEntry.formatForClipboard(
 								e.shiftKey ? 'text/html' : 'text/plain'
 							);
-							positronVariablesContext.clipboardService.writeText(text);
+							services.clipboardService.writeText(text);
 						}
 					}
 					return;

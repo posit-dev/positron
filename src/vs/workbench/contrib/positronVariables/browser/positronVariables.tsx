@@ -11,32 +11,15 @@ import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
-import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { VariablesCore } from './components/variablesCore.js';
-import { PositronVariablesServices } from './positronVariablesState.js';
 import { PositronVariablesContextProvider } from './positronVariablesContext.js';
-import { IPositronVariablesService } from '../../../services/positronVariables/common/interfaces/positronVariablesService.js';
 
 /**
  * PositronVariablesProps interface.
  */
-export interface PositronVariablesProps extends PositronVariablesServices {
+export interface PositronVariablesProps {
 	// Services.
-	readonly clipboardService: IClipboardService;
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
-	readonly contextMenuService: IContextMenuService;
-	readonly keybindingService: IKeybindingService;
-	readonly layoutService: IWorkbenchLayoutService;
-	readonly positronVariablesService: IPositronVariablesService;
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 

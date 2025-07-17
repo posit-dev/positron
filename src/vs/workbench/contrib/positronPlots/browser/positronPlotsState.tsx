@@ -1,31 +1,18 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import { useEffect, useState } from 'react';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { IPositronPlotClient } from '../../../services/positronPlots/common/positronPlots.js';
 import { PlotClientInstance } from '../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IPositronPlotClient, IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
-import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
-
-/**
- * PositronPlotsServices interface. Defines the set of services that are required by the Positron plots.
- */
-export interface PositronPlotsServices extends PositronActionBarServices {
-	readonly languageRuntimeService: ILanguageRuntimeService;
-	readonly positronPlotsService: IPositronPlotsService;
-	readonly notificationService: INotificationService;
-	readonly preferencesService: IPreferencesService;
-}
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * The Positron plots state.
  */
-export interface PositronPlotsState extends PositronPlotsServices {
+export interface PositronPlotsState {
 	readonly positronPlotInstances: IPositronPlotClient[];
 	selectedInstanceId: string;
 	selectedInstanceIndex: number;
@@ -35,9 +22,9 @@ export interface PositronPlotsState extends PositronPlotsServices {
  * The usePositronPlotsState custom hook.
  * @returns The hook.
  */
-export const usePositronPlotsState = (services: PositronPlotsServices): PositronPlotsState => {
-
+export const usePositronPlotsState = (): PositronPlotsState => {
 	// Hooks.
+	const services = usePositronReactServicesContext();
 
 	// Initial set of plot instances.
 	const [positronPlotInstances, setPositronPlotInstances] = useState<IPositronPlotClient[]>(
@@ -104,5 +91,5 @@ export const usePositronPlotsState = (services: PositronPlotsServices): Positron
 		return () => disposableStore.dispose();
 	}, [services.positronPlotsService]);
 
-	return { ...services, positronPlotInstances, selectedInstanceId, selectedInstanceIndex };
+	return { positronPlotInstances, selectedInstanceId, selectedInstanceIndex };
 };

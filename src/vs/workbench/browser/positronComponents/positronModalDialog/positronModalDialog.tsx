@@ -12,8 +12,8 @@ import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import * as DOM from '../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
 import { DraggableTitleBar } from './components/draggableTitleBar.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Focusable element selectors.
