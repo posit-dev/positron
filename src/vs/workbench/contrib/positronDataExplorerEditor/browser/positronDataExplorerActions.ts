@@ -752,7 +752,7 @@ class PositronDataExplorerGenerateCodeAction extends Action2 {
 		if (!positronDataExplorerInstance) {
 			return;
 		}
-		const code = await positronDataExplorerInstance.translateToCode(desiredSyntax);
+		const code = await positronDataExplorerInstance.convertToCode(desiredSyntax);
 
 		// Export filters as code.
 		return code;

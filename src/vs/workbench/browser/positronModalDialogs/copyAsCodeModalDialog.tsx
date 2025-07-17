@@ -73,17 +73,14 @@ interface CopyAsCodeDialogProps {
 export const CopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 	// State hooks.
 	const instance = props.dataExplorerClientInstance.dataExplorerClientInstance;
-	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.code_syntaxes ?? [];
+	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.code_syntaxes.code_syntaxes ?? [];
 
-	const [selectedSyntax, setSelectedSyntax] = useState<string>(instance.guessedSyntax.code_syntax ?? 'Select Code Syntax');
+	const [selectedSyntax, setSelectedSyntax] = useState<string>(instance.suggestedSyntax?.code_syntax_name ?? 'Select Code Syntax');
 
 	const [codeString, setCodeString] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		const getCodeString = async () => {
-			if (!selectedSyntax) {
-				return;
-			}
 			// Execute the command to get the code string based on the selected syntax.
 			const codeString = await props.commandService.executeCommand(PositronDataExplorerCommandId.CopyAsCodeAction, selectedSyntax);
 			setCodeString(codeString);
@@ -93,9 +90,6 @@ export const CopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 
 	// Construct the syntax options dropdown entries
 	const syntaxDropdownEntries = () => {
-		if (codeSyntaxOptions.length === 0) {
-			return [];
-		}
 		return syntaxInfoToDropDownItems(codeSyntaxOptions);
 	};
 
