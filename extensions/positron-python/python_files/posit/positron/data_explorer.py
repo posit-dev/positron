@@ -286,7 +286,7 @@ class DataExplorerTableView:
     def _get_single_column_schema(self, column_index: int) -> ColumnSchema:
         raise NotImplementedError
 
-    def get_code_syntaxes(self, request: GetCodeSyntaxesRequest):
+    def guess_code_syntax(self, request: GuessCodeSyntaxRequest):
         raise NotImplementedError
 
     def translate_to_code(self, request: TranslateToCodeRequest):
