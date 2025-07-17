@@ -55,7 +55,10 @@ import { registerReplCommands, registerReplExecuteOnEnter, registerStartNativeRe
 import { registerTriggerForTerminalREPL } from './terminals/codeExecution/terminalReplWatcher';
 import { registerPythonStartup } from './terminals/pythonStartup';
 import { registerPixiFeatures } from './pythonEnvironments/common/environmentManagers/pixi';
-import { registerCustomTerminalLinkProvider } from './terminals/pythonStartupLinkProvider';
+// --- Start Positron ---
+// This hyperlinks the terminal to the native REPL, which we don't use.
+// import { registerCustomTerminalLinkProvider } from './terminals/pythonStartupLinkProvider';
+// --- End Positron ---
 import { registerEnvExtFeatures } from './envExt/api.internal';
 
 // --- Start Positron ---
@@ -142,7 +145,10 @@ export async function activateFeatures(ext: ExtensionState, _components: Compone
     registerStartNativeReplCommand(ext.disposables, interpreterService);
     registerReplCommands(ext.disposables, interpreterService, executionHelper, commandManager);
     registerReplExecuteOnEnter(ext.disposables, interpreterService, commandManager);
-    registerCustomTerminalLinkProvider(ext.disposables);
+    // --- Start Positron ---
+    // This hyperlinks the terminal to the native REPL, which we don't use.
+    // registerCustomTerminalLinkProvider(ext.disposables);
+    // --- End Positron ---
 }
 
 /// //////////////////////////
