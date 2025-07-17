@@ -27,7 +27,9 @@ from .access_keys import decode_access_key
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
-    CodeSyntax,
+    CodeSyntaxes,
+    CodeSyntaxFeatures,
+    CodeSyntaxName,
     ColumnDisplayType,
     ColumnFilter,
     ColumnFilterType,
@@ -46,6 +48,8 @@ from .data_explorer_comm import (
     ColumnSortKey,
     ColumnSummaryStats,
     ColumnValue,
+    ConvertedCode,
+    ConvertToCodeRequest,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     DataSelectionCellRange,
@@ -84,6 +88,7 @@ from .data_explorer_comm import (
     SetRowFiltersRequest,
     SetSortColumnsFeatures,
     SetSortColumnsRequest,
+    SuggestCodeSyntaxRequest,
     SummaryStatsBoolean,
     SummaryStatsDate,
     SummaryStatsDatetime,
@@ -96,8 +101,6 @@ from .data_explorer_comm import (
     TableSelectionKind,
     TableShape,
     TextSearchType,
-    TranslatedCode,
-    TranslateToCodeRequest,
 )
 from .positron_comm import CommMessage, PositronComm
 from .utils import BackgroundJobQueue, guid
@@ -286,10 +289,10 @@ class DataExplorerTableView:
     def _get_single_column_schema(self, column_index: int) -> ColumnSchema:
         raise NotImplementedError
 
-    def get_code_syntaxes(self, request: GetCodeSyntaxesRequest):
+    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
         raise NotImplementedError
 
-    def translate_to_code(self, request: TranslateToCodeRequest):
+    def convert_to_code(self, request: ConvertToCodeRequest):
         raise NotImplementedError
 
     def search_schema(self, request: SearchSchemaRequest):
@@ -815,7 +818,10 @@ class DataExplorerTableView:
             support_status=SupportStatus.Unsupported,
             supported_formats=[],
         ),
-        code_syntaxes=["pandas", "polars"],
+        code_syntaxes=CodeSyntaxFeatures(
+            support_status=SupportStatus.Supported,
+            code_syntaxes=["pandas", "polars"],
+        ),
     )
 
 
@@ -1362,14 +1368,14 @@ class PandasView(DataExplorerTableView):
 
         return schema_updated, new_state
 
-    def guess_code_syntax(self, request: GuessCodeSyntaxRequest):  # noqa: ARG002
+    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):  # noqa: ARG002
         """Returns the supported code types for exporting data."""
-        return CodeSyntax(code_syntax="pandas").dict()
+        return CodeSyntaxName(code_syntax_name="pandas").dict()
 
-    def translate_to_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
+    def convert_to_code(self, request: ConvertToCodeRequest):  # noqa: ARG002
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return TranslatedCode(
-            translated_code=["import pandas as pd", "# TODO: Implement export to code"]
+        return ConvertedCode(
+            converted_code=["import pandas as pd", "# TODO: Implement export to code"]
         ).dict()
 
     @classmethod
@@ -2303,14 +2309,14 @@ class PolarsView(DataExplorerTableView):
 
         return schema_updated, new_state
 
-    def guess_code_syntax(self, request: GuessCodeSyntaxRequest):  # noqa: ARG002
+    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):  # noqa: ARG002
         """Returns the supported code types for exporting data."""
-        return CodeSyntax(code_syntax="polars").dict()
+        return CodeSyntaxName(code_syntax_name="polars").dict()
 
-    def translate_to_code(self, request: TranslateToCodeRequest):  # noqa: ARG002
+    def convert_to_code(self, request: ConvertToCodeRequest):  # noqa: ARG002
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return TranslatedCode(
-            translated_code=["import polars as pl", "# TODO: Implement export to code"]
+        return ConvertedCode(
+            converted_code=["import polars as pl", "# TODO: Implement export to code"]
         ).dict()
 
     def _get_single_column_schema(self, column_index: int):

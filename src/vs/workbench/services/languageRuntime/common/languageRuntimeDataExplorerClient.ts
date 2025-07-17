@@ -8,7 +8,7 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { ArraySelection, BackendState, CodeSyntax, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, TranslatedCode, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection } from './positronDataExplorerComm.js';
+import { ArraySelection, BackendState, CodeSyntaxName, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection, ConvertedCode } from './positronDataExplorerComm.js';
 
 /**
  * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
@@ -66,8 +66,8 @@ export interface IDataExplorerBackendClient extends Disposable {
 	getDataValues(columns: Array<ColumnSelection>, formatOptions: FormatOptions): Promise<TableData>;
 	getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels>;
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData>;
-	guessCodeSyntax(): Promise<CodeSyntax>;
-	translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: string): Promise<TranslatedCode>;
+	suggestCodeSyntax(): Promise<CodeSyntaxName | undefined>;
+	convertToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: string): Promise<ConvertedCode>;
 	setColumnFilters(filters: Array<ColumnFilter>): Promise<void>;
 	setRowFilters(filters: Array<RowFilter>): Promise<FilterResult>;
 	setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void>;
@@ -105,7 +105,9 @@ export const DATA_EXPLORER_DISCONNECTED_STATE: BackendState = {
 			support_status: SupportStatus.Unsupported,
 			supported_formats: []
 		},
-		code_syntaxes: []
+		code_syntaxes: {
+			support_status: SupportStatus.Unsupported
+		}
 	}
 };
 
@@ -128,7 +130,7 @@ export class DataExplorerClientInstance extends Disposable {
 	/**
 	 * The guessed code syntax for the data explorer instance, if we generate code.
 	 */
-	public guessedSyntax: CodeSyntax = { code_syntax: 'No available syntaxes' };
+	public suggestedSyntax: CodeSyntaxName | undefined = undefined;
 
 	/**
 	 * A promise resolving to an active request for the backend state.
@@ -253,8 +255,13 @@ export class DataExplorerClientInstance extends Disposable {
 		}));
 
 		// Initialize the guessed syntax
-		this.guessCodeSyntax().then(syntax => {
-			this.guessedSyntax = syntax;
+		this.suggestCodeSyntax()?.then(syntax => {
+			if (syntax !== undefined) {
+				this.suggestedSyntax = syntax;
+			}
+		}).catch(() => {
+			// Handle error if suggestCodeSyntax fails
+			this.suggestedSyntax = undefined;
 		});
 	}
 
@@ -508,27 +515,38 @@ export class DataExplorerClientInstance extends Disposable {
 		}
 	}
 
-	async translateToCode(desiredSyntax: string): Promise<TranslatedCode> {
+	/**
+	 * Convert the current data view to code in the desired syntax.
+	 * @param desiredSyntax The desired syntax for the code conversion.
+	 * @returns A promise that resolves to the converted code.
+	 */
+	async convertToCode(desiredSyntax: string): Promise<ConvertedCode> {
 		const state = await this.getBackendState();
-
+		if (state.supported_features.code_syntaxes.support_status === SupportStatus.Unsupported) {
+			throw new Error('Code syntax conversion is not supported by the backend.');
+		}
 		const columnFilters: Array<ColumnFilter> = state.column_filters;
 		const rowFilters: Array<RowFilter> = state.row_filters;
 		const sortKeys: Array<ColumnSortKey> = state.sort_keys;
 
 		return this.runBackendTask(
-			() => this._backendClient.translateToCode(columnFilters, rowFilters, sortKeys, desiredSyntax),
-			() => ({ 'translated_code': [''] })
+			() => this._backendClient.convertToCode(columnFilters, rowFilters, sortKeys, desiredSyntax),
+			() => ({ 'converted_code': [''] })
 		);
 	}
 
 	/**
-	 * Guess the code syntax for export.
+	 * Suggest a code syntax for export.
 	 * @returns A promise that resolves to the available code syntaxes.
 	 */
-	async guessCodeSyntax(): Promise<CodeSyntax> {
+	async suggestCodeSyntax(): Promise<CodeSyntaxName | undefined> {
+		const state = await this.getBackendState();
+		if (state.supported_features.code_syntaxes.support_status === SupportStatus.Unsupported) {
+			throw new Error('Code syntax suggestions are not supported by the backend.');
+		}
 		return await this.runBackendTask(
-			() => this._backendClient.guessCodeSyntax(),
-			() => ({ code_syntax: 'No available syntaxes' })
+			() => this._backendClient.suggestCodeSyntax(),
+			() => undefined
 		);
 	}
 

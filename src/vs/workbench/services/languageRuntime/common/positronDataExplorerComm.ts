@@ -57,22 +57,22 @@ export interface ExportedData {
 /**
  * Code snippet for the data view
  */
-export interface TranslatedCode {
+export interface ConvertedCode {
 	/**
 	 * Lines of code translating filters and sort keys
 	 */
-	translated_code: Array<string>;
+	converted_code: Array<string>;
 
 }
 
 /**
- * Best guess of syntax to use for code translation
+ * Suggestion of syntax to use for code translation
  */
-export interface CodeSyntax {
+export interface CodeSyntaxName {
 	/**
-	 * Best guess of syntax to use for code translation
+	 * The syntax for converted code
 	 */
-	code_syntax?: string;
+	code_syntax_name: string;
 
 }
 
@@ -881,7 +881,7 @@ export interface SupportedFeatures {
 	/**
 	 * List of supported code syntax names
 	 */
-	code_syntaxes: Array<string>;
+	code_syntaxes: CodeSyntaxFeatures;
 
 }
 
@@ -978,6 +978,22 @@ export interface SetSortColumnsFeatures {
 	 * The support status for this RPC method
 	 */
 	support_status: SupportStatus;
+
+}
+
+/**
+ * A list of supported code syntax names for exporting data selections
+ */
+export interface CodeSyntaxFeatures {
+	/**
+	 * The support status for this RPC method
+	 */
+	support_status: SupportStatus;
+
+	/**
+	 * The syntaxes for converted code
+	 */
+	code_syntaxes?: Array<string>;
 
 }
 
@@ -1314,9 +1330,9 @@ export interface ExportDataSelectionParams {
 }
 
 /**
- * Parameters for the TranslateToCode method.
+ * Parameters for the ConvertToCode method.
  */
-export interface TranslateToCodeParams {
+export interface ConvertToCodeParams {
 	/**
 	 * Zero or more column filters to apply
 	 */
@@ -1335,7 +1351,7 @@ export interface TranslateToCodeParams {
 	/**
 	 * The code syntax to use for translation
 	 */
-	code_syntax: string;
+	code_syntax_name: string;
 }
 
 /**
@@ -1454,8 +1470,8 @@ export enum DataExplorerBackendRequest {
 	GetDataValues = 'get_data_values',
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
-	TranslateToCode = 'translate_to_code',
-	GuessCodeSyntax = 'guess_code_syntax',
+	ConvertToCode = 'convert_to_code',
+	SuggestCodeSyntax = 'suggest_code_syntax',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
@@ -1565,32 +1581,32 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Translates the current data view into a code snippet.
+	 * Converts the current data view into a code snippet.
 	 *
-	 * Translate filters and sort keys as code in different syntaxes like
+	 * Converts filters and sort keys as code in different syntaxes like
 	 * pandas, polars, data.table, dplyr
 	 *
 	 * @param columnFilters Zero or more column filters to apply
 	 * @param rowFilters Zero or more row filters to apply
 	 * @param sortKeys Zero or more sort keys to apply
-	 * @param codeSyntax The code syntax to use for translation
+	 * @param codeSyntaxName The code syntax to use for translation
 	 *
 	 * @returns Code snippet for the data view
 	 */
-	translateToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: string): Promise<TranslatedCode> {
-		return super.performRpc('translate_to_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax'], [columnFilters, rowFilters, sortKeys, codeSyntax]);
+	convertToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntaxName: string): Promise<ConvertedCode> {
+		return super.performRpc('convert_to_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax_name'], [columnFilters, rowFilters, sortKeys, codeSyntaxName]);
 	}
 
 	/**
-	 * Guess code syntax for code translation
+	 * Suggest code syntax for code conversion
 	 *
-	 * Guess desired code syntax for translation of a data view based on type
+	 * Suggest code syntax for code conversion
 	 *
 	 *
-	 * @returns Best guess of syntax to use for code translation
+	 * @returns Suggestion of syntax to use for code translation
 	 */
-	guessCodeSyntax(): Promise<CodeSyntax> {
-		return super.performRpc('guess_code_syntax', [], []);
+	suggestCodeSyntax(): Promise<CodeSyntaxName> {
+		return super.performRpc('suggest_code_syntax', [], []);
 	}
 
 	/**
