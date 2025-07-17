@@ -78,7 +78,6 @@ const reconciliationFiles = [
 	'Contents/Resources/app/out/vs/platform/terminal/node/ptyHostMain.js',
 	'Contents/Resources/app/out/cli.js',
 	'Contents/Resources/app/out/vs/code/node/cliProcessMain.js',
-	'Contents/Resources/app/out/vs/code/electron-browser/processExplorer/processExplorerMain.js',
 	'Contents/Resources/app/out/vs/code/electron-utility/sharedProcess/sharedProcessMain.js',
 	'Contents/Resources/app/out/vs/workbench/api/worker/extensionHostWorkerMain.js',
 	'Contents/Resources/app/out/vs/workbench/api/node/extensionHostProcess.js',
