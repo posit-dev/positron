@@ -223,7 +223,8 @@ interface IInterpreterGroup {
  */
 const createInterpreterGroups = (
 	languageRuntimeService: ILanguageRuntimeService,
-	runtimeAffiliationService: IRuntimeStartupService) => {
+	runtimeAffiliationService: IRuntimeStartupService
+) => {
 	const preferredRuntimeByLanguageId = new Map<string, ILanguageRuntimeMetadata>();
 	const languageRuntimeGroups = new Map<string, IInterpreterGroup>();
 	for (const runtime of languageRuntimeService.registeredRuntimes) {

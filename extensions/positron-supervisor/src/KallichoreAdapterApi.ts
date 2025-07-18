@@ -331,13 +331,6 @@ export class KCApi implements PositronSupervisorApi {
 		// error if the server binary cannot be found.
 		const shellPath = this.getKallichorePath();
 
-		// Get the log level from the configuration
-		const config = vscode.workspace.getConfiguration('kernelSupervisor');
-		const logLevel = config.get<string>('logLevel') ?? 'warn';
-		const env = {
-			'RUST_LOG': logLevel,
-		};
-
 		// Create a server session ID (8 characters)
 		const sessionId = `${createUniqueId()}-${process.pid}`;
 
@@ -351,6 +344,7 @@ export class KCApi implements PositronSupervisorApi {
 		const startTime = Date.now();
 
 		// Consult configuration to see if we should show this terminal
+		const config = vscode.workspace.getConfiguration('kernelSupervisor');
 		const showTerminal = config.get<boolean>('showTerminal', false);
 
 		// Create a temporary file with a random name to use for logs
@@ -385,6 +379,9 @@ export class KCApi implements PositronSupervisorApi {
 				shellArgs.unshift('nohup');
 			}
 		}
+
+		// Get the log level from the configuration
+		const logLevel = config.get<string>('logLevel') ?? 'warn';
 
 		// Add the path to Kallichore itself
 		shellArgs.push(shellPath);
@@ -429,7 +426,6 @@ export class KCApi implements PositronSupervisorApi {
 			name: 'Kallichore',
 			shellPath: wrapperPath,
 			shellArgs,
-			env,
 			message: `*** Kallichore Server (${shellPath}) ***`,
 			hideFromUser: !showTerminal,
 			isTransient: false

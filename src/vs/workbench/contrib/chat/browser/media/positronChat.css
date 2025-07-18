@@ -1,0 +1,9 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.runtime-session-context-attachment .monaco-icon-label-iconpath {
+	width: 14px;
+	height: 14px;
+}

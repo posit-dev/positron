@@ -67,6 +67,14 @@ import { INSTRUCTIONS_COMMAND_ID } from '../promptSyntax/contributions/attachIns
 import { CHAT_CATEGORY } from './chatActions.js';
 import { runAttachInstructionsAction, registerPromptActions } from './promptActions/index.js';
 
+// --- Start Positron ---
+import { IRuntimeSessionsQuickPickItem, showRuntimeSessionsPick } from './chatRuntimeSessions.js';
+import { IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
+import { IExecutionHistoryService } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { ChatRuntimeSessionContext } from '../contrib/chatRuntimeSessionContext.js';
+// --- End Positron ---
+
 export function registerChatContextActions() {
 	registerAction2(AttachContextAction);
 	registerAction2(AttachFileToChatAction);
@@ -83,7 +91,11 @@ type IAttachmentQuickPickItem = ICommandVariableQuickPickItem | IWorkspaceSymbol
 	| IImageQuickPickItem | IOpenEditorsQuickPickItem | ISearchResultsQuickPickItem
 	| IScreenShotQuickPickItem | IRelatedFilesQuickPickItem | IInstructionsQuickPickItem
 	| IFolderQuickPickItem | IFolderResultQuickPickItem
-	| IDiagnosticsQuickPickItem | IDiagnosticsQuickPickItemWithFilter;
+	| IDiagnosticsQuickPickItem | IDiagnosticsQuickPickItemWithFilter
+	// --- Start Positron ---
+	// Added runtime sessions quick pick item for Positron
+	| IRuntimeSessionsQuickPickItem;
+// --- End Positron ---
 
 function isIAttachmentQuickPickItem(obj: unknown): obj is IAttachmentQuickPickItem {
 	return (
@@ -604,6 +616,28 @@ export class AttachContextAction extends Action2 {
 						kind: 'image',
 					});
 				}
+
+				// --- Start Positron ---
+				else if (pick.kind === 'runtime-sessions') {
+
+					const runtimeSessionService = accessor.get(IRuntimeSessionService);
+					const session = runtimeSessionService.getSession(pick.id);
+					if (session) {
+						// Create a runtime session context instance similar to the implicit one
+						const runtimeContext = new ChatRuntimeSessionContext();
+						runtimeContext.setServices(
+							accessor.get(IPositronVariablesService),
+							accessor.get(IExecutionHistoryService)
+						);
+						runtimeContext.setValue(session);
+
+						// Convert to runtime session entries
+						const runtimeEntries = await runtimeContext.toBaseEntries();
+						toAttach.push(...runtimeEntries);
+					}
+				}
+				// --- End Positron ---
+
 			} else if (isISymbolQuickPickItem(pick) && pick.symbol) {
 				// Workspace symbol
 				toAttach.push({
@@ -750,6 +784,15 @@ export class AttachContextAction extends Action2 {
 			id: 'folder',
 		});
 
+		// --- Start Positron ---
+		quickPickItems.push({
+			kind: 'runtime-sessions',
+			label: localize('chatContext.runtimeSessions', 'Interpreter Sessions...'),
+			iconClass: ThemeIcon.asClassName(Codicon.positronNewConsole),
+			id: 'runtime-sessions'
+		});
+		// --- End Positron ---
+
 		quickPickItems.push({
 			kind: 'diagnostic',
 			label: localize('chatContext.diagnstic', 'Problems...'),
@@ -869,6 +912,13 @@ export class AttachContextAction extends Action2 {
 					} else if (item.kind === 'tools') {
 						item = await instantiationService.invokeFunction(showToolsPick, widget);
 					}
+
+					// --- Start Positron ---
+					else if (item.kind === 'runtime-sessions') {
+						item = await instantiationService.invokeFunction(showRuntimeSessionsPick, widget);
+					}
+					// --- End Positron ---
+
 					if (!item) {
 						// restart picker when sub-picker didn't return anything
 						instantiationService.invokeFunction(this._show.bind(this), widget, quickPickItems, '', placeholder);

@@ -20,7 +20,7 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
-import { recordTokenUsage } from './extension.js';
+import { recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -142,11 +142,24 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 			response = inputText;
 		}
 
+		let tokenUsage;
+
 		// Record token usage if context is available
 		if (this._context) {
 			const inputCount = await this.provideTokenCount(inputText, token);
 			const outputCount = await this.provideTokenCount(response, token);
 			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
+			tokenUsage = {
+				provider: this.provider,
+				inputTokens: inputCount,
+				outputTokens: outputCount,
+			};
+
+			// Also record token usage by request ID if available
+			const requestId = (options.modelOptions as any)?.requestId;
+			if (requestId) {
+				recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+			}
 		}
 
 		// Output the response character by character
@@ -157,6 +170,8 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 				return;
 			}
 		}
+
+		return { tokenUsage };
 	}
 
 	async provideTokenCount(text: string | vscode.LanguageModelChatMessage, token: vscode.CancellationToken): Promise<number> {
@@ -310,14 +325,18 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		if (this._context) {
-			const outputCount = await this.provideTokenCount(await result.text, token);
-			let inputCount = 0;
-
-			for (const msg of messages) {
-				inputCount += await this.provideTokenCount(msg, token);
-			}
+			// ai-sdk provides token usage in the result but it's not clear how it is calculated
+			const usage = await result.usage;
+			const outputCount = usage.completionTokens;
+			const inputCount = usage.promptTokens;
+			const requestId = (options.modelOptions as any)?.requestId;
 
 			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
+
+			if (requestId) {
+				recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+			}
+
 		}
 	}
 

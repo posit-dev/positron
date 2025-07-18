@@ -17,6 +17,7 @@ import { registerCodeActionProvider } from './codeActions.js';
 import { generateCommitMessage } from './git.js';
 import { TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
+import { AnthropicLanguageModel } from './anthropic.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -286,10 +287,18 @@ export function clearTokenUsage(context: vscode.ExtensionContext, provider: stri
 }
 
 // Registry to store token usage by request ID for individual requests
-const requestTokenUsage = new Map<string, { inputTokens: number; outputTokens: number }>();
+const requestTokenUsage = new Map<string, { inputTokens: number; outputTokens: number; provider: string }>();
 
-export function recordRequestTokenUsage(requestId: string, inputTokens: number, outputTokens: number) {
-	requestTokenUsage.set(requestId, { inputTokens, outputTokens });
+export function recordRequestTokenUsage(requestId: string, provider: string, inputTokens: number, outputTokens: number) {
+	const enabledProviders = vscode.workspace.getConfiguration('positron.assistant').get('approximateTokenCount', [] as string[]);
+
+	enabledProviders.push(AnthropicLanguageModel.source.provider.id); // ensure anthropicId is always included
+
+	if (!enabledProviders.includes(provider)) {
+		return; // Skip if token counting is disabled for this provider
+	}
+
+	requestTokenUsage.set(requestId, { inputTokens, outputTokens, provider });
 	// Clean up old entries to prevent memory leaks
 	setTimeout(() => {
 		requestTokenUsage.delete(requestId);

@@ -11,9 +11,7 @@ import React from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 import { PlotClientInstance } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
-import { IFileDialogService } from '../../../../../platform/dialogs/common/dialogs.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { ProgressBar } from '../../../../../base/browser/ui/positronComponents/progressBar.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
@@ -22,25 +20,18 @@ import { PositronButton } from '../../../../../base/browser/ui/positronComponent
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PlatformNativeDialogActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
-import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { FileFilter } from 'electron';
 import { DropDownListBox } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../../../../browser/positronComponents/dropDownListBox/dropDownListBoxItem.js';
-import { IFileService } from '../../../../../platform/files/common/files.js';
 import { IntrinsicSize } from '../../../../services/languageRuntime/common/positronPlotComm.js';
 import { Checkbox } from '../../../../browser/positronComponents/positronModalDialog/components/checkbox.js';
 import { IPlotSize, IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
-import { ILogService } from '../../../../../platform/log/common/log.js';
 import { formatPlotUnit, PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
-import { INotificationService } from '../../../../../platform/notification/common/notification.js';
-import { IPositronModalDialogsService } from '../../../../services/positronModalDialogs/common/positronModalDialogs.js';
-import { ILabelService } from '../../../../../platform/label/common/label.js';
 import { combineLabelWithPathUri, pathUriToLabel } from '../../../../browser/utils/path.js';
-import { IPathService } from '../../../../services/path/common/pathService.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
 import { PlotRenderFormat } from '../../../../services/positronPlots/common/positronPlots.js';
 import { IRenderedPlot } from '../../../../services/languageRuntime/common/positronPlotRenderQueue.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 export interface SavePlotOptions {
 	uri: string;
@@ -54,53 +45,22 @@ const BASE_DPI = 100; // matplotlib default DPI
 /**
  * Show the save plot modal dialog for dynamic plots.
  * @param selectedSizingPolicy the selected sizing policy for the plot
- * @param layoutService the layout service for the modal
- * @param keybindingService the keybinding service to intercept shortcuts
- * @param modalDialogService the dialog service to confirm the save
- * @param fileService the file service to check if paths exist
- * @param fileDialogService the file dialog service to prompt where to save the plot
- * @param logService the log service
- * @param notificationService the notification service to show user-facing notifications
- * @param labelService the label service
- * @param pathService the path service
  * @param plotClient the dynamic plot client to render previews and the final image
  * @param savePlotCallback the action to take when the dialog closes
  * @param suggestedPath the pre-filled save path
  */
 export const showSavePlotModalDialog = (
 	selectedSizingPolicy: IPositronPlotSizingPolicy,
-	layoutService: IWorkbenchLayoutService,
-	keybindingService: IKeybindingService,
-	modalDialogService: IPositronModalDialogsService,
-	fileService: IFileService,
-	fileDialogService: IFileDialogService,
-	logService: ILogService,
-	notificationService: INotificationService,
-	labelService: ILabelService,
-	pathService: IPathService,
 	plotClient: PlotClientInstance,
 	savePlotCallback: (options: SavePlotOptions) => void,
 	suggestedPath?: URI,
 ) => {
 	// Create the renderer.
-	const renderer = new PositronModalReactRenderer({
-		keybindingService: keybindingService,
-		layoutService: layoutService,
-		container: layoutService.activeContainer
-	});
+	const renderer = new PositronModalReactRenderer();
 
 	renderer.render(
 		<SavePlotModalDialog
-			dialogService={modalDialogService}
 			enableIntrinsicSize={selectedSizingPolicy instanceof PlotSizingPolicyIntrinsic}
-			fileDialogService={fileDialogService}
-			fileService={fileService}
-			keybindingService={keybindingService}
-			labelService={labelService}
-			layoutService={layoutService}
-			logService={logService}
-			notificationService={notificationService}
-			pathService={pathService}
 			plotClient={plotClient}
 			plotIntrinsicSize={plotClient.intrinsicSize}
 			plotSize={plotClient.lastRender?.size}
@@ -112,15 +72,6 @@ export const showSavePlotModalDialog = (
 };
 
 interface SavePlotModalDialogProps {
-	layoutService: IWorkbenchLayoutService;
-	dialogService: IPositronModalDialogsService;
-	fileService: IFileService;
-	fileDialogService: IFileDialogService;
-	logService: ILogService;
-	notificationService: INotificationService;
-	keybindingService: IKeybindingService;
-	labelService: ILabelService;
-	pathService: IPathService;
 	renderer: PositronModalReactRenderer;
 	enableIntrinsicSize: boolean;
 	plotSize: IPlotSize | undefined;
@@ -185,7 +136,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 
 	const updatePath = (path: URI) => {
 		try {
-			props.fileService.exists(path).then(exists => {
+			props.renderer.services.fileService.exists(path).then(exists => {
 				setDirectory({
 					value: path,
 					valid: exists,
@@ -198,7 +149,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	};
 
 	const browseHandler = async () => {
-		const uri = await props.fileDialogService.showOpenDialog({
+		const uri = await props.renderer.services.fileDialogService.showOpenDialog({
 			title: localize('positron.savePlotModalDialog.title', "Save Plot"),
 			defaultUri: directory.value,
 			openLabel: localize('positron.savePlotModalDialog.select', "Select"),
@@ -215,10 +166,10 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 	const acceptHandler = async () => {
 		if (validateInput()) {
 			const filePath = URI.joinPath(directory.value, `${name.value}.${format}`);
-			const fileExists = await props.fileService.exists(filePath);
+			const fileExists = await props.renderer.services.fileService.exists(filePath);
 			if (fileExists) {
 				const confirmation = await new Promise<boolean>((resolve) => {
-					const dialog = props.dialogService.showModalDialogPrompt(
+					const dialog = props.renderer.services.positronModalDialogsService.showModalDialogPrompt(
 						localize('positron.savePlotModalDialog.fileExists', "The file already exists"),
 						localize('positron.savePlotModalDialog.fileExistsMessage', "The file already exists. Do you want to overwrite it?"),
 						localize('positron.savePlotModalDialog.overwrite', "Overwrite"),
@@ -239,7 +190,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 					props.savePlotCallback({ uri: plotResult.uri, path: filePath });
 				})
 				.catch((error) => {
-					props.notificationService.error(localize('positron.savePlotModalDialog.errorSavingPlot', "Error saving plot: {0}", JSON.stringify(error)));
+					props.renderer.services.notificationService.error(localize('positron.savePlotModalDialog.errorSavingPlot', "Error saving plot: {0}", JSON.stringify(error)));
 				})
 				.finally(() => {
 					setRendering(false);
@@ -261,7 +212,7 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 			const plotResult = await generatePreview(PlotRenderFormat.Png);
 			setUri(plotResult.uri);
 		} catch (error) {
-			props.logService.error('Error rendering plot:', error);
+			props.renderer.services.logService.error('Error rendering plot:', error);
 		} finally {
 			setRendering(false);
 		}
@@ -325,13 +276,13 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 									"Directory"
 								))()}
 								readOnlyInput={false}
-								value={pathUriToLabel(directory.value, props.labelService)}
+								value={pathUriToLabel(directory.value, props.renderer.services.labelService)}
 								onBrowse={browseHandler}
 								onChange={async e => updatePath(
 									await combineLabelWithPathUri(
 										e.target.value,
 										directory.value,
-										props.pathService
+										props.renderer.services.pathService
 									)
 								)} />
 						</div>
@@ -355,8 +306,6 @@ const SavePlotModalDialog = (props: SavePlotModalDialogProps) => {
 											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Pdf, title: PlotRenderFormat.Pdf.toUpperCase(), value: PlotRenderFormat.Pdf }),
 											new DropDownListBoxItem<PlotRenderFormat, PlotRenderFormat>({ identifier: PlotRenderFormat.Tiff, title: PlotRenderFormat.Tiff.toUpperCase(), value: PlotRenderFormat.Tiff }),
 										]}
-										keybindingService={props.keybindingService}
-										layoutService={props.layoutService}
 										selectedIdentifier={format}
 										title={(() => localize(
 											'positron.savePlotModalDialog.format',

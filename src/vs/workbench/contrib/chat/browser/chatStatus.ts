@@ -47,6 +47,8 @@ import { URI } from '../../../../base/common/uri.js';
 import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 import { ILanguageModelsService } from '../common/languageModels.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
+import { IEditorGroupsService, IEditorPart } from '../../../services/editor/common/editorGroupsService.js';
+import { ChatContextKeys } from '../common/chatContextKeys.js';
 // --- End Positron ---
 
 const gaugeBackground = registerColor('gauge.background', {
@@ -108,7 +110,45 @@ const defaultChat = {
 	manageOverageUrl: product.defaultChatAgent?.manageOverageUrl ?? '',
 };
 
+// --- Start Positron ---
+// This is a wrapper around the ChatStatus class
+// which creates a ChatStatus instance for each editor part (window)\
+// See src/vs/workbench/contrib/languageStatus/browser/languageStatus.ts for inspiration
 export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
+	static readonly ID = 'workbench.contrib.chatStatusBarEntry';
+
+	constructor(
+		@IEditorGroupsService private readonly editorGroupService: IEditorGroupsService,
+	) {
+		super();
+
+		for (const part of editorGroupService.parts) {
+			this.createChatStatus(part);
+		}
+
+		this._register(editorGroupService.onDidCreateAuxiliaryEditorPart(part => this.createChatStatus(part)));
+	}
+
+	private createChatStatus(part: IEditorPart): void {
+		const disposables = new DisposableStore();
+		this._register(
+			part.onWillDispose(() => {
+				if (!disposables.isDisposed) {
+					disposables.dispose();
+				}
+			})
+		);
+
+		const scopedInstantiationService = this.editorGroupService.getScopedInstantiationService(part);
+		disposables.add(scopedInstantiationService.createInstance(ChatStatus));
+	}
+}
+
+// Rename this class to avoid needing to modify other files that import it
+
+// export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribution {
+export class ChatStatus extends Disposable {
+	// --- End Positron ---
 
 	static readonly ID = 'workbench.contrib.chatStatusBarEntry';
 
@@ -124,6 +164,9 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 		@IStatusbarService private readonly statusbarService: IStatusbarService,
 		@IEditorService private readonly editorService: IEditorService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		// --- Start Positron ---
+		@IContextKeyService private readonly contextKeyService: IContextKeyService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -133,6 +176,13 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 
 	private update(): void {
 		// --- Start Positron ---
+		// Remove the Chat status if the active editor is not a code editor
+		if (!this.shouldShowStatus()) {
+			this.entry?.dispose();
+			this.entry = undefined;
+			return;
+		}
+
 		// We only need the part that displays the status. No need to hide it based on the chat entitlement setting the right context keys
 		if (!this.entry) {
 			this.entry = this.statusbarService.addEntry(this.getEntryProps(), 'chat.statusBarEntry', StatusbarAlignment.RIGHT, { location: { id: 'status.editor.mode', priority: 100.1 }, alignment: StatusbarAlignment.RIGHT });
@@ -154,6 +204,14 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 				this.update();
 			}
 		}));
+		// --- Start Positron ---
+		this._register(this.contextKeyService.onDidChangeContext(e => {
+			const expr = ChatContextKeys.inChatSession.isEqualTo(true);
+			if (e.affectsSome(new Set(expr.keys()))) {
+				this.update();
+			}
+		}));
+		// --- End Positron ---
 	}
 
 	private onDidActiveEditorChange(): void {
@@ -169,6 +227,20 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			});
 		}
 	}
+
+	// --- Start Positron ---
+	private shouldShowStatus(): boolean {
+		// Hide the Chat status item if:
+		// - only plot or data explorer editors are open, and
+		// - the user is not in a chat session
+		const inChat = ChatContextKeys.inChatSession.getValue(this.contextKeyService);
+		const isEditor = !this.editorService.editors.every(editor => {
+			return editor.editorId === 'workbench.editor.positronPlots' ||
+				editor.editorId === 'workbench.editor.positronDataExplorer';
+		});
+		return inChat || isEditor;
+	}
+	// --- End Positron ---
 
 	private getEntryProps(): IStatusbarEntry {
 		// --- Start Positron ---
@@ -218,7 +290,11 @@ export class ChatStatusBarEntry extends Disposable implements IWorkbenchContribu
 			text,
 			ariaLabel,
 			command: ShowTooltipCommand,
-			showInAllWindows: true,
+			// --- Start Positron ---
+			// Do not show status in all windows; allows us to create a new status item
+			// for each window manually
+			// showInAllWindows: true,
+			// --- End Positron ---
 			kind,
 			tooltip: { element: token => this.dashboard.value.show(token) }
 		};

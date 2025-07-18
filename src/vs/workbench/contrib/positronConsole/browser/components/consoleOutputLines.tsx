@@ -7,7 +7,6 @@
 import React from 'react';
 
 // Other dependencies.
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 import { OutputLines } from '../../../../browser/positronAnsiRenderer/outputLines.js';
 
@@ -24,17 +23,6 @@ export interface ConsoleOutputLinesProps {
  * @returns The rendered component.
  */
 export const ConsoleOutputLines = (props: ConsoleOutputLinesProps) => {
-	// Get services from the context.
-	const { openerService, notificationService, environmentService, pathService } = usePositronConsoleContext();
-
 	// Render.
-	return (
-		<OutputLines
-			{...props}
-			environmentService={environmentService}
-			notificationService={notificationService}
-			openerService={openerService}
-			pathService={pathService}
-		/>
-	);
+	return <OutputLines {...props} />;
 };

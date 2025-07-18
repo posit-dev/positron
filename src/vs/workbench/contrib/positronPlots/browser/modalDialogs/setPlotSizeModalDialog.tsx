@@ -11,15 +11,13 @@ import React, { useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
 import { IPlotSize } from '../../../../services/positronPlots/common/sizingPolicy.js';
-import { IWorkbenchLayoutService } from '../../../../services/layout/browser/layoutService.js';
 import { ContentArea } from '../../../../browser/positronComponents/positronModalDialog/components/contentArea.js';
 import { PositronModalDialog } from '../../../../browser/positronComponents/positronModalDialog/positronModalDialog.js';
-import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
 import { LabeledTextInput } from '../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { PlatformNativeDialogActionBar } from '../../../../browser/positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
 import { Button } from '../../../../../base/browser/ui/positronComponents/button/button.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * SetPlotSizeResult interface.
@@ -30,23 +28,15 @@ export interface SetPlotSizeResult {
 
 /**
  * Shows a dialog that allows the user to set a custom plot size.
- * @param keybindingService The keybinding service.
- * @param layoutService The layout service.
  * @param customSize The custom size, or, undefined.
  * @param setPlotSize The set plot size callback.
  */
 export const showSetPlotSizeModalDialog = async (
-	keybindingService: IKeybindingService,
-	layoutService: IWorkbenchLayoutService,
 	customSize: IPlotSize | undefined,
 	setPlotSize: (result?: SetPlotSizeResult | null) => void
 ) => {
 	// Create the modal React renderer.
-	const renderer = new PositronModalReactRenderer({
-		keybindingService,
-		layoutService,
-		container: layoutService.activeContainer
-	});
+	const renderer = new PositronModalReactRenderer();
 
 	// Show the set plot size modal dialog.
 	renderer.render(

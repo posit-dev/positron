@@ -173,7 +173,6 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 
 			{context.instance.columnResize &&
 				<VerticalSplitter
-					configurationService={context.configurationService}
 					onBeginResize={() => ({
 						minimumWidth: context.instance.minimumColumnWidth,
 						maximumWidth: context.instance.maximumColumnWidth,

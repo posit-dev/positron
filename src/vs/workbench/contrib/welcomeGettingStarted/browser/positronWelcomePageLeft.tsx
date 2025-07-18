@@ -12,29 +12,11 @@ import React from 'react';
 // Other dependencies.
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { PositronWelcomePageStart } from './positronWelcomePageStart.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 
-export const createWelcomePageLeft = (
-	container: HTMLElement,
-	commandService: ICommandService,
-	configurationService: IConfigurationService,
-	keybindingService: IKeybindingService,
-	layoutService: ILayoutService,
-	workspaceContextService: IWorkspaceContextService
-): PositronReactRenderer => {
+export const createWelcomePageLeft = (container: HTMLElement): PositronReactRenderer => {
 	const renderer = new PositronReactRenderer(container);
 	renderer.render(
-		<PositronWelcomePageStart
-			commandService={commandService}
-			configurationService={configurationService}
-			keybindingService={keybindingService}
-			layoutService={layoutService}
-			workspaceContextService={workspaceContextService}
-		/>
+		<PositronWelcomePageStart />
 	);
 	return renderer;
 };
