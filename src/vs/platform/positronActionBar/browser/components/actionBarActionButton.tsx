@@ -16,11 +16,11 @@ import { MenuItemAction } from '../../../actions/common/actions.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { actionTooltip, toMenuItemAction } from '../../common/helpers.js';
 import { useRegisterWithActionBar } from '../useRegisterWithActionBar.js';
-import { usePositronActionBarContext } from '../positronActionBarContext.js';
 import { useStateRef } from '../../../../base/browser/ui/react/useStateRef.js';
 import { isPositronActionBarButtonOptions } from '../../../action/common/action.js';
 import { IAccessibilityService } from '../../../accessibility/common/accessibility.js';
 import { IModifierKeyStatus, ModifierKeyEmitter } from '../../../../base/browser/dom.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Determines whether the alternative action should be used.
@@ -80,7 +80,7 @@ interface ActionBarActionButtonProps {
  */
 export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 	// Context hooks.
-	const context = usePositronActionBarContext();
+	const services = usePositronReactServicesContext();
 
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
@@ -90,7 +90,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 
 	// State hooks.
 	const [, setMouseInside, mouseInsideRef] = useStateRef(false);
-	const [useAlternativeAction, setUseAlternativeAction] = useState(shouldUseAlternativeAction(context.accessibilityService, menuItemAction));
+	const [useAlternativeAction, setUseAlternativeAction] = useState(shouldUseAlternativeAction(services.accessibilityService, menuItemAction));
 
 	// Main use effect.
 	useEffect(() => {
@@ -101,7 +101,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 		const modifierKeyEmitter = ModifierKeyEmitter.getInstance();
 		disposableStore.add(modifierKeyEmitter.event(modifierKeyStatus => {
 			setUseAlternativeAction(shouldUseAlternativeAction(
-				context.accessibilityService,
+				services.accessibilityService,
 				menuItemAction,
 				mouseInsideRef.current,
 				modifierKeyStatus
@@ -110,7 +110,7 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [context.accessibilityService, menuItemAction, mouseInsideRef]);
+	}, [services.accessibilityService, menuItemAction, mouseInsideRef]);
 
 	// Participate in roving tabindex.
 	useRegisterWithActionBar([buttonRef]);
@@ -133,8 +133,8 @@ export const ActionBarActionButton = (props: ActionBarActionButtonProps) => {
 				undefined
 			}
 			tooltip={actionTooltip(
-				context.contextKeyService,
-				context.keybindingService,
+				services.contextKeyService,
+				services.keybindingService,
 				action,
 				!useAlternativeAction
 			)}

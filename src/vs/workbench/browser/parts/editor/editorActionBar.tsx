@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -14,19 +14,13 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { isAuxiliaryWindow } from '../../../../base/browser/window.js';
 import { EditorActionBarFactory } from './editorActionBarFactory.js';
-import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 import { PositronActionBarContextProvider } from '../../../../platform/positronActionBar/browser/positronActionBarContext.js';
-
-/**
- * EditorActionBarServices interface.
- */
-interface EditorActionBarServices extends PositronActionBarServices {
-}
 
 /**
  * EditorActionBarProps interface
  */
-interface EditorActionBarProps extends EditorActionBarServices {
+interface EditorActionBarProps {
 	readonly editorActionBarFactory: EditorActionBarFactory;
 }
 
@@ -35,6 +29,9 @@ interface EditorActionBarProps extends EditorActionBarServices {
  * @returns The rendered component.
  */
 export const EditorActionBar = (props: EditorActionBarProps) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
 
@@ -53,14 +50,14 @@ export const EditorActionBar = (props: EditorActionBarProps) => {
 		}));
 
 		// Add the onDidColorThemeChange event handler.
-		disposableStore.add(props.themeService.onDidColorThemeChange(() => {
+		disposableStore.add(services.themeService.onDidColorThemeChange(() => {
 			// Re-render the component.
 			setRenderMarker(renderCounter => renderCounter + 1);
 		}));
 
 		// Return the cleanup function that will dispose of the disposables.
 		return () => disposableStore.dispose();
-	}, [props.editorActionBarFactory, props.themeService]);
+	}, [props.editorActionBarFactory, services.themeService]);
 
 	// Determine whether the window is an auxiliary window.
 	const auxiliaryWindow = ref.current ? isAuxiliaryWindow(DOM.getWindow(ref.current)) : undefined;

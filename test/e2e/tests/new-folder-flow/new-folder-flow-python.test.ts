@@ -59,7 +59,7 @@ test.describe('New Folder Flow: Python Project', { tag: [tags.MODAL, tags.NEW_FO
 		await verifyPyprojectTomlCreated(app);
 	});
 
-	test.skip('New env: Conda environment', async function ({ app }) {
+	test('New env: Conda environment', async function ({ app }) {
 		const folderName = addRandomNumSuffix('conda-installed');
 		await createNewFolder(app, {
 			folderTemplate,

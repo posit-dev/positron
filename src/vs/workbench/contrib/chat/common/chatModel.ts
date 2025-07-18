@@ -147,6 +147,7 @@ export interface IResponse {
 
 // --- Start Positron ---
 export interface IChatTokenUsage {
+	readonly provider: string;
 	readonly inputTokens: number;
 	readonly outputTokens: number;
 }
@@ -1833,13 +1834,6 @@ export interface IChatAgentEditedFileEvent {
 	readonly uri: URI;
 	readonly eventKind: ChatRequestEditedFileEventKind;
 }
-
-// --- Start Positron ---
-export interface IChatTokenUsage {
-	readonly inputTokens: number;
-	readonly outputTokens: number;
-}
-// --- End Positron ---
 
 /** URI for a resource embedded in a chat request/response */
 export namespace ChatResponseResource {

@@ -12,12 +12,12 @@ import { ProgressBar } from '../../../../../base/browser/ui/progressbar/progress
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { localize } from '../../../../../nls.js';
 import { PanZoomImage } from './panZoomImage.js';
-import { usePositronPlotsContext } from '../positronPlotsContext.js';
 import { PlotClientInstance, PlotClientState } from '../../../../services/languageRuntime/common/languageRuntimePlotClient.js';
 import { IPositronPlotSizingPolicy } from '../../../../services/positronPlots/common/sizingPolicy.js';
 import { PlotSizingPolicyAuto } from '../../../../services/positronPlots/common/sizingPolicyAuto.js';
 import { PlotSizingPolicyIntrinsic } from '../../../../services/positronPlots/common/sizingPolicyIntrinsic.js';
 import { ZoomLevel } from '../../../../services/positronPlots/common/positronPlots.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * DynamicPlotInstanceProps interface.
@@ -42,10 +42,10 @@ interface DynamicPlotInstanceProps {
  */
 export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 
+	const services = usePositronReactServicesContext();
 	const [uri, setUri] = useState('');
 	const [error, setError] = useState('');
 	const progressRef = React.useRef<HTMLDivElement>(null);
-	const plotsContext = usePositronPlotsContext();
 
 	useEffect(() => {
 		const ratio = DOM.getActiveWindow().devicePixelRatio;
@@ -75,8 +75,8 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 				// If using the intrinsic sizing policy, and the plot has no intrinsic size,
 				// fall back to the auto sizing policy.
 				if (policy instanceof PlotSizingPolicyIntrinsic && !intrinsicSize) {
-					plotsContext.positronPlotsService.selectSizingPolicy(PlotSizingPolicyAuto.ID);
-					plotSize = plotsContext.positronPlotsService.selectedSizingPolicy.getPlotSize({
+					services.positronPlotsService.selectSizingPolicy(PlotSizingPolicyAuto.ID);
+					plotSize = services.positronPlotsService.selectedSizingPolicy.getPlotSize({
 						height: props.height,
 						width: props.width
 					});
@@ -96,7 +96,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 					return;
 				}
 				const message = localize('positronPlots.policyRenderError', "Error rendering plot to '{0}' size: {1} ({2})", policy.getName(props.plotClient), e.message, e.code);
-				plotsContext.notificationService.warn(message);
+				services.notificationService.warn(message);
 				setError(message);
 			}
 		};
@@ -171,7 +171,7 @@ export const DynamicPlotInstance = (props: DynamicPlotInstanceProps) => {
 		return () => {
 			disposables.dispose();
 		};
-	}, [props.plotClient, props.height, props.width, plotsContext.positronPlotsService, plotsContext.notificationService]);
+	}, [props.plotClient, props.height, props.width, services.positronPlotsService, services.notificationService]);
 
 	// Render method for the plot image.
 	const renderedImage = () => {

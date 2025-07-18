@@ -175,7 +175,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			// Also record token usage by request ID if available
 			const requestId = (options.modelOptions as any)?.requestId;
 			if (requestId) {
-				recordRequestTokenUsage(requestId, inputTokens, outputTokens);
+				recordRequestTokenUsage(requestId, this.provider, inputTokens, outputTokens);
 			}
 		}
 

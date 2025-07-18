@@ -964,14 +964,7 @@ export class GettingStartedPage extends EditorPane {
 
 		const layoutRecentList = () => {
 			const leftContent = $('div.positron-welcome-left-column');
-			this.positronReactRenderer = createWelcomePageLeft(
-				leftContent,
-				this.commandService,
-				this.configurationService,
-				this.keybindingService,
-				this.layoutService,
-				this.workspaceContextService
-			);
+			this.positronReactRenderer = createWelcomePageLeft(leftContent);
 
 			// Hide the "Connect to..." button if we are on a web platform
 			if (!isWeb) {

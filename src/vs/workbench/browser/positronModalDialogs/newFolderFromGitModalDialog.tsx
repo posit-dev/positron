@@ -12,85 +12,16 @@ import React, { useRef, useState } from 'react';
 // Other dependencies.
 import { localize } from '../../../nls.js';
 import { URI } from '../../../base/common/uri.js';
-import { ICommandService } from '../../../platform/commands/common/commands.js';
-import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
-import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
-import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
-import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
+import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
 import { Checkbox } from '../positronComponents/positronModalDialog/components/checkbox.js';
+import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
+import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 import { VerticalSpacer } from '../positronComponents/positronModalDialog/components/verticalSpacer.js';
-import { PositronModalReactRenderer } from '../positronModalReactRenderer/positronModalReactRenderer.js';
+import { isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
 import { LabeledTextInput } from '../positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { LabeledFolderInput } from '../positronComponents/positronModalDialog/components/labeledFolderInput.js';
-import { isInputEmpty } from '../positronComponents/positronModalDialog/components/fileInputValidators.js';
-import { ILabelService } from '../../../platform/label/common/label.js';
-import { combineLabelWithPathUri, pathUriToLabel } from '../utils/path.js';
-import { IPathService } from '../../services/path/common/pathService.js';
-
-/**
- * Shows the new folder from Git modal dialog.
- * @param commandService The command service.
- * @param configService The config service.
- * @param fileDialogService The file dialog service.
- * @param keybindingService The keybinding service.
- * @param layoutService The layout service.
- */
-export const showNewFolderFromGitModalDialog = async (
-	commandService: ICommandService,
-	configurationService: IConfigurationService,
-	fileDialogService: IFileDialogService,
-	keybindingService: IKeybindingService,
-	labelService: ILabelService,
-	layoutService: IWorkbenchLayoutService,
-	pathService: IPathService,
-): Promise<void> => {
-	// Create the renderer.
-	const renderer = new PositronModalReactRenderer({
-		keybindingService,
-		layoutService,
-		container: layoutService.activeContainer
-	});
-
-	// Show the new folder from git modal dialog.
-	renderer.render(
-		<NewFolderFromGitModalDialog
-			createFolder={async result => {
-				if (result.repo) {
-					// temporarily set openAfterClone to facilitate result.newWindow then set it
-					// back afterwards
-					const kGitOpenAfterClone = 'git.openAfterClone';
-					const prevOpenAfterClone = configurationService.getValue(kGitOpenAfterClone);
-					configurationService.updateValue(
-						kGitOpenAfterClone,
-						result.newWindow ? 'alwaysNewWindow' : 'always'
-					);
-					// The Git clone command works with a path string instead of a URI. We need to
-					// convert the folder URI to an OS-aware path string using the label service.
-					const parentFolder = labelService.getUriLabel(
-						result.parentFolder,
-						{ noPrefix: true }
-					);
-					try {
-						await commandService.executeCommand(
-							'git.clone',
-							result.repo,
-							parentFolder
-						);
-					} finally {
-						configurationService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
-					}
-				}
-			}}
-			fileDialogService={fileDialogService}
-			labelService={labelService}
-			parentFolder={await fileDialogService.defaultFolderPath()}
-			pathService={pathService}
-			renderer={renderer}
-		/>
-	);
-};
 
 /**
  * NewFolderFromGitResult interface.
@@ -105,9 +36,6 @@ interface NewFolderFromGitResult {
  * NewFolderFromGitModalDialogProps interface.
  */
 interface NewFolderFromGitModalDialogProps {
-	fileDialogService: IFileDialogService;
-	labelService: ILabelService;
-	pathService: IPathService;
 	renderer: PositronModalReactRenderer;
 	parentFolder: URI;
 	createFolder: (result: NewFolderFromGitResult) => Promise<void>;
@@ -119,12 +47,14 @@ interface NewFolderFromGitModalDialogProps {
  * @returns The rendered component.
  */
 export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogProps) => {
+	const services = usePositronReactServicesContext();
+
 	// Reference hooks.
 	const folderNameRef = useRef<HTMLInputElement>(undefined!);
 
 	// State hooks.
 	const [parentFolderLabel, setParentFolderLabel] = useState(
-		() => pathUriToLabel(props.parentFolder, props.labelService)
+		() => pathUriToLabel(props.parentFolder, services.labelService)
 	);
 	const [result, setResult] = useState<NewFolderFromGitResult>({
 		repo: '',
@@ -138,11 +68,11 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 		const parentFolderUri = await combineLabelWithPathUri(
 			parentFolderLabel,
 			props.parentFolder,
-			props.pathService
+			services.pathService
 		);
 
 		// Show the open dialog.
-		const uri = await props.fileDialogService.showOpenDialog({
+		const uri = await services.fileDialogService.showOpenDialog({
 			defaultUri: parentFolderUri,
 			canSelectFiles: false,
 			canSelectFolders: true
@@ -150,7 +80,7 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 
 		// If the user made a selection, set the parent directory.
 		if (uri?.length) {
-			const pathLabel = pathUriToLabel(uri[0], props.labelService);
+			const pathLabel = pathUriToLabel(uri[0], services.labelService);
 			setParentFolderLabel(pathLabel);
 			setResult({ ...result, parentFolder: uri[0] });
 			folderNameRef.current.focus();
@@ -163,7 +93,7 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 		const parentFolderUri = await combineLabelWithPathUri(
 			folder,
 			props.parentFolder,
-			props.pathService
+			services.pathService
 		);
 		setResult({ ...result, parentFolder: parentFolderUri });
 	};
@@ -218,5 +148,48 @@ export const NewFolderFromGitModalDialog = (props: NewFolderFromGitModalDialogPr
 					onChanged={checked => setResult({ ...result, newWindow: checked })} />
 			</VerticalSpacer>
 		</OKCancelModalDialog>
+	);
+};
+
+/**
+ * Shows the new folder from Git modal dialog.
+ */
+export const showNewFolderFromGitModalDialog = async (): Promise<void> => {
+	// Create the renderer.
+	const renderer = new PositronModalReactRenderer();
+
+	// Show the new folder from git modal dialog.
+	renderer.render(
+		<NewFolderFromGitModalDialog
+			createFolder={async result => {
+				if (result.repo) {
+					// temporarily set openAfterClone to facilitate result.newWindow then set it
+					// back afterwards
+					const kGitOpenAfterClone = 'git.openAfterClone';
+					const prevOpenAfterClone = renderer.services.configurationService.getValue(kGitOpenAfterClone);
+					renderer.services.configurationService.updateValue(
+						kGitOpenAfterClone,
+						result.newWindow ? 'alwaysNewWindow' : 'always'
+					);
+					// The Git clone command works with a path string instead of a URI. We need to
+					// convert the folder URI to an OS-aware path string using the label service.
+					const parentFolder = renderer.services.labelService.getUriLabel(
+						result.parentFolder,
+						{ noPrefix: true }
+					);
+					try {
+						await renderer.services.commandService.executeCommand(
+							'git.clone',
+							result.repo,
+							parentFolder
+						);
+					} finally {
+						renderer.services.configurationService.updateValue(kGitOpenAfterClone, prevOpenAfterClone);
+					}
+				}
+			}}
+			parentFolder={await renderer.services.fileDialogService.defaultFolderPath()}
+			renderer={renderer}
+		/>
 	);
 };

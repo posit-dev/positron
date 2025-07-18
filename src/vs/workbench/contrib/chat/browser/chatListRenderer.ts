@@ -718,7 +718,8 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 
 		// --- Start Positron ---
 		const showTokens = this.configService.getValue<boolean>('positron.assistant.showTokenUsage.enable');
-		if (isResponseVM(element) && element.tokenUsage && element.isComplete && showTokens) {
+		const experimentalTokenUsage = this.configService.getValue<Array<string>>('positron.assistant.approximateTokenCount');
+		if (isResponseVM(element) && element.tokenUsage && element.isComplete && showTokens && experimentalTokenUsage.includes(element.tokenUsage.provider)) {
 			templateData.value.appendChild(dom.$('.token-usage', undefined, localize('tokenUsage', "Tokens: ↑{0} ↓{1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens)));
 		}
 		// --- End Positron ---

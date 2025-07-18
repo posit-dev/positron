@@ -19,8 +19,9 @@ import { PreviewUrl, QUERY_NONCE_PARAMETER } from '../previewUrl.js';
 import { ActionBarSeparator } from '../../../../../platform/positronActionBar/browser/components/actionBarSeparator.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { kPaddingLeft, kPaddingRight, PreviewActionBarsProps } from './actionBars.js';
+import { kPaddingLeft, kPaddingRight } from './actionBars.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Constants.
 const kUrlBarInputName = 'url-bar';
@@ -28,7 +29,7 @@ const kUrlBarInputName = 'url-bar';
 /**
  * UrlActionBarsProps interface.
  */
-export interface UrlActionBarsProps extends PreviewActionBarsProps {
+export interface UrlActionBarsProps {
 
 	// The active preview.
 	readonly preview: PreviewUrl;
@@ -49,6 +50,9 @@ const openInEditor = localize('positron.preview.html.openInEditor', "Open the co
  * @returns The rendered component.
  */
 export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// Save the current URL.
 	const currentUri = props.preview.currentUri;
 
@@ -79,17 +83,17 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 	};
 
 	const openInEditorHandler = () => {
-		props.positronPreviewService.openEditor(currentUri);
+		services.positronPreviewService.openEditor(currentUri);
 	};
 
 	// Handler for the clear button.
 	const clearHandler = () => {
-		props.positronPreviewService.clearAllPreviews();
+		services.positronPreviewService.clearAllPreviews();
 	};
 
 	// Handler for the open in browser button.
 	const openInBrowserHandler = () => {
-		props.openerService.open(props.preview.currentUri,
+		services.openerService.open(props.preview.currentUri,
 			{ openExternal: true, fromUserGesture: true });
 	};
 
@@ -106,7 +110,7 @@ export const UrlActionBars = (props: PropsWithChildren<UrlActionBarsProps>) => {
 			uri = URI.parse(url);
 		} catch (e) {
 			// Notify the user that the URL is invalid.
-			props.notificationService.error(localize('positron.viewer.invalidUrl', "The URL {0} is invalid: {1}", url, e));
+			services.notificationService.error(localize('positron.viewer.invalidUrl', "The URL {0} is invalid: {1}", url, e));
 
 			// Restore the old input value.
 			if (urlInputRef.current) {

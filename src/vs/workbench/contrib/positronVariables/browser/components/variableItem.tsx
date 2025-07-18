@@ -17,12 +17,12 @@ import { IAction, Separator } from '../../../../../base/common/actions.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
 import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { IVariableItem } from '../../../../services/positronVariables/common/interfaces/variableItem.js';
-import { usePositronVariablesContext } from '../positronVariablesContext.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { IPositronVariablesInstance, PositronVariablesSorting } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_COPY_AS_HTML, POSITRON_VARIABLES_COPY_AS_TEXT, POSITRON_VARIABLES_EXPAND, POSITRON_VARIABLES_VIEW } from '../positronVariablesIdentifiers.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { Event } from '../../../../../base/common/event.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Formats a size for display.
@@ -120,7 +120,7 @@ export const VariableItem = (props: VariableItemProps) => {
 	/**
 	 * Context hooks.
 	 */
-	const positronVariablesContext = usePositronVariablesContext();
+	const services = usePositronReactServicesContext();
 
 	/**
 	 * State hooks.
@@ -148,7 +148,7 @@ export const VariableItem = (props: VariableItemProps) => {
 	 */
 	const viewVariableItem = async (item: IVariableItem) => {
 		// Check for an existing viewer instance.
-		const explorerService = positronVariablesContext.dataExplorerService;
+		const explorerService = services.positronDataExplorerService;
 		const instance = explorerService.getInstanceForVar(item.id);
 		if (instance) {
 			// There's an existing viewer instance, so activate it.
@@ -159,7 +159,7 @@ export const VariableItem = (props: VariableItemProps) => {
 			try {
 				viewerId = await item.view();
 			} catch (err) {
-				positronVariablesContext.notificationService.error(localize(
+				services.notificationService.error(localize(
 					'positron.variables.viewerError',
 					"An error occurred while opening the viewer. Try restarting your session."
 				));
@@ -349,7 +349,7 @@ export const VariableItem = (props: VariableItemProps) => {
 			tooltip: '',
 			class: undefined,
 			enabled: true,
-			run: () => positronVariablesContext.clipboardService.writeText(
+			run: () => services.clipboardService.writeText(
 				props.variableItem.displayName
 			)
 		});
@@ -368,7 +368,7 @@ export const VariableItem = (props: VariableItemProps) => {
 				enabled: true,
 				run: async () => {
 					const text = await props.variableItem.formatForClipboard('text/plain');
-					positronVariablesContext.clipboardService.writeText(text);
+					services.clipboardService.writeText(text);
 				}
 			} satisfies IAction);
 
@@ -381,13 +381,13 @@ export const VariableItem = (props: VariableItemProps) => {
 				enabled: true,
 				run: async () => {
 					const text = await props.variableItem.formatForClipboard('text/html');
-					positronVariablesContext.clipboardService.writeText(text);
+					services.clipboardService.writeText(text);
 				}
 			} satisfies IAction);
 		}
 
 		// Show the context menu.
-		positronVariablesContext.contextMenuService.showContextMenu({
+		services.contextMenuService.showContextMenu({
 			getActions: () => actions,
 			getAnchor: () => ({ x, y }),
 			anchorAlignment: AnchorAlignment.LEFT,
@@ -480,7 +480,6 @@ export const VariableItem = (props: VariableItemProps) => {
 				</div>
 			</div>
 			<VerticalSplitter
-				configurationService={positronVariablesContext.configurationService}
 				onBeginResize={props.onBeginResizeNameColumn}
 				onResize={props.onResizeNameColumn}
 			/>

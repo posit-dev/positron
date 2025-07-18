@@ -13,31 +13,17 @@ import React from 'react';
 import { Part } from '../../part.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
-import { ILabelService } from '../../../../platform/label/common/label.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { IStorageService } from '../../../../platform/storage/common/storage.js';
 import { IThemeService } from '../../../../platform/theme/common/themeService.js';
-import { IHostService } from '../../../services/host/browser/host.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { PositronTopActionBarFocused } from '../../../common/contextkeys.js';
-import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IWorkspacesService } from '../../../../platform/workspaces/common/workspaces.js';
 import { PositronReactRenderer } from '../../../../base/browser/positronReactRenderer.js';
 import { ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
-import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
 import { IWorkbenchLayoutService, Parts } from '../../../services/layout/browser/layoutService.js';
 import { KeybindingsRegistry, KeybindingWeight } from '../../../../platform/keybinding/common/keybindingsRegistry.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronTopActionBarService } from '../../../services/positronTopActionBar/browser/positronTopActionBarService.js';
 import { IPositronTopActionBarContainer, PositronTopActionBar } from './positronTopActionBar.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
 
 /**
  * PositronTopActionBarPart class.
@@ -99,24 +85,10 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 	//#region Class Initialization
 
 	constructor(
-		@IAccessibilityService private readonly _accessibilityService: IAccessibilityService,
-		@ICommandService private readonly commandService: ICommandService,
-		@IConfigurationService private readonly configurationService: IConfigurationService,
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
-		@IContextMenuService private readonly contextMenuService: IContextMenuService,
-		@IHostService private readonly hostService: IHostService,
-		@IHoverService private readonly hoverService: IHoverService,
-		@IKeybindingService private readonly keybindingService: IKeybindingService,
-		@ILabelService private readonly labelService: ILabelService,
-		@ILanguageRuntimeService private readonly languageRuntimeService: ILanguageRuntimeService,
-		@IQuickInputService private readonly quickInputService: IQuickInputService,
-		@IRuntimeStartupService private readonly runtimeStartupService: IRuntimeStartupService,
-		@IRuntimeSessionService private readonly runtimeSessionService: IRuntimeSessionService,
 		@IStorageService storageService: IStorageService,
 		@IThemeService themeService: IThemeService,
-		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService,
-		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
-		@IWorkspacesService private readonly workspacesService: IWorkspacesService
+		@IWorkbenchLayoutService layoutService: IWorkbenchLayoutService
 	) {
 		super(Parts.POSITRON_TOP_ACTION_BAR_PART, { hasTitle: false }, themeService, storageService, layoutService);
 	}
@@ -132,29 +104,9 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		this.element.tabIndex = -1;
 
 		// Render the Positron top action bar component.
-		this.positronReactRenderer = new PositronReactRenderer(this.element);
+		this.positronReactRenderer = this._register(new PositronReactRenderer(this.element));
 		this.positronReactRenderer.render(
-			<PositronTopActionBar
-				accessibilityService={this._accessibilityService}
-				commandService={this.commandService}
-				configurationService={this.configurationService}
-				contextKeyService={this.contextKeyService}
-				contextMenuService={this.contextMenuService}
-				hostService={this.hostService}
-				hoverService={this.hoverService}
-				keybindingService={this.keybindingService}
-				labelService={this.labelService}
-				languageRuntimeService={this.languageRuntimeService}
-				layoutService={this.layoutService}
-				positronTopActionBarContainer={this}
-				positronTopActionBarService={this}
-				quickInputService={this.quickInputService}
-				runtimeSessionService={this.runtimeSessionService}
-				runtimeStartupService={this.runtimeStartupService}
-				themeService={this.themeService}
-				workspaceContextService={this.workspaceContextService}
-				workspacesService={this.workspacesService}
-			/>
+			<PositronTopActionBar positronTopActionBarContainer={this} />
 		);
 
 		// Track focus
@@ -175,14 +127,6 @@ export class PositronTopActionBarPart extends Part implements IPositronTopAction
 		return {
 			type: Parts.POSITRON_TOP_ACTION_BAR_PART
 		};
-	}
-
-	public override dispose(): void {
-		if (this.positronReactRenderer) {
-			this.positronReactRenderer.destroy();
-			this.positronReactRenderer = undefined;
-		}
-		super.dispose();
 	}
 
 	//#endregion Part Class

@@ -1,11 +1,17 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Event } from '../common/event.js';
+// React.
+import React, { ReactElement } from 'react';
 import { createRoot, Root } from 'react-dom/client';
+
+// Other dependencies.
+import { Event } from '../common/event.js';
 import { Disposable, IDisposable } from '../common/lifecycle.js';
+import { PositronReactServices } from './positronReactServices.js';
+import { PositronReactServicesContext } from './positronReactRendererContext.js';
 
 /**
  * ISize interface.
@@ -93,7 +99,7 @@ export class PositronReactRenderer extends Disposable {
 	/**
 	 * The root where the React element will be rendered.
 	 */
-	private root?: Root;
+	private _root?: Root;
 
 	//#endregion Private Properties
 
@@ -108,7 +114,7 @@ export class PositronReactRenderer extends Disposable {
 		super();
 
 		// Create the root.
-		this.root = createRoot(container);
+		this._root = createRoot(container);
 	}
 
 	/**
@@ -116,9 +122,9 @@ export class PositronReactRenderer extends Disposable {
 	 */
 	public override dispose(): void {
 		// Unmount and dispose of the root.
-		if (this.root) {
-			this.root.unmount();
-			this.root = undefined;
+		if (this._root) {
+			this._root.unmount();
+			this._root = undefined;
 		}
 
 		// Call the base class's dispose method.
@@ -130,12 +136,16 @@ export class PositronReactRenderer extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Renders the React component that was supplied.
-	 * @param reactElement The ReactElement to render.
+	 * Renders the React element that was supplied.
+	 * @param reactElement The React element.
 	 */
-	public render(reactElement: React.ReactElement) {
-		if (this.root) {
-			this.root.render(reactElement);
+	public render(reactElement: ReactElement) {
+		if (this._root) {
+			this._root.render(
+				<PositronReactServicesContext.Provider value={PositronReactServices.services}>
+					{reactElement}
+				</PositronReactServicesContext.Provider>
+			);
 		}
 	}
 
@@ -152,9 +162,9 @@ export class PositronReactRenderer extends Disposable {
 	 * @deprecated Use Disposable instead.
 	 */
 	public destroy() {
-		if (this.root) {
-			this.root.unmount();
-			this.root = undefined;
+		if (this._root) {
+			this._root.unmount();
+			this._root = undefined;
 		}
 	}
 

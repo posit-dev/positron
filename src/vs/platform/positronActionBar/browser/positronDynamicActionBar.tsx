@@ -396,9 +396,6 @@ export const PositronDynamicActionBar = (props: PositronDynamicActionBarProps) =
 
 							// Show the custom context.
 							await showCustomContextMenu({
-								commandService: context.commandService,
-								keybindingService: context.keybindingService,
-								layoutService: context.layoutService,
 								anchorElement: refOverflowButton.current,
 								popupPosition: 'auto',
 								popupAlignment: 'auto',

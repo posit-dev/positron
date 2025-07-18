@@ -11,7 +11,6 @@ import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { ConsoleCore } from './components/consoleCore.js';
-import { PositronConsoleServices } from './positronConsoleState.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PositronConsoleContextProvider } from './positronConsoleContext.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
@@ -19,7 +18,7 @@ import { IReactComponentContainer } from '../../../../base/browser/positronReact
 /**
  * PositronConsoleProps interface.
  */
-export interface PositronConsoleProps extends PositronConsoleServices {
+export interface PositronConsoleProps {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 

@@ -6,7 +6,6 @@
 import React, { useEffect, useRef, useState, MouseEvent, CSSProperties } from 'react';
 import { useStateRef } from '../../../../../base/browser/ui/react/useStateRef.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { ActionBar, ACTION_BAR_HEIGHT } from './schemaNavigationActionBar.js';
 import { FixedSizeList as List } from 'react-window';
@@ -16,11 +15,14 @@ import { ViewsProps } from '../positronConnections.js';
 import Severity from '../../../../../base/common/severity.js';
 import { localize } from '../../../../../nls.js';
 import { IPositronConnectionEntry } from '../../../../services/positronConnections/common/interfaces/positronConnectionsInstance.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { usePositronConnectionsContext } from '../positronConnectionsContext.js';
 
 export interface SchemaNavigationProps extends ViewsProps { }
 
 export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigationProps>) => {
 
+	const services = usePositronReactServicesContext();
 	const context = usePositronConnectionsContext();
 	const { height, activeInstanceId, setActiveInstanceId } = props;
 
@@ -47,7 +49,7 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 	}, [context.reactComponentContainer, scrollStateRef, setScrollState]);
 
 	const [selectedId, setSelectedId] = useState<string>();
-	const activeInstance = context.connectionsService.getConnections().find(item => item.id === activeInstanceId);
+	const activeInstance = services.positronConnectionsService.getConnections().find(item => item.id === activeInstanceId);
 
 	const [entries, setEntries] = useState<IPositronConnectionEntry[]>(activeInstance?.getEntries() || []);
 
@@ -68,14 +70,14 @@ export const SchemaNavigation = (props: React.PropsWithChildren<SchemaNavigation
 		}));
 
 		activeInstance.refreshEntries().catch((e) => {
-			context.notificationService.notify({
+			services.notificationService.notify({
 				message: localize('positron.schemaNavigation.failRefresh', 'Failed to refresh connection entries: {0}', e.message),
 				severity: Severity.Error,
 			});
 		});
 
 		return () => disposableStore.dispose();
-	}, [activeInstance, setActiveInstanceId, context.notificationService]);
+	}, [activeInstance, setActiveInstanceId, services.notificationService]);
 
 	if (!activeInstance) {
 		// This should not be possible, the active instance must exist.

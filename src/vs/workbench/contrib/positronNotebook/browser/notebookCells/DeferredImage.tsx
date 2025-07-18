@@ -10,13 +10,13 @@ import './DeferredImage.css';
 import React from 'react';
 
 // Other dependencies.
-import { useServices } from '../ServicesProvider.js';
 import { useNotebookInstance } from '../NotebookInstanceProvider.js';
 import { URI } from '../../../../../base/common/uri.js';
 import { Schemas } from '../../../../../base/common/network.js';
 import { dirname } from '../../../../../base/common/resources.js';
 import { localize } from '../../../../../nls.js';
 import { createCancelablePromise, raceTimeout } from '../../../../../base/common/async.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * This should match the error message defined in the command definition
@@ -54,7 +54,7 @@ type ImageDataResults = {
  */
 // eslint-disable-next-line react/prop-types
 export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPropsWithoutRef<'img'>) {
-	const services = useServices();
+	const services = usePositronReactServicesContext();
 	const notebookInstance = useNotebookInstance();
 	const baseLocation = getNotebookBaseUri(notebookInstance.uri).path;
 

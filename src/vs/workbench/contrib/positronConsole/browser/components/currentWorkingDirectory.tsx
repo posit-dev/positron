@@ -11,7 +11,7 @@ import React, { MouseEvent, useEffect, useRef, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
-import { usePositronConsoleContext } from '../positronConsoleContext.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { CustomContextMenuItem } from '../../../../browser/positronComponents/customContextMenu/customContextMenuItem.js';
 import { usePositronActionBarContext } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { CustomContextMenuEntry, showCustomContextMenu } from '../../../../browser/positronComponents/customContextMenu/customContextMenu.js';
@@ -38,8 +38,8 @@ interface CurrentWorkingDirectoryProps {
  */
 export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const positronActionBarContext = usePositronActionBarContext();
-	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.
 	const ref = useRef<HTMLDivElement>(undefined!);
@@ -71,7 +71,7 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 				new CustomContextMenuItem({
 					icon: 'copy',
 					label: localize('positron.dataExplorer.copy', "Copy"),
-					onSelected: async () => await positronConsoleContext.clipboardService.writeText(
+					onSelected: async () => await services.clipboardService.writeText(
 						props.directoryLabel
 					)
 				})
@@ -79,9 +79,6 @@ export const CurrentWorkingDirectory = (props: CurrentWorkingDirectoryProps) => 
 
 			// Show the context menu.
 			await showCustomContextMenu({
-				commandService: positronActionBarContext.commandService,
-				keybindingService: positronActionBarContext.keybindingService,
-				layoutService: positronConsoleContext.layoutService,
 				anchorElement: ref.current,
 				anchorPoint: {
 					clientX: e.clientX,
