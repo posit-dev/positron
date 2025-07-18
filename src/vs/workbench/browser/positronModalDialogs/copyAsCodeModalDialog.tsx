@@ -36,11 +36,7 @@ export const showConvertToCodeModalDialog = async (
 	dataExplorerClientInstance: IPositronDataExplorerInstance,
 ): Promise<void> => {
 	// Create the renderer.
-	const renderer = new PositronModalReactRenderer({
-		keybindingService,
-		layoutService,
-		container: layoutService.activeContainer
-	});
+	const renderer = new PositronModalReactRenderer()
 
 	// Show the copy as code dialog.
 	renderer.render(
@@ -150,8 +146,6 @@ export const ConvertToCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 						/>
 					)}
 					entries={syntaxDropdownEntries()}
-					keybindingService={props.keybindingService}
-					layoutService={props.layoutService}
 					title={syntaxDropdownTitle()}
 					onSelectionChanged={onSelectionChanged}
 				/>
