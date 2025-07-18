@@ -53,28 +53,28 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 			const { toasts } = app.workbench;
 
 			// select "Later" and verify that the prompt is no longer visible
-			await toasts.expectImportPromptToBeVisible();
+			await toasts.expectImportSettingsToastToBeVisible();
 			await toasts.clickButton('Later');
-			await toasts.expectImportPromptToBeVisible(false);
+			await toasts.expectImportSettingsToastToBeVisible(false);
 
 			// reload the window and verify that the prompt is shown again
 			await hotKeys.reloadWindow();
-			await toasts.expectImportPromptToBeVisible();
+			await toasts.expectImportSettingsToastToBeVisible();
 		});
 
 		test('Verify import prompt behavior on "Don\'t Show Again"', async ({ sessions, app, hotKeys, page }) => {
 			const { toasts } = app.workbench;
 
 			// select "Don't Show Again" and verify that the prompt is no longer visible
-			await toasts.expectImportPromptToBeVisible();
+			await toasts.expectImportSettingsToastToBeVisible();
 			await toasts.clickButton("Don't Show Again");
-			await toasts.expectImportPromptToBeVisible(false);
+			await toasts.expectImportSettingsToastToBeVisible(false);
 
 			// verify that prompt is not shown again
 			await hotKeys.reloadWindow();
 			await sessions.expectNoStartUpMessaging();
 			await page.waitForTimeout(3000); // extra time to ensure the prompt is not shown
-			await toasts.expectImportPromptToBeVisible(false);
+			await toasts.expectImportSettingsToastToBeVisible(false);
 		});
 	});
 

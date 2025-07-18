@@ -53,22 +53,29 @@ export class Toasts {
 	}
 
 	// --- Verifications ---
-	async expectToBeVisible(title: string | RegExp, timeoutMs = 3000) {
-		await test.step(`Verify toast visible: ${title}`, async () => {
-			await expect(this.toastNotification.filter({ hasText: title })).toBeVisible({ timeout: timeoutMs });
+
+	async expectToBeVisible(title?: string | RegExp, timeoutMs = 3000) {
+		await test.step(`Verify toast ${title ? `visible: ${title}` : 'visible'}`, async () => {
+			if (title) {
+				await expect(this.toastNotification.filter({ hasText: title })).toBeVisible({ timeout: timeoutMs });
+			} else {
+				await expect(this.toastNotification).toBeVisible({ timeout: timeoutMs });
+			}
 		});
 	}
 
-	async expectImportPromptToBeVisible(visible = true) {
-		const buttons = [
-			this.toastNotification.getByRole('button', { name: 'Compare settings' }),
-			this.toastNotification.getByRole('button', { name: 'Later' }),
-			this.toastNotification.getByRole('button', { name: "Don't Show Again" }),
-		];
+	async expectImportSettingsToastToBeVisible(visible = true) {
+		await test.step(`Verify import settings toast is ${visible ? '' : 'NOT'} visible`, async () => {
+			const buttons = [
+				this.toastNotification.getByRole('button', { name: 'Compare settings' }),
+				this.toastNotification.getByRole('button', { name: 'Later' }),
+				this.toastNotification.getByRole('button', { name: "Don't Show Again" }),
+			];
 
-		for (const btn of buttons) {
-			visible ? await expect(btn).toBeVisible() : await expect(btn).not.toBeVisible();
-		}
+			for (const btn of buttons) {
+				visible ? await expect(btn).toBeVisible() : await expect(btn).not.toBeVisible();
+			}
+		});
 	}
 
 	async expectNotToBeVisible(timeoutMs = 3000) {

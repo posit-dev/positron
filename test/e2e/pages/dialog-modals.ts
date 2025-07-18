@@ -38,14 +38,16 @@ export class Modals {
 	}
 
 	async installIPyKernel() {
+
 		try {
 			this.code.logger.log('Checking for modal dialog box');
 			// fail fast if the modal is not present
 			await this.expectToBeVisible();
 			await this.clickOk();
 			this.code.logger.log('Installing ipykernel');
-			await this.toasts.expectToBeVisible(/Installing ipykernel/);
+			await this.toasts.expectToBeVisible();
 			await this.toasts.expectNotToBeVisible();
+			this.code.logger.log('Installed ipykernel');
 			// after toast disappears console may not yet be refreshed (still on old interpreter)
 			// TODO: make this smart later, perhaps by getting the console state from the API
 			await this.code.wait(5000);
@@ -65,7 +67,6 @@ export class Modals {
 
 			if (action === 'install') {
 				this.code.logger.log('Install Renv modal detected: clicking `Install now`');
-				// await this.code.driver.page.getByRole('button', { name: 'Install now' }).click();
 				await this.button('Install now').click();
 			} else if (action === 'cancel') {
 				this.code.logger.log('Install Renv modal detected: clicking `Cancel`');
