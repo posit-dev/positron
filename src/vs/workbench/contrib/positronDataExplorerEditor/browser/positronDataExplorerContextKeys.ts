@@ -30,3 +30,7 @@ export const POSITRON_DATA_EXPLORER_IS_PLAINTEXT = new RawContextKey<boolean>(
 	'positronDataExplorerIsPlaintext',
 	false
 );
+export const POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED = new RawContextKey<boolean>(
+	'positronDataExplorerIsConvertToCodeEnabled',
+	false
+);
