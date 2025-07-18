@@ -27,7 +27,6 @@ from .access_keys import decode_access_key
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
-    CodeSyntaxFeatures,
     CodeSyntaxName,
     ColumnDisplayType,
     ColumnFilter,
@@ -48,6 +47,7 @@ from .data_explorer_comm import (
     ColumnSummaryStats,
     ColumnValue,
     ConvertedCode,
+    ConvertToCodeFeatures,
     ConvertToCodeRequest,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
@@ -816,9 +816,12 @@ class DataExplorerTableView:
             support_status=SupportStatus.Unsupported,
             supported_formats=[],
         ),
-        code_syntaxes=CodeSyntaxFeatures(
+        convert_to_code=ConvertToCodeFeatures(
             support_status=SupportStatus.Supported,
-            code_syntaxes=["pandas", "polars"],
+            code_syntaxes=[
+                CodeSyntaxName(code_syntax_name="pandas"),
+                CodeSyntaxName(code_syntax_name="polars"),
+            ],
         ),
     )
 
@@ -1937,8 +1940,9 @@ class PandasView(DataExplorerTableView):
                 ExportFormat.Html,
             ],
         ),
-        code_syntaxes=CodeSyntaxFeatures(
-            support_status=SupportStatus.Supported, code_syntaxes=["pandas"]
+        convert_to_code=ConvertToCodeFeatures(
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[CodeSyntaxName(code_syntax_name="pandas")],
         ),
     )
 
@@ -2801,8 +2805,9 @@ class PolarsView(DataExplorerTableView):
             supported_formats=[ExportFormat.Csv, ExportFormat.Tsv],
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
-        code_syntaxes=CodeSyntaxFeatures(
-            support_status=SupportStatus.Supported, code_syntaxes=["polars"]
+        convert_to_code=ConvertToCodeFeatures(
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[CodeSyntaxName(code_syntax_name="polars")],
         ),
     )
 

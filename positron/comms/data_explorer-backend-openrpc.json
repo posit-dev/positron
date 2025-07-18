@@ -298,7 +298,7 @@
 					],
 					"properties": {
 						"code_syntax_name": {
-							"$ref": "#/components/schemas/code_syntax_name",
+							"type": "string",
 							"description": "The name of the code syntax, eg, pandas, polars, dplyr, etc."
 						}
 					}

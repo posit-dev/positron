@@ -267,7 +267,7 @@ class CodeSyntaxName(BaseModel):
     Syntax to use for code conversion
     """
 
-    code_syntax_name: CodeSyntaxName = Field(
+    code_syntax_name: StrictStr = Field(
         description="The name of the code syntax, eg, pandas, polars, dplyr, etc.",
     )
 
