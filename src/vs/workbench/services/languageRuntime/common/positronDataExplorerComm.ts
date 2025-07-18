@@ -72,7 +72,7 @@ export interface CodeSyntaxName {
 	/**
 	 * The name of the code syntax, eg, pandas, polars, dplyr, etc.
 	 */
-	code_syntax_name: CodeSyntaxName;
+	code_syntax_name: string;
 
 }
 
