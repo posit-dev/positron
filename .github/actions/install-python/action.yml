@@ -20,6 +20,8 @@ runs:
 
     - name: Install uv
       uses: astral-sh/setup-uv@v5
+      with:
+        version: "0.7.22"
 
     - name: Install Python dependencies
       shell: bash
