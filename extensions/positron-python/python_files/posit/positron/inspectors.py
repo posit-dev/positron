@@ -1261,7 +1261,7 @@ def _get_default_display_value(value: Any, *, level: int = 0) -> tuple[str, bool
             display_value = object.__repr__(value)
         except Exception:
             try:
-                display_value = f"<no repr available for {get_qualname(value)}>"
+                display_value = f"<no preview available for {get_qualname(value)}>"
             except Exception:
                 display_value = "<no repr available for object>"
 
