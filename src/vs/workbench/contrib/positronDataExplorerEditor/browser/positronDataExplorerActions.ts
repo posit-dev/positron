@@ -18,7 +18,7 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
@@ -759,13 +759,12 @@ class PositronDataExplorerConvertToCodeAction extends Action2 {
 		super({
 			id: PositronDataExplorerCommandId.ConvertToCodeAction,
 			title: {
-				value: localize('positronDataExplorer.generateCode', 'Generate Code'),
-				original: 'Generate Code'
+				value: localize('positronDataExplorer.convertToCode', 'Convert to Code'),
+				original: 'Convert to Code'
 			},
 			category,
 			precondition: ContextKeyExpr.and(
 				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				IsDevelopmentContext
 			)
 		});
 	}
@@ -798,8 +797,8 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 		super({
 			id: PositronDataExplorerCommandId.ConvertToCodeModalAction,
 			title: {
-				value: localize('positronDataExplorer.copyAsCodeModal', 'Copy as Code'),
-				original: 'Copy as Code'
+				value: localize('positronDataExplorer.convertToCodeModal', 'Convert to Code'),
+				original: 'Convert to Code'
 			},
 			category,
 			positronActionBarOptions: {
@@ -808,19 +807,24 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 			},
 			f1: true,
 			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-				IsDevelopmentContext // hide this from release until implemented
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
 			),
 			icon: Codicon.code,
 			menu: [
 				{
 					id: MenuId.EditorActionsLeft,
-					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED
+					),
 				},
 				{
 					id: MenuId.EditorTitle,
 					group: 'navigation',
-					when: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED
+					),
 				}
 			]
 		});

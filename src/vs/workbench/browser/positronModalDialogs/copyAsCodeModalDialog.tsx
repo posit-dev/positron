@@ -12,7 +12,6 @@ import { ICommandService } from '../../../platform/commands/common/commands.js';
 import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
 import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
 import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
-import { PositronModalReactRenderer } from '../positronModalReactRenderer/positronModalReactRenderer.js';
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { IPositronDataExplorerInstance } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { PositronDataExplorerCommandId } from '../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
@@ -20,6 +19,7 @@ import { DropDownListBox } from '../positronComponents/dropDownListBox/dropDownL
 import { DropDownListBoxItem } from '../positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { DropdownEntry } from './components/dropdownEntry.js';
 import { CodeSyntaxName } from '../../services/languageRuntime/common/positronDataExplorerComm.js';
+import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Shows the convert to code modal dialog.

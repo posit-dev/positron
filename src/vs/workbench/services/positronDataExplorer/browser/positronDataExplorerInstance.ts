@@ -19,6 +19,8 @@ import { DataExplorerClientInstance } from '../../languageRuntime/common/languag
 import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
 import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerContextKeys.js';
+import { checkDataExplorerConvertToCodeEnabled } from '../common/positronDataExplorerCopyAsCodeConfig.js';
 
 /**
  * Constants.
@@ -133,6 +135,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		// Initialize the layout and summary collapsed state.
 		this._layout = DefaultDataExplorerSummaryLayout(this._services.configurationService);
 		this._isSummaryCollapsed = DataExplorerSummaryCollapseEnabled(this._services.configurationService);
+		this.updateConvertToCodeContext();
 
 		// Take ownership of the client instance.
 		this._register(this._dataExplorerClientInstance);
@@ -419,6 +422,17 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	async convertToCode(desiredSyntax: CodeSyntaxName): Promise<string | undefined> {
 		const generatedCode = await this._dataExplorerClientInstance.convertToCode(desiredSyntax);
 		return generatedCode.converted_code.join('\n');
+	}
+
+	/**
+	 * Determines if it is possible to run "Convert to code".
+	 */
+	private updateConvertToCodeContext(): void {
+		const isEnabled = checkDataExplorerConvertToCodeEnabled(this._services.configurationService);
+		this._services.contextKeyService.createKey(
+			POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED.key,
+			isEnabled
+		);
 	}
 
 	/**
