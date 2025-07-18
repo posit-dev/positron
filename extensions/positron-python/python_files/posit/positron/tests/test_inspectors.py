@@ -5,9 +5,6 @@
 import copy
 import datetime
 import inspect
-import pprint
-import random
-import string
 import sys
 import types
 from typing import Any, Callable, Iterable, Optional, Tuple
@@ -21,11 +18,8 @@ import torch
 from fastcore.foundation import L
 from shapely.geometry import Polygon
 
-from positron.inspectors import (
-    PRINT_WIDTH,
-    TRUNCATE_AT,
-    get_inspector,
-)
+from positron import inspectors
+from positron.inspectors import _get_simplified_qualname, get_inspector
 from positron.utils import get_qualname
 from positron.variables_comm import VariableKind
 
@@ -161,20 +155,6 @@ def test_inspect_string(value: str) -> None:
     )
 
 
-def test_inspect_string_truncated() -> None:
-    value = "".join(random.choices(string.ascii_letters, k=(TRUNCATE_AT + 10)))
-    length = len(value)
-    verify_inspector(
-        value=value,
-        display_value=f"'{value[:TRUNCATE_AT]}'",
-        kind=VariableKind.String,
-        display_type="str",
-        type_info="str",
-        length=length,
-        is_truncated=True,
-    )
-
-
 #
 # Test Numbers
 #
@@ -296,22 +276,6 @@ def test_inspect_bytearray(value: bytearray) -> None:
     )
 
 
-def test_inspect_bytearray_truncated() -> None:
-    value = bytearray(TRUNCATE_AT * 2)
-    length = len(value)
-    verify_inspector(
-        value=value,
-        display_value=str(value)[:TRUNCATE_AT],
-        kind=VariableKind.Bytes,
-        display_type=f"bytearray [{length}]",
-        type_info="bytearray",
-        length=length,
-        is_truncated=True,
-        mutable=True,
-        mutate=lambda x: x.append(0),
-    )
-
-
 def test_inspect_memoryview() -> None:
     byte_array = bytearray("東京", "utf-8")
     value = memoryview(byte_array)
@@ -388,26 +352,11 @@ def test_inspect_set(value: set) -> None:
     verify_inspector(
         value=value,
         is_truncated=False,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
+        display_value=repr(value),
         kind=VariableKind.Collection,
         display_type=f"set {{{length}}}",
         type_info="set",
         length=length,
-        supports_deepcopy=False,
-    )
-
-
-def test_inspect_set_truncated() -> None:
-    value = set(range(TRUNCATE_AT * 2))
-    length = len(value)
-    verify_inspector(
-        value=value,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[:TRUNCATE_AT],
-        kind=VariableKind.Collection,
-        display_type=f"set {{{length}}}",
-        type_info="set",
-        length=length,
-        is_truncated=True,
         supports_deepcopy=False,
     )
 
@@ -424,7 +373,6 @@ LIST_CASES = [
     BYTES_CASES,
     BYTEARRAY_CASES,
     STRING_CASES,
-    LIST_WITH_CYCLE,
 ]
 
 
@@ -434,28 +382,12 @@ def test_inspect_list(value: list) -> None:
     verify_inspector(
         value=value,
         is_truncated=False,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
+        display_value=repr(value),
         kind=VariableKind.Collection,
         display_type=f"list [{length}]",
         type_info="list",
         length=length,
         has_children=length > 0,
-        supports_deepcopy=False,
-    )
-
-
-def test_inspect_list_truncated() -> None:
-    value = list(range(TRUNCATE_AT * 2))
-    length = len(value)
-    verify_inspector(
-        value=value,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True)[:TRUNCATE_AT],
-        kind=VariableKind.Collection,
-        display_type=f"list [{length}]",
-        type_info="list",
-        length=length,
-        has_children=True,
-        is_truncated=True,
         supports_deepcopy=False,
     )
 
@@ -466,7 +398,7 @@ def test_inspect_range(value: range) -> None:
     verify_inspector(
         value=value,
         is_truncated=False,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
+        display_value=repr(value),
         kind=VariableKind.Collection,
         display_type=f"range [{length}]",
         type_info="range",
@@ -474,6 +406,8 @@ def test_inspect_range(value: range) -> None:
     )
 
 
+FASTCORE_LIST_WITH_CYCLE = L([1, 2])
+FASTCORE_LIST_WITH_CYCLE.append(FASTCORE_LIST_WITH_CYCLE)  # type: ignore
 FASTCORE_LIST_CASES = [
     L(),
     L(NONE_CASES),
@@ -493,7 +427,7 @@ def test_inspect_fastcore_list(value: L) -> None:
     verify_inspector(
         value=value,
         is_truncated=False,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
+        display_value=repr(value),
         kind=VariableKind.Collection,
         display_type=f"L [{length}]",
         type_info="fastcore.foundation.L",
@@ -526,7 +460,6 @@ MAP_CASES = [
     {"J": {1, 2, 3}},  # set value
     {"K": range(3)},  # range value
     {"L": {"L1": 1, "L2": 2, "L3": 3}},  # nested dict value
-    MAP_WITH_CYCLE,
 ]
 
 
@@ -536,7 +469,7 @@ def test_inspect_map(value: dict) -> None:
     verify_inspector(
         value=value,
         is_truncated=False,
-        display_value=pprint.pformat(value, width=PRINT_WIDTH, compact=True),
+        display_value=repr(value),
         kind=VariableKind.Map,
         display_type=f"dict [{length}]",
         type_info="dict",
@@ -736,61 +669,72 @@ def test_inspect_pandas_index(value: pd.Index) -> None:
 
     verify_inspector(
         value=value,
-        display_value=str(value.to_list() if not_range_index else value),
+        display_value=f"{_get_simplified_qualname(value)} {value.to_list()}"
+        if not_range_index
+        else repr(value),
         kind=VariableKind.Map,
         display_type=f"{value.dtype} [{rows}]",
         type_info=get_qualname(value),
         has_children=not_range_index,
-        is_truncated=not_range_index,
+        is_truncated=False,
         length=rows,
     )
 
 
-def test_inspect_pandas_series() -> None:
-    value = pd.Series({"a": 0, "b": 1})
+@pytest.mark.parametrize(
+    "value",
+    [
+        pd.Series({"a": 0, "b": 1}),
+    ],
+)
+def test_inspect_pandas_series(value: pd.Series) -> None:
     (rows,) = value.shape
 
     def mutate(x):
-        x["a"] = 1
+        x.iloc[0] = 1
 
     verify_inspector(
         value=value,
-        display_value="pandas.Series [0, 1]",
+        display_value=f"pandas.Series {value.to_list()!r}",
         kind=VariableKind.Table,
         display_type=f"int64 [{rows}]",
         type_info=get_type_as_str(value),
         has_children=True,
         has_viewer=True,
-        is_truncated=True,
+        is_truncated=False,
         length=rows,
         mutable=True,
         mutate=mutate,
     )
 
 
-def test_inspect_geopandas_series() -> None:
-    import geopandas
-    from shapely.geometry import Polygon
-
-    p1 = Polygon([(0, 0), (1, 0), (1, 1)])
-    p2 = Polygon([(0, 0), (1, 0), (1, 1), (0, 1)])
-    p3 = Polygon([(2, 0), (3, 0), (3, 1), (2, 1)])
-    value = geopandas.GeoSeries([p1, p2, p3])
-
+@pytest.mark.parametrize(
+    "value",
+    [
+        geopandas.GeoSeries(
+            [
+                Polygon([(0, 0), (1, 0), (1, 1)]),
+                Polygon([(0, 0), (1, 0), (1, 1), (0, 1)]),
+                Polygon([(2, 0), (3, 0), (3, 1), (2, 1)]),
+            ]
+        ),
+    ],
+)
+def test_inspect_geopandas_series(value: geopandas.GeoSeries) -> None:
     (rows,) = value.shape
 
     def mutate(x):
-        x[0] = p2
+        x.iloc[0] = x.iloc[1]
 
     verify_inspector(
         value=value,
-        display_value=f"geopandas.GeoSeries {[p1, p2, p3]!r}",
+        display_value=f"geopandas.GeoSeries {value.to_list()!r}",
         kind=VariableKind.Table,
         display_type=f"geometry [{rows}]",
         type_info=get_type_as_str(value),
         has_children=True,
         has_viewer=True,
-        is_truncated=True,
+        is_truncated=False,
         length=rows,
         mutable=True,
         mutate=mutate,
@@ -815,8 +759,13 @@ def test_inspect_pandas_series_duplicate_labels() -> None:
     assert inspector.get_display_name(3) == "1"
 
 
-def test_inspect_polars_dataframe() -> None:
-    value = pl.DataFrame({"a": [1, 2], "b": [3, 4]})
+@pytest.mark.parametrize(
+    "value",
+    [
+        pl.DataFrame({"a": [1, 2], "b": [3, 4]}),
+    ],
+)
+def test_inspect_polars_dataframe(value: pl.DataFrame) -> None:
     rows, cols = value.shape
     verify_inspector(
         value=value,
@@ -829,12 +778,17 @@ def test_inspect_polars_dataframe() -> None:
         is_truncated=True,
         length=rows,
         mutable=True,
-        mutate=lambda x: x.drop_in_place("a"),
+        mutate=lambda x: x.drop_in_place(x.columns[0]),
     )
 
 
-def test_inspect_polars_series() -> None:
-    value = pl.Series([0, 1])
+@pytest.mark.parametrize(
+    "value",
+    [
+        pl.Series([0, 1]),
+    ],
+)
+def test_inspect_polars_series(value: pl.Series) -> None:
     (rows,) = value.shape
 
     def mutate(x):
@@ -842,12 +796,12 @@ def test_inspect_polars_series() -> None:
 
     verify_inspector(
         value=value,
-        display_value="polars.Series [0, 1]",
+        display_value=f"polars.Series {value.to_list()!r}",
         kind=VariableKind.Map,
         display_type=f"Int64 [{rows}]",
         type_info=get_type_as_str(value),
         has_children=True,
-        is_truncated=True,
+        is_truncated=False,
         length=rows,
         mutable=True,
         mutate=mutate,
@@ -980,3 +934,60 @@ def test_arrays_maps_get_size(value: Any, expected: int) -> None:
         return
     inspector = get_inspector(value)
     assert inspector.get_size() == expected
+
+
+class VeryLongClassNameThatShouldDefinitelyBeTruncatedBecauseItIsWayTooLong:
+    pass
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        pytest.param("The quick brown fox jumps over the lazy dog", id="string"),
+        pytest.param(sys.maxsize * 100, id="int"),
+        pytest.param(sys.float_info.max, id="float"),
+        pytest.param(complex(sys.float_info.min, sys.float_info.max), id="complex"),
+        pytest.param(
+            VeryLongClassNameThatShouldDefinitelyBeTruncatedBecauseItIsWayTooLong, id="class"
+        ),
+        pytest.param(b"The quick brown fox jumps over the lazy dog", id="bytes"),
+        pytest.param(bytearray(b"The quick brown fox jumps over the lazy dog"), id="bytearray"),
+        pytest.param(set(range(20)), id="set"),
+        pytest.param(frozenset(range(20)), id="frozenset"),
+        pytest.param(list(range(20)), id="list"),
+        pytest.param(LIST_WITH_CYCLE, id="list_cycle"),
+        pytest.param(range(12345678901), id="range"),
+        pytest.param(L(range(20)), id="fastcore_list"),
+        pytest.param(FASTCORE_LIST_WITH_CYCLE, id="fastcore_list_cycle"),
+        pytest.param({str(i): i for i in range(20)}, id="map"),
+        pytest.param(MAP_WITH_CYCLE, id="map_cycle"),
+        pytest.param(
+            datetime.datetime(2021, 1, 1, 1, 23, 45, tzinfo=datetime.timezone.utc),
+            id="timestamp_datetime",
+        ),
+        pytest.param(pd.Timestamp("2021-01-01 01:23:45"), id="timestamp_pandas"),
+        pytest.param(pd.Index(list(range(20))), id="pandas_index"),
+        pytest.param(pd.Series(list(range(20))), id="pandas_series"),
+        pytest.param(
+            pd.DataFrame({"a": list(range(20)), "b": list(range(20))}), id="pandas_dataframe"
+        ),
+        pytest.param(pl.Series(list(range(20))), id="polars_series"),
+        pytest.param(
+            pl.DataFrame({"a": list(range(20)), "b": list(range(20))}), id="polars_dataframe"
+        ),
+        pytest.param(np.ones((20, 20)), id="numpy_array"),
+        pytest.param(torch.ones((20, 20)), id="torch_tensor"),
+    ],
+)
+def test_truncated_display_value(value, snapshot, monkeypatch) -> None:
+    # Patch the maximum string length for faster and more readable tests.
+    monkeypatch.setattr(inspectors, "MAX_ITEMS_BY_LEVEL", (20, 10))
+    monkeypatch.setattr(inspectors, "MAX_CHARACTERS", 20)
+    monkeypatch.setattr(inspectors, "MAX_CHARACTERS_NESTED", 10)
+
+    for _ in range(3):
+        display_value, is_truncated = get_inspector(value).get_display_value()
+        assert display_value == snapshot
+        assert is_truncated, f"Expected value to be truncated: {value!r}, got {display_value!r}"
+
+        value = [value]

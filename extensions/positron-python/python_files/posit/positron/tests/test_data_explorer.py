@@ -55,8 +55,8 @@ from ..data_explorer_comm import (
 )
 from ..utils import guid
 from .conftest import DummyComm, PositronShell
-from .test_variables import BIG_ARRAY_LENGTH
-from .utils import json_rpc_notification, json_rpc_request
+from .test_variables import BIG_ARRAY_LENGTH, _assign_variables
+from .utils import dummy_rpc_request, json_rpc_notification, json_rpc_request
 
 TARGET_NAME = "positron.dataExplorer"
 
@@ -143,13 +143,9 @@ def test_service_properties(de_service: DataExplorerService):
     assert de_service.comm_target == TARGET_NAME
 
 
-def _dummy_rpc_request(*args):
-    return json_rpc_request(*args, comm_id="dummy_comm_id")
-
-
-def _open_viewer(variables_comm, path):
+def _open_viewer(variables_comm: DummyComm, path: list[str]):
     path = [encode_access_key(p) for p in path]
-    msg = _dummy_rpc_request("view", {"path": path})
+    msg = dummy_rpc_request("view", {"path": path})
     variables_comm.handle_msg(msg)
     # We should get a string back as a result, naming the ID of the viewer comm
     # that was opened
@@ -191,15 +187,6 @@ def test_explorer_open_close_delete(
     assert len(de_service.table_views) == 0
 
 
-def _assign_variables(shell: PositronShell, variables_comm: DummyComm, **variables):
-    # A hack to make sure that change events are fired when we
-    # manipulate user_ns
-    shell.kernel.variables_service.snapshot_user_ns()
-    shell.user_ns.update(**variables)
-    shell.kernel.variables_service.poll_variables()
-    variables_comm.messages.clear()
-
-
 def test_explorer_delete_variable(
     shell: PositronShell,
     de_service: DataExplorerService,
@@ -226,7 +213,7 @@ def test_explorer_delete_variable(
 
     # Delete x, check cleaned up and
     def _check_delete_variable(name):
-        msg = _dummy_rpc_request("delete", {"names": [name]})
+        msg = dummy_rpc_request("delete", {"names": [name]})
 
         paths = de_service.get_paths_for_variable(name)
         assert len(paths) > 0

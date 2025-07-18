@@ -105,6 +105,28 @@ class FormattedVariable(BaseModel):
     )
 
 
+class QueryTableSummaryResult(BaseModel):
+    """
+    Result of the summarize operation
+    """
+
+    num_rows: StrictInt = Field(
+        description="The total number of rows in the table.",
+    )
+
+    num_columns: StrictInt = Field(
+        description="The total number of columns in the table.",
+    )
+
+    column_schemas: List[StrictStr] = Field(
+        description="The column schemas in the table.",
+    )
+
+    column_profiles: List[StrictStr] = Field(
+        description="The column profiles in the table.",
+    )
+
+
 class Variable(BaseModel):
     """
     A single variable in the runtime.
@@ -182,6 +204,9 @@ class VariablesBackendRequest(str, enum.Enum):
 
     # Request a viewer for a variable
     View = "view"
+
+    # Query table summary
+    QueryTableSummary = "query_table_summary"
 
 
 class ListRequest(BaseModel):
@@ -352,6 +377,39 @@ class ViewRequest(BaseModel):
     )
 
 
+class QueryTableSummaryParams(BaseModel):
+    """
+    Request a data summary for a table variable.
+    """
+
+    path: List[StrictStr] = Field(
+        description="The path to the table to summarize, as an array of access keys.",
+    )
+
+    query_types: List[StrictStr] = Field(
+        description="A list of query types.",
+    )
+
+
+class QueryTableSummaryRequest(BaseModel):
+    """
+    Request a data summary for a table variable.
+    """
+
+    params: QueryTableSummaryParams = Field(
+        description="Parameters to the QueryTableSummary method",
+    )
+
+    method: Literal[VariablesBackendRequest.QueryTableSummary] = Field(
+        description="The JSON-RPC method name (query_table_summary)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class VariablesBackendMessageContent(BaseModel):
     comm_id: str
     data: Union[
@@ -361,6 +419,7 @@ class VariablesBackendMessageContent(BaseModel):
         InspectRequest,
         ClipboardFormatRequest,
         ViewRequest,
+        QueryTableSummaryRequest,
     ] = Field(..., discriminator="method")
 
 
@@ -423,6 +482,8 @@ InspectedVariable.update_forward_refs()
 
 FormattedVariable.update_forward_refs()
 
+QueryTableSummaryResult.update_forward_refs()
+
 Variable.update_forward_refs()
 
 ListRequest.update_forward_refs()
@@ -446,6 +507,10 @@ ClipboardFormatRequest.update_forward_refs()
 ViewParams.update_forward_refs()
 
 ViewRequest.update_forward_refs()
+
+QueryTableSummaryParams.update_forward_refs()
+
+QueryTableSummaryRequest.update_forward_refs()
 
 UpdateParams.update_forward_refs()
 
