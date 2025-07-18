@@ -38,9 +38,24 @@ export class Terminal {
 
 		await expect(async () => {
 
-			await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
-			await this.hotKeys.selectAll();
-			await this.hotKeys.copy();
+			// since we are interacting with right click menus, don't poll too fast
+			await this.code.wait(2000);
+
+			if (process.platform !== 'darwin') {
+				await this.handleContextMenu(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Select All');
+			} else {
+				await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
+				await this.code.driver.page.keyboard.press('Meta+A');
+			}
+
+			// wait a little between selection and copy
+			await this.code.wait(1000);
+
+			if (process.platform !== 'darwin') {
+				await this.handleContextMenu(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Copy');
+			} else {
+				await this.code.driver.page.keyboard.press('Meta+C');
+			}
 
 			const text = await this.clipboard.getClipboardText();
 
@@ -114,5 +129,25 @@ export class Terminal {
 			this.code.logger.log(terminalContents);
 			this.code.logger.log('---- END: Terminal Contents ----');
 		});
+	}
+
+	/**
+	 * Right clicks and selects a menu item, waiting for menu dismissal.
+	 * @param locator Where to right click to get a context menu
+	 * @param action Which action to perform on the context menu
+	 */
+	async handleContextMenu(locator: Locator, action: 'Select All' | 'Copy' | 'Paste') {
+		await locator.click({ button: 'right' });
+		const menu = this.code.driver.page.locator('.monaco-menu');
+
+		// dismissing dialog can be erratic, allow retries
+		for (let i = 0; i < 4; i++) {
+			try {
+				await menu.locator(`[aria-label="${action}"]`).click();
+				await expect(menu).toBeHidden({ timeout: 2000 });
+				break;
+			} catch {
+			}
+		}
 	}
 }
