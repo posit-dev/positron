@@ -21,14 +21,14 @@ import { DropDownListBoxItem } from '../positronComponents/dropDownListBox/dropD
 import { DropdownEntry } from './components/dropdownEntry.js';
 
 /**
- * Shows the copy as code modal dialog.
+ * Shows the convert to code modal dialog.
  * @param commandService The command service.
  * @param keybindingService The keybinding service.
  * @param layoutService The layout service.
  * @param dataExplorerClientInstance The data explorer client instance.
  * @returns A promise that resolves when the dialog is closed.
  */
-export const showCopyAsCodeModalDialog = async (
+export const showConvertToCodeModalDialog = async (
 	commandService: ICommandService,
 	keybindingService: IKeybindingService,
 	layoutService: IWorkbenchLayoutService,
@@ -43,7 +43,7 @@ export const showCopyAsCodeModalDialog = async (
 
 	// Show the copy as code dialog.
 	renderer.render(
-		<NewCopyAsCodeModalDialog
+		<ConvertToCodeModalDialog
 			commandService={commandService}
 			dataExplorerClientInstance={dataExplorerClientInstance}
 			keybindingService={keybindingService}
@@ -70,19 +70,21 @@ interface CopyAsCodeDialogProps {
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const CopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
+export const ConvertToCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 	// State hooks.
 	const instance = props.dataExplorerClientInstance.dataExplorerClientInstance;
 	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.code_syntaxes.code_syntaxes ?? [];
 
-	const [selectedSyntax, setSelectedSyntax] = useState<string>(instance.suggestedSyntax?.code_syntax_name ?? 'Select Code Syntax');
+	const [selectedSyntax, setSelectedSyntax] = useState<string>(
+		instance.suggestedSyntax?.code_syntax_name ?? localize('selectCodeSyntax', 'Select Code Syntax')
+	);
 
 	const [codeString, setCodeString] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		const getCodeString = async () => {
 			// Execute the command to get the code string based on the selected syntax.
-			const codeString = await props.commandService.executeCommand(PositronDataExplorerCommandId.CopyAsCodeAction, selectedSyntax);
+			const codeString = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, selectedSyntax);
 			setCodeString(codeString);
 		}
 		getCodeString();
@@ -105,17 +107,12 @@ export const CopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 		);
 	};
 
-	// Construct the syntax dropdown title.
-	const syntaxDropdownTitle = () => {
-		return selectedSyntax;
-	};
-
 	const onSelectionChanged = async (item: DropDownListBoxItem<string, string>) => {
 		const typedItem = item as DropDownListBoxItem<string, string>;
 		setSelectedSyntax(typedItem.options.identifier);
 
 		// Execute the command to get the code string based on the selected syntax.
-		const exc = await props.commandService.executeCommand(PositronDataExplorerCommandId.CopyAsCodeAction, typedItem.options.identifier)
+		const exc = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, typedItem.options.identifier)
 		setCodeString(exc);
 	};
 
@@ -126,8 +123,8 @@ export const CopyAsCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 			height={300}
 			renderer={props.renderer}
 			title={(() => localize(
-				'positronCopyAsCodeModalDialogTitle',
-				"Copy as Code"
+				'positronConvertToCodeModalDialogTitle',
+				"Convert to Code"
 			))()}
 			width={400}
 			onAccept={async () => {

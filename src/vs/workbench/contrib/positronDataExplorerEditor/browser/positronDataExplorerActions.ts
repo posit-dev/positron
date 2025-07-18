@@ -25,10 +25,11 @@ import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
-import { copyAsCodeModalDialog } from '../../../browser/positronModalDialogs/copyAsCodeModalDialog.js';
+import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/copyAsCodeModalDialog.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
+import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 
 /**
  * Positron data explorer action category.
@@ -58,8 +59,8 @@ export const enum PositronDataExplorerCommandId {
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
 	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
-	CopyAsCodeAction = 'workbench.action.positronDataExplorer.copyAsCode',
-	CopyAsCodeModalAction = 'workbench.action.positronDataExplorer.copyAsCodeModal',
+	ConvertToCodeAction = 'workbench.action.positronDataExplorer.convertToCode',
+	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
 }
 
 /**
@@ -78,6 +79,58 @@ export const getPositronDataExplorerEditorFromEditorPane = (
 
 	// The editor pane is not a Positron data explorer editor.
 	return undefined;
+};
+
+const getPositronDataExplorerInstance = async (
+	accessor: ServicesAccessor
+): Promise<IPositronDataExplorerInstance | undefined> => {
+	// Access the services we need.
+	const editorService = accessor.get(IEditorService);
+	const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+	const notificationService = accessor.get(INotificationService);
+
+	/**
+	 * Notifies the user that no data explorer instance was found.
+	 */
+	const notifyUserThatDataExplorerNotFound = () => {
+		// Notify the user.
+		notificationService.notify({
+			severity: Severity.Error,
+			message: localize(
+				'positron.dataExplorer.noActiveDataExplorer',
+				"No Positron Data Explorer found."
+			),
+			sticky: false
+		});
+	};
+	// Get the Positron data explorer editor.
+	const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+		editorService.activeEditorPane
+	);
+
+	// Make sure that the Positron data explorer editor was returned.
+	if (!positronDataExplorerEditor) {
+		notifyUserThatDataExplorerNotFound();
+		return;
+	}
+
+	// Get the identifier.
+	const identifier = positronDataExplorerEditor.identifier;
+
+	// Make sure the identifier was returned.
+	if (!identifier) {
+		notifyUserThatDataExplorerNotFound();
+		return;
+	}
+	const positronDataExplorerInstance = positronDataExplorerService.getInstance(identifier);
+
+	if (!positronDataExplorerInstance) {
+		notifyUserThatDataExplorerNotFound();
+		return;
+	}
+
+	// Get the Positron data explorer instance.
+	return positronDataExplorerInstance;
 };
 
 /**
@@ -695,15 +748,15 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 }
 
 /**
- * PositronDataExplorerExportToCodeAction action.
+ * PositronDataExplorerConvertToCodeAction action.
  */
-class PositronDataExplorerGenerateCodeAction extends Action2 {
+class PositronDataExplorerConvertToCodeAction extends Action2 {
 	/**
 	 * Constructor.
 	 */
 	constructor() {
 		super({
-			id: PositronDataExplorerCommandId.CopyAsCodeAction,
+			id: PositronDataExplorerCommandId.ConvertToCodeAction,
 			title: {
 				value: localize('positronDataExplorer.generateCode', 'Generate Code'),
 				original: 'Generate Code'
@@ -721,36 +774,10 @@ class PositronDataExplorerGenerateCodeAction extends Action2 {
 	 * @param accessor The services accessor.
 	 */
 	async run(accessor: ServicesAccessor, desiredSyntax: string): Promise<string | undefined> {
-		// Access the services we need.
-		const editorService = accessor.get(IEditorService);
-		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
 
-		// Get the Positron data explorer editor.
-		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
-			editorService.activeEditorPane
-		);
-
-		// Make sure that the Positron data explorer editor was returned.
-		if (!positronDataExplorerEditor) {
-			return;
-		}
-
-		// Get the identifier.
-		const identifier = positronDataExplorerEditor.identifier;
-
-		// Make sure the identifier was returned.
-		if (!identifier) {
-			return;
-		}
-
-		// Get the Positron data explorer instance.
-		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
-			identifier
-		);
-
-		// Make sure the Positron data explorer instance was returned.
 		if (!positronDataExplorerInstance) {
-			return;
+			return undefined;
 		}
 		const code = await positronDataExplorerInstance.convertToCode(desiredSyntax);
 
@@ -761,15 +788,15 @@ class PositronDataExplorerGenerateCodeAction extends Action2 {
 
 
 /**
- * The PositronDataExplorerCopyAsCodeModalAction.
+ * The PositronDataExplorerConvertToCodeModalAction.
  */
-class PositronDataExplorerCopyAsCodeModalAction extends Action2 {
+class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 	/**
 	 * Constructor.
 	 */
 	constructor() {
 		super({
-			id: PositronDataExplorerCommandId.CopyAsCodeModalAction,
+			id: PositronDataExplorerCommandId.ConvertToCodeModalAction,
 			title: {
 				value: localize('positronDataExplorer.copyAsCodeModal', 'Copy as Code'),
 				original: 'Copy as Code'
@@ -805,40 +832,16 @@ class PositronDataExplorerCopyAsCodeModalAction extends Action2 {
 	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		// Access the services we need.
-		const editorService = accessor.get(IEditorService);
-		const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
 		const commandService = accessor.get(ICommandService);
 		const keybindingService = accessor.get(IKeybindingService);
 		const layoutService = accessor.get(IWorkbenchLayoutService);
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
 
-		// Get the Positron data explorer editor.
-		const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
-			editorService.activeEditorPane
-		);
-
-		// Make sure that the Positron data explorer editor was returned.
-		if (!positronDataExplorerEditor) {
-			return;
-		}
-
-		// Get the identifier.
-		const identifier = positronDataExplorerEditor.identifier;
-
-		// Make sure the identifier was returned.
-		if (!identifier) {
-			return;
-		}
-
-		// Get the Positron data explorer instance.
-		const positronDataExplorerInstance = positronDataExplorerService.getInstance(
-			identifier
-		);
-
-		// Make sure the Positron data explorer instance was returned.
 		if (!positronDataExplorerInstance) {
-			return;
+			return undefined;
 		}
-		await copyAsCodeModalDialog(
+
+		await showConvertToCodeModalDialog(
 			commandService,
 			keybindingService,
 			layoutService,
@@ -846,6 +849,7 @@ class PositronDataExplorerCopyAsCodeModalAction extends Action2 {
 		);
 	}
 }
+
 /**
  * PositronDataExplorerOpenAsPlaintextAction action.
  */
@@ -945,6 +949,6 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
-	registerAction2(PositronDataExplorerGenerateCodeAction);
-	registerAction2(PositronDataExplorerCopyAsCodeModalAction);
+	registerAction2(PositronDataExplorerConvertToCodeAction);
+	registerAction2(PositronDataExplorerConvertToCodeModalAction);
 }
