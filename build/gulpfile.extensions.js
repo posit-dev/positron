@@ -150,7 +150,6 @@ const tasks = compilations.map(function (tsconfigFile) {
 				.pipe(util.loadSourcemaps())
 				.pipe(compilation())
 				.pipe(build ? util.stripSourceMappingURL() : es.through())
-				.pipe(build ? es.through() : util.stripImportStatements())
 				.pipe(sourcemaps.write('.', {
 					sourceMappingURL: !build ? null : f => `${baseUrl}/${f.relative}.map`,
 					addComment: !!build,
