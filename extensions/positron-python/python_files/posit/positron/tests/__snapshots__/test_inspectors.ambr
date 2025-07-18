@@ -1,0 +1,306 @@
+# serializer version: 1
+# name: test_truncated_display_value[bytearray]
+  "bytearray(b'The quick bro…zy dog')"
+# ---
+# name: test_truncated_display_value[bytearray].1
+  "[bytearray(b'The qu…dog')]"
+# ---
+# name: test_truncated_display_value[bytearray].2
+  "[[bytearray(b'The qu…dog')]]"
+# ---
+# name: test_truncated_display_value[bytes]
+  "b'The quick bro…zy dog'"
+# ---
+# name: test_truncated_display_value[bytes].1
+  "[b'The qu…dog']"
+# ---
+# name: test_truncated_display_value[bytes].2
+  "[[b'The qu…dog']]"
+# ---
+# name: test_truncated_display_value[class]
+  "<class 'posit…Long'>"
+# ---
+# name: test_truncated_display_value[class].1
+  "[<class…g'>]"
+# ---
+# name: test_truncated_display_value[class].2
+  "[[<class…g'>]]"
+# ---
+# name: test_truncated_display_value[complex]
+  '(2.2250738585…+308j)'
+# ---
+# name: test_truncated_display_value[complex].1
+  '[(2.225…8j)]'
+# ---
+# name: test_truncated_display_value[complex].2
+  '[[(2.225…8j)]]'
+# ---
+# name: test_truncated_display_value[fastcore_list]
+  '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, …]'
+# ---
+# name: test_truncated_display_value[fastcore_list].1
+  '[[0, 1, 2, 3, 4, 5, 6, 7, 8, …]]'
+# ---
+# name: test_truncated_display_value[fastcore_list].2
+  '[[[…]]]'
+# ---
+# name: test_truncated_display_value[fastcore_list_cycle]
+  '[1, 2, […]]'
+# ---
+# name: test_truncated_display_value[fastcore_list_cycle].1
+  '[[1, 2, […]]]'
+# ---
+# name: test_truncated_display_value[fastcore_list_cycle].2
+  '[[[…]]]'
+# ---
+# name: test_truncated_display_value[float]
+  '1.79769313486…7e+308'
+# ---
+# name: test_truncated_display_value[float].1
+  '[1.7976…308]'
+# ---
+# name: test_truncated_display_value[float].2
+  '[[1.7976…308]]'
+# ---
+# name: test_truncated_display_value[frozenset]
+  '{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, …}'
+# ---
+# name: test_truncated_display_value[frozenset].1
+  '[{0, 1, 2, 3, 4, 5, 6, 7, 8, …}]'
+# ---
+# name: test_truncated_display_value[frozenset].2
+  '[[{…}]]'
+# ---
+# name: test_truncated_display_value[int]
+  '9223372036854…580700'
+# ---
+# name: test_truncated_display_value[int].1
+  '[922337…700]'
+# ---
+# name: test_truncated_display_value[int].2
+  '[[922337…700]]'
+# ---
+# name: test_truncated_display_value[list]
+  '[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, …]'
+# ---
+# name: test_truncated_display_value[list].1
+  '[[0, 1, 2, 3, 4, 5, 6, 7, 8, …]]'
+# ---
+# name: test_truncated_display_value[list].2
+  '[[[…]]]'
+# ---
+# name: test_truncated_display_value[list_cycle]
+  '[1, 2, […]]'
+# ---
+# name: test_truncated_display_value[list_cycle].1
+  '[[1, 2, […]]]'
+# ---
+# name: test_truncated_display_value[list_cycle].2
+  '[[[…]]]'
+# ---
+# name: test_truncated_display_value[map]
+  "{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, '9': 9, '10': 10, '11': 11, '12': 12, '13': 13, '14': 14, '15': 15, '16': 16, '17': 17, '18': 18, …}"
+# ---
+# name: test_truncated_display_value[map].1
+  "[{'0': 0, '1': 1, '2': 2, '3': 3, '4': 4, '5': 5, '6': 6, '7': 7, '8': 8, …}]"
+# ---
+# name: test_truncated_display_value[map].2
+  '[[{…}]]'
+# ---
+# name: test_truncated_display_value[map_cycle]
+  "{'cycle': {…}}"
+# ---
+# name: test_truncated_display_value[map_cycle].1
+  "[{'cycle': {…}}]"
+# ---
+# name: test_truncated_display_value[map_cycle].2
+  '[[{…}]]'
+# ---
+# name: test_truncated_display_value[numpy_array]
+  '''
+  [[1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   ...,
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.]]
+  '''
+# ---
+# name: test_truncated_display_value[numpy_array].1
+  '''
+  [[[1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   ...,
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.],
+   [1.,1.,1.,1.,1.,1.,1.,1.,1.,...,1.,1.,1.,1.,1.,1.,1.,1.,1.]]]
+  '''
+# ---
+# name: test_truncated_display_value[numpy_array].2
+  '[[numpy.array(…)]]'
+# ---
+# name: test_truncated_display_value[pandas_dataframe]
+  '[20 rows x 2 …aFrame'
+# ---
+# name: test_truncated_display_value[pandas_dataframe].1
+  '[[20 ro…ame]'
+# ---
+# name: test_truncated_display_value[pandas_dataframe].2
+  '[[[20 ro…ame]]'
+# ---
+# name: test_truncated_display_value[pandas_index]
+  'pandas.Index [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, …]'
+# ---
+# name: test_truncated_display_value[pandas_index].1
+  '[pandas.Index [0, 1, 2, 3, 4, 5, 6, 7, 8, …]]'
+# ---
+# name: test_truncated_display_value[pandas_index].2
+  '[[pandas.Index […]]]'
+# ---
+# name: test_truncated_display_value[pandas_series]
+  'pandas.Series [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, …]'
+# ---
+# name: test_truncated_display_value[pandas_series].1
+  '[pandas.Series [0, 1, 2, 3, 4, 5, 6, 7, 8, …]]'
+# ---
+# name: test_truncated_display_value[pandas_series].2
+  '[[pandas.Series […]]]'
+# ---
+# name: test_truncated_display_value[polars_dataframe]
+  '[20 rows x 2 …aFrame'
+# ---
+# name: test_truncated_display_value[polars_dataframe].1
+  '[[20 ro…ame]'
+# ---
+# name: test_truncated_display_value[polars_dataframe].2
+  '[[[20 ro…ame]]'
+# ---
+# name: test_truncated_display_value[polars_series]
+  'polars.Series [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, …]'
+# ---
+# name: test_truncated_display_value[polars_series].1
+  '[polars.Series [0, 1, 2, 3, 4, 5, 6, 7, 8, …]]'
+# ---
+# name: test_truncated_display_value[polars_series].2
+  '[[polars.Series […]]]'
+# ---
+# name: test_truncated_display_value[range]
+  'range(0, 1234…78901)'
+# ---
+# name: test_truncated_display_value[range].1
+  '[range(…01)]'
+# ---
+# name: test_truncated_display_value[range].2
+  '[[range(…01)]]'
+# ---
+# name: test_truncated_display_value[set]
+  '{0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, …}'
+# ---
+# name: test_truncated_display_value[set].1
+  '[{0, 1, 2, 3, 4, 5, 6, 7, 8, …}]'
+# ---
+# name: test_truncated_display_value[set].2
+  '[[{…}]]'
+# ---
+# name: test_truncated_display_value[string]
+  "'The quick bro…zy dog'"
+# ---
+# name: test_truncated_display_value[string].1
+  "['The qu…dog']"
+# ---
+# name: test_truncated_display_value[string].2
+  "[['The qu…dog']]"
+# ---
+# name: test_truncated_display_value[timestamp_datetime]
+  'datetime.date…e.utc)'
+# ---
+# name: test_truncated_display_value[timestamp_datetime].1
+  '[dateti…tc)]'
+# ---
+# name: test_truncated_display_value[timestamp_datetime].2
+  '[[dateti…tc)]]'
+# ---
+# name: test_truncated_display_value[timestamp_pandas]
+  "Timestamp('20…3:45')"
+# ---
+# name: test_truncated_display_value[timestamp_pandas].1
+  "[Timest…5')]"
+# ---
+# name: test_truncated_display_value[timestamp_pandas].2
+  "[[Timest…5')]]"
+# ---
+# name: test_truncated_display_value[torch_tensor]
+  '''
+  [[1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          ...,
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.]]
+  '''
+# ---
+# name: test_truncated_display_value[torch_tensor].1
+  '''
+  [[[1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          ...,
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.],
+          [1., 1., 1., 1., 1., 1., 1., 1., 1.,  ..., 1., 1., 1., 1., 1., 1., 1., 1., 1.]]]
+  '''
+# ---
+# name: test_truncated_display_value[torch_tensor].2
+  '[[torch.Tensor(…)]]'
+# ---
