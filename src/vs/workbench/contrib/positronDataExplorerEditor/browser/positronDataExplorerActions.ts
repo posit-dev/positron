@@ -25,7 +25,7 @@ import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
-import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/copyAsCodeModalDialog.js';
+import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/convertToCodeModalDialog.js';
 import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';

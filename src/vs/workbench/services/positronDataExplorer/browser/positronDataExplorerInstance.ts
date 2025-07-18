@@ -20,7 +20,7 @@ import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } 
 import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED } from '../../../contrib/positronDataExplorerEditor/browser/positronDataExplorerContextKeys.js';
-import { checkDataExplorerConvertToCodeEnabled } from '../common/positronDataExplorerCopyAsCodeConfig.js';
+import { checkDataExplorerConvertToCodeEnabled } from '../common/positronDataExplorerConvertToCodeConfig.js';
 
 /**
  * Constants.

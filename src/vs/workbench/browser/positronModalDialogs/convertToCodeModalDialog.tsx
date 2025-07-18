@@ -51,9 +51,9 @@ export const showConvertToCodeModalDialog = async (
 };
 
 /**
- * CopyAsCodeDialogProps interface.
+ * ConvertToCodeDialogProps interface.
  */
-interface CopyAsCodeDialogProps {
+interface ConvertToCodeDialogProps {
 	commandService: ICommandService;
 	dataExplorerClientInstance: IPositronDataExplorerInstance
 	keybindingService: IKeybindingService;
@@ -63,11 +63,11 @@ interface CopyAsCodeDialogProps {
 
 
 /**
- * CopyAsCodeModalDialog component.
+ * ConvertToCodeModalDialog component.
  * @param props The component properties.
  * @returns The rendered component.
  */
-export const ConvertToCodeModalDialog = (props: CopyAsCodeDialogProps) => {
+export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 	// State hooks.
 	const instance = props.dataExplorerClientInstance.dataExplorerClientInstance;
 	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.convert_to_code.code_syntaxes ?? [];
