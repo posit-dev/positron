@@ -22,6 +22,7 @@ import { PositronVariablesInstance } from '../../../../services/positronVariable
 import { Variable, VariableKind } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IExecutionHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { IChatRequestRuntimeSessionEntry } from '../../common/chatVariableEntries.js';
+import { IChatContextPickerItem, IChatContextPickService, IChatContextValueItem } from '../../browser/chatContextPickService.js';
 
 // Mock runtime session
 class MockRuntimeSession implements ILanguageRuntimeSession {
@@ -230,6 +231,15 @@ class MockEditorService implements Partial<IEditorService> {
 	}
 }
 
+class MockContextPickService implements Partial<IChatContextPickService> {
+	registerChatContextItem(item: IChatContextValueItem | IChatContextPickerItem) {
+		// Mock implementation, no-op
+		return {
+			dispose: () => { /* no-op */ }
+		};
+	}
+}
+
 
 suite('ChatRuntimeSessionContext', () => {
 	const testDisposables = ensureNoDisposablesAreLeakedInTestSuite();
@@ -242,6 +252,7 @@ suite('ChatRuntimeSessionContext', () => {
 	let chatWidgetService: MockChatWidgetService;
 	let chatService: MockChatService;
 	let editorService: MockEditorService;
+	let contextPickService: MockContextPickService;
 
 	setup(() => {
 		instantiationService = testDisposables.add(new TestInstantiationService());
@@ -253,6 +264,7 @@ suite('ChatRuntimeSessionContext', () => {
 		testDisposables.add({ dispose: () => chatWidgetService.dispose() }); // Dispose chat widget service
 		chatService = new MockChatService();
 		editorService = new MockEditorService();
+		contextPickService = new MockContextPickService();
 
 		instantiationService.stub(IConfigurationService, configurationService);
 		instantiationService.stub(IRuntimeSessionService, runtimeSessionService as any);
@@ -261,6 +273,7 @@ suite('ChatRuntimeSessionContext', () => {
 		instantiationService.stub(IChatWidgetService, chatWidgetService as any);
 		instantiationService.stub(IChatService, chatService as any);
 		instantiationService.stub(IEditorService, editorService as any);
+		instantiationService.stub(IChatContextPickService, contextPickService as any);
 	});
 
 	suite('ChatRuntimeSessionContext class', () => {
