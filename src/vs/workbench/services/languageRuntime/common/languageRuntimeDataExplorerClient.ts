@@ -256,11 +256,8 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Initialize the guessed syntax
 		this.suggestCodeSyntax()?.then(syntax => {
-			if (syntax !== undefined) {
-				this.suggestedSyntax = syntax;
-			}
+			this.suggestedSyntax = syntax;
 		}).catch(() => {
-			// Handle error if suggestCodeSyntax fails
 			this.suggestedSyntax = undefined;
 		});
 	}
@@ -522,9 +519,8 @@ export class DataExplorerClientInstance extends Disposable {
 	 */
 	async convertToCode(desiredSyntax: string): Promise<ConvertedCode> {
 		const state = await this.getBackendState();
-		if (state.supported_features.code_syntaxes.support_status === SupportStatus.Unsupported) {
-			throw new Error('Code syntax conversion is not supported by the backend.');
-		}
+		await this.isSyntaxSupported(desiredSyntax, state);
+
 		const columnFilters: Array<ColumnFilter> = state.column_filters;
 		const rowFilters: Array<RowFilter> = state.row_filters;
 		const sortKeys: Array<ColumnSortKey> = state.sort_keys;
@@ -540,10 +536,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A promise that resolves to the available code syntaxes.
 	 */
 	async suggestCodeSyntax(): Promise<CodeSyntaxName | undefined> {
-		const state = await this.getBackendState();
-		if (state.supported_features.code_syntaxes.support_status === SupportStatus.Unsupported) {
-			throw new Error('Code syntax suggestions are not supported by the backend.');
-		}
+		await this.isSyntaxSupported();
 		return await this.runBackendTask(
 			() => this._backendClient.suggestCodeSyntax(),
 			() => undefined
@@ -554,6 +547,19 @@ export class DataExplorerClientInstance extends Disposable {
 	//#endregion Public Methods
 
 	//#region Private Methods
+
+	private async isSyntaxSupported(syntax?: string, backendState?: BackendState): Promise<void> {
+		const state = backendState || await this.getBackendState();
+		const supportedSyntaxes = state.supported_features.code_syntaxes.code_syntaxes;
+
+		if (state.supported_features.code_syntaxes.support_status === SupportStatus.Unsupported) {
+			throw new Error('Code syntax conversion is not supported by the backend.');
+		}
+
+		if (syntax && !supportedSyntaxes?.includes(syntax)) {
+			throw new Error(`Code syntax "${syntax}" is not supported by the backend.`);
+		}
+	}
 
 	private async runBackendTask<Type, F extends () => Promise<Type>,
 		Alt extends () => Type>(task: F, disconnectedResult: Alt) {
