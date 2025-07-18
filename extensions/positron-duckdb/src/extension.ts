@@ -1602,7 +1602,9 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 			path.basename(uri.path, '.gz') :
 			path.basename(uri.path);
 
-		await this.db.db.registerFileBuffer(virtualPath, fileContents);
+		// Use a tightly packed Uint8Array to avoid transfer issues
+		const fileBuffer = new Uint8Array(fileContents.buffer.slice(fileContents.byteOffset, fileContents.byteOffset + fileContents.byteLength));
+		await this.db.db.registerFileBuffer(virtualPath, fileBuffer);
 		try {
 			const baseExt = path.extname(virtualPath);
 			if (baseExt === '.parquet' || baseExt === '.parq') {
