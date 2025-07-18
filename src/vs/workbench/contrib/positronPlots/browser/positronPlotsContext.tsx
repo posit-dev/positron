@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2022-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2022-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import React, { PropsWithChildren, createContext, useContext } from 'react';
 
 // Other dependencies.
-import { PositronPlotsServices, PositronPlotsState, usePositronPlotsState } from './positronPlotsState.js';
+import { PositronPlotsState, usePositronPlotsState } from './positronPlotsState.js';
 
 /**
  * Create the Positron plots context.
@@ -17,9 +17,9 @@ const PositronPlotsContext = createContext<PositronPlotsState>(undefined!);
 /**
  * Export the PositronPlotsContextProvider provider
  */
-export const PositronPlotsContextProvider = (props: PropsWithChildren<PositronPlotsServices>) => {
+export const PositronPlotsContextProvider = (props: PropsWithChildren<{}>) => {
 	// Hooks.
-	const positronPlotsState = usePositronPlotsState(props);
+	const positronPlotsState = usePositronPlotsState();
 
 	// Render.
 	return (

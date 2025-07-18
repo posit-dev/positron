@@ -14,11 +14,11 @@ import * as nls from '../../../../../nls.js';
 import { IAction } from '../../../../../base/common/actions.js';
 import * as platform from '../../../../../base/common/platform.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
 import { IVariableGroup } from '../../../../services/positronVariables/common/interfaces/variableGroup.js';
-import { usePositronVariablesContext } from '../positronVariablesContext.js';
-import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { POSITRON_VARIABLES_COLLAPSE, POSITRON_VARIABLES_EXPAND } from '../positronVariablesIdentifiers.js';
+import { AnchorAlignment, AnchorAxisAlignment } from '../../../../../base/browser/ui/contextview/contextview.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { IPositronVariablesInstance } from '../../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 
 /**
  * VariableGroupProps interface.
@@ -41,7 +41,7 @@ interface VariableGroupProps {
  */
 export const VariableGroup = (props: VariableGroupProps) => {
 	// Context hooks.
-	const positronVariablesContext = usePositronVariablesContext();
+	const services = usePositronReactServicesContext();
 
 	/**
 	 * MouseDown handler for the row.
@@ -121,7 +121,7 @@ export const VariableGroup = (props: VariableGroupProps) => {
 		});
 
 		// Show the context menu.
-		positronVariablesContext.contextMenuService.showContextMenu({
+		services.contextMenuService.showContextMenu({
 			getActions: () => actions,
 			getAnchor: () => ({ x, y }),
 			anchorAlignment: AnchorAlignment.LEFT,

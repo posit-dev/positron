@@ -7,37 +7,14 @@
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { IHoverService } from '../../hover/browser/hover.js';
 import { unmnemonicLabel } from '../../../base/common/labels.js';
-import { IThemeService } from '../../theme/common/themeService.js';
 import { DisposableStore } from '../../../base/common/lifecycle.js';
-import { ICommandService } from '../../commands/common/commands.js';
 import { IHoverManager } from '../../hover/browser/hoverManager.js';
-import { ILayoutService } from '../../layout/browser/layoutService.js';
-import { IKeybindingService } from '../../keybinding/common/keybinding.js';
 import { CommandCenter } from '../../commandCenter/common/commandCenter.js';
 import { Action, IAction, Separator } from '../../../base/common/actions.js';
-import { IContextMenuService } from '../../contextview/browser/contextView.js';
+import { ContextKeyExpression } from '../../contextkey/common/contextkey.js';
 import { PositronActionBarHoverManager } from './positronActionBarHoverManager.js';
-import { IConfigurationService } from '../../configuration/common/configuration.js';
-import { IAccessibilityService } from '../../accessibility/common/accessibility.js';
-import { ContextKeyExpression, IContextKeyService } from '../../contextkey/common/contextkey.js';
-
-/**
- * PositronActionBarServices interface. Defines the set of services that are required by a Positron
- * action bar.
- */
-export interface PositronActionBarServices {
-	readonly accessibilityService: IAccessibilityService;
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
-	readonly contextMenuService: IContextMenuService;
-	readonly hoverService: IHoverService;
-	readonly keybindingService: IKeybindingService;
-	readonly layoutService: ILayoutService;
-	readonly themeService: IThemeService;
-}
+import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
 /**
  * CommandAction interface.
@@ -52,7 +29,7 @@ export interface CommandAction {
 /**
  * The Positron action bar state.
  */
-export interface PositronActionBarState extends PositronActionBarServices {
+export interface PositronActionBarState {
 	appendCommandAction(actions: IAction[], commandAction: CommandAction): void;
 	isCommandEnabled(commandId: string): boolean;
 	hoverManager: IHoverManager;
@@ -63,12 +40,11 @@ export interface PositronActionBarState extends PositronActionBarServices {
 
 /**
  * The usePositronActionBarState custom hook.
- * @param services A PositronActionBarServices that contains the Positron action bar services.
  * @returns The hook.
  */
-export const usePositronActionBarState = (
-	services: PositronActionBarServices
-): PositronActionBarState => {
+export const usePositronActionBarState = (): PositronActionBarState => {
+	// Hooks.
+	const services = usePositronReactServicesContext();
 	const [menuShowing, setMenuShowing] = useState(false);
 	const [focusableComponents] = useState(new Set<HTMLElement>());
 	const [hoverManager, setHoverManager] = useState<IHoverManager>(undefined!);
@@ -150,7 +126,6 @@ export const usePositronActionBarState = (
 
 	// Return the Positron top action bar state.
 	return {
-		...services,
 		appendCommandAction,
 		isCommandEnabled,
 		hoverManager,

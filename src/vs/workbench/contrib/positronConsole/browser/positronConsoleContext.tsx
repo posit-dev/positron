@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,7 +7,7 @@
 import React, { PropsWithChildren, createContext, useContext } from 'react';
 
 // Other dependencies.
-import { PositronConsoleServices, PositronConsoleState, usePositronConsoleState } from './positronConsoleState.js';
+import { PositronConsoleState, usePositronConsoleState } from './positronConsoleState.js';
 
 /**
  * Create the Positron console context.
@@ -17,9 +17,9 @@ const positronConsoleContext = createContext<PositronConsoleState>(undefined!);
 /**
  * Export the PositronConsoleContextProvider provider
  */
-export const PositronConsoleContextProvider = (props: PropsWithChildren<PositronConsoleServices>) => {
+export const PositronConsoleContextProvider = (props: PropsWithChildren<{}>) => {
 	// Hooks.
-	const positronConsoleState = usePositronConsoleState(props);
+	const positronConsoleState = usePositronConsoleState();
 
 	// Render.
 	return (

@@ -12,21 +12,20 @@ import React from 'react';
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { URI } from '../../../../../base/common/uri.js';
-import { isMacintosh } from '../../../../../base/common/platform.js';
-import { IWindowOpenable } from '../../../../../platform/window/common/window.js';
-import { IHostService } from '../../../../services/host/browser/host.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { ILabelService, Verbosity } from '../../../../../platform/label/common/label.js';
-import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
-import { OpenFolderAction } from '../../../actions/workspaceActions.js';
-import { CommandAction } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
-import { ContextKeyExpr, IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { ClearRecentWorkspacesAction } from '../../editor/workspaceActions.js';
-import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from '../../../../common/contextkeys.js';
-import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from '../../../../../platform/workspaces/common/workspaces.js';
 import { CustomFolderMenuItem } from './customFolderMenuItem.js';
+import { isMacintosh } from '../../../../../base/common/platform.js';
+import { OpenFolderAction } from '../../../actions/workspaceActions.js';
+import { Verbosity } from '../../../../../platform/label/common/label.js';
 import { CustomFolderMenuSeparator } from './customFolderMenuSeparator.js';
+import { ClearRecentWorkspacesAction } from '../../editor/workspaceActions.js';
+import { IWindowOpenable } from '../../../../../platform/window/common/window.js';
 import { CustomFolderRecentlyUsedMenuItem } from './customFolderRecentlyUsedMenuItem.js';
+import { ContextKeyExpr } from '../../../../../platform/contextkey/common/contextkey.js';
+import { CommandCenter } from '../../../../../platform/commandCenter/common/commandCenter.js';
+import { EmptyWorkspaceSupportContext, WorkbenchStateContext } from '../../../../common/contextkeys.js';
+import { CommandAction } from '../../../../../platform/positronActionBar/browser/positronActionBarState.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { IRecentlyOpened, isRecentWorkspace, isRecentFolder } from '../../../../../platform/workspaces/common/workspaces.js';
 import { PositronNewFolderFromTemplateAction, PositronNewFolderFromGitAction, PositronOpenFolderInNewWindowAction } from '../../../actions/positronActions.js';
 
 /**
@@ -38,10 +37,6 @@ const kCloseFolder = 'workbench.action.closeFolder';
  * CustomFolderMenuItemsProps interface.
  */
 interface CustomFolderMenuItemsProps {
-	commandService: ICommandService;
-	contextKeyService: IContextKeyService;
-	hostService: IHostService;
-	labelService: ILabelService;
 	recentlyOpened: IRecentlyOpened;
 	onMenuItemSelected: () => void;
 }
@@ -52,6 +47,9 @@ interface CustomFolderMenuItemsProps {
  * @returns The rendered component.
  */
 export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	/**
 	 * CommandActionCustomFolderMenuItem component.
 	 * @param commandAction The CommandAction.
@@ -62,13 +60,13 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 		const commandInfo = CommandCenter.commandInfo(commandAction.id);
 
 		// If the command info wasn't found, or the when expression doesn't match, return null.
-		if (!commandInfo || !props.contextKeyService.contextMatchesRules(commandAction.when)) {
+		if (!commandInfo || !services.contextKeyService.contextMatchesRules(commandAction.when)) {
 			return null;
 		}
 
 		// Determine whether the command action will be enabled and set the label to use.
 		const enabled = !commandInfo.precondition ||
-			props.contextKeyService.contextMatchesRules(commandInfo.precondition);
+			services.contextKeyService.contextMatchesRules(commandInfo.precondition);
 		const label = commandAction.label ||
 			(typeof (commandInfo.title) === 'string' ?
 				commandInfo.title :
@@ -83,7 +81,7 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 					label={label}
 					onSelected={() => {
 						props.onMenuItemSelected();
-						props.commandService.executeCommand(commandAction.id);
+						services.commandService.executeCommand(commandAction.id);
 					}}
 				/>
 			</>
@@ -111,11 +109,11 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 					let openable: IWindowOpenable;
 					if (isRecentWorkspace(recent)) {
 						uri = recent.workspace.configPath;
-						label = recent.label || props.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
+						label = recent.label || services.labelService.getWorkspaceLabel(recent.workspace, { verbose: Verbosity.LONG });
 						openable = { workspaceUri: uri };
 					} else if (isRecentFolder(recent)) {
 						uri = recent.folderUri;
-						label = recent.label || props.labelService.getWorkspaceLabel(uri, { verbose: Verbosity.LONG });
+						label = recent.label || services.labelService.getWorkspaceLabel(uri, { verbose: Verbosity.LONG });
 						openable = { folderUri: uri };
 					} else {
 						// This can't happen.
@@ -130,14 +128,14 @@ export const CustomFolderMenuItems = (props: CustomFolderMenuItemsProps) => {
 							label={label}
 							onOpen={e => {
 								props.onMenuItemSelected();
-								props.hostService.openWindow([openable], {
+								services.hostService.openWindow([openable], {
 									forceNewWindow: (!isMacintosh && (e.ctrlKey || e.shiftKey)) || (isMacintosh && (e.metaKey || e.altKey)),
 									remoteAuthority: recent.remoteAuthority || null
 								});
 							}}
 							onOpenInNewWindow={e => {
 								props.onMenuItemSelected();
-								props.hostService.openWindow([openable], {
+								services.hostService.openWindow([openable], {
 									forceNewWindow: true,
 									remoteAuthority: recent.remoteAuthority || null
 								});

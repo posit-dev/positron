@@ -299,6 +299,56 @@ export function registerAssistantTools(
 
 	context.subscriptions.push(inspectVariablesTool);
 
+	const getTableSummaryTool = vscode.lm.registerTool<{ sessionIdentifier: string; accessKeys: Array<Array<string>> }>(PositronAssistantToolName.GetTableSummary, {
+		/**
+		 * Called to get a summary information for one or more tabular datasets in the current session.
+		 * @param options The options for the tool invocation.
+		 * @param token The cancellation token.
+		 * @returns A vscode.LanguageModelToolResult containing the data summary.
+		 */
+		invoke: async (options, token) => {
+
+			// If no session identifier is provided, return an empty array.
+			if (!options.input.sessionIdentifier || options.input.sessionIdentifier === 'undefined') {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('[[]]')
+				]);
+			}
+
+			// temporarily only enable for Python sessions
+			let session: positron.LanguageRuntimeSession | undefined;
+			const sessions = await positron.runtime.getActiveSessions();
+			if (sessions && sessions.length > 0) {
+				session = sessions.find(
+					(session) => session.metadata.sessionId === options.input.sessionIdentifier,
+				);
+			}
+			if (!session) {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('[[]]')
+				]);
+			}
+
+			if (session.runtimeMetadata.languageId !== 'python') {
+				return new vscode.LanguageModelToolResult([
+					new vscode.LanguageModelTextPart('[[]]')
+				]);
+			}
+
+			// Call the Positron API to get the session variable data summaries
+			const result = await positron.runtime.querySessionTables(
+				options.input.sessionIdentifier,
+				options.input.accessKeys,
+				['summary_stats']);
+
+			// Return the result as a JSON string to the model
+			return new vscode.LanguageModelToolResult([
+				new vscode.LanguageModelTextPart(JSON.stringify(result))
+			]);
+		}
+	});
+	context.subscriptions.push(getTableSummaryTool);
+
 	const installPythonPackageTool = vscode.lm.registerTool<{
 		packages: string[];
 	}>(PositronAssistantToolName.InstallPythonPackage, {

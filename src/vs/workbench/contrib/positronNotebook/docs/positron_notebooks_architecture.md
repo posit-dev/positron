@@ -22,9 +22,9 @@ Positron Notebooks represents a parallel notebook implementation within Positron
 ### Quick Start for Contributors
 
 **To enable Positron Notebooks:**
-1. Set `"positron.notebooks.defaultEditor": "positron"` in your settings
+1. Set `"workbench.editorAssociations": {"*.ipynb": "workbench.editor.positronNotebook"}` in your settings
 2. Open any `.ipynb` file - it will use Positron's notebook editor
-3. To switch back: Use "Open With..." or change the setting to `"vscode"`
+3. To switch back: Remove the editor association or use "Open With..." menu
 
 **Key files to understand:**
 - `positronNotebook.contribution.ts`: Entry point, configuration, editor registration
@@ -50,16 +50,15 @@ Positron Notebooks represents a parallel notebook implementation within Positron
 
 #### Adding New Configuration Options
 1. Define in `positronNotebook.contribution.ts`
-2. Implement reader function similar to `getPreferredNotebookEditor`
-3. Add configuration change listener
-4. Update editor registration if needed
+2. Update editor registration if needed
+3. Consider using VS Code's standard configuration patterns
 
 ### Development Workflows
 
 #### Local Development Setup
 ```bash
 # Enable Positron notebooks
-"positron.notebooks.defaultEditor": "positron"
+"workbench.editorAssociations": {"*.ipynb": "workbench.editor.positronNotebook"}
 
 # Key files to modify:
 - PositronNotebookInstance.ts    # Core state management
@@ -88,22 +87,12 @@ Positron Notebooks represents a parallel notebook implementation within Positron
 
 ### 1. Configuration Layer
 
-**Configuration Key**: `positron.notebooks.defaultEditor`
-**Location**: `src/vs/workbench/contrib/positronNotebook/browser/positronNotebook.contribution.ts`
+**Configuration Access**: Editor associations are controlled via VS Code's standard `workbench.editorAssociations` setting
+- Set `"*.ipynb": "workbench.editor.positronNotebook"` to use Positron notebooks as default
+- Remove or don't set the association to use VS Code's standard notebook editor
+- Located in user/workspace settings
 
-```typescript
-'positron.notebooks.defaultEditor': {
-    type: 'string',
-    enum: ['positron', 'vscode'],
-    default: 'vscode',
-    markdownDescription: 'Choose which editor to use for notebook (.ipynb) files...'
-}
-```
-
-**Configuration Reader**: `getPreferredNotebookEditor(configurationService: IConfigurationService): 'positron' | 'vscode'`
-- Returns user's preferred default notebook editor
-- Located in `positronNotebook.contribution.ts`
-- Defaults to 'vscode' if not configured or invalid value
+**Location**: User or workspace settings.json file
 
 ### 2. Editor Registration and Resolution
 
@@ -150,37 +139,37 @@ graph TB
         Editor[PositronNotebookEditor]
         TextModel[NotebookTextModel]
     end
-    
+
     subgraph "Core Components"
         Instance[PositronNotebookInstance]
         CodeCell[PositronNotebookCodeCell]
         MarkdownCell[PositronNotebookMarkdownCell]
     end
-    
+
     subgraph "Service Layer"
         NotebookService[IPositronNotebookService]
         RuntimeService[IRuntimeSessionService]
         KernelService[INotebookKernelService]
         ExecutionService[INotebookExecutionService]
     end
-    
+
     %% Primary relationships
     EditorInput -->|"owns"| Instance
     Editor -->|"renders"| Instance
     Instance -->|"manages"| TextModel
     Instance -->|"creates"| CodeCell
     Instance -->|"creates"| MarkdownCell
-    
+
     %% Service connections
     Instance -->|"registers with"| NotebookService
     Instance -->|"executes via"| RuntimeService
     Instance -->|"kernel management"| KernelService
     CodeCell -->|"execution"| ExecutionService
-    
+
     %% Data flow
     TextModel -->|"provides cells"| Instance
     EditorInput -->|"resolves"| TextModel
-    
+
     style Instance fill:#f9f,stroke:#333,stroke-width:4px
     style EditorInput fill:#bbf,stroke:#333,stroke-width:2px
     style Editor fill:#bbf,stroke:#333,stroke-width:2px
@@ -316,8 +305,8 @@ if (preloadMessageType) {
 **From PositronNotebookInstance.ts**:
 ```typescript
 await this.notebookExecutionService.executeNotebookCells(
-    this.textModel, 
-    Array.from(cells).map(c => c.cellModel as NotebookCellTextModel), 
+    this.textModel,
+    Array.from(cells).map(c => c.cellModel as NotebookCellTextModel),
     this._contextKeyService
 );
 ```
@@ -346,8 +335,8 @@ IPositronNotebookCell (interface)
 The `createNotebookCell` function serves as a factory that instantiates the correct cell type based on the cell model:
 ```typescript
 export function createNotebookCell(
-    cell: NotebookCellTextModel, 
-    instance: PositronNotebookInstance, 
+    cell: NotebookCellTextModel,
+    instance: PositronNotebookInstance,
     instantiationService: IInstantiationService
 ) {
     if (cell.cellKind === CellKind.Code) {

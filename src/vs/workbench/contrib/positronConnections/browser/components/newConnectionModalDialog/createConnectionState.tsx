@@ -12,16 +12,15 @@ import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
 // Other dependencies.
 import { PositronButton } from '../../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { localize } from '../../../../../../nls.js';
-import { PositronConnectionsServices } from '../../positronConnectionsContext.js';
 import { SimpleCodeEditor, SimpleCodeEditorWidget } from '../simpleCodeEditor.js';
 import Severity from '../../../../../../base/common/severity.js';
 import { IDriver, Input } from '../../../../../services/positronConnections/common/interfaces/positronConnectionsDriver.js';
 import { LabeledTextInput } from '../../../../../browser/positronComponents/positronModalDialog/components/labeledTextInput.js';
 import { RadioGroup } from '../../../../../browser/positronComponents/positronModalDialog/components/radioGroup.js';
-import { PositronModalReactRenderer } from '../../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
+import { PositronModalReactRenderer } from '../../../../../../base/browser/positronModalReactRenderer.js';
 
 interface CreateConnectionProps {
-	readonly services: PositronConnectionsServices;
 	readonly renderer: PositronModalReactRenderer;
 	readonly onCancel: () => void;
 	readonly onBack: () => void;
@@ -29,10 +28,10 @@ interface CreateConnectionProps {
 }
 
 export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>) => {
-
+	const services = usePositronReactServicesContext();
 	const { generateCode, metadata } = props.selectedDriver;
 	const { name, languageId } = metadata;
-	const { onBack, onCancel, services } = props;
+	const { onBack, onCancel } = props;
 	const editorRef = useRef<SimpleCodeEditorWidget>(undefined!);
 
 	const [inputs, setInputs] = useState<Array<Input>>(metadata.inputs);
@@ -102,7 +101,7 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 		const code = editorRef.current.getValue();
 		await services.clipboardService.writeText(code);
 
-		const handle = services.connectionsService.notify(localize(
+		const handle = services.positronConnectionsService.notify(localize(
 			'positron.resumeConnectionModalDialog.codeCopied',
 			"Connection code copied to clipboard"
 		), Severity.Info);
@@ -132,7 +131,6 @@ export const CreateConnection = (props: PropsWithChildren<CreateConnectionProps>
 					cursorBlinking: 'solid'
 				}}
 				language={languageId}
-				services={props.services}
 			>
 			</SimpleCodeEditor>
 		</div>
@@ -180,7 +178,7 @@ const Form = (props: PropsWithChildren<{ inputs: Input[], onInputsChange: (input
 		e.stopPropagation();
 	};
 
-	return <form onWheel={handleWheel} className='create-connection-inputs'>
+	return <form className='create-connection-inputs' onWheel={handleWheel}>
 		{
 			inputs.map((input) => {
 				return <FormElement key={input.id} input={input} onChange={(value) => {

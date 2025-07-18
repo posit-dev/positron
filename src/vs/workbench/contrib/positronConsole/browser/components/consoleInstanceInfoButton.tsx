@@ -16,9 +16,10 @@ import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { usePositronConsoleContext } from '../positronConsoleContext.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
 import { PositronModalPopup } from '../../../../browser/positronComponents/positronModalPopup/positronModalPopup.js'
-import { PositronModalReactRenderer } from '../../../../browser/positronModalReactRenderer/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../../base/browser/positronModalReactRenderer.js';
 import { ILanguageRuntimeSession, LanguageRuntimeSessionChannel } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 
 const positronConsoleInfo = localize('positron.console.info.label', "Console Information");
@@ -37,6 +38,7 @@ function intersectionOutputChannels(availableChannels: string[]): LanguageRuntim
 
 export const ConsoleInstanceInfoButton = () => {
 	// Hooks.
+	const services = usePositronReactServicesContext();
 	const positronConsoleContext = usePositronConsoleContext();
 
 	// Reference hooks.
@@ -51,7 +53,7 @@ export const ConsoleInstanceInfoButton = () => {
 		if (!sessionId) {
 			return;
 		}
-		const session = positronConsoleContext.runtimeSessionService.getSession(sessionId);
+		const session = services.runtimeSessionService.getSession(sessionId);
 		if (!session) {
 			return;
 		}
@@ -67,9 +69,7 @@ export const ConsoleInstanceInfoButton = () => {
 
 		// Create the renderer.
 		const renderer = new PositronModalReactRenderer({
-			keybindingService: positronConsoleContext.keybindingService,
-			layoutService: positronConsoleContext.layoutService,
-			container: positronConsoleContext.layoutService.getContainer(DOM.getWindow(ref.current)),
+			container: services.workbenchLayoutService.getContainer(DOM.getWindow(ref.current)),
 			parent: ref.current
 		});
 

@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -12,10 +12,10 @@ import React from 'react';
 // Other dependencies.
 import { renderHtml } from '../../../../../base/browser/positron/renderHtml.js';
 import { DeferredImage } from './DeferredImage.js';
-import { useServices } from '../ServicesProvider.js';
 import { ExternalLink } from '../../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { localize } from '../../../../../nls.js';
 import { createCancelablePromise, raceTimeout } from '../../../../../base/common/async.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Component that render markdown content from a string.
@@ -48,7 +48,7 @@ type MarkdownRenderResults = {
 
 function useMarkdown(content: string): MarkdownRenderResults {
 
-	const services = useServices();
+	const services = usePositronReactServicesContext();
 	const [renderedHtml, setRenderedHtml] = React.useState<MarkdownRenderResults>({
 		status: 'rendering'
 	});
@@ -73,7 +73,7 @@ function useMarkdown(content: string): MarkdownRenderResults {
 				nodes: renderHtml(html, {
 					componentOverrides: {
 						img: DeferredImage,
-						a: (props) => <ExternalLink {...props} openerService={services.openerService} />
+						a: (props) => <ExternalLink {...props} />
 					}
 				})
 			});

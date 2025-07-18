@@ -14,7 +14,7 @@ import * as DOM from '../../../../base/browser/dom.js';
 import { isNumber } from '../../../../base/common/types.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { positronClassNames } from '../../../../base/common/positronUtilities.js';
-import { PositronModalReactRenderer } from '../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { PositronModalReactRenderer } from '../../../../base/browser/positronModalReactRenderer.js';
 
 /**
  * Constants.

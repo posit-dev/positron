@@ -125,36 +125,11 @@ suite('PositronAssistantParticipant', () => {
 		const sendRequestSpy = sinon.spy(model, 'sendRequest');
 		const positronVersion = `${positron.version}-${positron.buildNumber}`;
 		const positronChatContext: positron.ai.ChatContext = {
-			activeSession: {
-				identifier: 'test-console',
-				language: 'python',
-				version: '3.12.0',
-				mode: positron.LanguageRuntimeSessionMode.Console,
-				executions: [
-					{
-						input: 'x = 1',
-						output: '',
-						error: undefined,
-					},
-				],
-			},
 			plots: {
 				hasPlots: true,
 			},
 			positronVersion,
 			currentDate: 'Wednesday 11 June 2025 at 13:30:00 BST',
-			variables: [
-				{
-					access_key: 'x',
-					display_name: 'x',
-					display_type: 'number',
-					display_value: '1',
-					has_children: false,
-					length: 1,
-					size: 1,
-					type_info: 'int',
-				},
-			],
 			shell: 'bash',
 		};
 		sinon.stub(positron.ai, 'getPositronChatContext').resolves(positronChatContext);
@@ -169,20 +144,6 @@ suite('PositronAssistantParticipant', () => {
 		assert.strictEqual(messages.length, DEFAULT_EXPECTED_MESSAGE_COUNT, `Unexpected messages: ${JSON.stringify(messages)}`);
 		assertContextMessage(messages.at(-1)!,
 			`<context>
-<session description="Current active session" language="${c.activeSession!.language}" version="${c.activeSession!.version}" mode="console" identifier="${c.activeSession!.identifier}">
-<executions>
-<execution>
-${JSON.stringify(c.activeSession!.executions[0])}
-</execution>
-</executions>
-</session>
-
-<variables description="Variables defined in the current session">
-<variable>
-${JSON.stringify(c.variables![0])}
-</variable>
-</variables>
-
 <shell description="Current active shell">
 ${c.shell}
 </shell>

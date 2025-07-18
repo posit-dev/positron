@@ -10,50 +10,23 @@ import './positronPreview.css';
 import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { IContextMenuService } from '../../../../platform/contextview/browser/contextView.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PreviewContainer } from './components/previewContainer.js';
-import { PositronPreviewServices } from './positronPreviewState.js';
-import { PositronPreviewContextProvider } from './positronPreviewContext.js';
 import { IPositronPreviewService } from './positronPreviewSevice.js';
 import { PreviewWebview } from './previewWebview.js';
 import { PositronPreviewViewPane } from './positronPreviewView.js';
 import { UrlActionBars } from './components/urlActionBars.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { PreviewUrl } from './previewUrl.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
 import { PreviewHtml } from './previewHtml.js';
 import { HtmlActionBars } from './components/htmlActionBars.js';
-import { IAccessibilityService } from '../../../../platform/accessibility/common/accessibility.js';
-import { IThemeService } from '../../../../platform/theme/common/themeService.js';
 import { BasicActionBars } from './components/basicActionBars.js';
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
 
 /**
  * PositronPreviewProps interface.
  */
-export interface PositronPreviewProps extends PositronPreviewServices {
-	// Services.
-	readonly accessibilityService: IAccessibilityService;
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
-	readonly contextMenuService: IContextMenuService;
-	readonly hoverService: IHoverService;
-	readonly keybindingService: IKeybindingService;
-	readonly layoutService: IWorkbenchLayoutService;
-	readonly openerService: IOpenerService;
-	readonly notificationService: INotificationService;
-	readonly positronPreviewService: IPositronPreviewService;
+export interface PositronPreviewProps {
 	readonly reactComponentContainer: PositronPreviewViewPane;
-	readonly runtimeSessionService: IRuntimeSessionService;
-	readonly themeService: IThemeService;
 }
 
 /**
@@ -62,6 +35,8 @@ export interface PositronPreviewProps extends PositronPreviewServices {
  * @returns The rendered component.
  */
 export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
 
 	// Hooks.
 	const [width, setWidth] = useState(props.reactComponentContainer.width);
@@ -71,7 +46,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 	const [visible, setVisible] = useState(props.reactComponentContainer.containerVisible);
 
 	// Initial selected preview item.
-	const initialActivePreview = props.positronPreviewService.activePreviewWebview;
+	const initialActivePreview = services.positronPreviewService.activePreviewWebview;
 	const [activePreview, setActivePreview] = useState<PreviewWebview | undefined>(initialActivePreview);
 
 	// Add IReactComponentContainer event handlers.
@@ -96,14 +71,14 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 			setVisible(visible);
 		}));
 
-		disposableStore.add(props.positronPreviewService.onDidChangeActivePreviewWebview(id => {
-			const activePreview = props.positronPreviewService.activePreviewWebview;
+		disposableStore.add(services.positronPreviewService.onDidChangeActivePreviewWebview(id => {
+			const activePreview = services.positronPreviewService.activePreviewWebview;
 			setActivePreview(activePreview);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [props.positronPreviewService, props.reactComponentContainer]);
+	}, [services.positronPreviewService, props.reactComponentContainer]);
 
 	const urlToolbar = activePreview && activePreview instanceof PreviewUrl;
 	const htmlToolbar = activePreview && activePreview instanceof PreviewHtml;
@@ -113,7 +88,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 
 	// Render.
 	return (
-		<PositronPreviewContextProvider {...props}>
+		<>
 			{urlToolbar &&
 				// Render the action bars. We supply the preview ID as a key
 				// here to ensure the action bars are keyed to the preview;
@@ -134,7 +109,7 @@ export const PositronPreview = (props: PropsWithChildren<PositronPreviewProps>) 
 				width={width}
 				x={x}
 				y={y} />
-		</PositronPreviewContextProvider>
+		</>
 	);
 };
 export { IPositronPreviewService };
