@@ -711,6 +711,7 @@ class PositronDataExplorerGenerateCodeAction extends Action2 {
 			category,
 			precondition: ContextKeyExpr.and(
 				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				IsDevelopmentContext
 			)
 		});
 	}
