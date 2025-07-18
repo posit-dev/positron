@@ -46,7 +46,7 @@ import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
+import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
 
@@ -1588,6 +1588,33 @@ export class MainThreadLanguageRuntime
 			const allVars = await client.comm.list();
 			return [allVars.variables];
 		}
+	}
+
+	$querySessionTables(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
+		const sessionId = this.findSession(handle).sessionId;
+		const instances = this._positronVariablesService.positronVariablesInstances;
+		for (const instance of instances) {
+			if (instance.session.sessionId === sessionId) {
+				return this.querySessionTables(instance, accessKeys, queryTypes);
+			}
+		}
+		throw new Error(`No variables provider found for session ${sessionId}`);
+	}
+
+	async querySessionTables(instance: IPositronVariablesInstance, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
+		Promise<Array<QueryTableSummaryResult>> {
+		const client = instance.getClientInstance();
+		if (!client) {
+			throw new Error(`No variables provider available for session ${instance.session.sessionId}`);
+		}
+		if (accessKeys.length === 0) {
+			throw new Error('No access keys provided for variable data retrieval');
+		}
+		const result = [];
+		for (const accessKey of accessKeys) {
+			result.push(await client.comm.queryTableSummary(accessKey, queryTypes));
+		}
+		return result;
 	}
 
 	// Signals that language runtime discovery is complete.

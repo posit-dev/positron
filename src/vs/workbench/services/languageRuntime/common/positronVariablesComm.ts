@@ -63,6 +63,32 @@ export interface FormattedVariable {
 }
 
 /**
+ * Result of the summarize operation
+ */
+export interface QueryTableSummaryResult {
+	/**
+	 * The total number of rows in the table.
+	 */
+	num_rows: number;
+
+	/**
+	 * The total number of columns in the table.
+	 */
+	num_columns: number;
+
+	/**
+	 * The column schemas in the table.
+	 */
+	column_schemas: Array<string>;
+
+	/**
+	 * The column profiles in the table.
+	 */
+	column_profiles: Array<string>;
+
+}
+
+/**
  * A single variable in the runtime.
  */
 export interface Variable {
@@ -217,6 +243,21 @@ export interface ViewParams {
 }
 
 /**
+ * Parameters for the QueryTableSummary method.
+ */
+export interface QueryTableSummaryParams {
+	/**
+	 * The path to the table to summarize, as an array of access keys.
+	 */
+	path: Array<string>;
+
+	/**
+	 * A list of query types.
+	 */
+	query_types: Array<string>;
+}
+
+/**
  * Parameters for the Update method.
  */
 export interface UpdateParams {
@@ -323,7 +364,8 @@ export enum VariablesBackendRequest {
 	Delete = 'delete',
 	Inspect = 'inspect',
 	ClipboardFormat = 'clipboard_format',
-	View = 'view'
+	View = 'view',
+	QueryTableSummary = 'query_table_summary'
 }
 
 export class PositronVariablesComm extends PositronBaseComm {
@@ -417,6 +459,21 @@ export class PositronVariablesComm extends PositronBaseComm {
 	 */
 	view(path: Array<string>): Promise<string | undefined> {
 		return super.performRpc('view', ['path'], [path]);
+	}
+
+	/**
+	 * Query table summary
+	 *
+	 * Request a data summary for a table variable.
+	 *
+	 * @param path The path to the table to summarize, as an array of access
+	 * keys.
+	 * @param queryTypes A list of query types.
+	 *
+	 * @returns Result of the summarize operation
+	 */
+	queryTableSummary(path: Array<string>, queryTypes: Array<string>): Promise<QueryTableSummaryResult> {
+		return super.performRpc('query_table_summary', ['path', 'query_types'], [path, queryTypes]);
 	}
 
 

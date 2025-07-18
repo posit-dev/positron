@@ -26,6 +26,7 @@ from .conftest import DummyComm, PositronShell
 from .utils import (
     assert_register_table_called,
     comm_open_message,
+    dummy_rpc_request,
     json_rpc_error,
     json_rpc_notification,
     json_rpc_request,
@@ -838,7 +839,7 @@ def _do_view(
     mock_dataexplorer_service: Mock,
 ):
     path = _encode_path([name])
-    msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
+    msg = dummy_rpc_request("view", {"path": path})
     variables_comm.handle_msg(msg)
 
     # An acknowledgment message is sent
@@ -933,6 +934,45 @@ def test_view_error_when_pandas_not_loaded(
         json_rpc_error(
             JsonRpcErrorCode.INTERNAL_ERROR,
             f"Error opening viewer for variable at '{path}'. Try restarting the session.",
+        )
+    ]
+
+
+def _assign_variables(shell: PositronShell, variables_comm: DummyComm, **variables):
+    # A hack to make sure that change events are fired when we
+    # manipulate user_ns
+    shell.kernel.variables_service.snapshot_user_ns()
+    shell.user_ns.update(**variables)
+    shell.kernel.variables_service.poll_variables()
+    variables_comm.messages.clear()
+
+
+def test_query_table_summary(shell: PositronShell, variables_comm: DummyComm):
+    from .test_data_explorer import SIMPLE_PANDAS_DF
+
+    _assign_variables(shell, variables_comm, df=SIMPLE_PANDAS_DF.iloc[:, :2])
+
+    msg = json_rpc_request(
+        "query_table_summary",
+        {"path": ["df"], "query_types": ["summary_stats"]},
+        comm_id="dummy_comm_id",
+    )
+    variables_comm.handle_msg(msg)
+
+    assert variables_comm.messages == [
+        json_rpc_response(
+            {
+                "num_rows": 5,
+                "num_columns": 2,
+                "column_schemas": [
+                    '{"column_name": "a", "column_index": 0, "type_name": "int64", "type_display": "number", "description": null, "children": null, "precision": null, "scale": null, "timezone": null, "type_size": null}',
+                    '{"column_name": "b", "column_index": 1, "type_name": "bool", "type_display": "boolean", "description": null, "children": null, "precision": null, "scale": null, "timezone": null, "type_size": null}',
+                ],
+                "column_profiles": [
+                    '{"column_name": "a", "type_display": "number", "summary_stats": {"type_display": "number", "number_stats": {"min_value": "1.0000", "max_value": "5.0000", "mean": "3.0000", "median": "3.0000", "stdev": "1.5811"}, "string_stats": null, "boolean_stats": null, "date_stats": null, "datetime_stats": null, "other_stats": null}}',
+                    '{"column_name": "b", "type_display": "boolean", "summary_stats": {"type_display": "boolean", "number_stats": null, "string_stats": null, "boolean_stats": {"true_count": 3, "false_count": 1}, "date_stats": null, "datetime_stats": null, "other_stats": null}}',
+                ],
+            }
         )
     ]
 
