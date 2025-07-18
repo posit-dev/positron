@@ -35,7 +35,7 @@ test.describe('Reticulate', {
 
 		await app.workbench.console.pasteCodeToConsole('reticulate::repl_python()', true);
 
-		await app.workbench.console.executeCode("R", "reticulate::py_config()", { waitForReady: true });
+		await app.workbench.console.executeCode("R", "Sys.sleep(20);reticulate::py_config()", { waitForReady: true });
 
 		await app.workbench.console.waitForReadyAndStarted('>>>');
 
