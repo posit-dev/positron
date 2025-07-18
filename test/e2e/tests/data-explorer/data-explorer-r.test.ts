@@ -21,7 +21,7 @@ test.afterEach(async function ({ hotKeys }) {
 test.describe('Data Explorer - R ', {
 	tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER]
 }, () => {
-	test('R - Verify basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile, hotKeys }) {
+	test('R - Verify basic data explorer functionality', { tag: [tags.CRITICAL] }, async function ({ app, r, openFile }) {
 		const { dataExplorer, editor, editors, variables, clipboard } = app.workbench;
 
 		// Execute code to generate data frames
@@ -86,7 +86,7 @@ test.describe('Data Explorer - R ', {
 	});
 
 	test('R - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, r, executeCode, hotKeys }) {
-		const { variables, editors, dataExplorer, console, popups } = app.workbench;
+		const { variables, editors, dataExplorer, console, modals } = app.workbench;
 
 		// Execute code to generate data frames
 		await executeCode('R', `df = data.frame(x = c("a ", "a", "   ", ""))`);
@@ -107,7 +107,7 @@ test.describe('Data Explorer - R ', {
 		// Verify disconnect modal dialog box when session is closed
 		await hotKeys.stackedLayout();
 		await console.trashButton.click();
-		await popups.verifyModalDialogBoxContainsText('Connection Closed');
+		await modals.expectMessageToContain('Connection Closed');
 	});
 });
 

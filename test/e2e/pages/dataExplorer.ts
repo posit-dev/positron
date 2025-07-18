@@ -45,6 +45,9 @@ export class DataExplorer {
 	selectColumnButton: Locator;
 	selectConditionButton: Locator;
 	applyFilterButton: Locator;
+	selectFilterModalValue: (value: string) => Locator;
+	filteringMenu: Locator;
+	menuItemClearFilters: Locator;
 
 	constructor(private code: Code, private workbench: Workbench) {
 		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
@@ -52,7 +55,25 @@ export class DataExplorer {
 		this.addFilterButton = this.code.driver.page.getByRole('button', { name: 'Add Filter' });
 		this.selectColumnButton = this.code.driver.page.getByRole('button', { name: 'Select Column' });
 		this.selectConditionButton = this.code.driver.page.getByRole('button', { name: 'Select Condition' });
+		this.selectFilterModalValue = (value: string) => this.code.driver.page.locator('.positron-modal-popup').getByRole('button', { name: value });
 		this.applyFilterButton = this.code.driver.page.getByRole('button', { name: 'Apply Filter' });
+		this.filteringMenu = this.code.driver.page.getByRole('button', { name: 'Filtering' });
+		this.menuItemClearFilters = this.code.driver.page.getByRole('button', { name: 'Clear Filters' });
+	}
+
+	async filter(columnName: string, condition: string, value?: string) {
+		await this.addFilterButton.click();
+
+		await this.selectColumnButton.click();
+		await this.selectFilterModalValue(columnName).click();
+
+		await this.selectConditionButton.click();
+		await this.selectFilterModalValue(condition).click();
+
+		if (value) {
+			await this.selectFilterModalValue(value).click();
+		}
+		await this.applyFilterButton.click();
 	}
 
 	async clearAllFilters() {
@@ -109,20 +130,23 @@ export class DataExplorer {
 	/*
 	 * Add a filter to the data explorer.  Only works for a single filter at the moment.
 	 */
-	async addFilter(columnName: string, functionText: string, filterValue: string) {
-		await test.step(`Add filter: ${columnName} ${functionText} ${filterValue}`, async () => {
+	async addFilter(column: string, condition: string, value?: string) {
+		await test.step(`Add filter: ${column} ${condition} ${value}`, async () => {
 			await this.addFilterButton.click();
 
 			// select column
 			await this.selectColumnButton.click();
-			await this.code.driver.page.getByRole('button', { name: columnName }).click();
+			await this.selectFilterModalValue(column).click();
 
 			// select condition
 			await this.selectConditionButton.click();
-			await this.code.driver.page.getByRole('button', { name: functionText, exact: true }).click();
+			await this.selectFilterModalValue(condition).click();
 
 			// enter value
-			await this.code.driver.page.getByRole('textbox', { name: 'value' }).fill(filterValue);
+			if (value) {
+				await this.code.driver.page.getByRole('textbox', { name: 'value' }).fill(value);
+			}
+
 			await this.applyFilterButton.click();
 		});
 	}
@@ -285,21 +309,38 @@ export class DataExplorer {
 		});
 	}
 
-	async verifyTableData(expectedData: Array<{ [key: string]: string }>, timeout = 60000) {
+	async verifyTableData(expectedData: Array<{ [key: string]: string | number }>, timeout = 60000) {
 		await test.step('Verify data explorer data', async () => {
 			await expect(async () => {
 				const tableData = await this.getDataExplorerTableData();
-
 				expect(tableData.length).toBe(expectedData.length);
 
 				for (let i = 0; i < expectedData.length; i++) {
 					const row = expectedData[i];
-					for (const [key, value] of Object.entries(row)) {
-						expect(tableData[i][key]).toBe(value);
+					for (const [key, expectedValue] of Object.entries(row)) {
+						const actualValue = tableData[i][key];
+						expect(this.normalize(actualValue)).toBe(this.normalize(expectedValue));
 					}
 				}
 			}).toPass({ timeout });
 		});
+	}
+
+	private normalize(value: unknown): string {
+		const str = String(value).trim().toUpperCase();
+
+		// Handle true missing values only
+		if (value === null || value === undefined || ['NA', 'NAN', 'NULL'].includes(str)) {
+			return '__MISSING__';
+		}
+
+		// If value is numeric (e.g., '25.0'), normalize precision
+		const num = Number(value);
+		if (!isNaN(num)) {
+			return String(num);
+		}
+
+		return String(value).trim();
 	}
 
 	async verifyTableDataLength(expectedLength: number) {
@@ -393,5 +434,9 @@ export class DataExplorer {
 			const cellLocator = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`);
 			await cellLocator.click();
 		});
+	}
+
+	async clickCopyAsCodeButton() {
+		await this.workbench.editorActionBar.clickButton('Copy as Code');
 	}
 }

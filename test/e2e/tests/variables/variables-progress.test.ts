@@ -11,8 +11,8 @@ test.use({
 
 test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, () => {
 
-	test.afterEach(async function ({ app }) {
-		await app.workbench.layouts.enterLayout('stacked');
+	test.afterEach(async function ({ hotKeys }) {
+		await hotKeys.stackedLayout();
 	});
 
 	test('Run a long computation and see the progress bar appearing', {
@@ -24,7 +24,7 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 		await app.workbench.console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
 		await app.workbench.console.pasteCodeToConsole('Sys.sleep(20)', true);
 
-		const variables = app.workbench.variables;
+		const { variables, modals, console } = app.workbench;
 
 		await expect(async () => {
 			expect(await variables.hasProgressBar()).toBe(false);
@@ -32,7 +32,8 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 
 		// Now click delete all variables an expect the progress bar to appear
 		await variables.clickDeleteAllVariables();
-		await app.workbench.popups.confirmDeleteModalDialog();
+		await modals.expectToBeVisible('Delete All Variables');
+		await modals.clickButton('Delete');
 
 		// Wait for the progress bar to appear
 		await expect(async () => {
@@ -51,12 +52,13 @@ test.describe('Variables - Progress bar', { tag: [tags.WEB, tags.VARIABLES] }, (
 		const session2 = await sessions.start('r', { reuse: false });
 
 		await sessions.select(session2.id);
-		await app.workbench.console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
-		await app.workbench.console.pasteCodeToConsole('Sys.sleep(20)', true);
+		await console.pasteCodeToConsole('hello <- 1; foo <- 2', true);
+		await console.pasteCodeToConsole('Sys.sleep(20)', true);
 
 		// Now click delete all variables an expect the progress bar to appear
 		await variables.clickDeleteAllVariables();
-		await app.workbench.popups.confirmDeleteModalDialog();
+		await modals.expectToBeVisible('Delete All Variables');
+		await modals.clickButton('Delete');
 
 		// Wait for the progress bar to appear
 		await expect(async () => {

@@ -12,7 +12,10 @@ export * from './test-teardown.js';
 
 // pages
 export * from '../pages/console';
-export * from '../pages/popups';
+export * from '../pages/dialog-modals';
+export * from '../pages/dialog-right-click-menu';
+export * from '../pages/dialog-toasts';
+export * from '../pages/dialog-popups.js';
 export * from '../pages/variables';
 export * from '../pages/dataExplorer';
 export * from '../pages/sideBar';

@@ -4,7 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Code } from './code';
-import { Popups } from '../pages/popups';
+import { Modals } from '../pages/dialog-modals';
+import { RightClickMenu } from '../pages/dialog-right-click-menu';
+import { Toasts } from '../pages/dialog-toasts';
+import { Popups } from '../pages/dialog-popups.js';
 import { Console } from '../pages/console';
 import { Variables } from '../pages/variables';
 import { DataExplorer } from '../pages/dataExplorer';
@@ -49,6 +52,9 @@ export interface Commands {
 
 export class Workbench {
 
+	readonly modals: Modals;
+	readonly rightClickMenu: RightClickMenu;
+	readonly toasts: Toasts;
 	readonly popups: Popups;
 	readonly console: Console;
 	readonly variables: Variables;
@@ -90,6 +96,9 @@ export class Workbench {
 
 	constructor(code: Code) {
 		this.hotKeys = new HotKeys(code);
+		this.rightClickMenu = new RightClickMenu(code);
+		this.toasts = new Toasts(code);
+		this.modals = new Modals(code, this.toasts);
 		this.popups = new Popups(code);
 		this.variables = new Variables(code, this.hotKeys);
 		this.dataExplorer = new DataExplorer(code, this);
@@ -112,7 +121,7 @@ export class Workbench {
 		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
 		this.clipboard = new Clipboard(code, this.hotKeys);
-		this.terminal = new Terminal(code, this.quickaccess, this.clipboard, this.popups);
+		this.terminal = new Terminal(code, this.quickaccess, this.clipboard, this.rightClickMenu);
 		this.viewer = new Viewer(code);
 		this.editor = new Editor(code);
 		this.testExplorer = new TestExplorer(code);

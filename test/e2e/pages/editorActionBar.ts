@@ -7,6 +7,17 @@ import test, { expect, Locator, Page } from '@playwright/test';
 import { Viewer } from './viewer';
 import { QuickAccess } from './quickaccess';
 
+type EditorActionBarButton =
+	| 'Split Editor Right'
+	| 'Split Editor Down'
+	| 'Preview'
+	| 'Open Changes'
+	| 'Open in Viewer'
+	| 'Move into new window'
+	| 'Open as Plain Text File'
+	| 'Deploy with Posit Publisher'
+	| 'Copy as Code';
+
 
 export class EditorActionBar {
 	actionBar: Locator = this.page.locator('.editor-action-bar > .positron-action-bar > .action-bar-region');
@@ -22,9 +33,7 @@ export class EditorActionBar {
 	 *
 	 * @param button - Name of the button to click in the editor action bar.
 	 */
-	async clickButton(
-		button: 'Split Editor Right' | 'Split Editor Down' | 'Preview' | 'Open Changes' | 'Open in Viewer' | 'Move into new window' | 'Open as Plain Text File' | 'Deploy with Posit Publisher'
-	): Promise<void> {
+	async clickButton(button: EditorActionBarButton): Promise<void> {
 		const buttonLocator = this.page.getByLabel(button, { exact: true });
 
 		if (button === 'Split Editor Down') {
@@ -192,7 +201,7 @@ export class EditorActionBar {
 	 * @param isVisible whether the editor action bar is expected to be visible
 	 */
 	async verifyIsVisible(isVisible: boolean) {
-		await test.step(`Verify editor action bar is ${isVisible ? 'visible' : 'not visible'}`, async () => {
+		await test.step(`Verify action bar is ${isVisible ? 'visible' : 'not visible'}`, async () => {
 			isVisible
 				? await expect(this.actionBar).toBeVisible()
 				: await expect(this.actionBar).not.toBeVisible();
