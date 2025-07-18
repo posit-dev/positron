@@ -30,6 +30,7 @@ import { IKeybindingService } from '../../../../platform/keybinding/common/keybi
 import { ICommandService } from '../../../../platform/commands/common/commands.js';
 import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
+import { CodeSyntaxName } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Positron data explorer action category.
@@ -773,9 +774,8 @@ class PositronDataExplorerConvertToCodeAction extends Action2 {
 	 * Runs the action.
 	 * @param accessor The services accessor.
 	 */
-	async run(accessor: ServicesAccessor, desiredSyntax: string): Promise<string | undefined> {
+	async run(accessor: ServicesAccessor, desiredSyntax: CodeSyntaxName): Promise<string | undefined> {
 		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
-
 		if (!positronDataExplorerInstance) {
 			return undefined;
 		}

@@ -19,6 +19,7 @@ import { PositronDataExplorerCommandId } from '../../contrib/positronDataExplore
 import { DropDownListBox } from '../positronComponents/dropDownListBox/dropDownListBox.js';
 import { DropDownListBoxItem } from '../positronComponents/dropDownListBox/dropDownListBoxItem.js';
 import { DropdownEntry } from './components/dropdownEntry.js';
+import { CodeSyntaxName } from '../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Shows the convert to code modal dialog.
@@ -73,16 +74,17 @@ interface CopyAsCodeDialogProps {
 export const ConvertToCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 	// State hooks.
 	const instance = props.dataExplorerClientInstance.dataExplorerClientInstance;
-	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.code_syntaxes.code_syntaxes ?? [];
+	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.convert_to_code.code_syntaxes ?? [];
 
-	const [selectedSyntax, setSelectedSyntax] = useState<string>(
-		instance.suggestedSyntax?.code_syntax_name ?? localize('selectCodeSyntax', 'Select Code Syntax')
-	);
+	const [selectedSyntax, setSelectedSyntax] = useState<CodeSyntaxName | undefined>(instance.suggestedSyntax);
 
 	const [codeString, setCodeString] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
 		const getCodeString = async () => {
+			if (!selectedSyntax) {
+				return;
+			}
 			// Execute the command to get the code string based on the selected syntax.
 			const codeString = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, selectedSyntax);
 			setCodeString(codeString);
@@ -96,23 +98,31 @@ export const ConvertToCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 	};
 
 	const syntaxInfoToDropDownItems = (
-		syntaxes: string[]
-	): DropDownListBoxItem<string, string>[] => {
+		syntaxes: CodeSyntaxName[]
+	): DropDownListBoxItem<string, CodeSyntaxName>[] => {
 		return syntaxes.map(
 			(syntax) =>
-				new DropDownListBoxItem<string, string>({
-					identifier: syntax,
+				new DropDownListBoxItem<string, CodeSyntaxName>({
+					identifier: syntax.code_syntax_name,
 					value: syntax,
 				})
 		);
 	};
 
-	const onSelectionChanged = async (item: DropDownListBoxItem<string, string>) => {
-		const typedItem = item as DropDownListBoxItem<string, string>;
-		setSelectedSyntax(typedItem.options.identifier);
+	const syntaxDropdownTitle = (): string => {
+		// if selectedSyntax is an object with code_syntax_name, return that name
+		if (typeof selectedSyntax === 'object' && 'code_syntax_name' in selectedSyntax) {
+			return (selectedSyntax as CodeSyntaxName).code_syntax_name;
+		}
+		return localize('selectCodeSyntax', 'Select Code Syntax');
+	}
+
+	const onSelectionChanged = async (item: DropDownListBoxItem<string, CodeSyntaxName>) => {
+		const typedItem = item as DropDownListBoxItem<string, CodeSyntaxName>;
+		setSelectedSyntax(typedItem.options.value);
 
 		// Execute the command to get the code string based on the selected syntax.
-		const exc = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, typedItem.options.identifier)
+		const exc = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, typedItem.options.value);
 		setCodeString(exc);
 	};
 
@@ -142,7 +152,7 @@ export const ConvertToCodeModalDialog = (props: CopyAsCodeDialogProps) => {
 					entries={syntaxDropdownEntries()}
 					keybindingService={props.keybindingService}
 					layoutService={props.layoutService}
-					title={selectedSyntax}
+					title={syntaxDropdownTitle()}
 					onSelectionChanged={onSelectionChanged}
 				/>
 				<pre>
