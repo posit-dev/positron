@@ -84,7 +84,6 @@ from .data_explorer_comm import (
     SetRowFiltersFeatures,
     SetRowFiltersParams,
     SetSortColumnsFeatures,
-    SetSortColumnsRequest,
     SetSortColumnsParams,
     SuggestCodeSyntaxRequest,
     SummaryStatsBoolean,
