@@ -285,7 +285,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						return inChatPane && (isEditMode || isAgentMode);
 					// Only include the getTableSummary tool for Python sessions until supported in R
 					case PositronAssistantToolName.GetTableSummary:
-						return positronContext.activeSession?.language.toLowerCase() === 'python';
+						// TODO: Remove this restriction when the tool is supported in R https://github.com/posit-dev/positron/issues/8343
+						// The logic above with TOOL_TAG_REQUIRES_ACTIVE_SESSION will handle checking for active sessions once this is removed.
+						return activeSessions.has('python');
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
 					// Allow all tools in Agent mode.
 					default:
