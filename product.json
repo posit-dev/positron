@@ -9,7 +9,7 @@
 	"win32MutexName": "positron",
 	"licenseName": "Software Evaluation License",
 	"licenseUrl": "https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file",
-	"serverLicenseUrl": "https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file",
+	"serverLicenseUrl": "https://posit.co/about/eula/",
 	"serverGreeting": [],
 	"serverLicense": [],
 	"serverLicensePrompt": "",
@@ -300,7 +300,8 @@
 		"https://login.posit.cloud",
 		"https://connect.posit.cloud",
 		"https://login.staging.posit.cloud",
-		"https://staging.connect.posit.cloud"
+		"https://staging.connect.posit.cloud",
+		"https://posit.co"
 	],
 	"extensionsEnabledWithApiProposalVersion": [
 		"GitHub.copilot-chat"

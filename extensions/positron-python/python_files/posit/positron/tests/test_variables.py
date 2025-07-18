@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import TYPE_CHECKING, Any, cast
 from unittest.mock import ANY, Mock
 
@@ -25,6 +26,7 @@ from .conftest import DummyComm, PositronShell
 from .utils import (
     assert_register_table_called,
     comm_open_message,
+    dummy_rpc_request,
     json_rpc_error,
     json_rpc_notification,
     json_rpc_request,
@@ -223,6 +225,40 @@ def test_change_detection_over_limit(shell: PositronShell, variables_comm: Dummy
     _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
     _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
     _assert_assigned(shell, big_array, varname, variables_comm, "unevaluated")
+
+
+@pytest.mark.usefixtures("variables_comm")
+def test_change_detection_run_cell_performance(shell: PositronShell) -> None:
+    # Test that change detection hooks do not cause unreasonable performance overhead: https://github.com/posit-dev/positron/issues/8245
+
+    # First, measure baseline performance without large objects.
+    start_ns = time.perf_counter_ns()
+    shell.run_cell("1+1").raise_error()
+    baseline_ns = time.perf_counter_ns() - start_ns
+
+    # Create a large list similar to the reproduction case.
+    shell.run_cell("""
+sample_dict = {"a": 1, "b": "hello world", "c": 3.14}
+large_list = [sample_dict for _ in range(1_000_000)]
+""").raise_error()
+
+    # Now measure performance with large object in namespace.
+    start_ns = time.perf_counter_ns()
+    shell.run_cell("1+1").raise_error()
+    large_object_ns = time.perf_counter_ns() - start_ns
+
+    # The execution time should not increase dramatically.
+    # NOTE: 10x isn't great performance, but this test is mainly to catch major regressions.
+    slowdown_factor = large_object_ns / baseline_ns
+    assert slowdown_factor < 10, (
+        f"Console became {slowdown_factor:.1f}x slower with large object "
+        f"(baseline: {baseline_ns / 1e6:.3f}ms, with large object: {large_object_ns / 1e6:.3f}ms)"
+    )
+
+    # Also check absolute time - should complete within 1 second.
+    assert large_object_ns < 1e9, (
+        f"Simple cell execution took {large_object_ns / 1e6:.3f}ms with large object in namespace"
+    )
 
 
 def _do_list(variables_comm: DummyComm):
@@ -803,7 +839,7 @@ def _do_view(
     mock_dataexplorer_service: Mock,
 ):
     path = _encode_path([name])
-    msg = json_rpc_request("view", {"path": path}, comm_id="dummy_comm_id")
+    msg = dummy_rpc_request("view", {"path": path})
     variables_comm.handle_msg(msg)
 
     # An acknowledgment message is sent
@@ -898,6 +934,45 @@ def test_view_error_when_pandas_not_loaded(
         json_rpc_error(
             JsonRpcErrorCode.INTERNAL_ERROR,
             f"Error opening viewer for variable at '{path}'. Try restarting the session.",
+        )
+    ]
+
+
+def _assign_variables(shell: PositronShell, variables_comm: DummyComm, **variables):
+    # A hack to make sure that change events are fired when we
+    # manipulate user_ns
+    shell.kernel.variables_service.snapshot_user_ns()
+    shell.user_ns.update(**variables)
+    shell.kernel.variables_service.poll_variables()
+    variables_comm.messages.clear()
+
+
+def test_query_table_summary(shell: PositronShell, variables_comm: DummyComm):
+    from .test_data_explorer import SIMPLE_PANDAS_DF
+
+    _assign_variables(shell, variables_comm, df=SIMPLE_PANDAS_DF.iloc[:, :2])
+
+    msg = json_rpc_request(
+        "query_table_summary",
+        {"path": ["df"], "query_types": ["summary_stats"]},
+        comm_id="dummy_comm_id",
+    )
+    variables_comm.handle_msg(msg)
+
+    assert variables_comm.messages == [
+        json_rpc_response(
+            {
+                "num_rows": 5,
+                "num_columns": 2,
+                "column_schemas": [
+                    '{"column_name": "a", "column_index": 0, "type_name": "int64", "type_display": "number", "description": null, "children": null, "precision": null, "scale": null, "timezone": null, "type_size": null}',
+                    '{"column_name": "b", "column_index": 1, "type_name": "bool", "type_display": "boolean", "description": null, "children": null, "precision": null, "scale": null, "timezone": null, "type_size": null}',
+                ],
+                "column_profiles": [
+                    '{"column_name": "a", "type_display": "number", "summary_stats": {"type_display": "number", "number_stats": {"min_value": "1.0000", "max_value": "5.0000", "mean": "3.0000", "median": "3.0000", "stdev": "1.5811"}, "string_stats": null, "boolean_stats": null, "date_stats": null, "datetime_stats": null, "other_stats": null}}',
+                    '{"column_name": "b", "type_display": "boolean", "summary_stats": {"type_display": "boolean", "number_stats": null, "string_stats": null, "boolean_stats": {"true_count": 3, "false_count": 1}, "date_stats": null, "datetime_stats": null, "other_stats": null}}',
+                ],
+            }
         )
     ]
 

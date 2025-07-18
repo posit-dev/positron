@@ -19,6 +19,7 @@ pyarrow
 pytest
 pytest-asyncio
 pytest-mock
+syrupy
 torch
 scipy
 sqlalchemy
