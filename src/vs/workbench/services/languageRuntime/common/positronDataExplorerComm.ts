@@ -59,20 +59,20 @@ export interface ExportedData {
  */
 export interface ConvertedCode {
 	/**
-	 * Lines of code translating filters and sort keys
+	 * Lines of code that implement filters and sort keys
 	 */
 	converted_code: Array<string>;
 
 }
 
 /**
- * Suggestion of syntax to use for code translation
+ * Syntax to use for code conversion
  */
 export interface CodeSyntaxName {
 	/**
-	 * The syntax for converted code
+	 * The name of the code syntax, eg, pandas, polars, dplyr, etc.
 	 */
-	code_syntax_name: string;
+	code_syntax_name: CodeSyntaxName;
 
 }
 
@@ -879,9 +879,9 @@ export interface SupportedFeatures {
 	export_data_selection: ExportDataSelectionFeatures;
 
 	/**
-	 * Support for converting data selections to code
+	 * Support for 'convert_to_code' RPC and its features
 	 */
-	code_syntaxes: CodeSyntaxFeatures;
+	convert_to_code: ConvertToCodeFeatures;
 
 }
 
@@ -982,9 +982,9 @@ export interface SetSortColumnsFeatures {
 }
 
 /**
- * A list of supported code syntax names for exporting data selections
+ * Feature flags for convert to code RPC
  */
-export interface CodeSyntaxFeatures {
+export interface ConvertToCodeFeatures {
 	/**
 	 * The support status for this RPC method
 	 */
@@ -993,7 +993,7 @@ export interface CodeSyntaxFeatures {
 	/**
 	 * The syntaxes for converted code
 	 */
-	code_syntaxes?: Array<string>;
+	code_syntaxes?: Array<CodeSyntaxName>;
 
 }
 
@@ -1349,9 +1349,9 @@ export interface ConvertToCodeParams {
 	sort_keys: Array<ColumnSortKey>;
 
 	/**
-	 * The code syntax to use for translation
+	 * The code syntax to use for conversion
 	 */
-	code_syntax_name: string;
+	code_syntax_name: CodeSyntaxName;
 }
 
 /**
@@ -1589,11 +1589,11 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * @param columnFilters Zero or more column filters to apply
 	 * @param rowFilters Zero or more row filters to apply
 	 * @param sortKeys Zero or more sort keys to apply
-	 * @param codeSyntaxName The code syntax to use for translation
+	 * @param codeSyntaxName The code syntax to use for conversion
 	 *
 	 * @returns Code snippet for the data view
 	 */
-	convertToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntaxName: string): Promise<ConvertedCode> {
+	convertToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntaxName: CodeSyntaxName): Promise<ConvertedCode> {
 		return super.performRpc('convert_to_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax_name'], [columnFilters, rowFilters, sortKeys, codeSyntaxName]);
 	}
 
@@ -1604,7 +1604,7 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 * state
 	 *
 	 *
-	 * @returns Suggestion of syntax to use for code translation
+	 * @returns Syntax to use for code conversion
 	 */
 	suggestCodeSyntax(): Promise<CodeSyntaxName> {
 		return super.performRpc('suggest_code_syntax', [], []);

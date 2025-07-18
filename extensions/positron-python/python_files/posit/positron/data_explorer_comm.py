@@ -258,17 +258,17 @@ class ConvertedCode(BaseModel):
     """
 
     converted_code: List[StrictStr] = Field(
-        description="Lines of code translating filters and sort keys",
+        description="Lines of code that implement filters and sort keys",
     )
 
 
 class CodeSyntaxName(BaseModel):
     """
-    Suggestion of syntax to use for code translation
+    Syntax to use for code conversion
     """
 
-    code_syntax_name: StrictStr = Field(
-        description="The syntax for converted code",
+    code_syntax_name: CodeSyntaxName = Field(
+        description="The name of the code syntax, eg, pandas, polars, dplyr, etc.",
     )
 
 
@@ -992,8 +992,8 @@ class SupportedFeatures(BaseModel):
         description="Support for 'export_data_selection' RPC and its features",
     )
 
-    code_syntaxes: CodeSyntaxFeatures = Field(
-        description="Support for converting data selections to code",
+    convert_to_code: ConvertToCodeFeatures = Field(
+        description="Support for 'convert_to_code' RPC and its features",
     )
 
 
@@ -1081,16 +1081,16 @@ class SetSortColumnsFeatures(BaseModel):
     )
 
 
-class CodeSyntaxFeatures(BaseModel):
+class ConvertToCodeFeatures(BaseModel):
     """
-    A list of supported code syntax names for exporting data selections
+    Feature flags for convert to code RPC
     """
 
     support_status: SupportStatus = Field(
         description="The support status for this RPC method",
     )
 
-    code_syntaxes: Optional[List[StrictStr]] = Field(
+    code_syntaxes: Optional[List[CodeSyntaxName]] = Field(
         default=None,
         description="The syntaxes for converted code",
     )
@@ -1485,8 +1485,8 @@ class ConvertToCodeParams(BaseModel):
         description="Zero or more sort keys to apply",
     )
 
-    code_syntax_name: StrictStr = Field(
-        description="The code syntax to use for translation",
+    code_syntax_name: CodeSyntaxName = Field(
+        description="The code syntax to use for conversion",
     )
 
 
@@ -1815,7 +1815,7 @@ ExportDataSelectionFeatures.update_forward_refs()
 
 SetSortColumnsFeatures.update_forward_refs()
 
-CodeSyntaxFeatures.update_forward_refs()
+ConvertToCodeFeatures.update_forward_refs()
 
 TableSelection.update_forward_refs()
 

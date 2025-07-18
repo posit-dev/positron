@@ -67,7 +67,7 @@ export interface IDataExplorerBackendClient extends Disposable {
 	getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels>;
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData>;
 	suggestCodeSyntax(): Promise<CodeSyntaxName | undefined>;
-	convertToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, exportOptions: string): Promise<ConvertedCode>;
+	convertToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntax: CodeSyntaxName): Promise<ConvertedCode>;
 	setColumnFilters(filters: Array<ColumnFilter>): Promise<void>;
 	setRowFilters(filters: Array<RowFilter>): Promise<FilterResult>;
 	setSortColumns(sortKeys: Array<ColumnSortKey>): Promise<void>;
@@ -105,7 +105,7 @@ export const DATA_EXPLORER_DISCONNECTED_STATE: BackendState = {
 			support_status: SupportStatus.Unsupported,
 			supported_formats: []
 		},
-		code_syntaxes: {
+		convert_to_code: {
 			support_status: SupportStatus.Unsupported
 		}
 	}
@@ -517,7 +517,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @param desiredSyntax The desired syntax for the code conversion.
 	 * @returns A promise that resolves to the converted code.
 	 */
-	async convertToCode(desiredSyntax: string): Promise<ConvertedCode> {
+	async convertToCode(desiredSyntax: CodeSyntaxName): Promise<ConvertedCode> {
 		const state = await this.getBackendState();
 		await this.isSyntaxSupported(desiredSyntax, state);
 
@@ -536,7 +536,7 @@ export class DataExplorerClientInstance extends Disposable {
 	 * @returns A promise that resolves to the available code syntaxes.
 	 */
 	async suggestCodeSyntax(): Promise<CodeSyntaxName | undefined> {
-		await this.isSyntaxSupported();
+		await this.isConvertToCodeSupported();
 		return await this.runBackendTask(
 			() => this._backendClient.suggestCodeSyntax(),
 			() => undefined
@@ -548,15 +548,29 @@ export class DataExplorerClientInstance extends Disposable {
 
 	//#region Private Methods
 
-	private async isSyntaxSupported(syntax?: string, backendState?: BackendState): Promise<void> {
+	/**
+	 * Checks if the convert to code feature is supported by the backend.
+	 * @param backendState The backend state to check.
+	 * @throws An error if the feature is not supported.
+	 */
+	private async isConvertToCodeSupported(backendState?: BackendState): Promise<void> {
 		const state = backendState || await this.getBackendState();
-		const supportedSyntaxes = state.supported_features.code_syntaxes.code_syntaxes;
 
-		if (state.supported_features.code_syntaxes.support_status === SupportStatus.Unsupported) {
+		if (state.supported_features.convert_to_code.support_status === SupportStatus.Unsupported) {
 			throw new Error('Code syntax conversion is not supported by the backend.');
 		}
+	}
 
-		if (syntax && !supportedSyntaxes?.includes(syntax)) {
+	/**
+	 * Checks if the given code syntax is supported by the backend.
+	 * @param syntax The code syntax to check.
+	 * @param backendState The backend state to check.
+	 * @throws An error if the syntax is not supported.
+	 */
+	private async isSyntaxSupported(syntax: CodeSyntaxName, backendState: BackendState): Promise<void> {
+		await this.isConvertToCodeSupported(backendState);
+
+		if (syntax && !backendState.supported_features.convert_to_code.code_syntaxes?.some(s => s.code_syntax_name === syntax)) {
 			throw new Error(`Code syntax "${syntax}" is not supported by the backend.`);
 		}
 	}
