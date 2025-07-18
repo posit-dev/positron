@@ -61,21 +61,6 @@ export class DataExplorer {
 		this.menuItemClearFilters = this.code.driver.page.getByRole('button', { name: 'Clear Filters' });
 	}
 
-	async filter(columnName: string, condition: string, value?: string) {
-		await this.addFilterButton.click();
-
-		await this.selectColumnButton.click();
-		await this.selectFilterModalValue(columnName).click();
-
-		await this.selectConditionButton.click();
-		await this.selectFilterModalValue(condition).click();
-
-		if (value) {
-			await this.selectFilterModalValue(value).click();
-		}
-		await this.applyFilterButton.click();
-	}
-
 	async clearAllFilters() {
 		if (await this.clearSortingButton.isVisible() && await this.clearSortingButton.isEnabled()) {
 			await this.clearSortingButton.click();
@@ -130,13 +115,13 @@ export class DataExplorer {
 	/*
 	 * Add a filter to the data explorer.  Only works for a single filter at the moment.
 	 */
-	async addFilter(column: string, condition: string, value?: string) {
-		await test.step(`Add filter: ${column} ${condition} ${value}`, async () => {
+	async addFilter(columnName: string, condition: string, value?: string) {
+		await test.step(`Add filter: ${columnName} ${condition} ${value}`, async () => {
 			await this.addFilterButton.click();
 
 			// select column
 			await this.selectColumnButton.click();
-			await this.selectFilterModalValue(column).click();
+			await this.selectFilterModalValue(columnName).click();
 
 			// select condition
 			await this.selectConditionButton.click();

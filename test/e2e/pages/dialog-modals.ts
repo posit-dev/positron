@@ -10,7 +10,7 @@ import { Toasts } from './dialog-toasts.js';
 export class Modals {
 	public modalBox = this.code.driver.page.locator('.positron-modal-dialog-box');
 	public modalTitle = this.modalBox.locator('.simple-title-bar-title');
-	public modalMessage = this.modalBox.locator('.dialog-box .message');
+	public modalMessage = this.code.driver.page.locator('.dialog-box .message');
 	public okButton = this.modalBox.getByRole('button', { name: 'OK' });
 	public cancelButton = this.modalBox.getByRole('button', { name: 'Cancel' });
 	public button = (label: string | RegExp) => this.modalBox.getByRole('button', { name: label });

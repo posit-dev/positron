@@ -65,13 +65,8 @@ async function testConsoleClipboardWithContextMenu(app: Application, prompt: str
 	}
 
 	await expect(async () => {
-		await app.workbench.rightClickMenu.triggerAndSelect(app.workbench.console.activeConsole, 'Select All');
-
-		// wait a little between selection and copy
-		await app.code.wait(1000);
-
-		await app.workbench.rightClickMenu.triggerAndSelect(app.workbench.console.activeConsole, 'Copy');
-
+		await app.workbench.hotKeys.copy();
+		await app.workbench.hotKeys.selectAll();
 		const clipboardText = await app.workbench.clipboard.getClipboardText();
 
 		expect(clipboardText).toMatch(regex);

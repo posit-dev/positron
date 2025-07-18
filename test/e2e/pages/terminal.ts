@@ -7,14 +7,14 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Clipboard } from './clipboard';
-import { RightClickMenu } from './dialog-right-click-menu.js';
+import { HotKeys } from './hotKeys.js';
 
 const TERMINAL_WRAPPER = '#terminal .terminal-wrapper.active';
 
 export class Terminal {
 	terminalTab: Locator;
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private clipboard: Clipboard, private rightClickMenu: RightClickMenu) {
+	constructor(private code: Code, private quickaccess: QuickAccess, private clipboard: Clipboard, private hotKeys: HotKeys) {
 		this.terminalTab = this.code.driver.page.getByRole('tab', { name: 'Terminal' }).locator('a');
 	}
 
@@ -38,24 +38,9 @@ export class Terminal {
 
 		await expect(async () => {
 
-			// since we are interacting with right click menus, don't poll too fast
-			await this.code.wait(2000);
-
-			if (process.platform !== 'darwin') {
-				await this.rightClickMenu.triggerAndSelect(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Select All');
-			} else {
-				await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
-				await this.code.driver.page.keyboard.press('Meta+A');
-			}
-
-			// wait a little between selection and copy
-			await this.code.wait(1000);
-
-			if (process.platform !== 'darwin') {
-				await this.rightClickMenu.triggerAndSelect(this.code.driver.page.locator(TERMINAL_WRAPPER), 'Copy');
-			} else {
-				await this.code.driver.page.keyboard.press('Meta+C');
-			}
+			await this.code.driver.page.locator(TERMINAL_WRAPPER).click();
+			await this.hotKeys.selectAll();
+			await this.hotKeys.copy();
 
 			const text = await this.clipboard.getClipboardText();
 

@@ -43,7 +43,7 @@ test.describe.skip('Data Explorer: Copy Code', { tag: [tags.WEB, tags.WIN, tags.
 
 		test(`${language} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, executeCode, hotKeys }) {
 			const { dataExplorer, variables, modals } = app.workbench;
-			await sessions.start(language.toLowerCase() === 'python' ? 'python' : 'r');
+			await sessions.start(language === 'Python' ? 'python' : 'r');
 
 			// execute code to create a data construct
 			await executeCode(language, dataScript);
@@ -77,21 +77,15 @@ test.describe.skip('Data Explorer: Copy Code', { tag: [tags.WEB, tags.WIN, tags.
 });
 
 
-
-
+// test('Python - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
+// });
 
 // test('R - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
-// 	// await openDataFile('data-files/data_explorer/data_columns.csv');
-// 	// await app.workbench.dataExplorer.addFilterButton.click();
-// 	// await app.workbench.dataExplorer.selectColumnButton.click();
-// 	// await app.workbench.dataExplorer.verifyColumnHeaders(expectedColumnNames);
 // });
 
 // test('R - Verify copy code with changed default', async function ({ app, r, openDataFile }) {
-// 	// await openDataFile('data-files/data_explorer/data_columns.csv');
-// 	// await app.workbench.dataExplorer.addFilterButton.click();
-// 	// await app.workbench.dataExplorer.selectColumnButton.click();
-// 	// await app.workbench.dataExplorer.verifyColumnHeaders(expectedColumnNames);
 // });
+
+
 
 

@@ -13,7 +13,6 @@ export * from './test-teardown.js';
 // pages
 export * from '../pages/console';
 export * from '../pages/dialog-modals';
-export * from '../pages/dialog-right-click-menu';
 export * from '../pages/dialog-toasts';
 export * from '../pages/dialog-popups.js';
 export * from '../pages/variables';
@@ -50,6 +49,6 @@ export * from '../pages/hotKeys';
 
 // utils
 export * from '../pages/utils/aws';
-export * from '../pages/utils/contextMenu';
+export * from '../pages/dialog-contextMenu';
 export * from '../pages/utils/vscodeSettings';
 export { getDevElectronPath, getBuildElectronPath, getBuildVersion } from './electron';
