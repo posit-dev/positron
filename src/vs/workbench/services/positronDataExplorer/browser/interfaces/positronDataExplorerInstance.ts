@@ -9,6 +9,7 @@ import { TableDataDataGridInstance } from '../tableDataDataGridInstance.js';
 import { DataExplorerClientInstance } from '../../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { TableSummaryDataGridInstance } from '../tableSummaryDataGridInstance.js';
 import { PositronDataExplorerLayout } from './positronDataExplorerService.js';
+import { CodeSyntaxName } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * IPositronDataExplorerInstance interface.
@@ -121,7 +122,7 @@ export interface IPositronDataExplorerInstance extends IDisposable {
 	copyTableDataToClipboard(): Promise<void>;
 
 	/**
-	 * Translates the current data view's filters and sorts to code in the desired syntax.
+	 * Converts the current data view's filters and sorts to code in the desired syntax.
 	 */
-	convertToCode(desiredSyntax: string): Promise<string | undefined>;
+	convertToCode(desiredSyntax: CodeSyntaxName): Promise<string | undefined>;
 }

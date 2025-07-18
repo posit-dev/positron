@@ -215,7 +215,7 @@
 				}
 			}
 		},
-{
+		{
 			"name": "convert_to_code",
 			"summary": "Converts the current data view into a code snippet.",
 			"description": "Converts filters and sort keys as code in different syntaxes like pandas, polars, data.table, dplyr",
@@ -255,14 +255,14 @@
 				},
 				{
 					"name": "code_syntax_name",
-					"description": "The code syntax to use for translation",
+					"description": "The code syntax to use for conversion",
 					"required": true,
 					"schema": {
-						"type": "string",
-						"description": "The syntax for converted code"
+						"$ref": "#/components/schemas/code_syntax_name",
+						"description": "The name of the code syntax, eg, pandas, polars, dplyr, etc."
 					}
 				}
-		],
+			],
 			"result": {
 				"schema": {
 					"name": "converted_code",
@@ -274,7 +274,7 @@
 					"properties": {
 						"converted_code": {
 							"type": "array",
-							"description": "Lines of code translating filters and sort keys",
+							"description": "Lines of code that implement filters and sort keys",
 							"items": {
 								"type": "string"
 							}
@@ -283,7 +283,7 @@
 				}
 			}
 		},
-{
+		{
 			"name": "suggest_code_syntax",
 			"summary": "Suggest code syntax for code conversion",
 			"description": "Suggest code syntax for code conversion based on the current backend state",
@@ -292,14 +292,14 @@
 				"schema": {
 					"name": "code_syntax_name",
 					"type": "object",
-					"description": "Suggestion of syntax to use for code translation",
+					"description": "Syntax to use for code conversion",
 					"required": [
 						"code_syntax_name"
 					],
 					"properties": {
 						"code_syntax_name": {
-							"type": "string",
-							"description": "The syntax for converted code"
+							"$ref": "#/components/schemas/code_syntax_name",
+							"description": "The name of the code syntax, eg, pandas, polars, dplyr, etc."
 						}
 					}
 				}
@@ -1393,8 +1393,7 @@
 					"get_column_profiles",
 					"set_sort_columns",
 					"export_data_selection",
-					"export_as_code",
-					"code_syntaxes"
+					"convert_to_code"
 				],
 				"properties": {
 					"search_schema": {
@@ -1421,9 +1420,9 @@
 						"description": "Support for 'export_data_selection' RPC and its features",
 						"$ref": "#/components/schemas/export_data_selection_features"
 					},
-					"code_syntaxes": {
-						"description": "Support for converting data selections to code",
-						"$ref": "#/components/schemas/code_syntax_features"
+					"convert_to_code": {
+						"description": "Support for 'convert_to_code' RPC and its features",
+						"$ref": "#/components/schemas/convert_to_code_features"
 					}
 				}
 			},
@@ -1550,9 +1549,9 @@
 					}
 				}
 			},
-			"code_syntax_features": {
+			"convert_to_code_features": {
 				"type": "object",
-				"description": "A list of supported code syntax names for exporting data selections",
+				"description": "Feature flags for convert to code RPC",
 				"required": [
 					"support_status"
 				],
@@ -1565,11 +1564,15 @@
 						"type": "array",
 						"description": "The syntaxes for converted code",
 						"items": {
-							"type": "string",
-							"description": "The syntaxes for converted code"
+							"$ref": "#/components/schemas/code_syntax_name",
+							"description": "The name of the code syntax, eg, pandas, polars, dplyr, etc."
 						}
 					}
 				}
+			},
+			"code_syntax_name": {
+				"type": "string",
+				"description": "The name of the code syntax, eg, pandas, polars, dplyr, etc."
 			},
 			"table_selection": {
 				"type": "object",
