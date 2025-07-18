@@ -7,14 +7,13 @@ import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
 import { Clipboard } from './clipboard';
-import { HotKeys } from './hotKeys.js';
 
 const TERMINAL_WRAPPER = '#terminal .terminal-wrapper.active';
 
 export class Terminal {
 	terminalTab: Locator;
 
-	constructor(private code: Code, private quickaccess: QuickAccess, private clipboard: Clipboard, private hotKeys: HotKeys) {
+	constructor(private code: Code, private quickaccess: QuickAccess, private clipboard: Clipboard) {
 		this.terminalTab = this.code.driver.page.getByRole('tab', { name: 'Terminal' }).locator('a');
 	}
 
