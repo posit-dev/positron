@@ -137,3 +137,7 @@ def get_type_as_str(value: Any) -> str:
 
 def percent_difference(actual: float, expected: float) -> float:
     return abs(actual - expected) / actual
+
+
+def dummy_rpc_request(*args):
+    return json_rpc_request(*args, comm_id="dummy_comm_id")
