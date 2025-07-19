@@ -132,6 +132,19 @@ export class ChatMarkdownContentPart extends Disposable implements IChatContentP
 					vulns = modelEntry.vulns;
 					codeblockEntry = fastUpdateModelEntry;
 					textModel = modelEntry.model;
+					// --- Start Positron ---
+					// This works around an upstream bug introduced in 1.102
+					// wherein the textModel is not always updated with the
+					// latest text. This ensures that the model
+					// reflects the current content of the code block.
+					//
+					// We should be able to remove this workaround when merging
+					// 1.103 since the upstream code has since been heavily
+					// refactored
+					modelEntry.model.then(model => {
+						model.setValue(text);
+					});
+					// --- End Positron ---
 				}
 
 				const hideToolbar = isResponseVM(element) && element.errorDetails?.responseIsFiltered;
