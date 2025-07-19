@@ -601,7 +601,7 @@
 	},
 	{
 		"c": "  ",
-		"t": "source.r",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -611,7 +611,7 @@
 	},
 	{
 		"c": "x",
-		"t": "source.r variable.object",
+		"t": "source.r meta.bracket variable.object",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -621,7 +621,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.r",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -631,7 +631,7 @@
 	},
 	{
 		"c": "+",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket keyword.operator",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -641,7 +641,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.r",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -651,7 +651,7 @@
 	},
 	{
 		"c": "y",
-		"t": "source.r variable.object",
+		"t": "source.r meta.bracket variable.object",
 		"r": {
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
@@ -691,7 +691,7 @@
 	},
 	{
 		"c": "1",
-		"t": "source.r constant.numeric",
+		"t": "source.r meta.bracket constant.numeric",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -701,7 +701,7 @@
 	},
 	{
 		"c": ",",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket keyword.operator",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -711,7 +711,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.r",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -721,7 +721,7 @@
 	},
 	{
 		"c": "-",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket keyword.operator",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -731,7 +731,7 @@
 	},
 	{
 		"c": "2",
-		"t": "source.r constant.numeric",
+		"t": "source.r meta.bracket constant.numeric",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -741,7 +741,7 @@
 	},
 	{
 		"c": ",",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket keyword.operator",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -751,7 +751,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.r",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -761,7 +761,7 @@
 	},
 	{
 		"c": "2.0",
-		"t": "source.r constant.numeric",
+		"t": "source.r meta.bracket constant.numeric",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -801,7 +801,7 @@
 	},
 	{
 		"c": "1.0e10",
-		"t": "source.r constant.numeric",
+		"t": "source.r meta.bracket constant.numeric",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -811,7 +811,7 @@
 	},
 	{
 		"c": ",",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket keyword.operator",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -821,7 +821,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.r",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -831,7 +831,7 @@
 	},
 	{
 		"c": "2.0e10",
-		"t": "source.r constant.numeric",
+		"t": "source.r meta.bracket constant.numeric",
 		"r": {
 			"hc_black": "constant.numeric: #B5CEA8",
 			"positron_dark": "constant.numeric: #B5CEA8",
@@ -871,7 +871,7 @@
 	},
 	{
 		"c": "\"one\"",
-		"t": "source.r string.quoted.double",
+		"t": "source.r meta.bracket string.quoted.double",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -881,7 +881,7 @@
 	},
 	{
 		"c": ",",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket keyword.operator",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -891,7 +891,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.r",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -901,7 +901,7 @@
 	},
 	{
 		"c": "NULL",
-		"t": "source.r constant.language",
+		"t": "source.r meta.bracket constant.language",
 		"r": {
 			"hc_black": "constant.language: #569CD6",
 			"positron_dark": "constant.language: #569CD6",
@@ -941,7 +941,7 @@
 	},
 	{
 		"c": "NA",
-		"t": "source.r constant.language",
+		"t": "source.r meta.bracket constant.language",
 		"r": {
 			"hc_black": "constant.language: #569CD6",
 			"positron_dark": "constant.language: #569CD6",
@@ -951,7 +951,7 @@
 	},
 	{
 		"c": ",",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket keyword.operator",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -961,7 +961,7 @@
 	},
 	{
 		"c": " ",
-		"t": "source.r",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -971,7 +971,7 @@
 	},
 	{
 		"c": "'two'",
-		"t": "source.r string.quoted.single",
+		"t": "source.r meta.bracket string.quoted.single",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -1011,7 +1011,7 @@
 	},
 	{
 		"c": "\"multi-",
-		"t": "source.r string.quoted.double",
+		"t": "source.r meta.bracket string.quoted.double",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -1021,7 +1021,7 @@
 	},
 	{
 		"c": "      line\"",
-		"t": "source.r string.quoted.double",
+		"t": "source.r meta.bracket string.quoted.double",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -1031,7 +1031,7 @@
 	},
 	{
 		"c": ",",
-		"t": "source.r keyword.operator",
+		"t": "source.r meta.bracket keyword.operator",
 		"r": {
 			"hc_black": "keyword.operator: #D4D4D4",
 			"positron_dark": "keyword.operator: #D4D4D4",
@@ -1041,7 +1041,7 @@
 	},
 	{
 		"c": "      ",
-		"t": "source.r",
+		"t": "source.r meta.bracket",
 		"r": {
 			"hc_black": "default: #FFFFFF",
 			"positron_dark": "default: #CCCCCC",
@@ -1051,7 +1051,7 @@
 	},
 	{
 		"c": "'multi-",
-		"t": "source.r string.quoted.single",
+		"t": "source.r meta.bracket string.quoted.single",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",
@@ -1061,7 +1061,7 @@
 	},
 	{
 		"c": "      line'",
-		"t": "source.r string.quoted.single",
+		"t": "source.r meta.bracket string.quoted.single",
 		"r": {
 			"hc_black": "string: #CE9178",
 			"positron_dark": "string: #CE9178",

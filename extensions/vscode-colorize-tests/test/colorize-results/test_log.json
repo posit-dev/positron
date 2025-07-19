@@ -40,7 +40,27 @@
 		}
 	},
 	{
-		"c": "] [renderer1] [trace] CommandService#executeCommand ",
+		"c": "] [renderer1] [",
+		"t": "text.log",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "trace",
+		"t": "text.log comment log.verbose",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "] CommandService#executeCommand ",
 		"t": "text.log",
 		"r": {
 			"hc_black": "default: #FFFFFF",
@@ -100,7 +120,27 @@
 		}
 	},
 	{
-		"c": "] [renderer1] [trace] CommandService#executeCommand setContext",
+		"c": "] [renderer1] [",
+		"t": "text.log",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "trace",
+		"t": "text.log comment log.verbose",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "] CommandService#executeCommand setContext",
 		"t": "text.log",
 		"r": {
 			"hc_black": "default: #FFFFFF",
@@ -150,7 +190,27 @@
 		}
 	},
 	{
-		"c": "] [renderer1] [trace] SCMService#registerSCMProvider",
+		"c": "] [renderer1] [",
+		"t": "text.log",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "trace",
+		"t": "text.log comment log.verbose",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "] SCMService#registerSCMProvider",
 		"t": "text.log",
 		"r": {
 			"hc_black": "default: #FFFFFF",
@@ -200,7 +260,27 @@
 		}
 	},
 	{
-		"c": "] [renderer1] [trace] CommandService#executeCommand setContext",
+		"c": "] [renderer1] [",
+		"t": "text.log",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "trace",
+		"t": "text.log comment log.verbose",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "] CommandService#executeCommand setContext",
 		"t": "text.log",
 		"r": {
 			"hc_black": "default: #FFFFFF",
@@ -250,7 +330,27 @@
 		}
 	},
 	{
-		"c": "] [renderer1] [trace] CommandService#executeCommand ",
+		"c": "] [renderer1] [",
+		"t": "text.log",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "trace",
+		"t": "text.log comment log.verbose",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "] CommandService#executeCommand ",
 		"t": "text.log",
 		"r": {
 			"hc_black": "default: #FFFFFF",
@@ -310,7 +410,27 @@
 		}
 	},
 	{
-		"c": "] [renderer1] [trace] CommandService#executeCommand ",
+		"c": "] [renderer1] [",
+		"t": "text.log",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "trace",
+		"t": "text.log comment log.verbose",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "] CommandService#executeCommand ",
 		"t": "text.log",
 		"r": {
 			"hc_black": "default: #FFFFFF",
@@ -370,7 +490,27 @@
 		}
 	},
 	{
-		"c": "] [renderer1] [trace] CommandService#executeCommand ",
+		"c": "] [renderer1] [",
+		"t": "text.log",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "trace",
+		"t": "text.log comment log.verbose",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "] CommandService#executeCommand ",
 		"t": "text.log",
 		"r": {
 			"hc_black": "default: #FFFFFF",
@@ -430,7 +570,27 @@
 		}
 	},
 	{
-		"c": "] [renderer1] [trace] CommandService#executeCommand ",
+		"c": "] [renderer1] [",
+		"t": "text.log",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "trace",
+		"t": "text.log comment log.verbose",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "] CommandService#executeCommand ",
 		"t": "text.log",
 		"r": {
 			"hc_black": "default: #FFFFFF",
@@ -490,7 +650,27 @@
 		}
 	},
 	{
-		"c": "] [renderer1] [trace] CommandService#executeCommand ",
+		"c": "] [renderer1] [",
+		"t": "text.log",
+		"r": {
+			"hc_black": "default: #FFFFFF",
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
+		}
+	},
+	{
+		"c": "trace",
+		"t": "text.log comment log.verbose",
+		"r": {
+			"hc_black": "comment: #7CA668",
+			"positron_dark": "comment: #6A9955",
+			"positron_light": "comment: #008000",
+			"hc_light": "comment: #515151"
+		}
+	},
+	{
+		"c": "] CommandService#executeCommand ",
 		"t": "text.log",
 		"r": {
 			"hc_black": "default: #FFFFFF",

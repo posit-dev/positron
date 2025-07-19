@@ -213,6 +213,7 @@ export class RemoteExtensionHost extends Disposable implements IExtensionHost {
 			positronBuildNumber: this._productService.positronBuildNumber,
 			// --- End Positron ---
 			quality: this._productService.quality,
+			date: this._productService.date,
 			parentPid: remoteInitData.pid,
 			environment: {
 				isExtensionDevelopmentDebug,
@@ -295,4 +296,3 @@ export class RemoteExtensionHost extends Disposable implements IExtensionHost {
 		}
 	}
 }
-

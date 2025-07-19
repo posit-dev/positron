@@ -24,7 +24,7 @@ export class ThrottledEmitter<T> extends Emitter<T> {
 	/**
 	 * Gets or sets the throttle event timeout.
 	 */
-	private _throttleEventTimeout?: NodeJS.Timeout;
+	private _throttleEventTimeout?: Timeout;
 
 	/**
 	 * Gets or sets the throttle history.

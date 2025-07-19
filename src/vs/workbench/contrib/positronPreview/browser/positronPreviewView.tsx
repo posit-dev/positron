@@ -62,7 +62,7 @@ export class PositronPreviewViewPane extends PositronViewPane implements IReactC
 	private _height = 0;
 
 	// The timeout for the position-based redraw.
-	private _redrawTimeout: NodeJS.Timeout | undefined;
+	private _redrawTimeout: Timeout | undefined;
 
 	//#endregion Private Properties
 

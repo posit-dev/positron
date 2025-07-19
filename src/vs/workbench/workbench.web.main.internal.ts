@@ -67,6 +67,7 @@ import './services/userDataProfile/browser/userDataProfileStorageService.js';
 import './services/configurationResolver/browser/configurationResolverService.js';
 import '../platform/extensionResourceLoader/browser/extensionResourceLoaderService.js';
 import './services/auxiliaryWindow/browser/auxiliaryWindowService.js';
+import './services/browserElements/browser/webBrowserElementsService.js';
 
 // --- Start Positron ---
 import './services/ephemeralState/browser/ephemeralStateService.js';
@@ -169,10 +170,13 @@ import './contrib/splash/browser/splash.contribution.js';
 // Remote Start Entry for the Web
 import './contrib/remote/browser/remoteStartEntry.contribution.js';
 
+// Process Explorer
+import './contrib/processExplorer/browser/processExplorer.web.contribution.js';
+
 // --- Start Positron ---
 import './contrib/positronPreview/browser/positronPreview.web.contribution.js';
 // --- End Positron
-//
+
 //#endregion
 
 

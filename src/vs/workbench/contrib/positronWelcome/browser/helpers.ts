@@ -8,7 +8,6 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from '../../../../platform/storage/common/storage.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
-import { PositronImportSettings } from './actions.js';
 import * as platform from '../../../../base/common/platform.js';
 import { localize } from '../../../../nls.js';
 import { env } from '../../../../base/common/process.js';
@@ -18,6 +17,8 @@ import { ITerminalService } from '../../terminal/browser/terminal.js';
 import { untildify } from '../../../../base/common/labels.js';
 
 const WAS_PROMPTED_KEY = 'positron.welcome.promptedImport';
+
+export const POSITRON_IMPORT_SETTINGS_COMMAND_ID = 'positron.workbench.action.importSettings'
 
 export async function getImportWasPrompted(
 	storageService: IStorageService,
@@ -49,7 +50,7 @@ export async function promptImport(
 			{
 				label: localize('positron.settingsImport.compareSettings', 'Compare settings'),
 				run: () => {
-					commandService.executeCommand(PositronImportSettings.ID);
+					commandService.executeCommand(POSITRON_IMPORT_SETTINGS_COMMAND_ID);
 					setImportWasPrompted(storageService);
 				},
 			},

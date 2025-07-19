@@ -292,7 +292,7 @@ export class PositronConsoleService extends Disposable implements IPositronConso
 	/**
 	 * The debounce timer for the onDidChangeConsoleWidth event.
 	 */
-	private _consoleWidthDebounceTimer: NodeJS.Timeout | undefined;
+	private _consoleWidthDebounceTimer: Timeout | undefined;
 
 	//#endregion Private Properties
 

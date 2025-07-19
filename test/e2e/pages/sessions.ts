@@ -378,6 +378,7 @@ export class Sessions {
 	async startAndSkipMetadata(options: {
 		language: 'Python' | 'R';
 		version?: string;
+		disambiguator?: string; // additional string to differentiate in picker
 		triggerMode?: 'session-picker' | 'quickaccess' | 'hotkey';
 		waitForReady?: boolean;
 	}): Promise<string> {
@@ -397,7 +398,7 @@ export class Sessions {
 			triggerMode = 'hotkey',
 		} = options;
 
-		return await test.step(`Start session via ${triggerMode}: ${language} ${version}`, async () => {
+		return await test.step(`Start session via ${triggerMode}: ${language} ${version} ${options.disambiguator}`, async () => {
 
 			// Don't try to start a new runtime if one is currently starting up
 			await this.expectAllSessionsToBeReady();
@@ -412,7 +413,15 @@ export class Sessions {
 				await this.page.keyboard.press('Control+Shift+/');
 			}
 
-			await this.quickinput.type(`${language} ${version}`);
+			let input = language;
+			if (version) {
+				input += ` ${version}`;
+			}
+			if (options.disambiguator) {
+				input += ` ${options.disambiguator}`;
+			}
+
+			await this.quickinput.type(input);
 
 			// Wait until the desired runtime appears in the list and select it.
 			// We need to click instead of using 'enter' because the Python select interpreter command
@@ -1089,6 +1098,7 @@ export type SessionInfo = {
 	name: string;
 	language: 'Python' | 'R';
 	version: string; // e.g. '3.10.15'
+	disambiguator?: string; // additional string to differentiate in picker
 	id: string;
 	triggerMode?: SessionTrigger;
 	waitForReady?: boolean;
@@ -1144,6 +1154,7 @@ const pythonReticulate: SessionInfo = {
 	name: `Python (reticulate)`,
 	language: 'Python',
 	version: '',
+	disambiguator: 'reticulate',
 	triggerMode: 'session-picker',
 	id: '',
 	waitForReady: true

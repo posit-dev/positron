@@ -39,7 +39,7 @@ export class PositronActionBarHoverManager extends Disposable implements IHoverM
 	/**
 	 * Gets or sets the timeout.
 	 */
-	private _timeout?: NodeJS.Timeout;
+	private _timeout?: Timeout;
 
 	/**
 	 * Gets or sets the last hover widget.

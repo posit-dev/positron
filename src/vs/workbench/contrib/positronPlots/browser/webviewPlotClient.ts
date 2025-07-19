@@ -26,7 +26,7 @@ export abstract class WebviewPlotClient extends Disposable implements IPositronP
 
 	private _claimed: boolean = false;
 
-	private _renderTimer: NodeJS.Timeout | undefined;
+	private _renderTimer: Timeout | undefined;
 
 	private _element: HTMLElement | undefined;
 

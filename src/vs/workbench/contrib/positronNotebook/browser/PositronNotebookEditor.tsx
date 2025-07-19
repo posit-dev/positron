@@ -13,7 +13,6 @@ import { ISize, PositronReactRenderer } from '../../../../base/browser/positronR
 import { CancellationToken } from '../../../../base/common/cancellation.js';
 import { Emitter } from '../../../../base/common/event.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { observableValue } from '../../../../base/common/observableInternal/base.js';
 import { FontMeasurements } from '../../../../editor/browser/config/fontMeasurements.js';
 import { IEditorOptions } from '../../../../editor/common/config/editorOptions.js';
 import { BareFontInfo, FontInfo } from '../../../../editor/common/config/fontInfo.js';
@@ -37,7 +36,7 @@ import {
 	INotebookEditorOptions,
 	INotebookEditorViewState
 } from '../../notebook/browser/notebookBrowser.js';
-import { NotebookLayoutChangedEvent } from '../../notebook/browser/notebookViewEvents.js';
+import { NotebookLayoutChangedEvent, NotebookLayoutInfo } from '../../notebook/browser/notebookViewEvents.js';
 import { NotebookEventDispatcher } from '../../notebook/browser/viewModel/eventDispatcher.js';
 import { NotebookViewModel } from '../../notebook/browser/viewModel/notebookViewModelImpl.js';
 import { ViewContext } from '../../notebook/browser/viewModel/viewContext.js';
@@ -49,7 +48,10 @@ import { IEditorGroup, IEditorGroupsService } from '../../../services/editor/com
 import { PositronNotebookEditorInput } from './PositronNotebookEditorInput.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { NotebookVisibilityProvider } from './NotebookVisibilityContext.js';
+import { observableValue } from '../../../../base/common/observable.js';
 
+
+/*
 interface NotebookLayoutInfo {
 	width: number;
 	height: number;
@@ -57,6 +59,7 @@ interface NotebookLayoutInfo {
 	fontInfo: FontInfo;
 	stickyHeight: number;
 }
+	*/
 
 /**
  * Key for the memoized view state.
@@ -405,6 +408,7 @@ export class PositronNotebookEditor extends EditorPane {
 			stickyHeight: 0,
 			// TODO: Implement this
 			// stickyHeight: this._notebookStickyScroll?.getCurrentStickyHeight() ?? 0
+			listViewOffsetTop: 0
 		};
 	}
 

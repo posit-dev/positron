@@ -18,12 +18,12 @@ import { onUnexpectedError } from '../../../../base/common/errors.js';
 import { KeyCode } from '../../../../base/common/keyCodes.js';
 import { splitRecentLabel } from '../../../../base/common/labels.js';
 import { DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
-import { ILink, LinkedText } from '../../../../base/common/linkedText.js';
+import { ILink, LinkedText, parseLinkedText } from '../../../../base/common/linkedText.js';
 import { parse } from '../../../../base/common/marshalling.js';
 import { Schemas, matchesScheme } from '../../../../base/common/network.js';
-import { isMacintosh, isWeb, OS } from '../../../../base/common/platform.js';
+import { OS } from '../../../../base/common/platform.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { assertIsDefined } from '../../../../base/common/types.js';
+import { assertReturnsDefined } from '../../../../base/common/types.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
 import './media/gettingStarted.css';
@@ -45,7 +45,7 @@ import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { IProductService } from '../../../../platform/product/common/productService.js';
 import { IQuickInputService } from '../../../../platform/quickinput/common/quickInput.js';
 import { IStorageService, StorageScope, StorageTarget, WillSaveStateReason } from '../../../../platform/storage/common/storage.js';
-import { ITelemetryService, TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';
+import { firstSessionDateStorageKey, ITelemetryService, TelemetryLevel } from '../../../../platform/telemetry/common/telemetry.js';
 import { getTelemetryLevel } from '../../../../platform/telemetry/common/telemetryUtils.js';
 import { defaultButtonStyles, defaultKeybindingLabelStyles, defaultToggleStyles } from '../../../../platform/theme/browser/defaultStyles.js';
 import { IWindowOpenable } from '../../../../platform/window/common/window.js';
@@ -63,7 +63,7 @@ import { gettingStartedCheckedCodicon, gettingStartedUncheckedCodicon } from './
 import { GettingStartedEditorOptions, GettingStartedInput } from './gettingStartedInput.js';
 import { IResolvedWalkthrough, IResolvedWalkthroughStep, IWalkthroughsService, hiddenEntriesConfigurationKey, parseDescription } from './gettingStartedService.js';
 import { RestoreWalkthroughsConfigurationValue, restoreWalkthroughsConfigurationKey } from './startupPage.js';
-import { NEW_WELCOME_EXPERIENCE, startEntries } from '../common/gettingStartedContent.js';
+import { copilotSettingsMessage, NEW_WELCOME_EXPERIENCE, startEntries } from '../common/gettingStartedContent.js';
 import { GroupDirection, GroupsOrder, IEditorGroup, IEditorGroupsService } from '../../../services/editor/common/editorGroupsService.js';
 import { IExtensionService } from '../../../services/extensions/common/extensions.js';
 import { IHostService } from '../../../services/host/browser/host.js';
@@ -73,6 +73,7 @@ import { AccessibilityVerbositySettingId } from '../../accessibility/browser/acc
 import { AccessibleViewAction } from '../../accessibility/browser/accessibleViewActions.js';
 import { KeybindingLabel } from '../../../../base/browser/ui/keybindingLabel/keybindingLabel.js';
 import { ScrollbarVisibility } from '../../../../base/common/scrollable.js';
+import { startupExpContext, StartupExperimentGroup } from '../../../services/coreExperimentation/common/coreExperimentationService.js';
 
 // --- Start Positron ---
 import './media/positronGettingStarted.css';
@@ -81,6 +82,7 @@ import { createWelcomePageLeft } from './positronWelcomePageLeft.js';
 import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
 import { ILifecycleService, LifecyclePhase } from '../../../services/lifecycle/common/lifecycle.js';
 import { isDark } from '../../../../platform/theme/common/theme.js';
+import { isWeb } from '../../../../base/common/platform.js';
 // --- End Positron ---
 
 const SLIDE_TRANSITION_TIME_MS = 250;
@@ -183,6 +185,7 @@ export class GettingStartedPage extends EditorPane {
 	private categoriesSlide!: HTMLElement;
 	private stepsContent!: HTMLElement;
 	private stepMediaComponent!: HTMLElement;
+	private nextButton!: HTMLButtonElement;
 	private webview!: IWebviewElement;
 
 	private layoutMarkdown: (() => void) | undefined;
@@ -219,8 +222,10 @@ export class GettingStartedPage extends EditorPane {
 		@IWebviewService private readonly webviewService: IWebviewService,
 		@IWorkspaceContextService private readonly workspaceContextService: IWorkspaceContextService,
 		@IAccessibilityService private readonly accessibilityService: IAccessibilityService,
+		// --- Start Positron ---
 		@ILayoutService private readonly layoutService: ILayoutService,
 		@ILifecycleService private readonly lifecycleService: ILifecycleService,
+		// --- End Positron ---
 	) {
 
 		super(GettingStartedPage.ID, group, telemetryService, themeService, storageService);
@@ -304,7 +309,7 @@ export class GettingStartedPage extends EditorPane {
 			ourStep.done = step.done;
 
 			if (category.id === this.currentWalkthrough?.id) {
-				const badgeelements = assertIsDefined(this.window.document.querySelectorAll(`[data-done-step-id="${step.id}"]`));
+				const badgeelements = assertReturnsDefined(this.window.document.querySelectorAll(`[data-done-step-id="${step.id}"]`));
 				badgeelements.forEach(badgeelement => {
 					if (step.done) {
 						badgeelement.setAttribute('aria-checked', 'true');
@@ -448,7 +453,7 @@ export class GettingStartedPage extends EditorPane {
 				if (this.contextService.contextMatchesRules(ContextKeyExpr.and(WorkbenchStateContext.isEqualTo('workspace')))) {
 					this.commandService.executeCommand(OpenFolderViaWorkspaceAction.ID);
 				} else {
-					this.commandService.executeCommand(isMacintosh ? 'workbench.action.files.openFileFolder' : 'workbench.action.files.openFolder');
+					this.commandService.executeCommand('workbench.action.files.openFolder');
 				}
 				break;
 			}
@@ -526,7 +531,7 @@ export class GettingStartedPage extends EditorPane {
 	}
 
 	private toggleStepCompletion(argument: string) {
-		const stepToggle = assertIsDefined(this.currentWalkthrough?.steps.find(step => step.id === argument));
+		const stepToggle = assertReturnsDefined(this.currentWalkthrough?.steps.find(step => step.id === argument));
 		if (stepToggle.done) {
 			this.gettingStartedService.deprogressStep(argument);
 		} else {
@@ -566,7 +571,7 @@ export class GettingStartedPage extends EditorPane {
 		if (!this.currentWalkthrough) {
 			throw Error('no walkthrough selected');
 		}
-		const stepToExpand = assertIsDefined(this.currentWalkthrough.steps.find(step => step.id === stepId));
+		const stepToExpand = assertReturnsDefined(this.currentWalkthrough.steps.find(step => step.id === stepId));
 
 		if (!forceRebuild && this.currentMediaComponent === stepId) { return; }
 		this.currentMediaComponent = stepId;
@@ -810,7 +815,7 @@ export class GettingStartedPage extends EditorPane {
 					// No steps around... just ignore.
 					return;
 				}
-				id = assertIsDefined(stepElement.getAttribute('data-step-id'));
+				id = assertReturnsDefined(stepElement.getAttribute('data-step-id'));
 			}
 			stepElement.parentElement?.querySelectorAll<HTMLElement>('.expanded').forEach(node => {
 				if (node.getAttribute('data-step-id') !== id) {
@@ -1012,27 +1017,35 @@ export class GettingStartedPage extends EditorPane {
 			const telemetryNotice = $('p.telemetry-notice');
 			this.buildTelemetryFooter(telemetryNotice);
 			footer.appendChild(telemetryNotice);
-		} else if (!this.productService.openToWelcomeMainPage && !someStepsComplete && !this.hasScrolledToFirstCategory && this.showFeaturedWalkthrough) {
-			// Always show index page instead of automatically opening the first walkthrough category
 			// --- Start Positron ---
-			/*
+			// Always show index page instead of automatically opening the first walkthrough category
+			//
+			// This if statement has been amended to included !logoElement to
+			// ensure that we don't run this code in Positron (the logoElement
+			// is always present at this point).
+			// --- End Positron ---
+		} else if (!this.productService.openToWelcomeMainPage && !someStepsComplete && !this.hasScrolledToFirstCategory && this.showFeaturedWalkthrough && !logoElement) {
 			const firstSessionDateString = this.storageService.get(firstSessionDateStorageKey, StorageScope.APPLICATION) || new Date().toUTCString();
 			const daysSinceFirstSession = ((+new Date()) - (+new Date(firstSessionDateString))) / 1000 / 60 / 60 / 24;
 			const fistContentBehaviour = daysSinceFirstSession < 1 ? 'openToFirstCategory' : 'index';
+			const startupExpValue = startupExpContext.getValue(this.contextService);
 
-			if (fistContentBehaviour === 'openToFirstCategory') {
+			if (fistContentBehaviour === 'openToFirstCategory' && ((!startupExpValue || startupExpValue === '' || startupExpValue === StartupExperimentGroup.Control))) {
 				const first = this.gettingStartedCategories.filter(c => !c.when || this.contextService.contextMatchesRules(c.when))[0];
 				if (first) {
 					this.hasScrolledToFirstCategory = true;
 					this.currentWalkthrough = first;
 					this.editorInput.selectedCategory = this.currentWalkthrough?.id;
-					this.buildCategorySlide(this.editorInput.selectedCategory, undefined);
-					this.setSlide('details');
+					this.editorInput.walkthroughPageTitle = this.currentWalkthrough.walkthroughPageTitle;
+					if (first.id === NEW_WELCOME_EXPERIENCE) {
+						this.buildNewCategorySlide(this.editorInput.selectedCategory, undefined);
+					} else {
+						this.buildCategorySlide(this.editorInput.selectedCategory, undefined);
+					}
+					this.setSlide('details', true);
 					return;
 				}
 			}
-			*/
-			// --- End Positron ---
 		}
 
 		this.setSlide('categories');
@@ -1358,7 +1371,7 @@ export class GettingStartedPage extends EditorPane {
 
 			const stats = this.getWalkthroughCompletionStats(category);
 
-			const bar = assertIsDefined(element.querySelector('.progress-bar-inner')) as HTMLDivElement;
+			const bar = assertReturnsDefined(element.querySelector('.progress-bar-inner')) as HTMLDivElement;
 			bar.setAttribute('aria-valuemin', '0');
 			bar.setAttribute('aria-valuenow', '' + stats.stepsComplete);
 			bar.setAttribute('aria-valuemax', '' + stats.stepsTotal);
@@ -1407,7 +1420,7 @@ export class GettingStartedPage extends EditorPane {
 
 	private focusSideEditorGroup() {
 		const fullSize = this.groupsService.getPart(this.group).contentDimension;
-		if (!fullSize || fullSize.width <= 700) { return; }
+		if (!fullSize || fullSize.width <= 700 || this.container.classList.contains('width-constrained') || this.container.classList.contains('width-semi-constrained')) { return; }
 		if (this.groupsService.count === 1) {
 			const sideGroup = this.groupsService.addGroup(this.groupsService.groups[0], GroupDirection.RIGHT);
 			this.groupsService.activateGroup(sideGroup);
@@ -1415,7 +1428,7 @@ export class GettingStartedPage extends EditorPane {
 			const gettingStartedSize = Math.floor(fullSize.width / 2);
 
 			const gettingStartedGroup = this.groupsService.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE).find(group => (group.activeEditor instanceof GettingStartedInput));
-			this.groupsService.setSize(assertIsDefined(gettingStartedGroup), { width: gettingStartedSize, height: fullSize.height });
+			this.groupsService.setSize(assertReturnsDefined(gettingStartedGroup), { width: gettingStartedSize, height: fullSize.height });
 		}
 
 		const nonGettingStartedGroup = this.groupsService.getGroups(GroupsOrder.MOST_RECENTLY_ACTIVE).find(group => !(group.activeEditor instanceof GettingStartedInput));
@@ -1520,7 +1533,7 @@ export class GettingStartedPage extends EditorPane {
 
 				if (isCommand) {
 					const keybinding = this.getKeyBinding(command);
-					if (keybinding && this.editorInput.selectedCategory !== NEW_WELCOME_EXPERIENCE) {
+					if (keybinding) {
 						const shortcutMessage = $('span.shortcut-message', {}, localize('gettingStarted.keyboardTip', 'Tip: Use keyboard shortcut '));
 						container.appendChild(shortcutMessage);
 						const label = new KeybindingLabel(shortcutMessage, OS, { ...defaultKeybindingLabelStyles });
@@ -1563,6 +1576,7 @@ export class GettingStartedPage extends EditorPane {
 
 
 	private selectStepByIndex(newIndex: number, steps: IResolvedWalkthroughStep[], direction: number) {
+		this.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>('gettingStarted.ActionExecuted', { command: 'selectTask', argument: steps[newIndex].id, walkthroughId: this.currentWalkthrough?.id });
 		const currentIndex = steps.findIndex(step => step.id === this.editorInput.selectedStep);
 
 		// Update the selected step and build its media
@@ -1648,6 +1662,20 @@ export class GettingStartedPage extends EditorPane {
 				prevButton.removeAttribute('aria-hidden');
 				prevButton.removeAttribute('tabindex');
 			}
+		}
+
+		// Update next button text for final slide
+		if (this.nextButton) {
+			const isLastSlide = newIndex === steps.length - 1;
+			const textNode = this.nextButton.firstChild as Text;
+			if (textNode && textNode.nodeType === Node.TEXT_NODE) {
+				textNode.textContent = isLastSlide
+					? localize('last', "Start coding")
+					: localize('next', "Next");
+			}
+			this.nextButton.setAttribute('aria-label', isLastSlide
+				? localize('lastStep', "Start coding")
+				: localize('nextStep', "Next"));
 		}
 	}
 
@@ -1761,6 +1789,10 @@ export class GettingStartedPage extends EditorPane {
 					const descElement = $('.multi-step-action');
 					this.buildMarkdownDescription(descElement, [linkedText]);
 					multiStepContainer.appendChild(descElement);
+					const actionMessage = $('span.action-message');
+					const updatedText = parseLinkedText(copilotSettingsMessage);
+					this.buildMarkdownDescription(actionMessage, [updatedText]);
+					multiStepContainer.appendChild(actionMessage);
 				}
 
 				textContent.appendChild(multiStepContainer);
@@ -1794,11 +1826,12 @@ export class GettingStartedPage extends EditorPane {
 		});
 
 		// Add next button
-		const nextButton = $('button.button-link.navigation.next', {
+		this.nextButton = $('button.button-link.navigation.next', {
+
 			'aria-label': localize('nextStep', "Next"),
 		}, localize('next', "Next"), $('span.codicon.codicon-arrow-right'));
 
-		navigationContainer.appendChild(nextButton);
+		navigationContainer.appendChild(this.nextButton);
 		this.detailsPageDisposables.add(addDisposableListener(prevButton, 'click', () => {
 			const currentIndex = this.getCurrentSlideIndex(allSlides);
 			if (currentIndex > 0) {
@@ -1806,7 +1839,7 @@ export class GettingStartedPage extends EditorPane {
 			}
 		}));
 
-		this.detailsPageDisposables.add(addDisposableListener(nextButton, 'click', () => {
+		this.detailsPageDisposables.add(addDisposableListener(this.nextButton, 'click', () => {
 			const currentIndex = this.getCurrentSlideIndex(allSlides);
 			if (currentIndex < allSlides.length - 1) {
 				this.selectStepByIndex(currentIndex + 1, allSlides.map(s => s.steps[0]), 1);
@@ -1909,6 +1942,7 @@ export class GettingStartedPage extends EditorPane {
 	}
 
 	private selectSubStep(selectedStepId: string) {
+		this.telemetryService.publicLog2<GettingStartedActionEvent, GettingStartedActionClassification>('gettingStarted.ActionExecuted', { command: 'selectTask', argument: selectedStepId, walkthroughId: this.currentWalkthrough?.id });
 		if (this.editorInput.selectedStep === selectedStepId) {
 			return;
 		}
@@ -2219,7 +2253,7 @@ export class GettingStartedPage extends EditorPane {
 	}
 
 	private setSlide(toEnable: 'details' | 'categories', firstLaunch: boolean = false) {
-		const slideManager = assertIsDefined(this.container.querySelector('.gettingStarted'));
+		const slideManager = assertReturnsDefined(this.container.querySelector('.gettingStarted'));
 		if (toEnable === 'categories') {
 			slideManager.classList.remove('showDetails');
 			slideManager.classList.add('showCategories');

@@ -13,16 +13,10 @@
 		"c": "module",
 		"t": "storage.type.namespace.ts",
 		"r": {
-			"dark_plus": "storage.type: #569CD6",
-			"light_plus": "storage.type: #0000FF",
-			"dark_vs": "storage.type: #569CD6",
-			"light_vs": "storage.type: #0000FF",
 			"hc_black": "storage.type: #569CD6",
-			"dark_modern": "storage.type: #569CD6",
-			"hc_light": "storage.type: #0F4A85",
-			"light_modern": "storage.type: #0000FF",
-			"positron_dark": "storage.type: #CCCCCC",
-			"positron_light": "storage.type: #3B3B3B"
+			"positron_dark": "storage.type: #569CD6",
+			"positron_light": "storage.type: #0000FF",
+			"hc_light": "storage.type: #0F4A85"
 		}
 	},
 	{
@@ -3809,10 +3803,10 @@
 		"c": "-",
 		"t": "keyword.operator.arithmetic.ts",
 		"r": {
-			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
 		}
 	},
 	{
@@ -3969,10 +3963,10 @@
 		"c": "-",
 		"t": "keyword.operator.arithmetic.ts",
 		"r": {
-			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
+			"hc_black": "keyword.operator: #D4D4D4",
+			"positron_dark": "keyword.operator: #D4D4D4",
+			"positron_light": "keyword.operator: #000000",
+			"hc_light": "keyword.operator: #000000"
 		}
 	},
 	{

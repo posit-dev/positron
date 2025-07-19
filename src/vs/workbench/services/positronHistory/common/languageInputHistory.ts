@@ -29,7 +29,7 @@ export class LanguageInputHistory extends Disposable {
 	private readonly _storageKey: string;
 
 	/** The timer used to debounce writes to the history */
-	private _timerId?: NodeJS.Timeout;
+	private _timerId?: Timeout;
 
 	constructor(
 		private readonly _languageId: string,

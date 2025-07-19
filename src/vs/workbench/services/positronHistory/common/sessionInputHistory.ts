@@ -22,7 +22,7 @@ export class SessionInputHistory extends Disposable {
 	private readonly _storageKey: string;
 
 	/** A timer used to debounce history writes. */
-	private _timerId?: NodeJS.Timeout;
+	private _timerId?: Timeout;
 
 	/** A flag indicating whether there are entries that need to be flushed to storage */
 	private _dirty: boolean = false;

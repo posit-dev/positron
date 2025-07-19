@@ -12,6 +12,7 @@ import { IExtensionDescription } from '../../../platform/extensions/common/exten
 import { ExtensionRuntime } from '../common/extHostTypes.js';
 import { timeout } from '../../../base/common/async.js';
 import { ExtHostConsoleForwarder } from './extHostConsoleForwarder.js';
+import { extname } from '../../../base/common/path.js';
 
 // --- Start Positron ---
 import { createPositronApiFactoryAndRegisterActors } from '../common/positron/extHost.positron.api.impl.js';
@@ -159,5 +160,6 @@ export class ExtHostExtensionService extends AbstractExtHostExtensionService {
 }
 
 function ensureSuffix(path: string, suffix: string): string {
-	return path.endsWith(suffix) ? path : path + suffix;
+	const extName = extname(path);
+	return extName ? path : path + suffix;
 }

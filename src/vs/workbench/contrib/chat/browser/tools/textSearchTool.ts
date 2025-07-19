@@ -10,7 +10,7 @@ import { IInstantiationService } from '../../../../../platform/instantiation/com
 import { IWorkspaceContextService } from '../../../../../platform/workspace/common/workspace.js';
 import { ITextQueryBuilderOptions, QueryBuilder } from '../../../../services/search/common/queryBuilder.js';
 import { IPatternInfo, ISearchConfigurationProperties, ISearchService, resultIsMatch } from '../../../../services/search/common/search.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource, ToolProgress } from '../../common/languageModelToolsService.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 
@@ -28,7 +28,7 @@ export const InternalTextSearchToolId = `${ExtensionTextSearchToolId}_internal`;
 export const TextSearchToolData: IToolData = {
 	id: InternalTextSearchToolId,
 	displayName: localize('chat.tools.findTextInProject', "Find Text In Project"),
-	source: { type: 'internal' },
+	source: ToolDataSource.Internal,
 	modelDescription: findTextInProjectModelDescription,
 	tags: ['positron-assistant', 'requires-workspace'],
 	canBeReferencedInPrompt: false,

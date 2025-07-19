@@ -1,0 +1,54 @@
+name: Update PWB Code Server Version on rstudio-pro
+
+on:
+  repository_dispatch:
+    types: [trigger-pwb-code-server-update]
+
+jobs:
+  update-rstudio-pro:
+    runs-on: ubuntu-latest
+    env:
+      install_file: dependencies/common/install-code-server
+      config_file: src/cpp/server/extras/scripts/configure-vs-code
+
+    steps:
+      - name: Set version and branch
+        run: |
+          echo "VERSION=${{ github.event.client_payload.version }}" >> $GITHUB_ENV
+          echo "BRANCH=${{ github.event.client_payload.branch }}" >> $GITHUB_ENV
+          echo "TOKEN=${{ github.event.client_payload.github_pat }}" >> $GITHUB_ENV
+
+      - name: Clone rstudio/rstudio-pro
+        run: |
+          git clone --depth=1 https://x-access-token:$TOKEN@github.com/rstudio/rstudio-pro.git
+          cd rstudio-pro
+          git checkout ${{ env.BRANCH }}
+
+      - name: Update PWB Code Server version in both files
+        run: |
+          cd rstudio-pro
+
+          sed -i.bak "s/^VSCODE_VERSION=.*/VSCODE_VERSION=${VERSION}/" "$install_file"
+          sed -i.bak "s/VSCODE_VERSION=\${new_version:-[0-9][0-9]*\.[0-9][0-9]*-b[0-9]*}/VSCODE_VERSION=\${new_version:-${VERSION}}/" "$config_file"
+
+          rm $install_file.bak $config_file.bak
+
+      - name: Git management
+        run: |
+          cd rstudio-pro
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ env.TOKEN }}
+          commit-message: "Update PWB Code Server version to ${{ env.VERSION }}"
+          title: "Automation PR: Update PWB Code Server version to ${{ env.VERSION }} on branch ${{ env.BRANCH }}"
+          body: |
+            This PR was automatically generated from https://github.com/rstudio/vscode-server branch `${{ env.BRANCH }}`.
+            Updated PWB Code Server version to `${{ env.VERSION }}` in two locations.
+          branch: update-pwb-code-server-${{ env.VERSION }}
+          draft: true
+          reviewers: melissa-barca, cm421
+          path: rstudio-pro

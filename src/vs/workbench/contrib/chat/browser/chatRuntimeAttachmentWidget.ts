@@ -10,7 +10,7 @@ import { ICommandService } from '../../../../platform/commands/common/commands.j
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { ResourceLabels } from '../../../browser/labels.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IChatRequestVariableEntry } from '../common/chatModel.js';
+import { IChatRequestVariableEntry } from '../common/chatVariableEntries.js';
 import { ILanguageModelChatMetadataAndIdentifier } from '../common/languageModels.js';
 import { AbstractChatAttachmentWidget } from './chatAttachmentWidgets.js';
 
@@ -47,7 +47,7 @@ export class RuntimeSessionAttachmentWidget extends AbstractChatAttachmentWidget
 	constructor(
 		attachment: IChatRequestVariableEntry,
 		currentLanguageModel: ILanguageModelChatMetadataAndIdentifier | undefined,
-		shouldFocusClearButton: boolean,
+		options: { shouldFocusClearButton: boolean; supportsDeletion: boolean },
 		container: HTMLElement,
 		contextResourceLabels: ResourceLabels,
 		hoverDelegate: IHoverDelegate,
@@ -55,7 +55,7 @@ export class RuntimeSessionAttachmentWidget extends AbstractChatAttachmentWidget
 		@IOpenerService openerService: IOpenerService,
 		@IRuntimeSessionService runtimeSessionService: IRuntimeSessionService,
 	) {
-		super(attachment, shouldFocusClearButton, container, contextResourceLabels, hoverDelegate, currentLanguageModel, commandService, openerService);
+		super(attachment, options, container, contextResourceLabels, hoverDelegate, currentLanguageModel, commandService, openerService);
 
 		// Build the label text with runtime icon if available
 		const attachmentLabel = attachment.fullName ?? attachment.name;

@@ -62,7 +62,7 @@ async function main() {
 
 	const addr = await startServer(serverArgs);
 	if (args['launch']) {
-		open(addr);
+		open.default(addr);
 	}
 }
 

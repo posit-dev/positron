@@ -76,7 +76,7 @@ export class PositronRenderer extends Widget implements IRenderMime.IRenderer {
 				return sourceJson;
 			},
 			blob() {
-				return new Blob([this.data()], { type: this.mime });
+				return new Blob([this.data() as BufferSource], { type: this.mime });
 			},
 			metadata: {},
 		} as OutputItem;

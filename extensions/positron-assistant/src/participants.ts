@@ -63,7 +63,6 @@ export class ParticipantService implements vscode.Disposable {
 		);
 		vscodeParticipant.iconPath = participant.iconPath;
 		vscodeParticipant.followupProvider = participant.followupProvider;
-		vscodeParticipant.welcomeMessageProvider = participant.welcomeMessageProvider;
 	}
 
 	getRequestData(chatRequestId: string): ChatRequestData | undefined {
@@ -148,16 +147,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			} catch (e) {
 				return [];
 			}
-		}
-	};
-
-	readonly welcomeMessageProvider = {
-		async provideSampleQuestions(location: vscode.ChatLocation, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
-			return [{
-				label: vscode.l10n.t('Positron Assistant'),
-				participant: ParticipantID.Chat,
-				prompt: 'Analyze the data in my workspace and visualize your key findings',
-			}];
 		}
 	};
 

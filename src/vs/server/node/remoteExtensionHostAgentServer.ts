@@ -84,7 +84,7 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 	private readonly _serverBasePath: string | undefined;
 	private readonly _serverProductPath: string;
 
-	private shutdownTimer: NodeJS.Timeout | undefined;
+	private shutdownTimer: Timeout | undefined;
 
 	constructor(
 		private readonly _socketServer: SocketServer<RemoteAgentConnectionContext>,
@@ -164,10 +164,23 @@ class RemoteExtensionHostAgentServer extends Disposable implements IServerAPI {
 			return void res.end('OK');
 		}
 
-		if (!httpRequestHasValidConnectionToken(this._connectionToken, req, parsedUrl)) {
-			// invalid connection token
-			return serveError(req, res, 403, `Forbidden.`);
+		// --- Start PWB ---
+		// Validate the connection token for all requests except the webview
+		// service worker.
+		//
+		// When the browser requests the service worker (loaded from index.html
+		// in browser/pre), it can omit the connection token cookie, causing the
+		// server to reject the request here.
+		//
+		// Upstream VS Code doesn't have this problem since the webview and
+		// service worker aren't served from this codepath at all but from a CDN.
+		if (pathname.indexOf('/service-worker.js') === -1) {
+			if (!httpRequestHasValidConnectionToken(this._connectionToken, req, parsedUrl)) {
+				// invalid connection token
+				return serveError(req, res, 403, `Forbidden.`);
+			}
 		}
+		// --- End PWB ---
 
 		if (pathname === '/vscode-remote-resource') {
 			// Handle HTTP requests for resources rendered in the rich client (images, fonts, etc.)

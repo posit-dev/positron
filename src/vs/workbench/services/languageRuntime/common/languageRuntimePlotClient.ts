@@ -107,7 +107,7 @@ export class PlotClientInstance extends Disposable implements IPositronPlotClien
 	/**
 	 * The timer used to throttle plot rendering requests.
 	 */
-	private _renderThrottleTimer?: NodeJS.Timeout;
+	private _renderThrottleTimer?: Timeout;
 
 	/**
 	 * The current state of the plot client.
