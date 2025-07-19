@@ -52,7 +52,7 @@ export async function verifyRenvFilesArePresent(app: Application,) {
 
 export async function handleRenvInstallModal(app: Application, action: 'install' | 'cancel') {
 	await test.step(`Handle Renv modal: ${action}`, async () => {
-		await app.workbench.popups.installRenvModal(action);
+		await app.workbench.modals.installRenvModal(action);
 	});
 }
 

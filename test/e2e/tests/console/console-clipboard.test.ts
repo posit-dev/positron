@@ -65,12 +65,12 @@ async function testConsoleClipboardWithContextMenu(app: Application, prompt: str
 	}
 
 	await expect(async () => {
-		await app.workbench.popups.handleContextMenu(app.workbench.console.activeConsole, 'Select All');
+		await app.workbench.terminal.handleContextMenu(app.workbench.console.activeConsole, 'Select All');
 
 		// wait a little between selection and copy
 		await app.code.wait(1000);
 
-		await app.workbench.popups.handleContextMenu(app.workbench.console.activeConsole, 'Copy');
+		await app.workbench.terminal.handleContextMenu(app.workbench.console.activeConsole, 'Copy');
 
 		const clipboardText = await app.workbench.clipboard.getClipboardText();
 

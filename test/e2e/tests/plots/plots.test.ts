@@ -42,7 +42,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.console.executeCode('Python', pythonDynamicPlot);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.popups.closeAllToasts();
+			await app.workbench.toasts.closeAll();
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({
@@ -83,7 +83,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.console.executeCode('Python', pythonStaticPlot);
 			await app.workbench.plots.waitForCurrentStaticPlot();
 
-			await app.workbench.popups.closeAllToasts();
+			await app.workbench.toasts.closeAll();
 
 			const buffer = await app.workbench.plots.getCurrentStaticPlotAsBuffer();
 			await compareImages({
@@ -347,7 +347,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await app.workbench.console.executeCode('R', rBasicPlot);
 			await app.workbench.plots.waitForCurrentPlot();
 
-			await app.workbench.popups.closeAllToasts();
+			await app.workbench.toasts.closeAll();
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({
