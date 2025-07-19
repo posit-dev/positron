@@ -252,6 +252,26 @@ class ExportedData(BaseModel):
     )
 
 
+class ConvertedCode(BaseModel):
+    """
+    Code snippet for the data view
+    """
+
+    converted_code: List[StrictStr] = Field(
+        description="Lines of code that implement filters and sort keys",
+    )
+
+
+class CodeSyntaxName(BaseModel):
+    """
+    Syntax to use for code conversion
+    """
+
+    code_syntax_name: StrictStr = Field(
+        description="The name of the code syntax, eg, pandas, polars, dplyr, etc.",
+    )
+
+
 class FilterResult(BaseModel):
     """
     The result of applying filters to a table
@@ -972,6 +992,10 @@ class SupportedFeatures(BaseModel):
         description="Support for 'export_data_selection' RPC and its features",
     )
 
+    convert_to_code: ConvertToCodeFeatures = Field(
+        description="Support for 'convert_to_code' RPC and its features",
+    )
+
 
 class SearchSchemaFeatures(BaseModel):
     """
@@ -1054,6 +1078,21 @@ class SetSortColumnsFeatures(BaseModel):
 
     support_status: SupportStatus = Field(
         description="The support status for this RPC method",
+    )
+
+
+class ConvertToCodeFeatures(BaseModel):
+    """
+    Feature flags for convert to code RPC
+    """
+
+    support_status: SupportStatus = Field(
+        description="The support status for this RPC method",
+    )
+
+    code_syntaxes: Optional[List[CodeSyntaxName]] = Field(
+        default=None,
+        description="The syntaxes for converted code",
     )
 
 
@@ -1207,6 +1246,12 @@ class DataExplorerBackendRequest(str, enum.Enum):
 
     # Export data selection as a string in different formats
     ExportDataSelection = "export_data_selection"
+
+    # Converts the current data view into a code snippet.
+    ConvertToCode = "convert_to_code"
+
+    # Suggest code syntax for code conversion
+    SuggestCodeSyntax = "suggest_code_syntax"
 
     # Set column filters to select subset of table columns
     SetColumnFilters = "set_column_filters"
@@ -1422,6 +1467,65 @@ class ExportDataSelectionRequest(BaseModel):
     )
 
 
+class ConvertToCodeParams(BaseModel):
+    """
+    Converts filters and sort keys as code in different syntaxes like
+    pandas, polars, data.table, dplyr
+    """
+
+    column_filters: List[ColumnFilter] = Field(
+        description="Zero or more column filters to apply",
+    )
+
+    row_filters: List[RowFilter] = Field(
+        description="Zero or more row filters to apply",
+    )
+
+    sort_keys: List[ColumnSortKey] = Field(
+        description="Zero or more sort keys to apply",
+    )
+
+    code_syntax_name: CodeSyntaxName = Field(
+        description="The code syntax to use for conversion",
+    )
+
+
+class ConvertToCodeRequest(BaseModel):
+    """
+    Converts filters and sort keys as code in different syntaxes like
+    pandas, polars, data.table, dplyr
+    """
+
+    params: ConvertToCodeParams = Field(
+        description="Parameters to the ConvertToCode method",
+    )
+
+    method: Literal[DataExplorerBackendRequest.ConvertToCode] = Field(
+        description="The JSON-RPC method name (convert_to_code)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
+class SuggestCodeSyntaxRequest(BaseModel):
+    """
+    Suggest code syntax for code conversion based on the current backend
+    state
+    """
+
+    method: Literal[DataExplorerBackendRequest.SuggestCodeSyntax] = Field(
+        description="The JSON-RPC method name (suggest_code_syntax)",
+    )
+
+    jsonrpc: str = Field(
+        default="2.0",
+        description="The JSON-RPC version specifier",
+    )
+
+
 class SetColumnFiltersParams(BaseModel):
     """
     Set or clear column filters on table, replacing any previous filters
@@ -1575,6 +1679,8 @@ class DataExplorerBackendMessageContent(BaseModel):
         GetDataValuesRequest,
         GetRowLabelsRequest,
         ExportDataSelectionRequest,
+        ConvertToCodeRequest,
+        SuggestCodeSyntaxRequest,
         SetColumnFiltersRequest,
         SetRowFiltersRequest,
         SetSortColumnsRequest,
@@ -1622,6 +1728,10 @@ OpenDatasetResult.update_forward_refs()
 SearchSchemaResult.update_forward_refs()
 
 ExportedData.update_forward_refs()
+
+ConvertedCode.update_forward_refs()
+
+CodeSyntaxName.update_forward_refs()
 
 FilterResult.update_forward_refs()
 
@@ -1705,6 +1815,8 @@ ExportDataSelectionFeatures.update_forward_refs()
 
 SetSortColumnsFeatures.update_forward_refs()
 
+ConvertToCodeFeatures.update_forward_refs()
+
 TableSelection.update_forward_refs()
 
 DataSelectionSingleCell.update_forward_refs()
@@ -1740,6 +1852,12 @@ GetRowLabelsRequest.update_forward_refs()
 ExportDataSelectionParams.update_forward_refs()
 
 ExportDataSelectionRequest.update_forward_refs()
+
+ConvertToCodeParams.update_forward_refs()
+
+ConvertToCodeRequest.update_forward_refs()
+
+SuggestCodeSyntaxRequest.update_forward_refs()
 
 SetColumnFiltersParams.update_forward_refs()
 

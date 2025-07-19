@@ -17,6 +17,7 @@ import { PositronReactServices } from '../../../../base/browser/positronReactSer
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
+import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 
 /**
@@ -409,6 +410,15 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Done.
 		notificationHandle.progress.done();
+	}
+
+	/**
+	 * Converts the data explorer view to code in the desired syntax.
+	 * @returns A Promise<string> that resolves when converted code is returned.
+	 */
+	async convertToCode(desiredSyntax: CodeSyntaxName): Promise<string | undefined> {
+		const generatedCode = await this._dataExplorerClientInstance.convertToCode(desiredSyntax);
+		return generatedCode.converted_code.join('\n');
 	}
 
 	/**
