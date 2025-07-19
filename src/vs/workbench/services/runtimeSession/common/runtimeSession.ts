@@ -27,6 +27,9 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { localize } from '../../../../nls.js';
 import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
+import { IConfigurationResolverService } from '../../configurationResolver/common/configurationResolver.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { NotebookSetting } from '../../../contrib/notebook/common/notebookCommon.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -170,7 +173,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IUpdateService private readonly _updateService: IUpdateService,
-		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
+		@IConfigurationResolverService private readonly _configurationResolverService: IConfigurationResolverService,
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService
 	) {
 
 		super();
@@ -388,6 +393,44 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
+	 * Resolves the working directory configuration with variable substitution.
+	 *
+	 * @param notebookUri The URI of the notebook, if any, for resource-scoped configuration
+	 * @returns The resolved working directory or undefined if not configured
+	 */
+	private async resolveWorkingDirectory(notebookUri?: URI): Promise<string | undefined> {
+		// Get the working directory configuration
+		const configValue = this._configurationService.getValue<string>(
+			NotebookSetting.workingDirectory,
+			notebookUri ? { resource: notebookUri } : {}
+		);
+
+		// If no configuration value is set, return undefined
+		if (!configValue || configValue.trim() === '') {
+			return undefined;
+		}
+
+		// Get the workspace folder for variable resolution
+		const workspaceFolder = notebookUri
+			? this._workspaceContextService.getWorkspaceFolder(notebookUri)
+			: this._workspaceContextService.getWorkspace().folders[0];
+
+		try {
+			// Resolve variables in the configuration value
+			const resolvedValue = await this._configurationResolverService.resolveAsync(
+				workspaceFolder || undefined,
+				configValue
+			);
+
+			return resolvedValue;
+		} catch (error) {
+			// Log the error and return the original value as fallback
+			this._logService.warn(`Failed to resolve working directory variables in '${configValue}':`, error);
+			return configValue;
+		}
+	}
+
+	/**
 	 * Select a session for the provided runtime.
 	 *
 	 * For console sessions, if there is an active console session for the runtime, set it as
@@ -466,6 +509,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 
+		// Resolve the working directory configuration
+		const workingDirectory = await this.resolveWorkingDirectory(notebookUri);
+
 		// Wait for the selected runtime to start.
 		await this.startNewRuntimeSession(
 			runtime.runtimeId,
@@ -474,7 +520,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			notebookUri,
 			source,
 			startMode,
-			true
+			true,
+			workingDirectory
 		);
 	}
 
@@ -567,6 +614,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param source The source of the request to start the runtime.
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
+	 * @param workingDirectory The working directory to use for the session, if any.
 	 */
 	async startNewRuntimeSession(
 		runtimeId: string,
@@ -575,7 +623,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		notebookUri: URI | undefined,
 		source: string,
 		startMode = RuntimeStartMode.Starting,
-		activate: boolean): Promise<string> {
+		activate: boolean,
+		workingDirectory?: string): Promise<string> {
 		// See if we are already starting the requested session. If we
 		// are, return the promise that resolves when the session is ready to
 		// use. This makes it possible for multiple requests to start the same
@@ -611,7 +660,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		this._logService.info(
 			`Starting session for language runtime ` +
 			`${formatLanguageRuntimeMetadata(languageRuntime)} (Source: ${source})`);
-		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, source, startMode, activate, notebookUri);
+		return this.doCreateRuntimeSession(languageRuntime, sessionName, sessionMode, source, startMode, activate, notebookUri, workingDirectory);
 	}
 
 	/**
@@ -742,7 +791,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Actually reconnect the session.
-		await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate);
+		await this.doStartRuntimeSession(session, sessionManager, RuntimeStartMode.Reconnecting, activate, undefined);
 
 		return sessionMetadata.sessionId;
 
@@ -1061,7 +1110,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			// Restart the working directory in the same directory as the session.
 			if (session.getRuntimeState() === RuntimeState.Exited) {
 				// Do a start, behind the scenes
-				await session.start();
+				await session.start(activeSession.workingDirectory);
 			} else {
 				await session.restart(activeSession.workingDirectory);
 			}
@@ -1486,7 +1535,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			}
 		}
 
-		return this.doCreateRuntimeSession(metadata, metadata.runtimeName, sessionMode, source, RuntimeStartMode.Starting, activate, notebookUri);
+		return this.doCreateRuntimeSession(metadata, metadata.runtimeName, sessionMode, source, RuntimeStartMode.Starting, activate, notebookUri, undefined);
 	}
 
 	/**
@@ -1499,6 +1548,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param startMode The mode in which to start the runtime.
 	 * @param activate Whether to activate/focus the session after it is started.
 	 * @param notebookDocument The notebook document to attach to the session, if any.
+	 * @param workingDirectory The working directory to use for the session, if any.
 	 *
 	 * Returns a promise that resolves with the session ID when the runtime is
 	 * ready to use.
@@ -1509,7 +1559,8 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		source: string,
 		startMode: RuntimeStartMode,
 		activate: boolean,
-		notebookUri?: URI): Promise<string> {
+		notebookUri?: URI,
+		workingDirectory?: string): Promise<string> {
 		this.setStartingSessionMaps(sessionMode, runtimeMetadata, notebookUri);
 
 		// Create a promise that resolves when the runtime is ready to use, if there isn't already one.
@@ -1560,7 +1611,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		// Actually start the session.
 		try {
-			await this.doStartRuntimeSession(session, sessionManager, startMode, activate);
+			await this.doStartRuntimeSession(session, sessionManager, startMode, activate, workingDirectory);
 			startPromise.complete(sessionId);
 		} catch (err) {
 			startPromise.error(err);
@@ -1576,11 +1627,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param manager The session manager for the session.
 	 * @param startMode The mode in which the session is starting.
 	 * @param activate Whether to activate/focus the session after it is started.
+	 * @param workingDirectory The working directory to use for the session, if any.
 	 */
 	private async doStartRuntimeSession(session: ILanguageRuntimeSession,
 		manager: ILanguageRuntimeSessionManager,
 		startMode: RuntimeStartMode,
-		activate: boolean):
+		activate: boolean,
+		workingDirectory?: string):
 		Promise<void> {
 		// Fire the onWillStartRuntime event.
 		const evt: IRuntimeSessionWillStartEvent = {
@@ -1595,7 +1648,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 		try {
 			// Attempt to start, or reconnect to, the session.
-			await session.start();
+			await session.start(workingDirectory);
 
 			// The session has started. Move it from the starting runtimes to the
 			// running runtimes.

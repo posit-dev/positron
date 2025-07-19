@@ -1090,8 +1090,9 @@ declare module 'positron' {
 		 * If the runtime fails to start for any reason, the Thenable should reject with an error
 		 * object containing a `message` field with a human-readable error message and an optional
 		 * `details` field with additional information.
+		 * @param workingDirectory Optional working directory for the runtime session
 		 */
-		start(): Thenable<LanguageRuntimeInfo>;
+		start(workingDirectory?: string): Thenable<LanguageRuntimeInfo>;
 
 		/**
 		 * Interrupt the runtime; returns a Thenable that resolves when the interrupt has been
