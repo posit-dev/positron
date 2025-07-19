@@ -446,6 +446,16 @@ export interface ShowHtmlFileParams {
 }
 
 /**
+ * Parameters for the OpenWithSystem method.
+ */
+export interface OpenWithSystemParams {
+	/**
+	 * The file path to open with the system default application
+	 */
+	path: string;
+}
+
+/**
  * Event: Change in backend's busy/idle status
  */
 export interface BusyEvent {
@@ -585,6 +595,17 @@ export interface ShowHtmlFileEvent {
 	 * the viewer should be as tall as possible.
 	 */
 	height: number;
+
+}
+
+/**
+ * Event: Open a file or folder with the system default application
+ */
+export interface OpenWithSystemEvent {
+	/**
+	 * The file path to open with the system default application
+	 */
+	path: string;
 
 }
 
@@ -787,6 +808,7 @@ export enum UiFrontendEvent {
 	SetEditorSelections = 'set_editor_selections',
 	ShowUrl = 'show_url',
 	ShowHtmlFile = 'show_html_file',
+	OpenWithSystem = 'open_with_system',
 	ClearWebviewPreloads = 'clear_webview_preloads'
 }
 
@@ -825,6 +847,7 @@ export class PositronUiComm extends PositronBaseComm {
 		this.onDidSetEditorSelections = super.createEventEmitter('set_editor_selections', ['selections']);
 		this.onDidShowUrl = super.createEventEmitter('show_url', ['url']);
 		this.onDidShowHtmlFile = super.createEventEmitter('show_html_file', ['path', 'title', 'is_plot', 'height']);
+		this.onDidOpenWithSystem = super.createEventEmitter('open_with_system', ['path']);
 		this.onDidClearWebviewPreloads = super.createEventEmitter('clear_webview_preloads', []);
 	}
 
@@ -927,6 +950,12 @@ export class PositronUiComm extends PositronBaseComm {
 	 * Causes the HTML file to be shown in Positron.
 	 */
 	onDidShowHtmlFile: Event<ShowHtmlFileEvent>;
+	/**
+	 * Open a file or folder with the system default application
+	 *
+	 * Open a file or folder with the system default application
+	 */
+	onDidOpenWithSystem: Event<OpenWithSystemEvent>;
 	/**
 	 * Webview preloads should be flushed
 	 *

@@ -468,6 +468,20 @@
 			]
 		},
 		{
+			"name": "open_with_system",
+			"summary": "Open a file or folder with the system default application",
+			"description": "Open a file or folder with the system default application",
+			"params": [
+				{
+					"name": "path",
+					"description": "The file path to open with the system default application",
+					"schema": {
+						"type": "string"
+					}
+				}
+			]
+		},
+		{
 			"name": "clear_webview_preloads",
 			"summary": "Webview preloads should be flushed",
 			"description": "This event is used to signal that the stored messages the front-end replays when constructing multi-output plots should be reset. This happens for things like a holoviews extension being changed.",

@@ -237,6 +237,15 @@ export class ActiveRuntimeSession extends Disposable {
 				}
 			});
 		}));
+		this._register(uiClient.onDidOpenWithSystem(event => {
+			this._onDidReceiveRuntimeEventEmitter.fire({
+				session_id: sessionId,
+				event: {
+					name: UiFrontendEvent.OpenWithSystem,
+					data: event
+				}
+			});
+		}));
 		this._register(uiClient.onDidClearWebviewPreloads(event => {
 			this._onDidReceiveRuntimeEventEmitter.fire({
 				session_id: sessionId,
