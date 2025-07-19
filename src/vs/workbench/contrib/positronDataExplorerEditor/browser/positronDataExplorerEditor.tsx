@@ -27,7 +27,9 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { checkDataExplorerConvertToCodeEnabled, DATA_EXPLORER_CONVERT_TO_CODE } from '../../../services/positronDataExplorer/common/positronDataExplorerConvertToCodeConfig.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -92,6 +94,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the is plaintext editable context key.
 	 */
 	private readonly _isPlaintextContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the is convert to code enabled context key.
+	 */
+	private readonly _isConvertToCodeEnabledContextKey: IContextKey<boolean>;
 
 	/**
 	 * The onSizeChanged event emitter.
@@ -202,6 +209,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 */
 	constructor(
 		readonly _group: IEditorGroup,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 		@IPositronDataExplorerService private readonly _positronDataExplorerService: IPositronDataExplorerService,
 		@IStorageService storageService: IStorageService,
 		@ITelemetryService telemetryService: ITelemetryService,
@@ -229,6 +237,24 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isPlaintextContextKey = POSITRON_DATA_EXPLORER_IS_PLAINTEXT.bindTo(
 			this._group.scopedContextKeyService
 		);
+		this._isConvertToCodeEnabledContextKey = POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED.bindTo(
+			this._group.scopedContextKeyService
+		);
+
+		// Set the convert to code context key based on the configuration value.
+		this._isConvertToCodeEnabledContextKey.set(
+			checkDataExplorerConvertToCodeEnabled(this._configurationService)
+		);
+
+
+		// Listen for configuration changes to the convert to code setting and update the context key accordingly.
+		this._register(this._configurationService.onDidChangeConfiguration(event => {
+			if (event.affectsConfiguration(DATA_EXPLORER_CONVERT_TO_CODE)) {
+				this._isConvertToCodeEnabledContextKey.set(
+					checkDataExplorerConvertToCodeEnabled(this._configurationService)
+				);
+			}
+		}));
 	}
 
 	/**
