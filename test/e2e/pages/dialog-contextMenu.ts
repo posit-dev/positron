@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { Code } from '../../infra/code.js';
+import { Code } from '../infra/code.js';
 import test, { Locator } from '@playwright/test';
 
 export class ContextMenu {

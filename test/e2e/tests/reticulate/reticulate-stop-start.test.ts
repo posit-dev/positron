@@ -35,7 +35,7 @@ test.describe('Reticulate', {
 
 		await sessions.start('pythonReticulate');
 
-		await app.workbench.popups.installIPyKernel();
+		await app.workbench.modals.installIPyKernel();
 
 		await app.workbench.console.waitForReadyAndStarted('>>>', 30000);
 
