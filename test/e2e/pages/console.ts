@@ -8,7 +8,7 @@ import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { HotKeys } from './hotKeys.js';
 import { availableRuntimes, SessionRuntimes } from './sessions.js';
-import { ContextMenu } from './utils/contextMenu.js';
+import { ContextMenu } from './dialog-contextMenu.js';
 import { QuickAccess } from './quickaccess.js';
 
 const CONSOLE_INPUT = '.console-input';
