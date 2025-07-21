@@ -110,7 +110,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 		if (typeof selectedSyntax === 'object' && 'code_syntax_name' in selectedSyntax) {
 			return (selectedSyntax as CodeSyntaxName).code_syntax_name;
 		}
-		return localize('selectCodeSyntax', 'Select Code Syntax');
+		return localize('positron.dataExplorer.selectCodeSyntax', 'Select Code Syntax');
 	}
 
 	const onSelectionChanged = async (item: DropDownListBoxItem<string, CodeSyntaxName>) => {
