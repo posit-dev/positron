@@ -570,6 +570,7 @@ export class DataExplorerClientInstance extends Disposable {
 	private async isSyntaxSupported(syntax: CodeSyntaxName, backendState: BackendState): Promise<void> {
 		await this.isConvertToCodeSupported(backendState);
 
+
 		if (syntax && !backendState.supported_features.convert_to_code.code_syntaxes?.some(s => s.code_syntax_name === syntax.code_syntax_name)) {
 			throw new Error(`Code syntax "${syntax}" is not supported by the backend.`);
 		}
