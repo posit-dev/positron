@@ -1,0 +1,15 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.summary-row-filter-input-container {
+	position: relative;
+	margin-right: 8px;
+}
+
+.summary-row-filter-input {
+	background-color: var(--vscode-positronActionBar-selectBoxBackground);
+	border: 1px solid var(--vscode-positronActionBar-selectBorder);
+	border-radius: 4px;
+}
