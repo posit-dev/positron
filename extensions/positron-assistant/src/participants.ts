@@ -288,6 +288,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						// TODO: Remove this restriction when the tool is supported in R https://github.com/posit-dev/positron/issues/8343
 						// The logic above with TOOL_TAG_REQUIRES_ACTIVE_SESSION will handle checking for active sessions once this is removed.
 						return activeSessions.has('python');
+					case PositronAssistantToolName.GetPlot:
+						return positronContext.plots?.hasPlots === true;
+					// case PositronAssistantToolName.InspectVariables:
+					// TODO: only allow this tool when there are variables to inspect
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
 					// Allow all tools in Agent mode.
 					default:
