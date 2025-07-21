@@ -436,7 +436,7 @@ export class WindowsStateHandler extends Disposable {
 			...(windowConfig ? windowConfig : {}),
 			// We've changed the default value of newWindowDimensions to 'inherit' in Positron, so we need to
 			// set it to 'inherit' if it unset in the config, as we'll fallthrough to the default window state otherwise.
-			// Search for `window.newWindowDimensions` in src/vs/workbench/electron-sandbox/desktop.contribution.ts
+			// Search for `window.newWindowDimensions` in src/vs/workbench/electron-browser/desktop.contribution.ts
 			// for the default configuration.
 			newWindowDimensions: windowConfig?.newWindowDimensions || 'inherit',
 		};

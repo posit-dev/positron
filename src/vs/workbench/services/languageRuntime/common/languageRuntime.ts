@@ -11,8 +11,9 @@ import { InstantiationType, registerSingleton } from '../../../../platform/insta
 import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageStartupBehavior, RuntimeStartupPhase, formatLanguageRuntimeMetadata } from './languageRuntimeService.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { IConfigurationRegistry, Extensions as ConfigurationExtensions, ConfigurationScope, IConfigurationNode, } from '../../../../platform/configuration/common/configurationRegistry.js';
-import { ISettableObservable, observableValue } from '../../../../base/common/observableInternal/base.js';
+import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { observableValue } from '../../../../base/common/observable.js';
 
 /**
  * The implementation of ILanguageRuntimeService

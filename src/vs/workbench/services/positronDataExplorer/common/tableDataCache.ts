@@ -136,7 +136,7 @@ export class TableDataCache extends Disposable {
 	/**
 	 * Gets or sets the trim cache timeout.
 	 */
-	private _trimCacheTimeout?: NodeJS.Timeout;
+	private _trimCacheTimeout?: Timeout;
 
 	/**
 	 * Gets or sets the columns.

@@ -40,7 +40,7 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 		const disposables = new DisposableStore();
 
 		let progressBar: ProgressBar | undefined;
-		let debounceTimeout: NodeJS.Timeout | undefined;
+		let debounceTimeout: Timeout | undefined;
 
 		const clearProgressBar = () => {
 			if (debounceTimeout) {

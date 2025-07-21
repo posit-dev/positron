@@ -93,14 +93,10 @@
 		"c": "id001",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.anchor.yaml variable.other.anchor.yaml",
 		"r": {
-			"dark_plus": "variable: #9CDCFE",
-			"light_plus": "variable: #001080",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
 			"hc_black": "variable: #9CDCFE",
-			"dark_modern": "variable: #9CDCFE",
-			"hc_light": "variable: #001080",
-			"light_modern": "variable: #001080"
+			"positron_dark": "variable: #9CDCFE",
+			"positron_light": "variable: #001080",
+			"hc_light": "variable: #001080"
 		}
 	},
 	{
@@ -137,14 +133,10 @@
 		"c": "  ",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
 		"r": {
-			"dark_plus": "default: #D4D4D4",
-			"light_plus": "default: #000000",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "default: #FFFFFF",
-			"dark_modern": "default: #CCCCCC",
-			"hc_light": "default: #292929",
-			"light_modern": "default: #3B3B3B"
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -201,14 +193,10 @@
 		"c": "  ",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
 		"r": {
-			"dark_plus": "default: #D4D4D4",
-			"light_plus": "default: #000000",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "default: #FFFFFF",
-			"dark_modern": "default: #CCCCCC",
-			"hc_light": "default: #292929",
-			"light_modern": "default: #3B3B3B"
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -265,14 +253,10 @@
 		"c": "  ",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml punctuation.whitespace.indentation.yaml",
 		"r": {
-			"dark_plus": "default: #D4D4D4",
-			"light_plus": "default: #000000",
-			"dark_vs": "default: #D4D4D4",
-			"light_vs": "default: #000000",
 			"hc_black": "default: #FFFFFF",
-			"dark_modern": "default: #CCCCCC",
-			"hc_light": "default: #292929",
-			"light_modern": "default: #3B3B3B"
+			"positron_dark": "default: #CCCCCC",
+			"positron_light": "default: #3B3B3B",
+			"hc_light": "default: #292929"
 		}
 	},
 	{
@@ -389,10 +373,6 @@
 		"c": "id001",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.alias.yaml variable.other.alias.yaml",
 		"r": {
-			"dark_plus": "variable: #9CDCFE",
-			"light_plus": "variable: #001080",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
 			"positron_light": "variable: #001080",
@@ -493,10 +473,6 @@
 		"c": "id001",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.alias.yaml variable.other.alias.yaml",
 		"r": {
-			"dark_plus": "variable: #9CDCFE",
-			"light_plus": "variable: #001080",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
 			"positron_light": "variable: #001080",
@@ -527,14 +503,10 @@
 		"c": "spotSize:",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml invalid.illegal.unrecognized.yaml",
 		"r": {
-			"dark_plus": "invalid: #F44747",
-			"light_plus": "invalid: #CD3131",
-			"dark_vs": "invalid: #F44747",
-			"light_vs": "invalid: #CD3131",
 			"hc_black": "invalid: #F44747",
-			"dark_modern": "invalid: #F44747",
-			"hc_light": "invalid: #B5200D",
-			"light_modern": "invalid: #CD3131"
+			"positron_dark": "invalid: #F44747",
+			"positron_light": "invalid: #CD3131",
+			"hc_light": "invalid: #B5200D"
 		}
 	},
 	{
@@ -561,14 +533,10 @@
 		"c": " ",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml string.unquoted.plain.out.yaml punctuation.whitespace.separator.yaml",
 		"r": {
-			"dark_plus": "string: #CE9178",
-			"light_plus": "string.unquoted.plain.out.yaml: #0000FF",
-			"dark_vs": "string: #CE9178",
-			"light_vs": "string.unquoted.plain.out.yaml: #0000FF",
 			"hc_black": "string: #CE9178",
-			"dark_modern": "string: #CE9178",
-			"hc_light": "string.unquoted.plain.out.yaml: #0F4A85",
-			"light_modern": "string.unquoted.plain.out.yaml: #0000FF"
+			"positron_dark": "string: #CE9178",
+			"positron_light": "string.unquoted.plain.out.yaml: #0000FF",
+			"hc_light": "string.unquoted.plain.out.yaml: #0F4A85"
 		}
 	},
 	{
@@ -635,10 +603,6 @@
 		"c": "id002",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml meta.map.value.yaml keyword.control.flow.alias.yaml variable.other.alias.yaml",
 		"r": {
-			"dark_plus": "variable: #9CDCFE",
-			"light_plus": "variable: #001080",
-			"dark_vs": "keyword.control: #569CD6",
-			"light_vs": "keyword.control: #0000FF",
 			"hc_black": "variable: #9CDCFE",
 			"positron_dark": "variable: #9CDCFE",
 			"positron_light": "variable: #001080",
@@ -909,14 +873,10 @@
 		"c": "m",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml invalid.illegal.expected-indentation.yaml",
 		"r": {
-			"dark_plus": "invalid: #F44747",
-			"light_plus": "invalid: #CD3131",
-			"dark_vs": "invalid: #F44747",
-			"light_vs": "invalid: #CD3131",
 			"hc_black": "invalid: #F44747",
-			"dark_modern": "invalid: #F44747",
-			"hc_light": "invalid: #B5200D",
-			"light_modern": "invalid: #CD3131"
+			"positron_dark": "invalid: #F44747",
+			"positron_light": "invalid: #CD3131",
+			"hc_light": "invalid: #B5200D"
 		}
 	},
 	{
@@ -1013,28 +973,20 @@
 		"c": "w",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml invalid.illegal.expected-indentation.yaml",
 		"r": {
-			"dark_plus": "invalid: #F44747",
-			"light_plus": "invalid: #CD3131",
-			"dark_vs": "invalid: #F44747",
-			"light_vs": "invalid: #CD3131",
 			"hc_black": "invalid: #F44747",
-			"dark_modern": "invalid: #F44747",
-			"hc_light": "invalid: #B5200D",
-			"light_modern": "invalid: #CD3131"
+			"positron_dark": "invalid: #F44747",
+			"positron_light": "invalid: #CD3131",
+			"hc_light": "invalid: #B5200D"
 		}
 	},
 	{
 		"c": "o",
 		"t": "source.yaml meta.stream.yaml meta.document.yaml meta.block.sequence.yaml meta.mapping.yaml invalid.illegal.expected-indentation.yaml",
 		"r": {
-			"dark_plus": "invalid: #F44747",
-			"light_plus": "invalid: #CD3131",
-			"dark_vs": "invalid: #F44747",
-			"light_vs": "invalid: #CD3131",
 			"hc_black": "invalid: #F44747",
-			"dark_modern": "invalid: #F44747",
-			"hc_light": "invalid: #B5200D",
-			"light_modern": "invalid: #CD3131"
+			"positron_dark": "invalid: #F44747",
+			"positron_light": "invalid: #CD3131",
+			"hc_light": "invalid: #B5200D"
 		}
 	},
 	{

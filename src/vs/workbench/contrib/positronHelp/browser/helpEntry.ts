@@ -272,13 +272,13 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * Gets or sets the set title timeout. This timeout is used to default the title in case the
 	 * MessageHelpLoaded message is not received.
 	 */
-	private _setTitleTimeout?: NodeJS.Timeout;
+	private _setTitleTimeout?: Timeout;
 
 	/**
 	 * Timeout for claiming and layouting the help overlay webview. This is needed because sometimes
 	 * we put the overlap webview on a timeout to avoid the layout over a 0 height element.
 	 */
-	private _claimTimeout?: NodeJS.Timeout;
+	private _claimTimeout?: Timeout;
 
 	/**
 	 * The helpFocusedContextKey to track when the help overlay webview is focused.
@@ -289,7 +289,7 @@ export class HelpEntry extends Disposable implements IHelpEntry, WebviewFindDele
 	 * Gets or sets the dispose timeout. This timeout is used to schedule the disposal of the help
 	 * overlay webview.
 	 */
-	private _disposeTimeout?: NodeJS.Timeout;
+	private _disposeTimeout?: Timeout;
 
 	/**
 	 * The onDidChangeTitle event emitter.

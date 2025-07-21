@@ -103,6 +103,7 @@
       timestamp: undefined,
       confirmation: undefined,
       editedFileEvents: undefined,
+      modelId: undefined,
       tokenUsage: undefined
     }
   ]

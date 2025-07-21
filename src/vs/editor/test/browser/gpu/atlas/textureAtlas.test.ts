@@ -12,6 +12,7 @@ import { TextureAtlas } from '../../../../browser/gpu/atlas/textureAtlas.js';
 import { createCodeEditorServices } from '../../testCodeEditor.js';
 import { assertIsValidGlyph } from './testUtil.js';
 import { TextureAtlasSlabAllocator } from '../../../../browser/gpu/atlas/textureAtlasSlabAllocator.js';
+import { DecorationStyleCache } from '../../../../browser/gpu/css/decorationStyleCache.js';
 
 const blackInt = 0x000000FF;
 const nullCharMetadata = 0x0;
@@ -88,7 +89,7 @@ suite('TextureAtlas', () => {
 
 	setup(() => {
 		instantiationService = createCodeEditorServices(store);
-		atlas = store.add(instantiationService.createInstance(TextureAtlas, 2, undefined));
+		atlas = store.add(instantiationService.createInstance(TextureAtlas, 2, undefined, new DecorationStyleCache()));
 		glyphRasterizer = new TestGlyphRasterizer();
 		glyphRasterizer.nextGlyphDimensions = [1, 1];
 		glyphRasterizer.nextGlyphColor = [0, 0, 0, 0xFF];
@@ -98,8 +99,8 @@ suite('TextureAtlas', () => {
 		assertIsValidGlyph(atlas.getGlyph(glyphRasterizer, ...getUniqueGlyphId()), atlas);
 	});
 
-	test.skip('get multiple glyphs', () => {
-		atlas = store.add(instantiationService.createInstance(TextureAtlas, 32, undefined));
+	test('get multiple glyphs', () => {
+		atlas = store.add(instantiationService.createInstance(TextureAtlas, 32, undefined, new DecorationStyleCache()));
 		for (let i = 0; i < 10; i++) {
 			assertIsValidGlyph(atlas.getGlyph(glyphRasterizer, ...getUniqueGlyphId()), atlas);
 		}
@@ -128,14 +129,14 @@ suite('TextureAtlas', () => {
 		glyphRasterizer.nextGlyphDimensions = [2, 2];
 		atlas = store.add(instantiationService.createInstance(TextureAtlas, 32, {
 			allocatorType: (canvas, textureIndex) => new TextureAtlasSlabAllocator(canvas, textureIndex, { slabW: 1, slabH: 1 })
-		}));
+		}, new DecorationStyleCache()));
 		assertIsValidGlyph(atlas.getGlyph(glyphRasterizer, ...getUniqueGlyphId()), atlas);
 	});
 
 	test.skip('adding a non-first glyph larger than the standard slab size, causing an overflow to a new page', () => {
 		atlas = store.add(instantiationService.createInstance(TextureAtlas, 2, {
 			allocatorType: (canvas, textureIndex) => new TextureAtlasSlabAllocator(canvas, textureIndex, { slabW: 1, slabH: 1 })
-		}));
+		}, new DecorationStyleCache()));
 		assertIsValidGlyph(atlas.getGlyph(glyphRasterizer, ...getUniqueGlyphId()), atlas);
 		strictEqual(atlas.pages.length, 1);
 		glyphRasterizer.nextGlyphDimensions = [2, 2];
