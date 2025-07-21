@@ -22,6 +22,8 @@ import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/da
 import { usePositronDataExplorerContext } from '../../../positronDataExplorerContext.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { SummaryRowFilterBar } from './summaryRowFilterBar/summaryRowFilterBar.js';
+import { summaryPanelEnhancementsFeatureEnabled } from '../../../../../services/positronDataExplorer/common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
  * Constants.
@@ -52,6 +54,9 @@ export const DataExplorer = () => {
 	const [columnsWidth, setColumnsWidth] = useState(0);
 	const [animateColumnsWidth, setAnimateColumnsWidth] = useState(false);
 	const [columnsCollapsed, setColumnsCollapsed] = useState(context.instance.isSummaryCollapsed);
+
+	// Feature flags.
+	const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(context.configurationService);
 
 	// Dynamic column width layout.
 	useLayoutEffect(() => {
@@ -325,6 +330,12 @@ export const DataExplorer = () => {
 			<div ref={sortIndexExemplarRef} className='sort-index-exemplar' />
 
 			<div ref={leftColumnRef} className='left-column'>
+				{layout === PositronDataExplorerLayout.SummaryOnLeft &&
+					showSummaryPanelEnhancements &&
+					<SummaryRowFilterBar
+						instance={context.instance.tableSchemaDataGridInstance}
+					/>
+				}
 				<PositronDataGrid
 					configurationService={context.configurationService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
@@ -360,6 +371,12 @@ export const DataExplorer = () => {
 				<div className='collapsed-right-spacer' />
 			}
 			<div ref={rightColumnRef} className='right-column'>
+				{layout !== PositronDataExplorerLayout.SummaryOnLeft &&
+					showSummaryPanelEnhancements &&
+					<SummaryRowFilterBar
+						instance={context.instance.tableSchemaDataGridInstance}
+					/>
+				}
 				<PositronDataGrid
 					configurationService={context.configurationService}
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
