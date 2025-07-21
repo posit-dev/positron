@@ -193,6 +193,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// See IChatRuntimeSessionContext for the structure of the active
 		// session context objects
 		const activeSessions: Set<string> = new Set();
+		let hasVariables = false;
 		let hasConsoleSessions = false;
 		for (const reference of request.references) {
 			const value = reference.value as any;
@@ -201,6 +202,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				if (value.activeSession.mode === positron.LanguageRuntimeSessionMode.Console) {
 					hasConsoleSessions = true;
 				}
+			}
+			if (value.variables && value.variables.length > 0) {
+				hasVariables = true;
 			}
 		}
 
@@ -279,8 +283,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						return activeSessions.has('python');
 					case PositronAssistantToolName.GetPlot:
 						return positronContext.plots?.hasPlots === true;
-					// case PositronAssistantToolName.InspectVariables:
-					// TODO: only allow this tool when there are variables to inspect
+					case PositronAssistantToolName.InspectVariables:
+						return hasVariables;
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
 					// Allow all tools in Agent mode.
 					default:
