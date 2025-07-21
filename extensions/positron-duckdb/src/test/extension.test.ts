@@ -104,7 +104,7 @@ async function createTempTable(
 	for (let i = 0; i < length; i++) {
 		tuples.push(`(${columns.map(c => c.values[i]).join(', ')})`);
 	}
-	
+
 	// Use explicit column names in INSERT to ensure proper ordering
 	const columnNames = columns.map(c => quoteIdentifier(c.name)).join(', ');
 	await runQuery(`INSERT INTO ${tableName} (${columnNames}) VALUES\n${tuples.join(',\n')};`);
@@ -243,7 +243,8 @@ suite('Positron DuckDB Extension Test Suite', () => {
 						ExportFormat.Tsv,
 						ExportFormat.Html
 					]
-				}
+				},
+				convert_to_code: { support_status: SupportStatus.Unsupported }
 			}
 		} satisfies BackendState);
 

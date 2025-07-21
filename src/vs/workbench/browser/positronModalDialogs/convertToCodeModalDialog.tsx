@@ -118,8 +118,12 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 		setSelectedSyntax(typedItem.options.value);
 
 		// Execute the command to get the code string based on the selected syntax.
-		const exc = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, typedItem.options.value);
-		setCodeString(exc);
+		try {
+			const exc = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, typedItem.options.value);
+			setCodeString(exc);
+		} catch (error) {
+			setCodeString(`Cannot generate code for type ${typedItem.options.value}`);
+		}
 	};
 
 	// Render.

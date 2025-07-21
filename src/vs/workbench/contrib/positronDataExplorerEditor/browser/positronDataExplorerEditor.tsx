@@ -30,6 +30,7 @@ import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '..
 import { POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { checkDataExplorerConvertToCodeEnabled, DATA_EXPLORER_CONVERT_TO_CODE } from '../../../services/positronDataExplorer/common/positronDataExplorerConvertToCodeConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * IPositronDataExplorerEditorOptions interface.
@@ -334,6 +335,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				const client = positronDataExplorerInstance.dataExplorerClientInstance;
 
 				client.getBackendState().then((backendState) => {
+					this._isConvertToCodeEnabledContextKey.set(backendState.supported_features.convert_to_code.support_status === SupportStatus.Supported);
 					if (input !== undefined && backendState.display_name !== undefined) {
 						// We truncate the `display_name` to a reasonable length as
 						// the editor tab title has limited space.

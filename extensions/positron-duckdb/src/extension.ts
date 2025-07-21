@@ -1056,6 +1056,9 @@ END`;
 				export_data_selection: {
 					support_status: SupportStatus.Unsupported,
 					supported_formats: []
+				},
+				convert_to_code: {
+					support_status: SupportStatus.Unsupported,
 				}
 			}
 		};
@@ -1179,6 +1182,9 @@ END`;
 						ExportFormat.Tsv,
 						ExportFormat.Html
 					]
+				},
+				convert_to_code: {
+					support_status: SupportStatus.Unsupported,
 				}
 			}
 		};
