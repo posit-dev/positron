@@ -217,6 +217,10 @@ suite('InlineChatController', function () {
 
 		configurationService.setUserConfiguration('editor', {});
 
+		// --- Start Positron ---
+		configurationService.setUserConfiguration('positron', { assistant: { approximateTokenCount: [] } });
+		// --- End Positron ---
+
 		contextKeyService = instaService.get(IContextKeyService) as MockContextKeyService;
 		chatService = instaService.get(IChatService);
 		chatAgentService = instaService.get(IChatAgentService);
