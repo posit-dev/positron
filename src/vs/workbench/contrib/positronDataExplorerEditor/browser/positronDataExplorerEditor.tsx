@@ -335,7 +335,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				const client = positronDataExplorerInstance.dataExplorerClientInstance;
 
 				client.getBackendState().then((backendState) => {
-					this._isConvertToCodeEnabledContextKey.set(backendState.supported_features.convert_to_code.support_status === SupportStatus.Supported);
+					if (backendState.supported_features.convert_to_code.support_status === SupportStatus.Unsupported) {
+						this._isConvertToCodeEnabledContextKey.set(false);
+					}
 					if (input !== undefined && backendState.display_name !== undefined) {
 						// We truncate the `display_name` to a reasonable length as
 						// the editor tab title has limited space.
