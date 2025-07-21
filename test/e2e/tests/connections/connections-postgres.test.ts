@@ -57,8 +57,14 @@ test.describe('Postgres DB Connection', {
 		await test.step('Open periodic table connection', async () => {
 			const connectionName = app.code.driver.page.locator('.connections-details', { hasText: 'public' });
 			await connectionName.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
-			await app.code.driver.page.locator('.codicon-positron-table-connection').click();
-			await app.workbench.editors.verifyTab('Data: periodic_table', { isVisible: true });
+			await app.code.driver.page.locator('.codicon-positron-table-connection').first().click();
+
+			// hack to allow for different beahavior based on how db was imported
+			try {
+				await app.workbench.editors.verifyTab('Data: elements', { isVisible: true });
+			} catch {
+				await app.workbench.editors.verifyTab('Data: periodic_table', { isVisible: true });
+			}
 		});
 
 		await test.step('Verify connection data from periodic table', async () => {
@@ -67,7 +73,12 @@ test.describe('Postgres DB Connection', {
 			await expect(async () => {
 				const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]['Element']).toBe('Hydrogen');
+				// hack to allow for different beahavior based on how db was imported
+				try {
+					expect(tableData[0]['name']).toBe('Hydrogen');
+				} catch {
+					expect(tableData[0]['Element']).toBe('Hydrogen');
+				}
 
 			}).toPass({ timeout: 60000 });
 		});
@@ -120,8 +131,14 @@ test.describe('Postgres DB Connection', {
 			const publicNode = app.code.driver.page.locator('.connections-details', { hasText: 'public' });
 			await publicNode.locator('..').locator('.expand-collapse-area .codicon-chevron-right').click();
 
-			await app.code.driver.page.locator('.codicon-positron-table-connection').click();
-			await app.workbench.editors.verifyTab('Data: periodic_table', { isVisible: true });
+			await app.code.driver.page.locator('.codicon-positron-table-connection').first().click();
+
+			// hack to allow for different beahavior based on how db was imported
+			try {
+				await app.workbench.editors.verifyTab('Data: elements', { isVisible: true });
+			} catch {
+				await app.workbench.editors.verifyTab('Data: periodic_table', { isVisible: true });
+			}
 		});
 
 		await test.step('Verify connection data from periodic table', async () => {
@@ -130,7 +147,12 @@ test.describe('Postgres DB Connection', {
 			await expect(async () => {
 				const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
 
-				expect(tableData[0]['Element']).toBe('Hydrogen');
+				// hack to allow for different beahavior based on how db was imported
+				try {
+					expect(tableData[0]['name']).toBe('Hydrogen');
+				} catch {
+					expect(tableData[0]['Element']).toBe('Hydrogen');
+				}
 
 			}).toPass({ timeout: 60000 });
 		});

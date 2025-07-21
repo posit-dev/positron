@@ -125,7 +125,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private _eventQueue: QueuedRuntimeEvent[] = [];
 
 	/** Timer used to ensure event queue processing occurs within a set interval */
-	private _eventQueueTimer: NodeJS.Timeout | undefined;
+	private _eventQueueTimer: Timeout | undefined;
 
 	/** The handle uniquely identifying this runtime session with the extension host*/
 	private handle: number;

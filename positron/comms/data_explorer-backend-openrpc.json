@@ -216,6 +216,96 @@
 			}
 		},
 		{
+			"name": "convert_to_code",
+			"summary": "Converts the current data view into a code snippet.",
+			"description": "Converts filters and sort keys as code in different syntaxes like pandas, polars, data.table, dplyr",
+			"params": [
+				{
+					"name": "column_filters",
+					"description": "Zero or more column filters to apply",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_filter"
+						}
+					}
+				},
+				{
+					"name": "row_filters",
+					"description": "Zero or more row filters to apply",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/row_filter"
+						}
+					}
+				},
+				{
+					"name": "sort_keys",
+					"description": "Zero or more sort keys to apply",
+					"required": true,
+					"schema": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/column_sort_key"
+						}
+					}
+				},
+				{
+					"name": "code_syntax_name",
+					"description": "The code syntax to use for conversion",
+					"required": true,
+					"schema": {
+						"$ref": "#/components/schemas/code_syntax_name",
+						"description": "The name of the code syntax, eg, pandas, polars, dplyr, etc."
+					}
+				}
+			],
+			"result": {
+				"schema": {
+					"name": "converted_code",
+					"type": "object",
+					"description": "Code snippet for the data view",
+					"required": [
+						"converted_code"
+					],
+					"properties": {
+						"converted_code": {
+							"type": "array",
+							"description": "Lines of code that implement filters and sort keys",
+							"items": {
+								"type": "string"
+							}
+						}
+					}
+				}
+			}
+		},
+		{
+			"name": "suggest_code_syntax",
+			"summary": "Suggest code syntax for code conversion",
+			"description": "Suggest code syntax for code conversion based on the current backend state",
+			"params": [],
+			"result": {
+				"schema": {
+					"name": "code_syntax_name",
+					"type": "object",
+					"description": "Syntax to use for code conversion",
+					"required": [
+						"code_syntax_name"
+					],
+					"properties": {
+						"code_syntax_name": {
+							"type": "string",
+							"description": "The name of the code syntax, eg, pandas, polars, dplyr, etc."
+						}
+					}
+				}
+			}
+		},
+		{
 			"name": "set_column_filters",
 			"summary": "Set column filters to select subset of table columns",
 			"description": "Set or clear column filters on table, replacing any previous filters",
@@ -1302,7 +1392,8 @@
 					"set_row_filters",
 					"get_column_profiles",
 					"set_sort_columns",
-					"export_data_selection"
+					"export_data_selection",
+					"convert_to_code"
 				],
 				"properties": {
 					"search_schema": {
@@ -1328,6 +1419,10 @@
 					"export_data_selection": {
 						"description": "Support for 'export_data_selection' RPC and its features",
 						"$ref": "#/components/schemas/export_data_selection_features"
+					},
+					"convert_to_code": {
+						"description": "Support for 'convert_to_code' RPC and its features",
+						"$ref": "#/components/schemas/convert_to_code_features"
 					}
 				}
 			},
@@ -1453,6 +1548,31 @@
 						"description": "The support status for this RPC method"
 					}
 				}
+			},
+			"convert_to_code_features": {
+				"type": "object",
+				"description": "Feature flags for convert to code RPC",
+				"required": [
+					"support_status"
+				],
+				"properties": {
+					"support_status": {
+						"$ref": "#/components/schemas/support_status",
+						"description": "The support status for this RPC method"
+					},
+					"code_syntaxes": {
+						"type": "array",
+						"description": "The syntaxes for converted code",
+						"items": {
+							"$ref": "#/components/schemas/code_syntax_name",
+							"description": "The name of the code syntax, eg, pandas, polars, dplyr, etc."
+						}
+					}
+				}
+			},
+			"code_syntax_name": {
+				"type": "string",
+				"description": "The name of the code syntax, eg, pandas, polars, dplyr, etc."
 			},
 			"table_selection": {
 				"type": "object",

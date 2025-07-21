@@ -15,7 +15,7 @@ import { isToolInvocationContext, IToolInvocationContext } from '../../../contri
 import { IChatRequestData, IPositronChatContext, IPositronLanguageModelConfig, IPositronLanguageModelSource } from '../../../contrib/positronAssistant/common/interfaces/positronAssistantService.js';
 import { IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { ChatAgentLocation, ChatMode } from '../../../contrib/chat/common/constants.js';
+import { ChatAgentLocation, ChatModeKind } from '../../../contrib/chat/common/constants.js';
 
 export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape {
 
@@ -34,7 +34,7 @@ export class ExtHostAiFeatures implements extHostProtocol.ExtHostAiFeaturesShape
 	async registerChatAgent(extension: IExtensionDescription, agentData: positron.ai.ChatAgentData): Promise<Disposable> {
 		await this._proxy.$registerChatAgent({
 			...agentData,
-			modes: agentData.modes as any as ChatMode[],
+			modes: agentData.modes as any as ChatModeKind[],
 			extensionId: extension.identifier,
 			extensionPublisherId: extension.publisher,
 			extensionDisplayName: extension.displayName ?? extension.publisher,

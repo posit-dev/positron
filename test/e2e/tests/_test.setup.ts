@@ -65,6 +65,16 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		const WORKSPACE_PATH = join(TEST_DATA_PATH, 'qa-example-content');
 		const SPEC_CRASHES_PATH = join(ROOT_PATH, '.build', 'crashes', project.artifactDir, TEMP_DIR);
 
+		// get the version from package.json
+		const packageJsonPath = join(ROOT_PATH, 'package.json');
+		const packageJson = JSON.parse(await fs.promises.readFile(packageJsonPath, 'utf-8'));
+		const packageVersion = packageJson.version || '0.0.0';
+		const version = {
+			major: parseInt(packageVersion.split('.')[0], 10),
+			minor: parseInt(packageVersion.split('.')[1], 10),
+			patch: parseInt(packageVersion.split('.')[2], 10),
+		};
+
 		const options: ApplicationOptions = {
 			codePath: process.env.BUILD,
 			workspacePath: WORKSPACE_PATH,
@@ -80,6 +90,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 			tracing: true,
 			snapshots,
 			quality: Quality.Dev,
+			version
 		};
 
 		options.userDataDir = getRandomUserDataDir(options);
