@@ -77,16 +77,18 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 	const [codeString, setCodeString] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
-		const getCodeString = async () => {
-			if (!selectedSyntax) {
-				return;
-			}
+		if (selectedSyntax) { getCodeString(selectedSyntax); }
+	},);
+
+	const getCodeString = async (syntax: CodeSyntaxName) => {
+		try {
 			// Execute the command to get the code string based on the selected syntax.
-			const codeString = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, selectedSyntax);
-			setCodeString(codeString);
+			const result = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, syntax);
+			setCodeString(result);
+		} catch (error) {
+			setCodeString(`Cannot generate code for type ${syntax.code_syntax_name}`);
 		}
-		getCodeString();
-	}, [props.commandService, selectedSyntax]);
+	};
 
 	// Construct the syntax options dropdown entries
 	const syntaxDropdownEntries = () => {
