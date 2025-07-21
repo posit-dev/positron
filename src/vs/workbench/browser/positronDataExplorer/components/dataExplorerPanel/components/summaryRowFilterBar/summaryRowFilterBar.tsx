@@ -16,8 +16,25 @@ export interface SummaryRowFilterBarProps {
 }
 
 export const SummaryRowFilterBar = ({ instance }: SummaryRowFilterBarProps) => {
+	const [summarySearchText, setSummarySearchText] = useState('');
+
+	/**
+	 * Handler for when the summary search text changes.
+	 * @param searchText The new search text.
+	 */
+	const handleSummarySearchTextChanged = async (searchText: string) => {
+		setSummarySearchText(searchText);
+		// Update the table schema data grid instance with the search text
+		await instance.search(searchText);
+	};
+
 	return (
 		<div className='summary-row-filter-bar'>
+			<SummaryRowSortDropdown />
+			<SummaryRowFilterInput
+				searchText={summarySearchText}
+				onSearchTextChanged={handleSummarySearchTextChanged}
+			/>
 		</div>
 	);
 }
