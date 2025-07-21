@@ -1,0 +1,10 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.activity-error-message .quick-fix .apply-quick-fix .link-text {
+	text-decoration: underline;
+	color: var(--vscode-textLink-foreground);
+	cursor: pointer;
+}
