@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
+import { Event } from '../../../../base/common/event.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -17,6 +18,7 @@ import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../
 import { parse } from '../../../../base/common/marshalling.js';
 import { assertType } from '../../../../base/common/types.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
+import { INotebookEditorModelResolverService } from '../../notebook/common/notebookEditorModelResolverService.js';
 
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
@@ -43,7 +45,8 @@ class PositronNotebookContribution extends Disposable {
 	constructor(
 		@IEditorResolverService editorResolverService: IEditorResolverService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@INotebookService private readonly notebookService: INotebookService
+		@INotebookService private readonly notebookService: INotebookService,
+		@INotebookEditorModelResolverService private readonly notebookModelResolverService: INotebookEditorModelResolverService
 	) {
 		super();
 
@@ -59,8 +62,8 @@ class PositronNotebookContribution extends Disposable {
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					// Only support file:// scheme initially
-					return resource.scheme === Schemas.file;
+					// Support both file:// and untitled: schemes
+					return resource.scheme === Schemas.file || resource.scheme === Schemas.untitled;
 				}
 			},
 			{
@@ -77,23 +80,52 @@ class PositronNotebookContribution extends Disposable {
 					);
 
 					return { editor: editorInput, options };
+				},
+				createUntitledEditorInput: async ({ resource, options }) => {
+					// Determine notebook view type for untitled notebook
+					const viewType = await this.detectNotebookViewType(resource);
+
+					// Resolve notebook model with untitled resource
+					const ref = await this.notebookModelResolverService.resolve({ untitledResource: resource }, viewType);
+
+					// untitled notebooks are disposed when they get saved. we should not hold a reference
+					// to such a disposed notebook and therefore dispose the reference as well
+					Event.once(ref.object.notebook.onWillDispose)(() => {
+						ref.dispose();
+					});
+
+					// Create editor input using resolved model resource
+					const editorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						ref.object.resource,
+						undefined,
+						viewType,
+						{ startDirty: false }
+					);
+
+					return { editor: editorInput, options };
 				}
 			}
 		));
 	}
 
-	private async detectNotebookViewType(resource: URI): Promise<string> {
+	private async detectNotebookViewType(resource: URI | undefined): Promise<string> {
 		// Check if there's already an open notebook model for this URI
-		const existingModel = this.notebookService.getNotebookTextModel(resource);
-		if (existingModel) {
-			return existingModel.viewType;
+		if (resource) {
+			const existingModel = this.notebookService.getNotebookTextModel(resource);
+			if (existingModel) {
+				return existingModel.viewType;
+			}
+
+			// Use NotebookService to detect the correct viewType
+			const notebookProviders = this.notebookService.getContributedNotebookTypes(resource);
+			if (notebookProviders.length > 0) {
+				return notebookProviders[0].id;
+			}
 		}
 
-		// Use NotebookService to detect the correct viewType
-		const notebookProviders = this.notebookService.getContributedNotebookTypes(resource);
-
-		// Default to jupyter-notebook if detection fails
-		return notebookProviders[0]?.id || 'jupyter-notebook';
+		// Default to jupyter-notebook for untitled notebooks or if detection fails
+		return 'jupyter-notebook';
 	}
 }
 
