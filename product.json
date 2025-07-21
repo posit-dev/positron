@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.16.1",
+			"version": "1.18.0",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",
@@ -269,8 +269,8 @@
 		},
 		{
 			"name": "GitHub.vscode-pull-request-github",
-			"version": "0.114.1",
-			"sha256": "0ca8efe894f1b12e0543896f3038bde53dff56f279178f986291c31563aa27ef",
+			"version": "0.114.2",
+			"sha256": "7f0b0c668855cb2433e1ed617ec618cbb9b7c9a23e5b58663ebb07009968c8b7",
 			"repo": "https://github.com/Microsoft/vscode-pull-request-github",
 			"metadata": {
 				"publisherId": {
