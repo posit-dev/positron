@@ -43,7 +43,11 @@ export function PositronNotebookComponent() {
 				{notebookCells?.length ? notebookCells?.map((cell, index) => <>
 					<NotebookCell key={cell.handleId} cell={cell as PositronNotebookCellGeneral} />
 					<AddCellButtons index={index + 1} />
-				</>) : <div>{localize('noCells', 'No cells')}</div>
+				</>) : <div>
+					<div className='no-cells-msg'
+					>{localize('noCells', 'Notebook is empty. Add cells to begin working.')}</div>
+					<AddCellButtons alwaysVisible={true} index={0} />
+				</div>
 				}
 			</div>
 		</div>
