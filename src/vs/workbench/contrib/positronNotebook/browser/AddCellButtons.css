@@ -15,3 +15,7 @@
 .positron-add-cell-buttons:hover {
 	opacity: 1;
 }
+
+.positron-add-cell-buttons.always-visible {
+	opacity: 1;
+}
