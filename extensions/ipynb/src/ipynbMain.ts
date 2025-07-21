@@ -85,19 +85,77 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 	});
 
 	// --- Start Positron ---
+
+	/**
+	 * Helper function to check if a notebook with the given URI already exists
+	 */
+	function notebookExistsWithUri(uri: vscode.Uri): boolean {
+		return vscode.workspace.notebookDocuments.some(doc =>
+			doc.uri.toString() === uri.toString()
+		);
+	}
+
+
+	/**
+	 * Generate the next available untitled notebook URI using VS Code's standard naming convention
+	 */
+	function getNextUntitledNotebookUri(): vscode.Uri {
+		let counter = 1;
+		let untitledUri: vscode.Uri;
+		do {
+			untitledUri = vscode.Uri.from({
+				scheme: 'untitled',
+				path: `Untitled-${counter}.ipynb`
+			});
+			counter++;
+		} while (notebookExistsWithUri(untitledUri));
+		return untitledUri;
+	}
+
 	context.subscriptions.push(vscode.commands.registerCommand('ipynb.newUntitledIpynb', async (languageId?: string) => {
 		// Try to use Positron's foreground session's language, fall back to 'plaintext'.
 		const language = languageId ?? (await positron.runtime.getForegroundSession())?.runtimeMetadata?.languageId ?? 'plaintext';
-		const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
-		const data = new vscode.NotebookData([cell]);
-		data.metadata = {
-			cells: [],
-			metadata: {},
-			nbformat: defaultNotebookFormat.major,
-			nbformat_minor: defaultNotebookFormat.minor,
-		};
-		const doc = await vscode.workspace.openNotebookDocument('jupyter-notebook', data);
-		await vscode.window.showNotebookDocument(doc);
+
+		// Create an untitled URI for the notebook using standard naming convention
+		const untitledUri = getNextUntitledNotebookUri();
+
+		// Use vscode.open command to trigger proper editor resolution
+		// This will respect workbench.editorAssociations settings
+		try {
+			const editor = await vscode.commands.executeCommand('vscode.open', untitledUri, {
+				preview: false,
+				override: 'jupyter-notebook' // Specify the notebook view type
+			}) as vscode.NotebookEditor | undefined;
+
+			// After opening, initialize the notebook with default content
+			if (editor && editor.notebook) {
+				const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
+				const edit = new vscode.WorkspaceEdit();
+				edit.set(editor.notebook.uri, [
+					vscode.NotebookEdit.insertCells(0, [cell]),
+					vscode.NotebookEdit.updateNotebookMetadata({
+						cells: [],
+						metadata: {},
+						nbformat: defaultNotebookFormat.major,
+						nbformat_minor: defaultNotebookFormat.minor,
+					})
+				]);
+				await vscode.workspace.applyEdit(edit);
+			}
+		} catch (error) {
+			// Fallback to the original approach if the above fails
+			console.warn('Failed to open notebook via vscode.open, falling back to workspace API:', error);
+			const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
+			const data = new vscode.NotebookData([cell]);
+			data.metadata = {
+				cells: [],
+				metadata: {},
+				nbformat: defaultNotebookFormat.major,
+				nbformat_minor: defaultNotebookFormat.minor,
+			};
+			const doc = await vscode.workspace.openNotebookDocument('jupyter-notebook', data);
+			await vscode.window.showNotebookDocument(doc);
+		}
 	}));
 	// --- End Positron ---
 
