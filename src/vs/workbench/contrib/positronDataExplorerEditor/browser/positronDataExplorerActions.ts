@@ -763,9 +763,7 @@ class PositronDataExplorerConvertToCodeAction extends Action2 {
 				original: 'Convert to Code'
 			},
 			category,
-			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
-			)
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 		});
 	}
 
@@ -806,9 +804,7 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 				displayTitle: true,
 			},
 			f1: true,
-			precondition: ContextKeyExpr.and(
-				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR
-			),
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
 			icon: Codicon.code,
 			menu: [
 				{
