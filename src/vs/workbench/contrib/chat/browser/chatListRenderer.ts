@@ -627,6 +627,21 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		const diff = this.diff(templateData.renderedParts ?? [], content, element);
 		this.renderChatContentDiff(diff, content, element, index, templateData);
 
+		// --- Start Positron ---
+		const showTokens = this.configService.getValue<boolean>('positron.assistant.showTokenUsage.enable');
+		const experimentalTokenUsage = ['anthropic', ...this.configService.getValue<Array<string>>('positron.assistant.approximateTokenCount')];
+
+		if (element.tokenUsage && element.isComplete && showTokens && experimentalTokenUsage.includes(element.tokenUsage.provider)) {
+			const tokenUsageElements = templateData.value.getElementsByClassName('token-usage');
+			const tokenUsageText = localize('tokenUsage', "Tokens: ↑{0} ↓{1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens);
+			if (tokenUsageElements.length > 0) {
+				tokenUsageElements[0].textContent = tokenUsageText;
+			} else {
+				templateData.value.appendChild(dom.$('.token-usage', undefined, tokenUsageText));
+			}
+		}
+		// --- End Positron ---
+
 		this.updateItemHeightOnRender(element, templateData);
 	}
 
@@ -715,14 +730,6 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			}
 			templateData.elementDisposables.add(newPart);
 		}
-
-		// --- Start Positron ---
-		const showTokens = this.configService.getValue<boolean>('positron.assistant.showTokenUsage.enable');
-		const experimentalTokenUsage = this.configService.getValue<Array<string>>('positron.assistant.approximateTokenCount');
-		if (isResponseVM(element) && element.tokenUsage && element.isComplete && showTokens && experimentalTokenUsage.includes(element.tokenUsage.provider)) {
-			templateData.value.appendChild(dom.$('.token-usage', undefined, localize('tokenUsage', "Tokens: ↑{0} ↓{1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens)));
-		}
-		// --- End Positron ---
 
 		this.updateItemHeightOnRender(element, templateData);
 	}
