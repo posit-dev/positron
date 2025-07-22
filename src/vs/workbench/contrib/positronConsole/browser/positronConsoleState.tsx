@@ -7,63 +7,16 @@
 import { useEffect, useState } from 'react';
 
 // Other dependencies.
-import { ILogService } from '../../../../platform/log/common/log.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
-import { IModelService } from '../../../../editor/common/services/model.js';
-import { IOpenerService } from '../../../../platform/opener/common/opener.js';
-import { ILanguageService } from '../../../../editor/common/languages/language.js';
-import { IViewsService } from '../../../services/views/common/viewsService.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
-import { INotificationService } from '../../../../platform/notification/common/notification.js';
-import { IInstantiationService } from '../../../../platform/instantiation/common/instantiation.js';
-import { IPositronPlotsService } from '../../../services/positronPlots/common/positronPlots.js';
-import { PositronActionBarServices } from '../../../../platform/positronActionBar/browser/positronActionBarState.js';
-import { ILanguageRuntimeService } from '../../../services/languageRuntime/common/languageRuntimeService.js';
-import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
-import { IPositronConsoleInstance, IPositronConsoleService } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
-import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
-import { IRuntimeStartupService } from '../../../services/runtimeStartup/common/runtimeStartupService.js';
-import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
-import { IPathService } from '../../../services/path/common/pathService.js';
-
-/**
- * PositronConsoleServices interface. Defines the set of services that are required by the Positron
- * console.
- */
-export interface PositronConsoleServices extends PositronActionBarServices {
-	readonly clipboardService: IClipboardService;
-	readonly commandService: ICommandService;
-	readonly contextKeyService: IContextKeyService;
-	readonly editorService: IEditorService;
-	readonly environmentService: IWorkbenchEnvironmentService;
-	readonly executionHistoryService: IExecutionHistoryService;
-	readonly instantiationService: IInstantiationService;
-	readonly languageRuntimeService: ILanguageRuntimeService;
-	readonly layoutService: ILayoutService;
-	readonly runtimeSessionService: IRuntimeSessionService;
-	readonly runtimeStartupService: IRuntimeStartupService;
-	readonly languageService: ILanguageService;
-	readonly logService: ILogService;
-	readonly modelService: IModelService;
-	readonly notificationService: INotificationService;
-	readonly openerService: IOpenerService;
-	readonly pathService: IPathService;
-	readonly positronConsoleService: IPositronConsoleService;
-	readonly positronPlotsService: IPositronPlotsService;
-	readonly viewsService: IViewsService;
-}
+import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { IPositronConsoleInstance } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 
 /**
  * The Positron console state.
  */
-export interface PositronConsoleState extends PositronConsoleServices {
+export interface PositronConsoleState {
 	readonly positronConsoleInstances: IPositronConsoleInstance[];
 	readonly activePositronConsoleInstance?: IPositronConsoleInstance;
-
 	readonly consoleSessionListCollapsed: boolean;
 }
 
@@ -71,14 +24,13 @@ export interface PositronConsoleState extends PositronConsoleServices {
  * The usePositronConsoleState custom hook.
  * @returns The hook.
  */
-export const usePositronConsoleState = (services: PositronConsoleServices): PositronConsoleState => {
+export const usePositronConsoleState = (): PositronConsoleState => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// Hooks.
-	const [positronConsoleInstances, setPositronConsoleInstances] = useState<IPositronConsoleInstance[]>(
-		[]
-	);
-	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(
-		undefined
-	);
+	const [positronConsoleInstances, setPositronConsoleInstances] = useState<IPositronConsoleInstance[]>([]);
+	const [activePositronConsoleInstance, setActivePositronConsoleInstance] = useState<IPositronConsoleInstance | undefined>(undefined);
 	const [consoleSessionListCollapsed, setConsoleSessionListCollapsed] = useState<boolean>(positronConsoleInstances.length <= 1);
 
 	// Add event handlers.
@@ -127,7 +79,6 @@ export const usePositronConsoleState = (services: PositronConsoleServices): Posi
 
 	// Return the Positron console state.
 	return {
-		...services,
 		consoleSessionListCollapsed,
 		positronConsoleInstances,
 		activePositronConsoleInstance: activePositronConsoleInstance,

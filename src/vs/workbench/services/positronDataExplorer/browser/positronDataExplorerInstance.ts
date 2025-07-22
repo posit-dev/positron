@@ -5,25 +5,20 @@
 
 import { localize } from '../../../../nls.js';
 import { Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { ILayoutService } from '../../../../platform/layout/browser/layoutService.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { IClipboardService } from '../../../../platform/clipboard/common/clipboardService.js';
-import { IEditorService } from '../../editor/common/editorService.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { INotificationService, Severity } from '../../../../platform/notification/common/notification.js';
 import { TableDataCache } from '../common/tableDataCache.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
-import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
 import { TableDataDataGridInstance } from './tableDataDataGridInstance.js';
-import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
+import { PositronDataExplorerUri } from '../common/positronDataExplorerUri.js';
 import { TableSummaryDataGridInstance } from './tableSummaryDataGridInstance.js';
+import { Severity } from '../../../../platform/notification/common/notification.js';
 import { PositronDataExplorerLayout } from './interfaces/positronDataExplorerService.js';
+import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 import { IPositronDataExplorerInstance } from './interfaces/positronDataExplorerInstance.js';
-import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { DataExplorerSummaryCollapseEnabled, DefaultDataExplorerSummaryLayout } from './positronDataExplorerSummary.js';
+import { CodeSyntaxName } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ClipboardCell, ClipboardCellRange, ClipboardColumnIndexes, ClipboardColumnRange, ClipboardRowIndexes, ClipboardRowRange } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 
 /**
  * Constants.
@@ -35,6 +30,11 @@ const MAX_CLIPBOARD_CELLS = 10_000;
  */
 export class PositronDataExplorerInstance extends Disposable implements IPositronDataExplorerInstance {
 	//#region Private Properties
+
+	/**
+	 * Gets the Positron React services.
+	 */
+	private readonly _services = PositronReactServices.services;
 
 	/**
 	 * Gets the table summary cache.
@@ -49,12 +49,12 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	/**
 	 * Gets or sets the layout.
 	 */
-	private _layout = DefaultDataExplorerSummaryLayout(this._configurationService);
+	private _layout: PositronDataExplorerLayout;
 
 	/**
 	 * Gets or sets a value which indicates whether the summary is collapsed.
 	 */
-	private _isSummaryCollapsed = DataExplorerSummaryCollapseEnabled(this._configurationService);
+	private _isSummaryCollapsed: boolean;
 
 	/**
 	 * Gets or sets the summary width in pixels.
@@ -119,45 +119,32 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 	/**
 	 * Constructor.
-	 * @param _clipboardService The clipboard service.
-	 * @param _commandService The command service.
-	 * @param _configurationService The configuration service.
-	 * @param _hoverService The hover service.
-	 * @param _keybindingService The keybinding service.
-	 * @param _layoutService The layout service.
-	 * @param _notificationService The notification service.
 	 * @param _languageName The language name.
 	 * @param _dataExplorerClientInstance The DataExplorerClientInstance. The data explorer takes
 	 * ownership of the client instance and will dispose it when it is disposed.
 	 */
 	constructor(
-		private readonly _clipboardService: IClipboardService,
-		private readonly _commandService: ICommandService,
-		private readonly _configurationService: IConfigurationService,
-		private readonly _hoverService: IHoverService,
-		private readonly _keybindingService: IKeybindingService,
-		private readonly _layoutService: ILayoutService,
-		private readonly _notificationService: INotificationService,
-		private readonly _editorService: IEditorService,
 		private readonly _languageName: string,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance
 	) {
 		// Call the base class's constructor.
 		super();
 
+		// Initialize the layout and summary collapsed state.
+		this._layout = DefaultDataExplorerSummaryLayout(this._services.configurationService);
+		this._isSummaryCollapsed = DataExplorerSummaryCollapseEnabled(this._services.configurationService);
+
 		// Take ownership of the client instance.
 		this._register(this._dataExplorerClientInstance);
 
 		// Create the table summary cache.
 		this._register(this._tableSummaryCache = new TableSummaryCache(
-			this._configurationService,
+			this._services.configurationService,
 			this._dataExplorerClientInstance
 		));
 
 		// Create the table summary data grid instance.
 		this._register(this._tableSchemaDataGridInstance = new TableSummaryDataGridInstance(
-			this._configurationService,
-			this._hoverService,
 			this._dataExplorerClientInstance,
 			this._tableSummaryCache
 		));
@@ -167,11 +154,6 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Create the table data data grid instance.
 		this._register(this._tableDataDataGridInstance = new TableDataDataGridInstance(
-			this._commandService,
-			this._configurationService,
-			this._keybindingService,
-			this._layoutService,
-			this._hoverService,
 			this._dataExplorerClientInstance,
 			this._tableDataCache
 		));
@@ -196,7 +178,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		// Add the onDidRequestFocus event handler.
 		this._register(this.onDidRequestFocus(() => {
 			const uri = PositronDataExplorerUri.generate(this._dataExplorerClientInstance.identifier);
-			this._editorService.openEditor({ resource: uri });
+			this._services.editorService.openEditor({ resource: uri });
 		}));
 	}
 
@@ -326,7 +308,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		 * Notifies the user that there is nothing to copy to the clipboard.
 		 */
 		const notifyUserNothingToCopy = () => {
-			this._notificationService.info(
+			this._services.notificationService.info(
 				localize(
 					'positron.dataExplorer.nothingToCopy',
 					'There is nothing to copy to the clipboard.'
@@ -372,7 +354,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// If there are too many clipboard cells selected, notify the user.
 		if (selectedClipboardCells > MAX_CLIPBOARD_CELLS) {
-			this._notificationService.error(
+			this._services.notificationService.error(
 				localize(
 					'positron.dataExplorer.tooMuchDataToCopy',
 					'There is too much data selected to copy to the clipboard.'
@@ -389,7 +371,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		}
 
 		// Write the clipboard data to the clipboard.
-		this._clipboardService.writeText(text);
+		this._services.clipboardService.writeText(text);
 	}
 
 	/**
@@ -397,7 +379,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 	 */
 	async copyTableDataToClipboard(): Promise<void> {
 		// Inform the user that the table data is being prepared.
-		const notificationHandle = this._notificationService.notify({
+		const notificationHandle = this._services.notificationService.notify({
 			severity: Severity.Info,
 			message: localize(
 				'positron.dataExplorer.preparingTableDate',
@@ -418,7 +400,7 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 		));
 
 		// Write the table data to the clipboard.
-		this._clipboardService.writeText(tableDataTSV);
+		this._services.clipboardService.writeText(tableDataTSV);
 
 		// Inform the user that the operation is done.
 		notificationHandle.updateMessage(localize(
@@ -428,6 +410,15 @@ export class PositronDataExplorerInstance extends Disposable implements IPositro
 
 		// Done.
 		notificationHandle.progress.done();
+	}
+
+	/**
+	 * Converts the data explorer view to code in the desired syntax.
+	 * @returns A Promise<string> that resolves when converted code is returned.
+	 */
+	async convertToCode(desiredSyntax: CodeSyntaxName): Promise<string | undefined> {
+		const generatedCode = await this._dataExplorerClientInstance.convertToCode(desiredSyntax);
+		return generatedCode.converted_code.join('\n');
 	}
 
 	/**

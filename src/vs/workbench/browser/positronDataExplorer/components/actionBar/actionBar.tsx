@@ -19,6 +19,7 @@ import { usePositronDataExplorerContext } from '../../positronDataExplorerContex
 import { PositronActionBar } from '../../../../../platform/positronActionBar/browser/positronActionBar.js';
 import { ActionBarRegion } from '../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarButton } from '../../../../../platform/positronActionBar/browser/components/actionBarButton.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 /**
@@ -43,6 +44,7 @@ const moveIntoNewWindowButtonDescription = localize(
  */
 export const ActionBar = () => {
 	// Context hooks.
+	const services = usePositronReactServicesContext();
 	const context = usePositronDataExplorerContext();
 
 	// Reference hooks.
@@ -85,7 +87,7 @@ export const ActionBar = () => {
 							icon={ThemeIcon.fromId('positron-open-in-new-window')}
 							tooltip={moveIntoNewWindowButtonDescription}
 							onPressed={() =>
-								context.commandService.executeCommand(
+								services.commandService.executeCommand(
 									'workbench.action.moveEditorToNewWindow'
 								)
 							}

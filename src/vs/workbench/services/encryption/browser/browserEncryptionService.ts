@@ -192,13 +192,17 @@ export class BrowserEncryptionService implements IEncryptionService {
 				false,
 				['deriveBits', 'deriveKey']
 			);
+
+			// Define PBKDF2 parameters
+			let params: Pbkdf2Params = {
+				name: 'PBKDF2',
+				salt: salt as BufferSource,
+				iterations: 100000,
+				hash: 'SHA-256'
+			};
+
 			return mainWindow.crypto.subtle.deriveKey(
-				{
-					name: 'PBKDF2',
-					salt,
-					iterations: 100000,
-					hash: 'SHA-256'
-				},
+				params,
 				keyMaterial,
 				{ name: 'AES-GCM', length: 256 },
 				true,

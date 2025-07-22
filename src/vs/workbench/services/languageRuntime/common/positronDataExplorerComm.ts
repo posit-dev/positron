@@ -55,6 +55,28 @@ export interface ExportedData {
 }
 
 /**
+ * Code snippet for the data view
+ */
+export interface ConvertedCode {
+	/**
+	 * Lines of code that implement filters and sort keys
+	 */
+	converted_code: Array<string>;
+
+}
+
+/**
+ * Syntax to use for code conversion
+ */
+export interface CodeSyntaxName {
+	/**
+	 * The name of the code syntax, eg, pandas, polars, dplyr, etc.
+	 */
+	code_syntax_name: string;
+
+}
+
+/**
  * The result of applying filters to a table
  */
 export interface FilterResult {
@@ -856,6 +878,11 @@ export interface SupportedFeatures {
 	 */
 	export_data_selection: ExportDataSelectionFeatures;
 
+	/**
+	 * Support for 'convert_to_code' RPC and its features
+	 */
+	convert_to_code: ConvertToCodeFeatures;
+
 }
 
 /**
@@ -951,6 +978,22 @@ export interface SetSortColumnsFeatures {
 	 * The support status for this RPC method
 	 */
 	support_status: SupportStatus;
+
+}
+
+/**
+ * Feature flags for convert to code RPC
+ */
+export interface ConvertToCodeFeatures {
+	/**
+	 * The support status for this RPC method
+	 */
+	support_status: SupportStatus;
+
+	/**
+	 * The syntaxes for converted code
+	 */
+	code_syntaxes?: Array<CodeSyntaxName>;
 
 }
 
@@ -1287,6 +1330,31 @@ export interface ExportDataSelectionParams {
 }
 
 /**
+ * Parameters for the ConvertToCode method.
+ */
+export interface ConvertToCodeParams {
+	/**
+	 * Zero or more column filters to apply
+	 */
+	column_filters: Array<ColumnFilter>;
+
+	/**
+	 * Zero or more row filters to apply
+	 */
+	row_filters: Array<RowFilter>;
+
+	/**
+	 * Zero or more sort keys to apply
+	 */
+	sort_keys: Array<ColumnSortKey>;
+
+	/**
+	 * The code syntax to use for conversion
+	 */
+	code_syntax_name: CodeSyntaxName;
+}
+
+/**
  * Parameters for the SetColumnFilters method.
  */
 export interface SetColumnFiltersParams {
@@ -1402,6 +1470,8 @@ export enum DataExplorerBackendRequest {
 	GetDataValues = 'get_data_values',
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
+	ConvertToCode = 'convert_to_code',
+	SuggestCodeSyntax = 'suggest_code_syntax',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',
@@ -1508,6 +1578,36 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	 */
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData> {
 		return super.performRpc('export_data_selection', ['selection', 'format'], [selection, format]);
+	}
+
+	/**
+	 * Converts the current data view into a code snippet.
+	 *
+	 * Converts filters and sort keys as code in different syntaxes like
+	 * pandas, polars, data.table, dplyr
+	 *
+	 * @param columnFilters Zero or more column filters to apply
+	 * @param rowFilters Zero or more row filters to apply
+	 * @param sortKeys Zero or more sort keys to apply
+	 * @param codeSyntaxName The code syntax to use for conversion
+	 *
+	 * @returns Code snippet for the data view
+	 */
+	convertToCode(columnFilters: Array<ColumnFilter>, rowFilters: Array<RowFilter>, sortKeys: Array<ColumnSortKey>, codeSyntaxName: CodeSyntaxName): Promise<ConvertedCode> {
+		return super.performRpc('convert_to_code', ['column_filters', 'row_filters', 'sort_keys', 'code_syntax_name'], [columnFilters, rowFilters, sortKeys, codeSyntaxName]);
+	}
+
+	/**
+	 * Suggest code syntax for code conversion
+	 *
+	 * Suggest code syntax for code conversion based on the current backend
+	 * state
+	 *
+	 *
+	 * @returns Syntax to use for code conversion
+	 */
+	suggestCodeSyntax(): Promise<CodeSyntaxName> {
+		return super.performRpc('suggest_code_syntax', [], []);
 	}
 
 	/**

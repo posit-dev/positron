@@ -61,7 +61,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			const { welcome, popups, editors, notebooks } = app.workbench;
 
 			await welcome.newNotebookButton.click();
-			await popups.clickOnModalDialogPopupOption('Python Notebook');
+			await popups.clickItem('Python Notebook');
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
 			await notebooks.expectKernelToBe(pythonRuntime.name);
 		});
@@ -78,7 +78,7 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 			const { welcome, popups, editors, notebooks } = app.workbench;
 
 			await welcome.newNotebookButton.click();
-			await popups.clickOnModalDialogPopupOption('R Notebook');
+			await popups.clickItem('R Notebook');
 
 			await editors.expectActiveEditorIconClassToMatch(/ipynb-ext-file-icon/);
 			await notebooks.expectKernelToBe(rRuntime.name);
@@ -135,11 +135,10 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 		});
 
 		test('Verify clicking on `New from Git` opens dialog', { tag: [tags.MODAL] }, async function ({ app }) {
-			const { welcome, popups } = app.workbench;
+			const { welcome, modals } = app.workbench;
 
 			await welcome.startButtons.getByText('New from Git...').click();
-			await popups.waitForModalDialogBox();
-			await popups.waitForModalDialogTitle('New Folder from Git');
+			await modals.expectToBeVisible('New Folder from Git');
 		});
 	});
 

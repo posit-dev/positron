@@ -22,6 +22,7 @@ import { interpretersToDropdownItems } from '../../utilities/interpreterDropDown
 import { ExternalLink } from '../../../../../base/browser/ui/ExternalLink/ExternalLink.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
 import { FlowFormattedText, FlowFormattedTextType } from '../flowFormattedText.js';
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // NOTE: If you are making changes to this file, the equivalent Python component may benefit from
 // similar changes. See src/vs/workbench/browser/positronNewFolderFlow/components/steps/pythonEnvironmentStep.tsx
@@ -32,15 +33,11 @@ import { FlowFormattedText, FlowFormattedTextType } from '../flowFormattedText.j
  * @returns The rendered component
  */
 export const RConfigurationStep = (props: PropsWithChildren<NewFolderFlowStepProps>) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// State.
 	const context = useNewFolderFlowContext();
-	const {
-		keybindingService,
-		languageRuntimeService,
-		layoutService,
-		logService,
-		openerService,
-	} = context.services;
 
 	// Hooks.
 	const [interpreters, setInterpreters] = useState(context.interpreters);
@@ -71,11 +68,11 @@ export const RConfigurationStep = (props: PropsWithChildren<NewFolderFlowStepPro
 	// Handler for when the interpreter is selected.
 	const onInterpreterSelected = (identifier: string) => {
 		// Update the selected interpreter.
-		const selectedRuntime = languageRuntimeService.getRegisteredRuntime(identifier);
+		const selectedRuntime = services.languageRuntimeService.getRegisteredRuntime(identifier);
 		if (!selectedRuntime) {
 			// This shouldn't happen, since the DropDownListBox should only allow selection of registered
 			// runtimes
-			logService.error(`No R runtime found for identifier: ${identifier}`);
+			services.logService.error(`No R runtime found for identifier: ${identifier}`);
 			return;
 		}
 		context.selectedRuntime = selectedRuntime;
@@ -165,8 +162,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewFolderFlowStepPro
 							)
 							: []
 					}
-					keybindingService={keybindingService}
-					layoutService={layoutService}
 					selectedIdentifier={selectedInterpreter?.runtimeId}
 					title={interpreterDropdownTitle()}
 					onSelectionChanged={(item) =>
@@ -194,7 +189,6 @@ export const RConfigurationStep = (props: PropsWithChildren<NewFolderFlowStepPro
 					<ExternalLink
 						className='renv-docs-external-link'
 						href='https://rstudio.github.io/renv/articles/renv.html'
-						openerService={openerService}
 						title='https://rstudio.github.io/renv/articles/renv.html'
 					>
 						<div className='codicon codicon-link-external' />

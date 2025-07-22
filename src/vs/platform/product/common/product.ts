@@ -68,12 +68,12 @@ else {
 	// Running out of sources
 	if (Object.keys(product).length === 0) {
 		Object.assign(product, {
-			version: '1.100.0-dev',
+			version: '1.102.0-dev',
 			// --- Start Positron ---
 			// This only applies to dev builds where it is not possible to read the
 			// product configuration. Release builds replace the product configuration
 			// during the build. See INSERT_PRODUCT_CONFIGURATION above.
-			positronVersion: '2025.04.0',
+			positronVersion: '2025.08.0',
 			positronBuildNumber: '0',
 			nameShort: 'Positron Dev',
 			nameLong: 'Positron Dev',
@@ -83,12 +83,13 @@ else {
 			reportIssueUrl: 'https://github.com/posit-dev/positron/issues/new',
 			licenseName: 'Software Evaluation License',
 			licenseUrl: 'https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file',
-			serverLicenseUrl: 'https://github.com/posit-dev/positron/tree/main?tab=License-1-ov-file',
+			serverLicenseUrl: 'https://posit.co/about/eula/',
 			linkProtectionTrustedDomains: [
 				'https://open-vsx.org',
 				'https://github.com/posit-dev/positron',
 				'https://positron.posit.co',
 				'https://github.com/login/device',
+				'https://posit.co'
 			]
 			// --- End Positron ---
 		});

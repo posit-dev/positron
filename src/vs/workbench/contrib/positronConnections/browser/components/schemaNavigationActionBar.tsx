@@ -16,34 +16,13 @@ import { PositronActionBar } from '../../../../../platform/positronActionBar/bro
 import { PositronActionBarContextProvider } from '../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
 import { localize } from '../../../../../nls.js';
-import { IAccessibilityService } from '../../../../../platform/accessibility/common/accessibility.js';
-import { ICommandService } from '../../../../../platform/commands/common/commands.js';
-import { IConfigurationService } from '../../../../../platform/configuration/common/configuration.js';
-import { IContextKeyService } from '../../../../../platform/contextkey/common/contextkey.js';
-import { IContextMenuService } from '../../../../../platform/contextview/browser/contextView.js';
-import { IHoverService } from '../../../../../platform/hover/browser/hover.js';
-import { IKeybindingService } from '../../../../../platform/keybinding/common/keybinding.js';
-import { ILayoutService } from '../../../../../platform/layout/browser/layoutService.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
-import { IThemeService } from '../../../../../platform/theme/common/themeService.js';
 
 const ACTION_BAR_PADDING_LEFT = 8;
 const ACTION_BAR_PADDING_RIGHT = 8;
 export const ACTION_BAR_HEIGHT = 32;
 
-interface ActionBarProps {
-	readonly accessibilityService: IAccessibilityService;
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly contextKeyService: IContextKeyService;
-	readonly contextMenuService: IContextMenuService;
-	readonly hoverService: IHoverService;
-	readonly keybindingService: IKeybindingService;
-	readonly layoutService: ILayoutService;
-	readonly themeService: IThemeService;
-}
-
-interface ConnectionActionBarProps extends ActionBarProps {
+interface ConnectionActionBarProps {
 	onDisconnect: () => void;
 	onBack: () => void;
 	onRefresh: () => void;

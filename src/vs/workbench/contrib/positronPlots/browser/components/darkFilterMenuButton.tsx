@@ -9,18 +9,13 @@ import React, { useEffect, useState } from 'react';
 // Other dependencies.
 import { IAction } from '../../../../../base/common/actions.js';
 import { ActionBarMenuButton } from '../../../../../platform/positronActionBar/browser/components/actionBarMenuButton.js';
-import { DarkFilter, IPositronPlotsService } from '../../../../services/positronPlots/common/positronPlots.js';
+import { DarkFilter } from '../../../../services/positronPlots/common/positronPlots.js';
 import * as nls from '../../../../../nls.js';
 import { DisposableStore } from '../../../../../base/common/lifecycle.js';
-import { IPreferencesService } from '../../../../services/preferences/common/preferences.js';
 import { localize } from '../../../../../nls.js';
 import { ThemeIcon } from '../../../../../base/common/themables.js';
 import { Icon } from '../../../../../platform/action/common/action.js';
-
-interface DarkFilterMenuButtonProps {
-	readonly plotsService: IPositronPlotsService;
-	readonly preferencesService: IPreferencesService;
-}
+import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
 
 // Labels for the menu.
 const darkFilterLabel = nls.localize('positron.darkFilter', "Dark Filter");
@@ -34,22 +29,22 @@ const darkFilterTooltip = nls.localize('positronDarkFilterTooltip', "Set whether
  * @param props A DarkFilterMenuButtonProps that contains the component properties.
  * @returns The rendered component.
  */
-export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
-
-	const [darkFilterMode, setDarkFilterMode] = useState(props.plotsService.darkFilterMode);
+export const DarkFilterMenuButton = () => {
+	const services = usePositronReactServicesContext();
+	const [darkFilterMode, setDarkFilterMode] = useState(services.positronPlotsService.darkFilterMode);
 
 	useEffect(() => {
 		// Create the disposable store for cleanup.
 		const disposableStore = new DisposableStore();
 
 		// Add the event handler for dark filter mode changes.
-		disposableStore.add(props.plotsService.onDidChangeDarkFilterMode(mode => {
+		disposableStore.add(services.positronPlotsService.onDidChangeDarkFilterMode(mode => {
 			setDarkFilterMode(mode);
 		}));
 
 		// Return the cleanup function that will dispose of the event handlers.
 		return () => disposableStore.dispose();
-	}, [props.plotsService]);
+	}, [services.positronPlotsService]);
 
 	const labelForDarkFilter = (policy: DarkFilter): string => {
 		switch (policy) {
@@ -88,7 +83,7 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 				enabled: true,
 				checked: darkFilterMode === mode,
 				run: () => {
-					props.plotsService.setDarkFilterMode(mode);
+					services.positronPlotsService.setDarkFilterMode(mode);
 				}
 			});
 		});
@@ -101,7 +96,7 @@ export const DarkFilterMenuButton = (props: DarkFilterMenuButtonProps) => {
 			class: undefined,
 			enabled: true,
 			run: async () => {
-				await props.preferencesService.openUserSettings({
+				await services.preferencesService.openUserSettings({
 					jsonEditor: false,
 					query: 'positron.plots.darkFilter'
 				});

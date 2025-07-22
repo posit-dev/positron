@@ -138,7 +138,7 @@ test.describe('Data Explorer - Python Pandas', {
 	});
 
 	test('Python Pandas - Verify blank spaces in data explorer and disconnect behavior', async function ({ app, hotKeys, python }) {
-		const { dataExplorer, console, variables, editors, popups } = app.workbench;
+		const { dataExplorer, console, variables, editors, modals } = app.workbench;
 
 		// execute code to create a DataFrame with blank spaces
 		await console.executeCode('Python', blankSpacesScript);
@@ -154,7 +154,7 @@ test.describe('Data Explorer - Python Pandas', {
 		// verify disconnect modal dialog box when session is closed
 		await hotKeys.stackedLayout();
 		await console.trashButton.click();
-		await popups.verifyModalDialogBoxContainsText('Connection Closed');
+		await modals.expectMessageToContain('Connection Closed');
 	});
 });
 

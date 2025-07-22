@@ -11,19 +11,14 @@ import React, { PropsWithChildren, useEffect, useState } from 'react';
 
 // Other dependencies.
 import { ConsoleCore } from './components/consoleCore.js';
-import { PositronConsoleServices } from './positronConsoleState.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
 import { PositronConsoleContextProvider } from './positronConsoleContext.js';
-import { createTrustedTypesPolicy } from '../../../../base/browser/trustedTypes.js';
 import { IReactComponentContainer } from '../../../../base/browser/positronReactRenderer.js';
-
-// Create the trusted types policy.
-export const ttPolicy = createTrustedTypesPolicy('positronConsole', { createHTML: value => value });
 
 /**
  * PositronConsoleProps interface.
  */
-export interface PositronConsoleProps extends PositronConsoleServices {
+export interface PositronConsoleProps {
 	readonly reactComponentContainer: IReactComponentContainer;
 }
 

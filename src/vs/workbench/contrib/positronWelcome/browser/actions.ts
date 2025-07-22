@@ -19,13 +19,13 @@ import { IFilesConfigurationService } from '../../../services/filesConfiguration
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { IPreferencesService } from '../../../services/preferences/common/preferences.js';
 import { ITerminalService } from '../../terminal/browser/terminal.js';
-import { getCodeSettingsPathNative, getCodeSettingsPathWeb, mergeSettingsJson, setImportWasPrompted } from './helpers.js';
+import { getCodeSettingsPathNative, getCodeSettingsPathWeb, mergeSettingsJson, POSITRON_IMPORT_SETTINGS_COMMAND_ID, setImportWasPrompted } from './helpers.js';
 
 export class PositronImportSettings extends Action2 {
 	/**
 	 * The action ID.
 	 */
-	static readonly ID = 'positron.workbench.action.importSettings';
+	static readonly ID = POSITRON_IMPORT_SETTINGS_COMMAND_ID;
 
 	/**
 	 * Constructor.

@@ -48,6 +48,7 @@ import { AccessibilityProgressSignalScheduler } from '../../platform/accessibili
 import { setProgressAcccessibilitySignalScheduler } from '../../base/browser/ui/progressbar/progressAccessibilitySignal.js';
 import { AccessibleViewRegistry } from '../../platform/accessibility/browser/accessibleViewRegistry.js';
 import { NotificationAccessibleView } from './parts/notifications/notificationAccessibleView.js';
+import { PositronReactServices } from '../../base/browser/positronReactServices.js';
 
 export interface IWorkbenchOptions {
 
@@ -55,6 +56,11 @@ export interface IWorkbenchOptions {
 	 * Extra classes to be added to the workbench container.
 	 */
 	extraClasses?: string[];
+
+	/**
+	 * Whether to reset the workbench parts layout on startup.
+	 */
+	resetLayout?: boolean;
 }
 
 export class Workbench extends Layout {
@@ -71,7 +77,7 @@ export class Workbench extends Layout {
 		private readonly serviceCollection: ServiceCollection,
 		logService: ILogService
 	) {
-		super(parent);
+		super(parent, { resetLayout: Boolean(options?.resetLayout) });
 
 		// Perf: measure workbench startup time
 		mark('code/willStartWorkbench');
@@ -194,6 +200,11 @@ export class Workbench extends Layout {
 		}
 
 		const instantiationService = new InstantiationService(serviceCollection, true);
+
+		// --- Start Positron ---
+		// Initialize Positron React Services. This is done once and reused by all components.
+		PositronReactServices.initialize(instantiationService);
+		// --- End Positron ---
 
 		// Wrap up
 		instantiationService.invokeFunction(accessor => {

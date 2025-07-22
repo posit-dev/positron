@@ -29,7 +29,7 @@ import { IPositronHelpService } from '../../../contrib/positronHelp/browser/posi
 import { INotebookService } from '../../../contrib/notebook/common/notebookService.js';
 import { IRuntimeClientEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { URI } from '../../../../base/common/uri.js';
-import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent, OpenWithSystemEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { Selection } from '../../../../editor/common/core/selection.js';
@@ -46,9 +46,10 @@ import { basename } from '../../../../base/common/resources.js';
 import { RuntimeOnlineState } from '../../common/extHostTypes.js';
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
-import { Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
+import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -124,7 +125,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private _eventQueue: QueuedRuntimeEvent[] = [];
 
 	/** Timer used to ensure event queue processing occurs within a set interval */
-	private _eventQueueTimer: NodeJS.Timeout | undefined;
+	private _eventQueueTimer: Timeout | undefined;
 
 	/** The handle uniquely identifying this runtime session with the extension host*/
 	private handle: number;
@@ -142,7 +143,9 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		private readonly _commandService: ICommandService,
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
-		private readonly _proxy: ExtHostLanguageRuntimeShape) {
+		private readonly _proxy: ExtHostLanguageRuntimeShape,
+		private readonly _openerService: IOpenerService
+	) {
 
 		super();
 
@@ -190,7 +193,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			this._proxy.$notifyForegroundSessionChanged(session?.sessionId);
 		}));
 
-		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(globalEvent => {
+		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(async globalEvent => {
 			// Ignore events for other sessions.
 			if (globalEvent.session_id !== this.sessionId) {
 				return;
@@ -247,6 +250,13 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				const ws = ev.data as OpenWorkspaceEvent;
 				const uri = URI.file(ws.path);
 				this._commandService.executeCommand('vscode.openFolder', uri, ws.new_window);
+			} else if (ev.name === UiFrontendEvent.OpenWithSystem) {
+				// Open a file or folder with system default application
+				const openWith = ev.data as OpenWithSystemEvent;
+				const uri = URI.file(openWith.path);
+
+				// Use VS Code's opener service with external option
+				await this._openerService.open(uri, { openExternal: true });
 			} else if (ev.name === UiFrontendEvent.WorkingDirectory) {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
@@ -1393,7 +1403,8 @@ export class MainThreadLanguageRuntime
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@IEditorService private readonly _editorService: IEditorService
+		@IEditorService private readonly _editorService: IEditorService,
+		@IOpenerService private readonly _openerService: IOpenerService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -1590,6 +1601,33 @@ export class MainThreadLanguageRuntime
 		}
 	}
 
+	$querySessionTables(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>> {
+		const sessionId = this.findSession(handle).sessionId;
+		const instances = this._positronVariablesService.positronVariablesInstances;
+		for (const instance of instances) {
+			if (instance.session.sessionId === sessionId) {
+				return this.querySessionTables(instance, accessKeys, queryTypes);
+			}
+		}
+		throw new Error(`No variables provider found for session ${sessionId}`);
+	}
+
+	async querySessionTables(instance: IPositronVariablesInstance, accessKeys: Array<Array<string>>, queryTypes: Array<string>):
+		Promise<Array<QueryTableSummaryResult>> {
+		const client = instance.getClientInstance();
+		if (!client) {
+			throw new Error(`No variables provider available for session ${instance.session.sessionId}`);
+		}
+		if (accessKeys.length === 0) {
+			throw new Error('No access keys provided for variable data retrieval');
+		}
+		const result = [];
+		for (const accessKey of accessKeys) {
+			result.push(await client.comm.queryTableSummary(accessKey, queryTypes));
+		}
+		return result;
+	}
+
 	// Signals that language runtime discovery is complete.
 	$completeLanguageRuntimeDiscovery(): void {
 		this._runtimeStartupService.completeDiscovery(this._id);
@@ -1745,7 +1783,8 @@ export class MainThreadLanguageRuntime
 			this._commandService,
 			this._notebookService,
 			this._editorService,
-			this._proxy);
+			this._proxy,
+			this._openerService);
 	}
 
 	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {

@@ -9,6 +9,7 @@ inputs:
     description: "Install undetectable interpreters"
     required: true
     type: boolean
+
 runs:
   using: "composite"
   steps:
@@ -17,8 +18,11 @@ runs:
       with:
         python-version: '3.12.6'
 
+    # Pinning UV due to https://github.com/rstudio/reticulate/issues/1811
     - name: Install uv
       uses: astral-sh/setup-uv@v5
+      with:
+        version: "0.7.22"
 
     - name: Install Python dependencies
       shell: bash
@@ -87,16 +91,13 @@ runs:
         echo "Setting up Conda environment with Python 3.12..."
 
         # Ensure Conda is available
-        source "${HOME}/conda/etc/profile.d/conda.sh"
+        source "${CONDA}/etc/profile.d/conda.sh"
 
         # Define environment path
         CONDA_ENV_DIR="$HOME/scratch/python-env"
 
         # Create a new Conda environment with Python 3.12
         conda create -y -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
-
-        # Activate environment
-        conda activate "$CONDA_ENV_DIR"
 
         # Verify Python installation
         PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
@@ -111,7 +112,7 @@ runs:
 
         # Verify Python modules are working
         echo "Checking if Python modules work..."
-        $PYTHON_BIN -c "import venv, distutils, sys; print(f'Python {sys.version} modules are working!')"
+        $PYTHON_BIN -c "import venv, sys; print(f'Python {sys.version} modules are working!')"
 
         # Final verification
         echo "Final Python check..."

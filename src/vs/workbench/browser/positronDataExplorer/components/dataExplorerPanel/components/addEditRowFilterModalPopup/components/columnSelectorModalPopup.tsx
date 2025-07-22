@@ -14,10 +14,9 @@ import { ColumnSearch } from './columnSearch.js';
 import { DisposableStore } from '../../../../../../../../base/common/lifecycle.js';
 import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
 import { PositronDataGrid } from '../../../../../../positronDataGrid/positronDataGrid.js';
-import { IConfigurationService } from '../../../../../../../../platform/configuration/common/configuration.js';
+import { PositronModalReactRenderer } from '../../../../../../../../base/browser/positronModalReactRenderer.js';
 import { ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronModalPopup } from '../../../../../../positronComponents/positronModalPopup/positronModalPopup.js';
-import { PositronModalReactRenderer } from '../../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
 
 // Constants.
 const SEARCH_AREA_HEIGHT = 34;
@@ -26,7 +25,6 @@ const SEARCH_AREA_HEIGHT = 34;
  * ColumnSelectorModalPopupProps interface.
  */
 interface ColumnSelectorModalPopupProps {
-	readonly configurationService: IConfigurationService;
 	readonly renderer: PositronModalReactRenderer;
 	readonly columnSelectorDataGridInstance: ColumnSelectorDataGridInstance;
 	readonly anchorElement: HTMLElement;
@@ -133,10 +131,8 @@ export const ColumnSelectorModalPopup = (props: ColumnSelectorModalPopupProps) =
 				<div className='column-selector-data-grid' onKeyDown={onKeyDown}>
 					<PositronDataGrid
 						ref={positronDataGridRef}
-						configurationService={props.configurationService}
 						id='column-selector-positron-data-grid'
 						instance={props.columnSelectorDataGridInstance}
-						layoutService={props.renderer.layoutService}
 					/>
 				</div>
 			</div>

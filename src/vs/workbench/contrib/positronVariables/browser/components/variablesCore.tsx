@@ -40,7 +40,7 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 		const disposables = new DisposableStore();
 
 		let progressBar: ProgressBar | undefined;
-		let debounceTimeout: NodeJS.Timeout | undefined;
+		let debounceTimeout: Timeout | undefined;
 
 		const clearProgressBar = () => {
 			if (debounceTimeout) {
@@ -112,7 +112,7 @@ export const VariablesCore = (props: VariablesCoreProps) => {
 	return (
 		<div className='variables-core'>
 			<div ref={progressRef} id='variables-progress' />
-			<ActionBars {...props} />
+			<ActionBars />
 			<div className='variables-instances-container' style={{ width: props.width, height: adjustedHeight }}>
 				{positronVariablesContext.positronVariablesInstances.map(positronVariablesInstance =>
 					<VariablesInstance

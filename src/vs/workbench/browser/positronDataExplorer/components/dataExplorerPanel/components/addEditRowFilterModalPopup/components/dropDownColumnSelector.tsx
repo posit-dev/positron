@@ -15,23 +15,18 @@ import * as DOM from '../../../../../../../../base/browser/dom.js';
 import { ColumnSelectorModalPopup } from './columnSelectorModalPopup.js';
 import { ColumnSelectorDataGridInstance } from './columnSelectorDataGridInstance.js';
 import { columnSchemaDataTypeIcon } from '../../../utility/columnSchemaUtilities.js';
-import { ILayoutService } from '../../../../../../../../platform/layout/browser/layoutService.js';
 import { Button } from '../../../../../../../../base/browser/ui/positronComponents/button/button.js';
-import { IKeybindingService } from '../../../../../../../../platform/keybinding/common/keybinding.js';
-import { IConfigurationService } from '../../../../../../../../platform/configuration/common/configuration.js';
+import { PositronModalReactRenderer } from '../../../../../../../../base/browser/positronModalReactRenderer.js';
 import { ColumnSchema } from '../../../../../../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { OKModalDialog } from '../../../../../../positronComponents/positronModalDialog/positronOKModalDialog.js';
 import { VerticalStack } from '../../../../../../positronComponents/positronModalDialog/components/verticalStack.js';
-import { PositronModalReactRenderer } from '../../../../../../positronModalReactRenderer/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../../../../../../base/browser/positronReactRendererContext.js';
 import { DataExplorerClientInstance } from '../../../../../../../services/languageRuntime/common/languageRuntimeDataExplorerClient.js';
 
 /**
  * DropDownColumnSelectorProps interface.
  */
 interface DropDownColumnSelectorProps {
-	configurationService: IConfigurationService;
-	keybindingService: IKeybindingService;
-	layoutService: ILayoutService;
 	dataExplorerClientInstance: DataExplorerClientInstance;
 	title: string;
 	selectedColumnSchema?: ColumnSchema;
@@ -45,6 +40,9 @@ interface DropDownColumnSelectorProps {
  * @returns The rendered component.
  */
 export const DropDownColumnSelector = forwardRef<HTMLButtonElement, DropDownColumnSelectorProps>((props, ref) => {
+	// Context hooks.
+	const services = usePositronReactServicesContext();
+
 	// Reference hooks.
 	const buttonRef = useRef<HTMLButtonElement>(undefined!);
 
@@ -61,15 +59,13 @@ export const DropDownColumnSelector = forwardRef<HTMLButtonElement, DropDownColu
 		);
 
 		// Get the container.
-		const container = props.layoutService.getContainer(DOM.getWindow(buttonRef.current));
+		const container = services.workbenchLayoutService.getContainer(DOM.getWindow(buttonRef.current));
 
 		// If the column selector data grid instance could not be created, alert the user.
 		// Otherwise, show the column selector modal popup.
 		if (!columnSelectorDataGridInstance) {
 			// Create the modal React renderer.
 			const renderer = new PositronModalReactRenderer({
-				keybindingService: props.keybindingService,
-				layoutService: props.layoutService,
 				container
 			});
 
@@ -99,8 +95,6 @@ export const DropDownColumnSelector = forwardRef<HTMLButtonElement, DropDownColu
 		} else {
 			// Create the renderer.
 			const renderer = new PositronModalReactRenderer({
-				keybindingService: props.keybindingService,
-				layoutService: props.layoutService,
 				container,
 				disableCaptures: true, // permits the usage of the enter key where applicable
 				onDisposed: () => {
@@ -114,7 +108,6 @@ export const DropDownColumnSelector = forwardRef<HTMLButtonElement, DropDownColu
 				<ColumnSelectorModalPopup
 					anchorElement={buttonRef.current}
 					columnSelectorDataGridInstance={columnSelectorDataGridInstance}
-					configurationService={props.configurationService}
 					focusInput={focusInput}
 					renderer={renderer}
 					onItemSelected={columnSchema => {
@@ -125,7 +118,7 @@ export const DropDownColumnSelector = forwardRef<HTMLButtonElement, DropDownColu
 				/>
 			);
 		}
-	}, [props]);
+	}, [props, services.workbenchLayoutService]);
 
 	const onKeyDown = useCallback((evt: KeyboardEvent) => {
 		// eliminate key events for anything that isn't a single-character key or whitespaces

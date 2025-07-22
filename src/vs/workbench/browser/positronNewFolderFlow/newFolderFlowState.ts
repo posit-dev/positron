@@ -4,55 +4,23 @@
  *--------------------------------------------------------------------------------------------*/
 
 // Other dependencies.
-import { IFileDialogService } from '../../../platform/dialogs/common/dialogs.js';
-import { ILanguageRuntimeMetadata, ILanguageRuntimeService, LanguageStartupBehavior, RuntimeStartupPhase } from '../../services/languageRuntime/common/languageRuntimeService.js';
-import { IRuntimeSessionService } from '../../services/runtimeSession/common/runtimeSessionService.js';
-import { IRuntimeStartupService } from '../../services/runtimeStartup/common/runtimeStartupService.js';
+import { ILanguageRuntimeMetadata, LanguageStartupBehavior, RuntimeStartupPhase } from '../../services/languageRuntime/common/languageRuntimeService.js';
 import { EnvironmentSetupType, NewFolderFlowStep, PythonEnvironmentProvider } from './interfaces/newFolderFlowEnums.js';
-import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
-import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
-import { ILogService } from '../../../platform/log/common/log.js';
-import { IOpenerService } from '../../../platform/opener/common/opener.js';
-import { IPathService } from '../../services/path/common/pathService.js';
-import { IFileService } from '../../../platform/files/common/files.js';
-import { ICommandService } from '../../../platform/commands/common/commands.js';
 import { PythonEnvironmentProviderInfo } from './utilities/pythonEnvironmentStepUtils.js';
 import { Disposable } from '../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../base/common/event.js';
 import { FlowFormattedTextItem } from './components/flowFormattedText.js';
 import { LanguageIds, FolderTemplate } from '../../services/positronNewFolder/common/positronNewFolder.js';
-import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
 import { CondaPythonVersionInfo, EMPTY_CONDA_PYTHON_VERSION_INFO } from './utilities/condaUtils.js';
 import { UvPythonVersionInfo, EMPTY_UV_PYTHON_VERSION_INFO } from './utilities/uvUtils.js';
 import { URI } from '../../../base/common/uri.js';
-import { ILabelService } from '../../../platform/label/common/label.js';
-
-/**
- * NewFolderFlowServices interface.
- * Defines the set of services that are required by the New Folder Flow.
- */
-interface NewFolderFlowServices {
-	readonly commandService: ICommandService;
-	readonly configurationService: IConfigurationService;
-	readonly fileDialogService: IFileDialogService;
-	readonly fileService: IFileService;
-	readonly keybindingService: IKeybindingService;
-	readonly labelService: ILabelService;
-	readonly languageRuntimeService: ILanguageRuntimeService;
-	readonly layoutService: IWorkbenchLayoutService;
-	readonly logService: ILogService;
-	readonly openerService: IOpenerService;
-	readonly pathService: IPathService;
-	readonly runtimeSessionService: IRuntimeSessionService;
-	readonly runtimeStartupService: IRuntimeStartupService;
-}
+import { PositronReactServices } from '../../../base/browser/positronReactServices.js';
 
 /**
  * NewFolderFlowStateConfig interface.
  * Defines the configuration to initialize the New Folder Flow state.
  */
 export interface NewFolderFlowStateConfig {
-	readonly services: NewFolderFlowServices;
 	readonly parentFolder: URI;
 	readonly initialStep: NewFolderFlowStep;
 	readonly steps?: NewFolderFlowStep[];
@@ -99,7 +67,7 @@ export class NewFolderFlowStateManager
 	extends Disposable
 	implements INewFolderFlowStateManager {
 	// Services used by the New Folder Flow.
-	private _services: NewFolderFlowServices;
+	private _services: PositronReactServices;
 
 	// The state of the New Folder Flow.
 	private _selectedRuntime: ILanguageRuntimeMetadata | undefined;
@@ -150,7 +118,7 @@ export class NewFolderFlowStateManager
 		super();
 
 		// Initialize the state.
-		this._services = config.services;
+		this._services = PositronReactServices.services;
 		this._selectedRuntime = undefined;
 		this._availableFolderTemplates = this._getAvailableFolderTemplates();
 		this._folderTemplate = undefined;
@@ -555,7 +523,7 @@ export class NewFolderFlowStateManager
 	 * Gets the services used by the New Folder Flow.
 	 * @returns The services used by the New Folder Flow.
 	 */
-	get services(): NewFolderFlowServices {
+	get services(): PositronReactServices {
 		return this._services;
 	}
 

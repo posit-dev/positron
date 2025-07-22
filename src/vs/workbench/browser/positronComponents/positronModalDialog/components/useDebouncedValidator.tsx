@@ -15,7 +15,7 @@ export type ValidatorFn<T> = (value: T) => (string | undefined) | Promise<string
 export function useDebouncedValidator<T>({ validator, value, debounceDelayMs = 100 }: { validator?: ValidatorFn<T>; value: T; debounceDelayMs?: number }) {
 	const [errorMsg, setErrorMsg] = React.useState<string | undefined>(undefined);
 
-	const callbackTimeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
+	const callbackTimeoutRef = useRef<Timeout | undefined>(undefined);
 
 	const clearCallbackTimeout = React.useCallback(() => {
 		if (!callbackTimeoutRef.current) { return; }

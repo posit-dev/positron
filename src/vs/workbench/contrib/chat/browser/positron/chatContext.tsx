@@ -5,11 +5,11 @@
 
 import * as React from 'react'
 import { PropsWithChildren, useContext } from 'react';
-import { PositronChatServices, PositronChatState, usePositronChatState } from './chatState.js';
+import { PositronChatEnvironment, PositronChatState, usePositronChatState } from './chatState.js';
 
 const PositronChatContext = React.createContext<PositronChatState>(undefined!);
 
-export const PositronChatContextProvider = (props: PropsWithChildren<PositronChatServices>) => {
+export const PositronChatContextProvider = (props: PropsWithChildren<PositronChatEnvironment>) => {
 	const positronChatState = usePositronChatState(props);
 
 	return (

@@ -114,6 +114,11 @@ export interface IPickOptions<T extends IQuickPickItem> {
 	matchOnLabel?: boolean;
 
 	/**
+	 * an optional flag to sort the picks based by the label.
+	 */
+	sortByLabel?: boolean;
+
+	/**
 	 * an optional flag to not close the picker on focus lost
 	 */
 	ignoreFocusLost?: boolean;

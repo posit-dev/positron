@@ -20,12 +20,12 @@ test.describe('Notebook Editor Configuration', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Verify default editor is VS Code notebook', async function ({ app, settings }) {
+	test('Verify default editor is VS Code notebook when no association is set', async function ({ app, settings }) {
 		const { notebooks, notebooksVscode } = app.workbench;
 
-		// Set default editor to VS Code notebook
+		// Ensure no editor association is set for .ipynb files
 		await settings.set({
-			'positron.notebooks.defaultEditor': 'vscode'
+			'workbench.editorAssociations': {}
 		});
 
 		// Open the notebook file and verify it opens as a VS Code notebook
@@ -33,12 +33,14 @@ test.describe('Notebook Editor Configuration', {
 		await notebooksVscode.expectToBeVisible();
 	});
 
-	test('Verify setting `positron.notebooks.defaultEditor` to `positron` opens positron notebook', async function ({ app, settings }) {
+	test('Verify setting editor association to positron notebook opens positron notebook', async function ({ app, settings }) {
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		// Set default editor to Positron notebook
 		await settings.set({
-			'positron.notebooks.defaultEditor': 'positron'
+			'workbench.editorAssociations': {
+				'*.ipynb': 'workbench.editor.positronNotebook'
+			}
 		});
 
 		// Open the notebook file and verify it opens as a Positron notebook
@@ -51,17 +53,19 @@ test.describe('Notebook Editor Configuration', {
 
 		// First, set default editor to Positron notebook
 		await settings.set({
-			'positron.notebooks.defaultEditor': 'positron'
+			'workbench.editorAssociations': {
+				'*.ipynb': 'workbench.editor.positronNotebook'
+			}
 		});
 
 		// Open the notebook file and verify it opens as a Positron notebook
 		await notebooks.openNotebook(NOTEBOOK_PATH, false);
 		await notebooksPositron.expectToBeVisible();
 
-		// Revert default editor to VS Code notebook
+		// Revert default editor to VS Code notebook by removing the association
 		await hotKeys.closeAllEditors();
 		await settings.set({
-			'positron.notebooks.defaultEditor': 'vscode'
+			'workbench.editorAssociations': {}
 		});
 
 		// Open notebook again and verify it opens as a VS Code notebook

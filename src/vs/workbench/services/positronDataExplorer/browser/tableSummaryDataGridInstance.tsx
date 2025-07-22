@@ -8,8 +8,6 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';
-import { IHoverService } from '../../../../platform/hover/browser/hover.js';
-import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { ColumnSummaryCell } from './components/columnSummaryCell.js';
@@ -22,6 +20,7 @@ import { COLUMN_PROFILE_STRING_LINE_COUNT } from './components/columnProfileStri
 import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoolean.js';
 import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
 
 /**
  * Constants.
@@ -36,6 +35,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
+	 * Gets the Positron React services.
+	 */
+	private readonly _services = PositronReactServices.services;
+
+	/**
 	 * The onDidSelectColumn event emitter.
 	 */
 	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
@@ -48,14 +52,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Constructor.
-	 * @param _configurationService The configuration service.
-	 * @param _hoverService The hover service.
 	 * @param _dataExplorerClientInstance The data explorer client instance.
 	 * @param _tableSummaryCache The table summary cache.
 	 */
 	constructor(
-		private readonly _configurationService: IConfigurationService,
-		private readonly _hoverService: IHoverService,
 		private readonly _dataExplorerClientInstance: DataExplorerClientInstance,
 		private readonly _tableSummaryCache: TableSummaryCache
 	) {
@@ -77,8 +77,6 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			internalCursor: false,
 			selection: false
 		});
-
-
 
 		// Set the column layout entries. There is always one column.
 		this._columnLayoutManager.setLayoutEntries(1);
@@ -146,9 +144,10 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Create the hover manager.
 		this._hoverManager = this._register(new PositronActionBarHoverManager(
 			true,
-			this._configurationService,
-			this._hoverService
+			this._services.configurationService,
+			this._services.hoverService
 		));
+
 		// Show tooltip hovers right away
 		this._hoverManager.setCustomHoverDelay(0);
 	}
@@ -262,7 +261,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Gets the configuration service.
 	 */
 	get configurationService() {
-		return this._configurationService;
+		return this._services.configurationService;
 	}
 
 	/**
