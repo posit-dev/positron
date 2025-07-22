@@ -167,7 +167,9 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.enable.markdownDescription%",
-            "tags": ["preview"]
+            "tags": [
+              "preview"
+            ]
           },
           "positron.assistant.toolDetails.enable": {
             "type": "boolean",
@@ -186,7 +188,9 @@
           },
           "positron.assistant.inlineCompletionExcludes": {
             "type": "array",
-            "default": ["**/.*"],
+            "default": [
+              "**/.*"
+            ],
             "markdownDescription": "%configuration.inlineCompletionExcludes.description%",
             "items": {
               "type": "string"
@@ -196,7 +200,9 @@
             "type": "boolean",
             "default": false,
             "description": "%configuration.gitIntegration.description%",
-            "tags": ["experimental"]
+            "tags": [
+              "experimental"
+            ]
           },
           "positron.assistant.showTokenUsage.enable": {
             "type": "boolean",
@@ -527,6 +533,7 @@
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@github/copilot-language-server": "^1.335.0",
+    "@vscode/prompt-tsx": "^0.4.0-alpha.5",
     "vscode-languageclient": "^9.0.1"
   }
 }
