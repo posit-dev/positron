@@ -198,6 +198,12 @@
             "description": "%configuration.gitIntegration.description%",
             "tags": ["experimental"]
           },
+          "positron.assistant.getTableSummary.enable": {
+            "type": "boolean",
+            "default": false,
+            "description": "%configuration.getTableSummary.description%",
+            "tags": ["experimental"]
+          },
           "positron.assistant.showTokenUsage.enable": {
             "type": "boolean",
             "default": false,
@@ -393,7 +399,8 @@
         "tags": [
           "positron-assistant",
           "requires-session"
-        ]
+        ],
+        "when": "config.positron.assistant.getTableSummary.enable"
       },
       {
         "name": "getProjectTree",
