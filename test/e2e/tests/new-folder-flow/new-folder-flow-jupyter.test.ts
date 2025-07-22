@@ -18,7 +18,7 @@ test.describe('New Folder Flow: Jupyter Project', {
 	const folderTemplate = FolderTemplate.JUPYTER_NOTEBOOK;
 
 	test.beforeAll(async function ({ settings }) {
-		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { waitMs: 1000 });
+		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { waitMs: 5000 });
 	});
 
 	test('Jupyter Folder Defaults', {
