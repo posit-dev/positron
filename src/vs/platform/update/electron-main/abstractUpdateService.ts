@@ -86,7 +86,7 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	*/
 	protected async initialize(): Promise<void> {
 		// --- Start Positron ---
-		const updateChannel = process.env.POSITRON_UPDATE_CHANNEL ?? this.configurationService.getValue<string>('update.positron.channel');
+		const updateChannel = this.getUpdateChannel();
 		if (process.env.POSITRON_UPDATE_CHANNEL) {
 			this.logService.info('update#ctor - using update channel from environment variable', process.env.POSITRON_UPDATE_CHANNEL);
 		}
@@ -154,6 +154,18 @@ export abstract class AbstractUpdateService implements IUpdateService {
 	}
 
 	// --- Start Positron ---
+	private getUpdateChannel(): string {
+		let persistedUpdateChannel = this.configurationService.getValue<string>('update.positron.channel');
+
+		// settings migration from prereleases to releases
+		if (persistedUpdateChannel && persistedUpdateChannel === 'prereleases') {
+			this.configurationService.updateValue('update.positron.channel', 'releases');
+			persistedUpdateChannel = 'releases'
+		}
+
+		return process.env.POSITRON_UPDATE_CHANNEL ?? persistedUpdateChannel;
+	}
+
 	// This is essentially the update 'channel' (aka insiders, stable, etc.). VS Code sets it through the
 	// product.json. Positron will have it configurable for now.
 	// @ts-ignore
