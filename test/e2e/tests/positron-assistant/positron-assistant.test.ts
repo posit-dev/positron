@@ -158,13 +158,12 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.clickCloseButton();
-
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
-		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
 	});
 
-	test.beforeEach('Clear chat', async function ({ app }) {
+	test.beforeEach('Clear chat', async function ({ app, settings }) {
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
 		await app.workbench.assistant.clickNewChatButton();
+		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
 	});
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
