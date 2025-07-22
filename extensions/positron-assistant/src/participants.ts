@@ -188,19 +188,25 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		const positronContext = await positron.ai.getPositronChatContext(request);
 		log.debug(`[context] Positron context for request ${request.id}:\n${JSON.stringify(positronContext, null, 2)}`);
 
-		// Build a list of languages for which we have active sessions.
-		//
 		// See IChatRuntimeSessionContext for the structure of the active
 		// session context objects
 		const activeSessions: Set<string> = new Set();
+		let hasVariables = false;
 		let hasConsoleSessions = false;
 		for (const reference of request.references) {
 			const value = reference.value as any;
+
+			// Build a list of languages for which we have active sessions.
 			if (value.activeSession) {
 				activeSessions.add(value.activeSession.languageId);
 				if (value.activeSession.mode === positron.LanguageRuntimeSessionMode.Console) {
 					hasConsoleSessions = true;
 				}
+			}
+
+			// Check if there are variables defined in the session.
+			if (value.variables && value.variables.length > 0) {
+				hasVariables = true;
 			}
 		}
 
@@ -274,9 +280,16 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						return inChatPane && (isEditMode || isAgentMode);
 					// Only include the getTableSummary tool for Python sessions until supported in R
 					case PositronAssistantToolName.GetTableSummary:
-						// TODO: Remove this restriction when the tool is supported in R https://github.com/posit-dev/positron/issues/8343
+						// TODO: Remove the python-specific restriction when the tool is supported in R https://github.com/posit-dev/positron/issues/8343
 						// The logic above with TOOL_TAG_REQUIRES_ACTIVE_SESSION will handle checking for active sessions once this is removed.
-						return activeSessions.has('python');
+						// We'll still want to check that variables are defined.
+						return activeSessions.has('python') && hasVariables;
+					// Only include the getPlot tool if there is a plot available.
+					case PositronAssistantToolName.GetPlot:
+						return positronContext.plots?.hasPlots === true;
+					// Only include the inspectVariables tool if there are variables defined.
+					case PositronAssistantToolName.InspectVariables:
+						return hasVariables;
 					// Otherwise, include the tool if it is tagged for use with Positron Assistant.
 					// Allow all tools in Agent mode.
 					default:
