@@ -24,6 +24,7 @@ product.overrides.json
 .vscode-test
 
 # --- Start Positron ---
+.claude
 .Rproj.user
 /playwright-report/
 /blob-report/
