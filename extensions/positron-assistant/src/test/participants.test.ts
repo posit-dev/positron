@@ -79,6 +79,8 @@ class TestChatResponseStream implements vscode.ChatResponseStream {
 	}
 	filetree(value: vscode.ChatResponseFileTree[], baseUri: vscode.Uri): void {
 	}
+	prepareToolInvocation(toolName: string): void {
+	}
 }
 
 suite('PositronAssistantParticipant', () => {
@@ -372,7 +374,6 @@ function makeChatRequest(
 		command: undefined,
 		references: options.references,
 		tools: new Map(),
-		toolSelection: undefined,
 		toolReferences: [],
 		toolInvocationToken: undefined as vscode.ChatParticipantToolToken,
 		model: options.model,

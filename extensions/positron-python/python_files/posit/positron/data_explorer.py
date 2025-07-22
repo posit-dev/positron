@@ -27,6 +27,7 @@ from .access_keys import decode_access_key
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
+    CodeSyntaxName,
     ColumnDisplayType,
     ColumnFilter,
     ColumnFilterType,
@@ -45,6 +46,9 @@ from .data_explorer_comm import (
     ColumnSortKey,
     ColumnSummaryStats,
     ColumnValue,
+    ConvertedCode,
+    ConvertToCodeFeatures,
+    ConvertToCodeRequest,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     DataSelectionCellRange,
@@ -81,6 +85,7 @@ from .data_explorer_comm import (
     SetRowFiltersParams,
     SetSortColumnsFeatures,
     SetSortColumnsParams,
+    SuggestCodeSyntaxRequest,
     SummaryStatsBoolean,
     SummaryStatsDate,
     SummaryStatsDatetime,
@@ -279,6 +284,12 @@ class DataExplorerTableView:
         return TableSchema(columns=column_schemas)
 
     def _get_single_column_schema(self, column_index: int) -> ColumnSchema:
+        raise NotImplementedError
+
+    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
+        raise NotImplementedError
+
+    def convert_to_code(self, request: ConvertToCodeRequest):
         raise NotImplementedError
 
     def search_schema(self, params: SearchSchemaParams):
@@ -803,6 +814,13 @@ class DataExplorerTableView:
         export_data_selection=ExportDataSelectionFeatures(
             support_status=SupportStatus.Unsupported,
             supported_formats=[],
+        ),
+        convert_to_code=ConvertToCodeFeatures(
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[
+                CodeSyntaxName(code_syntax_name="pandas"),
+                CodeSyntaxName(code_syntax_name="polars"),
+            ],
         ),
     )
 
@@ -1349,6 +1367,16 @@ class PandasView(DataExplorerTableView):
         )
 
         return schema_updated, new_state
+
+    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):  # noqa: ARG002
+        """Returns the supported code types for exporting data."""
+        return CodeSyntaxName(code_syntax_name="pandas").dict()
+
+    def convert_to_code(self, request: ConvertToCodeRequest):  # noqa: ARG002
+        """Translates the current data view, including filters and sorts, into a code snippet."""
+        return ConvertedCode(
+            converted_code=["import pandas as pd", "# TODO: Implement export to code"]
+        ).dict()
 
     @classmethod
     def _construct_schema(
@@ -1911,6 +1939,10 @@ class PandasView(DataExplorerTableView):
                 ExportFormat.Html,
             ],
         ),
+        convert_to_code=ConvertToCodeFeatures(
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[CodeSyntaxName(code_syntax_name="pandas")],
+        ),
     )
 
 
@@ -2000,6 +2032,16 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
 
     if need_recompute:
         bin_counts, bin_edges = np.histogram(data, **hist_params)
+
+    # Special case: if we have a single bin, check if all values are the same
+    # If so, override the bin edges to be the same value instead of value +/- 0.5
+    if len(bin_counts) == 1 and len(data) > 0:
+        # Check if all non-null values are the same
+        unique_values = np.unique(data)
+        if len(unique_values) == 1:
+            # All values are the same, set bin edges to [value, value]
+            bin_edges = np.array([unique_values[0], unique_values[0]])
+
     return bin_counts, bin_edges
 
 
@@ -2279,6 +2321,16 @@ class PolarsView(DataExplorerTableView):
         )
 
         return schema_updated, new_state
+
+    def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):  # noqa: ARG002
+        """Returns the supported code types for exporting data."""
+        return CodeSyntaxName(code_syntax_name="polars").dict()
+
+    def convert_to_code(self, request: ConvertToCodeRequest):  # noqa: ARG002
+        """Translates the current data view, including filters and sorts, into a code snippet."""
+        return ConvertedCode(
+            converted_code=["import polars as pl", "# TODO: Implement export to code"]
+        ).dict()
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
@@ -2762,6 +2814,10 @@ class PolarsView(DataExplorerTableView):
             supported_formats=[ExportFormat.Csv, ExportFormat.Tsv],
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
+        convert_to_code=ConvertToCodeFeatures(
+            support_status=SupportStatus.Supported,
+            code_syntaxes=[CodeSyntaxName(code_syntax_name="polars")],
+        ),
     )
 
 

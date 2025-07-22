@@ -63,7 +63,6 @@ export class ParticipantService implements vscode.Disposable {
 		);
 		vscodeParticipant.iconPath = participant.iconPath;
 		vscodeParticipant.followupProvider = participant.followupProvider;
-		vscodeParticipant.welcomeMessageProvider = participant.welcomeMessageProvider;
 	}
 
 	getRequestData(chatRequestId: string): ChatRequestData | undefined {
@@ -148,16 +147,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			} catch (e) {
 				return [];
 			}
-		}
-	};
-
-	readonly welcomeMessageProvider = {
-		async provideSampleQuestions(location: vscode.ChatLocation, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
-			return [{
-				label: vscode.l10n.t('Positron Assistant'),
-				participant: ParticipantID.Chat,
-				prompt: 'Analyze the data in my workspace and visualize your key findings',
-			}];
 		}
 	};
 
@@ -291,9 +280,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						return inChatPane && (isEditMode || isAgentMode);
 					// Only include the getTableSummary tool for Python sessions until supported in R
 					case PositronAssistantToolName.GetTableSummary:
-						// TODO: Remove this restriction when the tool is supported in R https://github.com/posit-dev/positron/issues/8343
+						// TODO: Remove the python-specific restriction when the tool is supported in R https://github.com/posit-dev/positron/issues/8343
 						// The logic above with TOOL_TAG_REQUIRES_ACTIVE_SESSION will handle checking for active sessions once this is removed.
-						return activeSessions.has('python');
+						// We'll still want to check that variables are defined.
+						return activeSessions.has('python') && hasVariables;
 					// Only include the getPlot tool if there is a plot available.
 					case PositronAssistantToolName.GetPlot:
 						return positronContext.plots?.hasPlots === true;

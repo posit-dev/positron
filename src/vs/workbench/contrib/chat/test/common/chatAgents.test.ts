@@ -9,10 +9,7 @@ import { ContextKeyExpression } from '../../../../../platform/contextkey/common/
 import { ExtensionIdentifier } from '../../../../../platform/extensions/common/extensions.js';
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { ChatAgentService, IChatAgentData, IChatAgentImplementation } from '../../common/chatAgents.js';
-
-// --- Start Positron ---
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
-// --- End Positron ---
 
 const testAgentId = 'testAgent';
 const testAgentData: IChatAgentData = {

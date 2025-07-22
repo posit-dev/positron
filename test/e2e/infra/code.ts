@@ -31,6 +31,7 @@ export interface LaunchOptions {
 	readonly headless?: boolean;
 	readonly browser?: 'chromium' | 'webkit' | 'firefox' | 'chromium-msedge' | 'chromium-chrome';
 	readonly quality: Quality;
+	version: { major: number; minor: number; patch: number };
 }
 
 interface ICodeInstance {
@@ -90,7 +91,7 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		const { serverProcess, driver } = await measureAndLog(() => launchPlaywrightBrowser(options), 'launch playwright (browser)', options.logger);
 		registerInstance(serverProcess, options.logger, 'server');
 
-		return new Code(driver, options.logger, serverProcess, undefined, options.quality);
+		return new Code(driver, options.logger, serverProcess, undefined, options.quality, options.version);
 	}
 
 	// Electron smoke tests (playwright)
@@ -98,7 +99,7 @@ export async function launch(options: LaunchOptions): Promise<Code> {
 		const { electronProcess, driver, electronApp } = await measureAndLog(() => launchPlaywrightElectron(options), 'launch playwright (electron)', options.logger);
 		const { safeToKill } = registerInstance(electronProcess, options.logger, 'electron');
 
-		return new Code(driver, options.logger, electronProcess, safeToKill, options.quality, electronApp);
+		return new Code(driver, options.logger, electronProcess, safeToKill, options.quality, options.version, electronApp);
 	}
 }
 
@@ -112,6 +113,7 @@ export class Code {
 		private readonly mainProcess: cp.ChildProcess,
 		private readonly safeToKill: Promise<void> | undefined,
 		readonly quality: Quality,
+		readonly version: { major: number; minor: number; patch: number },
 		// Only available when running against Electron
 		readonly electronApp?: ElectronApplication,
 	) {
@@ -132,6 +134,10 @@ export class Code {
 				};
 			}
 		});
+	}
+
+	get editContextEnabled(): boolean {
+		return !(this.quality === Quality.Stable && this.version.major === 1 && this.version.minor < 101);
 	}
 
 	async startTracing(name: string): Promise<void> {

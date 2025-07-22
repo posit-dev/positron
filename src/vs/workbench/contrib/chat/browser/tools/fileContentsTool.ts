@@ -11,7 +11,7 @@ import { IEditorGroupsService } from '../../../../services/editor/common/editorG
 import { ITextFileService } from '../../../../services/textfile/common/textfiles.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolProgress } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource, ToolProgress } from '../../common/languageModelToolsService.js';
 import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
 
 const getFileContentsModelDescription = `
@@ -26,7 +26,7 @@ export const InternalFileContentsToolId = `${ExtensionFileContentsToolId}_intern
 export const FileContentsToolData: IToolData = {
 	id: InternalFileContentsToolId,
 	displayName: localize('chat.tools.getFileContents', "Get File Contents"),
-	source: { type: 'internal' },
+	source: ToolDataSource.Internal,
 	modelDescription: getFileContentsModelDescription,
 	tags: ['positron-assistant', 'requires-workspace'],
 	canBeReferencedInPrompt: false,
