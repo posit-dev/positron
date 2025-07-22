@@ -76,6 +76,12 @@ function setNpmrcConfig(dir, env) {
 		}
 	}
 
+	// Use our bundled node-gyp version
+	env['npm_config_node_gyp'] =
+		process.platform === 'win32'
+			? path.join(__dirname, 'gyp', 'node_modules', '.bin', 'node-gyp.cmd')
+			: path.join(__dirname, 'gyp', 'node_modules', '.bin', 'node-gyp');
+
 	// Force node-gyp to use process.config on macOS
 	// which defines clang variable as expected. Otherwise we
 	// run into compilation errors due to incorrect compiler
@@ -227,14 +233,9 @@ for (let dir of dirs) {
 				fs.renameSync(globalInclude, tempGlobalInclude);
 			}
 		}
+
 		setNpmrcConfig('remote', opts.env);
 		npmInstall(dir, opts);
-		if (process.platform === 'linux' &&
-			(process.env['CI'] || process.env['BUILD_ARTIFACTSTAGINGDIRECTORY'])) {
-			if (fs.existsSync(tempGlobalInclude)) {
-				fs.renameSync(tempGlobalInclude, globalInclude);
-			}
-		}
 		continue;
 	}
 

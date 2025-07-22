@@ -130,7 +130,7 @@ const tasks = compilations.map(function (tsconfigFile) {
 		overrideOptions.inlineSources = Boolean(build);
 		overrideOptions.base = path.dirname(absolutePath);
 
-		const compilation = tsb.create(absolutePath, overrideOptions, { verbose: false, transpileOnly, transpileOnlyIncludesDts: transpileOnly, transpileWithSwc: true }, err => reporter(err.toString()));
+		const compilation = tsb.create(absolutePath, overrideOptions, { verbose: false, transpileOnly, transpileOnlyIncludesDts: transpileOnly, transpileWithEsbuild: true }, err => reporter(err.toString()));
 
 		const pipeline = function () {
 			const input = es.through();
@@ -150,7 +150,6 @@ const tasks = compilations.map(function (tsconfigFile) {
 				.pipe(util.loadSourcemaps())
 				.pipe(compilation())
 				.pipe(build ? util.stripSourceMappingURL() : es.through())
-				.pipe(build ? es.through() : util.stripImportStatements())
 				.pipe(sourcemaps.write('.', {
 					sourceMappingURL: !build ? null : f => `${baseUrl}/${f.relative}.map`,
 					addComment: !!build,

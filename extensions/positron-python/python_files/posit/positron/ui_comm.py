@@ -261,6 +261,9 @@ class UiFrontendEvent(str, enum.Enum):
     # Show an HTML file in Positron
     ShowHtmlFile = "show_html_file"
 
+    # Open a file or folder with the system default application
+    OpenWithSystem = "open_with_system"
+
     # Webview preloads should be flushed
     ClearWebviewPreloads = "clear_webview_preloads"
 
@@ -509,6 +512,16 @@ class ShowHtmlFileParams(BaseModel):
     )
 
 
+class OpenWithSystemParams(BaseModel):
+    """
+    Open a file or folder with the system default application
+    """
+
+    path: StrictStr = Field(
+        description="The file path to open with the system default application",
+    )
+
+
 EditorContext.update_forward_refs()
 
 TextDocument.update_forward_refs()
@@ -562,3 +575,5 @@ ModifyEditorSelectionsParams.update_forward_refs()
 ShowUrlParams.update_forward_refs()
 
 ShowHtmlFileParams.update_forward_refs()
+
+OpenWithSystemParams.update_forward_refs()

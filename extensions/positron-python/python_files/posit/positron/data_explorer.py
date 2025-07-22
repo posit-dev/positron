@@ -2032,6 +2032,16 @@ def _get_histogram_numpy(data, num_bins, method="fd", *, to_numpy=False):
 
     if need_recompute:
         bin_counts, bin_edges = np.histogram(data, **hist_params)
+
+    # Special case: if we have a single bin, check if all values are the same
+    # If so, override the bin edges to be the same value instead of value +/- 0.5
+    if len(bin_counts) == 1 and len(data) > 0:
+        # Check if all non-null values are the same
+        unique_values = np.unique(data)
+        if len(unique_values) == 1:
+            # All values are the same, set bin edges to [value, value]
+            bin_edges = np.array([unique_values[0], unique_values[0]])
+
     return bin_counts, bin_edges
 
 

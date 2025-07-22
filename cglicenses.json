@@ -615,8 +615,7 @@
 		]
 	},
 	{
-		// Reason: Repository moved from https://github.com/swsnr/gethostname.rs to https://codeberg.org/swsnr/gethostname.rs
 		"name": "gethostname",
-		"fullLicenseTextUri": "https://codeberg.org/swsnr/gethostname.rs/raw/branch/main/LICENSE"
+		"fullLicenseTextUri": "https://codeberg.org/swsnr/gethostname.rs/raw/commit/d1a7e1162c20106a1df2cdbba9eb2d5174037b3c/LICENSE"
 	}
 ]

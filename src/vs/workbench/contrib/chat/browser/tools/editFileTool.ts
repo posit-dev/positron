@@ -39,7 +39,7 @@ import { ICodeMapperService } from '../../common/chatCodeMapperService.js';
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 import { ILanguageModelIgnoredFilesService } from '../../common/ignoredFiles.js';
-import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult } from '../../common/languageModelToolsService.js';
+import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, IToolInvocation, IToolResult, ToolDataSource } from '../../common/languageModelToolsService.js';
 
 // --- Start Positron ---
 // eslint-disable-next-line no-duplicate-imports
@@ -78,7 +78,7 @@ export const EditToolData: IToolData = {
 	id: InternalEditToolId,
 	displayName: localize('chat.tools.editFile', "Edit File"),
 	modelDescription: `Edit a file in the workspace. Use this tool once per file that needs to be modified, even if there are multiple changes for a file. Generate the "explanation" property first. ${codeInstructions}`,
-	source: { type: 'internal' },
+	source: ToolDataSource.Internal,
 	inputSchema: {
 		type: 'object',
 		properties: {

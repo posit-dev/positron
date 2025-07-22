@@ -71,7 +71,7 @@ export function DeferredImage({ src = 'no-source', ...props }: React.ComponentPr
 		const conversionTimeoutMs = 3000;
 		const errorTimeoutMs = 1000;
 
-		let delayedErrorMsg: NodeJS.Timeout;
+		let delayedErrorMsg: Timeout;
 
 		const conversionCancellablePromise = createCancelablePromise(() => raceTimeout(
 			services.commandService.executeCommand('positronNotebookHelpers.convertImageToBase64', src, baseLocation),

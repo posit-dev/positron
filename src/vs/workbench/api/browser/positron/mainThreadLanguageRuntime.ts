@@ -29,7 +29,7 @@ import { IPositronHelpService } from '../../../contrib/positronHelp/browser/posi
 import { INotebookService } from '../../../contrib/notebook/common/notebookService.js';
 import { IRuntimeClientEvent } from '../../../services/languageRuntime/common/languageRuntimeUiClient.js';
 import { URI } from '../../../../base/common/uri.js';
-import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
+import { BusyEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, WorkingDirectoryEvent, ShowMessageEvent, SetEditorSelectionsEvent, OpenWithSystemEvent } from '../../../services/languageRuntime/common/positronUiComm.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
 import { IEditor } from '../../../../editor/common/editorCommon.js';
 import { Selection } from '../../../../editor/common/core/selection.js';
@@ -49,6 +49,7 @@ import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../service
 import { QueryTableSummaryResult, Variable } from '../../../services/languageRuntime/common/positronVariablesComm.js';
 import { IPositronVariablesInstance } from '../../../services/positronVariables/common/interfaces/positronVariablesInstance.js';
 import { isWebviewPreloadMessage, isWebviewReplayMessage } from '../../../services/positronIPyWidgets/common/webviewPreloadUtils.js';
+import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 
 /**
  * Represents a language runtime event (for example a message or state change)
@@ -124,7 +125,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private _eventQueue: QueuedRuntimeEvent[] = [];
 
 	/** Timer used to ensure event queue processing occurs within a set interval */
-	private _eventQueueTimer: NodeJS.Timeout | undefined;
+	private _eventQueueTimer: Timeout | undefined;
 
 	/** The handle uniquely identifying this runtime session with the extension host*/
 	private handle: number;
@@ -142,7 +143,9 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 		private readonly _commandService: ICommandService,
 		private readonly _notebookService: INotebookService,
 		private readonly _editorService: IEditorService,
-		private readonly _proxy: ExtHostLanguageRuntimeShape) {
+		private readonly _proxy: ExtHostLanguageRuntimeShape,
+		private readonly _openerService: IOpenerService
+	) {
 
 		super();
 
@@ -190,7 +193,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 			this._proxy.$notifyForegroundSessionChanged(session?.sessionId);
 		}));
 
-		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(globalEvent => {
+		this._register(this._runtimeSessionService.onDidReceiveRuntimeEvent(async globalEvent => {
 			// Ignore events for other sessions.
 			if (globalEvent.session_id !== this.sessionId) {
 				return;
@@ -247,6 +250,13 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				const ws = ev.data as OpenWorkspaceEvent;
 				const uri = URI.file(ws.path);
 				this._commandService.executeCommand('vscode.openFolder', uri, ws.new_window);
+			} else if (ev.name === UiFrontendEvent.OpenWithSystem) {
+				// Open a file or folder with system default application
+				const openWith = ev.data as OpenWithSystemEvent;
+				const uri = URI.file(openWith.path);
+
+				// Use VS Code's opener service with external option
+				await this._openerService.open(uri, { openExternal: true });
 			} else if (ev.name === UiFrontendEvent.WorkingDirectory) {
 				// Update current working directory
 				const dir = ev.data as WorkingDirectoryEvent;
@@ -1393,7 +1403,8 @@ export class MainThreadLanguageRuntime
 		@ILogService private readonly _logService: ILogService,
 		@ICommandService private readonly _commandService: ICommandService,
 		@INotebookService private readonly _notebookService: INotebookService,
-		@IEditorService private readonly _editorService: IEditorService
+		@IEditorService private readonly _editorService: IEditorService,
+		@IOpenerService private readonly _openerService: IOpenerService
 	) {
 		// TODO@softwarenerd - We needed to find a central place where we could ensure that certain
 		// Positron services were up and running early in the application lifecycle. For now, this
@@ -1772,7 +1783,8 @@ export class MainThreadLanguageRuntime
 			this._commandService,
 			this._notebookService,
 			this._editorService,
-			this._proxy);
+			this._proxy,
+			this._openerService);
 	}
 
 	private findSession(handle: number): ExtHostLanguageRuntimeSessionAdapter {

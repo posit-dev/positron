@@ -6,7 +6,7 @@
 import { Disposable, IDisposable } from '../../../../base/common/lifecycle.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { IRuntimeClientInstance, RuntimeClientState } from './languageRuntimeClientInstance.js';
-import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, ClearWebviewPreloadsEvent } from './positronUiComm.js';
+import { BusyEvent, ClearConsoleEvent, UiFrontendEvent, OpenEditorEvent, OpenWorkspaceEvent, PromptStateEvent, ShowMessageEvent, WorkingDirectoryEvent, ShowUrlEvent, SetEditorSelectionsEvent, ShowHtmlFileEvent, OpenWithSystemEvent, ClearWebviewPreloadsEvent } from './positronUiComm.js';
 import { PositronUiCommInstance } from './positronUiCommInstance.js';
 import { IOpenerService } from '../../../../platform/opener/common/opener.js';
 import { URI } from '../../../../base/common/uri.js';
@@ -88,6 +88,7 @@ export class UiClientInstance extends Disposable {
 	onDidWorkingDirectory: Event<WorkingDirectoryEvent>;
 	onDidShowUrl: Event<ShowUrlEvent>;
 	onDidShowHtmlFile: Event<IShowHtmlUriEvent>;
+	onDidOpenWithSystem: Event<OpenWithSystemEvent>;
 	onDidClearWebviewPreloads: Event<ClearWebviewPreloadsEvent>;
 
 	/** Emitter wrapper for Show URL events */
@@ -124,6 +125,7 @@ export class UiClientInstance extends Disposable {
 		this.onDidWorkingDirectory = this._comm.onDidWorkingDirectory;
 		this.onDidShowUrl = this._onDidShowUrlEmitter.event;
 		this.onDidShowHtmlFile = this._onDidShowHtmlFileEmitter.event;
+		this.onDidOpenWithSystem = this._comm.onDidOpenWithSystem;
 		this.onDidClearWebviewPreloads = this._comm.onDidClearWebviewPreloads;
 
 		// Wrap the ShowUrl event to resolve incoming external URIs from the

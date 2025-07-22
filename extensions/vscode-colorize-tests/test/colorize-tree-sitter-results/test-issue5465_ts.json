@@ -13,20 +13,20 @@
 		"c": "*",
 		"t": "keyword.generator.asterisk.ts",
 		"r": {
-			"hc_black": "default: #FFFFFF",
-			"positron_dark": "default: #CCCCCC",
-			"positron_light": "default: #3B3B3B",
-			"hc_light": "default: #292929"
+			"hc_black": "keyword: #569CD6",
+			"positron_dark": "keyword: #569CD6",
+			"positron_light": "keyword: #0000FF",
+			"hc_light": "keyword: #0F4A85"
 		}
 	},
 	{
 		"c": "foo2",
 		"t": "variable.ts meta.definition.function.ts entity.name.function.ts",
 		"r": {
-			"hc_black": "variable: #9CDCFE",
-			"positron_dark": "variable: #9CDCFE",
-			"positron_light": "variable: #001080",
-			"hc_light": "variable: #001080"
+			"hc_black": "entity.name.function: #DCDCAA",
+			"positron_dark": "entity.name.function: #DCDCAA",
+			"positron_light": "entity.name.function: #795E26",
+			"hc_light": "entity.name.function: #5E2CBC"
 		}
 	},
 	{
