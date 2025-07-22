@@ -21,7 +21,7 @@ test.use({
 async function setNotebookEditor(
 	settings: WorkerFixtures['settings'],
 	editor: 'positron' | 'default',
-	waitMs = 250
+	waitMs = 450
 ) {
 	const editorAssociations = {
 		'workbench.editorAssociations': editor === 'positron'
