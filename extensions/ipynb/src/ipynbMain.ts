@@ -147,24 +147,33 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 				override: 'jupyter-notebook' // Specify the notebook view type
 			}) as vscode.NotebookEditor | undefined;
 
-			// After opening, initialize the notebook with default content
-			if (editor && editor.notebook) {
-				const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
-				const edit = new vscode.WorkspaceEdit();
-				edit.set(editor.notebook.uri, [
-					vscode.NotebookEdit.insertCells(0, [cell]),
-					vscode.NotebookEdit.updateNotebookMetadata({
-						cells: [],
-						metadata: {},
-						nbformat: defaultNotebookFormat.major,
-						nbformat_minor: defaultNotebookFormat.minor,
-					})
-				]);
-				await vscode.workspace.applyEdit(edit);
+			if (!editor || !editor.notebook) {
+				throw new Error('Failed to open notebook editor via vscode.open command');
 			}
+
+			// After opening, initialize the notebook with default content
+			const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
+			const edit = new vscode.WorkspaceEdit();
+			edit.set(editor.notebook.uri, [
+				vscode.NotebookEdit.insertCells(0, [cell]),
+				vscode.NotebookEdit.updateNotebookMetadata({
+					cells: [],
+					metadata: {},
+					nbformat: defaultNotebookFormat.major,
+					nbformat_minor: defaultNotebookFormat.minor,
+				})
+			]);
+			await vscode.workspace.applyEdit(edit);
 		} catch (error) {
-			// Fallback to the original approach if the above fails
-			console.warn('Failed to open notebook via vscode.open, falling back to workspace API:', error);
+			// Use proper logging and show user notification for critical failures
+			const errorMessage = error instanceof Error ? error.message : String(error);
+			console.error('Failed to open notebook with editor associations:', errorMessage);
+
+			// Show user notification about the fallback
+			vscode.window.showWarningMessage(
+				'Unable to open notebook with preferred editor. Using default editor instead.',
+				'OK'
+			);
 			const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
 			const data = new vscode.NotebookData([cell]);
 			data.metadata = {
