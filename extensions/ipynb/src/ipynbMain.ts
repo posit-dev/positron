@@ -107,6 +107,15 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 		);
 	}
 
+	/**
+	 * Check if Positron notebooks are configured as the default editor for .ipynb files
+	 */
+	function isPositronNotebookConfigured(): boolean {
+		const config = vscode.workspace.getConfiguration();
+		const editorAssociations = config.get<Record<string, string>>('workbench.editorAssociations') || {};
+		return editorAssociations['*.ipynb'] === 'workbench.editor.positronNotebook';
+	}
+
 
 	/**
 	 * Generate the next available untitled notebook URI using VS Code's standard naming convention
@@ -139,52 +148,41 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 		// Create an untitled URI for the notebook using standard naming convention
 		const untitledUri = getNextUntitledNotebookUri();
 
-		// Use vscode.open command to trigger proper editor resolution
-		// This will respect workbench.editorAssociations settings
-		try {
-			const editor = await vscode.commands.executeCommand('vscode.open', untitledUri, {
-				preview: false,
-				override: 'jupyter-notebook' // Specify the notebook view type
-			}) as vscode.NotebookEditor | undefined;
+		// Only use vscode.open command when Positron notebooks are configured
+		// This ensures proper editor resolution respects workbench.editorAssociations
+		if (isPositronNotebookConfigured()) {
+			try {
+				await vscode.commands.executeCommand('vscode.open', untitledUri, {
+					preview: false,
+					override: 'jupyter-notebook' // Specify the notebook view type
+				});
+				// Note that this will cause notebooks opened to have no cells unlike the original
+				// approach prefilled with a code cell.
+				return;
+			} catch (error) {
+				// Use proper logging and show user notification for critical failures
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				console.error('Failed to open notebook with editor associations:', errorMessage);
 
-			if (!editor || !editor.notebook) {
-				throw new Error('Failed to open notebook editor via vscode.open command');
+				// Show user notification about the fallback
+				vscode.window.showWarningMessage(
+					'Unable to open notebook with preferred editor. Using default editor instead.',
+					'OK'
+				);
+				// Fall through to default approach
 			}
-
-			// After opening, initialize the notebook with default content
-			const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
-			const edit = new vscode.WorkspaceEdit();
-			edit.set(editor.notebook.uri, [
-				vscode.NotebookEdit.insertCells(0, [cell]),
-				vscode.NotebookEdit.updateNotebookMetadata({
-					cells: [],
-					metadata: {},
-					nbformat: defaultNotebookFormat.major,
-					nbformat_minor: defaultNotebookFormat.minor,
-				})
-			]);
-			await vscode.workspace.applyEdit(edit);
-		} catch (error) {
-			// Use proper logging and show user notification for critical failures
-			const errorMessage = error instanceof Error ? error.message : String(error);
-			console.error('Failed to open notebook with editor associations:', errorMessage);
-
-			// Show user notification about the fallback
-			vscode.window.showWarningMessage(
-				'Unable to open notebook with preferred editor. Using default editor instead.',
-				'OK'
-			);
-			const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
-			const data = new vscode.NotebookData([cell]);
-			data.metadata = {
-				cells: [],
-				metadata: {},
-				nbformat: defaultNotebookFormat.major,
-				nbformat_minor: defaultNotebookFormat.minor,
-			};
-			const doc = await vscode.workspace.openNotebookDocument('jupyter-notebook', data);
-			await vscode.window.showNotebookDocument(doc);
 		}
+		// Default approach: create notebook with a code cell
+		const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
+		const data = new vscode.NotebookData([cell]);
+		data.metadata = {
+			cells: [],
+			metadata: {},
+			nbformat: defaultNotebookFormat.major,
+			nbformat_minor: defaultNotebookFormat.minor,
+		};
+		const doc = await vscode.workspace.openNotebookDocument('jupyter-notebook', data);
+		await vscode.window.showNotebookDocument(doc);
 	}));
 	// --- End Positron ---
 
