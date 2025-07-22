@@ -12,6 +12,18 @@ import { defaultNotebookFormat } from './constants';
 
 // --- Start Positron ---
 import * as positron from 'positron';
+
+// Module-level counter to maintain state across calls and prevent race conditions
+const untitledNotebookCounter = new Map<string, number>();
+
+/**
+ * Optional cleanup function for the counter cache
+ * Can be called periodically to prevent unbounded growth
+ */
+function cleanupCounterCache() {
+	// Reset counters if they get too high or after certain time
+	untitledNotebookCounter.clear();
+}
 // --- End Positron ---
 
 // From {nbformat.INotebookMetadata} in @jupyterlab/coreutils
@@ -100,7 +112,11 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 	 * Generate the next available untitled notebook URI using VS Code's standard naming convention
 	 */
 	function getNextUntitledNotebookUri(): vscode.Uri {
-		let counter = 1;
+		const basePattern = 'Untitled-{n}.ipynb';
+
+		// Get or initialize counter
+		let counter = untitledNotebookCounter.get(basePattern) || 1;
+
 		let untitledUri: vscode.Uri;
 		do {
 			untitledUri = vscode.Uri.from({
@@ -109,6 +125,10 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 			});
 			counter++;
 		} while (notebookExistsWithUri(untitledUri));
+
+		// Store the next counter to reduce collision probability
+		untitledNotebookCounter.set(basePattern, counter);
+
 		return untitledUri;
 	}
 
@@ -201,4 +221,9 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 	};
 }
 
-export function deactivate() { }
+export function deactivate() {
+	// --- Start Positron ---
+	// Clean up the counter cache when the extension is deactivated
+	cleanupCounterCache();
+	// --- End Positron ---
+}
