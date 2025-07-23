@@ -525,7 +525,7 @@
     "zod": "^3.24.1"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.57.0",
     "@github/copilot-language-server": "^1.335.0",
     "vscode-languageclient": "^9.0.1"
   }
