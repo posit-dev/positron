@@ -17,9 +17,8 @@ import { IChatService } from '../../common/chatService.js';
 const findTextInProjectModelDescription = `
 This tool searches for the specified text inside files in the project and returns a set of files and their corresponding lines where the text is found,
 as well as messages about the search results.
-Do not use this tool to find files or directories in the workspace, as it is specifically designed for searching text within files.
+DO NOT use this tool to find files or directories in the workspace, as it is specifically designed for searching text within files.
 The search is performed across all files in the project, excluding files and directories that are ignored by the workspace settings.
-The provided pattern is interpreted as text unless indicated to be a regular expression.
 Other search options such as case sensitivity, whole word matching, and multiline matching can be specified.
 `;
 
@@ -30,14 +29,18 @@ export const TextSearchToolData: IToolData = {
 	displayName: localize('chat.tools.findTextInProject', "Find Text In Project"),
 	source: ToolDataSource.Internal,
 	modelDescription: findTextInProjectModelDescription,
-	tags: ['positron-assistant', 'requires-workspace'],
+	tags: [
+		'positron-assistant',
+		'requires-workspace',
+		'high-token-usage',
+	],
 	canBeReferencedInPrompt: false,
 	inputSchema: {
 		type: 'object',
 		properties: {
 			pattern: {
 				type: 'string',
-				description: 'The text pattern to search for in the project.',
+				description: 'The text pattern to search for in the project. This pattern is interpreted as text unless isRegExp is set to true.',
 			},
 			isRegExp: {
 				type: 'boolean',
