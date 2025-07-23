@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { Event } from '../../../../base/common/event.js';
 import { Schemas } from '../../../../base/common/network.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
@@ -85,19 +84,18 @@ class PositronNotebookContribution extends Disposable {
 					// Determine notebook view type for untitled notebook
 					const viewType = await this.detectNotebookViewType(resource);
 
-					// Resolve notebook model with untitled resource
+					// Acquire a model reference so we can get the resolved resource for the untitled
+					// notebook. We *must* dispose this reference immediately after use to avoid
+					// leaking it which would otherwise keep the notebook document alive even after
+					// the editor has been closed (see https://github.com/positron/issues/XXXXX).
 					const ref = await this.notebookModelResolverService.resolve({ untitledResource: resource }, viewType);
+					const resolvedResource = ref.object.resource;
+					ref.dispose();
 
-					// untitled notebooks are disposed when they get saved. we should not hold a reference
-					// to such a disposed notebook and therefore dispose the reference as well
-					Event.once(ref.object.notebook.onWillDispose)(() => {
-						ref.dispose();
-					});
-
-					// Create editor input using resolved model resource
+					// Create editor input using the resolved resource
 					const editorInput = PositronNotebookEditorInput.getOrCreate(
 						this.instantiationService,
-						ref.object.resource,
+						resolvedResource,
 						undefined,
 						viewType,
 						{ startDirty: false }
