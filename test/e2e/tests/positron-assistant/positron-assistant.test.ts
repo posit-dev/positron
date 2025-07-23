@@ -104,6 +104,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	test.beforeAll('Enable Assistant', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.clickCloseButton();
@@ -196,5 +197,22 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
 
 		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+	});
+
+	test('Token usage updates when settings change', async function ({ app, settings }) {
+		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
+		await app.workbench.assistant.verifyTokenUsageVisible();
+
+		await settings.set({ 'positron.assistant.approximateTokenCount': [] });
+		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+
+		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
+		await app.workbench.assistant.verifyTokenUsageVisible();
+
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': false });
+		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
+		await app.workbench.assistant.verifyTokenUsageVisible();
 	});
 });
