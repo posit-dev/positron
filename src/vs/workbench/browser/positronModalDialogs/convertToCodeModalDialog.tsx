@@ -8,9 +8,6 @@ import React, { useEffect, useState } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
-import { ICommandService } from '../../../platform/commands/common/commands.js';
-import { IKeybindingService } from '../../../platform/keybinding/common/keybinding.js';
-import { IWorkbenchLayoutService } from '../../services/layout/browser/layoutService.js';
 import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
 import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { IPositronDataExplorerInstance } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
@@ -20,19 +17,14 @@ import { DropDownListBoxItem } from '../positronComponents/dropDownListBox/dropD
 import { DropdownEntry } from './components/dropdownEntry.js';
 import { CodeSyntaxName } from '../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
+import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 
 /**
  * Shows the convert to code modal dialog.
- * @param commandService The command service.
- * @param keybindingService The keybinding service.
- * @param layoutService The layout service.
  * @param dataExplorerClientInstance The data explorer client instance.
  * @returns A promise that resolves when the dialog is closed.
  */
 export const showConvertToCodeModalDialog = async (
-	commandService: ICommandService,
-	keybindingService: IKeybindingService,
-	layoutService: IWorkbenchLayoutService,
 	dataExplorerClientInstance: IPositronDataExplorerInstance,
 ): Promise<void> => {
 	// Create the renderer.
@@ -41,10 +33,7 @@ export const showConvertToCodeModalDialog = async (
 	// Show the copy as code dialog.
 	renderer.render(
 		<ConvertToCodeModalDialog
-			commandService={commandService}
 			dataExplorerClientInstance={dataExplorerClientInstance}
-			keybindingService={keybindingService}
-			layoutService={layoutService}
 			renderer={renderer}
 		/>
 	);
@@ -54,10 +43,7 @@ export const showConvertToCodeModalDialog = async (
  * ConvertToCodeDialogProps interface.
  */
 interface ConvertToCodeDialogProps {
-	commandService: ICommandService;
 	dataExplorerClientInstance: IPositronDataExplorerInstance
-	keybindingService: IKeybindingService;
-	layoutService: IWorkbenchLayoutService;
 	renderer: PositronModalReactRenderer;
 }
 
@@ -68,6 +54,9 @@ interface ConvertToCodeDialogProps {
  * @returns The rendered component.
  */
 export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
+	// Service hooks.
+	const services = usePositronReactServicesContext();
+
 	// State hooks.
 	const instance = props.dataExplorerClientInstance.dataExplorerClientInstance;
 	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.convert_to_code?.code_syntaxes ?? [];
@@ -83,7 +72,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 	const getCodeString = async (syntax: CodeSyntaxName) => {
 		try {
 			// Execute the command to get the code string based on the selected syntax.
-			const result = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, syntax);
+			const result = await services.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, syntax);
 			setCodeString(result);
 		} catch (error) {
 			setCodeString(`Cannot generate code for type ${syntax.code_syntax_name}`);
@@ -121,7 +110,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 
 		// Execute the command to get the code string based on the selected syntax.
 		try {
-			const exc = await props.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, typedItem.options.value);
+			const exc = await services.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, typedItem.options.value);
 			setCodeString(exc);
 		} catch (error) {
 			setCodeString(`Cannot generate code for type ${typedItem.options.value}`);

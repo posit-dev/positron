@@ -26,9 +26,6 @@ import { IPathService } from '../../../services/path/common/pathService.js';
 import { toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
 import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/convertToCodeModalDialog.js';
-import { IKeybindingService } from '../../../../platform/keybinding/common/keybinding.js';
-import { ICommandService } from '../../../../platform/commands/common/commands.js';
-import { IWorkbenchLayoutService } from '../../../services/layout/browser/layoutService.js';
 import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { CodeSyntaxName } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
@@ -835,9 +832,6 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 	 */
 	override async run(accessor: ServicesAccessor): Promise<void> {
 		// Access the services we need.
-		const commandService = accessor.get(ICommandService);
-		const keybindingService = accessor.get(IKeybindingService);
-		const layoutService = accessor.get(IWorkbenchLayoutService);
 		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
 
 		if (!positronDataExplorerInstance) {
@@ -845,9 +839,6 @@ class PositronDataExplorerConvertToCodeModalAction extends Action2 {
 		}
 
 		await showConvertToCodeModalDialog(
-			commandService,
-			keybindingService,
-			layoutService,
 			positronDataExplorerInstance,
 		);
 	}
