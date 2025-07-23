@@ -12,7 +12,6 @@ import { defaultNotebookFormat } from './constants';
 
 // --- Start Positron ---
 import * as positron from 'positron';
-
 // --- End Positron ---
 
 // From {nbformat.INotebookMetadata} in @jupyterlab/coreutils
@@ -211,5 +210,4 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 	};
 }
 
-export function deactivate() {
-}
+export function deactivate() { }
