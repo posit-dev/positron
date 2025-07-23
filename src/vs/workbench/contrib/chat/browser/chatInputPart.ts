@@ -1847,7 +1847,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 				dom.clearNode(this.tokenUsageContainer);
 				this.tokenUsageContainer.appendChild(
 					dom.$('.token-usage-total', undefined,
-						localize('totalTokenUsage', "Total: ↑{0} ↓{1}", totalTokens.totalInputTokens, totalTokens.totalOutputTokens)
+						localize('totalTokenUsage', "Total tokens: ↑{0} ↓{1}", totalTokens.totalInputTokens, totalTokens.totalOutputTokens)
 					)
 				);
 				this.tokenUsageContainer.style.display = 'block';

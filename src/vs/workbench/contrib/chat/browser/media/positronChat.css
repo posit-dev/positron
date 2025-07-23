@@ -9,10 +9,9 @@
 }
 
 .chat-token-usage-status {
-	padding: 8px 16px;
+	padding-top: 2px;
 	font-size: 12px;
 	color: var(--vscode-descriptionForeground);
-	background-color: var(--vscode-panel-background);
 	border-top: 1px solid var(--vscode-panel-border);
 	flex-shrink: 0;
 }
