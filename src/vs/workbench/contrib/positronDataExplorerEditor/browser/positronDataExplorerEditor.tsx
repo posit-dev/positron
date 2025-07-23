@@ -343,13 +343,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				const client = positronDataExplorerInstance.dataExplorerClientInstance;
 
 				client.getBackendState().then((backendState) => {
-					const convertToCode = backendState.supported_features.convert_to_code;
-					if (convertToCode.support_status === SupportStatus.Unsupported) {
-						this._isConvertToCodeEnabledContextKey.set(false);
-					}
-					if (convertToCode.code_syntaxes && convertToCode.code_syntaxes.length > 0) {
-						this._codeSyntaxesAvailableContextKey.set(true);
-					}
 					if (input !== undefined && backendState.display_name !== undefined) {
 						// We truncate the `display_name` to a reasonable length as
 						// the editor tab title has limited space.
@@ -361,6 +354,12 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 
 						input.setName?.(`Data: ${display_name}`);
 					}
+					// set context keys for convert to code and code syntaxes availability
+					const convertToCode = backendState.supported_features.convert_to_code;
+					this._isConvertToCodeEnabledContextKey.set(!!(convertToCode.support_status === SupportStatus.Supported));
+					this._codeSyntaxesAvailableContextKey.set(
+						!!(convertToCode.code_syntaxes && convertToCode.code_syntaxes.length > 0)
+					);
 				});
 
 				// Set the context keys.
