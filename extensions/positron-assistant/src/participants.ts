@@ -13,6 +13,7 @@ import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKS
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { EXPORT_QUARTO_COMMAND, quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './types.js';
+import { PromptRenderer, ChatPrompt, AgentPrompt, TerminalPrompt, EditorPrompt, AttachmentsContent, SessionsContent, FollowupsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, DefaultContent, EditorContent, FilepathsContent } from './prompts';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
@@ -123,29 +124,58 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	readonly followupProvider: vscode.ChatFollowupProvider = {
 		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
-			const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'followups.md'), 'utf8');
-			const messages = toLanguageModelChatMessage(context.history);
-			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
-
-			const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
-			if (models.length === 0) {
-				throw new Error(vscode.l10n.t('Selected model not available.'));
-			}
-
-			const response = await models[0].sendRequest(messages, { modelOptions: { system } }, token);
-
-			let json = '';
-			for await (const fragment of response.text) {
-				json += fragment;
-				if (token.isCancellationRequested) {
-					break;
-				}
-			}
-
 			try {
-				return (JSON.parse(json) as 'string'[]).map((p) => ({ prompt: p }));
-			} catch (e) {
-				return [];
+				const system: string = await PromptRenderer.render(FollowupsContent, {});
+				const messages = toLanguageModelChatMessage(context.history);
+				messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
+
+				const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
+				if (models.length === 0) {
+					throw new Error(vscode.l10n.t('Selected model not available.'));
+				}
+
+				const response = await models[0].sendRequest(messages, { modelOptions: { system } }, token);
+
+				let json = '';
+				for await (const fragment of response.text) {
+					json += fragment;
+					if (token.isCancellationRequested) {
+						break;
+					}
+				}
+
+				try {
+					return (JSON.parse(json) as 'string'[]).map((p) => ({ prompt: p }));
+				} catch (e) {
+					return [];
+				}
+			} catch (error) {
+				console.error('Error rendering followups content, falling back to legacy:', error);
+				// Fallback to the original markdown reading
+				const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'followups.md'), 'utf8');
+				const messages = toLanguageModelChatMessage(context.history);
+				messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
+
+				const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
+				if (models.length === 0) {
+					throw new Error(vscode.l10n.t('Selected model not available.'));
+				}
+
+				const response = await models[0].sendRequest(messages, { modelOptions: { system } }, token);
+
+				let json = '';
+				for await (const fragment of response.text) {
+					json += fragment;
+					if (token.isCancellationRequested) {
+						break;
+					}
+				}
+
+				try {
+					return (JSON.parse(json) as 'string'[]).map((p) => ({ prompt: p }));
+				} catch (e) {
+					return [];
+				}
 			}
 		}
 	};
@@ -495,17 +525,33 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 
 			if (attachmentPrompts.length > 0) {
-				// Add the attachments to the prompt.
-				const attachmentsText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
-				const attachmentsContent = `${attachmentsText}\n${attachmentPrompts.join('\n')}`;
-				prompts.push(xml.node('attachments', attachmentsContent));
+				// Add the attachments to the prompt using TSX component
+				try {
+					const attachmentsText = await PromptRenderer.render(AttachmentsContent, {});
+					const attachmentsContent = `${attachmentsText}\n${attachmentPrompts.join('\n')}`;
+					prompts.push(xml.node('attachments', attachmentsContent));
+				} catch (error) {
+					console.error('Error rendering attachments content, falling back to legacy:', error);
+					// Fallback to the original markdown reading
+					const attachmentsText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
+					const attachmentsContent = `${attachmentsText}\n${attachmentPrompts.join('\n')}`;
+					prompts.push(xml.node('attachments', attachmentsContent));
+				}
 			}
 
 			if (sessionPrompts.length > 0) {
-				// Add the session prompts to the context.
-				const sessionText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'sessions.md'), 'utf8');
-				const sessionContent = `${sessionText}\n${sessionPrompts.join('\n')}`;
-				prompts.push(xml.node('sessions', sessionContent));
+				// Add the session prompts to the context using TSX component
+				try {
+					const sessionText = await PromptRenderer.render(SessionsContent, {});
+					const sessionContent = `${sessionText}\n${sessionPrompts.join('\n')}`;
+					prompts.push(xml.node('sessions', sessionContent));
+				} catch (error) {
+					console.error('Error rendering sessions content, falling back to legacy:', error);
+					// Fallback to the original markdown reading
+					const sessionText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'sessions.md'), 'utf8');
+					const sessionContent = `${sessionText}\n${sessionPrompts.join('\n')}`;
+					prompts.push(xml.node('sessions', sessionContent));
+				}
 			}
 		}
 
@@ -729,6 +775,26 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		return instructions.join('');
 	}
 
+	/** Load language-specific instructions for active sessions, returning them as a map */
+	protected async getActiveSessionLanguageInstructions(): Promise<Map<string, string>> {
+		const sessions = await positron.runtime.getActiveSessions();
+		const languages = [...new Set(sessions.map((session) => session.runtimeMetadata.languageId))];
+
+		const instructionsMap = new Map<string, string>();
+
+		await Promise.all(languages.map(async (id) => {
+			try {
+				const instructions = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', `instructions-${id}.md`), 'utf8');
+				instructionsMap.set(id, instructions);
+			} catch {
+				// There are no additional instructions for this language ID
+				// Don't add anything to the map for this language
+			}
+		}));
+
+		return instructionsMap;
+	}
+
 	dispose(): void { }
 }
 
@@ -737,10 +803,37 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 	id = ParticipantID.Chat;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
-		const languages = await this.getActiveSessionInstructions();
-		return defaultSystem + '\n\n' + filepaths + '\n\n' + languages;
+		try {
+			// Use the new prompt-tsx system
+			const activeSessions = await this.getActiveSessionLanguages();
+			const languageInstructions = await this.getActiveSessionLanguageInstructions();
+			const rendered = await PromptRenderer.render(
+				ChatPrompt,
+				{
+					includeFilepaths: true,
+					activeSessions,
+					languageInstructions,
+					priority: 100
+				},
+				request.model,
+				`chat-prompt-${activeSessions.join('-')}-${Array.from(languageInstructions.keys()).join('-')}` // Cache key includes session state and loaded instructions
+			);
+			return rendered;
+		} catch (error) {
+			console.error('Error rendering chat prompt, falling back to legacy system:', error);
+			// Fallback to the original approach if prompt-tsx fails
+			const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+			const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
+			const languages = await this.getActiveSessionInstructions();
+			return defaultSystem + '\n\n' + filepaths + '\n\n' + languages;
+		}
+	}
+
+	private async getActiveSessionLanguages(): Promise<string[]> {
+		// Extract language names from active sessions
+		const sessions = await positron.runtime.getActiveSessions();
+		const languages = sessions.map((session) => session.runtimeMetadata.languageId);
+		return [...new Set(languages)]; // Remove duplicates
 	}
 }
 
@@ -749,10 +842,36 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 	id = ParticipantID.Agent;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		const agent = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'agent.md'), 'utf8');
-		const languages = await this.getActiveSessionInstructions();
-		return defaultSystem + '\n\n' + agent + '\n\n' + languages;
+		try {
+			// Use the new prompt-tsx system
+			const activeSessions = await this.getActiveSessionLanguages();
+			const languageInstructions = await this.getActiveSessionLanguageInstructions();
+			const rendered = await PromptRenderer.render(
+				AgentPrompt,
+				{
+					activeSessions,
+					languageInstructions,
+					priority: 100
+				},
+				request.model,
+				`agent-prompt-${activeSessions.join('-')}-${Array.from(languageInstructions.keys()).join('-')}`
+			);
+			return rendered;
+		} catch (error) {
+			console.error('Error rendering agent prompt, falling back to legacy system:', error);
+			// Fallback to the original approach
+			const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+			const agent = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'agent.md'), 'utf8');
+			const languages = await this.getActiveSessionInstructions();
+			return defaultSystem + '\n\n' + agent + '\n\n' + languages;
+		}
+	}
+
+	private async getActiveSessionLanguages(): Promise<string[]> {
+		// Extract language names from active sessions
+		const sessions = await positron.runtime.getActiveSessions();
+		const languages = sessions.map((session) => session.runtimeMetadata.languageId);
+		return [...new Set(languages)]; // Remove duplicates
 	}
 }
 
@@ -761,7 +880,22 @@ class PositronAssistantTerminalParticipant extends PositronAssistantParticipant 
 	id = ParticipantID.Terminal;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'terminal.md'), 'utf8');
+		try {
+			// Use the new prompt-tsx system
+			const rendered = await PromptRenderer.render(
+				TerminalPrompt,
+				{
+					priority: 100
+				},
+				request.model,
+				'terminal-prompt' // Static cache key since terminal prompts are simpler
+			);
+			return rendered;
+		} catch (error) {
+			console.error('Error rendering terminal prompt, falling back to legacy system:', error);
+			// Fallback to the original approach
+			return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'terminal.md'), 'utf8');
+		}
 	}
 }
 
@@ -774,27 +908,74 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
 		}
 
-		if (isStreamingEditsEnabled()) {
-			// If the user has not selected text, use the prompt for the whole document.
-			if (request.location2.selection.isEmpty) {
-				return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editorStreaming.md'), 'utf8');
+		try {
+			// Determine the editing mode and file context
+			const document = request.location2.document;
+			const selection = request.location2.selection;
+			const fileExtension = path.extname(document.uri.fsPath).substring(1);
+			const isTextEdit = !selection.isEmpty;
+
+			// Use the new prompt-tsx system
+			const rendered = await PromptRenderer.render(
+				EditorPrompt,
+				{
+					isTextEdit,
+					fileExtension,
+					priority: 100
+				},
+				request.model,
+				`editor-prompt-${isTextEdit ? 'selection' : 'document'}-${fileExtension}`
+			);
+			return rendered;
+		} catch (error) {
+			console.error('Error rendering editor prompt, falling back to legacy system:', error);
+			// Fallback to the original logic using TSX components where possible
+			if (isStreamingEditsEnabled()) {
+				// If the user has not selected text, use the prompt for the whole document.
+				if (request.location2.selection.isEmpty) {
+					try {
+						return await PromptRenderer.render(EditorStreamingContent, {});
+					} catch (tsxError) {
+						return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editorStreaming.md'), 'utf8');
+					}
+				}
+
+				// If the user has selected text, generate a new version of the selection.
+				try {
+					return await PromptRenderer.render(SelectionStreamingContent, {});
+				} catch (tsxError) {
+					return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selectionStreaming.md'), 'utf8');
+				}
 			}
 
-			// If the user has selected text, generate a new version of the selection.
-			return await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selectionStreaming.md'), 'utf8');
+			// Non-streaming fallback
+			try {
+				const defaultSystem = await PromptRenderer.render(DefaultContent, {});
+
+				// If the user has selected text, generate a new version of the selection.
+				if (!request.location2.selection.isEmpty) {
+					const selection = await PromptRenderer.render(SelectionContent, {});
+					return defaultSystem + '\n\n' + selection;
+				}
+
+				// If the user has not selected text, use the prompt for the whole document.
+				const editor = await PromptRenderer.render(EditorContent, {});
+				return defaultSystem + '\n\n' + editor;
+			} catch (tsxError) {
+				// Final fallback to original markdown reading
+				const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+
+				// If the user has not selected text, use the prompt for the whole document.
+				if (request.location2.selection.isEmpty) {
+					const editor = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
+					return defaultSystem + '\n\n' + editor;
+				}
+
+				// If the user has selected text, generate a new version of the selection.
+				const selection = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selection.md'), 'utf8');
+				return defaultSystem + '\n\n' + selection;
+			}
 		}
-
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-
-		// If the user has not selected text, use the prompt for the whole document.
-		if (request.location2.selection.isEmpty) {
-			const editor = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'editor.md'), 'utf8');
-			return defaultSystem + '\n\n' + editor;
-		}
-
-		// If the user has selected text, generate a new version of the selection.
-		const selection = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'selection.md'), 'utf8');
-		return defaultSystem + '\n\n' + selection;
 	}
 
 	async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
@@ -846,9 +1027,26 @@ class PositronAssistantEditParticipant extends PositronAssistantParticipant impl
 	id = ParticipantID.Edit;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
-		return defaultSystem + '\n\n' + filepaths;
+		try {
+			// Use the new prompt-tsx system for edit mode (similar to chat but with filepaths)
+			const rendered = await PromptRenderer.render(
+				ChatPrompt,
+				{
+					includeFilepaths: true,
+					activeSessions: [],
+					priority: 100
+				},
+				request.model,
+				'edit-prompt'
+			);
+			return rendered;
+		} catch (error) {
+			console.error('Error rendering edit prompt, falling back to legacy system:', error);
+			// Fallback to the original approach
+			const defaultSystem = await PromptRenderer.render(DefaultContent, {});
+			const filepaths = await PromptRenderer.render(FilepathsContent, {});
+			return defaultSystem + '\n\n' + filepaths;
+		}
 	}
 }
 
