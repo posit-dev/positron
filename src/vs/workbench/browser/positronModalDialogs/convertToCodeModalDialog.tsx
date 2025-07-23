@@ -66,18 +66,29 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 	const [codeString, setCodeString] = useState<string | undefined>(undefined);
 
 	useEffect(() => {
-		if (selectedSyntax) { getCodeString(selectedSyntax); }
-	},);
+		const getCodeString = async () => {
+			try {
+				// Execute the command to get the code string based on the selected syntax.
+				const result = await services.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, selectedSyntax);
+				setCodeString(result);
+			} catch (error) {
+				if (selectedSyntax) {
+					setCodeString(localize(
+						'positron.dataExplorer.getCodeStringWithSyntax',
+						"Cannot generate code for type {0}",
+						selectedSyntax.code_syntax_name
+					));
+				} else {
+					setCodeString(localize(
+						'positron.dataExplorer.getCodeStringNoSyntax',
+						"Cannot generate code"
+					));
+				}
+			}
+		};
 
-	const getCodeString = async (syntax: CodeSyntaxName) => {
-		try {
-			// Execute the command to get the code string based on the selected syntax.
-			const result = await services.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, syntax);
-			setCodeString(result);
-		} catch (error) {
-			setCodeString(`Cannot generate code for type ${syntax.code_syntax_name}`);
-		}
-	};
+		getCodeString(); // Call the async function
+	}, [selectedSyntax, services.commandService]);
 
 	// Construct the syntax options dropdown entries
 	const syntaxDropdownEntries = () => {
@@ -113,7 +124,11 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 			const exc = await services.commandService.executeCommand(PositronDataExplorerCommandId.ConvertToCodeAction, typedItem.options.value);
 			setCodeString(exc);
 		} catch (error) {
-			setCodeString(`Cannot generate code for type ${typedItem.options.value}`);
+			setCodeString(localize(
+				'positron.dataExplorer.cannotGenerateCodeForType',
+				"Cannot generate code for type {0}",
+				typedItem.options.value.code_syntax_name
+			));
 		}
 	};
 
