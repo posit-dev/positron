@@ -143,9 +143,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 				"Convert to Code"
 			))()}
 			width={400}
-			onAccept={async () => {
-				props.renderer.dispose();
-			}}
+			onAccept={() => props.renderer.dispose()}
 			onCancel={() => props.renderer.dispose()}
 		>
 			<VerticalStack>

@@ -35,7 +35,7 @@ export const DropdownEntry = (props: DropdownEntryProps) => {
 			<div className='dropdown-entry-subtitle'>
 				{props.subtitle}
 			</div>
-			{props.group ? <div className='dropdown-entry-group'>{props.group}</div> : null}
+			{props.group && <div className='dropdown-entry-group'>{props.group}</div>}
 		</div>
 	);
 };
