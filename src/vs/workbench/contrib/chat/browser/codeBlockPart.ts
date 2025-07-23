@@ -291,6 +291,19 @@ export class CodeBlockPart extends Disposable {
 		if (delegate.onDidScroll) {
 			this._register(delegate.onDidScroll(e => {
 				this.clearWidgets();
+				const delegateTop = delegate.container.getBoundingClientRect().top;
+				const toolbarTop = toolbarElement.getElementsByClassName('monaco-toolbar')[0]?.getBoundingClientRect().top || 0;
+				const parentTop = toolbarElement.parentElement?.getBoundingClientRect().top || 0;
+
+				if (toolbarTop !== 0) {
+					if (!toolbarElement.classList.contains('bottom') && parentTop < (delegateTop - 13)) {
+						// Toolbar is above the delegate
+						toolbarElement.classList.add('bottom');
+					} else if (toolbarElement.classList.contains('bottom') && parentTop >= (delegateTop - 13)) {
+						// Toolbar is below the delegate
+						toolbarElement.classList.remove('bottom');
+					}
+				}
 			}));
 		}
 	}
