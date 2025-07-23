@@ -356,7 +356,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					}
 					// set context keys for convert to code and code syntaxes availability
 					const convertToCode = backendState.supported_features.convert_to_code;
-					this._isConvertToCodeEnabledContextKey.set(!!(convertToCode.support_status === SupportStatus.Supported));
+					this._isConvertToCodeEnabledContextKey.set(!!(convertToCode && convertToCode.support_status === SupportStatus.Supported));
 					this._codeSyntaxesAvailableContextKey.set(
 						!!(convertToCode.code_syntaxes && convertToCode.code_syntaxes.length > 0)
 					);
