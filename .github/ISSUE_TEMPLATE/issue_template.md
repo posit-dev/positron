@@ -29,7 +29,7 @@ additional information to help us prioritize the issue.
 #### Session details:
 
 <!-- e.g. R 4.4.1 or Python 3.11.6 -->
-<!-- LLM model used in for Positron Assistnant, e.g. `Claude 3.7 Sonnet v1` -->
+<!-- LLM model used in for Positron Assistant, e.g. `Claude 3.7 Sonnet v1` -->
 
 ## Describe the issue:
 
