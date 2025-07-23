@@ -215,4 +215,23 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
 		await app.workbench.assistant.verifyTokenUsageVisible();
 	});
+
+	test('Total token usage is displayed in chat header', async function ({ app }) {
+		const message1 = 'What is the meaning of life?';
+		const message2 = 'Forty-two';
+
+		await app.workbench.assistant.enterChatMessage(message1);
+		await app.workbench.assistant.waitForReadyToSend();
+		await app.workbench.assistant.enterChatMessage(message2);
+
+		await app.workbench.assistant.waitForReadyToSend();
+		await app.workbench.assistant.verifyNumberOfVisibleResponses(2, true);
+
+		const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
+		expect(totalTokens).toBeDefined();
+		expect(totalTokens).toMatchObject({
+			inputTokens: message1.length + message2.length,
+			outputTokens: message1.length + message2.length
+		});
+	});
 });
