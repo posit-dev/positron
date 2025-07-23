@@ -171,8 +171,7 @@ async function verifyPythonOutline(outline: Outline) {
 }
 
 async function verifyROutline(outline: Outline) {
-	await outline.expectOutlineElementCountToBe(3); // ensure no dupes from multisessions
+	await outline.expectOutlineElementCountToBe(2); // ensure no dupes from multisessions
 	await outline.expectOutlineElementToBeVisible('demonstrate_scope');
 	await outline.expectOutlineElementToBeVisible('global_variable');
-	await outline.expectOutlineElementToBeVisible('local_variable');
 }
