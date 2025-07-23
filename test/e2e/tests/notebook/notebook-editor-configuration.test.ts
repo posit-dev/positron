@@ -107,4 +107,37 @@ test.describe('Notebook Editor Configuration', {
 		await notebooks.createNewNotebook();
 		await notebooksVscode.expectToBeVisible();
 	});
+
+	test('Verify multiple untitled positron notebooks get unique URIs', async function ({ app, hotKeys, settings }) {
+		const { notebooks, notebooksPositron, editors } = app.workbench;
+
+		// Set default editor to Positron notebook to test the PR's changes
+		await setNotebookEditor(settings, 'positron');
+
+		// Create first untitled notebook (uses ipynb.newUntitledIpynb command)
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+
+		// Verify first notebook has Untitled-1.ipynb name
+		await editors.verifyTab('Untitled-1.ipynb', { isVisible: true, isSelected: true });
+
+		// Create second untitled notebook without closing the first
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+
+		// Verify second notebook has Untitled-2.ipynb name (collision avoided)
+		await editors.verifyTab('Untitled-2.ipynb', { isVisible: true, isSelected: true });
+
+		// Close first notebook without saving
+		await editors.clickTab('Untitled-1.ipynb');
+		await hotKeys.closeTab();
+
+		// Open a new notebook and verify it gets Untitled-1.ipynb again (name is reused)
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+		await editors.verifyTab('Untitled-1.ipynb', { isVisible: true, isSelected: true });
+
+		// Clean up by closing all editors
+		await hotKeys.closeAllEditors();
+	});
 });
