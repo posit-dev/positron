@@ -34,3 +34,7 @@ export const POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED = new RawContextK
 	'positronDataExplorerIsConvertToCodeEnabled',
 	false
 );
+export const POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE = new RawContextKey<boolean>(
+	'positronDataExplorerCodeSyntaxesAvailable',
+	false
+);

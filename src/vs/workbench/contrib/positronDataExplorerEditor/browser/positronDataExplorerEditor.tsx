@@ -27,7 +27,7 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { checkDataExplorerConvertToCodeEnabled, DATA_EXPLORER_CONVERT_TO_CODE } from '../../../services/positronDataExplorer/common/positronDataExplorerConvertToCodeConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
@@ -100,6 +100,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the is convert to code enabled context key.
 	 */
 	private readonly _isConvertToCodeEnabledContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the code syntaxes available context key.
+	 */
+	private readonly _codeSyntaxesAvailableContextKey: IContextKey<boolean>;
 
 	/**
 	 * The onSizeChanged event emitter.
@@ -241,6 +246,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._isConvertToCodeEnabledContextKey = POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED.bindTo(
 			this._group.scopedContextKeyService
 		);
+		this._codeSyntaxesAvailableContextKey = POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE.bindTo(
+			this._group.scopedContextKeyService
+		);
 
 		// Set the convert to code context key based on the configuration value.
 		this._isConvertToCodeEnabledContextKey.set(
@@ -335,8 +343,12 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				const client = positronDataExplorerInstance.dataExplorerClientInstance;
 
 				client.getBackendState().then((backendState) => {
-					if (backendState.supported_features.convert_to_code.support_status === SupportStatus.Unsupported) {
+					const convertToCode = backendState.supported_features.convert_to_code;
+					if (convertToCode.support_status === SupportStatus.Unsupported) {
 						this._isConvertToCodeEnabledContextKey.set(false);
+					}
+					if (convertToCode.code_syntaxes && convertToCode.code_syntaxes.length > 0) {
+						this._codeSyntaxesAvailableContextKey.set(true);
 					}
 					if (input !== undefined && backendState.display_name !== undefined) {
 						// We truncate the `display_name` to a reasonable length as

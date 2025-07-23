@@ -70,7 +70,7 @@ interface ConvertToCodeDialogProps {
 export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 	// State hooks.
 	const instance = props.dataExplorerClientInstance.dataExplorerClientInstance;
-	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.convert_to_code.code_syntaxes ?? [];
+	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.convert_to_code?.code_syntaxes ?? [];
 
 	const [selectedSyntax, setSelectedSyntax] = useState<CodeSyntaxName | undefined>(instance.suggestedSyntax);
 
