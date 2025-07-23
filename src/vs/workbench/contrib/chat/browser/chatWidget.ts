@@ -375,6 +375,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			} else if (e.affectsConfiguration(ChatConfiguration.EditRequests)) {
 				this.settingChangeCounter++;
 				this.onDidChangeItems();
+			} else if (e.affectsConfiguration('positron.assistant.showTokenUsage.enable') || e.affectsConfiguration('positron.assistant.approximateTokenCount')) {
+				this.settingChangeCounter++;
+				this.onDidChangeItems();
 			}
 		}));
 
