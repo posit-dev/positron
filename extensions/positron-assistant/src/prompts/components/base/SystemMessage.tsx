@@ -23,11 +23,10 @@ export interface SystemMessageProps extends BasePromptElementProps {
  */
 export class SystemMessage extends PromptElement<SystemMessageProps> {
 	render(): PromptPiece {
-		// Use the direct constructor approach
-		return {
-			ctor: BaseSystemMessage,
-			props: { priority: this.props.priority },
-			children: [this.props.children || '']
-		};
+		return (
+			<BaseSystemMessage priority={this.props.priority}>
+				{this.props.children || ''}
+			</BaseSystemMessage>
+		);
 	}
 }

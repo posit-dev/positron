@@ -35,51 +35,27 @@ interface ChatPromptProps extends BasePromptElementProps {
  */
 export class ChatPrompt extends PromptElement<ChatPromptProps> {
 	render() {
-		// Create fragment containing all components
-		const components: any[] = [
-			{
-				ctor: ActivationSteering,
-				props: {
-					participantType: 'chat' as const,
-					priority: 100
-				},
-				children: []
-			},
-			{
-				ctor: CommunicationGuidelines,
-				props: {
-					includeCodeGeneration: true,
-					priority: 90
-				},
-				children: []
-			},
-			{
-				ctor: LanguageInstructions,
-				props: {
-					activeSessions: this.props.activeSessions || [],
-					languageInstructions: this.props.languageInstructions,
-					priority: 80
-				},
-				children: []
-			}
-		];
-
-		// Add filepath guidance if requested
-		if (this.props.includeFilepaths) {
-			components.push({
-				ctor: FilepathsContent,
-				props: {
-					priority: 75
-				},
-				children: []
-			});
-		}
-
-		// Return a fragment-like structure
-		return {
-			ctor: 'div',
-			props: {},
-			children: components
-		};
+		return (
+			<>
+				<ActivationSteering
+					participantType="chat"
+					priority={100}
+				/>
+				<CommunicationGuidelines
+					includeCodeGeneration={true}
+					priority={90}
+				/>
+				<LanguageInstructions
+					activeSessions={this.props.activeSessions || []}
+					languageInstructions={this.props.languageInstructions}
+					priority={80}
+				/>
+				{this.props.includeFilepaths && (
+					<FilepathsContent
+						priority={75}
+					/>
+				)}
+			</>
+		);
 	}
 }

@@ -22,7 +22,8 @@ export class AttachmentsContent extends PromptElement<AttachmentsContentProps> {
 			<SystemMessage priority={this.props.priority || 85}>
 				The user has attached file references below.
 
-If the provided context is not useful or doesn't make sense with the user's question, just ignore the provided context.
+				If the provided context is not useful or doesn't make sense with
+				the user's question, just ignore the provided context.
 			</SystemMessage>
 		);
 	}

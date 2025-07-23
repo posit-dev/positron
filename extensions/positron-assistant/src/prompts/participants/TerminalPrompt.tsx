@@ -20,27 +20,17 @@ interface TerminalPromptProps extends BasePromptElementProps {
  */
 export class TerminalPrompt extends PromptElement<TerminalPromptProps> {
 	render() {
-		return {
-			ctor: 'div',
-			props: {},
-			children: [
-				{
-					ctor: ActivationSteering,
-					props: {
-						participantType: 'terminal' as const,
-						priority: 100
-					},
-					children: []
-				},
-				{
-					ctor: CommunicationGuidelines,
-					props: {
-						includeTerminalGuidance: true,
-						priority: 90
-					},
-					children: []
-				}
-			]
-		};
+		return (
+			<>
+				<ActivationSteering
+					participantType="terminal"
+					priority={100}
+				/>
+				<CommunicationGuidelines
+					includeTerminalGuidance={true}
+					priority={90}
+				/>
+			</>
+		);
 	}
 }

@@ -31,9 +31,15 @@ export class ActivationSteering extends PromptElement<ActivationSteeringProps> {
 		return (
 			<>
 				<DefaultContent priority={basePriority} />
-				{participantType === 'agent' && <AgentContent priority={basePriority - 1} />}
-				{participantType === 'editor' && <EditorContent priority={basePriority - 1} />}
-				{participantType === 'terminal' && <TerminalContent priority={basePriority - 1} />}
+				{participantType === 'agent' && (
+					<AgentContent priority={basePriority - 1} />
+				)}
+				{participantType === 'editor' && (
+					<EditorContent priority={basePriority - 1} />
+				)}
+				{participantType === 'terminal' && (
+					<TerminalContent priority={basePriority - 1} />
+				)}
 			</>
 		);
 	}

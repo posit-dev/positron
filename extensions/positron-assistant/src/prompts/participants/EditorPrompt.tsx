@@ -28,36 +28,24 @@ interface EditorPromptProps extends BasePromptElementProps {
  */
 export class EditorPrompt extends PromptElement<EditorPromptProps> {
 	render() {
-		return {
-			ctor: 'div',
-			props: {},
-			children: [
-				{
-					ctor: ActivationSteering,
-					props: {
-						participantType: 'editor' as const,
-						priority: 100
-					},
-					children: []
-				},
-				{
-					ctor: CommunicationGuidelines,
-					props: {
-						includeCodeGeneration: true,
-						priority: 90
-					},
-					children: []
-				},
-				...(this.props.fileExtension ? [{
-					ctor: FileExtensionGuidance,
-					props: {
-						extension: this.props.fileExtension,
-						priority: 85
-					},
-					children: []
-				}] : [])
-			]
-		};
+		return (
+			<>
+				<ActivationSteering
+					participantType="editor"
+					priority={100}
+				/>
+				<CommunicationGuidelines
+					includeCodeGeneration={true}
+					priority={90}
+				/>
+				{this.props.fileExtension && (
+					<FileExtensionGuidance
+						extension={this.props.fileExtension}
+						priority={85}
+					/>
+				)}
+			</>
+		);
 	}
 }
 
@@ -68,11 +56,7 @@ class FileExtensionGuidance extends PromptElement<{ extension: string } & BasePr
 	render() {
 		const guidance = this.getExtensionGuidance(this.props.extension);
 
-		return {
-			ctor: 'div',
-			props: {},
-			children: [guidance]
-		};
+		return <>{guidance}</>;
 	}
 
 	private getExtensionGuidance(extension: string): string {

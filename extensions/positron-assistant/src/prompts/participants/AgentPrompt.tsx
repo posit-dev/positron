@@ -30,37 +30,23 @@ interface AgentPromptProps extends BasePromptElementProps {
 export class AgentPrompt extends PromptElement<AgentPromptProps> {
 	render() {
 		// Agent has similar structure to Chat but with agent-specific activation
-		return {
-			ctor: 'div',
-			props: {},
-			children: [
-				{
-					ctor: ActivationSteering,
-					props: {
-						participantType: 'agent' as const,
-						priority: 100
-					},
-					children: []
-				},
-				{
-					ctor: CommunicationGuidelines,
-					props: {
-						includeCodeGeneration: true,
-						includeTerminalGuidance: true, // Agents might execute commands
-						priority: 90
-					},
-					children: []
-				},
-				{
-					ctor: LanguageInstructions,
-					props: {
-						activeSessions: this.props.activeSessions || [],
-						languageInstructions: this.props.languageInstructions,
-						priority: 80
-					},
-					children: []
-				}
-			]
-		};
+		return (
+			<>
+				<ActivationSteering
+					participantType="agent"
+					priority={100}
+				/>
+				<CommunicationGuidelines
+					includeCodeGeneration={true}
+					includeTerminalGuidance={true} // Agents might execute commands
+					priority={90}
+				/>
+				<LanguageInstructions
+					activeSessions={this.props.activeSessions || []}
+					languageInstructions={this.props.languageInstructions}
+					priority={80}
+				/>
+			</>
+		);
 	}
 }
