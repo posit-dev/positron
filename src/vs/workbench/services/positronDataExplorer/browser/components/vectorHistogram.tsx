@@ -25,7 +25,7 @@ interface VectorHistogramProps {
 }
 
 /**
- * BinItem component to render a single histogram bin with tooltip
+ * BinItem component to provide hover and tooltip functionality for a histogram bin
  */
 const BinItem = React.memo(({
 	binCount,
@@ -37,7 +37,6 @@ const BinItem = React.memo(({
 	binWidth,
 	graphHeight,
 	hoverManager,
-	isHoverOnly = false,
 	xAxisHeight
 }: {
 	binCount: number;
@@ -49,7 +48,6 @@ const BinItem = React.memo(({
 	binWidth: number;
 	graphHeight: number;
 	hoverManager: IHoverManager;
-	isHoverOnly?: boolean;
 	xAxisHeight: number;
 }) => {
 	const containerRef = useRef<HTMLDivElement>(null);
@@ -95,18 +93,9 @@ const BinItem = React.memo(({
 				}}
 			>
 				<svg height='100%' width='100%'>
-					{isHoverOnly && isHovered && (
+					{isHovered && (
 						<rect
 							className='bin-count-hover'
-							height={binCountHeight}
-							width={binWidth}
-							x={0}
-							y={graphHeight - xAxisHeight - binCountHeight}
-						/>
-					)}
-					{!isHoverOnly && (
-						<rect
-							className={isHovered ? 'bin-count-hover' : 'bin-count'}
 							height={binCountHeight}
 							width={binWidth}
 							x={0}
@@ -226,7 +215,6 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 							binWidth={width}
 							graphHeight={props.graphHeight}
 							hoverManager={props.hoverManager}
-							isHoverOnly={true}
 							xAxisHeight={props.xAxisHeight}
 						/>
 					);
