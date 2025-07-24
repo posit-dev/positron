@@ -330,18 +330,21 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._kernelSpec = kernelSpec;
 		const varActions = await this.buildEnvVarActions(false);
 
-		// Prepare the working directory; use the workspace root if available,
-		// otherwise the home directory
-		let workingDir = vscode.workspace.workspaceFolders?.[0].uri.fsPath || os.homedir();
+		let workingDir = this.metadata.workingDirectory;
 
-		// If we have a notebook URI, use its parent directory as the working
-		// directory instead. Note that not all notebooks have valid on-disk
-		// URIs since they may be transient or not yet saved; for these, we fall
-		// back to the workspace root or home directory.
-		if (this.metadata.notebookUri?.fsPath) {
-			const notebookPath = this.metadata.notebookUri.fsPath;
-			if (fs.existsSync(notebookPath)) {
-				workingDir = path.dirname(notebookPath);
+		if (!workingDir) {
+			// Use the workspace root if available, otherwise the home directory
+			workingDir = vscode.workspace.workspaceFolders?.[0].uri.fsPath || os.homedir();
+
+			// If we have a notebook URI, use its parent directory as the working
+			// directory instead. Note that not all notebooks have valid on-disk
+			// URIs since they may be transient or not yet saved; for these, we fall
+			// back to the workspace root or home directory.
+			if (this.metadata.notebookUri?.fsPath) {
+				const notebookPath = this.metadata.notebookUri.fsPath;
+				if (fs.existsSync(notebookPath)) {
+					workingDir = path.dirname(notebookPath);
+				}
 			}
 		}
 

@@ -85,6 +85,9 @@ export interface IRuntimeSessionMetadata {
 	/** The notebook associated with the session, if any */
 	readonly notebookUri: URI | undefined;
 
+	/** The starting working directory of the session, if any */
+	readonly workingDirectory?: string;
+
 	/**
 	 * A timestamp (in milliseconds since the Epoch) representing the time at
 	 * which the runtime session was created.
