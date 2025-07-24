@@ -23,7 +23,7 @@ import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/da
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
-import { SummaryRowFilterBar } from './summaryRowFilterBar/summaryRowFilterBar.js';
+import { SummaryRowActionBar } from './summaryRowFilterBar/summaryRowActionBar.js';
 import { summaryPanelEnhancementsFeatureEnabled } from '../../../../../services/positronDataExplorer/common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
@@ -334,7 +334,7 @@ export const DataExplorer = () => {
 			<div ref={leftColumnRef} className='left-column'>
 				{layout === PositronDataExplorerLayout.SummaryOnLeft &&
 					showSummaryPanelEnhancements &&
-					<SummaryRowFilterBar
+					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
 				}
@@ -372,7 +372,7 @@ export const DataExplorer = () => {
 			<div ref={rightColumnRef} className='right-column'>
 				{layout !== PositronDataExplorerLayout.SummaryOnLeft &&
 					showSummaryPanelEnhancements &&
-					<SummaryRowFilterBar
+					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
 				}

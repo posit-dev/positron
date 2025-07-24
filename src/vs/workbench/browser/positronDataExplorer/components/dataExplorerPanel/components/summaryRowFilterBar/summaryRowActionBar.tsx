@@ -3,19 +3,21 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import './summaryRowFilterBar.css';
+import './summaryRowActionBar.css';
 
 import React, { useState } from 'react';
 
 import { SummaryRowSortDropdown } from './summaryRowSortDropdown.js';
 import { SummaryRowFilterInput } from './summaryRowFilterInput.js';
 import { TableSummaryDataGridInstance } from '../../../../../../services/positronDataExplorer/browser/tableSummaryDataGridInstance.js';
+import { PositronActionBar } from '../../../../../../../platform/positronActionBar/browser/positronActionBar.js';
+import { PositronActionBarContextProvider } from '../../../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 
-export interface SummaryRowFilterBarProps {
+export interface SummaryRowActionBarProps {
 	instance: TableSummaryDataGridInstance
 }
 
-export const SummaryRowFilterBar = ({ instance }: SummaryRowFilterBarProps) => {
+export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 	const [summarySearchText, setSummarySearchText] = useState('');
 
 	/**
@@ -32,7 +34,7 @@ export const SummaryRowFilterBar = ({ instance }: SummaryRowFilterBarProps) => {
 		}
 	};
 
-	return (
+	const a = (
 		<div className='summary-row-filter-bar'>
 			<SummaryRowSortDropdown />
 			<SummaryRowFilterInput
@@ -40,5 +42,14 @@ export const SummaryRowFilterBar = ({ instance }: SummaryRowFilterBarProps) => {
 				onSearchTextChanged={handleSummarySearchTextChanged}
 			/>
 		</div>
+	)
+
+	return (
+		<PositronActionBarContextProvider>
+			<PositronActionBar>
+
+			</PositronActionBar>
+		</PositronActionBarContextProvider>
+
 	);
 }
