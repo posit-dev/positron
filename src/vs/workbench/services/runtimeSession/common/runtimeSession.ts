@@ -27,6 +27,9 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { localize } from '../../../../nls.js';
 import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
+import { IConfigurationResolverService } from '../../configurationResolver/common/configurationResolver.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { NotebookSetting } from '../../../contrib/notebook/common/notebookCommon.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -170,7 +173,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IUpdateService private readonly _updateService: IUpdateService,
-		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
+		@IConfigurationResolverService private readonly _configurationResolverService: IConfigurationResolverService,
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService
 	) {
 
 		super();
@@ -385,6 +390,46 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getActiveSessions(): ActiveRuntimeSession[] {
 		return Array.from(this._activeSessionsBySessionId.values());
+	}
+
+	/**
+	 * Resolves the working directory configuration with variable substitution.
+	 *
+	 * @param notebookUri The URI of the notebook, if any, for resource-scoped configuration
+	 * @returns The resolved working directory or undefined if not configured
+	 */
+	private async resolveWorkingDirectory(notebookUri?: URI): Promise<string | undefined> {
+		// Only resolve/provide a working directory for notebooks.
+		if (!notebookUri) {
+			return undefined;
+		}
+
+		// Get the working directory configuration
+		const configValue = this._configurationService.getValue<string>(
+			NotebookSetting.workingDirectory, { resource: notebookUri }
+		);
+
+		// If no configuration value is set, return undefined
+		if (!configValue || configValue.trim() === '') {
+			return undefined;
+		}
+
+		// Get the workspace folder for variable resolution
+		const workspaceFolder = this._workspaceContextService.getWorkspaceFolder(notebookUri);
+
+		try {
+			// Resolve variables in the configuration value
+			const resolvedValue = await this._configurationResolverService.resolveAsync(
+				workspaceFolder || undefined,
+				configValue
+			);
+
+			return resolvedValue;
+		} catch (error) {
+			// Log the error and return the original value as fallback
+			this._logService.warn(`Failed to resolve working directory variables in '${configValue}':`, error);
+			return configValue;
+		}
 	}
 
 	/**
@@ -1535,10 +1580,15 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
+
+		// Resolve the working directory configuration
+		const workingDirectory = await this.resolveWorkingDirectory(notebookUri);
+
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
 			sessionMode,
 			notebookUri,
+			workingDirectory,
 			createdTimestamp: Date.now(),
 			startReason: source
 		};
@@ -1645,7 +1695,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param runtime The runtime to get the manager for.
 	 * @returns The session manager that manages the runtime.
 	 *
-	 * Throws an errror if no session manager is found for the runtime.
+	 * Throws an error if no session manager is found for the runtime.
 	 */
 	private async getManagerForRuntime(runtime: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeSessionManager> {
 		// Look for the session manager that manages the runtime.

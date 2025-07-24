@@ -5,14 +5,17 @@
 
 import { Emitter, Event } from '../../../base/common/event.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
+import { IProcessEnvironment } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { ICommandService, ICommandEvent, CommandsRegistry } from '../../../platform/commands/common/commands.js';
 import { IContextKeyService } from '../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { IOpenerService, IOpener, IValidator, IExternalUriResolver, IExternalOpener, OpenInternalOptions, OpenExternalOptions, ResolveExternalUriOptions, IResolvedExternalUri } from '../../../platform/opener/common/opener.js';
+import { IWorkspaceFolder, IWorkspaceFolderData } from '../../../platform/workspace/common/workspace.js';
 import { NotebookCellTextModel } from '../../contrib/notebook/common/model/notebookCellTextModel.js';
 import { INotebookTextModel } from '../../contrib/notebook/common/notebookCommon.js';
 import { ICellExecutionParticipant, IDidEndNotebookCellsExecutionEvent, IDidStartNotebookCellsExecutionEvent, INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
+import { IConfigurationResolverService } from '../../services/configurationResolver/common/configurationResolver.js';
 import { ILanguageRuntimeMetadata } from '../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance } from '../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../services/runtimeSession/common/runtimeSessionService.js';
@@ -146,6 +149,38 @@ export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager
 
 	setValidateMetadata(handler: (metadata: ILanguageRuntimeMetadata) => Promise<ILanguageRuntimeMetadata>): void {
 		this._validateMetadata = handler;
+	}
+}
+
+export class TestConfigurationResolverService implements IConfigurationResolverService {
+	_serviceBrand: undefined;
+
+	get resolvableVariables(): ReadonlySet<string> {
+		return new Set();
+	}
+
+	resolveAny(_folder: IWorkspaceFolder | undefined, value: any): any {
+		return value;
+	}
+
+	async resolveAsync(_folder: IWorkspaceFolder | undefined, value: any): Promise<any> {
+		return value;
+	}
+
+	resolveWithInteraction(_folder: IWorkspaceFolder | undefined, config: any): Promise<any> {
+		return Promise.resolve(config);
+	}
+
+	resolveWithEnvironment(_environment: IProcessEnvironment, _folder: IWorkspaceFolderData | undefined, value: string): Promise<string> {
+		return Promise.resolve(value);
+	}
+
+	resolveWithInteractionReplace(_folder: IWorkspaceFolder | undefined, config: any): Promise<any> {
+		return Promise.resolve(config);
+	}
+
+	contributeVariable(_variable: string, _resolver: () => Promise<string | undefined>): void {
+		// Mock implementation - does nothing
 	}
 }
 

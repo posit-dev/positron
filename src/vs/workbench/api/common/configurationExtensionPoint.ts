@@ -44,6 +44,7 @@ const IGNORED_JUPYTER_CONFIGURATION_PROPERTIES = new Set([
 	'jupyter.interactiveWindow.textEditor.executeSelection',
 	'jupyter.interactiveWindow.textEditor.magicCommandsAsComments',
 	'jupyter.interactiveWindow.viewColumn',
+	'jupyter.notebookFileRoot',
 ]);
 // --- End Positron ---
 const jsonRegistry = Registry.as<IJSONContributionRegistry>(JSONExtensions.JSONContribution);
