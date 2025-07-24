@@ -72,7 +72,8 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 					value={filterText}
 					onBlur={() => setFocused(false)}
 					onChange={changeHandler}
-					onFocus={() => setFocused(true)} />
+					onFocus={() => setFocused(true)}
+				/>
 				{filterText !== '' && (
 					<button className='clear-button'>
 						<div className={'codicon codicon-positron-search-cancel'} onClick={buttonClearClickHandler} />
