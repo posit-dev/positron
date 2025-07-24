@@ -5,11 +5,12 @@
 
 import {
 	BasePromptElementProps,
-	PromptElement,
-	SystemMessage
+	PromptElement
 } from '@vscode/prompt-tsx';
+import { Attachment, AttachmentData } from './Attachment';
 
 export interface AttachmentsContentProps extends BasePromptElementProps {
+	attachments?: AttachmentData[];
 }
 
 /**
@@ -18,13 +19,19 @@ export interface AttachmentsContentProps extends BasePromptElementProps {
  */
 export class AttachmentsContent extends PromptElement<AttachmentsContentProps> {
 	render() {
+		const { attachments = [] } = this.props;
+
 		return (
-			<SystemMessage priority={this.props.priority || 85}>
+			<>
 				The user has attached file references below.
 
 				If the provided context is not useful or doesn't make sense with
 				the user's question, just ignore the provided context.
-			</SystemMessage>
+
+				{attachments.map((attachment) => (
+					<Attachment attachment={attachment} />
+				))}
+			</>
 		);
 	}
 }

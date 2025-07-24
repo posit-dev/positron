@@ -13,7 +13,7 @@ import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKS
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { EXPORT_QUARTO_COMMAND, quartoHandler } from './commands/quarto';
 import { PositronAssistantToolName } from './types.js';
-import { PromptRenderer, ChatPrompt, AgentPrompt, TerminalPrompt, EditorPrompt, AttachmentsContent, SessionsContent, FollowupsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, DefaultContent, EditorContent, FilepathsContent } from './prompts';
+import { PromptRenderer, ChatPrompt, AgentPrompt, TerminalPrompt, EditorPrompt, AttachmentsContent, SessionsContent, FollowupsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, DefaultContent, EditorContent, FilepathsContent, type AttachmentData, type SessionData, type IHistorySummaryEntry } from './prompts';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
@@ -411,15 +411,26 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// If the user has explicitly attached files as context, add them to the prompt.
 		if (request.references.length > 0) {
-			const attachmentPrompts: string[] = [];
-			const sessionPrompts: string[] = [];
+			const attachmentData: AttachmentData[] = [];
+			const sessionData: SessionData[] = [];
 			for (const reference of request.references) {
 				const value = reference.value as any;
 				if (value.activeSession) {
 					// The user attached a runtime session - usually the active session in the IDE.
-					const sessionSummary = JSON.stringify(value.activeSession, null, 2);
-					sessionPrompts.push(xml.node('session', sessionSummary));
-					log.debug(`[context] adding session context for session ${value.activeSession.identifier}: ${sessionSummary.length} characters`);
+					// Extract the complete session data based on IChatRuntimeSessionContext
+					const activeSession = value.activeSession;
+					sessionData.push({
+						identifier: activeSession.identifier,
+						language: activeSession.language || 'Unknown',
+						languageId: activeSession.languageId || 'unknown',
+						version: activeSession.version || 'Unknown',
+						mode: activeSession.mode || 'unknown',
+						notebookUri: activeSession.notebookUri,
+						executions: activeSession.executions || [],
+						// Keep sessionSummary for backward compatibility
+						sessionSummary: JSON.stringify(activeSession, null, 2)
+					});
+					log.debug(`[context] adding session context for session ${activeSession.identifier}: ${activeSession.language || 'Unknown'} ${activeSession.version || 'Unknown'}`);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
 					// usually the automatically attached visible region of the active file.
@@ -435,22 +446,27 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// response reference.
 					response.reference(value.uri);
 
-					// Add the visible region prompt.
-					const rangeAttachmentNode = xml.node('attachment', visibleText, {
+					// Add the visible region attachment.
+					attachmentData.push({
+						content: visibleText,
 						filePath: path,
 						description: 'Visible region of the active file',
 						language: document.languageId,
 						startLine: value.range.start.line + 1,
 						endLine: value.range.end.line + 1,
+						type: 'range'
 					});
-					const documentAttachmentNode = xml.node('attachment', documentText, {
+
+					// Add the full document attachment.
+					attachmentData.push({
+						content: documentText,
 						filePath: path,
 						description: 'Full contents of the active file',
 						language: document.languageId,
+						type: 'file'
 					});
-					attachmentPrompts.push(rangeAttachmentNode, documentAttachmentNode);
-					log.debug(`[context] adding file range attachment context: ${rangeAttachmentNode.length} characters`);
-					log.debug(`[context] adding file attachment context: ${documentAttachmentNode.length} characters`);
+					log.debug(`[context] adding file range attachment context: ${visibleText.length} characters`);
+					log.debug(`[context] adding file attachment context: ${documentText.length} characters`);
 				} else if (value instanceof vscode.Uri) {
 					const fileStat = await vscode.workspace.fs.stat(value);
 					if (fileStat.type === vscode.FileType.Directory) {
@@ -472,12 +488,13 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						// response.reference(value);
 
 						// Attach the folder's contents.
-						const attachmentNode = xml.node('attachment', entriesText, {
+						attachmentData.push({
+							content: entriesText,
 							filePath: path,
 							description: 'Contents of the directory',
+							type: 'directory'
 						});
-						attachmentPrompts.push(attachmentNode);
-						log.debug(`[context] adding directory attachment context: ${attachmentNode.length} characters`);
+						log.debug(`[context] adding directory attachment context: ${entriesText.length} characters`);
 					} else {
 						// The user attached a file - usually a manually attached file in the workspace.
 						const document = await vscode.workspace.openTextDocument(value);
@@ -488,13 +505,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						response.reference(value);
 
 						// Attach the full document text.
-						const attachmentNode = xml.node('attachment', documentText, {
+						attachmentData.push({
+							content: documentText,
 							filePath: path,
 							description: 'Full contents of the file',
 							language: document.languageId,
+							type: 'file'
 						});
-						attachmentPrompts.push(attachmentNode);
-						log.debug(`[context] adding file attachment context: ${attachmentNode.length} characters`);
+						log.debug(`[context] adding file attachment context: ${documentText.length} characters`);
 					}
 				} else if (value instanceof vscode.ChatReferenceBinaryData) {
 					if (isChatImageMimeType(value.mimeType)) {
@@ -507,10 +525,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						}
 
 						// Attach the image.
-						const imageNode = xml.leaf('img', {
+						attachmentData.push({
+							content: '',
 							src: reference.name,
+							type: 'image'
 						});
-						attachmentPrompts.push(imageNode);
 						log.debug(`[context] adding image attachment context: ${data.length} bytes`);
 
 						userDataParts.push(
@@ -524,31 +543,44 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				}
 			}
 
-			if (attachmentPrompts.length > 0) {
+			if (attachmentData.length > 0) {
 				// Add the attachments to the prompt using TSX component
 				try {
-					const attachmentsText = await PromptRenderer.render(AttachmentsContent, {});
-					const attachmentsContent = `${attachmentsText}\n${attachmentPrompts.join('\n')}`;
-					prompts.push(xml.node('attachments', attachmentsContent));
+					const attachmentsText = await PromptRenderer.render(AttachmentsContent, { attachments: attachmentData });
+					prompts.push(xml.node('attachments', attachmentsText));
 				} catch (error) {
 					console.error('Error rendering attachments content, falling back to legacy:', error);
-					// Fallback to the original markdown reading
+					// Fallback to the original markdown reading with XML nodes
 					const attachmentsText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'attachments.md'), 'utf8');
+					const attachmentPrompts = attachmentData.map(attachment => {
+						if (attachment.type === 'image') {
+							return xml.leaf('img', { src: attachment.src });
+						}
+						const attributes: Record<string, string | number> = {};
+						if (attachment.filePath) attributes.filePath = attachment.filePath;
+						if (attachment.description) attributes.description = attachment.description;
+						if (attachment.language) attributes.language = attachment.language;
+						if (attachment.startLine) attributes.startLine = attachment.startLine;
+						if (attachment.endLine) attributes.endLine = attachment.endLine;
+						return xml.node('attachment', attachment.content, attributes);
+					});
 					const attachmentsContent = `${attachmentsText}\n${attachmentPrompts.join('\n')}`;
 					prompts.push(xml.node('attachments', attachmentsContent));
 				}
 			}
 
-			if (sessionPrompts.length > 0) {
+			if (sessionData.length > 0) {
 				// Add the session prompts to the context using TSX component
 				try {
-					const sessionText = await PromptRenderer.render(SessionsContent, {});
-					const sessionContent = `${sessionText}\n${sessionPrompts.join('\n')}`;
-					prompts.push(xml.node('sessions', sessionContent));
+					const sessionText = await PromptRenderer.render(SessionsContent, { sessions: sessionData });
+					prompts.push(xml.node('sessions', sessionText));
 				} catch (error) {
 					console.error('Error rendering sessions content, falling back to legacy:', error);
-					// Fallback to the original markdown reading
+					// Fallback to the original markdown reading with XML nodes
 					const sessionText = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'sessions.md'), 'utf8');
+					const sessionPrompts = sessionData.map(session =>
+						xml.node('session', session.sessionSummary)
+					);
 					const sessionContent = `${sessionText}\n${sessionPrompts.join('\n')}`;
 					prompts.push(xml.node('sessions', sessionContent));
 				}

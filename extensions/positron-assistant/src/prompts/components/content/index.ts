@@ -15,3 +15,7 @@ export { SessionsContent } from './SessionsContent';
 export { EditorStreamingContent } from './EditorStreamingContent';
 export { SelectionStreamingContent } from './SelectionStreamingContent';
 export { SelectionContent } from './SelectionContent';
+
+// Individual item components
+export { Attachment, type AttachmentData } from './Attachment';
+export { Session, type SessionData, type IHistorySummaryEntry } from './Session';

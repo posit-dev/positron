@@ -5,12 +5,12 @@
 
 import {
 	BasePromptElementProps,
-	PromptElement,
-
-	SystemMessage
+	PromptElement
 } from '@vscode/prompt-tsx';
+import { Session, SessionData } from './Session';
 
 export interface SessionsContentProps extends BasePromptElementProps {
+	sessions?: SessionData[];
 }
 
 /**
@@ -18,12 +18,18 @@ export interface SessionsContentProps extends BasePromptElementProps {
  */
 export class SessionsContent extends PromptElement<SessionsContentProps> {
 	render() {
+		const { sessions = [] } = this.props;
+
 		return (
-			<SystemMessage priority={this.props.priority || 85}>
+			<>
 				The user has attached information about their interactive
 				interpreter session below. This session is running alongside the
 				conversation with you in the Positron IDE.
-			</SystemMessage>
+
+				{sessions.map((session) => (
+					<Session session={session} />
+				))}
+			</>
 		);
 	}
 }
