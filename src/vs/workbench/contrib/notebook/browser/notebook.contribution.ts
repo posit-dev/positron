@@ -1318,7 +1318,7 @@ configurationRegistry.registerConfiguration({
 		},
 		// --- Start Positron ---
 		[NotebookSetting.workingDirectory]: {
-			markdownDescription: nls.localize('notebook.workingDirectory', "Default working directory for notebook kernels. Supports variables like `${workspaceFolder}`. When empty, uses the notebook file's directory. Any change to this setting will apply to future opened notebooks."),
+			markdownDescription: nls.localize('notebook.workingDirectory', "Default working directory for notebook kernels. Supports [variables](https://code.visualstudio.com/docs/reference/variables-reference) like `${workspaceFolder}`. When empty, uses the notebook file's directory. Any change to this setting will apply to future opened notebooks."),
 			type: 'string',
 			default: '',
 			scope: ConfigurationScope.RESOURCE
