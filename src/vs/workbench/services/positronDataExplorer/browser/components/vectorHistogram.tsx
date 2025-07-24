@@ -29,26 +29,28 @@ interface VectorHistogramProps {
  */
 const BinItem = React.memo(({
 	binCount,
-	binCountIndex,
-	binMin,
-	binMax,
-	binWidth,
 	binCountHeight,
-	graphHeight,
-	xAxisHeight,
 	binCountPercent,
-	hoverManager
+	binMax,
+	binMin,
+	binStart,
+	binWidth,
+	graphHeight,
+	hoverManager,
+	isHoverOnly = false,
+	xAxisHeight
 }: {
 	binCount: number;
-	binCountIndex: number;
-	binMin: string;
-	binMax: string;
-	binWidth: number;
 	binCountHeight: number;
-	graphHeight: number;
-	xAxisHeight: number;
 	binCountPercent: string;
+	binMax: string;
+	binMin: string;
+	binStart: number;
+	binWidth: number;
+	graphHeight: number;
 	hoverManager: IHoverManager;
+	isHoverOnly?: boolean;
+	xAxisHeight: number;
 }) => {
 	const containerRef = useRef<HTMLDivElement>(null);
 	const [isHovered, setIsHovered] = useState(false);
@@ -62,19 +64,12 @@ const BinItem = React.memo(({
 	const formattedMin = formatValue(binMin);
 	const formattedMax = formatValue(binMax);
 
-	// Calculate exact bin position and width to avoid 1-pixel gaps between bins
-	const binPosition = Math.round(binCountIndex * binWidth);
-
-	// Make sure bin width is at least 1
-	binWidth = Math.max(1, Math.round((binCountIndex + 1) * binWidth) - binPosition);
-
 	return (
 		<foreignObject
-			key={`bin-count-container-${binCountIndex}`}
 			className='tooltip-container'
 			height={graphHeight}
 			width={binWidth}
-			x={binPosition}
+			x={binStart}
 			y={0}
 		>
 			<div
@@ -100,12 +95,32 @@ const BinItem = React.memo(({
 				}}
 			>
 				<svg height='100%' width='100%'>
+					{isHoverOnly && isHovered && (
+						<rect
+							className='bin-count-hover'
+							height={binCountHeight}
+							width={binWidth}
+							x={0}
+							y={graphHeight - xAxisHeight - binCountHeight}
+						/>
+					)}
+					{!isHoverOnly && (
+						<rect
+							className={isHovered ? 'bin-count-hover' : 'bin-count'}
+							height={binCountHeight}
+							width={binWidth}
+							x={0}
+							y={graphHeight - xAxisHeight - binCountHeight}
+						/>
+					)}
+					{/* Invisible rect for hover detection */}
 					<rect
-						className={isHovered ? 'bin-count-hover' : 'bin-count'}
-						height={binCountHeight}
+						fill='transparent'
+						height={graphHeight}
+						pointerEvents='all'
 						width={binWidth}
 						x={0}
-						y={graphHeight - xAxisHeight - binCountHeight}
+						y={0}
 					/>
 				</svg>
 			</div>
@@ -120,18 +135,6 @@ const BinItem = React.memo(({
  */
 export const VectorHistogram = (props: VectorHistogramProps) => {
 	// State hooks.
-	const [binWidth] = useState(() => {
-		// Get the number of bin counts that will be rendered.
-		const binCounts = props.columnHistogram.bin_counts.length;
-
-		// If the number of bin counts that will be rendered is 0, return 0.
-		if (!binCounts) {
-			return 0;
-		}
-
-		// Calculate and return the bin width.
-		return props.graphWidth / binCounts;
-	});
 	const [maxBinCount] = useState(() => {
 		// Find the max bin count.
 		let maxBinCount = 0;
@@ -151,6 +154,36 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 		return props.columnHistogram.bin_counts.reduce((sum, count) => sum + count, 0);
 	}, [props.columnHistogram.bin_counts]);
 
+	// Build a single path for all bins to avoid gaps
+	const buildHistogramPath = () => {
+		let path = '';
+		const binCounts = props.columnHistogram.bin_counts;
+		const numBins = binCounts.length;
+
+		for (let i = 0; i < numBins; i++) {
+			const binHeight = (binCounts[i] / maxBinCount) * props.graphHeight;
+			const x = (i / numBins) * props.graphWidth;
+			const nextX = ((i + 1) / numBins) * props.graphWidth;
+			const y = props.graphHeight - props.xAxisHeight - binHeight;
+
+			// Move to bottom left of bin
+			if (i === 0) {
+				path += `M ${x} ${props.graphHeight - props.xAxisHeight} `;
+			}
+
+			// Line to top left
+			path += `L ${x} ${y} `;
+			// Line to top right
+			path += `L ${nextX} ${y} `;
+			// Line to bottom right
+			path += `L ${nextX} ${props.graphHeight - props.xAxisHeight} `;
+		}
+
+		// Close the path
+		path += 'Z';
+		return path;
+	};
+
 	// Render.
 	return (
 		<svg
@@ -165,6 +198,11 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 					x={0}
 					y={props.graphHeight - props.xAxisHeight}
 				/>
+				<path
+					className='bin-count'
+					d={buildHistogramPath()}
+					fill='var(--vscode-positronDataExplorer-sparklineFill)'
+				/>
 				{props.columnHistogram.bin_counts.map((binCount, binCountIndex) => {
 					const binCountHeight = (binCount / maxBinCount) * props.graphHeight;
 					const binMin = props.columnHistogram.bin_edges[binCountIndex];
@@ -172,18 +210,23 @@ export const VectorHistogram = (props: VectorHistogramProps) => {
 					// Calculate percentage of the total
 					const binCountPercent = totalBinCount > 0 ? ((binCount / totalBinCount) * 100).toFixed(1) : '0.0';
 
+					// Calculate positions for hover areas
+					const x = (binCountIndex / props.columnHistogram.bin_counts.length) * props.graphWidth;
+					const width = props.graphWidth / props.columnHistogram.bin_counts.length;
+
 					return (
 						<BinItem
 							key={`bin-item-${binCountIndex}`}
 							binCount={binCount}
 							binCountHeight={binCountHeight}
-							binCountIndex={binCountIndex}
 							binCountPercent={binCountPercent}
 							binMax={binMax}
 							binMin={binMin}
-							binWidth={binWidth}
+							binStart={x}
+							binWidth={width}
 							graphHeight={props.graphHeight}
 							hoverManager={props.hoverManager}
+							isHoverOnly={true}
 							xAxisHeight={props.xAxisHeight}
 						/>
 					);
