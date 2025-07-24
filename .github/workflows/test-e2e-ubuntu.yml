@@ -122,6 +122,9 @@ jobs:
         run: |
           wget https://raw.githubusercontent.com/neondatabase/postgres-sample-dbs/main/periodic_table.sql
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Connect to PostgreSQL and load sample data
         env:
           PGHOST: localhost
