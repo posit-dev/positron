@@ -11,7 +11,6 @@ import './activityErrorQuickFix.css';
 import React, { useRef } from 'react';
 
 // Other dependencies.
-import { ActionListItemKind, IActionListDelegate } from '../../../../../platform/actionWidget/browser/actionList.js';
 import { localize } from '../../../../../nls.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
@@ -24,66 +23,36 @@ const explainPrompt = localize('positronConsoleErrorExplainPrompt', "You are goi
  * Quick fix component.
  * @returns The rendered component.
  */
-export const ConsoleQuickFix = ({ parent }: { parent: HTMLElement }) => {
+export const ConsoleQuickFix = () => {
 	const buttonRef = useRef<HTMLDivElement>(undefined!);
-	const { actionWidgetService, quickChatService } = usePositronReactServicesContext();
+	const { quickChatService } = usePositronReactServicesContext();
 	/**
-	 * onClick handler.
+	 * onClick handlers.
 	 */
-	enum ActionEnum {
-		Fix = 'fix',
-		Explain = 'explain'
-	}
-	const pressedHandler = async () => {
-		const delegate: IActionListDelegate<ActionEnum> = {
-			onHide: function (didCancel?: boolean): void {
-			},
-			onSelect: function (action: ActionEnum, preview?: boolean): void {
-				switch (action) {
-					case ActionEnum.Fix:
-						// Handle console quick fix action.
-						quickChatService.open({ query: fixPrompt });
-						break;
-					case ActionEnum.Explain:
-						quickChatService.open({ query: explainPrompt });
-						break;
-				}
+	const pressedFixHandler = async () => {
+		// Handle console quick fix action.
+		quickChatService.open({ query: fixPrompt });
+	};
 
-			}
-		}
-		actionWidgetService.show(
-			'consoleActionWidget',
-			false,
-			[
-				{
-					label: localize('positronConsoleQuickFixHeader', "Quick Fix"),
-					kind: ActionListItemKind.Header
-				},
-				{
-					label: localize('positronConsoleFixWithAssistant', "Fix with Assistant"),
-					kind: ActionListItemKind.Action,
-					item: ActionEnum.Fix,
-					disabled: false,
-				},
-				{
-					label: localize('positronConsoleExplainWithAssistant', "Explain with Assistant"),
-					kind: ActionListItemKind.Action,
-					item: ActionEnum.Explain,
-					disabled: false,
-				}
-			],
-			delegate,
-			buttonRef.current,
-			parent,
-			[]
-		)
+	const pressedExplainHandler = async () => {
+		// Handle console quick explain action.
+		quickChatService.open({ query: explainPrompt });
 	};
 
 	// Render.
 	return (
 		<div className='quick-fix'>
-			<PositronButton className='apply-quick-fix' onPressed={pressedHandler}>
-				<div ref={buttonRef} className='link-text'>{localize('positronConsoleQuickFix', "Quick Fix...")}</div>
+			<PositronButton className='assistant-action' onPressed={pressedFixHandler}>
+				<div ref={buttonRef} className='link-text'>
+					<span className='codicon codicon-sparkle' />
+					{localize('positronConsoleAssistantFix', "Fix")}
+				</div>
+			</PositronButton>
+			<PositronButton className='assistant-action' onPressed={pressedExplainHandler}>
+				<div ref={buttonRef} className='link-text'>
+					<span className='codicon codicon-sparkle' />
+					{localize('positronConsoleAssistantExplain', "Explain")}
+				</div>
 			</PositronButton>
 		</div>
 	);

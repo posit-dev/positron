@@ -92,10 +92,12 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 				{props.activityItemErrorMessage.messageOutputLines.length > 0 &&
 					<ConsoleOutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
 				}
-				{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
-					<Traceback />
-				}
-				<ConsoleQuickFix parent={activityErrorMessageRef.current} />
+				<div className='error-footer'>
+					{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
+						<Traceback />
+					}
+					<ConsoleQuickFix />
+				</div>
 			</div>
 		</div>
 	);
