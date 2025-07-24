@@ -36,6 +36,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	//#region Private Properties
 
 	/**
+	 * The current column name search filter text.
+	 */
+	private _searchText?: string;
+
+	/**
 	 * The onDidSelectColumn event emitter.
 	 */
 	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
@@ -202,6 +207,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		if (rowDescriptor) {
 			await this._tableSummaryCache.update({
 				invalidateCache: !!invalidateCache,
+				searchText: this._searchText,
 				firstColumnIndex: rowDescriptor.rowIndex,
 				screenColumns: this.screenRows
 			});
@@ -381,6 +387,22 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	getColumnProfileLargeFrequencyTable(columnIndex: number) {
 		return this._tableSummaryCache.getColumnProfile(columnIndex)?.large_frequency_table;
+	}
+
+	/**
+	 * Sets the column name search filter.
+	 * @param searchText The search text to filter column names by (case insensitive).
+	 */
+	async setSearchText(searchText: string): Promise<void> {
+		// Normalize the search text
+		const normalizedSearchText = searchText.trim().toLocaleLowerCase();
+
+		// When the normalizesd search text changes, perform search.
+		if (normalizedSearchText !== this._searchText) {
+			// Set the search text and fetch data.
+			this._searchText = normalizedSearchText || undefined;
+			await this.fetchData();
+		}
 	}
 
 	//#endregion Public Methods
