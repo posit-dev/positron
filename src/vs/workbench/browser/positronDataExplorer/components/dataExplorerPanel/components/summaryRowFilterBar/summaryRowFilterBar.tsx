@@ -24,8 +24,12 @@ export const SummaryRowFilterBar = ({ instance }: SummaryRowFilterBarProps) => {
 	 */
 	const handleSummarySearchTextChanged = async (searchText: string) => {
 		setSummarySearchText(searchText);
-		// Update the table schema data grid instance with the search text
-		await instance.search(searchText);
+
+		// Only update the search text if it has changed
+		if (searchText !== summarySearchText) {
+			// Apply the column name search filter
+			await instance.setSearchText(searchText);
+		}
 	};
 
 	return (

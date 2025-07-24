@@ -26,6 +26,7 @@ const LARGE_FREQUENCY_TABLE_LIMIT = 16;
  */
 interface UpdateDescriptor {
 	invalidateCache: boolean;
+	searchText?: string;
 	firstColumnIndex: number;
 	screenColumns: number;
 }
@@ -50,6 +51,11 @@ export class TableSummaryCache extends Disposable {
 	 * Gets or sets the trim cache timeout.
 	 */
 	private _trimCacheTimeout?: Timeout;
+
+	/**
+	 * The search text.
+	 */
+	private _searchText?: string;
 
 	/**
 	 * Gets or sets the columns.
