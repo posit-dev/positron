@@ -388,8 +388,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				if (value.activeSession) {
 					// The user attached a runtime session - usually the active session in the IDE.
 					const sessionSummary = JSON.stringify(value.activeSession, null, 2);
-					sessionPrompts.push(xml.node('session', sessionSummary));
-					log.debug(`[context] adding session context for session ${value.activeSession.identifier}: ${sessionSummary.length} characters`);
+					let sessionContent = sessionSummary;
+					if (value.variables) {
+						// Include the session variables in the session content.
+						const variablesSummary = JSON.stringify(value.variables, null, 2);
+						sessionContent += '\n' + xml.node('variables', variablesSummary);
+					}
+					sessionPrompts.push(xml.node('session', sessionContent));
+					log.debug(`[context] adding session context for session ${value.activeSession.identifier}: ${sessionContent.length} characters`);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -
 					// usually the automatically attached visible region of the active file.

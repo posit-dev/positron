@@ -329,7 +329,7 @@
       {
         "name": "inspectVariables",
         "displayName": "Inspect Variables",
-        "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `accessKeys` is empty, lists all root-level variables in the session.\n\nIf the user references a variable by name, first determine the `access_key` from the user context or a previous inspect variables result.\n\nDo not call when:\n  - the variables do not appear in the user context\n  - there is no session (the session identifier is empty or not defined)",
+        "modelDescription": "List the children of an array of variables in a session. For example, the columns in a dataframe, items in a column or array, or elements of a list. If `accessKeys` is empty, lists all root-level variables in the session.\n\nIf the user references a variable by name, first determine the `access_key` from the user context or a previous inspect variables result.",
         "canBeReferencedInPrompt": false,
         "inputSchema": {
           "type": "object",
@@ -350,7 +350,11 @@
                 }
               }
             }
-          }
+          },
+          "required": [
+            "sessionIdentifier",
+            "accessKeys"
+          ]
         },
         "tags": [
           "positron-assistant",
