@@ -23,7 +23,7 @@ test.describe('Console Performance', {
 		expect(loadTime).toBeLessThan(30);
 	});
 
-	test('R Performance - Console loads under 30 seconds', async ({ app, r, sessions }) => {
+	test('R Performance - Console loads under 30 seconds', { tag: [tags.ARK] }, async ({ app, r, sessions }) => {
 		const start = Date.now();
 		await sessions.expectAllSessionsToBeReady();
 		const end = Date.now();
@@ -31,4 +31,4 @@ test.describe('Console Performance', {
 		console.log(`R Console load time: ${loadTime.toFixed(2)} seconds`);
 		expect(loadTime).toBeLessThan(30);
 	});
-})
+});
