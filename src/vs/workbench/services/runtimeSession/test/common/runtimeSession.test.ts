@@ -28,6 +28,7 @@ suite('Positron - RuntimeSessionService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	const startReason = 'Test requested to start a runtime session';
 	const notebookUri = URI.file('/path/to/notebook');
+	const notebookParent = '/path/to';
 	let instantiationService: TestInstantiationService;
 	let languageRuntimeService: ILanguageRuntimeService;
 	let runtimeSessionService: IRuntimeSessionService;
@@ -1206,20 +1207,20 @@ suite('Positron - RuntimeSessionService', () => {
 			assert.strictEqual(session.metadata.workingDirectory, undefined, 'Working directory should be undefined for console sessions');
 		});
 
-		test('working directory is undefined when configuration is empty string', async () => {
+		test('working directory is default when configuration is empty string', async () => {
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, '');
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, undefined, 'Working directory should be undefined for empty string');
+			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should be default for empty string');
 		});
 
-		test('working directory is undefined when configuration is whitespace only', async () => {
+		test('working directory is default when configuration is whitespace only', async () => {
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, '   ');
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, undefined, 'Working directory should be undefined for whitespace only');
+			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should be default for whitespace only');
 		});
 
 		test('working directory supports variable resolution for notebook sessions', async () => {
@@ -1236,7 +1237,7 @@ suite('Positron - RuntimeSessionService', () => {
 			sinon.assert.calledOnce(mockConfigResolver.resolveAsync);
 		});
 
-		test('working directory falls back to original value when resolution fails for notebook sessions', async () => {
+		test('working directory falls back to default when resolution fails for notebook sessions', async () => {
 			const workingDir = '/workspace/folder';
 			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
 
@@ -1246,8 +1247,17 @@ suite('Positron - RuntimeSessionService', () => {
 
 			const session = await startNotebook(runtime);
 
-			assert.strictEqual(session.metadata.workingDirectory, workingDir, 'Working directory should fall back to original value');
+			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should fall back to default');
 			sinon.assert.calledOnce(mockConfigResolver.resolveAsync);
+		});
+
+		test('working directory falls back to default when it doesnt exist', async () => {
+			const workingDir = '/non/existent/directory';
+			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
+
+			const session = await startNotebook(runtime);
+
+			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should fall back to default for non-existent directory');
 		});
 
 		test('working directory is resource-scoped for notebook sessions', async () => {

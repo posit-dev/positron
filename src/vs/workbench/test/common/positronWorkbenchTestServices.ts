@@ -8,6 +8,8 @@ import { IDisposable } from '../../../base/common/lifecycle.js';
 import { IProcessEnvironment } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { ICommandService, ICommandEvent, CommandsRegistry } from '../../../platform/commands/common/commands.js';
+import { TestFileService } from '../browser/workbenchTestServices.js';
+import { createFileStat } from './workbenchTestServices.js';
 import { IContextKeyService } from '../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { IOpenerService, IOpener, IValidator, IExternalUriResolver, IExternalOpener, OpenInternalOptions, OpenExternalOptions, ResolveExternalUriOptions, IResolvedExternalUri } from '../../../platform/opener/common/opener.js';
@@ -181,6 +183,30 @@ export class TestConfigurationResolverService implements IConfigurationResolverS
 
 	contributeVariable(_variable: string, _resolver: () => Promise<string | undefined>): void {
 		// Mock implementation - does nothing
+	}
+}
+
+/**
+ * Custom file service for runtime session tests that makes all paths appear as directories.
+ * This is needed because the resolveWorkingDirectory method checks if the path is a directory.
+ */
+export class TestDirectoryFileService extends TestFileService {
+	override async stat(resource: URI) {
+		if (resource.fsPath === '/non/existent/directory') {
+			// Simulate a non-existent directory by returning an empty stat
+			return createFileStat(resource, this.readonly, false, false, false);
+		}
+		// Override to make all other paths appear as directories
+		return createFileStat(resource, this.readonly, false, true, false);
+	}
+
+	override async resolve(resource: URI, _options?: any) {
+		if (resource.fsPath === '/non/existent/directory') {
+			// Simulate a non-existent directory by returning an empty stat
+			return createFileStat(resource, this.readonly, false, false, false);
+		}
+		// Override to make all other paths appear as directories
+		return createFileStat(resource, this.readonly, false, true, false);
 	}
 }
 
