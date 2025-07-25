@@ -127,7 +127,6 @@ export class PythonLsp implements vscode.Disposable {
         // If this server is for a notebook, set the notebook path option.
         if (notebookUri) {
             this._clientOptions.initializationOptions.positron = {
-                notebook_path: notebookUri.fsPath,
                 working_directory: workingDirectory,
             };
         }

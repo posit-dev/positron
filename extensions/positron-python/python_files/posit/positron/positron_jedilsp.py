@@ -248,7 +248,6 @@ class HelpTopicRequest:
 class PositronInitializationOptions:
     """Positron-specific language server initialization options."""
 
-    notebook_path: Optional[Path] = attrs.field(default=None)
     working_directory: Optional[str] = attrs.field(default=None)
 
 
@@ -286,16 +285,7 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
             server.show_message_log(msg, msg_type=MessageType.Error)
             initialization_options = PositronInitializationOptions()
 
-        # Set the project path to the notebook's parent if `working_directory` is not provided.
-        # See https://github.com/posit-dev/positron/issues/5948 and https://github.com/posit-dev/positron/issues/7988.
-        working_directory = initialization_options.working_directory
-        notebook_path = initialization_options.notebook_path
-        if working_directory:
-            path = working_directory
-        elif notebook_path:
-            path = notebook_path.parent
-        else:
-            path = self._server.workspace.root_path
+        path = initialization_options.working_directory or self._server.workspace.root_path
 
         # Create the Jedi Project.
         # Note that this overwrites a Project already created in the parent class.
