@@ -16,15 +16,18 @@ import { CellKind } from '../../notebook/common/notebookCommon.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { IconedButton } from './utilityComponents/IconedButton.js';
 
-export function AddCellButtons({ index }: { index: number }) {
+export function AddCellButtons({ index, alwaysVisible }: { index: number; alwaysVisible?: boolean }) {
 	const notebookInstance = useNotebookInstance();
 
-	return <div className='positron-add-cell-buttons'>
+	const className = alwaysVisible
+		? 'positron-add-cell-buttons always-visible'
+		: 'positron-add-cell-buttons';
+
+	return <div className={className}>
 		<AddCodeCellButton bordered index={index} notebookInstance={notebookInstance} />
 		<AddMarkdownCellButton bordered index={index} notebookInstance={notebookInstance} />
 	</div>;
 }
-
 
 export function AddCodeCellButton({ notebookInstance, index, bordered }: { notebookInstance: PositronNotebookInstance; index: number; bordered?: boolean }) {
 

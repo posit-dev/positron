@@ -17,6 +17,7 @@ import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../
 import { parse } from '../../../../base/common/marshalling.js';
 import { assertType } from '../../../../base/common/types.js';
 import { INotebookService } from '../../notebook/common/notebookService.js';
+import { INotebookEditorModelResolverService } from '../../notebook/common/notebookEditorModelResolverService.js';
 
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { IEditorResolverService, RegisteredEditorPriority } from '../../../services/editor/common/editorResolverService.js';
@@ -43,7 +44,8 @@ class PositronNotebookContribution extends Disposable {
 	constructor(
 		@IEditorResolverService editorResolverService: IEditorResolverService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@INotebookService private readonly notebookService: INotebookService
+		@INotebookService private readonly notebookService: INotebookService,
+		@INotebookEditorModelResolverService private readonly notebookModelResolverService: INotebookEditorModelResolverService
 	) {
 		super();
 
@@ -59,8 +61,8 @@ class PositronNotebookContribution extends Disposable {
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					// Only support file:// scheme initially
-					return resource.scheme === Schemas.file;
+					// Support both file:// and untitled: schemes
+					return resource.scheme === Schemas.file || resource.scheme === Schemas.untitled;
 				}
 			},
 			{
@@ -77,23 +79,51 @@ class PositronNotebookContribution extends Disposable {
 					);
 
 					return { editor: editorInput, options };
+				},
+				createUntitledEditorInput: async ({ resource, options }) => {
+					// Determine notebook view type for untitled notebook
+					const viewType = await this.detectNotebookViewType(resource);
+
+					// Acquire a model reference so we can get the resolved resource for the untitled
+					// notebook. We *must* dispose this reference immediately after use to avoid
+					// leaking it which would otherwise keep the notebook document alive even after
+					// the editor has been closed.
+					const ref = await this.notebookModelResolverService.resolve({ untitledResource: resource }, viewType);
+					const resolvedResource = ref.object.resource;
+					ref.dispose();
+
+					// Create editor input using the resolved resource
+					const editorInput = PositronNotebookEditorInput.getOrCreate(
+						this.instantiationService,
+						resolvedResource,
+						undefined,
+						viewType,
+						{ startDirty: false }
+					);
+
+					return { editor: editorInput, options };
 				}
 			}
 		));
 	}
 
-	private async detectNotebookViewType(resource: URI): Promise<string> {
+	private async detectNotebookViewType(resource: URI | undefined): Promise<string> {
 		// Check if there's already an open notebook model for this URI
-		const existingModel = this.notebookService.getNotebookTextModel(resource);
-		if (existingModel) {
-			return existingModel.viewType;
+		if (resource) {
+			const existingModel = this.notebookService.getNotebookTextModel(resource);
+			if (existingModel) {
+				return existingModel.viewType;
+			}
+
+			// Use NotebookService to detect the correct viewType
+			const notebookProviders = this.notebookService.getContributedNotebookTypes(resource);
+			if (notebookProviders.length > 0) {
+				return notebookProviders[0].id;
+			}
 		}
 
-		// Use NotebookService to detect the correct viewType
-		const notebookProviders = this.notebookService.getContributedNotebookTypes(resource);
-
-		// Default to jupyter-notebook if detection fails
-		return notebookProviders[0]?.id || 'jupyter-notebook';
+		// Default to jupyter-notebook for untitled notebooks or if detection fails
+		return 'jupyter-notebook';
 	}
 }
 

@@ -497,7 +497,7 @@ interface TestFixtures {
 	cleanup: TestTeardown;
 }
 
-interface WorkerFixtures {
+export interface WorkerFixtures {
 	suiteId: string;
 	snapshots: boolean;
 	artifactDir: string;

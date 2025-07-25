@@ -85,9 +85,76 @@ export function activate(context: vscode.ExtensionContext, serializer: vscode.No
 	});
 
 	// --- Start Positron ---
+
+	/**
+	 * Helper function to check if a notebook with the given URI already exists
+	 */
+	function notebookExistsWithUri(uri: vscode.Uri): boolean {
+		return vscode.workspace.notebookDocuments.some(doc =>
+			doc.uri.toString() === uri.toString()
+		);
+	}
+
+	/**
+	 * Check if Positron notebooks are configured as the default editor for .ipynb files
+	 */
+	function isPositronNotebookConfigured(): boolean {
+		const config = vscode.workspace.getConfiguration();
+		const editorAssociations = config.get<Record<string, string>>('workbench.editorAssociations') || {};
+		return editorAssociations['*.ipynb'] === 'workbench.editor.positronNotebook';
+	}
+
+
+	/**
+	 * Generate the next available untitled notebook URI using VS Code's standard naming convention
+	 */
+	function getNextUntitledNotebookUri(): vscode.Uri {
+		let counter = 1;
+		let uri: vscode.Uri;
+
+		do {
+			uri = vscode.Uri.from({
+				scheme: 'untitled',
+				path: `Untitled-${counter}.ipynb`
+			});
+			counter++;
+		} while (notebookExistsWithUri(uri));
+
+		return uri;
+	}
+
 	context.subscriptions.push(vscode.commands.registerCommand('ipynb.newUntitledIpynb', async (languageId?: string) => {
 		// Try to use Positron's foreground session's language, fall back to 'plaintext'.
 		const language = languageId ?? (await positron.runtime.getForegroundSession())?.runtimeMetadata?.languageId ?? 'plaintext';
+
+		// Create an untitled URI for the notebook using standard naming convention
+		const untitledUri = getNextUntitledNotebookUri();
+
+		// Only use vscode.open command when Positron notebooks are configured
+		// This ensures proper editor resolution respects workbench.editorAssociations
+		if (isPositronNotebookConfigured()) {
+			try {
+				await vscode.commands.executeCommand('vscode.open', untitledUri, {
+					preview: false,
+					override: 'jupyter-notebook' // Specify the notebook view type
+				});
+				// Note that this will cause notebooks opened to have no cells unlike the original
+				// approach prefilled with a code cell.
+				return;
+			} catch (error) {
+				// Use proper logging and show user notification for critical failures
+				const errorMessage = error instanceof Error ? error.message : String(error);
+				console.error('Failed to open notebook with editor associations:', errorMessage);
+
+				// Show user notification about the fallback
+				vscode.window.showWarningMessage(
+					'Unable to open notebook with preferred editor. Using default editor instead.',
+					'OK'
+				);
+				// Fall through to default approach
+			}
+		}
+		// Default approach: create notebook with a code cell
 		const cell = new vscode.NotebookCellData(vscode.NotebookCellKind.Code, '', language);
 		const data = new vscode.NotebookData([cell]);
 		data.metadata = {

@@ -14,11 +14,13 @@ import test, { expect, Locator } from '@playwright/test';
  */
 export class VsCodeNotebooks extends Notebooks {
 	startChatButton: Locator;
+	notebookOverlay: Locator;
 
 	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess) {
 		super(code, quickinput, quickaccess);
 
 		this.startChatButton = this.code.driver.page.getByLabel(/Start Chat to Generate Code/).first();
+		this.notebookOverlay = this.code.driver.page.locator('.notebookOverlay');
 	}
 
 	/**
@@ -26,7 +28,7 @@ export class VsCodeNotebooks extends Notebooks {
 	 */
 	async expectToBeVisible(timeout = 5000): Promise<void> {
 		await test.step('Verify VS Code notebook is visible', async () => {
-			await expect(this.startChatButton).toBeVisible({ timeout });
+			await expect(this.notebookOverlay).toBeVisible({ timeout });
 		});
 	}
 }
