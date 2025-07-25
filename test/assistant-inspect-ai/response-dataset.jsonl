@@ -1,3 +1,2 @@
-{"id":"sample_1","question":"What e the capital of France?","model_response":"The capital of France is Paris.","target":"The answer should correctly identify Paris as the capital of France"}
-{"id":"sample_2","question":"Explain how photosynthesis works","model_response":"I have no idea.","target":"The answer should explain that photosynthesis converts light energy, CO2, and water into glucose and oxygen, mentioning chloroplasts and chlorophyll"}
-{"id":"sample_3","question":"What version is this?","model_response":"You're running Positron version 2025.08.0-95.","target":"The answer should return at least the version of Positron being used."}
+{"id":"sample_1","question":"What e the capital of France?","model_response":"","target":"The answer should correctly identify Paris as the capital of France"}
+{"id":"sample_2","question":"What version is this?","model_response":"","target":"The answer should return at least the version of Positron being used."}
