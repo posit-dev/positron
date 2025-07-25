@@ -57,9 +57,8 @@ const positronInterruptExecution = localize('positronInterruptExecution', "Inter
 const positronToggleTrace = localize('positronToggleTrace', "Toggle Trace");
 const positronToggleWordWrap = localize('positronToggleWordWrap', "Toggle Word Wrap");
 const positronClearConsole = localize('positronClearConsole', "Clear Console");
-const positronRestartConsole = localize('positronRestartConsole', "Restart Console");
-const positronDeleteConsole = localize('positronDeleteConsole', "Delete Console");
 const positronOpenInEditor = localize('positronOpenInEditor', "Open in Editor");
+const positronDeleteSession = localize('positronDeleteSession', "Delete Session");
 
 /**
  * Provides a localized label for the given runtime state. Only the transient
@@ -126,6 +125,9 @@ export const ActionBar = (props: ActionBarProps) => {
 
 	const [stateLabel, setStateLabel] = useState('');
 	const [directoryLabel, setDirectoryLabel] = useState('');
+
+	// Localized strings with placeholders
+	const positronRestartSession = localize('positronRestartSession', "Restart {0}", activePositronConsoleInstance?.runtimeMetadata.languageName ?? localize('positronSession', "Session"));
 
 	// Main useEffect hook.
 	useEffect(() => {
@@ -407,17 +409,18 @@ export const ActionBar = (props: ActionBarProps) => {
 		component: (
 			<ActionBarButton
 				align='right'
-				ariaLabel={positronRestartConsole}
+				ariaLabel={positronRestartSession}
+				dataTestId='restart-session'
 				disabled={!canShutdown || restarting}
 				icon={ThemeIcon.fromId('positron-restart-runtime-thin')}
-				tooltip={positronRestartConsole}
+				tooltip={(positronRestartSession)}
 				onPressed={restartConsoleHandler}
 			/>
 		),
 		overflowContextMenuItem: {
 			commandId: 'positron.restartRuntime',
 			icon: 'positron-restart-runtime-thin',
-			label: positronRestartConsole,
+			label: positronRestartSession,
 			onSelected: restartConsoleHandler
 		}
 	});
@@ -430,18 +433,18 @@ export const ActionBar = (props: ActionBarProps) => {
 			component: (
 				<ActionBarButton
 					align='right'
-					ariaLabel={positronDeleteConsole}
+					ariaLabel={positronDeleteSession}
 					dataTestId='trash-session'
 					disabled={!(canShutdown || canStart)}
 					icon={ThemeIcon.fromId('trash')}
-					tooltip={positronDeleteConsole}
+					tooltip={positronDeleteSession}
 					onPressed={deleteSessionHandler}
 				/>
 			),
 			overflowContextMenuItem: {
 				commandId: 'positron.trashSession',
 				icon: 'trash',
-				label: positronDeleteConsole,
+				label: positronDeleteSession,
 				onSelected: deleteSessionHandler
 			}
 		});
