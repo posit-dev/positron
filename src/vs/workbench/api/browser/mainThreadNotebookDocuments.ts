@@ -16,6 +16,16 @@ import { ExtHostContext, ExtHostNotebookDocumentsShape, MainThreadNotebookDocume
 import { NotebookDto } from './mainThreadNotebookDto.js';
 import { SerializableObjectWithBuffers } from '../../services/extensions/common/proxyIdentifier.js';
 import { IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
+// --- Start Positron ---
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../platform/notification/common/notification.js';
+import { ILogService } from '../../../platform/log/common/log.js';
+import { IEditorService } from '../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../services/editor/common/editorGroupsService.js';
+import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
+import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
+import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
+// --- End Positron ---
 
 export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsShape {
 
@@ -28,7 +38,17 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 	constructor(
 		extHostContext: IExtHostContext,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelResolverService: INotebookEditorModelResolverService,
-		@IUriIdentityService private readonly _uriIdentityService: IUriIdentityService
+		// --- Start Positron ---
+		@IUriIdentityService private readonly _uriIdentityService: IUriIdentityService,
+		@INotebookService private readonly _notebookService: INotebookService,
+		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@ILogService private readonly _logService: ILogService,
+		// --- End Positron ---
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostNotebookDocuments);
 		this._modelReferenceCollection = new BoundModelReferenceCollection(this._uriIdentityService.extUri);
