@@ -18,6 +18,7 @@ import { generateCommitMessage } from './git.js';
 import { TokenTracker } from './tokens.js';
 import { exportChatToUserSpecifiedLocation, exportChatToFileInWorkspace } from './export.js';
 import { AnthropicLanguageModel } from './anthropic.js';
+import { PositronAssistantApi } from './api.js';
 
 const hasChatModelsContextKey = 'positron-assistant.hasChatModels';
 
@@ -309,7 +310,7 @@ export function getRequestTokenUsage(requestId: string): { inputTokens: number; 
 	return requestTokenUsage.get(requestId);
 }
 
-export function activate(context: vscode.ExtensionContext) {
+export function activate(context: vscode.ExtensionContext): PositronAssistantApi {
 	// Create the log output channel.
 	context.subscriptions.push(log);
 
@@ -350,4 +351,6 @@ export function activate(context: vscode.ExtensionContext) {
 				}
 			}));
 	}
+
+	return new PositronAssistantApi();
 }
