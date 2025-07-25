@@ -27,7 +27,7 @@ Positron Notebooks represents a parallel notebook implementation within Positron
 3. To switch back: Remove the editor association or use "Open With..." menu
 
 **Key files to understand:**
-- `positronNotebook.contribution.ts`: Entry point, configuration, editor registration
+- `positronNotebook.contribution.ts`: Entry point, editor registration, keybindings
 - `PositronNotebookEditorInput.ts`: Integrates with VS Code's editor system
 - `PositronNotebookInstance.ts`: Core state management and business logic
 - `PositronNotebookEditor.tsx`: React-based UI implementation
@@ -49,9 +49,9 @@ Positron Notebooks represents a parallel notebook implementation within Positron
 - **State Updates**: Use observable pattern for UI synchronization
 
 #### Adding New Configuration Options
-1. Define in `positronNotebook.contribution.ts`
-2. Update editor registration if needed
-3. Consider using VS Code's standard configuration patterns
+1. Use VS Code's standard `workbench.editorAssociations` setting
+2. No custom configuration options are needed for editor selection
+3. Consider using VS Code's standard configuration patterns for any feature-specific settings
 
 ### Development Workflows
 
@@ -87,12 +87,14 @@ Positron Notebooks represents a parallel notebook implementation within Positron
 
 ### 1. Configuration Layer
 
-**Configuration Access**: Editor associations are controlled via VS Code's standard `workbench.editorAssociations` setting
+**Configuration System**: Positron notebooks use VS Code's standard editor association system.
+
+**Editor Selection**:
+- Uses VS Code's standard `workbench.editorAssociations` setting
 - Set `"*.ipynb": "workbench.editor.positronNotebook"` to use Positron notebooks as default
 - Remove or don't set the association to use VS Code's standard notebook editor
-- Located in user/workspace settings
+- Located in user or workspace settings.json file
 
-**Location**: User or workspace settings.json file
 
 ### 2. Editor Registration and Resolution
 
@@ -106,7 +108,7 @@ editorResolverService.registerEditor(
     {
         id: PositronNotebookEditorInput.EditorID,
         label: localize('positronNotebook', "Positron Notebook"),
-        priority: this.getEditorPriority() // Default or Option based on config
+        priority: RegisteredEditorPriority.option // Always available in "Open With..." menu
     },
     {
         singlePerResource: true,
@@ -123,10 +125,11 @@ editorResolverService.registerEditor(
 ```
 
 **Priority Management**:
-- When `defaultEditor` is 'positron': `RegisteredEditorPriority.default` (opens by default)
-- When `defaultEditor` is 'vscode': `RegisteredEditorPriority.option` (available in "Open With...")
+- Fixed priority: `RegisteredEditorPriority.option` (always available in "Open With..." menu)
+- No dynamic priority switching based on configuration
+- Users control default editor through `workbench.editorAssociations` setting
 
-**What this means**: Users explicitly opt-in to Positron notebooks. The default experience remains VS Code's standard notebook editor, ensuring no disruption for existing users.
+**What this means**: Users explicitly opt-in to Positron notebooks through VS Code's standard editor association mechanism. The default experience remains VS Code's standard notebook editor, ensuring no disruption for existing users.
 
 ### 3. Core Architecture Components
 
@@ -377,9 +380,10 @@ export function createNotebookCell(
 #### Notebook Opening Flow
 1. **File Association**: `.ipynb` file opened in VS Code
 2. **Editor Resolution**: `IEditorResolverService` evaluates registered editors and their priorities
-3. **Priority Selection**:
-   - If Positron is default: Opens with Positron editor automatically
-   - If VS Code is default: Opens with standard notebook editor (Positron available via "Open With...")
+3. **Editor Selection**:
+   - VS Code checks `workbench.editorAssociations` for `*.ipynb` files
+   - If associated with `workbench.editor.positronNotebook`: Opens with Positron editor
+   - Otherwise: Opens with standard notebook editor (Positron available via "Open With...")
 4. **Editor Input Creation**: `createEditorInput` callback creates `PositronNotebookEditorInput`
 5. **Model Resolution**: Input resolves notebook model via `INotebookEditorModelResolverService`
 6. **Instance Creation**: `PositronNotebookInstance` created and linked to input
@@ -388,11 +392,10 @@ export function createNotebookCell(
 9. **View Attachment**: Instance attached to editor's parent div
 
 #### Configuration Change Flow
-1. **User changes** `positron.notebooks.defaultEditor` setting
-2. **Configuration listener** in `PositronNotebookContribution` detects change
-3. **Editor priority** updated via `updateEditorPriority()` method
-4. **Workbench associations** updated to ensure correct default behavior
-5. **Future file opens** will use the new default editor
+1. **User modifies** `workbench.editorAssociations` setting
+2. **VS Code's editor resolver** automatically respects the new association
+3. **Future file opens** will use the associated editor
+4. **"Open With..." menu** remains available for one-time editor switching
 
 **Note**: Currently open notebooks won't switch editors automatically - the change applies to newly opened files.
 
@@ -426,10 +429,10 @@ export function createNotebookCell(
 - **Benefits**: Reactive updates, clean separation of concerns, real-time UI synchronization
 - **Integration**: Bridges with VS Code's event system via `Emitter` classes
 
-#### Configuration-Based Toggling
-- **Approach**: Runtime configuration switch (`positron.notebooks.usePositronNotebooksExperimental`)
-- **Benefits**: Easy A/B testing, gradual rollout capability, safe fallback to standard notebooks
-- **Implementation**: Evaluated at editor creation time in `SimpleNotebookWorkingCopyEditorHandler`
+#### Editor Selection Mechanism
+- **Approach**: Standard VS Code editor associations via `workbench.editorAssociations`
+- **Benefits**: Consistent with VS Code's editor model, no custom configuration needed, seamless integration
+- **Implementation**: VS Code's `IEditorResolverService` handles editor selection based on file associations
 
 #### Instance Management
 - **Pattern**: Singleton instances per notebook URI
@@ -442,9 +445,9 @@ export function createNotebookCell(
 src/vs/workbench/
 ├── contrib/
 │   ├── notebook/browser/
-│   │   └── notebook.contribution.ts              # Standard notebook contributions (no longer contains hijacking)
+│   │   └── notebook.contribution.ts              # Standard notebook contributions
 │   └── positronNotebook/browser/
-│       ├── positronNotebook.contribution.ts      # Editor registration, configuration, keybindings
+│       ├── positronNotebook.contribution.ts      # Editor registration and keybindings
 │       ├── PositronNotebookEditor.tsx           # Main editor pane
 │       ├── PositronNotebookEditorInput.ts       # VS Code editor input
 │       ├── PositronNotebookInstance.ts          # Core state manager
@@ -683,12 +686,6 @@ requestAnimationFrame(() => {
 - **Concurrent Execution**: Multiple running cells can overwhelm runtime service
 
 ## Current Status and Considerations
-
-### Configuration Migration
-- **Legacy Setting**: `positron.notebooks.usePositronNotebooksExperimental` (boolean)
-- **Migration**: Handled by `PositronNotebookConfigMigration` class
-- **Behavior**: Log-only approach - notifies users to use new setting
-- **Location**: `positronNotebook.contribution.ts`
 
 ### Integration Points
 - **Model Compatibility**: Uses standard VS Code notebook models (`IResolvedNotebookEditorModel`)
