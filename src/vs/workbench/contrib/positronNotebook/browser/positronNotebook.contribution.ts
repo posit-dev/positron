@@ -87,7 +87,7 @@ class PositronNotebookContribution extends Disposable {
 					// Acquire a model reference so we can get the resolved resource for the untitled
 					// notebook. We *must* dispose this reference immediately after use to avoid
 					// leaking it which would otherwise keep the notebook document alive even after
-					// the editor has been closed (see https://github.com/positron/issues/XXXXX).
+					// the editor has been closed.
 					const ref = await this.notebookModelResolverService.resolve({ untitledResource: resource }, viewType);
 					const resolvedResource = ref.object.resource;
 					ref.dispose();
