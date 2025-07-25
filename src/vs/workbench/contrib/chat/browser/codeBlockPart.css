@@ -26,6 +26,13 @@
 	text-overflow: ellipsis;
 	overflow: hidden;
 }
+/* --- Start Positron --- */
+/* Ensures that the toolbar is positioned correctly at the bottom */
+.interactive-result-code-block .interactive-result-code-block-toolbar.bottom > .monaco-toolbar {
+	bottom: 15px;
+	top: unset;
+}
+/* --- End Positron --- */
 
 .interactive-result-code-block .interactive-result-code-block-toolbar > .monaco-action-bar {
 	left: 0px
