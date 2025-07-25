@@ -794,7 +794,14 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			);
 
 			let welcomeContent: IChatViewWelcomeContent;
+			// --- Start Positron ---
+			/*
 			if ((startupExpValue === StartupExperimentGroup.MaximizedChat
+			*/
+			// Don't use the experimental view for Positron Assistant
+			const useExpView = false;
+			if (useExpView && (startupExpValue === StartupExperimentGroup.MaximizedChat
+				// --- End Positron ---
 				|| startupExpValue === StartupExperimentGroup.SplitEmptyEditorChat
 				|| startupExpValue === StartupExperimentGroup.SplitWelcomeChat
 				|| expIsActive) && this.contextKeyService.contextMatchesRules(chatSetupTriggerContext)) {
