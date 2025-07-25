@@ -53,7 +53,9 @@ export class TableSummaryCache extends Disposable {
 	private _trimCacheTimeout?: Timeout;
 
 	/**
-	 * The search text.
+	 * The search text used to filter the dataset in the column schema
+	 * and column profile caches. The last search text value is maintained
+	 * to avoid unnecessary cache updates when the search text has not changed.
 	 */
 	private _searchText?: string;
 
@@ -68,17 +70,30 @@ export class TableSummaryCache extends Disposable {
 	private _rows = 0;
 
 	/**
-	 * Gets the expanded columns set.
+	 * The expanded columns set is used to track which columns are expanded
+	 * in the summary data grid. This allows the data grid to only fetch
+	 * the summary data for columns as they are expanded to avoid
+	 * unnecessary data fetching and improve rendering performance.
 	 */
 	private readonly _expandedColumns = new Set<number>();
 
 	/**
-	 * Gets the column schema cache.
+	 * A map of the column schema that is keyed by the order
+	 * the column appears in the data grid.
+	 *
+	 * A key of 0 refers to the first column in the data grid.
+	 * A key of 1 refers to the second column in the data grid,
+	 * and so on.
 	 */
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
 
 	/**
-	 * Gets the column profile.
+	 * A map of the column summary data that is keyed by the order
+	 * the column appears in the data grid.
+	 *
+	 * A key of 0 refers to the first column in the data grid.
+	 * A key of 1 refers to the second column in the data grid,
+	 * and so on.
 	 */
 	private readonly _columnProfileCache = new Map<number, ColumnProfileResult>();
 
