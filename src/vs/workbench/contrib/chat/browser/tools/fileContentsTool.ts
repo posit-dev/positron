@@ -37,7 +37,7 @@ export const FileContentsToolData: IToolData = {
 		properties: {
 			filePath: {
 				type: 'string',
-				description: 'The file path to get the contents of. The file path must be a path to a file in the workspace or a file that is currently open in the editor. The file path can be either absolute or relative to the workspace root.',
+				description: 'The absolute file path to get the contents of. The file path must be a path to a file in the workspace or a file that is currently open in the editor.',
 			},
 		},
 		required: ['filePath']
