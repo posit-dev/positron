@@ -400,7 +400,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		if (normalizedSearchText !== this._searchText) {
 			// Set the search text and fetch data.
 			this._searchText = normalizedSearchText || undefined;
-			await this.fetchData();
+			// Invalidate the cache when the search text is cleared
+			await this.fetchData(!this._searchText);
 		}
 	}
 
