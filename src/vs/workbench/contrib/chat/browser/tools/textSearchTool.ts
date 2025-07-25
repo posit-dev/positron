@@ -14,6 +14,8 @@ import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, ITo
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 
+const DEFAULT_MAX_RESULTS = 50;
+
 const findTextInProjectModelDescription = `
 This tool searches for the specified text inside files in the project and returns a set of files and their corresponding lines where the text is found,
 as well as messages about the search results.
@@ -66,6 +68,11 @@ export const TextSearchToolData: IToolData = {
 				type: 'boolean',
 				description: 'Whether the search pattern should be case-sensitive.',
 			},
+			maxResults: {
+				type: 'number',
+				description: `The maximum number of search results to return. Cannot exceed the default maximum of ${DEFAULT_MAX_RESULTS} to prevent excessive token usage.`,
+				default: DEFAULT_MAX_RESULTS
+			}
 			// Not included here: notebookInfo. See the IPatternInfo interface in src/vs/workbench/services/search/common/search.ts
 		},
 		required: ['pattern'],
@@ -94,17 +101,22 @@ export class TextSearchTool implements IToolImpl {
 		}
 
 		// Set up the text search query
-		const patternInfo = invocation.parameters as TextSearchToolParams;
+		const searchParams = invocation.parameters as TextSearchToolParams;
 		const workspaceUris = workspaceFolders.map(folder => folder.uri);
+		// Don't allow more than the default max results, even if a higher value is provided,
+		// to prevent excessive token usage and performance issues.
+		const maxResults = searchParams.maxResults && searchParams.maxResults < DEFAULT_MAX_RESULTS
+			? searchParams.maxResults
+			: DEFAULT_MAX_RESULTS;
 		const queryOptions: ITextQueryBuilderOptions = {
 			_reason: InternalTextSearchToolId,
-			maxResults: this.searchConfig.maxResults ?? undefined,
+			maxResults,
 			isSmartCase: this.searchConfig.smartCase ?? undefined,
 			disregardIgnoreFiles: this.searchConfig.useIgnoreFiles ? false : undefined,
 			disregardExcludeSettings: false,
 			onlyOpenEditors: false,
 		};
-		const query = this._queryBuilder.text(patternInfo, workspaceUris, queryOptions);
+		const query = this._queryBuilder.text(searchParams, workspaceUris, queryOptions);
 
 		// Search for the text
 		const { results, messages } = await this._searchService.textSearch(query, _token);
@@ -160,4 +172,6 @@ export class TextSearchTool implements IToolImpl {
 	}
 }
 
-export interface TextSearchToolParams extends IPatternInfo { }
+export interface TextSearchToolParams extends IPatternInfo {
+	maxResults: number;
+}
