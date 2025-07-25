@@ -25,6 +25,8 @@ import { IEditorGroupsService } from '../../services/editor/common/editorGroupsS
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
 import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
+import { PositronNotebookEditorInput } from '../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
+import { usingPositronNotebooks } from '../../services/positronNotebook/common/positronNotebookUtils.js';
 // --- End Positron ---
 
 export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsShape {
