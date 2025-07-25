@@ -18,13 +18,16 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { IPositronDataExplorerEditor } from './positronDataExplorerEditor.js';
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
-import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { Codicon } from '../../../../base/common/codicons.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { EditorOpenSource } from '../../../../platform/editor/common/editor.js';
 import { IPathService } from '../../../services/path/common/pathService.js';
 import { toLocalResource } from '../../../../base/common/resources.js';
 import { IWorkbenchEnvironmentService } from '../../../services/environment/common/environmentService.js';
+import { showConvertToCodeModalDialog } from '../../../browser/positronModalDialogs/convertToCodeModalDialog.js';
+import { IPositronDataExplorerInstance } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
+import { CodeSyntaxName } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Positron data explorer action category.
@@ -53,7 +56,9 @@ export const enum PositronDataExplorerCommandId {
 	SummaryOnLeftAction = 'workbench.action.positronDataExplorer.summaryOnLeft',
 	SummaryOnRightAction = 'workbench.action.positronDataExplorer.summaryOnRight',
 	ClearColumnSortingAction = 'workbench.action.positronDataExplorer.clearColumnSorting',
-	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext'
+	OpenAsPlaintext = 'workbench.action.positronDataExplorer.openAsPlaintext',
+	ConvertToCodeAction = 'workbench.action.positronDataExplorer.convertToCode',
+	ConvertToCodeModalAction = 'workbench.action.positronDataExplorer.convertToCodeModal',
 }
 
 /**
@@ -72,6 +77,58 @@ export const getPositronDataExplorerEditorFromEditorPane = (
 
 	// The editor pane is not a Positron data explorer editor.
 	return undefined;
+};
+
+const getPositronDataExplorerInstance = async (
+	accessor: ServicesAccessor
+): Promise<IPositronDataExplorerInstance | undefined> => {
+	// Access the services we need.
+	const editorService = accessor.get(IEditorService);
+	const positronDataExplorerService = accessor.get(IPositronDataExplorerService);
+	const notificationService = accessor.get(INotificationService);
+
+	/**
+	 * Notifies the user that no data explorer instance was found.
+	 */
+	const notifyUserThatDataExplorerNotFound = () => {
+		// Notify the user.
+		notificationService.notify({
+			severity: Severity.Error,
+			message: localize(
+				'positron.dataExplorer.noActiveDataExplorer',
+				"No Positron Data Explorer found."
+			),
+			sticky: false
+		});
+	};
+	// Get the Positron data explorer editor.
+	const positronDataExplorerEditor = getPositronDataExplorerEditorFromEditorPane(
+		editorService.activeEditorPane
+	);
+
+	// Make sure that the Positron data explorer editor was returned.
+	if (!positronDataExplorerEditor) {
+		notifyUserThatDataExplorerNotFound();
+		return;
+	}
+
+	// Get the identifier.
+	const identifier = positronDataExplorerEditor.identifier;
+
+	// Make sure the identifier was returned.
+	if (!identifier) {
+		notifyUserThatDataExplorerNotFound();
+		return;
+	}
+	const positronDataExplorerInstance = positronDataExplorerService.getInstance(identifier);
+
+	if (!positronDataExplorerInstance) {
+		notifyUserThatDataExplorerNotFound();
+		return;
+	}
+
+	// Get the Positron data explorer instance.
+	return positronDataExplorerInstance;
 };
 
 /**
@@ -689,6 +746,105 @@ class PositronDataExplorerClearColumnSortingAction extends Action2 {
 }
 
 /**
+ * PositronDataExplorerConvertToCodeAction action.
+ */
+class PositronDataExplorerConvertToCodeAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ConvertToCodeAction,
+			title: {
+				value: localize('positronDataExplorer.convertToCode', 'Convert to Code'),
+				original: 'Convert to Code'
+			},
+			category,
+			precondition: POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+		});
+	}
+
+	/**
+	 * Runs the action.
+	 * @param accessor The services accessor.
+	 */
+	async run(accessor: ServicesAccessor, desiredSyntax: CodeSyntaxName): Promise<string | undefined> {
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
+		if (!positronDataExplorerInstance) {
+			return undefined;
+		}
+		const code = await positronDataExplorerInstance.convertToCode(desiredSyntax);
+
+		// Export filters as code.
+		return code;
+	}
+}
+
+
+/**
+ * The PositronDataExplorerConvertToCodeModalAction.
+ */
+class PositronDataExplorerConvertToCodeModalAction extends Action2 {
+	/**
+	 * Constructor.
+	 */
+	constructor() {
+		super({
+			id: PositronDataExplorerCommandId.ConvertToCodeModalAction,
+			title: {
+				value: localize('positronDataExplorer.convertToCodeModal', 'Convert to Code'),
+				original: 'Convert to Code'
+			},
+			category,
+			positronActionBarOptions: {
+				controlType: 'button',
+				displayTitle: true,
+			},
+			f1: true,
+			precondition: ContextKeyExpr.and(
+				POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+				POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE
+			),
+			icon: Codicon.code,
+			menu: [
+				{
+					id: MenuId.EditorActionsLeft,
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED
+					),
+				},
+				{
+					id: MenuId.EditorTitle,
+					group: 'navigation',
+					when: ContextKeyExpr.and(
+						POSITRON_DATA_EXPLORER_IS_ACTIVE_EDITOR,
+						POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED
+					),
+				}
+			]
+		});
+	}
+
+	/**
+	 * Runs action.
+	 * @param accessor The services accessor.
+	 */
+	override async run(accessor: ServicesAccessor): Promise<void> {
+		// Access the services we need.
+		const positronDataExplorerInstance = await getPositronDataExplorerInstance(accessor);
+
+		if (!positronDataExplorerInstance) {
+			return undefined;
+		}
+
+		await showConvertToCodeModalDialog(
+			positronDataExplorerInstance,
+		);
+	}
+}
+
+/**
  * PositronDataExplorerOpenAsPlaintextAction action.
  */
 class PositronDataExplorerOpenAsPlaintextAction extends Action2 {
@@ -787,4 +943,6 @@ export function registerPositronDataExplorerActions() {
 	registerAction2(PositronDataExplorerSummaryOnRightAction);
 	registerAction2(PositronDataExplorerClearColumnSortingAction);
 	registerAction2(PositronDataExplorerOpenAsPlaintextAction);
+	registerAction2(PositronDataExplorerConvertToCodeAction);
+	registerAction2(PositronDataExplorerConvertToCodeModalAction);
 }

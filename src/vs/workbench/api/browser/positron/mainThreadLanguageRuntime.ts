@@ -1589,7 +1589,8 @@ export class MainThreadLanguageRuntime
 		if (!client) {
 			throw new Error(`No variables provider available for session ${instance.session.sessionId}`);
 		}
-		if (accessKeys) {
+		const accessKeysProvided = !!accessKeys && accessKeys.length > 0 && accessKeys.some(key => key.length !== 0);
+		if (accessKeysProvided) {
 			const result = [];
 			for (const accessKey of accessKeys) {
 				result.push((await client.comm.inspect(accessKey)).children);

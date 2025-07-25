@@ -74,7 +74,7 @@
 	"r.walkthrough.migrateFromRStudio.panesAndUI.title": "Get to know the Positron UI",
 	"r.walkthrough.migrateFromRStudio.panesAndUI.description": "Find your way around the panes and layout of Positron\n[Customize your layout](command:workbench.action.customizeLayout)",
 	"r.walkthrough.migrateFromRStudio.keybindings.title": "Keyboard shortcuts",
-	"r.walkthrough.migrateFromRStudio.keybindings.description": "Learn about the keyboard shortcuts available in Positron for R\n[Opt in to RStudio keybindings](command:r.walkthrough.updateRStudioKeybindings)",
+	"r.walkthrough.migrateFromRStudio.keybindings.description": "Learn about the keyboard shortcuts available in Positron for R\n[Enable RStudio keybindings](command:r.walkthrough.updateRStudioKeybindings)",
 	"r.walkthrough.migrateFromRStudio.workspaces.title": "Projects, folders, and workspaces",
 	"r.walkthrough.migrateFromRStudio.workspaces.description": "  \n[Open an existing folder](command:workbench.action.files.openFolder)",
 	"r.walkthrough.migrateFromRStudio.formatting.title": "Formatting your R code",

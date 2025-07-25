@@ -186,6 +186,19 @@ export class Assistant {
 		await expect(this.code.driver.page.locator('.token-usage')).not.toBeVisible();
 	}
 
+	async verifyTotalTokenUsageVisible() {
+		await expect(this.code.driver.page.locator('.token-usage-total')).toBeVisible();
+		await expect(this.code.driver.page.locator('.token-usage-total')).toHaveText(/Total tokens: ↑\d+ ↓\d+/);
+	}
+
+	async verifyNumberOfVisibleResponses(expectedCount: number, checkTokenUsage: boolean = false) {
+		const responses = this.code.driver.page.locator('.interactive-response');
+		await expect(responses).toHaveCount(expectedCount);
+		if (checkTokenUsage) {
+			this.code.driver.page.locator('.token-usage').nth(expectedCount - 1).waitFor({ state: 'visible' });
+		}
+	}
+
 	async getTokenUsage() {
 		const tokenUsageElement = this.code.driver.page.locator('.token-usage');
 		await expect(tokenUsageElement).toBeVisible();
@@ -197,5 +210,23 @@ export class Assistant {
 			inputTokens: inputMatch ? parseInt(inputMatch[1], 10) : 0,
 			outputTokens: outputMatch ? parseInt(outputMatch[1], 10) : 0
 		};
+	}
+
+	async getTotalTokenUsage() {
+		const totalTokenUsageElement = this.code.driver.page.locator('.token-usage-total');
+		await expect(totalTokenUsageElement).toBeVisible();
+		const text = await totalTokenUsageElement.textContent();
+		console.log('Total Token Usage Text:', text);
+		expect(text).not.toBeNull();
+		const totalMatch = text ? text.match(/Total tokens: ↑(\d+) ↓(\d+)/) : null;
+		return {
+			inputTokens: totalMatch ? parseInt(totalMatch[1], 10) : 0,
+			outputTokens: totalMatch ? parseInt(totalMatch[2], 10) : 0
+		};
+	}
+
+	async waitForReadyToSend(timeout: number = 5000) {
+		await this.code.driver.page.waitForSelector('.chat-input-toolbars .codicon-send', { timeout });
+		await this.code.driver.page.waitForSelector('.detail-container .detail:has-text("Working")', { state: 'hidden', timeout });
 	}
 }

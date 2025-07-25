@@ -5,6 +5,7 @@
 
 import test, { expect } from '@playwright/test';
 import { Code } from '../infra/code.js';
+import { Console } from '../infra';
 import { Toasts } from './dialog-toasts.js';
 
 export class Modals {
@@ -15,7 +16,7 @@ export class Modals {
 	public cancelButton = this.modalBox.getByRole('button', { name: 'Cancel' });
 	public button = (label: string | RegExp) => this.modalBox.getByRole('button', { name: label });
 
-	constructor(private readonly code: Code, private toasts: Toasts) { }
+	constructor(private readonly code: Code, private toasts: Toasts, private console: Console) { }
 
 	// --- Actions ---
 
@@ -73,10 +74,10 @@ export class Modals {
 				await this.button('Cancel').click();
 			}
 		} catch (error) {
-			this.code.logger.log('No Renv modal detected');
-			if (process.env.CI) {
-				throw new Error('Renv modal not detected');
-			}
+			this.code.logger.log('No Renv modal detected; interacting with console directly');
+
+			await this.console.typeToConsole('y');
+			await this.console.sendEnterKey();
 		}
 	}
 
