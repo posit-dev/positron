@@ -51,7 +51,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 			await app.workbench.assistant.clickNewChatButton();
 			await app.workbench.assistant.enterChatMessage(item.question);
 			await app.workbench.assistant.waitForSendButtonVisible();
-			const response = await app.workbench.assistant.getChatResponseText();
+			const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
 			console.log(`Response from Assistant for ${item.id}: ${response}`);
 
 			// Update the model_response in the dataset item
