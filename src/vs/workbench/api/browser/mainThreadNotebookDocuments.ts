@@ -179,6 +179,50 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 		const uri = URI.revive(uriComponents);
 		const ref = await this._notebookEditorModelResolverService.resolve(uri, undefined);
 
+		// --- Start Positron ---
+		// Check if this is a Jupyter notebook and if Positron notebooks are configured as default
+		const resourcePath = uri.path.toLowerCase();
+		const isJupyterNotebook = resourcePath.endsWith('.ipynb');
+
+		if (isJupyterNotebook && usingPositronNotebooks(this._configurationService)) {
+			this._logService.trace('[Positron] Opening notebook with Positron editor based on editor association for:', uri.toString());
+
+			try {
+				// Get the preferred editor group
+				const preferredGroup = this._editorGroupsService.activeGroup;
+
+				// Create Positron notebook editor input
+				const editorInput = PositronNotebookEditorInput.getOrCreate(
+					this._instantiationService,
+					uri,
+					undefined,
+					ref.object.viewType
+				);
+
+				// Open the editor
+				await this._editorService.openEditor(editorInput, undefined, preferredGroup);
+
+				// Handle untitled notebook case
+				if (ref.object.isUntitled()) {
+					await this._proxy.$acceptDirtyStateChanged(uri, true);
+				}
+
+				// Add the reference to the collection
+				this._modelReferenceCollection.add(uri, ref);
+
+				return uri;
+			} catch (error) {
+				// Log error and show warning to user
+				this._logService.error('[Positron] Failed to open notebook with Positron editor:', error);
+				this._notificationService.warn(
+					`Failed to open notebook with Positron editor. Falling back to VS Code editor. Error: ${error.message}`
+				);
+				// Fall through to VS Code editor logic
+			}
+		}
+		// --- End Positron ---
+
+		// Original VS Code logic for opening notebooks
 		if (uriComponents.scheme === 'untitled') {
 			// untitled notebooks are disposed when they get saved. we should not hold a reference
 			// to such a disposed notebook and therefore dispose the reference as well
