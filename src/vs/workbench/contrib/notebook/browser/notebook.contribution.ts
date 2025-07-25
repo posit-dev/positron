@@ -15,6 +15,10 @@ import { IModelService } from '../../../../editor/common/services/model.js';
 import { ILanguageSelection, ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ITextModelContentProvider, ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import * as nls from '../../../../nls.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
+// --- End Positron ---
 import { Extensions, IConfigurationPropertySchema, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -1311,6 +1315,14 @@ configurationRegistry.registerConfiguration({
 			type: 'string',
 			default: '',
 			tags: ['notebookLayout']
+		},
+		// --- Start Positron ---
+		[NotebookSetting.workingDirectory]: {
+			markdownDescription: nls.localize('notebook.workingDirectory', "Default working directory for notebook kernels. Supports [variables](https://code.visualstudio.com/docs/reference/variables-reference) like `${workspaceFolder}`. If this setting doesn't resolve to an existing directory, it defaults to the notebook file's directory. Any change to this setting will apply to future opened notebooks."),
+			type: 'string',
+			default: '',
+			scope: ConfigurationScope.RESOURCE
 		}
+		// --- End Positron ---
 	}
 });
