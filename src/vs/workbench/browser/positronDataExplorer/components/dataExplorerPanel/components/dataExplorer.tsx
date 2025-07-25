@@ -23,7 +23,7 @@ import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/da
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
-import { SummaryRowActionBar } from './summaryRowFilterBar/summaryRowActionBar.js';
+import { SummaryRowActionBar } from './summaryRowActionBar/summaryRowActionBar.js';
 import { summaryPanelEnhancementsFeatureEnabled } from '../../../../../services/positronDataExplorer/common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
