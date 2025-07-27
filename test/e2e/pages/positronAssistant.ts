@@ -7,6 +7,7 @@
 import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
 import { QuickAccess } from './quickaccess';
+import { Toasts } from './dialog-toasts';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
@@ -38,7 +39,7 @@ const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbar
  */
 export class Assistant {
 
-	constructor(private code: Code, private quickaccess: QuickAccess) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts) { }
 
 	async verifyChatButtonVisible() {
 		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
@@ -207,6 +208,8 @@ export class Assistant {
 	async getChatResponseText(exportFolder?: string) {
 		// Export the chat to a file first
 		await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
+		await this.toasts.waitForAppear();
+		await this.toasts.closeAll();
 
 		// Find and parse the chat export file
 		const chatExportFile = await this.findChatExportFile(exportFolder);

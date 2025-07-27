@@ -3,12 +3,10 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 """
-Example Inspect AI evaluation using JSON input with model_graded_qa scorer.
+Inspect AI evaluation using JSON input with model_graded_qa scorer.
 
-This example demonstrates how to:
 1. Load a JSON dataset containing questions, model responses, and expected targets
 2. Use the model_graded_qa scorer to evaluate responses
-3. Support both OpenAI and Anthropic API keys from environment variables
 
 The JSON dataset contains:
 - question: The original question that was asked
@@ -16,8 +14,7 @@ The JSON dataset contains:
 - target: The expected answer or evaluation criteria
 
 Usage:
-	inspect eval json_model_graded_eval.py --model openai/gpt-4o
-	inspect eval json_model_graded_eval.py --model anthropic/claude-3-5-sonnet-20241022
+	inspect eval json_model_graded_eval.py
 """
 
 from inspect_ai import Task, task
@@ -94,6 +91,6 @@ def json_model_graded_eval():
 			# Enable partial credit for answers that are partially correct
 			partial_credit=True,
 			# You can specify a different model for grading if desired
-			# model="anthropic/claude-3-5-sonnet-20241022"
+			model="anthropic/claude-3-5-sonnet-20241022"
 		),
 	)

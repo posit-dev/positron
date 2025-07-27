@@ -131,7 +131,7 @@ export class Workbench {
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
-		this.assistant = new Assistant(code, this.quickaccess);
+		this.assistant = new Assistant(code, this.quickaccess, this.toasts);
 		this.positConnect = new PositConnect(code);
 	}
 }

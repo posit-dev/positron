@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { fail } from 'assert';
 import { test, tags } from '../_test.setup';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
@@ -41,6 +42,7 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.verifySignOutButtonVisible();
 		await app.workbench.assistant.clickCloseButton();
+		await app.workbench.toasts.closeAll();
 
 		// Track if we've updated any items
 		let updatedItems = false;
@@ -51,9 +53,12 @@ test.describe('Positron Assistant Inspect-ai dataset gathering', { tag: [tags.IN
 			await app.workbench.assistant.clickNewChatButton();
 			await app.workbench.assistant.enterChatMessage(item.question);
 			await app.workbench.assistant.waitForSendButtonVisible();
+			await app.code.wait(2000);
 			const response = await app.workbench.assistant.getChatResponseText(app.workspacePathOrFolder);
 			console.log(`Response from Assistant for ${item.id}: ${response}`);
-
+			if (!response || response.trim() === '') {
+				fail(`No response received for question: ${item.question}`);
+			}
 			// Update the model_response in the dataset item
 			item.model_response = response;
 			updatedItems = true;
