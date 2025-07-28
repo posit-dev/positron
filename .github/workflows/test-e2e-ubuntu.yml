@@ -89,8 +89,8 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      app_token: ${{ steps.app_token.outputs.token }}
-      docker_auth_user: ${{ github.repository_owner }}
+      app_token: ${{ steps.app_token.outputs.token || github.token }}
+      docker_auth_user: posit-dev
     steps:
       - name: Create GitHub App token
         uses: actions/create-github-app-token@v2
