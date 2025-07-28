@@ -86,21 +86,36 @@ permissions:
   packages: read
 
 jobs:
+
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      app_token: ${{ steps.app_token.outputs.token }}
+    steps:
+      - name: Create GitHub App token
+        id: app_token
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
   e2e-linux:
     name: ${{ inputs.display_name || 'e2e-linux' }}
+    needs: setup
     timeout-minutes: 120
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:1
       credentials:
-        username: ${{ secrets.POSITRON_GITHUB_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_PAT }}
+        username: x-access-token
+        password: ${{ needs.setup.outputs.app_token }}
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:1
         credentials:
-          username: ${{ secrets.POSITRON_GITHUB_USER }}
-          password: ${{ secrets.POSITRON_GITHUB_PAT }}
+          username: x-access-token
+          password: ${{ needs.setup.outputs.app_token }}
         ports:
           - 5432:5432
         env:
