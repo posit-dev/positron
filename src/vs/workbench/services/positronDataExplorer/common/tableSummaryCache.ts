@@ -221,10 +221,7 @@ export class TableSummaryCache extends Disposable {
 		} = updateDescriptor;
 
 		const searchTextChanged = searchText !== this._searchText;
-		if (searchTextChanged) {
-			// If the search text has changed, set it.
-			this._searchText = searchText;
-		}
+		this._searchText = searchText;
 
 		// Clear caches when search changes to force reloading new search results.
 		if (invalidateCache || searchTextChanged) {
