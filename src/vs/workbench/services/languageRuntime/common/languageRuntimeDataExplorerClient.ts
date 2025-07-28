@@ -375,7 +375,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Search the columns finding every matching one.
 		const columns = tableSchema.columns.filter(columnSchema =>
-			!options.searchText ? true : columnSchema.column_name.includes(options.searchText)
+			!options.searchText ? true : columnSchema.column_name.trim().toLocaleLowerCase().includes(options.searchText.trim().toLocaleLowerCase())
 		);
 
 		// Return the result.

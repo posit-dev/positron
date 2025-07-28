@@ -390,19 +390,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	/**
 	 * Sets the column name search filter.
-	 * @param searchText The search text to filter column names by (case insensitive).
+	 * @param searchText The search text used to filter column names (case insensitive).
 	 */
 	async setSearchText(searchText: string): Promise<void> {
-		// Normalize the search text
-		const normalizedSearchText = searchText.trim().toLocaleLowerCase();
-
-		// When the normalizesd search text changes, perform search.
-		if (normalizedSearchText !== this._searchText) {
-			// Set the search text and fetch data.
-			this._searchText = normalizedSearchText || undefined;
-			// Invalidate the cache when the search text is cleared
-			await this.fetchData(!this._searchText);
-		}
+		this._searchText = searchText || undefined;
+		// Invalidate the cache when the search text is cleared
+		await this.fetchData(!this._searchText);
 	}
 
 	//#endregion Public Methods
