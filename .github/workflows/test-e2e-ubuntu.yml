@@ -85,15 +85,29 @@ permissions:
   contents: read
 
 jobs:
+  setup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ secrets.POSITRON_GITHUB_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_PAT }}
+
+      # Pre-pull the container to verify access
+      - name: Verify Container Access
+        run: |
+          docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:latest
+          docker pull ghcr.io/posit-dev/positron-postgres-initialized:latest
+
   e2e-linux:
+    needs: setup
     name: ${{ inputs.display_name || 'e2e-linux' }}
     timeout-minutes: 120
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:latest
-      credentials:
-        username: ${{ secrets.POSITRON_GITHUB_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:latest
