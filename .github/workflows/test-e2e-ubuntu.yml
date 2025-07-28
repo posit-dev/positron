@@ -86,48 +86,28 @@ permissions:
   packages: read
 
 jobs:
-
-  setup:
-    runs-on: ubuntu-latest
-    outputs:
-      app_token: ${{ steps.decode.outputs.token }}
-    steps:
-      - name: Create GitHub App token
-        id: create
-        uses: actions/create-github-app-token@v2
-        with:
-          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
-
-      - name: Decode and pass token (base64 workaround)
-        id: decode
-        run: |
-          echo "token=${{ steps.create.outputs.token }}" >> "$GITHUB_OUTPUT"
-
+  
   e2e-linux:
     name: ${{ inputs.display_name || 'e2e-linux' }}
-    needs: setup
     timeout-minutes: 120
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:1
       credentials:
-        username: x-access-token
-        password: ${{ needs.setup.outputs.token }}
+        username: ${{ secrets.POSITRON_GITHUB_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:1
         credentials:
-          username: x-access-token
-          password: ${{ needs.setup.outputs.token }}
+          username: ${{ secrets.POSITRON_GITHUB_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_PAT }}
         ports:
           - 5432:5432
         env:
           POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
-
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
