@@ -99,12 +99,6 @@ jobs:
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
 
-      - name: Show GitHub App Info (for debugging)
-        run: |
-          echo "GitHub App ID: ${{ vars.POSITRON_BOT_APP_ID }}"
-          echo "Repository Owner: ${{ github.repository_owner }}"
-          echo "Will attempt to access packages in this organization"
-
       - name: Debug App Permissions
         run: |
           echo "Checking token permissions..."
