@@ -149,30 +149,64 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 	}
 
 	async $tryCreateNotebook(options: { viewType: string; content?: NotebookDataDto }): Promise<UriComponents> {
+		const ref = await this._notebookEditorModelResolverService.resolve(
+			{ untitledResource: undefined },
+			options.viewType
+		);
+
+		// untitled notebooks are disposed when they get saved. we should not hold a reference
+		// to such a disposed notebook and therefore dispose the reference as well
+		Event.once(ref.object.notebook.onWillDispose)(() => {
+			ref.dispose();
+		});
+
+		// Apply content if provided
 		if (options.content) {
-			const ref = await this._notebookEditorModelResolverService.resolve({ untitledResource: undefined }, options.viewType);
-
-			// untitled notebooks are disposed when they get saved. we should not hold a reference
-			// to such a disposed notebook and therefore dispose the reference as well
-			Event.once(ref.object.notebook.onWillDispose)(() => {
-				ref.dispose();
-			});
-
-			// untitled notebooks with content are dirty by default
-			this._proxy.$acceptDirtyStateChanged(ref.object.resource, true);
-
-			// apply content changes... slightly HACKY -> this triggers a change event
-			if (options.content) {
-				const data = NotebookDto.fromNotebookDataDto(options.content);
-				ref.object.notebook.reset(data.cells, data.metadata, ref.object.notebook.transientOptions);
-			}
-			return ref.object.notebook.uri;
-		} else {
-			// If we aren't adding content, we don't need to resolve the full editor model yet.
-			// This will allow us to adjust settings when the editor is opened, e.g. scratchpad
-			const notebook = await this._notebookEditorModelResolverService.createUntitledNotebookTextModel(options.viewType);
-			return notebook.uri;
+			const data = NotebookDto.fromNotebookDataDto(options.content);
+			ref.object.notebook.reset(data.cells, data.metadata, ref.object.notebook.transientOptions);
 		}
+
+		// --- Start Positron ---
+		// Check if untitled notebooks should use Positron editor for .ipynb
+		const uri = ref.object.resource;
+		const isJupyterViewType = options.viewType === 'jupyter-notebook' || options.viewType === 'interactive';
+
+		if (isJupyterViewType && usingPositronNotebooks(this._configurationService)) {
+			this._logService.trace('[Positron] Creating new notebook with Positron editor based on configuration');
+
+			try {
+				// Get the preferred editor group
+				const preferredGroup = this._editorGroupsService.activeGroup;
+
+				// Create Positron notebook editor input
+				const editorInput = PositronNotebookEditorInput.getOrCreate(
+					this._instantiationService,
+					uri,
+					undefined,
+					options.viewType
+				);
+
+				// Open the editor
+				await this._editorService.openEditor(editorInput, undefined, preferredGroup);
+
+				// Mark as dirty since it's new
+				await this._proxy.$acceptDirtyStateChanged(uri, true);
+
+				return uri.toJSON();
+			} catch (error) {
+				// Log error and show warning to user
+				this._logService.error('[Positron] Failed to create notebook with Positron editor:', error);
+				this._notificationService.warn(
+					`Failed to create notebook with Positron editor. Falling back to VS Code editor. Error: ${(error as Error).message}`
+				);
+				// Fall through to VS Code editor logic
+			}
+		}
+		// --- End Positron ---
+
+		// Original VS Code logic
+		await this._proxy.$acceptDirtyStateChanged(ref.object.resource, true);
+		return ref.object.resource.toJSON();
 	}
 
 	async $tryOpenNotebook(uriComponents: UriComponents): Promise<URI> {
