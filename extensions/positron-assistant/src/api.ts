@@ -8,7 +8,7 @@ import { PromptElement } from '@vscode/prompt-tsx';
 import { DefaultContent } from './prompts/index.js';
 
 export class PositronAssistantApi {
-	public async generateAssistantPrompt(request: vscode.ChatRequest): Promise<PromptElement> {
+	public generateAssistantPrompt(request: vscode.ChatRequest): PromptElement {
 		return new DefaultContent({});
 	}
 }
