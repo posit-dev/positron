@@ -231,6 +231,7 @@ export class TableSummaryCache extends Disposable {
 
 		// Get the size of the data.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
+		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 
 		// Set the start column index and the end column index of the columns to cache.
@@ -263,33 +264,19 @@ export class TableSummaryCache extends Disposable {
 
 		// If we have column indices we need to get data for, we will update the cache with it
 		if (columnIndices.length) {
-			// When search text is present, use `searchSchema` to load the columns into the schema cache
-			if (this._searchText) {
-				// Get the schema for the columns that match the search text that we can fit on the screen.
-				const tableSchemaSearchResult = await this._dataExplorerClientInstance.searchSchema({
+			// When search text is present, use `searchSchema` to get the columns into the schema cache
+			// When there is no search text, use `getSchema` to get the default order of columns into the cache
+			const tableSchema = this._searchText
+				? await this._dataExplorerClientInstance.searchSchema({
 					searchText: this._searchText,
 					startIndex: columnIndices[0],
 					numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1,
-				});
+				})
+				: await this._dataExplorerClientInstance.getSchema(columnIndices);
 
-				// Set the number of columns based off the search results
-				this._columns = tableSchemaSearchResult.matching_columns;
-
-				// Update the column schema cache with search results
-				for (let i = 0; i < tableSchemaSearchResult.columns.length; i++) {
-					this._columnSchemaCache.set(columnIndices[i], tableSchemaSearchResult.columns[i]);
-				}
-			} else {
-				// When there is no search text, use `getSchema` to get the default order of columns in the range
-				const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
-
-				// Set the number of columns based off the columns in the table
-				this._columns = tableState.table_shape.num_columns;
-
-				// Cache the column schema that was returned
-				for (let i = 0; i < tableSchema.columns.length; i++) {
-					this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
-				}
+			// Cache the column schema that was returned
+			for (let i = 0; i < tableSchema.columns.length; i++) {
+				this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
 			}
 		}
 
