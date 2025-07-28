@@ -69,6 +69,7 @@ const BinItem = React.memo(({
 			width={binWidth}
 			x={binStart}
 			y={0}
+			data-height={binCountHeight}
 		>
 			<div
 				ref={containerRef}

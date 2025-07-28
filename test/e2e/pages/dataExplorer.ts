@@ -244,11 +244,11 @@ export class DataExplorer {
 			}
 		}
 
-		// some rects have 'count' class, some have 'bin-count' class, some have 'count other' class
-		const rects = await this.code.driver.page.locator('.column-profile-sparkline').locator('[class*="count"]').all();
+		// Extract heights from tooltip containers which now have data-height attributes
+		const containers = await this.code.driver.page.locator('.column-profile-sparkline .tooltip-container').all();
 		const profileSparklineHeights: string[] = [];
-		for (let i = 0; i < rects.length; i++) {
-			const height = await rects[i].getAttribute('height');
+		for (let i = 0; i < containers.length; i++) {
+			const height = await containers[i].getAttribute('data-height');
 			if (height !== null) {
 				const rounded = parseFloat(height).toFixed(1); // Round to one decimal place
 				profileSparklineHeights.push(rounded);
@@ -370,7 +370,7 @@ export class DataExplorer {
 
 	async verifySparklineHoverDialog(verificationText: string[]): Promise<void> {
 		await test.step(`Verify sparkline tooltip: ${verificationText}`, async () => {
-			const firstSparkline = this.code.driver.page.locator('.column-sparkline .tooltip-container').nth(0);
+			const firstSparkline = this.code.driver.page.locator('.column-profile-sparkline .tooltip-container').nth(0);
 			await firstSparkline.hover();
 			const hoverTooltip = this.code.driver.page.locator('.hover-contents');
 			await expect(hoverTooltip).toBeVisible();
