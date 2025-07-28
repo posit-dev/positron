@@ -114,13 +114,13 @@ jobs:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:1
       credentials:
         username: x-access-token
-        password: ${{ needs.setup.outputs.app_token }}
+        password: ${{ needs.setup.outputs.token }}
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:1
         credentials:
           username: x-access-token
-          password: ${{ needs.setup.outputs.app_token }}
+          password: ${{ needs.setup.outputs.token }}
         ports:
           - 5432:5432
         env:
