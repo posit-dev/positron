@@ -2978,7 +2978,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         (
             _get_histogram(5, method="sturges"),
             {
-                "bin_edges": ["0.5000", "1.50"],
+                "bin_edges": ["1.00", "1.00"],
                 "bin_counts": [11],
                 "quantiles": [],
             },
@@ -2986,7 +2986,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         (
             _get_histogram(5, method="freedman_diaconis"),
             {
-                "bin_edges": ["0.5000", "1.50"],
+                "bin_edges": ["1.00", "1.00"],
                 "bin_counts": [11],
                 "quantiles": [],
             },
@@ -2994,7 +2994,7 @@ def test_pandas_polars_profile_histogram(dxf: DataExplorerFixture):
         (
             _get_histogram(5, method="scott"),
             {
-                "bin_edges": ["0.5000", "1.50"],
+                "bin_edges": ["1.00", "1.00"],
                 "bin_counts": [11],
                 "quantiles": [],
             },
@@ -3099,6 +3099,46 @@ def test_profile_histogram_windows_int32_bug():
     result = _get_histogram_numpy(arr, 10, method="fd")[0]
     expected = _get_histogram_numpy(arr.astype(np.float64), 10, method="fd")[0]
     assert (result == expected).all()
+
+
+def test_histogram_single_value_special_case():
+    # Test the special case where all values are the same
+    from ..data_explorer import _get_histogram_numpy
+
+    # Test with integer array of all same values
+    arr_int = np.array([5, 5, 5, 5, 5])
+    bin_counts, bin_edges = _get_histogram_numpy(arr_int, 10, method="sturges")
+    assert len(bin_counts) == 1
+    assert bin_counts[0] == 5
+    assert len(bin_edges) == 2
+    assert bin_edges[0] == 5
+    assert bin_edges[1] == 5
+
+    # Test with float array of all same values
+    arr_float = np.array([3.14, 3.14, 3.14, 3.14])
+    bin_counts, bin_edges = _get_histogram_numpy(arr_float, 10, method="fd")
+    assert len(bin_counts) == 1
+    assert bin_counts[0] == 4
+    assert len(bin_edges) == 2
+    assert bin_edges[0] == 3.14
+    assert bin_edges[1] == 3.14
+
+    # Test with single value
+    arr_single = np.array([42])
+    bin_counts, bin_edges = _get_histogram_numpy(arr_single, 10, method="scott")
+    assert len(bin_counts) == 1
+    assert bin_counts[0] == 1
+    assert len(bin_edges) == 2
+    assert bin_edges[0] == 42
+    assert bin_edges[1] == 42
+
+    # Test that non-uniform data still works normally
+    arr_mixed = np.array([1, 2, 3, 4, 5])
+    bin_counts, bin_edges = _get_histogram_numpy(arr_mixed, 5, method="fixed")
+    assert len(bin_counts) == 5
+    assert len(bin_edges) == 6
+    # Should not have same start and end edges for non-uniform data
+    assert bin_edges[0] != bin_edges[-1]
 
 
 # ----------------------------------------------------------------------

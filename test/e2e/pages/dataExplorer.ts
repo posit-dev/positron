@@ -421,7 +421,7 @@ export class DataExplorer {
 		});
 	}
 
-	async clickCopyAsCodeButton() {
-		await this.workbench.editorActionBar.clickButton('Copy as Code');
+	async clickConvertToCodeButton() {
+		await this.workbench.editorActionBar.clickButton('Convert to Code');
 	}
 }

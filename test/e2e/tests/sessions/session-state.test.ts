@@ -82,7 +82,7 @@ test.describe('Sessions: State', {
 		// Verify Python session transitions to active when executing code
 		await sessions.select(pySession.name);
 		await console.executeCode('Python', 'import time');
-		await console.executeCode('Python', 'time.sleep(7)', { waitForReady: false, maximizeConsole: false });
+		await console.executeCode('Python', 'time.sleep(10)', { waitForReady: false, maximizeConsole: false });
 		await sessions.expectStatusToBe(pySession.name, 'active');
 
 		// Verify R session transitions to active when executing code

@@ -52,10 +52,9 @@ configurationRegistry.registerConfiguration({
 		'update.positron.channel': {
 			type: 'string',
 			default: 'releases',
-			enum: ['dailies', 'prereleases', 'releases'],
+			enum: ['dailies', 'releases'],
 			enumDescriptions: [
 				localize('dailies', "The latest daily build. This is the most up-to-date version of Positron."),
-				localize('prereleases', "Receive pre-release updates."),
 				localize('releases', "Receive stable releases only."),
 			],
 			scope: ConfigurationScope.APPLICATION,

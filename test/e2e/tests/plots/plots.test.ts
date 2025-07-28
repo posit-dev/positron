@@ -281,6 +281,71 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			const data = await resembleCompareImages(bufferAfterZoom, bufferBeforeZoom, options);
 			expect(data.rawMisMatchPercentage).toBeGreaterThan(0.0);
 		});
+
+		test('Python - Verify Plot Zoom works (Fit vs. 200%)', async function ({ app, contextMenu, openFile, python, page }, testInfo) {
+			await openFile(path.join('workspaces', 'python-plots', 'matplotlib-zoom-example.py'));
+			await test.step('Run Python File in Console', async () => {
+				await app.workbench.editor.playButton.click();
+				await app.workbench.plots.waitForCurrentPlot();
+			});
+			const imgLocator = page.getByRole('img', { name: /%run/ });
+
+			await expect(async () => {
+				try {
+					await contextMenu.triggerAndClick({
+						menuTrigger: page.getByLabel('Fit'),
+						menuItemLabel: 'Fit'
+					});
+				} catch (e) {
+					await page.keyboard.press('Escape');
+					throw e;
+				}
+			}).toPass({ timeout: 60000 });
+
+			await page.waitForTimeout(300);
+			const bufferFit1 = await imgLocator.screenshot();
+
+			await expect(async () => {
+				try {
+					await contextMenu.triggerAndClick({
+						menuTrigger: page.getByLabel('Fit'),
+						menuItemLabel: '200%'
+					});
+				} catch (e) {
+					await page.keyboard.press('Escape');
+					throw e;
+				}
+			}).toPass({ timeout: 60000 });
+
+			await page.waitForTimeout(2000);
+			const bufferZoom = await imgLocator.screenshot();
+			// Compare: Fit vs 200%
+			const resultZoom = await resembleCompareImages(bufferFit1, bufferZoom, options);
+			await testInfo.attach('fit-vs-zoom', {
+				body: resultZoom.getBuffer(true),
+				contentType: 'image/png'
+			});
+			expect(resultZoom.rawMisMatchPercentage).toBeGreaterThan(2); // should be large diff
+
+			await expect(async () => {
+				try {
+					await contextMenu.triggerAndClick({
+						menuTrigger: page.getByLabel('200%'),
+						menuItemLabel: 'Fit'
+					});
+				} catch (e) {
+					await page.keyboard.press('Escape');
+					throw e;
+				}
+			}).toPass({ timeout: 60000 });
+
+			await page.waitForTimeout(2000);
+			const bufferFit2 = await imgLocator.screenshot();
+			// Compare: Fit vs Fit again
+			const resultBack = await resembleCompareImages(bufferFit1, bufferFit2, options);
+			expect(resultBack.rawMisMatchPercentage).toBeLessThan(0.5); // should be small diff
+		});
+
 	});
 
 	test.describe('R Plots', {

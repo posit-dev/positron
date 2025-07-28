@@ -902,6 +902,11 @@ export interface SupportedFeatures {
 	 */
 	export_data_selection: ExportDataSelectionFeatures;
 
+	/**
+	 * Support for 'convert_to_code' RPC and its features
+	 */
+	convert_to_code: ConvertToCodeFeatures;
+
 }
 
 /**
@@ -998,6 +1003,24 @@ export interface SetSortColumnsFeatures {
 	 */
 	support_status: SupportStatus;
 
+}
+
+/**
+ * Feature flags for 'convert_to_code' RPC
+ */
+export interface ConvertToCodeFeatures {
+	/**
+	 * The support status for this RPC method
+	 * */
+	support_status: SupportStatus;
+	/**
+	 * The supported code syntax names
+	 */
+	supported_code_syntaxes?: Array<CodeSyntaxName>;
+}
+
+export interface CodeSyntaxName {
+	code_syntax_name: string;
 }
 
 /**
