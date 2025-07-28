@@ -87,26 +87,60 @@ permissions:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    outputs:
+      app_token: ${{ steps.app_token.outputs.token }}
     steps:
+      - name: Create GitHub App token
+        uses: actions/create-github-app-token@v2
+        id: app_token
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
+      - name: Show GitHub App Info (for debugging)
+        run: |
+          echo "GitHub App ID: ${{ vars.POSITRON_BOT_APP_ID }}"
+          echo "Repository Owner: ${{ github.repository_owner }}"
+          echo "Will attempt to access packages in this organization"
+
+      - name: Debug App Permissions
+        run: |
+          echo "Checking token permissions..."
+          curl -s -H "Authorization: token ${{ steps.app_token.outputs.token }}" \
+               https://api.github.com/installation/repositories | jq -r '.repositories[] | .full_name' || echo "Could not list repositories"
+
+          echo "Checking if token has packages:read permission..."
+          curl -s -H "Authorization: token ${{ steps.app_token.outputs.token }}" \
+               https://api.github.com/rate_limit | jq -r '.resources | keys[]' | grep "packages" || echo "No packages permission found"
+
+          echo "Listing accessible packages..."
+          curl -s -H "Authorization: token ${{ steps.app_token.outputs.token }}" \
+               -H "Accept: application/vnd.github+json" \
+               https://api.github.com/orgs/${{ github.repository_owner }}/packages?package_type=container | jq -r '.[] | .name' || echo "No packages found or no access"
+
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ secrets.POSITRON_GITHUB_USER }}
-          password: ${{ secrets.POSITRON_GITHUB_PAT }}
-
-      # Simple diagnostic to confirm login worked
-      - name: Check GHCR Login Status
-        run: |
-          # Check if the docker login was successful (won't show the actual credentials)
-          docker info | grep "Username" || echo "Not logged in to Docker registry"
+          username: ${{ github.repository_owner }}
+          password: ${{ steps.app_token.outputs.token }}
 
       # Pre-pull the container to verify access
       - name: Verify Container Access
         run: |
-          echo "Attempting to pull container images with configured credentials"
-          docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:latest
-          docker pull ghcr.io/posit-dev/positron-postgres-initialized:latest
+          echo "Testing Docker login status..."
+          docker info | grep -A 5 "Registry"
+
+          echo "Attempting to list available container repositories in GHCR..."
+          curl -s -H "Authorization: token ${{ steps.app_token.outputs.token }}" \
+               -H "Accept: application/vnd.github+json" \
+               "https://api.github.com/orgs/${{ github.repository_owner }}/packages?package_type=container" | \
+               jq -r '.[] | "Package Name: " + .name + ", Visibility: " + .visibility + ", Repository URL: " + .repository.html_url'
+
+          echo "Attempting to pull container images with GitHub App token..."
+          docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:latest || echo "FAILED: Could not pull positron-ubuntu24-amd64"
+          docker pull ghcr.io/posit-dev/positron-postgres-initialized:latest || echo "FAILED: Could not pull positron-postgres-initialized"
 
   e2e-linux:
     needs: setup
@@ -116,8 +150,8 @@ jobs:
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:latest
       credentials:
-        username: ${{ secrets.POSITRON_GITHUB_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_PAT }}
+        username: ${{ github.repository_owner }}
+        password: ${{ needs.setup.outputs.app_token }}
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:latest
