@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { EXECUTION_HISTORY_STORAGE_PREFIX, IExecutionHistoryEntry, IExecutionHistoryService, IInputHistoryEntry, INPUT_HISTORY_STORAGE_PREFIX } from './executionHistoryService.js';
+import { EXECUTION_HISTORY_STORAGE_PREFIX, IExecutionHistoryEntry, IExecutionHistoryService, INPUT_HISTORY_STORAGE_PREFIX } from './executionHistoryService.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService, RuntimeStartMode } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
@@ -16,6 +16,8 @@ import { RuntimeExitReason } from '../../languageRuntime/common/languageRuntimeS
 import { SessionInputHistory } from './sessionInputHistory.js';
 import { LanguageInputHistory } from './languageInputHistory.js';
 import { IWorkspaceContextService, WorkbenchState } from '../../../../platform/workspace/common/workspace.js';
+import { HistoryPrefixMatchStrategy, IInputHistoryEntry } from '../../../../base/common/historyPrefixMatchStrategy.js';
+import { ILanguageFeaturesService } from '../../../../editor/common/services/languageFeatures.js';
 
 /**
  * Service that manages execution and input histories for all runtimes.
@@ -51,7 +53,8 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		@IStorageService private readonly _storageService: IStorageService,
 		@ILogService private readonly _logService: ILogService,
 		@IConfigurationService private readonly _configurationService: IConfigurationService,
-		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@ILanguageFeaturesService private readonly _languageFeatureService: ILanguageFeaturesService,
 	) {
 		super();
 
@@ -76,6 +79,38 @@ export class ExecutionHistoryService extends Disposable implements IExecutionHis
 		this._runtimeStartupService.getRestoredSessions().then(sessions => {
 			this.pruneStorage(sessions);
 		});
+
+		this._register(this._languageFeatureService.inlineCompletionsProvider.register([
+			{ scheme: 'inmemory' }, // Console
+		], {
+			provideInlineCompletions: (model, position, context) => {
+				const languageId = model.getLanguageId();
+				const entries = this.getInputEntries(languageId);
+				const strategy = new HistoryPrefixMatchStrategy(entries);
+				const range = {
+					startLineNumber: position.lineNumber,
+					startColumn: 1,
+					endLineNumber: position.lineNumber,
+					endColumn: position.column
+				};
+				const input = model.getValueInRange(range);
+				if (input.trim().length === 0) {
+					// If the input is empty, return no completions
+					return { items: [] };
+				}
+				const matches = strategy.getMatches(input);
+				matches.reverse();
+				return {
+					items: matches.filter(match => match.input !== input)
+						.map(match => ({
+							insertText: match.input,
+							range,
+						}))
+				};
+			},
+			disposeInlineCompletions(completions, reason) {
+			},
+		}));
 	}
 
 	/**

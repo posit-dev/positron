@@ -3,23 +3,34 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IInputHistoryEntry } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { HistoryMatch, HistoryMatchStrategy } from './historyMatchStrategy.js';
 
 /**
- * A history match strategy that matches the input anywhere in the string. It
- * mimics the behavior of Bash's reverse-history-search mode (Ctrl+R).
+ * Represents an input code fragment sent to a language runtime.
  */
-export class HistoryInfixMatchStrategy extends HistoryMatchStrategy {
+export interface IInputHistoryEntry {
+	/** Time that the input was submitted, in milliseconds since the Epoch */
+	when: number;
+
+	/** The code that was submitted, as a multi-line string */
+	input: string;
+}
+
+
+/**
+ * A history match strategy that matches the input at the beginning of the
+ * string. It mimics RStudio's Cmd+Up history search mode.
+ */
+export class HistoryPrefixMatchStrategy extends HistoryMatchStrategy {
 	constructor(protected readonly _entries: Array<IInputHistoryEntry>) {
 		super();
 	}
 
 	/**
-	 * Match the input anywhere in the string.
+	 * Matches the input at the beginning of the string.
 	 *
 	 * @param input The input to match
-	 * @returns An array of matches
+	 * @returns The array of matches
 	 */
 	override getMatches(input: string): HistoryMatch[] {
 		const matches: HistoryMatch[] = [];
@@ -31,25 +42,14 @@ export class HistoryInfixMatchStrategy extends HistoryMatchStrategy {
 				entry.input === matches[matches.length - 1]?.input) {
 				continue;
 			}
-			if (input.length > 0) {
-				// If there is a string to match, find the first occurrence of
-				// the input in the entry's input string and highlight it.
-				const matchIdx = entry.input.indexOf(input);
-				if (matchIdx >= 0) {
-					const match: HistoryMatch = {
-						input: entry.input,
-						highlightStart: matchIdx,
-						highlightEnd: matchIdx + input.length
-					};
-					matches.push(match);
-				}
-			} else {
-				// When not passed a string to match, just return the entire
-				// history as a match.
+
+			// If the input starts with the entry's input, highlight it and
+			// match it
+			if (entry.input.startsWith(input)) {
 				const match: HistoryMatch = {
 					input: entry.input,
 					highlightStart: 0,
-					highlightEnd: 0
+					highlightEnd: input.length
 				};
 				matches.push(match);
 			}

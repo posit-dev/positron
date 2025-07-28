@@ -7,8 +7,9 @@ import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { IInputHistoryEntry, inputHistorySizeSettingId } from './executionHistoryService.js';
+import { inputHistorySizeSettingId } from './executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { IInputHistoryEntry } from '../../../../base/common/historyPrefixMatchStrategy.js';
 
 /**
  * Records input history for a given language. This is a separate class from the

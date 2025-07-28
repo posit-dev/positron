@@ -13,7 +13,7 @@ import React, { useEffect } from 'react';
 import * as nls from '../../../../../nls.js';
 import * as DOM from '../../../../../base/browser/dom.js';
 import { HistoryCompletionItem } from './historyCompletionItem.js';
-import { HistoryMatch } from '../../common/historyMatchStrategy.js';
+import { HistoryMatch } from '../../../../../base/common/historyMatchStrategy.js';
 
 export interface HistoryBrowserPopupProps {
 	/// The list of history items to display.

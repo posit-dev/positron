@@ -3,23 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { IInputHistoryEntry } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { HistoryMatch, HistoryMatchStrategy } from './historyMatchStrategy.js';
+import { IInputHistoryEntry } from './historyPrefixMatchStrategy.js';
 
 /**
- * A history match strategy that matches the input at the beginning of the
- * string. It mimics RStudio's Cmd+Up history search mode.
+ * A history match strategy that matches the input anywhere in the string. It
+ * mimics the behavior of Bash's reverse-history-search mode (Ctrl+R).
  */
-export class HistoryPrefixMatchStrategy extends HistoryMatchStrategy {
+export class HistoryInfixMatchStrategy extends HistoryMatchStrategy {
 	constructor(protected readonly _entries: Array<IInputHistoryEntry>) {
 		super();
 	}
 
 	/**
-	 * Matches the input at the beginning of the string.
+	 * Match the input anywhere in the string.
 	 *
 	 * @param input The input to match
-	 * @returns The array of matches
+	 * @returns An array of matches
 	 */
 	override getMatches(input: string): HistoryMatch[] {
 		const matches: HistoryMatch[] = [];
@@ -31,14 +31,25 @@ export class HistoryPrefixMatchStrategy extends HistoryMatchStrategy {
 				entry.input === matches[matches.length - 1]?.input) {
 				continue;
 			}
-
-			// If the input starts with the entry's input, highlight it and
-			// match it
-			if (entry.input.startsWith(input)) {
+			if (input.length > 0) {
+				// If there is a string to match, find the first occurrence of
+				// the input in the entry's input string and highlight it.
+				const matchIdx = entry.input.indexOf(input);
+				if (matchIdx >= 0) {
+					const match: HistoryMatch = {
+						input: entry.input,
+						highlightStart: matchIdx,
+						highlightEnd: matchIdx + input.length
+					};
+					matches.push(match);
+				}
+			} else {
+				// When not passed a string to match, just return the entire
+				// history as a match.
 				const match: HistoryMatch = {
 					input: entry.input,
 					highlightStart: 0,
-					highlightEnd: input.length
+					highlightEnd: 0
 				};
 				matches.push(match);
 			}

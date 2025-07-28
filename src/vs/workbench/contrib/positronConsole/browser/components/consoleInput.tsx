@@ -39,16 +39,16 @@ import { ParameterHintsController } from '../../../../../editor/contrib/paramete
 import { SelectionClipboardContributionID } from '../../../codeEditor/browser/selectionClipboard.js';
 import { RuntimeCodeExecutionMode, RuntimeCodeFragmentStatus } from '../../../../services/languageRuntime/common/languageRuntimeService.js';
 import { HistoryBrowserPopup } from './historyBrowserPopup.js';
-import { HistoryInfixMatchStrategy } from '../../common/historyInfixMatchStrategy.js';
-import { HistoryPrefixMatchStrategy } from '../../common/historyPrefixMatchStrategy.js';
-import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../common/historyMatchStrategy.js';
+import { HistoryInfixMatchStrategy } from '../../../../../base/common/historyInfixMatchStrategy.js';
+import { HistoryPrefixMatchStrategy, IInputHistoryEntry } from '../../../../../base/common/historyPrefixMatchStrategy.js';
+import { EmptyHistoryMatchStrategy, HistoryMatch, HistoryMatchStrategy } from '../../../../../base/common/historyMatchStrategy.js';
 import { IPositronConsoleInstance, PositronConsoleState } from '../../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { ContentHoverController } from '../../../../../editor/contrib/hover/browser/contentHoverController.js';
-import { IInputHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { localize } from '../../../../../nls.js';
 import { IFontOptions } from '../../../../browser/fontConfigurationManager.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { InlineCompletionsController } from '../../../../../editor/contrib/inlineCompletions/browser/controller/inlineCompletionsController.js';
 
 // Position enumeration.
 const enum Position {
@@ -777,7 +777,10 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				// This appears to disable validations to address:
 				// https://github.com/posit-dev/positron/issues/979
 				// https://github.com/posit-dev/positron/issues/1051
-				renderValidationDecorations: 'off'
+				renderValidationDecorations: 'off',
+				inlineSuggest: {
+					enabled: true,
+				},
 			},
 			// The ILineNumbersOptions.
 			...createLineNumbersOptions(),
@@ -796,6 +799,7 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 				contributions: EditorExtensionsRegistry.getSomeEditorContributions([
 					SelectionClipboardContributionID,
 					ContextMenuController.ID,
+					InlineCompletionsController.ID,
 					SuggestController.ID,
 					SnippetController2.ID,
 					TabCompletionController.ID,

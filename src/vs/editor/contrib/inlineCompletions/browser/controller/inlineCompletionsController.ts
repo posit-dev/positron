@@ -104,7 +104,10 @@ export class InlineCompletionsController extends Disposable {
 			item => this.model.get()?.handleSuggestAccepted(item),
 			() => this.model.get()?.selectedInlineCompletion.get()?.getSingleTextEdit(),
 		));
-		this._enabledInConfig = observableFromEvent(this, this.editor.onDidChangeConfiguration, () => this.editor.getOption(EditorOption.inlineSuggest).enabled);
+		this._enabledInConfig = observableFromEvent(this, this.editor.onDidChangeConfiguration, () => {
+			const result = this.editor.getOption(EditorOption.inlineSuggest).enabled;
+			return result;
+		});
 		this._isScreenReaderEnabled = observableFromEvent(this, this._accessibilityService.onDidChangeScreenReaderOptimized, () => this._accessibilityService.isScreenReaderOptimized());
 		this._editorDictationInProgress = observableFromEvent(this,
 			this._contextKeyService.onDidChangeContext,

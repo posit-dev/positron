@@ -6,8 +6,9 @@
 import { Disposable, DisposableStore } from '../../../../base/common/lifecycle.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
 import { IStorageService, StorageScope, StorageTarget } from '../../../../platform/storage/common/storage.js';
-import { IExecutionHistoryEntry, IInputHistoryEntry, INPUT_HISTORY_STORAGE_PREFIX } from './executionHistoryService.js';
+import { IExecutionHistoryEntry, INPUT_HISTORY_STORAGE_PREFIX } from './executionHistoryService.js';
 import { ILanguageRuntimeSession } from '../../runtimeSession/common/runtimeSessionService.js';
+import { IInputHistoryEntry } from '../../../../base/common/historyPrefixMatchStrategy.js';
 
 /**
  * Represents a history of inputs for a single language runtime session.

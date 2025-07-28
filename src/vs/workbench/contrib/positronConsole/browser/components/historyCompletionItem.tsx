@@ -10,7 +10,7 @@ import './historyCompletionItem.css';
 import React from 'react';
 
 // Other dependencies.
-import { HistoryMatch } from '../../common/historyMatchStrategy.js';
+import { HistoryMatch } from '../../../../../base/common/historyMatchStrategy.js';
 
 export interface HistoryCompletionItemProps {
 	readonly match: HistoryMatch;

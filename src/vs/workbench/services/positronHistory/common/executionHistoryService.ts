@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { IInputHistoryEntry } from '../../../../base/common/historyPrefixMatchStrategy.js';
 import { IDisposable } from '../../../../base/common/lifecycle.js';
 import * as nls from '../../../../nls.js';
 import { ConfigurationScope, Extensions as ConfigurationExtensions, IConfigurationNode, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
@@ -65,17 +66,6 @@ export interface IExecutionHistoryError {
 
 	/** The error stack trace */
 	traceback: string[];
-}
-
-/**
- * Represents an input code fragment sent to a language runtime.
- */
-export interface IInputHistoryEntry {
-	/** Time that the input was submitted, in milliseconds since the Epoch */
-	when: number;
-
-	/** The code that was submitted, as a multi-line string */
-	input: string;
 }
 
 /**
