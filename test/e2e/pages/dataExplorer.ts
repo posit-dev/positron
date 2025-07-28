@@ -245,7 +245,7 @@ export class DataExplorer {
 		}
 
 		// Extract heights from tooltip containers which now have data-height attributes
-		const containers = await this.code.driver.page.locator('.column-profile-sparkline .tooltip-container').all();
+		const containers = await this.code.driver.page.locator('.column-profile-sparkline svg foreignObject.tooltip-container').all();
 		const profileSparklineHeights: string[] = [];
 		for (let i = 0; i < containers.length; i++) {
 			const height = await containers[i].getAttribute('data-height');
@@ -370,7 +370,7 @@ export class DataExplorer {
 
 	async verifySparklineHoverDialog(verificationText: string[]): Promise<void> {
 		await test.step(`Verify sparkline tooltip: ${verificationText}`, async () => {
-			const firstSparkline = this.code.driver.page.locator('.column-profile-sparkline .tooltip-container').nth(0);
+			const firstSparkline = this.code.driver.page.locator('.column-profile-sparkline svg foreignObject.tooltip-container').nth(0);
 			await firstSparkline.hover();
 			const hoverTooltip = this.code.driver.page.locator('.hover-contents');
 			await expect(hoverTooltip).toBeVisible();
