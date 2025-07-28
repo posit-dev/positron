@@ -5,10 +5,10 @@
 
 import * as vscode from 'vscode';
 import { PromptElement } from '@vscode/prompt-tsx';
-import { DefaultContent } from './prompts/index.js';
+import { PositronAssistant } from './prompts/components/content/PositronAssistant.js';
 
 export class PositronAssistantApi {
-	public generateAssistantPrompt(request: vscode.ChatRequest): PromptElement {
-		return new DefaultContent({});
+	public generateAssistantPrompt(request: any): PromptElement<any, any> {
+		return new PositronAssistant({ request: request.request });
 	}
 }
