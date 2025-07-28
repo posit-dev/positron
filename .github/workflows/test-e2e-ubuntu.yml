@@ -160,7 +160,7 @@ jobs:
         run: |
           # First try the direct pull
           echo "Attempting to pull container image (first attempt)..."
-          if docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:latest; then
+          if docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:1; then
             echo "Successfully pulled container image!"
           else
             echo "Failed to pull container. Attempting with alternative approaches..."
@@ -169,7 +169,7 @@ jobs:
             echo "Trying with explicit credentials (token)..."
             echo "${{ steps.app_token.outputs.token }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
 
-            if docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:latest; then
+            if docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:1; then
               echo "Successfully pulled with explicit credentials!"
             else
               echo "Still failed. Trying with HTTP request to validate image existence..."
@@ -181,13 +181,13 @@ jobs:
 
               # Last attempt with full debugging output
               echo "Final attempt with debug output:"
-              docker pull --debug ghcr.io/posit-dev/positron-ubuntu24-amd64:latest || echo "All pull attempts failed"
+              docker pull --debug ghcr.io/posit-dev/positron-ubuntu24-amd64:1 || echo "All pull attempts failed"
             fi
           fi
 
           # Same for postgres image
           echo "Attempting to pull postgres container image..."
-          docker pull ghcr.io/posit-dev/positron-postgres-initialized:latest || echo "Failed to pull postgres image"
+          docker pull ghcr.io/posit-dev/positron-postgres-initialized:1 || echo "Failed to pull postgres image"
 
   e2e-linux:
     needs: setup
@@ -195,13 +195,13 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:latest
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:1
       credentials:
         username: ${{ github.actor }}
         password: ${{ needs.setup.outputs.app_token || github.token }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:latest
+        image: ghcr.io/posit-dev/positron-postgres-initialized:1
         credentials:
           username: ${{ github.actor }}
           password: ${{ needs.setup.outputs.app_token || github.token }}
