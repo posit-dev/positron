@@ -38,7 +38,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
 			'dataExplorer.convertToCode': true
-		}, { reload: true });
+		});
 	});
 
 	test.afterEach(async function ({ hotKeys }) {
