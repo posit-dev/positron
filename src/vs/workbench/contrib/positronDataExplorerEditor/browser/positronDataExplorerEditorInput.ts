@@ -9,7 +9,6 @@ import { EditorInput } from '../../../common/editor/editorInput.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { ThemeIcon } from '../../../../base/common/themables.js';
-import { PLAINTEXT_EXTS } from './positronDataExplorerEditor.js';
 
 /**
  * PositronDataExplorerEditorInput class.
@@ -96,22 +95,10 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	}
 
 	/**
-	 * Override getIcon to return different icons for data frames vs text files
+	 * Gets the icon to display in the editor tab.
+	 * @returns The icon to display in the editor tab.
 	 */
 	override getIcon(): ThemeIcon | undefined {
-		const identifier = PositronDataExplorerUri.parse(this.resource);
-
-		// If this is a file-based data explorer, check the extension
-		if (identifier && identifier.startsWith('duckdb:')) {
-			// Get the backing URI and check if it's a plaintext file
-			const backingUri = PositronDataExplorerUri.backingUri(this.resource);
-			if (backingUri && PLAINTEXT_EXTS.some(ext => backingUri.path.endsWith(ext))) {
-				// Use the default text file icon if it is a plaintext file
-				return undefined;
-			}
-		}
-
-		// In all other cases, use the table icon for data frames
 		return ThemeIcon.fromId('table');
 	}
 
