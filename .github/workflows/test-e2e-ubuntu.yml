@@ -88,34 +88,32 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      app_token: ${{ steps.app_token.outputs.token }}
+      registry_username: ${{ steps.registry_username.outputs.username }}
     steps:
-      - name: Create GitHub App token
-        uses: actions/create-github-app-token@v2
-        id: app_token
-        with:
-          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
-          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
-          owner: ${{ github.repository_owner }}
+      # Extract username for GHCR login
+      - name: Get Registry Username
+        id: registry_username
+        run: |
+          echo "username=${{ github.repository_owner }}" >> $GITHUB_OUTPUT
+          echo "Using ${{ github.repository_owner }} as the registry username"
 
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.repository_owner }}
-          password: ${{ steps.app_token.outputs.token }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       # Check token permissions (without revealing the token)
       - name: Check Token Permissions
         run: |
-          echo "GitHub App ID: ${{ vars.POSITRON_BOT_APP_ID }}"
-          echo "Token is for: ${{ github.repository_owner }}"
+          echo "Registry username: ${{ github.repository_owner }}"
           echo "Checking token validity..."
-          curl -s -H "Authorization: token ${{ steps.app_token.outputs.token }}" \
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                https://api.github.com/user | jq -r '.login + " has permission level: " + .type'
           echo "Checking package permissions..."
-          curl -s -H "Authorization: token ${{ steps.app_token.outputs.token }}" \
-               https://api.github.com/user/packages?package_type=container | jq -r '.[].name' || echo "No packages found or no access"
+          curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+               https://api.github.com/user/packages?package_type=container | jq -r '.[] | .name' || echo "No packages found or no access"
 
       # Pre-pull the container to verify access
       - name: Verify Container Access
@@ -132,8 +130,8 @@ jobs:
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:latest
       credentials:
-        username: ${{ github.repository_owner }}
-        password: ${{ needs.setup.outputs.app_token }}
+        username: ${{ needs.setup.outputs.registry_username }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:latest
