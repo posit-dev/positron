@@ -31,12 +31,12 @@ export const ConsoleQuickFix = () => {
 	 */
 	const pressedFixHandler = async () => {
 		// Handle console quick fix action.
-		quickChatService.open({ query: fixPrompt });
+		quickChatService.openOne({ query: fixPrompt });
 	};
 
 	const pressedExplainHandler = async () => {
 		// Handle console quick explain action.
-		quickChatService.open({ query: explainPrompt });
+		quickChatService.openOne({ query: explainPrompt });
 	};
 
 	// Render.
