@@ -512,7 +512,7 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	//#endregion Private Methods
 }
 
-const PLAINTEXT_EXTS = [
+export const PLAINTEXT_EXTS = [
 	'.csv',
 	'.tsv'
 ]
