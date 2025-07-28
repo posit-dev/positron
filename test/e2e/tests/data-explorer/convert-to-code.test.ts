@@ -33,12 +33,12 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe('Data Explorer: Convert to Code', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
+test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
 
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
 			'dataExplorer.convertToCode': true
-		});
+		}, { reload: true });
 	});
 
 	test.afterEach(async function ({ hotKeys }) {
