@@ -65,11 +65,11 @@ const BinItem = React.memo(({
 	return (
 		<foreignObject
 			className='tooltip-container'
+			data-height={binCountHeight}
 			height={graphHeight}
 			width={binWidth}
 			x={binStart}
 			y={0}
-			data-height={binCountHeight}
 		>
 			<div
 				ref={containerRef}
