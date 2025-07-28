@@ -11,7 +11,6 @@ import re
 import threading
 import warnings
 from functools import lru_cache
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
 from comm.base_comm import BaseComm
