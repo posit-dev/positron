@@ -14,6 +14,7 @@ from ..data_explorer_comm import (
     ColumnSortKey,
     FilterBetween,
     FilterComparison,
+    FilterComparisonOp,
     FilterSetMembership,
     FilterTextSearch,
     RowFilter,
@@ -135,96 +136,127 @@ class PandasConverter(CodeConverter):
             assert isinstance(filter_key, RowFilter)
             column_name_repr = f"{filter_key.column_schema.column_name!r}"
 
-            if filter_key.filter_type in (
-                RowFilterType.Between,
-                RowFilterType.NotBetween,
-            ):
-                assert isinstance(filter_key.params, FilterBetween)
-                comparison = self._generate_between(
-                    column_name_repr,
-                    filter_key.params.left_value,
-                    filter_key.params.right_value,
-                    filter_key.filter_type,
-                )
-                comparisons.append(comparison)
-            elif filter_key.filter_type == RowFilterType.Compare:
-                assert isinstance(filter_key.params, FilterComparison)
-                # Handle FilterComparison with custom operator
-                comparison = self._generate_comparison(
-                    column_name_repr,
-                    filter_key.params.op.value,
-                    filter_key.params.value,
-                )
-                comparisons.append(comparison)
-            elif isinstance(filter_key.params, FilterTextSearch):
-                comparison = self._generate_text_search(
-                    column_name_repr,
-                    filter_key.params.search_type,
-                    filter_key.params.term,
-                    case_sensitive=filter_key.params.case_sensitive,
-                )
-                comparisons.append(comparison)
-            elif isinstance(filter_key.params, FilterSetMembership):
-                pass
-            elif filter_key.filter_type == RowFilterType.IsEmpty:
-                # Handle is empty filter
-                comparison = f"{self.table_name}[{column_name_repr}].str.len() == 0"
-                comparisons.append(comparison)
-            elif filter_key.filter_type == RowFilterType.NotEmpty:
-                # Handle is empty filter
-                comparison = f"{self.table_name}[{column_name_repr}].str.len() != 0"
-                comparisons.append(comparison)
-            elif filter_key.filter_type == RowFilterType.IsNull:
-                # Handle is null filter
-                comparison = f"{self.table_name}[{column_name_repr}].isna()"
-                comparisons.append(comparison)
-            elif filter_key.filter_type == RowFilterType.NotNull:
-                # Handle is not null filter
-                comparison = f"~{self.table_name}[{column_name_repr}].notna()"
-                comparisons.append(comparison)
-            elif filter_key.filter_type == RowFilterType.IsTrue:
-                # Handle is true filter
-                comparison = f"{self.table_name}[{column_name_repr} == True]"
-                comparisons.append(comparison)
-            elif filter_key.filter_type == RowFilterType.IsFalse:
-                # Handle is false filter
-                comparison = f"{self.table_name}[{column_name_repr} == False]"
+            comparison = self._generate_filter_comparison(filter_key, column_name_repr)
+            if comparison:
                 comparisons.append(comparison)
 
         if len(comparisons) == 1:
             # Single comparison, no need for filter mask
             method_parts.append(f"[{comparisons[0]}]")
-        else:
+        elif comparisons:
             preprocessing.append(f"filter_mask = {' & '.join(f'({comp})' for comp in comparisons)}")
             method_parts.append("[filter_mask]")
 
         return preprocessing, method_parts
+
+    def _generate_filter_comparison(
+        self, filter_key: RowFilter, column_name_repr: str
+    ) -> Optional[str]:
+        """Generate comparison string for a single filter."""
+        filter_handlers = {
+            RowFilterType.Between: self._handle_between_filter,
+            RowFilterType.NotBetween: self._handle_between_filter,
+            RowFilterType.Compare: self._handle_compare_filter,
+            RowFilterType.IsEmpty: self._handle_is_empty_filter,
+            RowFilterType.NotEmpty: self._handle_not_empty_filter,
+            RowFilterType.IsNull: self._handle_is_null_filter,
+            RowFilterType.NotNull: self._handle_not_null_filter,
+            RowFilterType.IsTrue: self._handle_is_true_filter,
+            RowFilterType.IsFalse: self._handle_is_false_filter,
+            RowFilterType.Search: self._handle_text_search_filter,
+        }
+
+        handler = filter_handlers.get(filter_key.filter_type)
+        if handler:
+            return handler(filter_key, column_name_repr)
+
+        # Handle FilterTextSearch and FilterSetMembership by params type
+        if isinstance(filter_key.params, FilterTextSearch):
+            return self._generate_text_search(
+                column_name_repr,
+                filter_key.params.search_type,
+                filter_key.params.term,
+                case_sensitive=filter_key.params.case_sensitive,
+            )
+        elif isinstance(filter_key.params, FilterSetMembership):
+            return None  # Currently not implemented
+
+        return None
+
+    def _handle_between_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        assert isinstance(filter_key.params, FilterBetween)
+        return self._generate_between(
+            column_name_repr,
+            filter_key.params.left_value,
+            filter_key.params.right_value,
+            filter_key.filter_type,
+        )
+
+    def _handle_compare_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        assert isinstance(filter_key.params, FilterComparison)
+
+        # TODO(iz): this is fine for number comparisons, but we need to handle strings and dt
+        if filter_key.params.op == FilterComparisonOp.Eq:
+            return self._generate_comparison(
+                column_name_repr,
+                "==",
+                filter_key.params.value,
+            )
+        return self._generate_comparison(
+            column_name_repr,
+            filter_key.params.op.value,
+            filter_key.params.value,
+        )
+
+    def _handle_text_search_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        assert isinstance(filter_key.params, FilterTextSearch)
+        return self._generate_text_search(
+            column_name_repr,
+            filter_key.params.search_type,
+            filter_key.params.term,
+            case_sensitive=filter_key.params.case_sensitive,
+        )
+
+    def _handle_is_empty_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        return f"{self.table_name}[{column_name_repr}].str.len() == 0"
+
+    def _handle_not_empty_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        return f"{self.table_name}[{column_name_repr}].str.len() != 0"
+
+    def _handle_is_null_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        return f"{self.table_name}[{column_name_repr}].isna()"
+
+    def _handle_not_null_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        return f"~{self.table_name}[{column_name_repr}].notna()"
+
+    def _handle_is_true_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        return f"{self.table_name}[{column_name_repr}] == True"
+
+    def _handle_is_false_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        return f"{self.table_name}[{column_name_repr}] == False"
 
     def _generate_between(
         self,
         column_name: str,
         left_value,
         right_value,
-        is_between: RowFilterType,
+        filter_type: RowFilterType,
     ) -> StrictStr:
         """
-        Generate code for a 'between' filter.
+        Generate code for a 'between' or 'not between' filter.
 
         Args:
             column_name: Name of the column to filter
             left_value: Left boundary value
             right_value: Right boundary value
-            inclusive: Whether the range is inclusive
+            filter_type: Type of filter (Between or NotBetween)
 
         Returns:
-            A string representing the 'between' operation
+            A string representing the 'between' or 'not between' operation
         """
-        if is_between == RowFilterType.Between:
-            return f"({self.table_name}[{column_name}] >= {left_value} & {self.table_name}[{column_name}] <= {right_value})"
-        elif is_between == RowFilterType.NotBetween:
-            return f"({self.table_name}[{column_name}] < {left_value} | {self.table_name}[{column_name}] > {right_value})"
-        else:
-            raise ValueError(f"Unsupported RowFilterType: {is_between}")
+        is_between = filter_type == RowFilterType.Between
+        operator = "" if is_between else "~"
+        return f"{operator}{self.table_name}[{column_name}].between({left_value}, {right_value})"
 
     def _generate_comparison(self, column_name: str, operator: str, value) -> StrictStr:
         return f"{self.table_name}[{column_name}] {operator} {value}"
@@ -250,20 +282,22 @@ class PandasConverter(CodeConverter):
             A string representing the text search operation
         """
         column_access = f"{self.table_name}[{column_name}].str"
+
+        if search_type == TextSearchType.Contains:
+            return f"{column_access}.contains({value!r}, case={case_sensitive})"
+        elif search_type == TextSearchType.NotContains:
+            return f"~{column_access}.contains({value!r}, case={case_sensitive})"
+        elif search_type == TextSearchType.RegexMatch:
+            return f"{column_access}.match({value!r}, case={case_sensitive})"
+
         if not case_sensitive:
             column_access = f"{column_access}.lower()"
             value = value.lower()
 
-        if search_type == TextSearchType.Contains:
-            return f"{column_access}.contains({value!r})"
-        elif search_type == TextSearchType.NotContains:
-            return f"~{column_access}.contains({value!r})"
-        elif search_type == TextSearchType.StartsWith:
-            return f"{column_access}.startswith({value!r})"
+        if search_type == TextSearchType.StartsWith:
+            return f"{column_access}.str.startswith({value!r})"
         elif search_type == TextSearchType.EndsWith:
-            return f"{column_access}.endswith({value!r})"
-        elif search_type == TextSearchType.RegexMatch:
-            return f"{column_access}.match({value!r})"
+            return f"{column_access}.str.endswith({value!r})"
         else:
             raise ValueError(f"Unsupported TextSearchType: {search_type}")
 
@@ -295,7 +329,7 @@ class PandasConverter(CodeConverter):
         else:
             col_idx = sort_key.column_index
             column_name = self.table.columns[col_idx]
-            method_parts.append(f".sort_values(by={column_name}, ascending={sort_key.ascending})")
+            method_parts.append(f".sort_values(by={column_name!r}, ascending={sort_key.ascending})")
 
         return preprocessing, method_parts
 
@@ -304,15 +338,15 @@ class PandasConverter(CodeConverter):
     ) -> tuple[List[StrictStr], List[StrictStr]]:
         """Generate code for multiple column sort."""
         col_indices = [sk.column_index for sk in sort_keys]
+        column_names = [self.table.columns[i] for i in col_indices]
         ascending_values = [sk.ascending for sk in sort_keys]
 
         preprocessing = [
-            f"column_indices = {col_indices}",
-            f"column_names = [{self.table_name}.columns[i] for i in column_indices]",
-            f"ascending_order = {ascending_values}",
+            f"column_names = {column_names}",
+            f"asc = {ascending_values}",
         ]
 
-        method_parts = [".sort_values(by=column_names, ascending=ascending_order)"]
+        method_parts = [".sort_values(by=column_names, ascending=asc)"]
 
         return preprocessing, method_parts
 
