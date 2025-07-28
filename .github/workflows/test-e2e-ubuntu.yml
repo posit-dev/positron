@@ -90,6 +90,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       app_token: ${{ steps.app_token.outputs.token }}
+      docker_auth_user: ${{ github.repository_owner }}
     steps:
       - name: Create GitHub App token
         uses: actions/create-github-app-token@v2
@@ -158,6 +159,14 @@ jobs:
       # Simplified container pull verification
       - name: Verify Container Access
         run: |
+          # Check current Docker config
+          echo "Current Docker auth configuration:"
+          grep -v auth ~/.docker/config.json || echo "No Docker config found"
+
+          # Force correct Docker login right before pull
+          echo "Ensuring correct login credentials before pull..."
+          echo "${{ steps.app_token.outputs.token }}" | docker login ghcr.io -u ${{ github.repository_owner }} --password-stdin
+
           # First try the direct pull
           echo "Attempting to pull container image (first attempt)..."
           if docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:1; then
@@ -197,14 +206,14 @@ jobs:
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:1
       credentials:
-        username: ${{ github.actor }}
-        password: ${{ needs.setup.outputs.app_token || github.token }}
+        username: ${{ needs.setup.outputs.docker_auth_user }}
+        password: ${{ needs.setup.outputs.app_token }}
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:1
         credentials:
-          username: ${{ github.actor }}
-          password: ${{ needs.setup.outputs.app_token || github.token }}
+          username: ${{ needs.setup.outputs.docker_auth_user }}
+          password: ${{ needs.setup.outputs.app_token }}
         ports:
           - 5432:5432
         env:
