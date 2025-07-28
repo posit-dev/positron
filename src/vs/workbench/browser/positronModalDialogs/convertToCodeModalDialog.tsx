@@ -143,7 +143,17 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 				"Convert to Code"
 			))()}
 			width={400}
-			onAccept={() => props.renderer.dispose()}
+			onAccept={async () => {
+				if (codeString) {
+					try {
+						await services.clipboardService.writeText(codeString);
+					} catch (error) {
+						// If clipboard write fails, still dispose the modal
+						console.error('Failed to copy to clipboard:', error);
+					}
+				}
+				props.renderer.dispose();
+			}}
 			onCancel={() => props.renderer.dispose()}
 		>
 			<VerticalStack>
