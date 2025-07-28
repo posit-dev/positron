@@ -7,6 +7,7 @@ For more information on how to use detect-secrets, see the [detect-secrets docum
 A wrapper script [detect-secrets.js](../detect-secrets.js) is used to run detect-secrets with the appropriate configuration and baseline secrets file.
 
 ## Installation
+
 Install detect-secrets via `pip install detect-secrets` (Python and pip installed already) or `brew install detect-secrets` (MacOS).
 
 ## Pre-commit hook
@@ -38,6 +39,10 @@ If you are receiving false positives from the pre-commit hook, you can update th
 First, update the baseline secrets file to include the new strings. Then, run the audit command to mark the new strings as false positives. Once complete, commit the updated baseline secrets file.
 
 ### Updating the baseline secrets file
+
+> [!IMPORTANT]
+> ⚠️ Windows users: please use a Mac or Linux machine to run the following commands, as the `detect-secrets` tool will rewrite all file paths to use Windows-style paths, which will cause all of the baseline file entries to be marked as new secrets that need to be audited again.
+
 From the root of the project:
 1. Run `node ./build/detect-secrets.js update-baseline` to scan for new secrets and update the baseline secrets file
 2. See [Auditing the baseline secrets file](#auditing-the-baseline-secrets-file) below to audit the baseline secrets file
