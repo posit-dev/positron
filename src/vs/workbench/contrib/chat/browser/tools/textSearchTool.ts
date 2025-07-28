@@ -119,7 +119,7 @@ export class TextSearchTool implements IToolImpl {
 		const query = this._queryBuilder.text(searchParams, workspaceUris, queryOptions);
 
 		// Search for the text
-		const { results, messages } = await this._searchService.textSearch(query, _token);
+		const { results, messages, limitHit } = await this._searchService.textSearch(query, _token);
 
 		// If we have a chat context, include references for each result
 		if (invocation.context) {
@@ -153,13 +153,18 @@ export class TextSearchTool implements IToolImpl {
 			}
 		}
 
+		const response: any = {
+			results,
+			messages,
+		};
+		if (limitHit) {
+			response.hitMaxResults = `Hit the maximum number of results: ${maxResults}.`;
+		}
+
 		return {
 			content: [{
 				kind: 'text',
-				value: JSON.stringify({
-					results,
-					messages,
-				}),
+				value: JSON.stringify(response),
 			}],
 		};
 	}
