@@ -105,6 +105,18 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ steps.app_token.outputs.token }}
 
+      # Check token permissions (without revealing the token)
+      - name: Check Token Permissions
+        run: |
+          echo "GitHub App ID: ${{ vars.POSITRON_BOT_APP_ID }}"
+          echo "Token is for: ${{ github.repository_owner }}"
+          echo "Checking token validity..."
+          curl -s -H "Authorization: token ${{ steps.app_token.outputs.token }}" \
+               https://api.github.com/user | jq -r '.login + " has permission level: " + .type'
+          echo "Checking package permissions..."
+          curl -s -H "Authorization: token ${{ steps.app_token.outputs.token }}" \
+               https://api.github.com/user/packages?package_type=container | jq -r '.[].name' || echo "No packages found or no access"
+
       # Pre-pull the container to verify access
       - name: Verify Container Access
         run: |
