@@ -90,15 +90,20 @@ jobs:
   setup:
     runs-on: ubuntu-latest
     outputs:
-      app_token: ${{ steps.app_token.outputs.token }}
+      app_token: ${{ steps.decode.outputs.token }}
     steps:
       - name: Create GitHub App token
-        id: app_token
+        id: create
         uses: actions/create-github-app-token@v2
         with:
           app-id: ${{ vars.POSITRON_BOT_APP_ID }}
           private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
           owner: ${{ github.repository_owner }}
+
+      - name: Decode and pass token (base64 workaround)
+        id: decode
+        run: |
+          echo "token=${{ steps.create.outputs.token }}" >> "$GITHUB_OUTPUT"
 
   e2e-linux:
     name: ${{ inputs.display_name || 'e2e-linux' }}
@@ -122,6 +127,7 @@ jobs:
           POSTGRES_USER: ${{ secrets.E2E_POSTGRES_USER }}
           POSTGRES_PASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
           POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
+
 
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
