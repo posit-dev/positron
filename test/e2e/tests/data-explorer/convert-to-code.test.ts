@@ -33,7 +33,13 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Data Explorer: Copy Code', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
+test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
+
+	test.beforeAll(async function ({ settings }) {
+		await settings.set({
+			'dataExplorer.convertToCode': true
+		});
+	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
@@ -41,12 +47,12 @@ test.describe.skip('Data Explorer: Copy Code', { tag: [tags.WEB, tags.WIN, tags.
 
 	testCases.forEach(({ language, dataScript, expectedCodeStyle, dataFrameType }) => {
 
-		test(`${language} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, executeCode, hotKeys }) {
-			const { dataExplorer, variables, modals } = app.workbench;
+		test(`${language} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys }) {
+			const { dataExplorer, variables, modals, console } = app.workbench;
 			await sessions.start(language === 'Python' ? 'python' : 'r');
 
 			// execute code to create a data construct
-			await executeCode(language, dataScript);
+			await console.pasteCodeToConsole(dataScript, true);
 			await variables.doubleClickVariableRow('df');
 			await hotKeys.closeSecondarySidebar();
 
@@ -63,7 +69,7 @@ test.describe.skip('Data Explorer: Copy Code', { tag: [tags.WEB, tags.WIN, tags.
 			await dataExplorer.addFilter('city', 'contains', 'Austin');
 
 			// copy code and verify result is accurate
-			await dataExplorer.clickCopyAsCodeButton();
+			await dataExplorer.clickConvertToCodeButton();
 			await modals.clickCancel();
 
 			// await dataExplorer.verifyCopyCode({
