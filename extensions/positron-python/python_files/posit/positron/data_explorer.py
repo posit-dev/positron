@@ -24,6 +24,7 @@ from typing import (
 import comm
 
 from .access_keys import decode_access_key
+from .converters.pandas_converter import CodeConverter, PandasConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
@@ -100,6 +101,7 @@ from .data_explorer_comm import (
     TextSearchType,
 )
 from .positron_comm import CommMessage, PositronComm
+from .third_party import is_pandas, is_polars
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
@@ -1372,11 +1374,11 @@ class PandasView(DataExplorerTableView):
         """Returns the supported code types for exporting data."""
         return CodeSyntaxName(code_syntax_name="pandas").dict()
 
-    def convert_to_code(self, request: ConvertToCodeRequest):  # noqa: ARG002
+    def convert_to_code(self, request: ConvertToCodeRequest):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return ConvertedCode(
-            converted_code=["import pandas as pd", "# TODO: Implement export to code"]
-        ).dict()
+        converter = PandasConverter(self.table, self.state)
+        converted_code = converter.convert(request)
+        return ConvertedCode(converted_code=converted_code).dict()
 
     @classmethod
     def _construct_schema(
@@ -2831,24 +2833,6 @@ class PyArrowView(DataExplorerTableView):
     pass
 
 
-def _is_pandas(table):
-    try:
-        import pandas as pd
-    except ImportError:
-        return False
-
-    return bool(isinstance(table, (pd.DataFrame, pd.Series)))
-
-
-def _is_polars(table):
-    try:
-        import polars as pl
-    except ImportError:
-        return False
-
-    return bool(isinstance(table, (pl.DataFrame, pl.Series)))
-
-
 def _get_table_view(
     table,
     comm: PositronComm,
@@ -2857,18 +2841,18 @@ def _get_table_view(
 ):
     state.name = state.name or guid()
 
-    if _is_pandas(table):
+    if is_pandas(table):
         return PandasView(table, comm, state, job_queue)
-    elif _is_polars(table):
+    elif is_polars(table):
         return PolarsView(table, comm, state, job_queue)
     else:
         return UnsupportedView(table, comm, state, job_queue)
 
 
 def _value_type_is_supported(value):
-    if _is_pandas(value):
+    if is_pandas(value):
         return True
-    return bool(_is_polars(value))
+    return bool(is_polars(value))
 
 
 class DataExplorerService:

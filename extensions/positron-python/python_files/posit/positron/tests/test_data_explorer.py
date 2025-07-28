@@ -34,6 +34,7 @@ from ..data_explorer import (
     COMPARE_OPS,
     PANDAS_INFER_DTYPE_SIZE_LIMIT,
     SCHEMA_CACHE_THRESHOLD,
+    CodeSyntaxName,
     DataExplorerService,
     DataExplorerState,
     PandasView,
@@ -436,6 +437,23 @@ class DataExplorerFixture:
     def set_sort_columns(self, table_name, sort_keys=None):
         return self.do_json_rpc(table_name, "set_sort_columns", sort_keys=sort_keys)
 
+    def convert_to_code(
+        self,
+        table_name,
+        column_filters=[],
+        row_filters=[],
+        sort_keys=[],
+        code_syntax_name="",
+    ):
+        return self.do_json_rpc(
+            table_name,
+            "convert_to_code",
+            column_filters=[],
+            row_filters=row_filters,
+            sort_keys=[],
+            code_syntax_name=CodeSyntaxName(code_syntax_name=code_syntax_name),
+        )
+
     def get_column_profiles(self, table_name, profiles, format_options=DEFAULT_FORMAT):
         callback_id = guid()
         result = self.do_json_rpc(
@@ -498,6 +516,51 @@ class DataExplorerFixture:
         response = self.set_sort_columns(table_id, sort_keys=[])
         assert response is None
         self.compare_tables(table_id, ex_unsorted_id, table.shape)
+
+    def check_conversion_case(
+        self,
+        table,
+        expected_table,
+        column_filters=list,
+        row_filters=list,
+        sort_keys=list,
+        code_syntax_name="pandas",
+    ):
+        table_id = "a" + guid()
+        ex_id = "a" + guid()
+        self.register_table(table_id, table)
+        self.register_table(ex_id, expected_table)
+
+        response = self.convert_to_code(
+            table_id, column_filters, row_filters, sort_keys, code_syntax_name
+        )
+        assert response["converted_code"] is not None
+
+        new_df_code = response["converted_code"]
+        print(response)
+        converted_table_name = table_id + "_2"
+        new_df_code[-1] = converted_table_name + " = " + new_df_code[-1]
+        new_df_code = "\n".join(new_df_code)
+
+        self.shell.run_cell(new_df_code)
+        print("new_df_code", new_df_code)
+        print("userns", self.shell._user_ns)
+        new_df = pd.DataFrame(self.shell._user_ns[converted_table_name])  # noqa: SLF001
+        print("new df ", new_df)
+        self.compare_tables(table_id, ex_id, table.shape)
+
+    def compare_code(self, converted_code: List[str], expected_code: List[str]):
+        """
+        Compare two lists of code strings, ignoring leading/trailing whitespace and empty lines.
+        """
+        converted_code = [line.strip() for line in converted_code if line.strip()]
+        expected_code = [line.strip() for line in expected_code if line.strip()]
+
+        assert converted_code == expected_code, (
+            f"Converted code does not match expected code:\n"
+            f"Converted:\n{pprint.pformat(converted_code)}\n"
+            f"Expected:\n{pprint.pformat(expected_code)}"
+        )
 
     def compare_tables(self, table_id: str, expected_id: str, table_shape: tuple):
         state = self.get_state(table_id)
@@ -3904,3 +3967,272 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
 
         stats = results[0]["summary_stats"]
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
+
+
+# ----------------------------------------------------------------------
+# Code converter tests
+
+
+# def test_code_generator_factory(dxf: DataExplorerFixture):
+#     """Test that CodeGenerator factory returns correct generator type."""
+#     from ..converters.pandas_converter import CodeConverter, PandasConverter
+#     from ..data_explorer_comm import BackendState
+
+#     # Test pandas DataFrame
+#     test_df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+#     state = BackendState("test_df")
+#     generator = CodeConverter(test_df, state)
+#     assert isinstance(generator, PandasConverter)
+
+#     # Test polars DataFrame
+#     test_dfp = pl.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+#     generator_pl = CodeConverter(test_dfp, state)
+#     # Should return PolarsCodeGenerator when implemented
+#     assert generator_pl is not None
+
+
+def test_convert_pandas_filter_is_null_not_null(dxf: DataExplorerFixture):
+    test_df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema_for(test_df)
+    b_is_null = _filter("is_null", schema[1])
+    b_not_null = _filter("not_null", schema[1])
+    c_not_null = _filter("not_null", schema[2])
+
+    cases = [
+        [
+            [b_is_null],
+            test_df[test_df["b"].isna()],
+        ],
+        [
+            [b_not_null],
+            test_df[test_df["b"].notna()],
+        ],
+        [
+            [b_not_null, c_not_null],
+            test_df[test_df["b"].notna() & test_df["c"].notna()],
+        ],
+    ]
+
+    for filter_set, expected_df in cases:
+        dxf.check_conversion_case(
+            test_df, expected_df, row_filters=filter_set, code_syntax_name="pandas"
+        )
+
+
+# def test_pandas_code_generator_simple_sort(dxf: DataExplorerFixture):
+#     """Test generating code for simple single column sort."""
+#     from ..converters.pandas_converter import PandasConverter
+#     from ..data_explorer_comm import BackendState, ColumnSortKey
+
+#     test_df = SIMPLE_DATA
+
+#     # Test single column sort ascending
+#     sort_keys = [ColumnSortKey(column_index=0, ascending=True)]
+#     state = BackendState(display_name="df", sort_keys=sort_keys)
+#     generator = PandasConverter(test_df, state)
+
+#     result = generator.convert({})
+#     expected = ["df.sort_values(by='a', ascending=True)"]
+#     assert result == expected
+
+#     # Test single column sort descending
+#     sort_keys = [ColumnSortKey(column_index=1, ascending=False)]
+#     state = BackendState("df", sort_keys=sort_keys)
+#     generator = PandasConverter(test_df, state)
+
+#     result = generator.convert({})
+#     expected = ["df.sort_values(by='b', ascending=False)"]
+#     assert result == expected
+
+
+# def test_pandas_code_generator_multi_sort(dxf: DataExplorerFixture):
+#     """Test generating code for multiple column sort."""
+#     from ..converters.pandas_converter import PandasConverter
+#     from ..data_explorer_comm import BackendState, ColumnSortKey
+
+#     test_df = pd.DataFrame({"a": [3, 1, 2], "b": ["z", "x", "y"], "c": [1, 2, 3]})
+
+#     # Test multiple column sort
+#     sort_keys = [
+#         ColumnSortKey(column_index=0, ascending=True),
+#         ColumnSortKey(column_index=2, ascending=False),
+#     ]
+#     state = BackendState("my_df", sort_keys=sort_keys)
+#     generator = PandasConverter(test_df, state)
+
+#     result = generator.convert({})
+#     expected = [
+#         "column_indices = [0, 2]",
+#         "column_names = [my_df.columns[i] for i in column_indices]",
+#         "ascending_order = [True, False]",
+#         "my_df.sort_values(by=column_names, ascending=ascending_order)",
+#     ]
+#     assert result == expected
+
+
+# def test_pandas_code_generator_series_sort(dxf: DataExplorerFixture):
+#     """Test generating code for Series sort."""
+#     from ..converters.pandas_converter import PandasConverter
+#     from ..data_explorer_comm import BackendState, ColumnSortKey
+
+#     test_series = pd.Series([3, 1, 2], name="values")
+
+#     # Test Series sort
+#     sort_keys = [ColumnSortKey(column_index=0, ascending=False)]
+#     state = BackendState("series", sort_keys=sort_keys)
+#     generator = PandasConverter(test_series, state)
+
+#     result = generator.convert({})
+#     expected = ["series.sort_values(ascending=False)"]
+#     assert result == expected
+
+
+# def test_pandas_code_generator_simple_filter(dxf: DataExplorerFixture):
+#     """Test generating code for simple filter."""
+#     from .._vendor.pydantic import BaseModel
+#     from ..converters.pandas_converter import PandasConverter
+#     from ..data_explorer_comm import BackendState, ColumnSchema, RowFilter, RowFilterType
+
+#     class CompareParams(BaseModel):
+#         op: str
+#         value: str
+
+#     test_df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+#     schema = ColumnSchema(column_name="a", column_index=0, type_name="int64", type_display="number")
+
+#     # Test simple comparison filter
+#     filter_params = CompareParams(op=">", value="1")
+#     filters = [
+#         RowFilter(
+#             filter_id="test",
+#             filter_type=RowFilterType.Compare,
+#             column_schema=schema,
+#             condition="and",
+#             is_valid=True,
+#             params=filter_params,
+#         )
+#     ]
+
+#     state = BackendState("df", row_filters=filters)
+#     generator = PandasConverter(test_df, state)
+
+#     result = generator.convert({})
+#     expected = ["df[df['a'] > 1]"]
+#     assert result == expected
+
+
+# def test_pandas_code_generator_complex_filter(dxf: DataExplorerFixture):
+#     """Test generating code for complex filter that requires preprocessing."""
+#     from .._vendor.pydantic import BaseModel
+#     from ..converters.pandas_converter import PandasConverter
+#     from ..data_explorer_comm import BackendState, ColumnSchema, RowFilter, RowFilterType
+
+#     class CompareParams(BaseModel):
+#         op: str
+#         value: str
+
+#     test_df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+#     schema_a = ColumnSchema(
+#         column_name="a", column_index=0, type_name="int64", type_display="number"
+#     )
+#     schema_b = ColumnSchema(
+#         column_name="b", column_index=1, type_name="string", type_display="string"
+#     )
+
+#     # Test multiple filters that require preprocessing
+#     filters = [
+#         RowFilter(
+#             filter_id="test1",
+#             filter_type=RowFilterType.Compare,
+#             column_schema=schema_a,
+#             condition="and",
+#             is_valid=True,
+#             params=CompareParams(op=">", value="1"),
+#         ),
+#         RowFilter(
+#             filter_id="test2",
+#             filter_type=RowFilterType.Compare,
+#             column_schema=schema_b,
+#             condition="and",
+#             is_valid=True,
+#             params=CompareParams(op="==", value="'y'"),
+#         ),
+#     ]
+
+#     state = BackendState("df", row_filters=filters)
+#     generator = PandasConverter(test_df, state)
+
+#     result = generator.convert({})
+#     expected = ["filter_mask = (df['a'] > 1) & (df['b'] == 'y')", "df[filter_mask]"]
+#     assert result == expected
+
+
+# def test_pandas_code_generator_filter_and_sort(dxf: DataExplorerFixture):
+#     """Test generating code for both filter and sort operations."""
+#     from .._vendor.pydantic import BaseModel
+#     from ..converters.pandas_converter import PandasConverter
+#     from ..data_explorer_comm import (
+#         BackendState,
+#         ColumnSchema,
+#         ColumnSortKey,
+#         RowFilter,
+#         RowFilterType,
+#     )
+
+#     class CompareParams(BaseModel):
+#         op: str
+#         value: str
+
+#     test_df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+#     schema = ColumnSchema(column_name="a", column_index=0, type_name="int64", type_display="number")
+
+#     # Test filter + sort combination
+#     filters = [
+#         RowFilter(
+#             filter_id="test",
+#             filter_type=RowFilterType.Compare,
+#             column_schema=schema,
+#             condition="and",
+#             is_valid=True,
+#             params=CompareParams(op=">", value="0"),
+#         )
+#     ]
+
+#     sort_keys = [ColumnSortKey(column_index=1, ascending=True)]
+
+#     state = BackendState("data", row_filters=filters, sort_keys=sort_keys)
+#     generator = PandasConverter(test_df, state)
+
+#     result = generator.convert({})
+#     expected = ["data[data['a'] > 0].sort_values(by='b', ascending=True)"]
+#     assert result == expected
+
+
+# def test_pandas_code_generator_no_operations(dxf: DataExplorerFixture):
+#     """Test generating code when no operations are specified."""
+#     from ..converters.pandas_converter import PandasConverter
+#     from ..data_explorer_comm import BackendState
+
+#     test_df = pd.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+
+#     # Test with no filters or sorts
+#     state = BackendState("df")
+#     generator = PandasConverter(test_df, state)
+
+#     result = generator.convert({})
+#     expected = ["df"]
+#     assert result == expected
+
+
+# def test_polars_code_generator_not_implemented(dxf: DataExplorerFixture):
+#     """Test that PolarsCodeGenerator raises NotImplementedError."""
+#     from ..converters.pandas_converter import PolarsConverter
+#     from ..data_explorer_comm import BackendState
+
+#     test_dfp = pl.DataFrame({"a": [1, 2, 3], "b": ["x", "y", "z"]})
+#     state = BackendState("dfp")
+
+#     generator = PolarsConverter(test_dfp, state)
+
+#     with pytest.raises(NotImplementedError, match="Polars code generation not implemented yet"):
+#         generator.convert({})
