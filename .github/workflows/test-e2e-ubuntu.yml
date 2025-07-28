@@ -203,17 +203,10 @@ jobs:
     name: ${{ inputs.display_name || 'e2e-linux' }}
     timeout-minutes: 120
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:1
-      credentials:
-        username: ${{ needs.setup.outputs.docker_auth_user }}
-        password: ${{ needs.setup.outputs.app_token }}
+    # Using default runner-managed authentication
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:1
-        credentials:
-          username: ${{ needs.setup.outputs.docker_auth_user }}
-          password: ${{ needs.setup.outputs.app_token }}
         ports:
           - 5432:5432
         env:
@@ -235,6 +228,20 @@ jobs:
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
     steps:
       - uses: actions/checkout@v4
+
+      # Login with GitHub token for GHCR access
+      - name: Login to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+
+      # Setup container environment
+      - name: Pull and setup container environment
+        run: |
+          docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:1
+          echo "Setting up container environment"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
