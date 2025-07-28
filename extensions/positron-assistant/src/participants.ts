@@ -424,7 +424,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						const variablesSummary = JSON.stringify(value.variables, null, 2);
 						sessionContent += '\n' + xml.node('variables', variablesSummary);
 					}
-					sessionPrompts.push(xml.node('session', sessionContent));
 					log.debug(`[context] adding session context for session ${value.activeSession.identifier}: ${sessionContent.length} characters`);
 				} else if (value instanceof vscode.Location) {
 					// The user attached a range of a file -

@@ -14,6 +14,7 @@ const dirs = [
 	'extensions/open-remote-ssh',
 	'extensions/positron-assistant',
 	'extensions/positron-code-cells',
+	'extensions/positron-copilot-chat',
 	'extensions/positron-connections',
 	'extensions/positron-duckdb',
 	'extensions/positron-environment',
