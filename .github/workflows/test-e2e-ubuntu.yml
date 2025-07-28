@@ -87,17 +87,28 @@ permissions:
 jobs:
   setup:
     runs-on: ubuntu-latest
+    outputs:
+      app_token: ${{ steps.app_token.outputs.token }}
     steps:
+      - name: Create GitHub App token
+        uses: actions/create-github-app-token@v2
+        id: app_token
+        with:
+          app-id: ${{ vars.POSITRON_BOT_APP_ID }}
+          private-key: ${{ secrets.POSITRON_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+
       - name: Login to GHCR
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
-          username: ${{ secrets.POSITRON_GITHUB_USER }}
-          password: ${{ secrets.POSITRON_GITHUB_PAT }}
+          username: ${{ github.repository_owner }}
+          password: ${{ steps.app_token.outputs.token }}
 
       # Pre-pull the container to verify access
       - name: Verify Container Access
         run: |
+          echo "::debug::Using token from GitHub App for container pulls"
           docker pull ghcr.io/posit-dev/positron-ubuntu24-amd64:latest
           docker pull ghcr.io/posit-dev/positron-postgres-initialized:latest
 
@@ -108,6 +119,9 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:latest
+      credentials:
+        username: ${{ github.repository_owner }}
+        password: ${{ needs.setup.outputs.app_token }}
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:latest
