@@ -236,16 +236,18 @@ export class TableSummaryCache extends Disposable {
 
 		// Set the start column index and the end column index of the columns to cache.
 		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
+		// Determine the first column index to start caching from.
 		const startColumnIndex = Math.max(
 			0,
 			firstColumnIndex - overscanColumns
 		);
+		// Determines the minimum number of columns we need to cache
+		// to fill the screen (including overscan).
 		const endColumnIndex = Math.min(
 			tableState.table_shape.num_columns - 1,
 			firstColumnIndex + screenColumns + overscanColumns
 		);
 
-		// Get the column indices of the column schema we need to load.
 		let columnIndices: number[];
 		// If the cache is invalidated or the search text has changed,
 		// we will need to load all the columns in view into the cache again
