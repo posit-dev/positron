@@ -3,12 +3,15 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
+from os import name
+from pstats import SortKey
 from typing import List, Optional, Union
 
 import pandas as pd
 
 from ..data_explorer_comm import (
     BackendState,
+    ColumnDisplayType,
     ColumnSortKey,
     FilterBetween,
     FilterComparison,
@@ -20,7 +23,7 @@ from ..data_explorer_comm import (
     StrictStr,
     TextSearchType,
 )
-from .convert import CodeConverter
+from .convert import CodeConverter, CodeFragment
 
 
 class PandasConverter(CodeConverter):
@@ -149,18 +152,31 @@ class PandasConverter(CodeConverter):
 
     def _handle_compare_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
         assert isinstance(filter_key.params, FilterComparison)
+        op = (
+            "=="
+            if filter_key.params.op.value == FilterComparisonOp.Eq
+            else filter_key.params.op.value
+        )
 
-        # TODO(iz): this is fine for number comparisons, but we need to handle strings and dt
-        if filter_key.params.op == FilterComparisonOp.Eq:
-            return self._generate_comparison(
-                column_name_repr,
-                "==",
-                filter_key.params.value,
-            )
+        value = filter_key.params.value
+
+        if filter_key.column_schema.type_display == ColumnDisplayType.String:
+            value = repr(value)
+
+        elif filter_key.column_schema.type_display in [
+            ColumnDisplayType.Datetime,
+            ColumnDisplayType.Date,
+        ]:
+            tz = filter_key.column_schema.timezone
+            value = "pd.Timestamp(" + repr(value)
+            if tz:
+                value += f", tz={tz!r}"
+            value += ")"
+
         return self._generate_comparison(
             column_name_repr,
-            filter_key.params.op.value,
-            filter_key.params.value,
+            op,
+            value,
         )
 
     def _handle_text_search_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
@@ -256,14 +272,16 @@ class PandasConverter(CodeConverter):
         else:
             raise ValueError(f"Unsupported TextSearchType: {search_type}")
 
-    def _convert_sorts(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_sorts(
+        self, sort_keys: Optional[List[ColumnSortKey]] = None
+    ) -> tuple[List[StrictStr], List[StrictStr]]:
         """
         Generate code for sorting.
 
         Returns:
             Tuple of (preprocessing_lines, method_chain_parts)
         """
-        sort_keys = self.state.sort_keys
+        sort_keys = sort_keys or self.state.sort_keys
         preprocessing = []
         method_parts = []
 

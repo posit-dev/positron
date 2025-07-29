@@ -8,10 +8,12 @@
 import datetime
 import inspect
 import math
+import operator
 import pprint
 from decimal import Decimal
 from importlib.metadata import version
 from io import StringIO
+from re import search
 from typing import Any, Dict, List, Optional, Type, cast
 
 import numpy as np
@@ -37,6 +39,7 @@ from ..data_explorer import (
     CodeSyntaxName,
     DataExplorerService,
     DataExplorerState,
+    FilterComparisonOp,
     PandasView,
     _get_float_formatter,
 )
@@ -521,9 +524,9 @@ class DataExplorerFixture:
         self,
         table,
         expected_table,
-        column_filters=list,
-        row_filters=list,
-        sort_keys=list,
+        column_filters=None,
+        row_filters=None,
+        sort_keys=None,
         code_syntax_name="pandas",
     ):
         table_id = var_guid()
@@ -532,7 +535,7 @@ class DataExplorerFixture:
         self.register_table(ex_id, expected_table)
 
         response = self.convert_to_code(
-            table_id, column_filters, row_filters, sort_keys, code_syntax_name
+            table_id, column_filters or [], row_filters or [], sort_keys or [], code_syntax_name
         )
         assert response["converted_code"] is not None
 
@@ -542,28 +545,16 @@ class DataExplorerFixture:
         # normally we dont want to create a new dataframe in this code
         new_table_id = var_guid()
         new_df_code[-1] = new_table_id + " = " + new_df_code[-1]
-        print("new df code\n", new_df_code)
         new_df_code = "\n".join(new_df_code)
+        self.shell.user_ns[table_id] = table
 
-        # add the original table to the shell's user namespace
-        self.shell._user_ns[table_id] = table  # noqa: SLF001
         self.shell.run_cell(new_df_code).raise_error()
 
         new_df = pd.DataFrame(self.shell._user_ns[new_table_id])  # noqa: SLF001
         self.register_table(new_table_id, new_df)
         print("expected table\n", expected_table, "\nnew table\n", new_df)
+        print(row_filters)
         self.compare_tables(new_table_id, ex_id, table.shape)
-
-    def compare_code(self, converted_code: List[str], expected_code: List[str]):
-        """Compare two lists of code strings, ignoring leading/trailing whitespace and empty lines."""
-        converted_code = [line.strip() for line in converted_code if line.strip()]
-        expected_code = [line.strip() for line in expected_code if line.strip()]
-
-        assert converted_code == expected_code, (
-            f"Converted code does not match expected code:\n"
-            f"Converted:\n{pprint.pformat(converted_code)}\n"
-            f"Expected:\n{pprint.pformat(expected_code)}"
-        )
 
     def compare_tables(self, table_id: str, expected_id: str, table_shape: tuple):
         state = self.get_state(table_id)
@@ -4085,18 +4076,103 @@ def test_convert_pandas_filter_search(dxf: DataExplorerFixture):
     ]
 
     for search_type, column_schema, term, cs, mask in cases:
+        search_filter = _search_filter(
+            column_schema,
+            term,
+            case_sensitive=cs,
+            search_type=search_type,
+        )
+
         mask[mask.isna()] = False
         expected_df = test_df[mask.astype(bool)]
         dxf.check_conversion_case(
             test_df,
             expected_df,
-            row_filters=[
-                _search_filter(
-                    column_schema,
-                    term,
-                    case_sensitive=cs,
-                    search_type=search_type,
-                )
-            ],
+            row_filters=[search_filter],
             code_syntax_name="pandas",
         )
+
+
+def test_convert_pandas_filter_between(dxf: DataExplorerFixture):
+    test_df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")
+
+    cases = [
+        (schema[0], 2, 4),  # a column
+        (schema[0], 0, 2),  # d column
+    ]
+
+    for column_schema, left_value, right_value in cases:
+        col = test_df.iloc[:, column_schema["column_index"]]
+
+        ex_between = test_df[(col >= left_value) & (col <= right_value)]
+        ex_not_between = test_df[(col < left_value) | (col > right_value)]
+
+        dxf.check_conversion_case(
+            test_df,
+            ex_between,
+            row_filters=[_between_filter(column_schema, str(left_value), str(right_value))],
+            code_syntax_name="pandas",
+        )
+        dxf.check_conversion_case(
+            test_df,
+            ex_not_between,
+            row_filters=[_not_between_filter(column_schema, str(left_value), str(right_value))],
+            code_syntax_name="pandas",
+        )
+
+
+def test_convert_pandas_filter_compare(dxf: DataExplorerFixture):
+    # Just use the 'a' column to smoke test comparison filters on
+    # integers
+    test_df = SIMPLE_PANDAS_DF
+    column = "a"
+    schema = dxf.get_schema("simple")
+
+    for op, op_func in COMPARE_OPS.items():
+        filt = _compare_filter(schema[0], op, 3)
+        expected_df = test_df[op_func(test_df[column], 3)]
+        dxf.check_conversion_case(
+            test_df, expected_df, row_filters=[filt], code_syntax_name="pandas"
+        )
+
+
+@pytest.mark.xfail
+def test_convert_pandas_filter_datetimetz(dxf: DataExplorerFixture):
+    tz = pytz.timezone("US/Eastern")
+
+    test_df = pd.DataFrame(
+        {
+            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+        }
+    )
+    dxf.register_table("dtz", test_df)
+    schema = dxf.get_schema("dtz")
+
+    val = datetime.datetime(2000, 1, 3, tzinfo=tz)
+
+    for op, op_func in COMPARE_OPS.items():
+        filt = _compare_filter(schema[0], op, "2000-01-03")
+        expected_df = test_df[op_func(test_df["date"], val)]
+        dxf.check_conversion_case(
+            test_df, expected_df, row_filters=[filt], code_syntax_name="pandas"
+        )
+
+
+def test_convert_sort_and_filter(dxf: DataExplorerFixture):
+    # Test that we can convert a sort and filter operation
+    test_df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")
+    filt = [_compare_filter(schema[2], FilterComparisonOp.Eq, "foo")]
+
+    sort_keys = [{"column_index": 0, "ascending": True}]
+
+    expected_df = test_df[test_df["c"] == "foo"].sort_values("a", ascending=True)
+
+    dxf.check_conversion_case(
+        test_df,
+        expected_df,
+        row_filters=filt,
+        sort_keys=sort_keys,
+        code_syntax_name="pandas",
+    )

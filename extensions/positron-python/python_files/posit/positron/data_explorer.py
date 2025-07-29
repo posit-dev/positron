@@ -1385,13 +1385,14 @@ class PandasView(DataExplorerTableView):
     def _construct_schema(
         cls, column, column_name, column_index: int, state: DataExplorerState
     ) -> ColumnSchema:
-        type_name, type_display = cls._get_type(column, column_index, state)
+        type_name, type_display, timezone = cls._get_type(column, column_index, state)
 
         return ColumnSchema(
             column_name=str(column_name),
             column_index=column_index,
             type_name=type_name,
             type_display=ColumnDisplayType(type_display),
+            timezone=timezone,
         )
 
     @classmethod
@@ -1414,10 +1415,16 @@ class PandasView(DataExplorerTableView):
         # schema changes
         dtype = column.dtype
 
+        try:
+            timezone = column.dtype.tz.zone
+        except AttributeError:
+            timezone = None
+
         if dtype == object:  # noqa: E721
             type_name = cls._get_inferred_dtype(column, column_index, state)
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
             type_display = cls._get_type_display(type_name)
+
         elif isinstance(dtype, pd.CategoricalDtype):
             type_name = str(dtype)
             if dtype.categories.dtype == object:
@@ -1433,7 +1440,7 @@ class PandasView(DataExplorerTableView):
             type_name = str(dtype)
             type_display = cls._get_type_display(type_name)
 
-        return type_name, type_display
+        return type_name, type_display, timezone
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
         {
