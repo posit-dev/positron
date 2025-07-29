@@ -34,7 +34,7 @@ test.describe('Notebook Editor Configuration', {
 	});
 
 	test.skip('Verify setting editor association to positron notebook opens positron notebook', async function ({ app, settings }) {
-		// Skipped: Positron notebook editor is behind experimental feature flag (positron.notebook.experimental.enabled=false by default)
+		// Skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		// Set default editor to Positron notebook
@@ -50,7 +50,7 @@ test.describe('Notebook Editor Configuration', {
 	});
 
 	test.skip('Verify reverting to default setting opens VS Code notebook again', async function ({ app, hotKeys, settings }) {
-		// Skipped: Positron notebook editor is behind experimental feature flag (positron.notebook.experimental.enabled=false by default)
+		// Skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)
 		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
 
 		// First, set default editor to Positron notebook

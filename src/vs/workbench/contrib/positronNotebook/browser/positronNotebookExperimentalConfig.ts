@@ -14,10 +14,10 @@ import { Registry } from '../../../../platform/registry/common/platform.js';
 import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
 
 // Key for the configuration setting (relative to positron configuration node)
-export const POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_KEY = 'notebook.experimental.enabled';
+export const POSITRON_NOTEBOOK_ENABLED_KEY = 'notebook.enabled';
 
 // Full configuration path (for affectsConfiguration and external references)
-export const POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_FULL_KEY = 'positron.notebook.experimental.enabled';
+export const POSITRON_NOTEBOOK_ENABLED_FULL_KEY = 'positron.notebook.enabled';
 
 /**
  * Retrieves the value of the configuration setting that determines whether to enable
@@ -25,11 +25,11 @@ export const POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_FULL_KEY = 'positron.noteboo
  * @param configurationService The configuration service
  * @returns Whether to enable the experimental Positron Notebook editor
  */
-export function checkPositronNotebookExperimentalEnabled(
+export function checkPositronNotebookEnabled(
 	configurationService: IConfigurationService
 ): boolean {
 	return Boolean(
-		configurationService.getValue(POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_KEY)
+		configurationService.getValue(POSITRON_NOTEBOOK_ENABLED_KEY)
 	);
 }
 
@@ -41,13 +41,14 @@ configurationRegistry.registerConfiguration({
 	...positronConfigurationNodeBase,
 	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
-		[POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_KEY]: {
+		[POSITRON_NOTEBOOK_ENABLED_KEY]: {
 			type: 'boolean',
 			default: false,
 			included: false, // Hide from Settings UI - can only be set directly in JSON
+			tags: ['experimental'],
 			markdownDescription: localize(
-				'positron.enablePositronNotebookExperimental',
-				'**EXPERIMENTAL**: Enable the experimental Positron Notebook editor for .ipynb files. When disabled, the default VS Code notebook editor will be used.\n\nA restart is required to take effect.'
+				'positron.enablePositronNotebook',
+				'Enable the Positron Notebook editor for .ipynb files. When disabled, the default VS Code notebook editor will be used.\n\nA restart is required to take effect.'
 			),
 		},
 	},

@@ -133,7 +133,7 @@ suite('Positron Notebook Configuration Handling', () => {
 
 
 	test.skip('Cleanup disposes editor registrations properly', async () => {
-		// Skipped: Positron notebook editor is behind experimental feature flag (positron.notebook.experimental.enabled=false by default)
+		// Skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)
 		// This test assumes the editor is registered by MockPositronNotebookContribution, which won't happen when the flag is disabled
 		await createTestServices();
 

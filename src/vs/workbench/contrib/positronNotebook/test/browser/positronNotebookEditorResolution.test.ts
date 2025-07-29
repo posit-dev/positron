@@ -44,7 +44,7 @@ import { usingPositronNotebooks } from '../../../../services/positronNotebook/co
 import { createPositronNotebookTestServices } from './testUtils.js';
 
 suite.skip('Positron Notebook Editor Resolution', () => {
-	// Suite skipped: Positron notebook editor is behind experimental feature flag (positron.notebook.experimental.enabled=false by default)
+	// Suite skipped: Positron notebook editor is behind feature flag (positron.notebook.enabled=false by default)
 	// These tests assume the editor is registered, which won't happen when the flag is disabled
 
 	const disposables = new DisposableStore();
