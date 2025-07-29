@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -626,7 +626,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	createPythonRuntimeSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, kernelSpec?: JupyterKernelSpec): positron.LanguageRuntimeSession {
 		const api = vscode.extensions.getExtension('ms-python.python');
 		if (!api) {
-			throw new Error(vscode.l10n.t('Failed to find the Positron Python extension API.'));
+			throw new Error(vscode.l10n.t('Failed to find the Python extension API.'));
 		}
 
 		const pythonSession: positron.LanguageRuntimeSession = api.exports.positron.createPythonRuntimeSession(
@@ -1024,7 +1024,7 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('positron.reticulate.getIPykernelPath', () => {
 			const api = vscode.extensions.getExtension('ms-python.python');
 			if (!api) {
-				throw new Error('Failed to find the Positron Python extension API.');
+				throw new Error('Failed to find the Python extension API.');
 			}
 			return api.extensionPath + '/python_files/posit/positron';
 		})
@@ -1034,4 +1034,3 @@ export function activate(context: vscode.ExtensionContext) {
 
 	return reticulateProvider;
 }
-
