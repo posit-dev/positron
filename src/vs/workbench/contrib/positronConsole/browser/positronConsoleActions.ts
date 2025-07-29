@@ -31,6 +31,7 @@ import { IPositronModalDialogsService } from '../../../services/positronModalDia
 import { IPositronConsoleService, POSITRON_CONSOLE_VIEW_ID } from '../../../services/positronConsole/browser/interfaces/positronConsoleService.js';
 import { IExecutionHistoryService } from '../../../services/positronHistory/common/executionHistoryService.js';
 import { CodeAttributionSource, IConsoleCodeAttribution } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
+import { ICommandService } from '../../../../platform/commands/common/commands.js';
 
 /**
  * Positron console command ID's.
@@ -563,6 +564,42 @@ export function registerPositronConsoleActions() {
 				text: '\n'
 			};
 			model.pushEditOperations([], [editOperation], () => []);
+		}
+	});
+
+	/**
+	 * Register the "Execute without advancing" action. This action executes the
+	 * current statement in the editor without advancing the cursor.
+	 */
+	registerAction2(class extends Action2 {
+		constructor() {
+			super({
+				id: 'workbench.action.positronConsole.executeCodeWithoutMotion',
+				title: {
+					value: localize('workbench.action.positronConsole.executeCodeWithoutMotion', 'Execute Code Without Moving)'),
+					original: 'Execute Code Without Moving'
+				},
+				f1: false,
+				category: POSITRON_CONSOLE_ACTION_CATEGORY,
+				precondition: ContextKeyExpr.and(
+					EditorContextKeys.editorTextFocus,
+					NOTEBOOK_EDITOR_FOCUSED.toNegated()
+				),
+				keybinding: {
+					weight: KeybindingWeight.WorkbenchContrib,
+					primary: KeyMod.Alt | KeyCode.Enter
+				}
+			});
+		}
+
+		async run(accessor: ServicesAccessor, opts: {}) {
+			// Forward user options to `executeCode` with hard-coded `advance`
+			opts = {
+				...opts,
+				 advance: false
+			}
+			const commandService = accessor.get(ICommandService);
+			return commandService.executeCommand('workbench.action.positronConsole.executeCode', opts);
 		}
 	});
 

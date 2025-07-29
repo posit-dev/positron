@@ -152,20 +152,6 @@ class PositronKeybindingsContribution extends Disposable {
 			primary: KeyMod.Shift | KeyMod.Alt | KeyCode.KeyK
 		}));
 
-		// Execute without advancing
-		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
-			id: 'workbench.action.positronConsole.executeCode',
-			weight: KeybindingWeight.BuiltinExtension,
-			when: ContextKeyExpr.and(
-				EditorContextKeys.editorTextFocus,
-				ContextKeyExpr.not('notebookEditorFocused')
-			),
-			primary: KeyMod.Alt | KeyCode.Enter,
-			args: {
-				advance: false,
-			}
-		}));
-
 		// Insert code cell
 		this._registrations.add(KeybindingsRegistry.registerKeybindingRule({
 			id: 'quarto.insertCodeCell',
