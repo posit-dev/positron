@@ -8,7 +8,7 @@ import { IDisposable } from '../../../base/common/lifecycle.js';
 import { IProcessEnvironment } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { ICommandService, ICommandEvent, CommandsRegistry } from '../../../platform/commands/common/commands.js';
-import { TestFileService } from '../browser/workbenchTestServices.js';
+import { IFileService, IFileStatWithMetadata } from '../../../platform/files/common/files.js';
 import { createFileStat } from './workbenchTestServices.js';
 import { IContextKeyService } from '../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
@@ -186,28 +186,56 @@ export class TestConfigurationResolverService implements IConfigurationResolverS
 	}
 }
 
-/**
- * Custom file service for runtime session tests that makes all paths appear as directories.
- * This is needed because the resolveWorkingDirectory method checks if the path is a directory.
- */
-export class TestDirectoryFileService extends TestFileService {
-	override async stat(resource: URI) {
+export class TestDirectoryFileService implements IFileService {
+	_serviceBrand: undefined;
+
+	readonly onDidChangeFileSystemProviderRegistrations = Event.None;
+	readonly onDidChangeFileSystemProviderCapabilities = Event.None;
+	readonly onWillActivateFileSystemProvider = Event.None;
+	readonly onDidFilesChange = Event.None;
+	readonly onDidRunOperation = Event.None;
+	readonly onError = Event.None;
+
+	async stat(resource: URI): Promise<IFileStatWithMetadata> {
 		if (resource.fsPath === '/non/existent/directory') {
-			// Simulate a non-existent directory by returning an empty stat
-			return createFileStat(resource, this.readonly, false, false, false);
+			// Simulate a non-existent directory by throwing an error
+			throw new Error('File not found');
 		}
-		// Override to make all other paths appear as directories
-		return createFileStat(resource, this.readonly, false, true, false);
+		// Make all other paths appear as directories
+		return createFileStat(resource, false, false, true, false);
 	}
 
-	override async resolve(resource: URI, _options?: any) {
-		if (resource.fsPath === '/non/existent/directory') {
-			// Simulate a non-existent directory by returning an empty stat
-			return createFileStat(resource, this.readonly, false, false, false);
-		}
-		// Override to make all other paths appear as directories
-		return createFileStat(resource, this.readonly, false, true, false);
-	}
+	// Minimal stubs for other required methods
+	canHandleResource(_resource: URI): Promise<boolean> { return Promise.resolve(true); }
+	hasProvider(_resource: URI): boolean { return true; }
+	hasCapability(_resource: URI, _capability: any): boolean { return true; }
+	listCapabilities(): any[] { return []; }
+	registerProvider(): IDisposable { return { dispose: () => { } }; }
+	getProvider(): any { return undefined; }
+	activateProvider(_scheme: string): Promise<void> { return Promise.resolve(); }
+	canCreateFile(): Promise<true | Error> { return Promise.resolve(true); }
+	canMove(): Promise<true | Error> { return Promise.resolve(true); }
+	canCopy(): Promise<true | Error> { return Promise.resolve(true); }
+	canDelete(): Promise<true | Error> { return Promise.resolve(true); }
+	exists(): Promise<boolean> { return Promise.resolve(true); }
+	resolve(): Promise<IFileStatWithMetadata> { return this.stat(URI.file('/')); }
+	realpath(): Promise<URI> { return Promise.resolve(URI.file('/')); }
+	resolveAll(): Promise<any[]> { return Promise.resolve([]); }
+	readFile(): Promise<any> { throw new Error('Not implemented'); }
+	readFileStream(): Promise<any> { throw new Error('Not implemented'); }
+	writeFile(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	move(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	copy(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	cloneFile(): Promise<void> { throw new Error('Not implemented'); }
+	createFile(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	createFolder(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	delete(): Promise<void> { throw new Error('Not implemented'); }
+	del(): Promise<void> { throw new Error('Not implemented'); }
+	onDidWatchError = Event.None;
+	createWatcher(): any { return { onDidChange: Event.None, dispose: () => { } }; }
+	watch(): IDisposable { return { dispose: () => { } }; }
+	getWriteEncoding(): any { throw new Error('Not implemented'); }
+	dispose(): void { }
 }
 
 /**
