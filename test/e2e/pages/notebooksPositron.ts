@@ -8,6 +8,7 @@ import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
+import { HotKeys } from './hotKeys.js';
 
 /**
  * Notebooks functionality exclusive to Positron notebooks.
@@ -15,8 +16,8 @@ import test, { expect, Locator } from '@playwright/test';
 export class PositronNotebooks extends Notebooks {
 	positronNotebook: Locator;
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess) {
-		super(code, quickinput, quickaccess);
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
+		super(code, quickinput, quickaccess, hotKeys);
 
 		this.positronNotebook = this.code.driver.page.locator('.positron-notebook').first();
 	}
