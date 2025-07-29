@@ -41,6 +41,7 @@ configurationRegistry.registerConfiguration({
 		[POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_KEY]: {
 			type: 'boolean',
 			default: false,
+			included: false, // Hide from Settings UI - can only be set directly in JSON
 			markdownDescription: localize(
 				'positron.enablePositronNotebookExperimental',
 				'**EXPERIMENTAL**: Enable the experimental Positron Notebook editor for .ipynb files. When disabled, the default VS Code notebook editor will be used.\n\nA restart is required to take effect.'
