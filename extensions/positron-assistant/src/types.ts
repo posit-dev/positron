@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as vscode from 'vscode';
+
 export enum PositronAssistantToolName {
 	DocumentEdit = 'documentEdit',
 	EditFile = 'positron_editFile_internal',
@@ -52,3 +54,15 @@ export interface LanguageModelCacheBreakpoint {
 	 */
 	type: LanguageModelCacheBreakpointType;
 }
+
+/**
+ * Represents the context information that is sent as part of the request to the model.
+ */
+export type ContextInfo = {
+	/** The constructed language model message */
+	message: vscode.LanguageModelChatMessage2;
+	/** The prompts that are part of the message */
+	prompts: string[];
+	/** The mimeTypes for attached data included in the message */
+	attachedDataTypes?: string[];
+};
