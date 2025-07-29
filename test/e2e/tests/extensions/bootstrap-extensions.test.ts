@@ -98,7 +98,10 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 		for (const ext of mismatched) {
 			console.log(`  * ${ext}`);
 		}
-		console.log('\n🔄 Please follow instructions to update extension(s): https://connect.posit.it/positron-wiki/updating-extensions.html#updating-extensions');
+		console.log('\n🔄  Please follow instructions to update extension(s):');
+		console.log(' 1. Download outdated package from Open VSX Registry: https://open-vsx.org/extension/posit/publisher');
+		console.log(' 2. Follow instructions here to get SHA: https://connect.posit.it/positron-wiki/updating-extensions.html#updating-extensions');
+		console.log(' 3. Update the `product.json` file with the correct version and SHA');
 		throw new Error('Some extensions were installed with mismatched versions. Please check the logs above.');
 	}
 
