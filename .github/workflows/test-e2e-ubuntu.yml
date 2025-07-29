@@ -195,11 +195,21 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
-          /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 > /tmp/Xvfb.out 2>&1 &
+          # Start Xvfb in the background
+          sudo /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 > /tmp/Xvfb.out 2>&1 &
           sleep 2
+
+          # Export environment so Electron and Playwright can use it
+          export DISPLAY=:10
+          export ELECTRON_DISABLE_SANDBOX=true
+          export DEBUG="electron*"
+          export PWDEBUG=0  # set to 1 to pause and inspect failures
+
           echo "--- Xvfb Output ---"
           cat /tmp/Xvfb.out || echo "(no output)"
-          ps aux | grep [X]vfb || echo "No Xvfb process found"
+
+          echo "--- Checking if display is available ---"
+          xdpyinfo || { echo "ERROR: DISPLAY :10 not accessible"; exit 1; }
 
           DISPLAY=:10 xdpyinfo >/dev/null 2>&1 && echo "Xvfb is running" || echo "Xvfb is NOT running"
 
