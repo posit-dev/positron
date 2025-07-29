@@ -9,8 +9,6 @@ import os from 'os';
 import { test, tags } from '../_test.setup';
 import { Notebooks } from '../../pages/notebooks.js';
 
-const NOTEBOOK_PARENT_DIR = path.join('qa-example-content', 'workspaces', 'working-directory-notebook');
-
 test.use({
 	suiteId: __filename
 });
@@ -25,7 +23,7 @@ test.describe('Notebook Working Directory Configuration', {
 
 	test('Default working directory is the notebook parent', async function ({ app, settings }) {
 		await settings.clear();
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, NOTEBOOK_PARENT_DIR);
+		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
 	});
 
 	test('workspaceFolder works', async function ({ app, settings }) {
@@ -39,14 +37,14 @@ test.describe('Notebook Working Directory Configuration', {
 		await settings.set({
 			'notebook.workingDirectory': '${fileDirname}'
 		});
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, NOTEBOOK_PARENT_DIR);
+		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
 	});
 
 	test('userHome works', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '${userHome}'
 		});
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, process.env.HOME || process.env.USERPROFILE || '~');
+		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, path.basename(process.env.HOME || process.env.USERPROFILE || '~'));
 	});
 
 	test('A hardcoded path works', async function ({ app, settings }) {
@@ -56,21 +54,21 @@ test.describe('Notebook Working Directory Configuration', {
 		await settings.set({
 			'notebook.workingDirectory': tempDir
 		});
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, tempDir);
+		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'notebook-test');
 	});
 
 	test('Paths that do not exist result in the default notebook parent', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '/does/not/exist'
 		});
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, NOTEBOOK_PARENT_DIR);
+		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
 	});
 
 	test('Bad variables result in the default notebook parent', async function ({ app, settings }) {
 		await settings.set({
 			'notebook.workingDirectory': '${asdasd}'
 		});
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, NOTEBOOK_PARENT_DIR);
+		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
 	});
 });
 
