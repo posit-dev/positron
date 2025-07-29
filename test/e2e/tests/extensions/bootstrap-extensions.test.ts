@@ -98,6 +98,7 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 		for (const ext of mismatched) {
 			console.log(`  * ${ext}`);
 		}
+		console.log('\n🔄 Please follow instructions to update extension(s): https://connect.posit.it/positron-wiki/updating-extensions.html#updating-extensions');
 		throw new Error('Some extensions were installed with mismatched versions. Please check the logs above.');
 	}
 
