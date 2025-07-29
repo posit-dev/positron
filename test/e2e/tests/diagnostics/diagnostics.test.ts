@@ -67,7 +67,7 @@ test.describe('Diagnostics', {
 
 		// Open new R file and use variable
 		await runCommand('R: New File');
-		await editor.type('unlikelyvariablename');
+		await editor.type('unlikelyvariablename\n');
 
 		// Session 1 - verify no problems
 		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
