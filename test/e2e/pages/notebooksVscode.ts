@@ -8,6 +8,7 @@ import { Code } from '../infra/code';
 import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import test, { expect, Locator } from '@playwright/test';
+import { HotKeys } from './hotKeys.js';
 
 /**
  * Notebooks functionality exclusive to VS Code notebooks.
@@ -15,8 +16,8 @@ import test, { expect, Locator } from '@playwright/test';
 export class VsCodeNotebooks extends Notebooks {
 	startChatButton: Locator;
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess) {
-		super(code, quickinput, quickaccess);
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
+		super(code, quickinput, quickaccess, hotKeys);
 
 		this.startChatButton = this.code.driver.page.getByLabel(/Start Chat to Generate Code/).first();
 	}

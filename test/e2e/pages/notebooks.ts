@@ -27,13 +27,23 @@ const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
  * Shared Notebooks functionality for both Vscode and Positron notebooks.
  */
 export class Notebooks {
+	protected code: Code;
+	protected quickinput: QuickInput;
+	protected quickaccess: QuickAccess;
+	protected hotKeys: HotKeys;
+
 	kernelLabel: Locator;
 	kernelDropdown: Locator;
 	frameLocator: FrameLocator;
 	notebookProgressBar: Locator;
 	cellIndex: (num?: number) => Locator;
 
-	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private hotKeys: HotKeys) {
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
+		this.code = code;
+		this.quickinput = quickinput;
+		this.quickaccess = quickaccess;
+		this.hotKeys = hotKeys;
+
 		this.kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
 		this.kernelDropdown = this.code.driver.page.locator(KERNEL_DROPDOWN);
 		this.frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
