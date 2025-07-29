@@ -195,7 +195,11 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
-          sudo /etc/init.d/xvfb start
+          /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 > /tmp/Xvfb.out 2>&1 &
+          sleep 2
+          echo "--- Xvfb Output ---"
+          cat /tmp/Xvfb.out || echo "(no output)"
+          ps aux | grep [X]vfb || echo "No Xvfb process found"
 
           DISPLAY=:10 xdpyinfo >/dev/null 2>&1 && echo "Xvfb is running" || echo "Xvfb is NOT running"
 
