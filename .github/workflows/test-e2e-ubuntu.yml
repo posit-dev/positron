@@ -179,6 +179,7 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Run Playwright Tests (Electron)
+        shell: bash
         env:
           POSITRON_PY_VER_SEL: "3.12.10 (Venv: .venv)"
           POSITRON_R_VER_SEL: 4.4.0
@@ -194,7 +195,7 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
-          sudo service xvfb start
+          /etc/init.d/xvfbd start
 
           DISPLAY=:10 xdpyinfo >/dev/null 2>&1 && echo "Xvfb is running" || echo "Xvfb is NOT running"
 
