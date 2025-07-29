@@ -189,6 +189,16 @@
             "type": "boolean",
             "default": true,
             "description": "%r.configuration.diagnostics.enable.description%"
+          },
+          "positron.r.symbols.includeAssignmentsInBlocks": {
+            "type": "boolean",
+            "default": false,
+            "description": "%r.configuration.symbols.includeAssignmentsInBlocks.description%"
+          },
+          "positron.r.workspaceSymbols.includeCommentSections": {
+            "type": "boolean",
+            "default": false,
+            "description": "%r.configuration.workspaceSymbols.includeCommentSections.description%"
           }
         }
       },
