@@ -23,8 +23,6 @@ import { ILogService } from '../../../platform/log/common/log.js';
 import { IEditorService } from '../../services/editor/common/editorService.js';
 import { IEditorGroupsService } from '../../services/editor/common/editorGroupsService.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
-import { INotebookService } from '../../contrib/notebook/common/notebookService.js';
-import { INotebookEditorService } from '../../contrib/notebook/browser/services/notebookEditorService.js';
 import { PositronNotebookEditorInput } from '../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
 import { usingPositronNotebooks } from '../../services/positronNotebook/common/positronNotebookUtils.js';
 // --- End Positron ---
@@ -42,8 +40,6 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelResolverService: INotebookEditorModelResolverService,
 		// --- Start Positron ---
 		@IUriIdentityService private readonly _uriIdentityService: IUriIdentityService,
-		@INotebookService private readonly _notebookService: INotebookService,
-		@INotebookEditorService private readonly _notebookEditorService: INotebookEditorService,
 		@IInstantiationService private readonly _instantiationService: IInstantiationService,
 		@IEditorService private readonly _editorService: IEditorService,
 		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
@@ -170,6 +166,7 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 		// Check if untitled notebooks should use Positron editor for .ipynb
 		const uri = ref.object.resource;
 		const isJupyterViewType = options.viewType === 'jupyter-notebook' || options.viewType === 'interactive';
+		let positronHandled = false;
 
 		if (isJupyterViewType && usingPositronNotebooks(this._configurationService)) {
 			this._logService.trace('[Positron] Creating new notebook with Positron editor based on configuration');
@@ -192,6 +189,7 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 				// Mark as dirty since it's new
 				await this._proxy.$acceptDirtyStateChanged(uri, true);
 
+				positronHandled = true;
 				return uri.toJSON();
 			} catch (error) {
 				// Log error and show warning to user
@@ -204,14 +202,25 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 		}
 		// --- End Positron ---
 
-		// Original VS Code logic
-		await this._proxy.$acceptDirtyStateChanged(ref.object.resource, true);
+		// Original VS Code logic - only mark as dirty if not already handled by Positron path
+		if (!positronHandled) {
+			await this._proxy.$acceptDirtyStateChanged(ref.object.resource, true);
+		}
 		return ref.object.resource.toJSON();
 	}
 
 	async $tryOpenNotebook(uriComponents: UriComponents): Promise<URI> {
 		const uri = URI.revive(uriComponents);
 		const ref = await this._notebookEditorModelResolverService.resolve(uri, undefined);
+
+		// Handle untitled notebooks disposal - applies to all paths
+		if (uriComponents.scheme === 'untitled') {
+			// untitled notebooks are disposed when they get saved. we should not hold a reference
+			// to such a disposed notebook and therefore dispose the reference as well
+			ref.object.notebook.onWillDispose(() => {
+				ref.dispose();
+			});
+		}
 
 		// --- Start Positron ---
 		// Check if this is a Jupyter notebook and if Positron notebooks are configured as default
@@ -237,7 +246,7 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 				await this._editorService.openEditor(editorInput, undefined, preferredGroup);
 
 				// Handle untitled notebook case
-				if (ref.object.isUntitled()) {
+				if (uri.scheme === 'untitled') {
 					await this._proxy.$acceptDirtyStateChanged(uri, true);
 				}
 
@@ -249,7 +258,7 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 				// Log error and show warning to user
 				this._logService.error('[Positron] Failed to open notebook with Positron editor:', error);
 				this._notificationService.warn(
-					`Failed to open notebook with Positron editor. Falling back to VS Code editor. Error: ${error.message}`
+					`Failed to open notebook with Positron editor. Falling back to VS Code editor. Error: ${(error as Error).message}`
 				);
 				// Fall through to VS Code editor logic
 			}
@@ -257,14 +266,7 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 		// --- End Positron ---
 
 		// Original VS Code logic for opening notebooks
-		if (uriComponents.scheme === 'untitled') {
-			// untitled notebooks are disposed when they get saved. we should not hold a reference
-			// to such a disposed notebook and therefore dispose the reference as well
-			ref.object.notebook.onWillDispose(() => {
-				ref.dispose();
-			});
-		}
-
+		// Always add to collection - either for VS Code path or as fallback from failed Positron path
 		this._modelReferenceCollection.add(uri, ref);
 		return uri;
 	}
