@@ -30,7 +30,7 @@ import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../services/positronNote
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { checkPositronNotebookExperimentalEnabled } from './positronNotebookExperimentalConfig.js';
+import { checkPositronNotebookExperimentalEnabled, POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_FULL_KEY } from './positronNotebookExperimentalConfig.js';
 
 
 
@@ -57,7 +57,7 @@ class PositronNotebookContribution extends Disposable {
 
 		// Listen for configuration changes
 		this._register(this.configurationService.onDidChangeConfiguration(e => {
-			if (e.affectsConfiguration('positron.notebook.experimental.enabled')) {
+			if (e.affectsConfiguration(POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_FULL_KEY)) {
 				// Note: Currently, changing this setting requires a restart to take effect
 				// as there's no easy way to unregister an editor once registered
 			}

@@ -13,8 +13,11 @@ import {
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
 
-// Key for the configuration setting
+// Key for the configuration setting (relative to positron configuration node)
 export const POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_KEY = 'notebook.experimental.enabled';
+
+// Full configuration path (for affectsConfiguration and external references)
+export const POSITRON_NOTEBOOK_EXPERIMENTAL_ENABLED_FULL_KEY = 'positron.notebook.experimental.enabled';
 
 /**
  * Retrieves the value of the configuration setting that determines whether to enable
