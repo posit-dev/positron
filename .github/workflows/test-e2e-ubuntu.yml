@@ -196,6 +196,8 @@ jobs:
         run: |
           sudo service xvfb start
 
+          DISPLAY=:10 xdpyinfo >/dev/null 2>&1 && echo "Xvfb is running" || echo "Xvfb is NOT running"
+
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
           # Convert comma-separated skip_tags input into a pipe-separated string
