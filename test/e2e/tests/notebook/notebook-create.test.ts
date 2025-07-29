@@ -54,68 +54,60 @@ test.describe('Notebooks', {
 			await app.workbench.notebooks.assertMarkdownText('h2', randomText);
 		});
 
-		test('Python - Save untitled notebook and preserve session', async function ({ app }) {
-
-			test.slow();
+		test('Python - Save untitled notebook and preserve session', async function ({ app, runCommand }) {
+			const { notebooks, variables, layouts, quickInput } = app.workbench;
 
 			// Ensure auxiliary sidebar is open to see variables pane
-			await app.workbench.layouts.enterLayout('notebook');
-			await app.workbench.quickaccess.runCommand('workbench.action.toggleAuxiliaryBar');
+			await layouts.enterLayout('notebook');
+			await runCommand('workbench.action.toggleAuxiliaryBar');
 
 			// First, create and execute a cell to verify initial session
-			await app.workbench.notebooks.addCodeToCellAtIndex('foo = "bar"');
+			await notebooks.addCodeToCellAtIndex('foo = "bar"');
 
 			await expect.poll(
 				async () => {
 					try {
-						await app.workbench.notebooks.executeCodeInCell();
-						await app.workbench.variables.expectVariableToBe('foo', "'bar'", 1000);
+						await notebooks.executeCodeInCell();
+						await variables.expectVariableToBe('foo', "'bar'", 2000);
 						return true;
 					} catch {
 						return false;
 					}
 				},
 				{
-					timeout: 15000,
-					intervals: [3000],
+					timeout: 15_000,
+					intervals: [2_000],
 				}
 			).toBe(true);
 
 			// Save the notebook using the command
-			await app.workbench.quickaccess.runCommand('workbench.action.files.saveAs', { keepOpen: true });
-			await app.workbench.quickInput.waitForQuickInputOpened();
+			await runCommand('workbench.action.files.saveAs', { keepOpen: true });
+			await quickInput.waitForQuickInputOpened();
 
 			// Generate a random filename
 			newFileName = `saved-session-test-${Math.random().toString(36).substring(7)}.ipynb`;
 
-			await app.workbench.quickInput.type(path.join(app.workspacePathOrFolder, newFileName));
-			await app.workbench.quickInput.clickOkButton();
+			await quickInput.type(path.join(app.workspacePathOrFolder, newFileName));
+			await quickInput.clickOkButton();
 
 			// Verify the variables pane shows the correct notebook name
-			await app.workbench.variables.expectRuntimeToBe('visible', newFileName);
+			await variables.expectRuntimeToBe('visible', newFileName);
 
 			// Test Flake - seems like kernel might not be ready immediately after saving. Let's explicitly set it to see if this helps.
-			await app.workbench.notebooks.selectInterpreter('Python');
+			await notebooks.selectInterpreter('Python');
 
 			// Verify the variable still exists
-			await app.workbench.variables.expectVariableToBe('foo', "'bar'");
-
-			await expect(async () => {
-				// Add a new cell
-				await app.workbench.notebooks.insertNotebookCell('code');
-			}).toPass({ timeout: 60000 });
+			await variables.expectVariableToBe('foo', "'bar'");
+			await notebooks.insertNotebookCell('code');
 
 			// Create a new variable using the now saved notebook
 			// Add code to the new cell (using typeInEditor since addCodeToLastCell isn't available)
-			await app.workbench.notebooks.addCodeToCellAtIndex('baz = "baz"', 1);
-
+			await notebooks.addCodeToCellAtIndex('baz = "baz"', 1);
 			await expect(async () => {
-				// Execute the cell
-				await app.workbench.notebooks.executeActiveCell();
-
-				// Verify the variable is in the variables pane
-				await app.workbench.variables.expectVariableToBe('baz', "'baz'");
-			}).toPass({ timeout: 60000 });
+				await notebooks.selectCellAtIndex(1);
+				await notebooks.executeActiveCell();
+				await variables.expectVariableToBe('baz', "'baz'");
+			}).toPass({ timeout: 15000 });
 		});
 
 		test('Python - Ensure LSP works across cells', async function ({ app }) {

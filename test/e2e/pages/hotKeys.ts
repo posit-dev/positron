@@ -44,6 +44,14 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+Z');
 	}
 
+	// ------------------------
+	// --- Notebook Actions ---
+	// ------------------------
+
+	public async executeNotebookCell() {
+		await this.pressHotKeys('Shift+Enter', 'Execute notebook cell');
+	}
+
 	// --------------------
 	// --- File Actions ---
 	// --------------------

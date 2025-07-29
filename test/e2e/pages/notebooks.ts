@@ -8,6 +8,7 @@ import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import { basename } from 'path';
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
+import { HotKeys } from './hotKeys.js';
 
 const KERNEL_DROPDOWN = 'a.kernel-label';
 const KERNEL_LABEL = '.codicon-notebook-kernel-select';
@@ -26,21 +27,13 @@ const ACTIVE_ROW_SELECTOR = `.notebook-editor .monaco-list-row.focused`;
  * Shared Notebooks functionality for both Vscode and Positron notebooks.
  */
 export class Notebooks {
-	protected code: Code;
-	protected quickinput: QuickInput;
-	protected quickaccess: QuickAccess;
-
 	kernelLabel: Locator;
 	kernelDropdown: Locator;
 	frameLocator: FrameLocator;
 	notebookProgressBar: Locator;
 	cellIndex: (num?: number) => Locator;
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess) {
-		this.code = code;
-		this.quickinput = quickinput;
-		this.quickaccess = quickaccess;
-
+	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private hotKeys: HotKeys) {
 		this.kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
 		this.kernelDropdown = this.code.driver.page.locator(KERNEL_DROPDOWN);
 		this.frameLocator = this.code.driver.page.frameLocator(OUTER_FRAME).frameLocator(INNER_FRAME);
@@ -118,7 +111,7 @@ export class Notebooks {
 
 	async addCodeToCellAtIndex(code: string, cellIndex = 0, delay = 0) {
 		await test.step('Add code to first cell', async () => {
-			await this.code.driver.page.locator(CELL_LINE).nth(cellIndex).click();
+			await this.selectCellAtIndex(cellIndex);
 			await this.typeInEditor(code, delay);
 			await this.waitForActiveCellEditorContents(code);
 		});
@@ -216,11 +209,19 @@ export class Notebooks {
 	}
 
 	async insertNotebookCell(kind: 'markdown' | 'code'): Promise<void> {
-		if (kind === 'markdown') {
-			await this.quickaccess.runCommand('notebook.cell.insertMarkdownCellBelow');
-		} else {
-			await this.quickaccess.runCommand('notebook.cell.insertCodeCellBelow');
-		}
+		await expect(async () => {
+			if (kind === 'markdown') {
+				await this.quickaccess.runCommand('notebook.cell.insertMarkdownCellBelow');
+			} else {
+				await this.quickaccess.runCommand('notebook.cell.insertCodeCellBelow');
+			}
+		}).toPass({ timeout: 60000 });
+	}
+
+	async selectCellAtIndex(cellIndex: number): Promise<void> {
+		await test.step(`Select cell at index: ${cellIndex}`, async () => {
+			await this.code.driver.page.locator(CELL_LINE).nth(cellIndex).click();
+		});
 	}
 
 	async stopEditingCell() {
@@ -228,7 +229,7 @@ export class Notebooks {
 	}
 
 	async executeActiveCell(): Promise<void> {
-		await this.quickaccess.runCommand('notebook.cell.execute');
+		await this.hotKeys.executeNotebookCell();
 		await expect(this.code.driver.page.getByRole('button', { name: 'Go To' })).not.toBeVisible({ timeout: 30000 });
 	}
 

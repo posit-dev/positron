@@ -113,7 +113,7 @@ export class Workbench {
 		this.console = new Console(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.modals = new Modals(code, this.toasts, this.console);
 		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console);
-		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
+		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess);
 		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess);
 		this.welcome = new Welcome(code);
