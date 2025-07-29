@@ -92,13 +92,13 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:1
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:2
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_USER }}
         password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:1
+        image: ghcr.io/posit-dev/positron-postgres-initialized:2
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_USER }}
           password: ${{ secrets.POSITRON_GITHUB_PAT }}
@@ -185,6 +185,8 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
+          sudo service xvfb start
+
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
           # Convert comma-separated skip_tags input into a pipe-separated string
