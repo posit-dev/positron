@@ -29,6 +29,8 @@ import { ICommandAndKeybindingRule, KeybindingsRegistry, KeybindingWeight } from
 import { POSITRON_NOTEBOOK_EDITOR_FOCUSED } from '../../../services/positronNotebook/browser/ContextKeysManager.js';
 import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
 import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
+import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
+import { checkPositronNotebookExperimentalEnabled } from './positronNotebookExperimentalConfig.js';
 
 
 
@@ -41,14 +43,30 @@ import { IPositronNotebookInstance } from '../../../services/positronNotebook/br
  */
 class PositronNotebookContribution extends Disposable {
 	constructor(
-		@IEditorResolverService editorResolverService: IEditorResolverService,
+		@IEditorResolverService private readonly editorResolverService: IEditorResolverService,
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
-		@INotebookService private readonly notebookService: INotebookService
+		@INotebookService private readonly notebookService: INotebookService,
+		@IConfigurationService private readonly configurationService: IConfigurationService
 	) {
 		super();
 
+		// Only register the editor if the experimental feature is enabled
+		if (checkPositronNotebookExperimentalEnabled(this.configurationService)) {
+			this.registerEditor();
+		}
+
+		// Listen for configuration changes
+		this._register(this.configurationService.onDidChangeConfiguration(e => {
+			if (e.affectsConfiguration('positron.notebook.experimental.enabled')) {
+				// Note: Currently, changing this setting requires a restart to take effect
+				// as there's no easy way to unregister an editor once registered
+			}
+		}));
+	}
+
+	private registerEditor(): void {
 		// Register for .ipynb files
-		this._register(editorResolverService.registerEditor(
+		this._register(this.editorResolverService.registerEditor(
 			'*.ipynb',
 			{
 				id: PositronNotebookEditorInput.EditorID,
