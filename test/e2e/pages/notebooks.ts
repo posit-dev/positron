@@ -242,10 +242,6 @@ export class Notebooks {
 		await this.hotKeys.executeNotebookCell();
 		await expect(this.code.driver.page.getByRole('button', { name: 'Go To' })).not.toBeVisible({ timeout: 30000 });
 	}
-
-	async focusNextCell() {
-		await this.code.driver.page.keyboard.press('ArrowDown');
-	}
 }
 
 function escapeRegExp(str: string): string {
