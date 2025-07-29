@@ -92,13 +92,13 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:3
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:4
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_USER }}
         password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:3
+        image: ghcr.io/posit-dev/positron-postgres-initialized:4
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_USER }}
           password: ${{ secrets.POSITRON_GITHUB_PAT }}
@@ -195,7 +195,7 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
-          /etc/init.d/xvfbd start
+          /etc/init.d/xvfb start
 
           DISPLAY=:10 xdpyinfo >/dev/null 2>&1 && echo "Xvfb is running" || echo "Xvfb is NOT running"
 
