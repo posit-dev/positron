@@ -42,7 +42,7 @@ export class Console {
 
 	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private hotKeys: HotKeys) {
 		// Standard Console Button Locators
-		this.restartButton = this.code.driver.page.getByLabel('Restart console');
+		this.restartButton = this.code.driver.page.getByTestId('restart-session');
 		this.clearButton = this.code.driver.page.getByLabel('Clear console');
 		this.trashButton = this.code.driver.page.getByTestId('trash-session');
 

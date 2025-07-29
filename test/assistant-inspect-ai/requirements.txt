@@ -1,0 +1,7 @@
+# Core requirements for Inspect AI JSON model graded evaluation
+inspect-ai>=0.3.93  # Main Inspect AI package with model graded QA functionality
+jsonlines>=3.1.0    # For working with JSON Lines files
+
+# Provider-specific requirements
+openai>=1.0.0       # For OpenAI API access
+anthropic>=0.5.0    # For Anthropic API access
