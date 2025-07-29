@@ -195,7 +195,7 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
-          /etc/init.d/xvfb start
+          sudo /etc/init.d/xvfb start
 
           DISPLAY=:10 xdpyinfo >/dev/null 2>&1 && echo "Xvfb is running" || echo "Xvfb is NOT running"
 
