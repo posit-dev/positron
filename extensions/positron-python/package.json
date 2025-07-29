@@ -1,7 +1,7 @@
 {
     "name": "python",
     "displayName": "Python",
-    "description": "Python",
+    "description": "Python language support for Positron's language server, console, editors, and more.",
     "version": "2025.99.0-dev",
     "featureFlags": {
         "usingNewInterpreterStorage": true
