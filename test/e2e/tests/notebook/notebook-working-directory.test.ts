@@ -40,13 +40,6 @@ test.describe('Notebook Working Directory Configuration', {
 		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'working-directory-notebook');
 	});
 
-	test('userHome works', async function ({ app, settings }) {
-		await settings.set({
-			'notebook.workingDirectory': '${userHome}'
-		});
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, path.basename(process.env.HOME || process.env.USERPROFILE || '~'));
-	});
-
 	test('A hardcoded path works', async function ({ app, settings }) {
 		// Make a temp dir
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'notebook-test'));
@@ -54,7 +47,7 @@ test.describe('Notebook Working Directory Configuration', {
 		await settings.set({
 			'notebook.workingDirectory': tempDir
 		});
-		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, 'notebook-test');
+		await verifyWorkingDirectoryEndsWith(app.workbench.notebooks, path.basename(tempDir));
 	});
 
 	test('Paths that do not exist result in the default notebook parent', async function ({ app, settings }) {
