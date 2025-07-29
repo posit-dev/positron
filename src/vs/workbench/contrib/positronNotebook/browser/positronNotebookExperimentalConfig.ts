@@ -11,13 +11,9 @@ import {
 	IConfigurationRegistry,
 } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
-import { positronConfigurationNodeBase } from '../../../services/languageRuntime/common/languageRuntime.js';
 
-// Key for the configuration setting (relative to positron configuration node)
-export const POSITRON_NOTEBOOK_ENABLED_KEY = 'notebook.enabled';
-
-// Full configuration path (for affectsConfiguration and external references)
-export const POSITRON_NOTEBOOK_ENABLED_FULL_KEY = 'positron.notebook.enabled';
+// Configuration key for the Positron notebook setting
+export const POSITRON_NOTEBOOK_ENABLED_KEY = 'positron.notebook.enabled';
 
 /**
  * Retrieves the value of the configuration setting that determines whether to enable
@@ -38,7 +34,10 @@ const configurationRegistry = Registry.as<IConfigurationRegistry>(
 	Extensions.Configuration
 );
 configurationRegistry.registerConfiguration({
-	...positronConfigurationNodeBase,
+	id: 'positron',
+	order: 7,
+	title: localize('positronConfigurationTitle', "Positron"),
+	type: 'object',
 	scope: ConfigurationScope.MACHINE_OVERRIDABLE,
 	properties: {
 		[POSITRON_NOTEBOOK_ENABLED_KEY]: {
