@@ -3,8 +3,6 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-from abc import ABC, abstractmethod
-from sqlite3 import Row
 from typing import List, Optional, Union
 
 import pandas as pd
@@ -22,50 +20,7 @@ from ..data_explorer_comm import (
     StrictStr,
     TextSearchType,
 )
-from ..third_party import is_pandas, is_polars
-
-
-class CodeFragment:
-    """Represents a piece of generated code with its dependencies."""
-
-    def __init__(
-        self,
-        preprocessing: Optional[List[str]] = None,
-        method_chain: str = "",
-        postprocessing: Optional[List[str]] = None,
-    ):
-        self.preprocessing = preprocessing or []
-        self.method_chain = method_chain
-        self.postprocessing = postprocessing or []
-
-
-class CodeConverter(ABC):
-    """Class for generating dataframe code strings."""
-
-    def __new__(cls, table, state: BackendState):
-        """Factory method that returns appropriate code generator based on table type."""
-        if cls is CodeConverter:
-            if is_pandas(table):
-                return PandasConverter(table, state)
-            elif is_polars(table):
-                return PolarsConverter(table, state)
-        return super().__new__(cls)
-
-    def __init__(self, table, state):
-        """
-        Initialize the code generator with a default DataFrame variable name.
-
-        Args:
-            table_name: Variable name to use for the DataFrame in generated code
-            table: DataFrame or Series to generate code for
-        """
-        self.state: BackendState = state
-        self.table_name: str = state.name
-        self.table = table
-
-    @abstractmethod
-    def convert(self, params) -> List[StrictStr]:
-        """Convert operation specification to list of pandas code strings."""
+from .convert import CodeConverter
 
 
 class PandasConverter(CodeConverter):
@@ -349,27 +304,3 @@ class PandasConverter(CodeConverter):
         method_parts = [".sort_values(by=column_names, ascending=asc)"]
 
         return preprocessing, method_parts
-
-
-class PolarsConverter(CodeConverter):
-    def __init__(self, table, table_name: str):
-        """
-        Initialize the Polars code generator.
-
-        Args:
-            table: DataFrame or Series to generate code for
-            table_name: Variable name to use for the DataFrame in generated code
-        """
-        super().__init__(table, table_name)
-
-    def convert(self, params) -> List[StrictStr]:
-        """
-        Convert operation specification to list of Polars code strings.
-
-        Args:
-            params: Parameters containing sort keys and filters
-
-        Returns:
-            List of code strings that perform the sort operation
-        """
-        raise NotImplementedError("Polars code generation not implemented yet.")

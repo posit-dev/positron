@@ -24,7 +24,8 @@ from typing import (
 import comm
 
 from .access_keys import decode_access_key
-from .converters.pandas_converter import CodeConverter, PandasConverter
+from .converters.pandas_converter import PandasConverter
+from .converters.polars_converter import PolarsConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
@@ -2328,11 +2329,11 @@ class PolarsView(DataExplorerTableView):
         """Returns the supported code types for exporting data."""
         return CodeSyntaxName(code_syntax_name="polars").dict()
 
-    def convert_to_code(self, request: ConvertToCodeRequest):  # noqa: ARG002
+    def convert_to_code(self, request: ConvertToCodeRequest):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return ConvertedCode(
-            converted_code=["import polars as pl", "# TODO: Implement export to code"]
-        ).dict()
+        converter = PolarsConverter(self.table, self.state)
+        converted_code = converter.convert(request)
+        return ConvertedCode(converted_code=converted_code).dict()
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
