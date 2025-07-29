@@ -227,7 +227,7 @@ class PandasConverter(CodeConverter):
         return f"{self.table_name}[{column_name_repr}].isna()"
 
     def _handle_not_null_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
-        return f"~{self.table_name}[{column_name_repr}].notna()"
+        return f"{self.table_name}[{column_name_repr}].notna()"
 
     def _handle_is_true_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
         return f"{self.table_name}[{column_name_repr}] == True"
@@ -281,23 +281,23 @@ class PandasConverter(CodeConverter):
         Returns:
             A string representing the text search operation
         """
-        column_access = f"{self.table_name}[{column_name}].str"
+        column_access = f"{self.table_name}[{column_name}]"
 
         if search_type == TextSearchType.Contains:
-            return f"{column_access}.contains({value!r}, case={case_sensitive})"
+            return f"{column_access}.str.contains({value!r}, case={case_sensitive}, na=False)"
         elif search_type == TextSearchType.NotContains:
-            return f"~{column_access}.contains({value!r}, case={case_sensitive})"
+            return f"~{column_access}.str.contains({value!r}, case={case_sensitive}, na=True)"
         elif search_type == TextSearchType.RegexMatch:
-            return f"{column_access}.match({value!r}, case={case_sensitive})"
+            return f"{column_access}.str.match({value!r}, case={case_sensitive}, na=False)"
 
         if not case_sensitive:
-            column_access = f"{column_access}.lower()"
+            column_access = f"{column_access}.str.lower()"
             value = value.lower()
 
         if search_type == TextSearchType.StartsWith:
-            return f"{column_access}.str.startswith({value!r})"
+            return f"{column_access}.str.startswith({value!r}, na = False)"
         elif search_type == TextSearchType.EndsWith:
-            return f"{column_access}.str.endswith({value!r})"
+            return f"{column_access}.str.endswith({value!r}, na = False)"
         else:
             raise ValueError(f"Unsupported TextSearchType: {search_type}")
 

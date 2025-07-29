@@ -54,7 +54,7 @@ from ..data_explorer_comm import (
     RowFilterTypeSupportStatus,
     SupportStatus,
 )
-from ..utils import guid
+from ..utils import guid, var_guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH, _assign_variables
 from .utils import dummy_rpc_request, json_rpc_notification, json_rpc_request
@@ -526,8 +526,8 @@ class DataExplorerFixture:
         sort_keys=list,
         code_syntax_name="pandas",
     ):
-        table_id = "a" + guid()
-        ex_id = "a" + guid()
+        table_id = var_guid()
+        ex_id = var_guid()
         self.register_table(table_id, table)
         self.register_table(ex_id, expected_table)
 
@@ -537,22 +537,25 @@ class DataExplorerFixture:
         assert response["converted_code"] is not None
 
         new_df_code = response["converted_code"]
-        print(response)
-        converted_table_name = table_id + "_2"
-        new_df_code[-1] = converted_table_name + " = " + new_df_code[-1]
+
+        # added to ensure the new table is created in the shell's user namespace
+        # normally we dont want to create a new dataframe in this code
+        new_table_id = var_guid()
+        new_df_code[-1] = new_table_id + " = " + new_df_code[-1]
+        print("new df code\n", new_df_code)
         new_df_code = "\n".join(new_df_code)
 
-        self.shell.run_cell(new_df_code)
-        print("new_df_code", new_df_code)
-        print("userns", self.shell._user_ns)
-        new_df = pd.DataFrame(self.shell._user_ns[converted_table_name])  # noqa: SLF001
-        print("new df ", new_df)
-        self.compare_tables(table_id, ex_id, table.shape)
+        # add the original table to the shell's user namespace
+        self.shell._user_ns[table_id] = table  # noqa: SLF001
+        self.shell.run_cell(new_df_code).raise_error()
+
+        new_df = pd.DataFrame(self.shell._user_ns[new_table_id])  # noqa: SLF001
+        self.register_table(new_table_id, new_df)
+        print("expected table\n", expected_table, "\nnew table\n", new_df)
+        self.compare_tables(new_table_id, ex_id, table.shape)
 
     def compare_code(self, converted_code: List[str], expected_code: List[str]):
-        """
-        Compare two lists of code strings, ignoring leading/trailing whitespace and empty lines.
-        """
+        """Compare two lists of code strings, ignoring leading/trailing whitespace and empty lines."""
         converted_code = [line.strip() for line in converted_code if line.strip()]
         expected_code = [line.strip() for line in expected_code if line.strip()]
 
@@ -3998,4 +4001,102 @@ def test_convert_pandas_filter_is_null_not_null(dxf: DataExplorerFixture):
     for filter_set, expected_df in cases:
         dxf.check_conversion_case(
             test_df, expected_df, row_filters=filter_set, code_syntax_name="pandas"
+        )
+
+
+def test_convert_pandas_filter_search(dxf: DataExplorerFixture):
+    test_df = pd.DataFrame(
+        {
+            "a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"],
+            "b": [1, 11, 31, 22, 24, 62, 89],
+        }
+    )
+
+    dxf.register_table("test_df", test_df)
+    schema = dxf.get_schema("test_df")
+
+    # (search_type, column_schema, term, case_sensitive, boolean mask)
+    # TODO (iz): make this more DRY since we have another test for search filters
+    cases = [
+        (
+            "contains",
+            schema[0],
+            "foo",
+            False,
+            test_df["a"].str.lower().str.contains("foo"),
+        ),
+        ("contains", schema[0], "foo", True, test_df["a"].str.contains("foo")),
+        (
+            "not_contains",
+            schema[0],
+            "foo",
+            False,
+            ~test_df["a"].str.lower().str.contains("foo", na=True),
+        ),
+        (
+            "not_contains",
+            schema[0],
+            "foo",
+            True,
+            ~test_df["a"].str.contains("foo", na=True),
+        ),
+        (
+            "starts_with",
+            schema[0],
+            "foo",
+            False,
+            test_df["a"].str.lower().str.startswith("foo"),
+        ),
+        (
+            "starts_with",
+            schema[0],
+            "foo",
+            True,
+            test_df["a"].str.startswith("foo"),
+        ),
+        (
+            "ends_with",
+            schema[0],
+            "foo",
+            False,
+            test_df["a"].str.lower().str.endswith("foo"),
+        ),
+        (
+            "ends_with",
+            schema[0],
+            "foo",
+            True,
+            test_df["a"].str.endswith("foo"),
+        ),
+        (
+            "regex_match",
+            schema[0],
+            "f[o]+",
+            False,
+            test_df["a"].str.match("f[o]+", case=False),
+        ),
+        (
+            "regex_match",
+            schema[0],
+            "f[o]+[^o]*",
+            True,
+            test_df["a"].str.match("f[o]+[^o]*", case=True),
+        ),
+    ]
+
+    for search_type, column_schema, term, cs, mask in cases:
+        mask[mask.isna()] = False
+        expected_df = test_df[mask.astype(bool)]
+        dxf.check_conversion_case(
+            test_df,
+            expected_df,
+            row_filters=[
+                _search_filter(
+                    column_schema,
+                    term,
+                    case_sensitive=cs,
+                    search_type=search_type,
+                )
+            ],
+            code_syntax_name="pandas",
         )
