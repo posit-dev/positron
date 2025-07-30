@@ -5,7 +5,6 @@
 
 # ruff: noqa: E712
 
-from calendar import c
 import datetime
 import inspect
 import math
@@ -803,6 +802,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
                 ),
                 "complex256",
                 "number",
+                None,
             )
         )
 
