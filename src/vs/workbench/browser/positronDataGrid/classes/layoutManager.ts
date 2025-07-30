@@ -161,12 +161,12 @@ export class LayoutManager {
 	/**
 	 * Gets or sets the pinned layout entries.
 	 */
-	private _pinnedLayoutEntries?: LayoutEntry[] = undefined;
+	private _pinnedLayoutEntries: LayoutEntry[] = [];
 
 	/**
 	 * Gets or sets the unpinned layout entries.
 	 */
-	private _unpinnedLayoutEntries?: LayoutEntry[] = undefined;
+	private _unpinnedLayoutEntries: LayoutEntry[] = [];
 
 	//#endregion Private Properties
 
@@ -189,7 +189,7 @@ export class LayoutManager {
 	 */
 	get pinnedLayoutEntriesSize() {
 		// If there are pinned layout entries, return the end of the last one.
-		if (this._pinnedLayoutEntries?.length) {
+		if (this._pinnedLayoutEntries.length) {
 			return this._pinnedLayoutEntries[this._pinnedLayoutEntries.length - 1].end;
 		}
 
@@ -202,7 +202,7 @@ export class LayoutManager {
 	 */
 	get unpinnedLayoutEntriesSize() {
 		// If there are unpinned layout entries, return the end of the last one.
-		if (this._unpinnedLayoutEntries?.length) {
+		if (this._unpinnedLayoutEntries.length) {
 			return this._unpinnedLayoutEntries[this._unpinnedLayoutEntries.length - 1].end;
 		}
 
@@ -250,7 +250,6 @@ export class LayoutManager {
 		}
 
 		// If there are no size overrides, we can calculate which layout entry to return.
-		// Cache and return the layout entry.
 		if (!this._customSizes.size) {
 			// Return the layout entry.
 			return new LayoutEntry(
@@ -285,7 +284,7 @@ export class LayoutManager {
 	}
 
 	/**
-	 * Finds an unpinned layout entry.
+	 * Finds an unpinned layout entry at the specified offset.
 	 * @param offset The offset of the unpinned layout entry to find.
 	 * @returns The unpinned layout entry, if found; otherwise, undefined.
 	 */
@@ -296,11 +295,11 @@ export class LayoutManager {
 		}
 
 		// If there are no unpinned layout entries, return undefined.
-		if (!this._unpinnedLayoutEntries) {
+		if (!this._unpinnedLayoutEntries.length) {
 			return undefined;
 		}
 
-		//
+		// Perform a binary search to find the unpinned layout entry at the specified offset.
 		let leftIndex = 0;
 		let rightIndex = this._unpinnedLayoutEntries.length - 1;
 		while (leftIndex <= rightIndex) {
@@ -308,9 +307,8 @@ export class LayoutManager {
 			const middleIndex = Math.floor((leftIndex + rightIndex) / 2);
 			const middleLayoutEntry = this._unpinnedLayoutEntries[middleIndex];
 
-			// Check if the middle layout entry contains the offset. If so, cache and return it.
+			// Check if the middle layout entry contains the offset. If so, return it.
 			if (offset >= middleLayoutEntry.start && offset < middleLayoutEntry.end) {
-				// Cache the layout entry and return its layout.
 				return middleLayoutEntry;
 			}
 
@@ -439,24 +437,22 @@ export class LayoutManager {
 	 * @param width The width.
 	 * @returns An array containing the unpinned layout entries, if any; otherwise, undefined.
 	 */
-	unpinnedLayoutEntries(offset: number, width: number): ILayoutEntry[] | undefined {
+	unpinnedLayoutEntries(offset: number, width: number): ILayoutEntry[] {
 		// Validate the offset and width.
 		if (offset < 0 || width <= 0) {
-			return undefined;
+			return [];
 		}
 
 		// If there are no unpinned layout entries, return undefined.
-		if (!this._unpinnedLayoutEntries) {
-			return undefined;
+		if (!this._unpinnedLayoutEntries.length) {
+			return [];
 		}
 
-		// Perform a binary search to find the first unpinned layout entry that overlaps with the
-		// specified offset and width.
+		// Perform a binary search to find the unpinned layout entries at the specified offset and width.
 		let leftIndex = 0;
 		let rightIndex = this._unpinnedLayoutEntries.length - 1;
 		while (leftIndex <= rightIndex) {
-			// Calculate the middle unpinned layout entry index and get the middle unpinned
-			// layout entry to check.
+			// Calculate the middle index and get the middle layout entry to check.
 			const middleIndex = Math.floor((leftIndex + rightIndex) / 2);
 			const middleLayoutEntry = this._unpinnedLayoutEntries[middleIndex];
 
@@ -493,209 +489,7 @@ export class LayoutManager {
 		}
 
 		// No unpinned layout entries that overlap with the specified offset and width were found.
-		return undefined;
-		// // If there are unpinned layout entries, find the ones that overlap with the specified offset
-		// // and width and return them.
-		// if (this._unpinnedLayoutEntries) {
-		// 	// Perform a binary search to find the first unpinned layout entry that overlaps with the
-		// 	// specified offset and width.
-		// 	let leftIndex = 0;
-		// 	let rightIndex = this._unpinnedLayoutEntries.length - 1;
-		// 	while (leftIndex <= rightIndex) {
-		// 		// Calculate the middle unpinned layout entry index and get the middle unpinned
-		// 		// layout entry to check.
-		// 		const middleIndex = Math.floor((leftIndex + rightIndex) / 2);
-		// 		const middleLayoutEntry = this._unpinnedLayoutEntries[middleIndex];
-
-		// 		// Check whether the middle unpinned layout entry contains the offset. If it does, it is
-		// 		// the first layout entry to return.
-		// 		if (offset >= middleLayoutEntry.start && offset < middleLayoutEntry.end) {
-		// 			// Add the middle unpinned layout entry to the layout entries to return.
-		// 			const layoutEntries: ILayoutEntry[] = [middleLayoutEntry];
-
-		// 			// Find the rest of the unpinned layout entries to return.
-		// 			for (let nextIndex = middleIndex + 1; nextIndex < this._unpinnedLayoutEntries.length; nextIndex++) {
-		// 				// Get the next unpinned layout entry.
-		// 				const layoutEntry = this._unpinnedLayoutEntries[nextIndex];
-
-		// 				// Break when the next unpinned layout entry starts after the offset + width.
-		// 				if (layoutEntry.start >= offset + width) {
-		// 					break;
-		// 				}
-
-		// 				// Add the next unpinned layout entry to the layout entries to return.
-		// 				layoutEntries.push(layoutEntry);
-		// 			}
-
-		// 			// Return the layout entries.
-		// 			return layoutEntries;
-		// 		}
-
-		// 		// Setup the next binary search.
-		// 		if (middleLayoutEntry.start < offset) {
-		// 			leftIndex = middleIndex + 1;
-		// 		} else {
-		// 			rightIndex = middleIndex - 1;
-		// 		}
-		// 	}
-
-		// 	// No unpinned layout entries that overlap with the specified offset and width were found.
-		// 	return undefined;
-		// }
-
-		// const layoutEntrySize = (index: number) => {
-		// 	return this._customSizes.get(index) ?? this._defaultSize;
-		// };
-
-		// const unpinnedLayoutEntryStart = (index: number) => {
-		// 	let start = 0;
-		// 	for (let i = 0; i < index; i++) {
-		// 		if (!this._pinnedIndexes.has(i)) {
-		// 			start += layoutEntrySize(i);
-		// 		}
-		// 	}
-
-		// 	return start;
-		// };
-
-		// // There are no unpinned layout entries, so we calculate which unpinned layout entries to return.
-		// // Perform a binary search to find the first unpinned layout entry that overlaps with the
-		// // specified offset and width.
-		// let leftIndex = 0;
-		// let rightIndex = this.entryCount - 1;
-		// while (leftIndex <= rightIndex) {
-		// 	// Calculate the middle index.
-		// 	let middleIndex = Math.floor((leftIndex + rightIndex) / 2);
-
-		// 	// If the middle index is pinned, skip it.
-		// 	if (this._pinnedIndexes.has(middleIndex)) {
-
-		// 		// Try left and right indexes to find an unpinned index.
-		// 		let found = false;
-		// 		let leftIndexToCheck = middleIndex - 1;
-		// 		let rightIndexToCheck = middleIndex + 1;
-
-		// 		// Find the next unpinned index.
-		// 		while (leftIndexToCheck >= leftIndex || rightIndexToCheck <= rightIndex) {
-		// 			if (leftIndexToCheck >= leftIndex && !this._pinnedIndexes.has(leftIndexToCheck)) {
-		// 				middleIndex = leftIndexToCheck;
-		// 				found = true;
-		// 				break;
-		// 			}
-		// 			if (rightIndexToCheck <= rightIndex && !this._pinnedIndexes.has(rightIndexToCheck)) {
-		// 				middleIndex = rightIndexToCheck;
-		// 				found = true;
-		// 				break;
-		// 			}
-
-		// 			// Adjust the left and right indexes to check.
-		// 			leftIndexToCheck--;
-		// 			rightIndexToCheck++;
-		// 		}
-
-		// 		// All indexes were pinned, so we cannot find an unpinned index.
-		// 		if (!found) {
-		// 			return undefined;
-		// 		}
-		// 	}
-
-
-		// 	const start = unpinnedLayoutEntryStart(middleIndex);
-		// 	const size = layoutEntrySize(middleIndex);
-		// 	const end = start + size;
-
-		// 	if (offset >= start && end < offset + width) {
-		// 		// Add the middle unpinned layout entry to the layout entries to return.
-		// 		const layoutEntries: ILayoutEntry[] = [new LayoutEntry(
-		// 			middleIndex,
-		// 			start,
-		// 			this._defaultSize,
-		// 			this._customSizes.get(middleIndex)
-		// 		)];
-
-		// 		// Find the rest of the unpinned layout entries to return.
-		// 		for (let nextIndex = middleIndex + 1; nextIndex < this.entryCount; nextIndex++) {
-		// 			// Get the next unpinned layout entry.
-		// 			const layoutEntry = this._unpinnedlayoutEntries[nextIndex];
-
-		// 			// Break when the next unpinned layout entry starts after the offset + width.
-		// 			if (lauoutEntry.start >= offset + width) {
-		// 				break;
-		// 			}
-
-		// 			// Add the next unpinned layout entry to the layout entries to return.
-		// 			layoutEntries.push(lauoutEntry);
-		// 		}
-
-		// 		// Return the layout entries.
-		// 		return layoutEntries;
-		// 	}
-
-		// 	// Setup the next binary search.
-		// 	if (start < offset) {
-		// 		leftIndex = middleIndex + 1;
-		// 	} else {
-		// 		rightIndex = middleIndex - 1;
-		// 	}
-		// }
-
-		// // NO CUSTOM SIZES NO MEASURED SIZES.
-
-		// // If there are no custom sizes, calculate which unpinned layout entries to return.
-		// if (!this._customSizes.size) {
-		// 	// Calculate the index of the first layout entry to return.
-		// 	const firstIndex = Math.floor(offset / this._defaultSize);
-		// 	if (firstIndex >= this.entryCount) {
-		// 		return undefined;
-		// 	}
-
-		// 	// Add the first layout entry to the layout entries to return.
-		// 	const layoutEntries: ILayoutEntry[] = [new LayoutEntry(
-		// 		firstIndex,
-		// 		firstIndex * this._defaultSize,
-		// 		this._defaultSize
-		// 	)];
-
-		// 	// Find the rest of the layout entries that overlap with the specified offset and width.
-		// 	for (let index = firstIndex + 1; index < this.entryCount; index++) {
-		// 		if (!this._pinnedIndexes.has(index)) {
-		// 			// Get the next layout entry.
-		// 			const nextLayoutEntry = new LayoutEntry(
-		// 				index,
-		// 				index * this._defaultSize,
-		// 				this._defaultSize
-		// 			);
-
-		// 			// If the next layout entry starts after the offset + width, break.
-		// 			if (nextLayoutEntry.start >= offset + width) {
-		// 				break;
-		// 			}
-
-		// 			// Add the next layout entry to the layout entries to return.
-		// 			layoutEntries.push(nextLayoutEntry);
-		// 		}
-		// 	}
-
-		// 	// Return the layout entries.
-		// 	return layoutEntries;
-		// }
-
-
-		// // TODO
-		// return undefined;
-
-
-		// // If there are unpinned layout entries, filter them based on the offset and width.
-		// if (this._unpinnedlayoutEntries) {
-		// 	// Filter the unpinned layout entries based on the offset and width.
-		// 	return this._unpinnedlayoutEntries.filter(unpinnedLayoutEntry =>
-		// 		unpinnedLayoutEntry.end >= offset && unpinnedLayoutEntry.start <= offset + width
-		// 	);
-		// }
-
-		// // Binary search.
-		// return [];
-
+		return [];
 	}
 
 	//#endregion Public Methods
@@ -737,7 +531,7 @@ export class LayoutManager {
 		// If there are no pinned indexes, clear the pinned layout entries. Othwewise, create the pinned layout entries.
 		if (!this._pinnedIndexes.size) {
 			// Clear the pinned layout entries.
-			this._pinnedLayoutEntries = undefined;
+			this._pinnedLayoutEntries = [];
 		} else {
 			// Create the pinned layout entries.
 			let start = 0;

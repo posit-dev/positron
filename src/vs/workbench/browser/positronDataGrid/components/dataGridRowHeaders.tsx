@@ -11,16 +11,15 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { DataGridRowHeader } from './dataGridRowHeader.js';
-import { RowDescriptor } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
+import { RowDescriptors } from '../classes/dataGridInstance.js';
 
 /**
  * DataGridRowHeadersProps interface.
  */
 interface DataGridRowHeadersProps {
 	height: number;
-	pinnedRowDescriptors: RowDescriptor[];
-	unpinnedRowDescriptors: RowDescriptor[];
+	rowDescriptors: RowDescriptors;
 }
 
 /**
@@ -33,9 +32,8 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 	const context = usePositronDataGridContext();
 
 	// Create the pinned data grid row header elements.
-	let pinnedHeight = 0;
 	const dataGridRowHeaders: JSX.Element[] = [];
-	for (const pinnedRowDescriptor of props.pinnedRowDescriptors) {
+	for (const pinnedRowDescriptor of props.rowDescriptors.pinnedRowDescriptors) {
 		dataGridRowHeaders.push(
 			<DataGridRowHeader
 				key={`pinned-row-${pinnedRowDescriptor.rowIndex}`}
@@ -45,20 +43,17 @@ export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 				top={pinnedRowDescriptor.top}
 			/>
 		);
-
-		// Adjust the pinned height.
-		pinnedHeight += pinnedRowDescriptor.height;
 	}
 
 	// Create the unpinned data grid row header elements.
-	for (const unpinnedRowDescriptor of props.unpinnedRowDescriptors) {
+	for (const unpinnedRowDescriptor of props.rowDescriptors.unpinnedRowDescriptors) {
 		dataGridRowHeaders.push(
 			<DataGridRowHeader
 				key={`unpinned-row-${unpinnedRowDescriptor.rowIndex}`}
 				height={unpinnedRowDescriptor.height}
 				pinned={false}
 				rowIndex={unpinnedRowDescriptor.rowIndex}
-				top={pinnedHeight + unpinnedRowDescriptor.top - context.instance.verticalScrollOffset}
+				top={unpinnedRowDescriptor.top - context.instance.verticalScrollOffset}
 			/>
 		);
 	}

@@ -517,45 +517,35 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		);
 	};
 
-	// Get the pinned column descriptors and the pinned row descriptors.
-	const pinnedColumnDescriptors = context.instance.getPinnedColumnDescriptors();
-	const pinnedRowDescriptors = context.instance.getPinnedRowDescriptors();
-
-	const unpinnedColumnDescritors = context.instance.getUnpinnedColumnDescriptors(context.instance.horizontalScrollOffset, width);
-	const unpinnedRowDescriptors = context.instance.getUnpinnedRowDescriptors(context.instance.verticalScrollOffset, height);
+	const columnDescriptors = context.instance.getColumnDescriptors(context.instance.horizontalScrollOffset, width);
+	const rowDescriptors = context.instance.getRowDescriptors(context.instance.verticalScrollOffset, height);
 
 	// Create the pinned data grid row elements.
-	let pinnedHeight = 0;
 	const dataGridRows: JSX.Element[] = [];
-	for (const pinnedRowDescriptor of pinnedRowDescriptors) {
+	for (const pinnedRowDescriptor of rowDescriptors.pinnedRowDescriptors) {
 		dataGridRows.push(
 			<DataGridRow
 				key={`pinned-row-${pinnedRowDescriptor.rowIndex}`}
+				columnDescriptors={columnDescriptors}
 				height={pinnedRowDescriptor.height}
 				pinned={true}
-				pinnedColumnDescriptors={pinnedColumnDescriptors}
 				rowIndex={pinnedRowDescriptor.rowIndex}
 				top={pinnedRowDescriptor.top}
-				unpinnedColumnDescriptors={unpinnedColumnDescritors}
 				width={width}
 			/>
 		);
-
-		// Adjust the pinned height.
-		pinnedHeight += pinnedRowDescriptor.height;
 	}
 
 	// Create the unpinned data grid row elements.
-	for (const unpinnedRowDescriptor of unpinnedRowDescriptors) {
+	for (const unpinnedRowDescriptor of rowDescriptors.unpinnedRowDescriptors) {
 		dataGridRows.push(
 			<DataGridRow
 				key={`unpinned-row-${unpinnedRowDescriptor.rowIndex}`}
+				columnDescriptors={columnDescriptors}
 				height={unpinnedRowDescriptor.height}
 				pinned={false}
-				pinnedColumnDescriptors={pinnedColumnDescriptors}
 				rowIndex={unpinnedRowDescriptor.rowIndex}
-				top={pinnedHeight + unpinnedRowDescriptor.top - context.instance.verticalScrollOffset}
-				unpinnedColumnDescriptors={unpinnedColumnDescritors}
+				top={unpinnedRowDescriptor.top - context.instance.verticalScrollOffset}
 				width={width}
 			/>
 		);
@@ -581,17 +571,15 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			}
 			{context.instance.columnHeaders &&
 				<DataGridColumnHeaders
+					columnDescriptors={columnDescriptors}
 					height={context.instance.columnHeadersHeight}
-					pinnedColumnDescriptors={pinnedColumnDescriptors}
-					unpinnedColumnDescriptors={unpinnedColumnDescritors}
 					width={width - context.instance.rowHeadersWidth}
 				/>
 			}
 			{context.instance.rowHeaders &&
 				<DataGridRowHeaders
 					height={height - context.instance.columnHeadersHeight}
-					pinnedRowDescriptors={pinnedRowDescriptors}
-					unpinnedRowDescriptors={unpinnedRowDescriptors}
+					rowDescriptors={rowDescriptors}
 				/>
 			}
 			{context.instance.horizontalScrollbar &&

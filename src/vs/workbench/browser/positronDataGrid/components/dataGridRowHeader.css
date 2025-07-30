@@ -23,6 +23,15 @@
 	z-index: 1;
 }
 
+.data-grid-row-header .pinned-indicator {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 2px;
+	height: 100%;
+	background-color: var(--vscode-positronDataGrid-selectionBorder);
+}
+
 .data-grid-row-header
 .border-overlay {
 	top: 0;

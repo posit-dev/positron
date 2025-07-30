@@ -11,8 +11,8 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { DataGridColumnHeader } from './dataGridColumnHeader.js';
+import { ColumnDescriptors } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
-import { ColumnDescriptor } from '../classes/dataGridInstance.js';
 
 // Other dependencies.
 
@@ -20,9 +20,8 @@ import { ColumnDescriptor } from '../classes/dataGridInstance.js';
  * DataGridColumnHeadersProps interface.
  */
 interface DataGridColumnHeadersProps {
+	columnDescriptors: ColumnDescriptors;
 	height: number;
-	pinnedColumnDescriptors: ColumnDescriptor[]
-	unpinnedColumnDescriptors: ColumnDescriptor[];
 	width: number;
 }
 
@@ -36,9 +35,8 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 	const context = usePositronDataGridContext();
 
 	// Create the pinned data grid column header elements.
-	let pinnedWidth = 0;
 	const dataGridColumnHeaders: JSX.Element[] = [];
-	for (const pinnedColumnDescriptor of props.pinnedColumnDescriptors) {
+	for (const pinnedColumnDescriptor of props.columnDescriptors.pinnedColumnDescriptors) {
 		// Push the pinned column header element to the array.
 		dataGridColumnHeaders.push(
 			<DataGridColumnHeader
@@ -50,20 +48,17 @@ export const DataGridColumnHeaders = (props: DataGridColumnHeadersProps) => {
 				width={pinnedColumnDescriptor.width}
 			/>
 		);
-
-		// Adjust the pinned width.
-		pinnedWidth += pinnedColumnDescriptor.width;
 	}
 
 	// Create the unpinned data grid column header elements.
-	for (const unpinnedColumnDescriptor of props.unpinnedColumnDescriptors) {
+	for (const unpinnedColumnDescriptor of props.columnDescriptors.unpinnedColumnDescriptors) {
 		// Push the unpinned column header element to the array.
 		dataGridColumnHeaders.push(
 			<DataGridColumnHeader
 				key={`unpinned-column-header-${unpinnedColumnDescriptor.columnIndex}`}
 				column={context.instance.column(unpinnedColumnDescriptor.columnIndex)}
 				columnIndex={unpinnedColumnDescriptor.columnIndex}
-				left={pinnedWidth + unpinnedColumnDescriptor.left - context.instance.horizontalScrollOffset}
+				left={unpinnedColumnDescriptor.left - context.instance.horizontalScrollOffset}
 				pinned={false}
 				width={unpinnedColumnDescriptor.width}
 			/>

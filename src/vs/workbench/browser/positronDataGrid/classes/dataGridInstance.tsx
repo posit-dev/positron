@@ -183,12 +183,28 @@ export interface ColumnDescriptor {
 }
 
 /**
+ * ColumnDescriptors interface.
+ */
+export interface ColumnDescriptors {
+	pinnedColumnDescriptors: ColumnDescriptor[];
+	unpinnedColumnDescriptors: ColumnDescriptor[];
+}
+
+/**
  * RowDescriptor interface.
  */
 export interface RowDescriptor {
 	readonly rowIndex: number;
 	readonly top: number;
 	readonly height: number;
+}
+
+/**
+ * RowDescriptors interface.
+ */
+export interface RowDescriptors {
+	pinnedRowDescriptors: RowDescriptor[];
+	unpinnedRowDescriptors: RowDescriptor[];
 }
 
 /**
@@ -1254,7 +1270,7 @@ export abstract class DataGridInstance extends Disposable {
 		return {
 			columnIndex: layoutEntry.index,
 			left: layoutEntry.start,
-			width: layoutEntry.size
+			width: layoutEntry.size,
 		};
 	}
 
@@ -1272,7 +1288,7 @@ export abstract class DataGridInstance extends Disposable {
 		return {
 			rowIndex: layoutEntry.index,
 			top: layoutEntry.start,
-			height: layoutEntry.size
+			height: layoutEntry.size,
 		};
 	}
 
@@ -1364,95 +1380,83 @@ export abstract class DataGridInstance extends Disposable {
 	// YAYA
 
 	/**
-	 * Gets the pinned column descriptors.
-	 * @returns The pinned column descriptors.
+	 * Gets column descriptors.
+	 * @param horizontalOffset The horizontal offset of the unpinned column descriptors to return.
+	 * @param width The width of the unpinned column descriptors to return.
+	 * @returns The column descriptors.
 	 */
-	getPinnedColumnDescriptors(): ColumnDescriptor[] {
-		// Get the pinned layout entries from the column layout manager. If there are no pinned
-		// layout entries, return an empty array of column descriptors.
+	getColumnDescriptors(horizontalOffset: number, width: number): ColumnDescriptors {
+		// Get the pinned column descriptors.
 		const pinnedLayoutEntries = this._columnLayoutManager.pinnedLayoutEntries();
-		if (!pinnedLayoutEntries) {
-			return [];
-		}
-
-		// Map the pinned layout entries to column descriptors.
-		const columnDescriptors = pinnedLayoutEntries.map(pinnedLayoutEntry => ({
+		const pinnedColumnDescriptors = pinnedLayoutEntries.map((pinnedLayoutEntry): ColumnDescriptor => ({
 			columnIndex: pinnedLayoutEntry.index,
 			left: pinnedLayoutEntry.start,
-			width: pinnedLayoutEntry.size
-		} satisfies ColumnDescriptor));
-
-		// Return the column descriptors.
-		return columnDescriptors;
-	}
-
-	/**
-	 * Gets the unpinned column descriptors.
-	 * @returns The unpinned column descriptors.
-	 */
-	getUnpinnedColumnDescriptors(offset: number, width: number): ColumnDescriptor[] {
-		// Get the unpinned layout entries from the column layout manager. If there are no unpinned
-		// layout entries, return an empty array of column descriptors.
-		const layoutEntries = this._columnLayoutManager.unpinnedLayoutEntries(offset, width);
-		if (!layoutEntries) {
-			return [];
-		}
-
-		// Map the unpinned layout entries to column descriptors and return them.
-		const columnDescriptors = layoutEntries.map(layoutEntry => ({
-			columnIndex: layoutEntry.index,
-			left: layoutEntry.start,
-			width: layoutEntry.size
-		} satisfies ColumnDescriptor))
-
-		// Return the column descriptors.
-		return columnDescriptors;
-	}
-
-	/**
-	 * Gets the pinned row descriptors.
-	 * @returns The pinned row descriptors.
-	 */
-	getPinnedRowDescriptors(): RowDescriptor[] {
-		// Get the pinned layout entries from the row layout manager. If there are no pinned
-		// layout entries, return an empty array of row descriptors.
-		const layoutEntries = this._rowLayoutManager.pinnedLayoutEntries();
-		if (!layoutEntries) {
-			return [];
-		}
-
-		// Map the pinned layout entries to row descriptors and return them.
-		const rowDescriptors = layoutEntries.map(layoutEntry => ({
-			rowIndex: layoutEntry.index,
-			top: layoutEntry.start,
-			height: layoutEntry.size
+			width: pinnedLayoutEntry.size,
 		}));
 
-		// Return the row descriptors.
-		return rowDescriptors;
+		// Calculate the total width of the pinned column descriptors.
+		const pinnedColumnDescriptorsWidth = (() => {
+			if (!pinnedColumnDescriptors.length) {
+				return 0;
+			} else {
+				const lastPinnedColumnDescriptor = pinnedColumnDescriptors[pinnedColumnDescriptors.length - 1];
+				return lastPinnedColumnDescriptor.left + lastPinnedColumnDescriptor.width;
+			}
+		})();
+
+		// Get the unpinned column descriptors.
+		const unpinnedLayoutEntries = this._columnLayoutManager.unpinnedLayoutEntries(horizontalOffset, width - pinnedColumnDescriptorsWidth);
+		const unpinnedColumnDescriptors = unpinnedLayoutEntries.map((pinnedLayoutEntry): ColumnDescriptor => ({
+			columnIndex: pinnedLayoutEntry.index,
+			left: pinnedColumnDescriptorsWidth + pinnedLayoutEntry.start,
+			width: pinnedLayoutEntry.size,
+		}))
+
+		// Return the column descriptors.
+		return {
+			pinnedColumnDescriptors,
+			unpinnedColumnDescriptors,
+		}
 	}
 
 	/**
-	 * Gets the unpinned row descriptors.
-	 * @returns The unpinned row descriptors.
+	 * Gets row descriptors.
+	 * @param verticalOffset The vertical offset of the unpinned row descriptors to return.
+	 * @param height The height of the unpinned row descriptors to return.
+	 * @returns The row descriptors.
 	 */
-	getUnpinnedRowDescriptors(offset: number, width: number): RowDescriptor[] {
-		// Get the pinned layout entries from the row layout manager. If there are no pinned
-		// layout entries, return an empty array of row descriptors.
-		const layoutEntries = this._rowLayoutManager.unpinnedLayoutEntries(offset, width);
-		if (!layoutEntries) {
-			return [];
-		}
+	getRowDescriptors(verticalOffset: number, height: number): RowDescriptors {
+		// Get the pinned row descriptors.
+		const pinnedLayoutEntries = this._rowLayoutManager.pinnedLayoutEntries();
+		const pinnedRowDescriptors = pinnedLayoutEntries.map((pinnedLayoutEntry): RowDescriptor => ({
+			rowIndex: pinnedLayoutEntry.index,
+			top: pinnedLayoutEntry.start,
+			height: pinnedLayoutEntry.size,
+		}))
 
-		// Map the pinned layout entries to row descriptors and return them.
-		const rowDescriptors = layoutEntries.map(layoutEntry => ({
-			rowIndex: layoutEntry.index,
-			top: layoutEntry.start,
-			height: layoutEntry.size
-		}));
+		// Calculate the total height of the pinned row descriptors.
+		const pinnedRowDescriptorsHeight = (() => {
+			if (!pinnedRowDescriptors.length) {
+				return 0;
+			} else {
+				const lastPinnedRowDescriptor = pinnedRowDescriptors[pinnedRowDescriptors.length - 1];
+				return lastPinnedRowDescriptor.top + lastPinnedRowDescriptor.height;
+			}
+		})();
+
+		// Get the unpinned row descriptors.
+		const unpinnedLayoutEntries = this._rowLayoutManager.unpinnedLayoutEntries(verticalOffset, height - pinnedRowDescriptorsHeight);
+		const unpinnedRowDescriptors = unpinnedLayoutEntries.map((pinnedLayoutEntry): RowDescriptor => ({
+			rowIndex: pinnedLayoutEntry.index,
+			top: pinnedRowDescriptorsHeight + pinnedLayoutEntry.start,
+			height: pinnedLayoutEntry.size,
+		}))
 
 		// Return the row descriptors.
-		return rowDescriptors;
+		return {
+			pinnedRowDescriptors,
+			unpinnedRowDescriptors,
+		}
 	}
 
 	// YAYA
@@ -1473,7 +1477,7 @@ export abstract class DataGridInstance extends Disposable {
 		return {
 			columnIndex: layoutEntry.index,
 			left: layoutEntry.start,
-			width: layoutEntry.size
+			width: layoutEntry.size,
 		};
 	}
 
@@ -1493,7 +1497,7 @@ export abstract class DataGridInstance extends Disposable {
 		return {
 			rowIndex: layoutEntry.index,
 			top: layoutEntry.start,
-			height: layoutEntry.size
+			height: layoutEntry.size,
 		};
 	}
 

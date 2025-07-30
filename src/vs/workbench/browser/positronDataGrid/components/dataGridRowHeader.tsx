@@ -92,7 +92,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 			ref={ref}
 			className={positronClassNames(
 				'data-grid-row-header',
-				{ 'pinned': props.pinned },
+				{ pinned: props.pinned },
 			)}
 			style={{
 				top: props.top,
@@ -100,6 +100,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 			}}
 			onMouseDown={mouseDownHandler}
 		>
+			{props.pinned && <div className='pinned-indicator' />}
 			{context.instance.cellBorders &&
 				<>
 					<div className='border-overlay' />
