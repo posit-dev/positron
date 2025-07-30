@@ -8,12 +8,10 @@
 import datetime
 import inspect
 import math
-import operator
 import pprint
 from decimal import Decimal
 from importlib.metadata import version
 from io import StringIO
-from re import search
 from typing import Any, Dict, List, Optional, Type, cast
 
 import numpy as np
@@ -550,10 +548,8 @@ class DataExplorerFixture:
 
         self.shell.run_cell(new_df_code).raise_error()
 
-        new_df = pd.DataFrame(self.shell._user_ns[new_table_id])  # noqa: SLF001
+        new_df = pd.DataFrame(self.shell.user_ns[new_table_id])
         self.register_table(new_table_id, new_df)
-        print("expected table\n", expected_table, "\nnew table\n", new_df)
-        print(row_filters)
         self.compare_tables(new_table_id, ex_id, table.shape)
 
     def compare_tables(self, table_id: str, expected_id: str, table_shape: tuple):
