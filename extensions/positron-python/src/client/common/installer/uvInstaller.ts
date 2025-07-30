@@ -57,7 +57,7 @@ export class UVInstaller extends ModuleInstaller {
         // TODO: should we use uv add if a pyproject.toml exists?
         const args = ['pip', 'install', '--upgrade'];
 
-        // Get the path to the python interpreter (same as ModuleInstaller install code)
+        // Get the path to the python interpreter (similar to a part in ModuleInstaller.installModule())
         const configService = this.serviceContainer.get<IConfigurationService>(IConfigurationService);
         const settings = configService.getSettings(isResource(resource) ? resource : undefined);
         const interpreterService = this.serviceContainer.get<IInterpreterService>(IInterpreterService);
