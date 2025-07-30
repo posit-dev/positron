@@ -93,6 +93,8 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			defaultRowHeight: ROW_HEIGHT,
 			columnResize: false,
 			rowResize: false,
+			columnPinning: false,
+			rowPinning: false,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 8,
@@ -115,7 +117,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		);
 
 		// Set the initial layout entries in the row layout manager.
-		this._rowLayoutManager.setLayoutEntries(backendState.table_shape.num_columns);
+		this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
 
 		/**
 		 * Updates the data grid instance.
@@ -131,7 +133,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 			this._backendState = backendState;
 
 			// Set the layout entries in the row layout manager.
-			this._rowLayoutManager.setLayoutEntries(backendState.table_shape.num_columns);
+			this._rowLayoutManager.setEntries(backendState.table_shape.num_columns);
 
 			// Scroll to the top.
 			await this.setScrollOffsets(0, 0);
@@ -195,7 +197,8 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 	override get firstColumn() {
 		return {
 			columnIndex: 0,
-			left: 0
+			left: 0,
+			width: 0
 		};
 	}
 

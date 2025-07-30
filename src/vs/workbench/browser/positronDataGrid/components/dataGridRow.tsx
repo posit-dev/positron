@@ -11,15 +11,21 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { DataGridRowCell } from './dataGridRowCell.js';
+import { ColumnDescriptor } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 
 /**
  * DataGridRowProps interface.
  */
 interface DataGridRowProps {
-	width: number;
+	height: number;
+	pinned: boolean;
+	pinnedColumnDescriptors: ColumnDescriptor[];
 	rowIndex: number;
 	top: number;
+	unpinnedColumnDescriptors: ColumnDescriptor[];
+	width: number;
 }
 
 /**
@@ -31,18 +37,47 @@ export const DataGridRow = (props: DataGridRowProps) => {
 	// Context hooks.
 	const context = usePositronDataGridContext();
 
-	// Create the data grid column headers.
+	// The data grid row cell elements.
 	const dataGridRowCells: JSX.Element[] = [];
-	for (let columnDescriptor = context.instance.firstColumn;
-		columnDescriptor && columnDescriptor.left < context.instance.layoutRight;
-		columnDescriptor = context.instance.getColumn(columnDescriptor.columnIndex + 1)
-	) {
+
+	// Render the pinned data grid row cells.
+	let pinnedWidth = 0;
+	if (context.instance.columnPinning) {
+		// Get the pinned column descriptors.
+		const pinnedColumnDescriptors = context.instance.getPinnedColumnDescriptors();
+
+		// Enumerate the pinned column descriptors.
+		for (const pinnedColumnDescriptor of pinnedColumnDescriptors) {
+			// Push the pinned column header element to the array.
+			dataGridRowCells.push(
+				<DataGridRowCell
+					key={`pinned-row-cell-${props.rowIndex}-${pinnedColumnDescriptor.columnIndex}`}
+					columnIndex={pinnedColumnDescriptor.columnIndex}
+					height={props.height}
+					left={pinnedColumnDescriptor.left}
+					pinned={true}
+					rowIndex={props.rowIndex}
+					width={pinnedColumnDescriptor.width}
+				/>
+			);
+
+			// Adjust the pinned width.
+			pinnedWidth += pinnedColumnDescriptor.width;
+		}
+	}
+
+	// Create the unpinned data grid column header elements.
+	for (const unpinnedColumnDescriptor of props.unpinnedColumnDescriptors) {
+		// Push the unpinned column header element to the array.
 		dataGridRowCells.push(
 			<DataGridRowCell
-				key={`row-cell-${props.rowIndex}-${columnDescriptor.columnIndex}`}
-				columnIndex={columnDescriptor.columnIndex}
-				left={columnDescriptor.left - context.instance.horizontalScrollOffset}
+				key={`row-cell-${props.rowIndex}-${unpinnedColumnDescriptor.columnIndex}`}
+				columnIndex={unpinnedColumnDescriptor.columnIndex}
+				height={props.height}
+				left={pinnedWidth + unpinnedColumnDescriptor.left - context.instance.horizontalScrollOffset}
+				pinned={false}
 				rowIndex={props.rowIndex}
+				width={unpinnedColumnDescriptor.width}
 			/>
 		);
 	}
@@ -50,10 +85,13 @@ export const DataGridRow = (props: DataGridRowProps) => {
 	// Render.
 	return (
 		<div
-			className='data-grid-row'
+			className={positronClassNames(
+				'data-grid-row',
+				{ pinned: props.pinned },
+			)}
 			style={{
 				top: props.top,
-				height: context.instance.getRowHeight(props.rowIndex)
+				height: props.height,
 			}}
 		>
 			{dataGridRowCells}

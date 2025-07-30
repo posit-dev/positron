@@ -15,6 +15,14 @@
 	background-color: var(--vscode-positronDataGrid-contrastBackground);
 }
 
+.data-grid-row-header:not(.pinned) {
+	z-index: 0;
+}
+
+.data-grid-row-header.pinned {
+	z-index: 1;
+}
+
 .data-grid-row-header
 .border-overlay {
 	top: 0;

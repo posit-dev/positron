@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -7,12 +7,12 @@
 import { JSX } from 'react';
 
 // Other dependencies.
-import { Emitter } from '../../../../base/common/event.js';
-import { Disposable } from '../../../../base/common/lifecycle.js';
 import { IDataColumn } from '../interfaces/dataColumn.js';
+import { Emitter } from '../../../../base/common/event.js';
 import { IColumnSortKey } from '../interfaces/columnSortKey.js';
+import { Disposable } from '../../../../base/common/lifecycle.js';
+import { ILayoutEntry, LayoutManager } from './layoutManager.js';
 import { AnchorPoint } from '../../positronComponents/positronModalPopup/positronModalPopup.js';
-import { ILayoutEntry, LayoutManager } from '../../../services/positronDataExplorer/common/layoutManager.js';
 
 /**
  * ColumnHeaderOptions type.
@@ -71,6 +71,28 @@ type RowResizeOptions = | {
 	readonly minimumRowHeight: number;
 	readonly maximumRowHeight: number;
 };
+
+/**
+ * ColumnPinningOptions type.
+ */
+type ColumnPinningOptions = | {
+	readonly columnPinning: false;
+	readonly maximumPinnedColumns?: never;
+} | {
+	readonly columnPinning: true;
+	readonly maximumPinnedColumns: number;
+}
+
+/**
+ * RowPinningOptions type.
+ */
+type RowPinningOptions = | {
+	readonly rowPinning: false;
+	readonly maximumPinnedRows?: never;
+} | {
+	readonly rowPinning: true;
+	readonly maximumPinnedRows: number;
+}
 
 /**
  * ScrollbarOptions type.
@@ -142,6 +164,8 @@ type DataGridOptions =
 	DefaultSizeOptions &
 	ColumnResizeOptions &
 	RowResizeOptions &
+	ColumnPinningOptions &
+	RowPinningOptions &
 	ScrollbarOptions &
 	DisplayOptions &
 	CursorOptions &
@@ -154,6 +178,7 @@ type DataGridOptions =
 export interface ColumnDescriptor {
 	readonly columnIndex: number;
 	readonly left: number;
+	readonly width: number;
 }
 
 /**
@@ -162,6 +187,7 @@ export interface ColumnDescriptor {
 export interface RowDescriptor {
 	readonly rowIndex: number;
 	readonly top: number;
+	readonly height: number;
 }
 
 /**
@@ -276,12 +302,18 @@ class SelectionRange {
 		return index >= this.firstIndex && index <= this.lastIndex;
 	}
 
+	/**
+	 * Returns the SelectionIndexes of the selection range.
+	 * @returns The SelectionIndexes of the selection range.
+	 */
 	indexes() {
+		// Create the indexes array.
 		const indexes: number[] = [this.lastIndex - this.firstIndex];
 		for (let index = this.firstIndex; index <= this.lastIndex; index++) {
 			indexes.push(index);
 		}
 
+		// Return the SelectionIndexes from the indexes array.
 		return new SelectionIndexes(indexes);
 	}
 }
@@ -585,6 +617,26 @@ export abstract class DataGridInstance extends Disposable {
 	private readonly _defaultRowHeight: number;
 
 	/**
+	 * Gets a value which indicates whether column pinning is enabled.
+	 */
+	private readonly _columnPinning: boolean;
+
+	/**
+	 * Gets the maximum number of pinned columns.
+	 */
+	private readonly _maximumPinnedColumns: number;
+
+	/**
+	 * Gets a value which indicates whether row pinning is enabled.
+	 */
+	private readonly _rowPinning: boolean;
+
+	/**
+	 * Gets the maximum number of pinned rows.
+	 */
+	private readonly _maximumPinnedRows: number;
+
+	/**
 	 * Gets a value which indicates whether to show the horizontal scrollbar.
 	 */
 	private readonly _horizontalScrollbar: boolean;
@@ -669,16 +721,6 @@ export abstract class DataGridInstance extends Disposable {
 	private _height = 0;
 
 	/**
-	 * The horizontal scroll offset.
-	 */
-	protected _horizontalScrollOffset = 0;
-
-	/**
-	 * The vertical scroll offset.
-	 */
-	protected _verticalScrollOffset = 0;
-
-	/**
 	 * Gets or sets the cursor column index.
 	 */
 	private _cursorColumnIndex = 0;
@@ -716,6 +758,16 @@ export abstract class DataGridInstance extends Disposable {
 	//#endregion Private Properties
 
 	//#region Protected Properties
+
+	/**
+	 * The horizontal scroll offset.
+	 */
+	protected _horizontalScrollOffset = 0;
+
+	/**
+	 * The vertical scroll offset.
+	 */
+	protected _verticalScrollOffset = 0;
 
 	/**
 	 * Gets the column layout manager.
@@ -780,6 +832,14 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowResize = options.rowResize || false;
 		this._minimumRowHeight = options.minimumRowHeight ?? options.defaultRowHeight;
 		this._maximumRowHeight = options.maximumRowHeight ?? options.defaultRowHeight;
+
+		// ColumnPinningOptions.
+		this._columnPinning = options.columnPinning || false;
+		this._maximumPinnedColumns = this._columnPinning ? options.maximumPinnedColumns ?? 0 : 0;
+
+		// RowPinningOptions.
+		this._rowPinning = options.rowPinning || false;
+		this._maximumPinnedRows = this._rowPinning ? options.maximumPinnedRows ?? 0 : 0;
 
 		// ScrollbarOptions.
 		this._horizontalScrollbar = options.horizontalScrollbar || false;
@@ -908,6 +968,38 @@ export abstract class DataGridInstance extends Disposable {
 		return this._defaultRowHeight;
 	}
 
+	// YAYA
+
+	/**
+	 * Gets a value which indicates whether column pinning is enabled
+	 */
+	get columnPinning() {
+		return this._columnPinning;
+	}
+
+	/**
+	 * Gets the maximum number of pinned columns.
+	 */
+	get maximumPinnedColumns() {
+		return this._maximumPinnedColumns;
+	}
+
+	/**
+	 * Gets a value which indicates whether row pinning is enabled
+	 */
+	get rowPinning() {
+		return this._rowPinning;
+	}
+
+	/**
+	 * Gets the maximum number of pinned rows.
+	 */
+	get maximumPinnedRows() {
+		return this._maximumPinnedRows;
+	}
+
+	// YAYA
+
 	/**
 	 * Gets a value which indicates whether to show the horizontal scrollbar.
 	 */
@@ -1017,14 +1109,14 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the scroll width.
 	 */
 	get scrollWidth() {
-		return this._columnLayoutManager.size + this._scrollbarOverscroll;
+		return this._columnLayoutManager.unpinnedLayoutEntriesSize + this._scrollbarOverscroll;
 	}
 
 	/**
 	 * Gets the scroll height.
 	 */
 	get scrollHeight() {
-		return (this._rowsMargin * 2) + this._rowLayoutManager.size + this._scrollbarOverscroll;
+		return (this._rowsMargin * 2) + this._rowLayoutManager.unpinnedLayoutEntriesSize + this._scrollbarOverscroll;
 	}
 
 	/**
@@ -1045,16 +1137,25 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the layout width.
 	 */
 	get layoutWidth() {
-		// Calculate the layout width.
+		// Set the layout width.
 		let layoutWidth = this._width;
+
+		// If row headers are enabled, subtract the row headers width.
 		if (this.rowHeaders) {
 			layoutWidth -= this._rowHeadersWidth;
 		}
+
+		// If column pinning is enabled, subtract the pinned columns width.
+		if (this.columnPinning) {
+			layoutWidth -= this._columnLayoutManager.pinnedLayoutEntriesSize;
+		}
+
+		// If the vertical scrollbar is enabled, subtract the scrollbar width.
 		if (this._verticalScrollbar) {
 			layoutWidth -= this._scrollbarThickness;
 		}
 
-		// Done.
+		// Return the layout width.
 		return layoutWidth;
 	}
 
@@ -1069,16 +1170,25 @@ export abstract class DataGridInstance extends Disposable {
 	 * Gets the layout height.
 	 */
 	get layoutHeight() {
-		// Calculate the layout height.
+		// Set the layout height.
 		let layoutHeight = this._height;
+
+		// If column headers are enabled, subtract the column headers height.
 		if (this.columnHeaders) {
 			layoutHeight -= this._columnHeadersHeight;
 		}
+
+		// If row pinning is enabled, subtract the pinned rows height.
+		if (this.rowPinning) {
+			layoutHeight -= this._rowLayoutManager.pinnedLayoutEntriesSize;
+		}
+
+		// If the horizontal scrollbar is enabled, subtract the scrollbar height.
 		if (this._horizontalScrollbar) {
 			layoutHeight -= this._scrollbarThickness;
 		}
 
-		// Done.
+		// Return the layout height.
 		return layoutHeight;
 	}
 
@@ -1126,7 +1236,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get firstColumn(): ColumnDescriptor | undefined {
 		// Get the first column layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._columnLayoutManager.findLayoutEntry(this.horizontalScrollOffset);
+		const layoutEntry = this._columnLayoutManager.findUnpinnedLayoutEntry(this.horizontalScrollOffset);
 		if (!layoutEntry) {
 			return undefined;
 		}
@@ -1134,7 +1244,8 @@ export abstract class DataGridInstance extends Disposable {
 		// Return the column descriptor for the first column.
 		return {
 			columnIndex: layoutEntry.index,
-			left: layoutEntry.start
+			left: layoutEntry.start,
+			width: layoutEntry.size
 		};
 	}
 
@@ -1143,7 +1254,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get firstRow(): RowDescriptor | undefined {
 		// Get the first row layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		const layoutEntry = this._rowLayoutManager.findUnpinnedLayoutEntry(this.verticalScrollOffset);
 		if (!layoutEntry) {
 			return undefined;
 		}
@@ -1151,7 +1262,8 @@ export abstract class DataGridInstance extends Disposable {
 		// Return the row descriptor for the first row.
 		return {
 			rowIndex: layoutEntry.index,
-			top: layoutEntry.start
+			top: layoutEntry.start,
+			height: layoutEntry.size
 		};
 	}
 
@@ -1240,6 +1352,102 @@ export abstract class DataGridInstance extends Disposable {
 		return false;
 	}
 
+	// YAYA
+
+	/**
+	 * Gets the pinned column descriptors.
+	 * @returns The pinned column descriptors.
+	 */
+	getPinnedColumnDescriptors(): ColumnDescriptor[] {
+		// Get the pinned layout entries from the column layout manager. If there are no pinned
+		// layout entries, return an empty array of column descriptors.
+		const pinnedLayoutEntries = this._columnLayoutManager.pinnedLayoutEntries();
+		if (!pinnedLayoutEntries) {
+			return [];
+		}
+
+		// Map the pinned layout entries to column descriptors.
+		const columnDescriptors = pinnedLayoutEntries.map(pinnedLayoutEntry => ({
+			columnIndex: pinnedLayoutEntry.index,
+			left: pinnedLayoutEntry.start,
+			width: pinnedLayoutEntry.size
+		} satisfies ColumnDescriptor));
+
+		// Return the column descriptors.
+		return columnDescriptors;
+	}
+
+	/**
+	 * Gets the unpinned column descriptors.
+	 * @returns The unpinned column descriptors.
+	 */
+	getUnpinnedColumnDescriptors(offset: number, width: number): ColumnDescriptor[] {
+		// Get the unpinned layout entries from the column layout manager. If there are no unpinned
+		// layout entries, return an empty array of column descriptors.
+		const layoutEntries = this._columnLayoutManager.unpinnedLayoutEntries(offset, width);
+		if (!layoutEntries) {
+			return [];
+		}
+
+		// Map the unpinned layout entries to column descriptors and return them.
+		const columnDescriptors = layoutEntries.map(layoutEntry => ({
+			columnIndex: layoutEntry.index,
+			left: layoutEntry.start,
+			width: layoutEntry.size
+		} satisfies ColumnDescriptor))
+
+		// Return the column descriptors.
+		return columnDescriptors;
+	}
+
+	/**
+	 * Gets the pinned row descriptors.
+	 * @returns The pinned row descriptors.
+	 */
+	getPinnedRowDescriptors(): RowDescriptor[] {
+		// Get the pinned layout entries from the row layout manager. If there are no pinned
+		// layout entries, return an empty array of row descriptors.
+		const layoutEntries = this._rowLayoutManager.pinnedLayoutEntries();
+		if (!layoutEntries) {
+			return [];
+		}
+
+		// Map the pinned layout entries to row descriptors and return them.
+		const rowDescriptors = layoutEntries.map(layoutEntry => ({
+			rowIndex: layoutEntry.index,
+			top: layoutEntry.start,
+			height: layoutEntry.size
+		}));
+
+		// Return the row descriptors.
+		return rowDescriptors;
+	}
+
+	/**
+	 * Gets the unpinned row descriptors.
+	 * @returns The unpinned row descriptors.
+	 */
+	getUnpinnedRowDescriptors(offset: number, width: number): RowDescriptor[] {
+		// Get the pinned layout entries from the row layout manager. If there are no pinned
+		// layout entries, return an empty array of row descriptors.
+		const layoutEntries = this._rowLayoutManager.unpinnedLayoutEntries(offset, width);
+		if (!layoutEntries) {
+			return [];
+		}
+
+		// Map the pinned layout entries to row descriptors and return them.
+		const rowDescriptors = layoutEntries.map(layoutEntry => ({
+			rowIndex: layoutEntry.index,
+			top: layoutEntry.start,
+			height: layoutEntry.size
+		}));
+
+		// Return the row descriptors.
+		return rowDescriptors;
+	}
+
+	// YAYA
+
 	/**
 	 * Gets a column descriptor.
 	 * @param columnIndex The column index.
@@ -1255,7 +1463,8 @@ export abstract class DataGridInstance extends Disposable {
 		// Return the column descriptor for the column.
 		return {
 			columnIndex: layoutEntry.index,
-			left: layoutEntry.start
+			left: layoutEntry.start,
+			width: layoutEntry.size
 		};
 	}
 
@@ -1274,7 +1483,8 @@ export abstract class DataGridInstance extends Disposable {
 		// Return the row descriptor for the row.
 		return {
 			rowIndex: layoutEntry.index,
-			top: layoutEntry.start
+			top: layoutEntry.start,
+			height: layoutEntry.size
 		};
 	}
 
@@ -1306,7 +1516,7 @@ export abstract class DataGridInstance extends Disposable {
 		}
 
 		// Set the column width override.
-		this._columnLayoutManager.setLayoutOverride(columnIndex, columnWidth);
+		this._columnLayoutManager.setSizeOverride(columnIndex, columnWidth);
 
 		// Fetch data.
 		await this.fetchData();
@@ -1343,7 +1553,7 @@ export abstract class DataGridInstance extends Disposable {
 		}
 
 		// Set the row height override.
-		this._rowLayoutManager.setLayoutOverride(rowIndex, rowHeight);
+		this._rowLayoutManager.setSizeOverride(rowIndex, rowHeight);
 
 		// Fetch data.
 		await this.fetchData();
@@ -1358,7 +1568,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	async scrollPageUp() {
 		// Get the first row layout entry for the vertical scroll offset.
-		const firstLayoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		const firstLayoutEntry = this._rowLayoutManager.findUnpinnedLayoutEntry(this.verticalScrollOffset);
 		if (firstLayoutEntry && firstLayoutEntry.index > 1) {
 			// Find the layout entry that will be to first layout entry for the previous page.
 			let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
@@ -1399,7 +1609,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	async scrollPageDown() {
 		// Get the first row layout entry for the vertical scroll offset.
-		const firstLayoutEntry = this._rowLayoutManager.findLayoutEntry(this.verticalScrollOffset);
+		const firstLayoutEntry = this._rowLayoutManager.findUnpinnedLayoutEntry(this.verticalScrollOffset);
 		if (firstLayoutEntry && firstLayoutEntry.index < this.rows - 1) {
 
 			// Find the layout entry that will be to first layout entry for the next page.
@@ -1627,7 +1837,6 @@ export abstract class DataGridInstance extends Disposable {
 		}
 	}
 
-
 	/**
 	 * Sets the cursor position.
 	 * @param cursorColumnIndex The cursor column index.
@@ -1673,6 +1882,72 @@ export abstract class DataGridInstance extends Disposable {
 			this._onDidUpdateEmitter.fire();
 		}
 	}
+
+	// YAYA
+
+	/**
+	 * Returns a value which indicates whether the specified column is pinned.
+	 * @param columnIndex The column index.
+	 * @returns true if the specified column is pinned; otherwise, false.
+	 */
+	isColumnPinned(columnIndex: number) {
+		return this._columnLayoutManager.isIndexPinned(columnIndex);
+	}
+
+	/**
+	 * Pins a column.
+	 * @param columnIndex The index of the column to pin.
+	 */
+	pinColumn(columnIndex: number) {
+		// If column pinning is enabled, and the maximum pinned columns limit has not been reached, pin the column.
+		if (this._columnPinning && this._columnLayoutManager.pinnedIndexes < this._maximumPinnedColumns && this._columnLayoutManager.pinIndex(columnIndex)) {
+			this._onDidUpdateEmitter.fire();
+		}
+	}
+
+	/**
+	 * Unpins a column.
+	 * @param columnIndex The index of the column to unpin.
+	 */
+	unpinColumn(columnIndex: number) {
+		// If column pinning is enabled, unpin the column.
+		if (this._columnPinning && this._columnLayoutManager.unpinIndex(columnIndex)) {
+			this._onDidUpdateEmitter.fire();
+		}
+	}
+
+	/**
+	 * Returns a value which indicates whether the specified row is pinned.
+	 * @param rowIndex The row index.
+	 * @returns true if the specified row is pinned; otherwise, false.
+	 */
+	isRowPinned(rowIndex: number) {
+		return this._rowLayoutManager.isIndexPinned(rowIndex);
+	}
+
+	/**
+	 * Pins a row.
+	 * @param rowIndex The index of the row to pin.
+	 */
+	pinRow(rowIndex: number) {
+		// If row pinning is enabled, and the maximum pinned rows limit has not been reached, pin the row.
+		if (this._rowPinning && this._rowLayoutManager.pinnedIndexes < this._maximumPinnedRows && this._rowLayoutManager.pinIndex(rowIndex)) {
+			this._onDidUpdateEmitter.fire();
+		}
+	}
+
+	/**
+	 * Unpins a row.
+	 * @param rowIndex The index of the row to unpin.
+	 */
+	unpinRow(rowIndex: number) {
+		// If row pinning is enabled, unpin the row.
+		if (this._rowPinning && this._rowLayoutManager.unpinIndex(rowIndex)) {
+			this._onDidUpdateEmitter.fire();
+		}
+	}
+
+	// YAYA
 
 	/**
 	 * Scrolls to the cursor.
@@ -2624,7 +2899,7 @@ export abstract class DataGridInstance extends Disposable {
 
 	/**
 	 * Gets a column.
-	 * @param rowIndex The row index.
+	 * @param columnIndex The column index.
 	 * @returns The row label.
 	 */
 	column(columnIndex: number): IDataColumn | undefined {

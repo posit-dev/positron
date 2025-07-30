@@ -11,6 +11,7 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { DataGridRowHeader } from './dataGridRowHeader.js';
+import { RowDescriptor } from '../classes/dataGridInstance.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 /**
@@ -18,6 +19,8 @@ import { usePositronDataGridContext } from '../positronDataGridContext.js';
  */
 interface DataGridRowHeadersProps {
 	height: number;
+	pinnedRowDescriptors: RowDescriptor[];
+	unpinnedRowDescriptors: RowDescriptor[];
 }
 
 /**
@@ -27,22 +30,35 @@ interface DataGridRowHeadersProps {
  */
 export const DataGridRowHeaders = (props: DataGridRowHeadersProps) => {
 	// Context hooks.
-	// FALSE POSITIVE: The ESLint rule of hooks is incorrectly flagging this line as a violation of
-	// the rules of hooks. See: https://github.com/facebook/react/issues/31687
-	// eslint-disable-next-line react-hooks/rules-of-hooks
 	const context = usePositronDataGridContext();
 
-	// Create the data grid rows headers.
+	// Create the pinned data grid row header elements.
+	let pinnedHeight = 0;
 	const dataGridRowHeaders: JSX.Element[] = [];
-	for (let rowDescriptor = context.instance.firstRow;
-		rowDescriptor && rowDescriptor.top < context.instance.layoutBottom;
-		rowDescriptor = context.instance.getRow(rowDescriptor.rowIndex + 1)
-	) {
+	for (const pinnedRowDescriptor of props.pinnedRowDescriptors) {
 		dataGridRowHeaders.push(
 			<DataGridRowHeader
-				key={rowDescriptor.rowIndex}
-				rowIndex={rowDescriptor.rowIndex}
-				top={rowDescriptor.top - context.instance.verticalScrollOffset}
+				key={`pinned-row-${pinnedRowDescriptor.rowIndex}`}
+				height={pinnedRowDescriptor.height}
+				pinned={true}
+				rowIndex={pinnedRowDescriptor.rowIndex}
+				top={pinnedRowDescriptor.top}
+			/>
+		);
+
+		// Adjust the pinned height.
+		pinnedHeight += pinnedRowDescriptor.height;
+	}
+
+	// Create the unpinned data grid row header elements.
+	for (const unpinnedRowDescriptor of props.unpinnedRowDescriptors) {
+		dataGridRowHeaders.push(
+			<DataGridRowHeader
+				key={`unpinned-row-${unpinnedRowDescriptor.rowIndex}`}
+				height={unpinnedRowDescriptor.height}
+				pinned={false}
+				rowIndex={unpinnedRowDescriptor.rowIndex}
+				top={pinnedHeight + unpinnedRowDescriptor.top - context.instance.verticalScrollOffset}
 			/>
 		);
 	}

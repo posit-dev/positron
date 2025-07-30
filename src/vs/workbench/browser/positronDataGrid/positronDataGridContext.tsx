@@ -32,9 +32,7 @@ const PositronDataGridContext = createContext<PositronDataGridState>(undefined!)
  * The useDataGridState custom hook.
  * @returns The hook.
  */
-const usePositronDataGridState = (
-	configuration: PositronDataGridConfiguration
-): PositronDataGridState => {
+const usePositronDataGridState = (configuration: PositronDataGridConfiguration): PositronDataGridState => {
 	// Add event handlers.
 	useEffect(() => {
 		// Create a disposable store for the event handlers we'll add.

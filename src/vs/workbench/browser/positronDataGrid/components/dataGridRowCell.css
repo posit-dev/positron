@@ -5,6 +5,15 @@
 
 .data-grid-row-cell {
 	position: absolute;
+	background-color: var(--vscode-positronDataGrid-background);
+}
+
+.data-grid-row-cell:not(.pinned) {
+	z-index: 0;
+}
+
+.data-grid-row-cell.pinned {
+	z-index: 1;
 }
 
 .data-grid-row-cell
