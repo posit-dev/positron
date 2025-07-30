@@ -6,19 +6,10 @@ on:
       pull_request:
         required: false
         type: boolean
-      all_platforms:
-        required: false
-        type: boolean
-        default: false
   workflow_dispatch:
     inputs:
       pull_request:
         description: 'Is this a pull request run?'
-        required: false
-        default: false
-        type: boolean
-      all_platforms:
-        description: 'Run on all platforms?'
         required: false
         default: false
         type: boolean
@@ -29,13 +20,9 @@ permissions:
 
 jobs:
   integration-tests:
-    name: integration (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
+    name: integration
+    runs-on: ubuntu-latest-4x
     timeout-minutes: 40
-    strategy:
-      fail-fast: false
-      matrix:
-        os: ${{ (inputs.all_platforms && fromJson('["ubuntu-latest-4x", "windows-latest-8x", "macos-latest"]')) || fromJson('["ubuntu-latest-4x"]') }}
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       POSITRON_BUILD_NUMBER: 0 # CI skips building releases
