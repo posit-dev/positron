@@ -175,6 +175,9 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright (Electron)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run Playwright Tests (Electron)
         shell: bash
         env:
