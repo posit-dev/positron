@@ -25,7 +25,6 @@ import comm
 
 from .access_keys import decode_access_key
 from .converters.pandas_converter import PandasConverter
-from .converters.polars_converter import PolarsConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
@@ -48,6 +47,7 @@ from .data_explorer_comm import (
     ColumnSortKey,
     ColumnSummaryStats,
     ColumnValue,
+    ConvertToCodeParams,
     ConvertedCode,
     ConvertToCodeFeatures,
     ConvertToCodeRequest,
@@ -292,7 +292,7 @@ class DataExplorerTableView:
     def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
         raise NotImplementedError
 
-    def convert_to_code(self, request: ConvertToCodeRequest):
+    def convert_to_code(self, request: ConvertToCodeParams):
         raise NotImplementedError
 
     def search_schema(self, params: SearchSchemaParams):
@@ -819,11 +819,7 @@ class DataExplorerTableView:
             supported_formats=[],
         ),
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Supported,
-            code_syntaxes=[
-                CodeSyntaxName(code_syntax_name="pandas"),
-                CodeSyntaxName(code_syntax_name="polars"),
-            ],
+            support_status=SupportStatus.Unsupported,
         ),
     )
 
@@ -1375,10 +1371,10 @@ class PandasView(DataExplorerTableView):
         """Returns the supported code types for exporting data."""
         return CodeSyntaxName(code_syntax_name="pandas").dict()
 
-    def convert_to_code(self, request: ConvertToCodeRequest):
+    def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        converter = PandasConverter(self.table, self.state)
-        converted_code = converter.convert(request)
+        converter = PandasConverter(self.table, self.state.name, request)
+        converted_code = converter.convert()
         return ConvertedCode(converted_code=converted_code).dict()
 
     @classmethod
@@ -2336,11 +2332,9 @@ class PolarsView(DataExplorerTableView):
         """Returns the supported code types for exporting data."""
         return CodeSyntaxName(code_syntax_name="polars").dict()
 
-    def convert_to_code(self, request: ConvertToCodeRequest):
+    def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        converter = PolarsConverter(self.table, self.state)
-        converted_code = converter.convert(request)
-        return ConvertedCode(converted_code=converted_code).dict()
+        raise NotImplementedError("Polars does not support converting to code yet. ")
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
@@ -2825,7 +2819,7 @@ class PolarsView(DataExplorerTableView):
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Supported,
+            support_status=SupportStatus.Unsupported,
             code_syntaxes=[CodeSyntaxName(code_syntax_name="polars")],
         ),
     )
