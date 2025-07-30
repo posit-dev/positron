@@ -37,7 +37,7 @@ export class ContextMenu {
 				await menuTrigger.click();
 				await this.page.mouse.move(0, 0);
 				await this.getContextMenuItem(menuItemLabel).hover();
-				await this.page.waitForTimeout(250);
+				await this.page.waitForTimeout(350);
 				await this.getContextMenuItem(menuItemLabel).click();
 			}
 		});
