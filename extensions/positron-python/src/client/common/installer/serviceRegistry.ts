@@ -10,11 +10,17 @@ import { PipEnvInstaller } from './pipEnvInstaller';
 import { PipInstaller } from './pipInstaller';
 import { PixiInstaller } from './pixiInstaller';
 import { PoetryInstaller } from './poetryInstaller';
+// --- Start Positron ---
+import { UVInstaller } from './uvInstaller';
+// --- End Positron ---
 import { DataScienceProductPathService, TestFrameworkProductPathService } from './productPath';
 import { ProductService } from './productService';
 import { IInstallationChannelManager, IModuleInstaller, IProductPathService, IProductService } from './types';
 
 export function registerTypes(serviceManager: IServiceManager) {
+    // --- Start Positron ---
+    serviceManager.addSingleton<IModuleInstaller>(IModuleInstaller, UVInstaller);
+    // --- End Positron ---
     serviceManager.addSingleton<IModuleInstaller>(IModuleInstaller, PixiInstaller);
     serviceManager.addSingleton<IModuleInstaller>(IModuleInstaller, CondaInstaller);
     serviceManager.addSingleton<IModuleInstaller>(IModuleInstaller, PipInstaller);
