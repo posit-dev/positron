@@ -293,10 +293,17 @@ export class DataScienceInstaller extends BaseInstaller {
 
         // If this is a non-conda environment & pip isn't installed, we need to install pip.
         // The prompt would have been disabled prior to this point, so we can assume that.
+        // --- Start Positron ---
+        // uv doesn't need pip either
+        const uvIsAvailable = channels.some((channel) => channel.type === ModuleInstallerType.Uv);
+        // --- End Positron ---
         if (
             flags &&
             flags & ModuleInstallFlags.installPipIfRequired &&
             interpreter.envType !== EnvironmentType.Conda &&
+            // --- Start Positron ---
+            !uvIsAvailable &&
+            // --- End Positron ---
             !channels.some((channel) => channel.type === ModuleInstallerType.Pip)
         ) {
             const installers = this.serviceContainer.getAll<IModuleInstaller>(IModuleInstaller);
@@ -347,6 +354,10 @@ export class DataScienceInstaller extends BaseInstaller {
         let requiredInstaller = ModuleInstallerType.Unknown;
         if (interpreter.envType === EnvironmentType.Conda && isAvailableThroughConda) {
             requiredInstaller = ModuleInstallerType.Conda;
+            // --- Start Positron ---
+        } else if (uvIsAvailable) {
+            requiredInstaller = ModuleInstallerType.Uv;
+            // --- End Positron ---
         } else if (interpreter.envType === EnvironmentType.Conda && !isAvailableThroughConda) {
             // This case is temporary and can be removed when https://github.com/microsoft/vscode-jupyter/issues/5034 is unblocked
             traceInfo(
