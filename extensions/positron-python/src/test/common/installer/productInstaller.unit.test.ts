@@ -230,6 +230,41 @@ suite('DataScienceInstaller install', async () => {
         expect(result).to.equal(InstallerResponse.Installed, 'Should be Installed');
     });
 
+    test('Will invoke uv', async () => {
+        const testEnvironment: PythonEnvironment = {
+            envType: EnvironmentType.Uv,
+            envName: 'test',
+            envPath: interpreterPath,
+            path: interpreterPath,
+            architecture: Architecture.x64,
+            sysPrefix: '',
+        };
+        const testInstaller = TypeMoq.Mock.ofType<IModuleInstaller>();
+
+        testInstaller.setup((c) => c.type).returns(() => ModuleInstallerType.Uv);
+        testInstaller
+            .setup((c) =>
+                c.installModule(
+                    TypeMoq.It.isValue(Product.ipykernel),
+                    TypeMoq.It.isValue(testEnvironment),
+                    TypeMoq.It.isAny(),
+                    TypeMoq.It.isAny(),
+                    // --- Start Positron ---
+                    // We added the `options` param in https://github.com/posit-dev/positron-python/pull/66.
+                    TypeMoq.It.isAny(),
+                    // --- End Positron ---
+                ),
+            )
+            .returns(() => Promise.resolve());
+
+        installationChannelManager
+            .setup((c) => c.getInstallationChannels(TypeMoq.It.isAny()))
+            .returns(() => Promise.resolve([testInstaller.object]));
+
+        const result = await dataScienceInstaller.install(Product.ipykernel, testEnvironment);
+        expect(result).to.equal(InstallerResponse.Installed, 'Should be Installed');
+    });
+
     // --- Start Positron ---
     test('Will install pip if necessary', async () => {
         const testEnvironment: PythonEnvironment = {
