@@ -4,7 +4,6 @@
 	"r.capabilities.untrustedWorkspaces.description": "R cannot be started in untrusted folders.",
 	"r.command.sourceCurrentFile.title": "Source R File",
 	"r.command.sourceCurrentFileWithEcho.title": "Source R File with Echo",
-	"r.command.executeSelectionInConsole.title": "Run Selection in Console",
 	"r.command.createNewFile.title": "New R File",
 	"r.command.packageLoad.title": "Load R Package",
 	"r.command.insertPipe.title": "Insert the pipe operator",
