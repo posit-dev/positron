@@ -9,6 +9,6 @@ import { PositronAssistant } from './prompts/components/content/PositronAssistan
 
 export class PositronAssistantApi {
 	public generateAssistantPrompt(request: any): PromptElement<any, any> {
-		return new PositronAssistant({ request: request.request });
+		return new PositronAssistant({ request: request.request ? request.request : request });
 	}
 }
