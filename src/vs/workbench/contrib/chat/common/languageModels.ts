@@ -408,8 +408,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	private getProviderFromLanguageModelMetadata(metadata: ILanguageModelChatMetadata): IPositronChatProvider {
 		return {
-			// TODO: Should we use vendor instead?
-			id: metadata.family,
+			id: metadata.vendor,
 			displayName: metadata.providerName ?? metadata.name,
 		};
 	}
@@ -418,12 +417,12 @@ export class LanguageModelsService implements ILanguageModelsService {
 		const seenProviderIds = new Set<string>();
 		const providers: IPositronChatProvider[] = [];
 		for (const model of this._providers.values()) {
-			if (seenProviderIds.has(model.metadata.family) ||
+			if (seenProviderIds.has(model.metadata.vendor) ||
 				// Only consider user-selectable models.
 				!model.metadata.isUserSelectable) {
 				continue;
 			}
-			seenProviderIds.add(model.metadata.family);
+			seenProviderIds.add(model.metadata.vendor);
 			providers.push(this.getProviderFromLanguageModelMetadata(model.metadata));
 		}
 		return providers;
@@ -435,7 +434,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 			return Array.from(this._providers.keys());
 		}
 		return Array.from(this._providers.entries())
-			.filter(([, model]) => model.metadata.family === currentProvider.id)
+			.filter(([, model]) => model.metadata.vendor === currentProvider.id)
 			.map(([modelId,]) => modelId);
 	}
 
@@ -489,7 +488,11 @@ export class LanguageModelsService implements ILanguageModelsService {
 		this._logService.trace('[LM] registering language model chat', identifier, provider.metadata);
 
 		if (!this._vendors.has(provider.metadata.vendor)) {
-			throw new Error(`Chat response provider uses UNKNOWN vendor ${provider.metadata.vendor}.`);
+			// --- Start Positron ---
+			// throw new Error(`Chat response provider uses UNKNOWN vendor ${provider.metadata.vendor}.`);
+			this._vendors.add(provider.metadata.vendor);
+			this._logService.debug(`[LanguageModelsService] Registering vendor ${provider.metadata.vendor}`);
+			// --- End Positron ---
 		}
 		if (this._providers.has(identifier)) {
 			throw new Error(`Chat response provider with identifier ${identifier} is already registered.`);
