@@ -230,6 +230,7 @@ suite('DataScienceInstaller install', async () => {
         expect(result).to.equal(InstallerResponse.Installed, 'Should be Installed');
     });
 
+    // --- Start Positron ---
     test('Will invoke uv', async () => {
         const testEnvironment: PythonEnvironment = {
             envType: EnvironmentType.Uv,
@@ -265,7 +266,6 @@ suite('DataScienceInstaller install', async () => {
         expect(result).to.equal(InstallerResponse.Installed, 'Should be Installed');
     });
 
-    // --- Start Positron ---
     test('Will install pip if necessary', async () => {
         const testEnvironment: PythonEnvironment = {
             envType: EnvironmentType.VirtualEnv,
