@@ -32,6 +32,7 @@ import { traceError, traceWarn } from '../../../../logging';
 import { isVirtualEnvironment } from '../../../common/environmentManagers/simplevirtualenvs';
 import { getWorkspaceFolderPaths } from '../../../../common/vscodeApis/workspaceApis';
 import { ActiveState } from '../../../common/environmentManagers/activestate';
+import { getUvDirs } from '../../../common/environmentManagers/uv';
 
 function getResolvers(): Map<PythonEnvKind, (env: BasicEnvInfo) => Promise<PythonEnvInfo>> {
     const resolvers = new Map<PythonEnvKind, (_: BasicEnvInfo) => Promise<PythonEnvInfo>>();
@@ -189,6 +190,20 @@ async function resolveSimpleEnv(env: BasicEnvInfo): Promise<PythonEnvInfo> {
     const location = env.envPath ?? getEnvironmentDirFromPath(executablePath);
     envInfo.location = location;
     envInfo.name = path.basename(location);
+    // --- Start Positron ---
+    if (kind === PythonEnvKind.Uv) {
+        // By default use the name of the venv's parent folder
+        envInfo.name = path.basename(path.dirname(location));
+
+        // If it's a uv-managed interpreter, we don't need a name
+        const uvDirs = await getUvDirs();
+        for (const uvDir of uvDirs) {
+            if (isParentPath(location, uvDir)) {
+                envInfo.name = 'managed';
+            }
+        }
+    }
+    // --- End Positron ---
     return envInfo;
 }
 

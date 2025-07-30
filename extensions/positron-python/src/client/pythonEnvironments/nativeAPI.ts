@@ -39,7 +39,7 @@ import {
 import { getWorkspaceFolders, onDidChangeWorkspaceFolders } from '../common/vscodeApis/workspaceApis';
 
 // --- Start Positron ---
-import { isUvEnvironment } from './common/environmentManagers/uv';
+import { getUvDirs, isUvEnvironment } from './common/environmentManagers/uv';
 import { isCustomEnvironment } from '../positron/interpreterSettings';
 import { isAdditionalGlobalBinPath } from './common/environmentManagers/globalInstalledEnvs';
 // eslint-disable-next-line import/no-duplicates
@@ -192,10 +192,25 @@ function foundOnPath(fsPath: string): boolean {
     return paths.some((p) => normalized.includes(p));
 }
 
-function getName(nativeEnv: NativeEnvInfo, kind: PythonEnvKind, condaEnvDirs: string[]): string {
+async function getName(nativeEnv: NativeEnvInfo, kind: PythonEnvKind, condaEnvDirs: string[]): Promise<string> {
     if (nativeEnv.name) {
         return nativeEnv.name;
     }
+
+    // --- Start Positron ---
+    if (nativeEnv.prefix && kind === PythonEnvKind.Uv) {
+        // If it's a uv-managed interpreter, we don't need a name
+        const uvDirs = await getUvDirs();
+        for (const uvDir of uvDirs) {
+            if (isParentPath(nativeEnv.prefix, uvDir)) {
+                return 'managed';
+            }
+        }
+
+        // It's a venv - return the name of the venv's parent folder
+        return path.basename(path.dirname(nativeEnv.prefix));
+    }
+    // --- End Positron ---
 
     const envType = getEnvType(kind);
     if (nativeEnv.prefix && envType === PythonEnvType.Virtual) {
@@ -222,14 +237,14 @@ function getName(nativeEnv: NativeEnvInfo, kind: PythonEnvKind, condaEnvDirs: st
     return '';
 }
 
-function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): PythonEnvInfo | undefined {
+async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): Promise<PythonEnvInfo | undefined> {
     if (!validEnv(nativeEnv)) {
         return undefined;
     }
     const kind = categoryToKind(nativeEnv.kind);
     const arch = toArch(nativeEnv.arch);
     const version: PythonVersion = parseVersion(nativeEnv.version ?? '');
-    const name = getName(nativeEnv, kind, condaEnvDirs);
+    const name = await getName(nativeEnv, kind, condaEnvDirs);
     const displayName = nativeEnv.version
         ? getDisplayName(version, kind, arch, name)
         : nativeEnv.displayName ?? 'Python';
@@ -507,7 +522,7 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     // added async
     private async addEnv(native: NativeEnvInfo, searchLocation?: Uri): Promise<PythonEnvInfo | undefined> {
         // --- End Positron ---
-        const info = toPythonEnvInfo(native, this._condaEnvDirs);
+        const info = await toPythonEnvInfo(native, this._condaEnvDirs);
         if (info) {
             // --- Start Positron ---
             if (info.executable.filename && (await isUvEnvironment(info.executable.filename))) {
