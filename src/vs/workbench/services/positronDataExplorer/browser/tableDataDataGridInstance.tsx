@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -77,7 +77,13 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			columnResize: true,
 			minimumColumnWidth: 80,
 			maximumColumnWidth: 800,
-			rowResize: false,
+			rowResize: true,
+			minimumRowHeight: 24,
+			maximumRowHeight: 100,
+			columnPinning: true,
+			maximumPinnedColumns: 5,
+			rowPinning: true,
+			maximumPinnedRows: 5,
 			horizontalScrollbar: true,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
@@ -103,17 +109,17 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				state = await this._dataExplorerClientInstance.getBackendState();
 			}
 
-			// Calculate the layout entries.
-			const layoutEntries = await this._tableDataCache.calculateColumnLayoutEntries(
+			// Calculate column widths.
+			const columnWidths = await this._tableDataCache.calculateColumnWidths(
 				this.minimumColumnWidth,
 				this.maximumColumnWidth
 			);
 
 			// Set the layout entries.
-			this._columnLayoutManager.setLayoutEntries(
-				layoutEntries ?? state.table_shape.num_columns
+			this._columnLayoutManager.setEntries(
+				columnWidths ?? state.table_shape.num_columns
 			);
-			this._rowLayoutManager.setLayoutEntries(
+			this._rowLayoutManager.setEntries(
 				state.table_shape.num_rows
 			);
 
@@ -347,15 +353,14 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		anchorElement: HTMLElement,
 		anchorPoint?: AnchorPoint
 	): Promise<void> {
-		/**
-		 * Get the column sort key for the column.
-		 */
-		const columnSortKey = this.columnSortKey(columnIndex);
-
+		// Get the supported features.
 		const features = this._dataExplorerClientInstance.getSupportedFeatures();
 		const copySupported = this.isFeatureEnabled(features.export_data_selection?.support_status);
 		const sortSupported = this.isFeatureEnabled(features.set_sort_columns?.support_status);
 		const filterSupported = this.isFeatureEnabled(features.set_row_filters?.support_status);
+
+		// Get the column sort key for the column.
+		const columnSortKey = sortSupported ? this.columnSortKey(columnIndex) : undefined;
 
 		// Build the entries.
 		const entries: CustomContextMenuEntry[] = [];
@@ -375,6 +380,25 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			disabled: this.columnSelectionState(columnIndex) !== ColumnSelectionState.None,
 			onSelected: () => this.selectColumn(columnIndex)
 		}));
+		if (this.columnPinning) {
+			entries.push(new CustomContextMenuSeparator());
+			if (!this.isColumnPinned(columnIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					disabled: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
+					onSelected: () => this.pinColumn(columnIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
+					onSelected: () => this.unpinColumn(columnIndex)
+				}));
+			}
+		}
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,
@@ -463,6 +487,25 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 			onSelected: () => this.selectRow(rowIndex)
 		}));
+		if (this.rowPinning) {
+			entries.push(new CustomContextMenuSeparator());
+			if (!this.isRowPinned(rowIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					disabled: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
+					onSelected: () => this.pinRow(rowIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
+					onSelected: () => this.unpinRow(rowIndex)
+				}));
+			}
+		}
 
 		// Show the context menu.
 		await showCustomContextMenu({
@@ -523,6 +566,45 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			disabled: this.rowSelectionState(rowIndex) !== RowSelectionState.None,
 			onSelected: () => this.selectRow(rowIndex)
 		}));
+		if (this.columnPinning) {
+			entries.push(new CustomContextMenuSeparator());
+			if (!this.isColumnPinned(columnIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					disabled: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinColumn', "Pin Column"),
+					onSelected: () => this.pinColumn(columnIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinColumn', "Unpin Column"),
+					onSelected: () => this.unpinColumn(columnIndex)
+				}));
+			}
+		}
+		if (this.rowPinning) {
+			if (!this.columnPinning) {
+				entries.push(new CustomContextMenuSeparator());
+			}
+			if (!this.isRowPinned(rowIndex)) {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-pin',
+					label: localize('positron.dataExplorer.pinRow', "Pin Row"),
+					onSelected: () => this.pinRow(rowIndex)
+				}));
+			} else {
+				entries.push(new CustomContextMenuItem({
+					checked: false,
+					icon: 'positron-unpin',
+					label: localize('positron.dataExplorer.unpinRow', "Unpin Row"),
+					onSelected: () => this.unpinRow(columnIndex)
+				}));
+			}
+		}
 		entries.push(new CustomContextMenuSeparator());
 		entries.push(new CustomContextMenuItem({
 			checked: columnSortKey !== undefined && columnSortKey.ascending,

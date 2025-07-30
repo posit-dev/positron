@@ -10,20 +10,23 @@ import './dataGridRowCell.css';
 import React, { MouseEvent, useRef } from 'react';
 
 // Other dependencies.
-import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { selectionType } from '../utilities/mouseUtilities.js';
 import { CellSelectionState } from '../classes/dataGridInstance.js';
+import { usePositronDataGridContext } from '../positronDataGridContext.js';
+import { positronClassNames } from '../../../../base/common/positronUtilities.js';
 import { VerticalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
 import { HorizontalSplitter } from '../../../../base/browser/ui/positronComponents/splitters/horizontalSplitter.js';
-import { usePositronDataGridContext } from '../positronDataGridContext.js';
 
 /**
  * DataGridRowCellProps interface.
  */
 interface DataGridRowCellProps {
 	columnIndex: number;
-	rowIndex: number;
+	height: number;
 	left: number;
+	pinned: boolean;
+	rowIndex: number;
+	width: number;
 }
 
 /**
@@ -128,15 +131,18 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 		);
 	};
 
-	// Render.
+	// Render. 'data-grid-row-cell'
 	return (
 		<div
 			ref={ref}
-			className='data-grid-row-cell'
+			className={positronClassNames(
+				'data-grid-row-cell',
+				{ pinned: props.pinned },
+			)}
 			style={{
 				left: props.left,
-				width: context.instance.getColumnWidth(props.columnIndex),
-				height: context.instance.getRowHeight(props.rowIndex)
+				width: props.width,
+				height: props.height,
 			}}
 			onMouseDown={mouseDownHandler}
 		>
@@ -176,7 +182,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					onBeginResize={() => ({
 						minimumWidth: context.instance.minimumColumnWidth,
 						maximumWidth: context.instance.maximumColumnWidth,
-						startingWidth: context.instance.getColumnWidth(props.columnIndex)
+						startingWidth: props.width
 					})}
 					onResize={async columnWidth =>
 						await context.instance.setColumnWidth(props.columnIndex, columnWidth)
@@ -188,7 +194,7 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 					onBeginResize={() => ({
 						minimumHeight: context.instance.minimumRowHeight,
 						maximumHeight: 90,
-						startingHeight: context.instance.getRowHeight(props.rowIndex)!
+						startingHeight: props.height
 					})}
 					onResize={async rowHeight =>
 						await context.instance.setRowHeight(props.rowIndex, rowHeight)

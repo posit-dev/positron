@@ -21,6 +21,8 @@ import { usePositronDataGridContext } from '../positronDataGridContext.js';
  * DataGridRowHeaderProps interface.
  */
 interface DataGridRowHeaderProps {
+	height: number;
+	pinned: boolean;
 	rowIndex: number;
 	top: number;
 }
@@ -88,10 +90,13 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 	return (
 		<div
 			ref={ref}
-			className='data-grid-row-header'
+			className={positronClassNames(
+				'data-grid-row-header',
+				{ 'pinned': props.pinned },
+			)}
 			style={{
 				top: props.top,
-				height: context.instance.getRowHeight(props.rowIndex)
+				height: props.height,
 			}}
 			onMouseDown={mouseDownHandler}
 		>
@@ -128,7 +133,7 @@ export const DataGridRowHeader = (props: DataGridRowHeaderProps) => {
 					onBeginResize={() => ({
 						minimumHeight: context.instance.minimumRowHeight,
 						maximumHeight: 90,
-						startingHeight: context.instance.getRowHeight(props.rowIndex)!
+						startingHeight: props.height
 					})}
 					onResize={async rowHeight =>
 						await context.instance.setRowHeight(props.rowIndex, rowHeight)

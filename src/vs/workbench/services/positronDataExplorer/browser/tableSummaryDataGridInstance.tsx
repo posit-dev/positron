@@ -81,6 +81,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			defaultRowHeight: SUMMARY_HEIGHT,
 			columnResize: false,
 			rowResize: false,
+			columnPinning: false,
+			rowPinning: false,
 			horizontalScrollbar: false,
 			verticalScrollbar: true,
 			scrollbarThickness: 14,
@@ -93,7 +95,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		});
 
 		// Set the column layout entries. There is always one column.
-		this._columnLayoutManager.setLayoutEntries(1);
+		this._columnLayoutManager.setEntries(1);
 
 		/**
 		 * Updates the layout entries.
@@ -106,7 +108,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			}
 
 			// Set the layout entries.
-			this._rowLayoutManager.setLayoutEntries(state.table_shape.num_columns);
+			this._rowLayoutManager.setEntries(state.table_shape.num_columns);
 
 			// Adjust the vertical scroll offset, if needed.
 			if (!this.firstRow) {
@@ -211,7 +213,8 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	override get firstColumn() {
 		return {
 			columnIndex: 0,
-			left: 0
+			left: 0,
+			width: 0
 		};
 	}
 
@@ -335,9 +338,9 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	async toggleExpandColumn(columnIndex: number) {
 		if (this._tableSummaryCache.isColumnExpanded(columnIndex)) {
-			this._rowLayoutManager.clearLayoutOverride(columnIndex);
+			this._rowLayoutManager.clearSizeOverride(columnIndex);
 		} else {
-			this._rowLayoutManager.setLayoutOverride(columnIndex, this.expandedRowHeight(columnIndex));
+			this._rowLayoutManager.setSizeOverride(columnIndex, this.expandedRowHeight(columnIndex));
 		}
 		return this._tableSummaryCache.toggleExpandColumn(columnIndex);
 	}

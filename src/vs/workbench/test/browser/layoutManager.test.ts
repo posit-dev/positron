@@ -1,11 +1,11 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 import assert from 'assert';
+import { LayoutManager } from '../../browser/positronDataGrid/classes/layoutManager.js';
 import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../base/test/common/utils.js';
-import { LayoutManager } from '../../services/positronDataExplorer/common/layoutManager.js';
 
 /**
  * Tests the LayoutManager class.
@@ -97,28 +97,28 @@ suite('LayoutManager', () => {
 	const verifySizeOfDefaultSizedEntries = (defaultSize: number, entries: number) => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(defaultSize);
-		layoutManager.setLayoutEntries(entries);
+		layoutManager.setEntries(entries);
 		const size = defaultSize * entries;
 
 		// Verify size.
-		assert.strictEqual(layoutManager.size, size);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
 
 		// Add a layout override that will affect the size, and one that will not, for coverage.
-		layoutManager.setLayoutOverride(0, defaultSize * 2);
-		layoutManager.setLayoutOverride(entries, defaultSize * 2);
+		layoutManager.setSizeOverride(0, defaultSize * 2);
+		layoutManager.setSizeOverride(entries, defaultSize * 2);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.size, size + defaultSize);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size + defaultSize);
 
 		// Get a layout entry cached, for coverage.
-		layoutManager.findLayoutEntry(0);
+		layoutManager.findUnpinnedLayoutEntry(0);
 
 		// Clear layout overrides.
-		layoutManager.clearLayoutOverride(0);
-		layoutManager.clearLayoutOverride(entries);
+		layoutManager.clearSizeOverride(0);
+		layoutManager.clearSizeOverride(entries);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.size, size);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
 	};
 
 	/**
@@ -127,28 +127,28 @@ suite('LayoutManager', () => {
 	const verifySizeOfFixedSizedEntries = (entrySize: number, entries: number) => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(0);
-		layoutManager.setLayoutEntries(Array.from({ length: entries }, (_, i) => entrySize));
+		layoutManager.setEntries(Array.from({ length: entries }, (_, i) => entrySize));
 		const size = entrySize * entries;
 
 		// Verify size.
-		assert.strictEqual(layoutManager.size, size);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
 
 		// Add a layout override that will affect the size, and one that will not, for coverage.
-		layoutManager.setLayoutOverride(0, entrySize * 2);
-		layoutManager.setLayoutOverride(entries, entrySize * 2);
+		layoutManager.setSizeOverride(0, entrySize * 2);
+		layoutManager.setSizeOverride(entries, entrySize * 2);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.size, size + entrySize);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size + entrySize);
 
 		// Get a layout entry cached, for coverage.
-		layoutManager.findLayoutEntry(0);
+		layoutManager.findUnpinnedLayoutEntry(0);
 
 		// Clear layout overrides.
-		layoutManager.clearLayoutOverride(0);
-		layoutManager.clearLayoutOverride(entries);
+		layoutManager.clearSizeOverride(0);
+		layoutManager.clearSizeOverride(entries);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.size, size);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
 	};
 
 	/**
@@ -160,28 +160,28 @@ suite('LayoutManager', () => {
 		const layoutEntries = Array.from({ length: entries }, (_, i) =>
 			getRandomIntInclusive(1, 4096)
 		);
-		layoutManager.setLayoutEntries(layoutEntries);
+		layoutManager.setEntries(layoutEntries);
 		const size = layoutEntries.reduce((size, randomSize) => size + randomSize, 0);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.size, size);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
 
 		// Add a layout override that will affect the size, and one that will not, for coverage.
-		layoutManager.setLayoutOverride(0, layoutEntries[0] * 2);
-		layoutManager.setLayoutOverride(entries, 354);
+		layoutManager.setSizeOverride(0, layoutEntries[0] * 2);
+		layoutManager.setSizeOverride(entries, 354);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.size, size + layoutEntries[0]);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size + layoutEntries[0]);
 
 		// Get a layout entry cached, for coverage.
-		layoutManager.findLayoutEntry(0);
+		layoutManager.findUnpinnedLayoutEntry(0);
 
 		// Clear layout overrides.
-		layoutManager.clearLayoutOverride(0);
-		layoutManager.clearLayoutOverride(entries);
+		layoutManager.clearSizeOverride(0);
+		layoutManager.clearSizeOverride(entries);
 
 		// Verify size.
-		assert.strictEqual(layoutManager.size, size);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, size);
 	};
 
 	/**
@@ -192,7 +192,7 @@ suite('LayoutManager', () => {
 	const verifyGetLayoutEntryOfDefaultSizedEntries = (defaultSize: number, entries: number) => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(defaultSize);
-		layoutManager.setLayoutEntries(entries);
+		layoutManager.setEntries(entries);
 
 		// Verify getting the first layout entry.
 		let layoutEntry = layoutManager.getLayoutEntry(0);
@@ -209,7 +209,7 @@ suite('LayoutManager', () => {
 		assert.strictEqual(layoutEntry.size, defaultSize);
 
 		// Add a layout override.
-		layoutManager.setLayoutOverride(0, defaultSize * 2);
+		layoutManager.setSizeOverride(0, defaultSize * 2);
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
@@ -228,7 +228,7 @@ suite('LayoutManager', () => {
 		}
 
 		// Clear the layout override.
-		layoutManager.clearLayoutOverride(0);
+		layoutManager.clearSizeOverride(0);
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
@@ -253,7 +253,7 @@ suite('LayoutManager', () => {
 	const verifyGetLayoutEntryOfFixedSizedEntries = (entrySize: number, entries: number) => {
 		// Create and initialize the layout manager.
 		const layoutManager = new LayoutManager(0);
-		layoutManager.setLayoutEntries(Array.from({ length: entries }, (_, i) => entrySize));
+		layoutManager.setEntries(Array.from({ length: entries }, (_, i) => entrySize));
 
 		// Verify getting the first layout entry.
 		let layoutEntry = layoutManager.getLayoutEntry(0);
@@ -270,7 +270,7 @@ suite('LayoutManager', () => {
 		assert.strictEqual(layoutEntry.size, entrySize);
 
 		// Add a layout override.
-		layoutManager.setLayoutOverride(0, entrySize * 2);
+		layoutManager.setSizeOverride(0, entrySize * 2);
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
@@ -289,7 +289,7 @@ suite('LayoutManager', () => {
 		}
 
 		// Clear the layout override.
-		layoutManager.clearLayoutOverride(0);
+		layoutManager.clearSizeOverride(0);
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
@@ -317,7 +317,7 @@ suite('LayoutManager', () => {
 		const layoutEntries = Array.from({ length: entries }, (_, i) =>
 			getRandomIntInclusive(1, 4096)
 		);
-		layoutManager.setLayoutEntries(layoutEntries);
+		layoutManager.setEntries(layoutEntries);
 		const size = layoutEntries.reduce((size, randomSize) => size + randomSize, 0);
 
 		// Verify getting the first layout entry.
@@ -335,7 +335,7 @@ suite('LayoutManager', () => {
 		assert.strictEqual(layoutEntry.size, layoutEntries[entries - 1]);
 
 		// Add a layout override.
-		layoutManager.setLayoutOverride(0, layoutEntries[0] * 2);
+		layoutManager.setSizeOverride(0, layoutEntries[0] * 2);
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
@@ -354,7 +354,7 @@ suite('LayoutManager', () => {
 		}
 
 		// Add a layout override.
-		layoutManager.clearLayoutOverride(0);
+		layoutManager.clearSizeOverride(0);
 
 		// Verify getting the first layout entry.
 		layoutEntry = layoutManager.getLayoutEntry(0);
@@ -379,14 +379,14 @@ suite('LayoutManager', () => {
 	const verifyDefaultSizedEntries = (defaultSize: number, entries: number) => {
 		// Create the layout manager.
 		const layoutManager = new LayoutManager(defaultSize);
-		layoutManager.setLayoutEntries(entries);
+		layoutManager.setEntries(entries);
 
 		// Verify that every entry is correct.
 		for (let entry = 0; entry < entries; entry++) {
 			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < defaultSize; offset++) {
 				const start = defaultSize * entry;
-				const layoutEntry = layoutManager.findLayoutEntry(start + offset);
+				const layoutEntry = layoutManager.findUnpinnedLayoutEntry(start + offset);
 				assert(layoutEntry);
 				assert.strictEqual(layoutEntry!.index, entry);
 				assert.strictEqual(layoutEntry!.start, start);
@@ -416,25 +416,25 @@ suite('LayoutManager', () => {
 
 		// Create the layout manager.
 		const layoutManager = new LayoutManager(defaultSize);
-		layoutManager.setLayoutEntries(entries);
+		layoutManager.setEntries(entries);
 
 		// Add bogus layout overrides.
-		layoutManager.setLayoutOverride(100.1, 1);
-		layoutManager.setLayoutOverride(1, 100.1);
-		layoutManager.setLayoutOverride(-1, 1);
-		layoutManager.setLayoutOverride(1, -1);
+		layoutManager.setSizeOverride(100.1, 1);
+		layoutManager.setSizeOverride(1, 100.1);
+		layoutManager.setSizeOverride(-1, 1);
+		layoutManager.setSizeOverride(1, -1);
 
 		// Add the layout overrides in reverse order for better coverage.
 		for (let i = overrideEntries - 1; i >= 0; i--) {
-			layoutManager.setLayoutOverride(overridesStartAt + i, overrideSize);
+			layoutManager.setSizeOverride(overridesStartAt + i, overrideSize);
 		}
 
 		// Add a layout override beyond the end for coverage.
-		layoutManager.setLayoutOverride(entries, overrideSize);
+		layoutManager.setSizeOverride(entries, overrideSize);
 
 		// Add and remove a layout override.
-		layoutManager.setLayoutOverride(1, 1);
-		layoutManager.clearLayoutOverride(1);
+		layoutManager.setSizeOverride(1, 1);
+		layoutManager.clearSizeOverride(1);
 
 		/**
 		 * Verifies a layout entry before the overrides.
@@ -445,14 +445,14 @@ suite('LayoutManager', () => {
 			assert(index < overridesStartAt);
 
 			// Verify the layout entry.
-			let layoutEntry = layoutManager.findLayoutEntry(defaultSize * index);
+			let layoutEntry = layoutManager.findUnpinnedLayoutEntry(defaultSize * index);
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
 			assert.strictEqual(layoutEntry!.start, defaultSize * index);
 			assert.strictEqual(layoutEntry!.size, defaultSize);
 
 			// Verify the layout entry.
-			layoutEntry = layoutManager.findLayoutEntry(
+			layoutEntry = layoutManager.findUnpinnedLayoutEntry(
 				(defaultSize * index) + Math.floor(defaultSize / 2)
 			);
 			assert(layoutEntry);
@@ -483,14 +483,14 @@ suite('LayoutManager', () => {
 
 			// Verify the layout entry.
 			const start = startingOffset + (testIndex * overrideSize);
-			let layoutEntry = layoutManager.findLayoutEntry(start);
+			let layoutEntry = layoutManager.findUnpinnedLayoutEntry(start);
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
 			assert.strictEqual(layoutEntry!.start, start);
 			assert.strictEqual(layoutEntry!.size, overrideSize);
 
 			// Verify the layout entry.
-			layoutEntry = layoutManager.findLayoutEntry(start + Math.floor(overrideSize / 2));
+			layoutEntry = layoutManager.findUnpinnedLayoutEntry(start + Math.floor(overrideSize / 2));
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
 			assert.strictEqual(layoutEntry!.start, start);
@@ -519,14 +519,14 @@ suite('LayoutManager', () => {
 
 			// Verify the layout entry.
 			const start = startingOffset + (defaultSize * testIndex);
-			let layoutEntry = layoutManager.findLayoutEntry(start);
+			let layoutEntry = layoutManager.findUnpinnedLayoutEntry(start);
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
 			assert.strictEqual(layoutEntry!.start, start);
 			assert.strictEqual(layoutEntry!.size, defaultSize);
 
 			// Verify the layout entry.
-			layoutEntry = layoutManager.findLayoutEntry(start + Math.floor(defaultSize / 2));
+			layoutEntry = layoutManager.findUnpinnedLayoutEntry(start + Math.floor(defaultSize / 2));
 			assert(layoutEntry);
 			assert.strictEqual(layoutEntry!.index, index);
 			assert.strictEqual(layoutEntry!.start, start);
@@ -543,8 +543,8 @@ suite('LayoutManager', () => {
 		verifyLayoutEntryAfterOverrides(entries - overridesStartAt - overrideEntries - 1);
 
 		// Verify finding a layout entry that should not be found.
-		assert(!layoutManager.findLayoutEntry(Number.MAX_SAFE_INTEGER));
-		assert(!layoutManager.findLayoutEntry(Number.MIN_SAFE_INTEGER));
+		assert(!layoutManager.findUnpinnedLayoutEntry(Number.MAX_SAFE_INTEGER));
+		assert(!layoutManager.findUnpinnedLayoutEntry(Number.MIN_SAFE_INTEGER));
 
 		// Verify getting the layout entry past the last index, for coverage.
 		assert(!layoutManager.getLayoutEntry(entries));
@@ -558,14 +558,14 @@ suite('LayoutManager', () => {
 	const verifyFixedSizedPredefinedEntries = (entrySize: number, entries: number) => {
 		// Create the layout manager.
 		const layoutManager = new LayoutManager(0);
-		layoutManager.setLayoutEntries(Array.from({ length: entries }, (_, i) => entrySize));
+		layoutManager.setEntries(Array.from({ length: entries }, (_, i) => entrySize));
 
 		// Verify that every entry is correct.
 		for (let entry = 0; entry < entries; entry++) {
 			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < entrySize; offset++) {
 				const start = entry * entrySize;
-				const layoutEntry = layoutManager.findLayoutEntry(start + offset);
+				const layoutEntry = layoutManager.findUnpinnedLayoutEntry(start + offset);
 				assert(layoutEntry);
 				assert.strictEqual(layoutEntry!.index, entry);
 				assert.strictEqual(layoutEntry!.start, start);
@@ -597,13 +597,13 @@ suite('LayoutManager', () => {
 
 		// Override the first entry.
 		const layoutOverride = Math.ceil(entrySize / 2);
-		layoutManager.setLayoutOverride(0, layoutOverride);
+		layoutManager.setSizeOverride(0, layoutOverride);
 
 		// Verify entries that should not be found.
 		verifyEntriesThatShouldNotBeFound(layoutManager, entries, entrySize);
 
 		// Verify the size.
-		assert.strictEqual(layoutManager.size, (entrySize * (entries - 1)) + layoutOverride);
+		assert.strictEqual(layoutManager.unpinnedLayoutEntriesSize, (entrySize * (entries - 1)) + layoutOverride);
 	};
 
 	/**
@@ -616,7 +616,7 @@ suite('LayoutManager', () => {
 		const layoutEntries = Array.from({ length: entries }, (_, i) =>
 			getRandomIntInclusive(1, 100)
 		);
-		layoutManager.setLayoutEntries(layoutEntries);
+		layoutManager.setEntries(layoutEntries);
 
 		// Verify that every entry is correct.
 		for (let entry = 0, start = 0; entry < entries; entry++) {
@@ -625,7 +625,7 @@ suite('LayoutManager', () => {
 
 			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < size; offset++) {
-				const layoutEntry = layoutManager.findLayoutEntry(start + offset);
+				const layoutEntry = layoutManager.findUnpinnedLayoutEntry(start + offset);
 				assert(layoutEntry);
 				assert.strictEqual(layoutEntry!.index, entry);
 				assert.strictEqual(layoutEntry!.start, start);
@@ -637,7 +637,7 @@ suite('LayoutManager', () => {
 		}
 
 		// Override the first entry.
-		layoutManager.setLayoutOverride(0, 10);
+		layoutManager.setSizeOverride(0, 10);
 
 		// Verify that every entry is correct.
 		for (let entry = 0, start = 0; entry < entries; entry++) {
@@ -646,7 +646,7 @@ suite('LayoutManager', () => {
 
 			// Verify that every offset for every entry is correct.
 			for (let offset = 0; offset < size; offset++) {
-				const layoutEntry = layoutManager.findLayoutEntry(start + offset);
+				const layoutEntry = layoutManager.findUnpinnedLayoutEntry(start + offset);
 				assert(layoutEntry);
 				assert.strictEqual(layoutEntry!.index, entry);
 				assert.strictEqual(layoutEntry!.start, start);
@@ -670,10 +670,10 @@ suite('LayoutManager', () => {
 		size: number
 	) => {
 		// Verify that entries outside the range are not found.
-		assert(!layoutManager.findLayoutEntry(-1));
-		assert(!layoutManager.findLayoutEntry(entries * size));
-		assert(!layoutManager.findLayoutEntry((entries * size) + 100));
-		assert(!layoutManager.findLayoutEntry((entries * size) + 1000));
+		assert(!layoutManager.findUnpinnedLayoutEntry(-1));
+		assert(!layoutManager.findUnpinnedLayoutEntry(entries * size));
+		assert(!layoutManager.findUnpinnedLayoutEntry((entries * size) + 100));
+		assert(!layoutManager.findUnpinnedLayoutEntry((entries * size) + 1000));
 	};
 
 	/**

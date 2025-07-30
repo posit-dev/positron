@@ -242,12 +242,12 @@ export class TableDataCache extends Disposable {
 	}
 
 	/**
-	 * Calculates the column layout entries.
+	 * Calculates the column widths.
 	 * @param minimumColumnWidth The minimum column width.
 	 * @param maximumColumnWidth The maximum column width.
-	 * @returns An array of column layout layout entries, if successful; otherwise, undefined.
+	 * @returns An array of column widths, if successful; otherwise, undefined.
 	 */
-	async calculateColumnLayoutEntries(
+	async calculateColumnWidths(
 		minimumColumnWidth: number,
 		maximumColumnWidth: number
 	): Promise<number[] | undefined> {
