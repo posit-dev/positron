@@ -53,8 +53,8 @@ export class UVInstaller extends ModuleInstaller {
         const pythonPath = isResource(resource)
             ? this.configurationService.getSettings(resource).pythonPath
             : resource
-                ? getEnvPath(resource.path, resource.envPath).path ?? ''
-                : '';
+            ? getEnvPath(resource.path, resource.envPath).path ?? ''
+            : '';
 
         // If the resource isSupported, then the uv binary exists
         const execPath = 'uv';
