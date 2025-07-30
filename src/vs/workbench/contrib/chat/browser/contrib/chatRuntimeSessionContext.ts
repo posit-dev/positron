@@ -78,6 +78,7 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
 		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) { }
 
 	toPickItem(session: ILanguageRuntimeSession): IChatContextPickerPickItem {
@@ -92,7 +93,11 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 				// Create a temporary context object to generate the attachment
 				const tempContext = new ChatRuntimeSessionContext();
 				tempContext.setValue(session);
-				tempContext.setServices(this._positronVariablesService, this._executionHistoryService);
+				tempContext.setServices(
+					this._positronVariablesService,
+					this._executionHistoryService,
+					this._configurationService
+				);
 
 				try {
 					const entries = tempContext.toBaseEntries();
@@ -217,7 +222,8 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 				new RuntimeSessionContextValuePick(
 					this.runtimeSessionService,
 					this.positronVariablesService,
-					this.executionHistoryService
+					this.executionHistoryService,
+					this.configurationService
 				)
 			));
 	}
@@ -246,7 +252,8 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 			}
 			widget.input.runtimeContext.setServices(
 				this.positronVariablesService,
-				this.executionHistoryService
+				this.executionHistoryService,
+				this.configurationService
 			);
 
 			const setting = this._implicitSessionContextEnablement[widget.location];
@@ -266,6 +273,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 }
 
 export class ChatRuntimeSessionContext extends Disposable {
+	private static maxCostSettingId = 'chat.runtimeSessionContext.maxCost';
 	get id() {
 		return 'positron.implicit.runtimeSession';
 	}
@@ -305,6 +313,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 	private _positronVariablesService?: IPositronVariablesService;
 	private _executionHistoryService?: IExecutionHistoryService;
+	private _configurationService?: IConfigurationService;
 
 	constructor() {
 		super();
@@ -312,10 +321,12 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 	setServices(
 		positronVariablesService: IPositronVariablesService,
-		executionHistoryService: IExecutionHistoryService
+		executionHistoryService: IExecutionHistoryService,
+		configurationService: IConfigurationService
 	): void {
 		this._positronVariablesService = positronVariablesService;
 		this._executionHistoryService = executionHistoryService;
+		this._configurationService = configurationService;
 	}
 
 	setValue(value: ILanguageRuntimeSession | undefined): void {
@@ -365,7 +376,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 		const history = this._executionHistoryService.getExecutionEntries(sessionId);
 		const summarized: Array<IHistorySummaryEntry> = [];
 		let currentCost = 0;
-		const maxCost = 8192; // 8KB. Should this be configurable?
+		const maxCost = this._configurationService?.getValue<number>(ChatRuntimeSessionContext.maxCostSettingId) ?? 8192; // 8KB, default if not configured
 		let encounteredError = false;
 		for (let i = history.length - 1; i >= 0; i--) {
 			const entry = history[i];

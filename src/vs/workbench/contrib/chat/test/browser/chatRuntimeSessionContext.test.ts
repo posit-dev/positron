@@ -12,7 +12,7 @@ import { TestConfigurationService } from '../../../../../platform/configuration/
 import { ChatRuntimeSessionContext, ChatRuntimeSessionContextContribution } from '../../browser/contrib/chatRuntimeSessionContext.js';
 import { IRuntimeSessionService, ILanguageRuntimeSession } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { IPositronVariablesService } from '../../../../services/positronVariables/common/interfaces/positronVariablesService.js';
-import { IExecutionHistoryService, ExecutionEntryType } from '../../../../services/positronHistory/common/executionHistoryService.js';
+import { IExecutionHistoryService, IExecutionHistoryEntry, ExecutionEntryType } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { IChatWidgetService } from '../../browser/chat.js';
 import { IChatService } from '../../common/chatService.js';
 import { IEditorService } from '../../../../services/editor/common/editorService.js';
@@ -20,7 +20,6 @@ import { LanguageRuntimeSessionMode, RuntimeState, RuntimeCodeFragmentStatus, IL
 import { Emitter } from '../../../../../base/common/event.js';
 import { PositronVariablesInstance } from '../../../../services/positronVariables/common/positronVariablesInstance.js';
 import { Variable, VariableKind } from '../../../../services/languageRuntime/common/positronVariablesComm.js';
-import { IExecutionHistoryEntry } from '../../../../services/positronHistory/common/executionHistoryService.js';
 import { IChatRequestRuntimeSessionEntry } from '../../common/chatVariableEntries.js';
 import { IChatContextPickerItem, IChatContextPickService, IChatContextValueItem } from '../../browser/chatContextPickService.js';
 
@@ -307,7 +306,7 @@ suite('ChatRuntimeSessionContext', () => {
 			const session = new MockRuntimeSession();
 
 			// Set up services
-			context.setServices(variablesService as any, executionHistoryService as any);
+			context.setServices(variablesService as any, executionHistoryService as any, configurationService as any);
 
 			// Add some execution history
 			executionHistoryService.addExecutionEntry('test-session-1', {
@@ -362,7 +361,7 @@ suite('ChatRuntimeSessionContext', () => {
 			const context = testDisposables.add(new ChatRuntimeSessionContext());
 			const session = new MockNotebookRuntimeSession();
 
-			context.setServices(variablesService as any, executionHistoryService as any);
+			context.setServices(variablesService as any, executionHistoryService as any, configurationService as any);
 			context.setValue(session as any);
 
 			const entries = await context.toBaseEntries();
@@ -376,7 +375,7 @@ suite('ChatRuntimeSessionContext', () => {
 			const context = testDisposables.add(new ChatRuntimeSessionContext());
 			const session = new MockRuntimeSession();
 
-			context.setServices(variablesService as any, executionHistoryService as any);
+			context.setServices(variablesService as any, executionHistoryService as any, configurationService as any);
 
 			// Add execution with error
 			executionHistoryService.addExecutionEntry('test-session-1', {
@@ -428,7 +427,7 @@ suite('ChatRuntimeSessionContext', () => {
 			runtimeSessionService.addSession(session);
 
 			// Set services on the widget's runtime context
-			widget.input.runtimeContext!.setServices(variablesService as any, executionHistoryService as any);
+			widget.input.runtimeContext!.setServices(variablesService as any, executionHistoryService as any, configurationService as any);
 
 			// Change foreground session
 			runtimeSessionService.setForegroundSession(session);
@@ -454,7 +453,7 @@ suite('ChatRuntimeSessionContext', () => {
 			runtimeSessionService.setForegroundSession(session);
 
 			// Set services on the widget's runtime context
-			widget.input.runtimeContext!.setServices(variablesService as any, executionHistoryService as any);
+			widget.input.runtimeContext!.setServices(variablesService as any, executionHistoryService as any, configurationService as any);
 
 			// Allow async updates to complete
 			await new Promise(resolve => setTimeout(resolve, 10));

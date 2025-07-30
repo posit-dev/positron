@@ -194,6 +194,13 @@ configurationRegistry.registerConfiguration({
 				'panel': 'always',
 			}
 		},
+		'chat.runtimeSessionContext.maxCost': {
+			type: 'number',
+			tags: ['experimental'],
+			description: nls.localize('chat.runtimeSessionContext.maxCost', "The maximum token cost for the runtime session context. This is used to limit the size of the context that is sent to the model. The value is in tokens, and 8192 is the default value which corresponds to 8k tokens."),
+			default: 8192, // 8k tokens
+			minimum: 1,
+		},
 		// --- End Positron ---
 		'chat.editing.autoAcceptDelay': {
 			type: 'number',
