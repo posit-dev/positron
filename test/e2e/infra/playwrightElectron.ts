@@ -11,12 +11,17 @@ import { measureAndLog } from './logger';
 import { ChildProcess } from 'child_process';
 import * as fs from 'fs';
 
+const isDocker = () => {
+	return fs.existsSync('/.dockerenv') ||
+		fs.readFileSync('/proc/1/cgroup', 'utf8').includes('docker');
+};
+
 export async function launch(options: LaunchOptions): Promise<{ electronProcess: ChildProcess; driver: PlaywrightDriver; electronApp: playwright.ElectronApplication }> {
 
 	// Resolve electron config and update
 	const { electronPath, args, env } = await resolveElectronConfiguration(options);
 	args.push('--enable-smoke-test-driver');
-	if (fs.existsSync('/.dockerenv')) {
+	if (isDocker()) {
 		args.push('--disable-dev-shm-usage');
 	}
 
