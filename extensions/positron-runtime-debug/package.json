@@ -1,0 +1,47 @@
+{
+  "name": "positron-runtime-debug",
+  "displayName": "%displayName%",
+  "description": "%description%",
+  "version": "0.0.1",
+  "publisher": "positron",
+  "engines": {
+    "vscode": "^1.65.0"
+  },
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "category": "%category.notebook%",
+        "command": "notebook.debugCell",
+        "icon": "$(debug-alt-small)",
+        "title": "Debug Cell",
+        "enablement": "notebookKernel =~ /^positron.runtime-notebook-kernels\\//"
+      }
+    ],
+    "menus": {
+      "notebook/cell/execute": [
+        {
+          "command": "notebook.debugCell"
+        }
+      ]
+    },
+    "debuggers": [
+      {
+        "type": "runtimeNotebook",
+        "label": "Runtime Notebook"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile"
+  },
+  "dependencies": {
+    "@vscode/debugprotocol": "^1.68.0"
+  },
+  "devDependencies": {
+    "@types/node": "^24.1.0"
+  }
+}

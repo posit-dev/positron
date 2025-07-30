@@ -23,6 +23,7 @@ const dirs = [
 	'extensions/positron-r',
 	'extensions/positron-reticulate',
 	'extensions/positron-run-app',
+	'extensions/positron-runtime-debug',
 	'extensions/positron-supervisor',
 	'extensions/positron-python',
 	'extensions/positron-proxy',
