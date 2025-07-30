@@ -123,8 +123,6 @@ jobs:
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
     steps:
       - uses: actions/checkout@v4
-        with:
-          path: /home/runner
 
       - name: Load secret
         uses: 1password/load-secrets-action@v2
@@ -136,9 +134,8 @@ jobs:
           ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
 
       - name: Transform to Playwright tags $PW_TAGS
-        run: bash /home/runner/positron/scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
+        run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
-        working-directory: /home/runner/positron
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
@@ -159,7 +156,13 @@ jobs:
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}
         run: exit 1
-        working-directory: /home/runner/positron
+
+      - name: Install Positron License
+        uses: ./.github/actions/install-license
+        if: ${{ inputs.install_license }}
+        with:
+          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
@@ -172,21 +175,18 @@ jobs:
       - name: Preload Node.js Binary
         if: ${{ inputs.project == 'e2e-browser' }}
         run: npm run gulp node
-        working-directory: /home/runner/positron
 
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
       - name: Alter AppArmor Restrictions for Playwright (Electron)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-        working-directory: /home/runner/positron
 
       - name: Setup tmate session
         uses: mxschmitt/action-tmate@v3
 
       - name: Run Playwright Tests (Electron)
         shell: bash
-        working-directory: /home/runner/positron
         env:
           POSITRON_PY_VER_SEL: "3.12.10 (Venv: .venv)"
           POSITRON_R_VER_SEL: 4.4.0
@@ -268,12 +268,12 @@ jobs:
           echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
           # Don't run this test in parallel & don't allow skipping it
-          echo "Running: DISPLAY=:10 npx playwright test /home/runner/positron/test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
-          cd /home/runner/positron && DISPLAY=:10 npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+          echo "Running: DISPLAY=:10 npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
+          DISPLAY=:10 npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
 
           # Run the Playwright test command directly using eval
           echo "Running: DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          cd /home/runner/positron && eval DISPLAY=:10 SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          eval DISPLAY=:10 SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
