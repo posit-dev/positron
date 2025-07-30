@@ -23,6 +23,8 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 	args.push('--enable-smoke-test-driver');
 	//if (isDocker()) {
 	args.push('--disable-dev-shm-usage');
+	args.push('--disable-gpu');
+	args.push('--no-sandbox');
 	//}
 
 	// Launch electron via playwright
