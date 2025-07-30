@@ -13,8 +13,9 @@ import { ExecutionInfo, IConfigurationService, IPythonSettings } from '../../../
 import { IServiceContainer } from '../../../client/ioc/types';
 import { ModuleInstallerType, PythonEnvironment } from '../../../client/pythonEnvironments/info';
 import { InterpreterUri } from '../../../client/common/installer/types';
+import { IWorkspaceService } from '../../../client/common/application/types';
+import { IInterpreterService } from '../../../client/interpreter/contracts';
 import * as uvUtils from '../../../client/pythonEnvironments/common/environmentManagers/uv';
-import * as envUtils from '../../../client/pythonEnvironments/base/info/env';
 
 // Test class to expose protected methods
 class UVInstallerTest extends UVInstaller {
@@ -27,22 +28,45 @@ suite('UV Installer Tests', () => {
     let uvInstaller: UVInstallerTest;
     let serviceContainer: IServiceContainer;
     let configurationService: IConfigurationService;
+    let interpreterService: IInterpreterService;
+    let workspaceService: IWorkspaceService;
     let isUvInstalledStub: sinon.SinonStub;
-    let getEnvPathStub: sinon.SinonStub;
 
     setup(() => {
-        // Create mocks
-        serviceContainer = {} as IServiceContainer;
+        // Create mocks for services
         configurationService = {
             getSettings: sinon.stub(),
         } as any;
 
+        interpreterService = {
+            getActiveInterpreter: sinon.stub(),
+        } as any;
+
+        workspaceService = {
+            getConfiguration: sinon.stub().returns({
+                get: sinon.stub().returns(''),
+            }),
+        } as any;
+
+        // Create service container mock
+        serviceContainer = {
+            get: sinon.stub(),
+        } as any;
+
+        // Configure service container to return the appropriate services
+        (serviceContainer.get as sinon.SinonStub)
+            .withArgs(IConfigurationService)
+            .returns(configurationService)
+            .withArgs(IInterpreterService)
+            .returns(interpreterService)
+            .withArgs(IWorkspaceService)
+            .returns(workspaceService);
+
         // Create stubs for external dependencies
         isUvInstalledStub = sinon.stub(uvUtils, 'isUvInstalled');
-        getEnvPathStub = sinon.stub(envUtils, 'getEnvPath');
 
         // Create installer instance
-        uvInstaller = new UVInstallerTest(serviceContainer, configurationService);
+        uvInstaller = new UVInstallerTest(serviceContainer);
     });
 
     teardown(() => {
@@ -129,15 +153,21 @@ suite('UV Installer Tests', () => {
                 pythonPath,
             } as IPythonSettings;
 
+            const interpreter = {
+                path: pythonPath,
+            };
+
             (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
             expect(result).to.deep.equal({
-                args: ['pip', 'install', '--python', pythonPath, moduleName],
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, moduleName],
                 execPath: 'uv',
             });
             expect((configurationService.getSettings as sinon.SinonStub).calledWith(resource)).to.be.true;
+            expect((interpreterService.getActiveInterpreter as sinon.SinonStub).calledWith(resource)).to.be.true;
         });
 
         test('Should return correct execution info for PythonEnvironment', async () => {
@@ -146,49 +176,49 @@ suite('UV Installer Tests', () => {
                 envPath: '/path/to/env',
             } as PythonEnvironment;
             const moduleName = 'pandas';
-            const expectedPythonPath = '/resolved/path/to/python';
-
-            getEnvPathStub.returns({ path: expectedPythonPath });
 
             const result = await uvInstaller.getExecutionInfo(moduleName, pythonEnv);
 
             expect(result).to.deep.equal({
-                args: ['pip', 'install', '--python', expectedPythonPath, moduleName],
+                args: ['pip', 'install', '--upgrade', '--python', pythonEnv.path, moduleName],
                 execPath: 'uv',
             });
-            expect(getEnvPathStub.calledWith(pythonEnv.path, pythonEnv.envPath)).to.be.true;
         });
 
-        test('Should handle empty python path from getEnvPath', async () => {
-            const pythonEnv: PythonEnvironment = {
-                path: '/path/to/python',
-                envPath: '/path/to/env',
-            } as PythonEnvironment;
+        test('Should handle empty python path from interpreter', async () => {
+            const resource = Uri.file('/test/path');
             const moduleName = 'requests';
 
-            getEnvPathStub.returns({ path: null });
+            const settings: IPythonSettings = {
+                pythonPath: '/fallback/python',
+            } as IPythonSettings;
 
-            const result = await uvInstaller.getExecutionInfo(moduleName, pythonEnv);
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(null);
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
             expect(result).to.deep.equal({
-                args: ['pip', 'install', '--python', '', moduleName],
+                args: ['pip', 'install', '--upgrade', '--python', '/fallback/python', moduleName],
                 execPath: 'uv',
             });
         });
 
-        test('Should handle undefined getEnvPath result', async () => {
-            const pythonEnv: PythonEnvironment = {
-                path: '/path/to/python',
-                envPath: '/path/to/env',
-            } as PythonEnvironment;
+        test('Should handle undefined interpreter result', async () => {
+            const resource = Uri.file('/test/path');
             const moduleName = 'matplotlib';
 
-            getEnvPathStub.returns({});
+            const settings: IPythonSettings = {
+                pythonPath: '/settings/python',
+            } as IPythonSettings;
 
-            const result = await uvInstaller.getExecutionInfo(moduleName, pythonEnv);
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(undefined);
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
             expect(result).to.deep.equal({
-                args: ['pip', 'install', '--python', '', moduleName],
+                args: ['pip', 'install', '--upgrade', '--python', '/settings/python', moduleName],
                 execPath: 'uv',
             });
         });
@@ -201,12 +231,17 @@ suite('UV Installer Tests', () => {
                 pythonPath: '',
             } as IPythonSettings;
 
+            const interpreter = {
+                path: '/interpreter/python',
+            };
+
             (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
             expect(result).to.deep.equal({
-                args: ['pip', 'install', '--python', '', moduleName],
+                args: ['pip', 'install', '--upgrade', '--python', '/interpreter/python', moduleName],
                 execPath: 'uv',
             });
         });
@@ -214,9 +249,8 @@ suite('UV Installer Tests', () => {
         test('Should work without resource parameter', async () => {
             const moduleName = 'pytest';
 
-            // When no resource is provided, isResource returns true and calls getSettings with undefined
             const settings: IPythonSettings = {
-                pythonPath: '',
+                pythonPath: '/default/python',
             } as IPythonSettings;
 
             (configurationService.getSettings as sinon.SinonStub).returns(settings);
@@ -224,9 +258,10 @@ suite('UV Installer Tests', () => {
             const result = await uvInstaller.getExecutionInfo(moduleName);
 
             expect(result).to.deep.equal({
-                args: ['pip', 'install', '--python', '', moduleName],
+                args: ['pip', 'install', '--upgrade', '--python', '/default/python', moduleName],
                 execPath: 'uv',
             });
+            expect((configurationService.getSettings as sinon.SinonStub).calledWith(undefined)).to.be.true;
         });
 
         test('Should handle module names with special characters', async () => {
@@ -238,12 +273,47 @@ suite('UV Installer Tests', () => {
                 pythonPath,
             } as IPythonSettings;
 
+            const interpreter = {
+                path: pythonPath,
+            };
+
             (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
 
             const result = await uvInstaller.getExecutionInfo(moduleName, resource);
 
             expect(result).to.deep.equal({
-                args: ['pip', 'install', '--python', pythonPath, moduleName],
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, moduleName],
+                execPath: 'uv',
+            });
+        });
+
+        test('Should include proxy configuration when set', async () => {
+            const resource = Uri.file('/test/path');
+            const pythonPath = '/path/to/python';
+            const moduleName = 'numpy';
+            const proxyUrl = 'http://proxy.example.com:8080';
+
+            const settings: IPythonSettings = {
+                pythonPath,
+            } as IPythonSettings;
+
+            const interpreter = {
+                path: pythonPath,
+            };
+
+            (configurationService.getSettings as sinon.SinonStub).returns(settings);
+            (interpreterService.getActiveInterpreter as sinon.SinonStub).resolves(interpreter);
+
+            // Mock workspace service to return proxy configuration
+            (workspaceService.getConfiguration as sinon.SinonStub).returns({
+                get: sinon.stub().withArgs('proxy', '').returns(proxyUrl),
+            });
+
+            const result = await uvInstaller.getExecutionInfo(moduleName, resource);
+
+            expect(result).to.deep.equal({
+                args: ['pip', 'install', '--upgrade', '--python', pythonPath, '--proxy', proxyUrl, moduleName],
                 execPath: 'uv',
             });
         });
