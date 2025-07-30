@@ -333,7 +333,12 @@ export class BuiltinChatMode implements IChatMode {
 }
 
 export namespace ChatMode {
+	// --- Start Positron ---
+	/*
 	export const Ask = new BuiltinChatMode(ChatModeKind.Ask, 'Ask', localize('chatDescription', "Ask Copilot"));
+	*/
+	export const Ask = new BuiltinChatMode(ChatModeKind.Ask, 'Ask', localize('chatDescription', "Ask Assistant"));
+	// --- End Positron ---
 	export const Edit = new BuiltinChatMode(ChatModeKind.Edit, 'Edit', localize('editsDescription', "Edit files in your workspace"));
 	export const Agent = new BuiltinChatMode(ChatModeKind.Agent, 'Agent', localize('agentDescription', "Edit files in your workspace in agent mode"));
 }

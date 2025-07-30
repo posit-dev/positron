@@ -794,7 +794,14 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			);
 
 			let welcomeContent: IChatViewWelcomeContent;
+			// --- Start Positron ---
+			/*
 			if ((startupExpValue === StartupExperimentGroup.MaximizedChat
+			*/
+			// Don't use the experimental view for Positron Assistant
+			const useExpView = false;
+			if (useExpView && (startupExpValue === StartupExperimentGroup.MaximizedChat
+				// --- End Positron ---
 				|| startupExpValue === StartupExperimentGroup.SplitEmptyEditorChat
 				|| startupExpValue === StartupExperimentGroup.SplitWelcomeChat
 				|| expIsActive) && this.contextKeyService.contextMatchesRules(chatSetupTriggerContext)) {
@@ -824,6 +831,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				ChatViewWelcomePart,
 				welcomeContent,
 				{
+					// --- Start Positron ---
+					firstLinkToButton: !this.languageModelsService.currentProvider,
+					// --- End Positron ---
 					location: this.location,
 					isWidgetAgentWelcomeViewContent: this.input?.currentModeKind === ChatModeKind.Agent
 				}
@@ -881,7 +891,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		}
 		return {
 			title: welcomeTitle,
-			message: new MarkdownString(welcomeText),
+			message: new MarkdownString(welcomeText, { supportThemeIcons: true, isTrusted: true }),
 			icon: Codicon.positronAssistant,
 			tips,
 			additionalMessage,

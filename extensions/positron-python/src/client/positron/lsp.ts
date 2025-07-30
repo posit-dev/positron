@@ -131,13 +131,13 @@ export class PythonLsp implements vscode.Disposable {
             };
         }
 
-        const message = `Creating Positron Python ${this._version} language client (port ${port})`;
+        const message = `Creating Python ${this._version} language client (port ${port})`;
         traceInfo(message);
         this._outputChannel.appendLine(message);
 
         this._client = new LanguageClient(
             PYTHON_LANGUAGE,
-            `Positron Python Language Server (${this._version})`,
+            `Python Language Server (${this._version})`,
             serverOptions,
             this._clientOptions,
         );
