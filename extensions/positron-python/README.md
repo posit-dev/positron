@@ -1,6 +1,6 @@
 # Python Extension
 
-The Python Extension to the [Positron IDE](https://github.com/rstudio/positron).
+The Python Extension to the [Positron IDE](https://github.com/posit-dev/positron).
 
 You can read more about Positron IDE development on the [Positron Wiki](https://connect.rstudioservices.com/positron-wiki).
 
