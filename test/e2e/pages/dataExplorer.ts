@@ -372,7 +372,10 @@ export class DataExplorer {
 
 	async verifySparklineHoverDialog(verificationText: string[]): Promise<void> {
 		await test.step(`Verify sparkline tooltip: ${verificationText}`, async () => {
-			const firstSparkline = this.code.driver.page.locator('.column-profile-sparkline svg foreignObject.tooltip-container').nth(0);
+			// Try the proper selector first, then fallback to direct vector components
+			// This handles both expanded profiles (with .column-profile-sparkline wrapper)
+			// and collapsed headers (direct vector components)
+			const firstSparkline = this.code.driver.page.locator('.column-profile-sparkline foreignObject.tooltip-container, .vector-histogram foreignObject.tooltip-container, .vector-frequency-table foreignObject.tooltip-container').nth(0);
 			await firstSparkline.hover();
 			const hoverTooltip = this.code.driver.page.locator('.hover-contents');
 			await expect(hoverTooltip).toBeVisible();
