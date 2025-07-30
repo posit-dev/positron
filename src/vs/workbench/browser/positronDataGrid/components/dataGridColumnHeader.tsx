@@ -106,16 +106,13 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 	// Determine whether the column is selected.
 	const selected = (columnSelectionState & ColumnSelectionState.Selected) !== 0;
 
-	// Determine whether the column is pinned.
-	const pinned = context.instance.isColumnPinned(props.columnIndex);
-
 	// Render.
 	return (
 		<div
 			ref={ref}
 			className={positronClassNames(
 				'data-grid-column-header',
-				{ pinned },
+				{ pinned: props.pinned },
 			)}
 			style={{
 				left: props.left,
@@ -123,7 +120,7 @@ export const DataGridColumnHeader = (props: DataGridColumnHeaderProps) => {
 			}}
 			onMouseDown={mouseDownHandler}
 		>
-			{pinned && <div className='pinned-indicator' />}
+			{props.pinned && <div className='pinned-indicator' />}
 			{context.instance.cellBorders &&
 				<>
 					<div className='border-overlay' />

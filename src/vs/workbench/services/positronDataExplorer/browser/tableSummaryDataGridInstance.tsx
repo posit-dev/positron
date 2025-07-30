@@ -214,7 +214,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		return {
 			columnIndex: 0,
 			left: 0,
-			width: 0
+			width: 0,
 		};
 	}
 
