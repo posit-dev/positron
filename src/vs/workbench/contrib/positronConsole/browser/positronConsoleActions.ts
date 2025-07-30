@@ -597,8 +597,8 @@ export function registerPositronConsoleActions() {
 			// Forward user options to `executeCode` with hard-coded `advance`
 			opts = {
 				...opts,
-				 advance: false
-			}
+				advance: false
+			};
 			const commandService = accessor.get(ICommandService);
 			return commandService.executeCommand('workbench.action.positronConsole.executeCode', opts);
 		}
