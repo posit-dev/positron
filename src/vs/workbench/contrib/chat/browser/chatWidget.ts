@@ -831,6 +831,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				ChatViewWelcomePart,
 				welcomeContent,
 				{
+					// --- Start Positron ---
+					firstLinkToButton: !this.languageModelsService.currentProvider,
+					// --- End Positron ---
 					location: this.location,
 					isWidgetAgentWelcomeViewContent: this.input?.currentModeKind === ChatModeKind.Agent
 				}
@@ -888,7 +891,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		}
 		return {
 			title: welcomeTitle,
-			message: new MarkdownString(welcomeText),
+			message: new MarkdownString(welcomeText, { supportThemeIcons: true, isTrusted: true }),
 			icon: Codicon.positronAssistant,
 			tips,
 			additionalMessage,
