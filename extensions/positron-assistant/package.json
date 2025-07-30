@@ -406,7 +406,8 @@
         "canBeReferencedInPrompt": false,
         "tags": [
           "positron-assistant",
-          "requires-workspace"
+          "requires-workspace",
+          "high-token-usage"
         ],
         "inputSchema": {
           "type": "object",
