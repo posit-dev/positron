@@ -290,32 +290,16 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 			const imgLocator = page.getByRole('img', { name: /%run/ });
 
-			await expect(async () => {
-				try {
-					await contextMenu.triggerAndClick({
-						menuTrigger: page.getByLabel('Fit'),
-						menuItemLabel: 'Fit'
-					});
-				} catch (e) {
-					await page.keyboard.press('Escape');
-					throw e;
-				}
-			}).toPass({ timeout: 60000 });
-
+			await contextMenu.triggerAndClick({
+				menuTrigger: page.getByLabel('Fit'),
+				menuItemLabel: 'Fit'
+			});
 			await page.waitForTimeout(300);
 			const bufferFit1 = await imgLocator.screenshot();
-
-			await expect(async () => {
-				try {
-					await contextMenu.triggerAndClick({
-						menuTrigger: page.getByLabel('Fit'),
-						menuItemLabel: '200%'
-					});
-				} catch (e) {
-					await page.keyboard.press('Escape');
-					throw e;
-				}
-			}).toPass({ timeout: 60000 });
+			await contextMenu.triggerAndClick({
+				menuTrigger: page.getByLabel('Fit'),
+				menuItemLabel: '200%'
+			});
 
 			await page.waitForTimeout(2000);
 			const bufferZoom = await imgLocator.screenshot();
@@ -327,18 +311,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 			expect(resultZoom.rawMisMatchPercentage).toBeGreaterThan(2); // should be large diff
 
-			await expect(async () => {
-				try {
-					await contextMenu.triggerAndClick({
-						menuTrigger: page.getByLabel('200%'),
-						menuItemLabel: 'Fit'
-					});
-				} catch (e) {
-					await page.keyboard.press('Escape');
-					throw e;
-				}
-			}).toPass({ timeout: 60000 });
-
+			await contextMenu.triggerAndClick({
+				menuTrigger: page.getByLabel('200%'),
+				menuItemLabel: 'Fit'
+			});
 			await page.waitForTimeout(2000);
 			const bufferFit2 = await imgLocator.screenshot();
 			// Compare: Fit vs Fit again
