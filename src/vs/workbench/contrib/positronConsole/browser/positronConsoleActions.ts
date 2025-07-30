@@ -40,6 +40,7 @@ const enum PositronConsoleCommandId {
 	ClearConsole = 'workbench.action.positronConsole.clearConsole',
 	ClearInputHistory = 'workbench.action.positronConsole.clearInputHistory',
 	ExecuteCode = 'workbench.action.positronConsole.executeCode',
+	ExecuteCodeWithoutAdvancing = 'workbench.action.positronConsole.executeCodeWithoutAdvancing',
 	FocusConsole = 'workbench.action.positronConsole.focusConsole',
 	NavigateInputHistoryDown = 'workbench.action.positronConsole.navigateInputHistoryDown',
 	NavigateInputHistoryUp = 'workbench.action.positronConsole.navigateInputHistoryUp',
@@ -574,13 +575,13 @@ export function registerPositronConsoleActions() {
 	registerAction2(class extends Action2 {
 		constructor() {
 			super({
-				id: 'workbench.action.positronConsole.executeCodeWithoutMotion',
+				id: PositronConsoleCommandId.ExecuteCodeWithoutAdvancing,
 				title: {
-					value: localize('workbench.action.positronConsole.executeCodeWithoutMotion', 'Execute Code Without Moving)'),
-					original: 'Execute Code Without Moving'
+					value: localize('workbench.action.positronConsole.executeCodeWithoutAdvancing', 'Execute Code Without Advancing)'),
+					original: 'Execute Code Without Advancing'
 				},
 				f1: false,
-				category: POSITRON_CONSOLE_ACTION_CATEGORY,
+				category,
 				precondition: ContextKeyExpr.and(
 					EditorContextKeys.editorTextFocus,
 					NOTEBOOK_EDITOR_FOCUSED.toNegated()
