@@ -208,9 +208,9 @@ class PandasFilterConverter:
             value = value.lower()
 
         if search_type == TextSearchType.StartsWith:
-            return f"{column_access}.str.startswith({value!r}, na = False)"
+            return f"{column_access}.str.startswith({value!r}, na=False)"
         elif search_type == TextSearchType.EndsWith:
-            return f"{column_access}.str.endswith({value!r}, na = False)"
+            return f"{column_access}.str.endswith({value!r}, na=False)"
         else:
             raise ValueError(f"Unsupported TextSearchType: {search_type}")
 
