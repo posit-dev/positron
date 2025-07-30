@@ -79,7 +79,7 @@ test.describe('R Debugging', {
 		await debug.selectCallStackAtIndex(2);
 		await editors.expectEditorToContain('outer(5)');
 
-		await console.focus();
+		await console.clearButton.click();
 		await page.keyboard.press('Q');
 		await page.keyboard.press('Enter');
 		await console.waitForReady('>');
