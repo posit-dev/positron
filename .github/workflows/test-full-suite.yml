@@ -99,6 +99,7 @@ jobs:
     secrets: inherit
     with:
       pull_request: false
+      all_platforms: true
 
   slack-notify:
     if: always()
@@ -116,4 +117,3 @@ jobs:
           slack_token: ${{ secrets.SLACK_TOKEN_TEST_STATUS }}
           slack_channel: "#positron-test-results"
           notify_on: ${{ env.notify_on }}
-
