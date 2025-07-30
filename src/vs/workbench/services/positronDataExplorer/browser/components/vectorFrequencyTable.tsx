@@ -68,6 +68,7 @@ const FrequencyCount = React.memo(({
 		<foreignObject
 			key={`count-${countIndex}`}
 			className='tooltip-container'
+			data-height={countHeight.toFixed(1)}
 			height={graphHeight}
 			width={countWidth}
 			x={xPosition}
@@ -138,6 +139,7 @@ const OtherCount = React.memo(({
 	return (
 		<foreignObject
 			className='tooltip-container'
+			data-height={countHeight.toFixed(1)}
 			height={graphHeight}
 			width={graphWidth - xPosition}
 			x={xPosition}
