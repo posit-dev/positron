@@ -192,7 +192,10 @@ function foundOnPath(fsPath: string): boolean {
     return paths.some((p) => normalized.includes(p));
 }
 
+// --- Start Positron ---
+// added async
 async function getName(nativeEnv: NativeEnvInfo, kind: PythonEnvKind, condaEnvDirs: string[]): Promise<string> {
+    // --- End Positron ---
     if (nativeEnv.name) {
         return nativeEnv.name;
     }
@@ -237,14 +240,20 @@ async function getName(nativeEnv: NativeEnvInfo, kind: PythonEnvKind, condaEnvDi
     return '';
 }
 
+// --- Start Positron ---
+// added async
 async function toPythonEnvInfo(nativeEnv: NativeEnvInfo, condaEnvDirs: string[]): Promise<PythonEnvInfo | undefined> {
+    // --- End Positron ---
     if (!validEnv(nativeEnv)) {
         return undefined;
     }
     const kind = categoryToKind(nativeEnv.kind);
     const arch = toArch(nativeEnv.arch);
     const version: PythonVersion = parseVersion(nativeEnv.version ?? '');
+    // --- Start Positron ---
+    // added await
     const name = await getName(nativeEnv, kind, condaEnvDirs);
+    // --- End Positron ---
     const displayName = nativeEnv.version
         ? getDisplayName(version, kind, arch, name)
         : nativeEnv.displayName ?? 'Python';
@@ -519,12 +528,10 @@ class NativePythonEnvironments implements IDiscoveryAPI, Disposable {
     }
 
     // --- Start Positron ---
-    // added async
+    // added async/await
     private async addEnv(native: NativeEnvInfo, searchLocation?: Uri): Promise<PythonEnvInfo | undefined> {
-        // --- End Positron ---
         const info = await toPythonEnvInfo(native, this._condaEnvDirs);
         if (info) {
-            // --- Start Positron ---
             if (info.executable.filename && (await isUvEnvironment(info.executable.filename))) {
                 traceInfo(`Found uv environment: ${info.executable.filename}`);
                 info.kind = PythonEnvKind.Uv;

@@ -32,7 +32,9 @@ import { traceError, traceWarn } from '../../../../logging';
 import { isVirtualEnvironment } from '../../../common/environmentManagers/simplevirtualenvs';
 import { getWorkspaceFolderPaths } from '../../../../common/vscodeApis/workspaceApis';
 import { ActiveState } from '../../../common/environmentManagers/activestate';
+// --- Start Positron ---
 import { getUvDirs } from '../../../common/environmentManagers/uv';
+// --- End Positron ---
 
 function getResolvers(): Map<PythonEnvKind, (env: BasicEnvInfo) => Promise<PythonEnvInfo>> {
     const resolvers = new Map<PythonEnvKind, (_: BasicEnvInfo) => Promise<PythonEnvInfo>>();
