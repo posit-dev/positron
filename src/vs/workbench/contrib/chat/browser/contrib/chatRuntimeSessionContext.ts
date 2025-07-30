@@ -366,6 +366,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 		const summarized: Array<IHistorySummaryEntry> = [];
 		let currentCost = 0;
 		const maxCost = 8192; // 8KB. Should this be configurable?
+		let encounteredError = false;
 		for (let i = history.length - 1; i >= 0; i--) {
 			const entry = history[i];
 			// Filter out non-execution entries
@@ -377,6 +378,19 @@ export class ChatRuntimeSessionContext extends Disposable {
 			let cost = entry.input.length + entry.output.length;
 			if (entry.error) {
 				cost += JSON.stringify(entry.error).length;
+				if (!encounteredError) {
+					// If we haven't encountered an error yet, we want to include this entry
+					// in the summary, so we don't skip it.
+					// This allows us to include the first encountered (most recent) error in the summary
+					// without truncation, but not subsequent ones.
+					summarized.push({
+						input: entry.input,
+						output: entry.output,
+						error: entry.error,
+					});
+					encounteredError = true;
+					continue;
+				}
 			}
 
 			// If this would exceed the max cost, try truncating the input and/or output
