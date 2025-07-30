@@ -10,6 +10,10 @@ import { DebugProtocol } from '@vscode/debugprotocol';
 import { randomUUID } from 'crypto';
 import { DisposableStore } from './util.js';
 
+enum Command {
+	DebugCell = 'notebook.debugCell',
+}
+
 // TODO: Create a new channel per runtime, like the supervisor does?
 const log = vscode.window.createOutputChannel('Debug', { log: true });
 
@@ -432,29 +436,53 @@ export function activateRuntimeNotebookDebugging(): vscode.Disposable {
 	const adapterFactory = disposables.add(new RuntimeNotebookDebugAdapterFactory());
 	disposables.add(vscode.debug.registerDebugAdapterDescriptorFactory('runtimeNotebook', adapterFactory));
 
-	disposables.add(
-		vscode.commands.registerCommand('notebook.debugCell', async () => {
-			const notebookEditor = vscode.window.activeNotebookEditor;
-			if (!notebookEditor) {
-				return;
-			}
-
-			const cellUri = vscode.window.activeTextEditor?.document.uri;
-			if (!cellUri) {
-				return;
-			}
-
-			await vscode.debug.startDebugging(undefined, {
-				type: 'runtimeNotebook',
-				name: path.basename(notebookEditor.notebook.uri.fsPath),
-				request: 'attach',
-				// TODO: Get from config.
-				justMyCode: false,
-				__notebookUri: notebookEditor.notebook.uri.toString(),
-				__cellUri: cellUri.toString(),
-			});
-		}),
-	);
+	disposables.add(vscode.commands.registerCommand(Command.DebugCell, debugCell));
 
 	return disposables;
+}
+
+/**
+ * Debug a notebook cell.
+ *
+ * @param cell The notebook cell to debug. If undefined, the active cell will be used.
+ */
+async function debugCell(cell: vscode.NotebookCell | undefined): Promise<void> {
+	// This command can be called from:
+	// 1. A cell's execute menu (`cell` is defined).
+	// 2. The command palette (`cell` is undefined).
+
+	// If no cell is provided, use the selected cell.
+	if (!cell) {
+		cell = getActiveNotebookCell();
+
+		// If no cell is selected, log a warning and return.
+		if (!cell) {
+			log.warn(`${Command.DebugCell} command called without a cell.`);
+			return;
+		}
+	}
+
+	// Start a debug session for the cell.
+	// This will, in turn, create a debug adapter for the notebook using the factory defined above.
+	await vscode.debug.startDebugging(undefined, {
+		type: 'runtimeNotebook',
+		name: path.basename(cell.notebook.uri.fsPath),
+		request: 'attach',
+		// TODO: Get from config.
+		justMyCode: false,
+		__notebookUri: cell.notebook.uri.toString(),
+		__cellUri: cell.document.uri.toString(),
+	});
+}
+
+/** Get the active notebook cell, if one exists. */
+function getActiveNotebookCell(): vscode.NotebookCell | undefined {
+	const editor = vscode.window.activeNotebookEditor;
+	if (editor) {
+		const range = editor.selections[0];
+		if (range) {
+			return editor.notebook.cellAt(range.start);
+		}
+	}
+	return undefined;
 }
