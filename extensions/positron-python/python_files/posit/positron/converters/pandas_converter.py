@@ -51,7 +51,7 @@ class PandasConverter(CodeConverter):
         comparisons = []
         for filter_key in filters:
             generator = PandasFilterConverter(filter_key, self.table_name)
-            comparison = generator.generate_comparison()
+            comparison = generator.convert_filters()
             if comparison:
                 comparisons.append(comparison)
 
@@ -75,19 +75,17 @@ class PandasConverter(CodeConverter):
             return [], []
 
         generator = PandasSortConverter(self.params.sort_keys, self.table)
-        preprocessing, method_parts = generator.generate_sort()
+        preprocessing, method_parts = generator.convert_sorts()
 
         return preprocessing, method_parts
 
 
 class PandasSortConverter:
-    """Helper class to generate sort strings."""
-
     def __init__(self, sort_keys: List[ColumnSortKey], table):
         self.sort_keys = sort_keys
         self.table = table
 
-    def generate_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def convert_sorts(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """Generate the sort string."""
         if len(self.sort_keys) == 1:
             return self._handle_single_sort()
@@ -95,7 +93,6 @@ class PandasSortConverter:
             return self._handle_multi_sort()
 
     def _handle_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Generate code for single column sort."""
         preprocessing = []
         method_parts = []
 
@@ -111,7 +108,6 @@ class PandasSortConverter:
         return preprocessing, method_parts
 
     def _handle_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Generate code for multiple column sort."""
         col_indices = [key.column_index for key in self.sort_keys]
         column_names = [self.table.columns[i] for i in col_indices]
         ascending_values = [sk.ascending for sk in self.sort_keys]
@@ -127,14 +123,12 @@ class PandasSortConverter:
 
 
 class PandasFilterConverter:
-    """Helper class to generate filter strings."""
-
     def __init__(self, filter_key: RowFilter, table_name: str):
         self.filter_key = filter_key
         self.table_name = table_name
         self.column_name = repr(filter_key.column_schema.column_name)
 
-    def generate_comparison(self) -> Optional[str]:
+    def convert_filters(self) -> Optional[str]:
         filter_handlers = {
             RowFilterType.Between: self._handle_between_filter,
             RowFilterType.NotBetween: self._handle_between_filter,

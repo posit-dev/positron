@@ -441,17 +441,17 @@ class DataExplorerFixture:
     def convert_to_code(
         self,
         table_name,
-        column_filters=[],
-        row_filters=[],
-        sort_keys=[],
+        column_filters=None,
+        row_filters=None,
+        sort_keys=None,
         code_syntax_name="",
     ):
         return self.do_json_rpc(
             table_name,
             "convert_to_code",
-            column_filters=[],
-            row_filters=row_filters,
-            sort_keys=[],
+            column_filters=column_filters or [],
+            row_filters=row_filters or [],
+            sort_keys=sort_keys or [],
             code_syntax_name=CodeSyntaxName(code_syntax_name=code_syntax_name),
         )
 
