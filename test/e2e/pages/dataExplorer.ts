@@ -245,7 +245,9 @@ export class DataExplorer {
 		}
 
 		// Extract heights from tooltip containers which now have data-height attributes
-		const containers = await this.code.driver.page.locator('.column-profile-sparkline svg foreignObject.tooltip-container').all();
+		// Find sparkline containers within the expanded profile area for this specific row
+		const profileAreaSelector = `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-profile-sparkline`;
+		const containers = await this.code.driver.page.locator(`${profileAreaSelector} foreignObject.tooltip-container`).all();
 		const profileSparklineHeights: string[] = [];
 		for (let i = 0; i < containers.length; i++) {
 			const height = await containers[i].getAttribute('data-height');
