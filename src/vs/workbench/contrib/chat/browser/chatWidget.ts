@@ -831,6 +831,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				ChatViewWelcomePart,
 				welcomeContent,
 				{
+					// --- Start Positron ---
+					firstLinkToButton: !this.languageModelsService.currentProvider,
+					// --- End Positron ---
 					location: this.location,
 					isWidgetAgentWelcomeViewContent: this.input?.currentModeKind === ChatModeKind.Agent
 				}
