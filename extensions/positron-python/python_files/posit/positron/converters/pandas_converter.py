@@ -3,8 +3,6 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
-from os import name
-from pstats import SortKey
 from typing import List, Optional, Union
 
 import pandas as pd
@@ -128,29 +126,21 @@ class PandasConverter(CodeConverter):
         if handler:
             return handler(filter_key, column_name_repr)
 
-        # Handle FilterTextSearch and FilterSetMembership by params type
-        if isinstance(filter_key.params, FilterTextSearch):
-            return self._generate_text_search(
-                column_name_repr,
-                filter_key.params.search_type,
-                filter_key.params.term,
-                case_sensitive=filter_key.params.case_sensitive,
-            )
-        elif isinstance(filter_key.params, FilterSetMembership):
+        if isinstance(filter_key.params, FilterSetMembership):
             return None  # Currently not implemented
 
         return None
 
     def _handle_between_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
         assert isinstance(filter_key.params, FilterBetween)
-        return self._generate_between(
-            column_name_repr,
-            filter_key.params.left_value,
-            filter_key.params.right_value,
-            filter_key.filter_type,
-        )
+        is_between = filter_key.filter_type == RowFilterType.Between
+        left = filter_key.params.left_value
+        right = filter_key.params.right_value
+        operator = "" if is_between else "~"
+        return f"{operator}{self.table_name}[{column_name_repr}].between({left}, {right})"
 
     def _handle_compare_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        """Handle comparison filters such as equals, not equals, greater than, etc."""
         assert isinstance(filter_key.params, FilterComparison)
         op = (
             "=="
@@ -173,20 +163,33 @@ class PandasConverter(CodeConverter):
                 value += f", tz={tz!r}"
             value += ")"
 
-        return self._generate_comparison(
-            column_name_repr,
-            op,
-            value,
-        )
+        return f"{self.table_name}[{column_name_repr}] {op} {value}"
 
     def _handle_text_search_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
+        """Handle text search filters such as contains, regex, startswith, and endswith."""
         assert isinstance(filter_key.params, FilterTextSearch)
-        return self._generate_text_search(
-            column_name_repr,
-            filter_key.params.search_type,
-            filter_key.params.term,
-            case_sensitive=filter_key.params.case_sensitive,
-        )
+
+        column_access = f"{self.table_name}[{column_name_repr}]"
+        search_type = filter_key.params.search_type
+        value = filter_key.params.term
+        case_sensitive = filter_key.params.case_sensitive
+        if search_type == TextSearchType.Contains:
+            return f"{column_access}.str.contains({value!r}, case={case_sensitive}, na=False)"
+        elif search_type == TextSearchType.NotContains:
+            return f"~{column_access}.str.contains({value!r}, case={case_sensitive}, na=True)"
+        elif search_type == TextSearchType.RegexMatch:
+            return f"{column_access}.str.match({value!r}, case={case_sensitive}, na=False)"
+
+        if not case_sensitive:
+            column_access = f"{column_access}.str.lower()"
+            value = value.lower()
+
+        if search_type == TextSearchType.StartsWith:
+            return f"{column_access}.str.startswith({value!r}, na = False)"
+        elif search_type == TextSearchType.EndsWith:
+            return f"{column_access}.str.endswith({value!r}, na = False)"
+        else:
+            raise ValueError(f"Unsupported TextSearchType: {search_type}")
 
     def _handle_is_empty_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
         return f"{self.table_name}[{column_name_repr}].str.len() == 0"
@@ -205,72 +208,6 @@ class PandasConverter(CodeConverter):
 
     def _handle_is_false_filter(self, filter_key: RowFilter, column_name_repr: str) -> str:
         return f"{self.table_name}[{column_name_repr}] == False"
-
-    def _generate_between(
-        self,
-        column_name: str,
-        left_value,
-        right_value,
-        filter_type: RowFilterType,
-    ) -> StrictStr:
-        """
-        Generate code for a 'between' or 'not between' filter.
-
-        Args:
-            column_name: Name of the column to filter
-            left_value: Left boundary value
-            right_value: Right boundary value
-            filter_type: Type of filter (Between or NotBetween)
-
-        Returns:
-            A string representing the 'between' or 'not between' operation
-        """
-        is_between = filter_type == RowFilterType.Between
-        operator = "" if is_between else "~"
-        return f"{operator}{self.table_name}[{column_name}].between({left_value}, {right_value})"
-
-    def _generate_comparison(self, column_name: str, operator: str, value) -> StrictStr:
-        return f"{self.table_name}[{column_name}] {operator} {value}"
-
-    def _generate_text_search(
-        self,
-        column_name: str,
-        search_type: TextSearchType,
-        value: str,
-        *,
-        case_sensitive: bool = True,
-    ) -> StrictStr:
-        """
-        Generate code for text search filtering with optional case sensitivity.
-
-        Args:
-            column_name: Name of the column to filter
-            search_type: Type of text search to perform
-            value: Value to search for
-            case_sensitive: Whether the search should be case-sensitive
-
-        Returns:
-            A string representing the text search operation
-        """
-        column_access = f"{self.table_name}[{column_name}]"
-
-        if search_type == TextSearchType.Contains:
-            return f"{column_access}.str.contains({value!r}, case={case_sensitive}, na=False)"
-        elif search_type == TextSearchType.NotContains:
-            return f"~{column_access}.str.contains({value!r}, case={case_sensitive}, na=True)"
-        elif search_type == TextSearchType.RegexMatch:
-            return f"{column_access}.str.match({value!r}, case={case_sensitive}, na=False)"
-
-        if not case_sensitive:
-            column_access = f"{column_access}.str.lower()"
-            value = value.lower()
-
-        if search_type == TextSearchType.StartsWith:
-            return f"{column_access}.str.startswith({value!r}, na = False)"
-        elif search_type == TextSearchType.EndsWith:
-            return f"{column_access}.str.endswith({value!r}, na = False)"
-        else:
-            raise ValueError(f"Unsupported TextSearchType: {search_type}")
 
     def _convert_sorts(
         self, sort_keys: Optional[List[ColumnSortKey]] = None

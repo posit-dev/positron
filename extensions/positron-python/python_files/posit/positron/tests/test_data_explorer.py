@@ -1252,6 +1252,7 @@ def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
             "column_index": 0,
             "type_name": "datetime64[ns, US/Eastern]",
             "type_display": "datetime",
+            "timezone": "US/Eastern",
         },
         {
             "column_name": "arrow_bools",
