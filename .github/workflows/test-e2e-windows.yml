@@ -182,6 +182,11 @@ jobs:
       - name: Send Results to GH Summary
         uses: ./.github/actions/gen-report-dir
 
+      - name: Run Extensions Test
+        id: extensions
+        shell: bash
+        run: npm run test-extension -- -l positron-r
+
       - name: Run Bootstrap Extensions Test
         id: bootstrap
         shell: bash
@@ -238,4 +243,3 @@ jobs:
           name: e2e-win-logs
           path: test-logs
           if-no-files-found: ignore
-
