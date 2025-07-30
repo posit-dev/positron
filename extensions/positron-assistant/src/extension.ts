@@ -180,7 +180,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 				name: languageModel.name,
 				family: languageModel.provider,
 				providerName: languageModel.providerName,
-				vendor: context.extension.packageJSON.publisher,
+				vendor: languageModel.provider,
 				version: context.extension.packageJSON.version,
 				capabilities: languageModel.capabilities,
 				maxInputTokens: 0,
