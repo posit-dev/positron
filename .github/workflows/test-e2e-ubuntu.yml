@@ -205,6 +205,9 @@ jobs:
             echo "Waiting for Xvfb to start..."
             sleep 1
           done
+
+          sleep 10
+
           export ELECTRON_DISABLE_SANDBOX=true
           export DEBUG="electron*"
           export PWDEBUG=0  # set to 1 to pause and inspect failures
