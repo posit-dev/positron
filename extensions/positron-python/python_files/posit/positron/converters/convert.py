@@ -42,29 +42,7 @@ class CodeConverter:
         Returns:
             List of code strings that perform the operations
         """
-        preprocessing_lines = []
-        method_chain_parts = [self.table_name]
-
-        # Generate preprocessing and method chain parts
-        filter_preprocessing, filter_chain = self._convert_filters(params.row_filters)
-        sort_preprocessing, sort_chain = self._convert_sorts(params.sort_keys)
-
-        preprocessing_lines.extend([*filter_preprocessing, *sort_preprocessing])
-        method_chain_parts.extend([*filter_chain, *sort_chain])
-
-        # Combine preprocessing lines with the final chained expression
-        result = preprocessing_lines.copy()
-        if len(method_chain_parts) > 1:
-            # Build the chained expression
-            chained_expr = method_chain_parts[0]
-            for part in method_chain_parts[1:]:
-                chained_expr += part
-            result.append(chained_expr)
-        else:
-            # Just the table name if no operations
-            result.append(method_chain_parts[0])
-
-        return result
+        raise NotImplementedError("Subclasses must implement convert method")
 
     def _convert_filters(
         self, row_filters: List[RowFilter]
