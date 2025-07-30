@@ -61,5 +61,5 @@ async function verifyNotebookAndConsolePythonVersion(app: Application) {
 	// Only look within an 'a' tag with class 'kernel-label' to avoid false positives
 	const kernelLabel = app.code.driver.page.locator('a.kernel-label');
 	await expect(kernelLabel).toContainText(`Python ${pythonVersion}`);
-	await expect(kernelLabel).toContainText('.venv');
+	await expect(kernelLabel).toContainText('python-notebook-runtime');
 }

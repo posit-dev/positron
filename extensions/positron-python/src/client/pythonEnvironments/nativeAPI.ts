@@ -206,7 +206,7 @@ async function getName(nativeEnv: NativeEnvInfo, kind: PythonEnvKind, condaEnvDi
         const uvDirs = await getUvDirs();
         for (const uvDir of uvDirs) {
             if (isParentPath(nativeEnv.prefix, uvDir)) {
-                return 'managed';
+                return '';
             }
         }
 

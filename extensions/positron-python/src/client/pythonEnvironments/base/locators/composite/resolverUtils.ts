@@ -201,7 +201,7 @@ async function resolveSimpleEnv(env: BasicEnvInfo): Promise<PythonEnvInfo> {
         const uvDirs = await getUvDirs();
         for (const uvDir of uvDirs) {
             if (isParentPath(location, uvDir)) {
-                envInfo.name = 'managed';
+                envInfo.name = '';
             }
         }
     }
