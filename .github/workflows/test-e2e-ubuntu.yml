@@ -57,7 +57,7 @@ on:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
-        default: false
+        default: true
 
   workflow_dispatch:
     inputs:
