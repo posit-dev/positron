@@ -137,6 +137,9 @@ jobs:
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
         uses: ./.github/actions/setup-build-env
@@ -181,9 +184,6 @@ jobs:
 
       - name: Alter AppArmor Restrictions for Playwright (Electron)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
 
       - name: Run Playwright Tests (Electron)
         shell: bash

@@ -54,7 +54,7 @@ def main() -> None:
             "pip",
             "install",
             "-t",
-            str(destination.resolve()),
+            str(destination),
             "--no-cache-dir",
             "--implementation",
             "py",
