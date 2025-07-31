@@ -27,17 +27,15 @@ export class ContextMenu {
 	 *
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
-	 * @param menuItemClickPosition Where to click on the menu item (defaults to center)
 	 */
 	async triggerAndClick({
 		menuTrigger,
 		menuItemLabel,
-		menuItemClickPosition = 'center',
 		force = false
 	}: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
-				await this._triggerAndClick({ menuTrigger, menuItemLabel, menuItemClickPosition });
+				await this._triggerAndClick({ menuTrigger, menuItemLabel });
 			} else {
 				await menuTrigger.click();
 				const menuItem = this.getContextMenuItem(menuItemLabel);
@@ -141,12 +139,11 @@ export class ContextMenu {
 	 *
 	 * @param contextMenuId the ID of the context menu to select an item from
 	 * @param label the label of the menu item to select
-	 * @param clickPosition optional click position on the menu item
 	 */
-	private async selectContextMenuItem(contextMenuId: number, label: string, clickPosition?: ClickPosition): Promise<void> {
-		await this.code.electronApp?.evaluate(async ({ app }, [contextMenuId, label, clickPosition]) => {
-			app.emit('e2e:contextMenuSelect', contextMenuId, label, clickPosition);
-		}, [contextMenuId, label, clickPosition]);
+	private async selectContextMenuItem(contextMenuId: number, label: string): Promise<void> {
+		await this.code.electronApp?.evaluate(async ({ app }, [contextMenuId, label]) => {
+			app.emit('e2e:contextMenuSelect', contextMenuId, label);
+		}, [contextMenuId, label]);
 	}
 
 	/**
@@ -154,10 +151,8 @@ export class ContextMenu {
 	 *
 	 * @param menuTrigger The element that will trigger the context menu
 	 * @param menuItemLabel The menu item to select
-	 * @param triggerClickPosition Where to click on the trigger element (defaults to center)
-	 * @param menuItemClickPosition Where to click on the menu item (defaults to center)
 	 */
-	private async _triggerAndClick({ menuTrigger, menuItemLabel, menuItemClickPosition = 'center' }: ContextMenuClick): Promise<void> {
+	private async _triggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
 		// Show the context menu by clicking on the trigger element
 		const menuItems = await this.showContextMenu(async () => {
 			await menuTrigger.click();
@@ -170,7 +165,7 @@ export class ContextMenu {
 				throw new Error(`Context menu '${menuItemLabel}' not found. Available items: ${menuItems.items.join(', ')}`);
 			}
 			// Select the menu item through Electron IPC
-			await this.selectContextMenuItem(menuItems.menuId, menuItemLabel, menuItemClickPosition);
+			await this.selectContextMenuItem(menuItems.menuId, menuItemLabel);
 		} else {
 			throw new Error(`Context menu '${menuItemLabel}' did not appear or no menu items found.`);
 		}
@@ -178,11 +173,8 @@ export class ContextMenu {
 }
 
 
-
 interface ContextMenuClick {
 	menuTrigger: Locator;
 	menuItemLabel: string;
-	menuItemClickPosition?: ClickPosition;
 	force?: boolean;
 }
-type ClickPosition = 'center' | 'right' | 'left' | 'top' | 'bottom';
