@@ -39,14 +39,14 @@ class PandasConverter(CodeConverter):
         Take filters and convert them to code strings.
 
         Returns:
-            Tuple of (preprocessing_lines, method_chain_parts)
+            Tuple of (method_chain_setup, method_chain_parts)
         """
-        preprocessing = []
-        method_parts = []
+        method_chain_setup = []
+        method_chain_parts = []
         filters = self.params.row_filters
 
         if not filters:
-            return preprocessing, method_parts
+            return method_chain_setup, method_chain_parts
 
         comparisons = []
         # process each filter key to some comparison string
@@ -61,19 +61,21 @@ class PandasConverter(CodeConverter):
 
         if len(comparisons) == 1:
             # Single comparison, no need for filter mask
-            method_parts.append(f"[{comparisons[0]}]")
+            method_chain_parts.append(f"[{comparisons[0]}]")
         elif comparisons:
-            preprocessing.append(f"filter_mask = {' & '.join(f'({comp})' for comp in comparisons)}")
-            method_parts.append("[filter_mask]")
+            method_chain_setup.append(
+                f"filter_mask = {' & '.join(f'({comp})' for comp in comparisons)}"
+            )
+            method_chain_parts.append("[filter_mask]")
 
-        return preprocessing, method_parts
+        return method_chain_setup, method_chain_parts
 
     def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """
         Generate code for sorting.
 
         Returns:
-            Tuple of (preprocessing_lines, method_chain_parts)
+            Tuple of (method_chain_setup, method_chain_parts)
         """
         if not self.params.sort_keys:
             return [], []
