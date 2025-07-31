@@ -33,7 +33,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
+test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
 
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
@@ -78,9 +78,9 @@ test.describe.skip('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA
 
 			const expectedGeneratedCode = {
 				'Pandas': 'filter_mask = (df[\'status\'] == active) & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)',
-				'Polars': 'tbd',
-				'Tidyverse': 'tbd',
-				'data.table': 'tbd'
+				// 'Polars': 'tbd',
+				// 'Tidyverse': 'tbd',
+				// 'data.table': 'tbd'
 			}[expectedCodeStyle] || '';
 			await modals.expectToContainText(expectedGeneratedCode);
 		});

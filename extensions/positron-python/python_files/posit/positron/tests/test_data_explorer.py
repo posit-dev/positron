@@ -4186,7 +4186,6 @@ def test_convert_pandas_filter_compare(dxf: DataExplorerFixture):
         )
 
 
-@pytest.mark.xfail
 def test_convert_pandas_filter_datetimetz(dxf: DataExplorerFixture):
     tz = pytz.timezone("US/Eastern")
 
@@ -4198,7 +4197,7 @@ def test_convert_pandas_filter_datetimetz(dxf: DataExplorerFixture):
     dxf.register_table("dtz", test_df)
     schema = dxf.get_schema("dtz")
 
-    val = datetime.datetime(2000, 1, 3, tzinfo=tz)
+    val = tz.localize(datetime.datetime(2000, 1, 3))  # noqa: DTZ001
 
     for op, op_func in COMPARE_OPS.items():
         filt = _compare_filter(schema[0], op, "2000-01-03")
