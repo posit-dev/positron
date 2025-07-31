@@ -43,6 +43,12 @@ export class ContextMenu {
 				await menuItem.hover();
 				await this.page.waitForTimeout(500);
 
+				// If a tooltip is visible, close it before clicking the menu item
+				const tooltip = this.page.locator('.monaco-hover');
+				if (await tooltip.isVisible()) {
+					await this.page.keyboard.press('Escape');
+				}
+
 				// There are some cases where the menu item might be obstructed by a tooltip or
 				// other element and we are using the keyboard to select it instead of clicking.
 				useEnterKeyToSelect ? await menuItem.press('Enter') : await menuItem.click();
@@ -157,9 +163,7 @@ export class ContextMenu {
 	 */
 	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
 		// Show the context menu by clicking on the trigger element
-		const menuItems = await this.showContextMenu(async () => {
-			await menuTrigger.click();
-		});
+		const menuItems = await this.showContextMenu(() => menuTrigger.click());
 
 		// Handle the menu interaction once it's shown
 		if (menuItems) {
