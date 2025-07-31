@@ -184,8 +184,11 @@ jobs:
 
       - name: Run Extensions Test
         id: extensions
+        continue-on-error: true
         shell: bash
-        run: npm run test-extension -- -l positron-r
+        run: |
+          npm run test-extension -- -l positron-r
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
 
       - name: Run Bootstrap Extensions Test
         id: bootstrap
@@ -243,3 +246,10 @@ jobs:
           name: e2e-win-logs
           path: test-logs
           if-no-files-found: ignore
+
+      - name: Fail workflow if any test step failed
+        if: |
+          steps.extensions.outputs.exit_code != '0'
+        run: |
+          echo "Extension tests failed."
+          exit 1
