@@ -6,7 +6,7 @@
 
 	<!-- Start PWB: serve same origin -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-/qgqbHEZCrIqUOyxf4kxCym0Svcu9WOma3qHTPUldD4=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-b44KuKuk9GsPR+7co1E0GpMp7DYwzzR7wODAXGtCin4=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 	<!-- End PWB: serve same origin -->
 
 	<!-- Disable pinch zooming -->
@@ -240,7 +240,7 @@
 			}
 
 			const swPath = encodeURI(`service-worker.js?v=${expectedWorkerVersion}&vscode-resource-base-authority=${searchParams.get('vscode-resource-base-authority')}&remoteAuthority=${searchParams.get('remoteAuthority') ?? ''}`);
-			navigator.serviceWorker.register(swPath, { type: 'module' })
+			navigator.serviceWorker.register(swPath)
 				.then(async registration => {
 					/**
 					 * @param {MessageEvent} event
