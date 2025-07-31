@@ -6,7 +6,7 @@
 
 	<!-- Start PWB: serve same origin -->
 	<meta http-equiv="Content-Security-Policy"
-		content="default-src 'none'; script-src 'sha256-/qgqbHEZCrIqUOyxf4kxCym0Svcu9WOma3qHTPUldD4=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
+		content="default-src 'none'; script-src 'sha256-NPpZhEvmG5f+y/SzFPmY5Y/Iyy6dC4HC9nONtQig/h0=' 'self'; frame-src 'self'; style-src 'unsafe-inline';">
 	<!-- End PWB: serve same origin -->
 
 	<!-- Disable pinch zooming -->
@@ -239,8 +239,15 @@
 				return reject(new Error('Service Workers are not enabled. Webviews will not work. Try disabling private/incognito mode.'));
 			}
 
+			// --- Start Positron ---
+			// Remove { type: 'module' } from service worker registration options. On Chrome, this causes
+			// the browser to make the request for the service worker without any cookies attached, which
+			// causes the request to fail.
+			//
+			// Upstream VS Code doesn't have this issue since it loads this file from a CDN.
 			const swPath = encodeURI(`service-worker.js?v=${expectedWorkerVersion}&vscode-resource-base-authority=${searchParams.get('vscode-resource-base-authority')}&remoteAuthority=${searchParams.get('remoteAuthority') ?? ''}`);
-			navigator.serviceWorker.register(swPath, { type: 'module' })
+			navigator.serviceWorker.register(swPath)
+			// --- End Positron ---
 				.then(async registration => {
 					/**
 					 * @param {MessageEvent} event
