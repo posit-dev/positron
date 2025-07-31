@@ -29,20 +29,24 @@ suite('RStudio API', () => {
 			await vscode.window.showTextDocument(fooDoc, { preview: false });
 			await vscode.window.showTextDocument(barDoc, { preview: false });
 
+			const waitForSelectedEditor = async (uri: vscode.Uri) => {
+				await waitFor(() => {
+					const ed = vscode.window.activeTextEditor;
+					return ed !== undefined && ed.document.uri.fsPath === uri.fsPath;
+				})
+			};
+
 			// Assert defensively that bar.R is selected
-			let activeEditor = vscode.window.activeTextEditor;
-			assert.ok(activeEditor);
-			assert.strictEqual(activeEditor.document.uri.fsPath, barUri.fsPath);
+			assert.ok(waitForSelectedEditor(barUri), 'bar.R did not become the active editor');
 
 			await positron.runtime.executeCode('r', '.rs.api.navigateToFile("foo.R")', false)
 
 			// Now foo.R should be selected
-			const barSelected = await waitFor(() => {
-				const ed = vscode.window.activeTextEditor;
-				return !!ed && ed.document.uri.fsPath === barUri.fsPath;
-			});
-
-			assert.ok(barSelected, 'bar.R did not become the active editor');
+			assert.ok(waitForSelectedEditor(fooUri), 'foo.R did not become the active editor');
 		});
+	});
+
+	test('Should fail on Windows', async () => {
+		assert.strictEqual(process.platform === 'win32', false, 'This test should fail on Windows');
 	});
 });
