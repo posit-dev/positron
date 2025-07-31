@@ -36,7 +36,7 @@ class PandasConverter(CodeConverter):
 
     def _convert_row_filters(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """
-        Generate code for filtering.
+        Take filters and convert them to code strings.
 
         Returns:
             Tuple of (preprocessing_lines, method_chain_parts)
@@ -49,9 +49,13 @@ class PandasConverter(CodeConverter):
             return preprocessing, method_parts
 
         comparisons = []
+        # process each filter key to some comparison string
+        # that can be used in the method chain
         for filter_key in filters:
-            generator = PandasFilterConverter(filter_key, self.table_name)
-            comparison = generator.convert_filters()
+            handler = PandasFilterHandler(
+                filter_key, self.table_name, is_series=isinstance(self.table, pd.Series)
+            )
+            comparison = handler.convert_filters()
             if comparison:
                 comparisons.append(comparison)
 
@@ -64,7 +68,7 @@ class PandasConverter(CodeConverter):
 
         return preprocessing, method_parts
 
-    def _convert_sorts(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """
         Generate code for sorting.
 
@@ -74,72 +78,74 @@ class PandasConverter(CodeConverter):
         if not self.params.sort_keys:
             return [], []
 
-        generator = PandasSortConverter(self.params.sort_keys, self.table)
-        preprocessing, method_parts = generator.convert_sorts()
+        handler = PandasSortHandler(self.params.sort_keys, self.table)
+        method_chain_setup, method_chain_parts = handler.convert_sorts()
 
-        return preprocessing, method_parts
+        return method_chain_setup, method_chain_parts
 
 
-class PandasSortConverter:
+class PandasSortHandler:
     def __init__(self, sort_keys: List[ColumnSortKey], table):
         self.sort_keys = sort_keys
         self.table = table
 
     def convert_sorts(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Generate the sort string."""
+        """Handle the sort string."""
         if len(self.sort_keys) == 1:
-            return self._handle_single_sort()
+            return self._convert_single_sort()
         else:
-            return self._handle_multi_sort()
+            return self._convert_multi_sort()
 
-    def _handle_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        preprocessing = []
-        method_parts = []
+    def _convert_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+        method_chain_setup = []
+        method_chain_parts = []
 
         sort_key = self.sort_keys[0]
 
         if isinstance(self.table, pd.Series):
-            method_parts.append(f".sort_values(ascending={sort_key.ascending})")
+            method_chain_parts.append(f".sort_values(ascending={sort_key.ascending})")
         else:
             col_idx = sort_key.column_index
             column_name = self.table.columns[col_idx]
-            method_parts.append(f".sort_values(by={column_name!r}, ascending={sort_key.ascending})")
+            method_chain_parts.append(
+                f".sort_values(by={column_name!r}, ascending={sort_key.ascending})"
+            )
 
-        return preprocessing, method_parts
+        return method_chain_setup, method_chain_parts
 
-    def _handle_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+    def _convert_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
         col_indices = [key.column_index for key in self.sort_keys]
         column_names = [self.table.columns[i] for i in col_indices]
         ascending_values = [sk.ascending for sk in self.sort_keys]
 
-        preprocessing = [
+        method_chain_setup = [
             f"column_names = {column_names}",
             f"asc = {ascending_values}",
         ]
 
-        method_parts = [".sort_values(by=column_names, ascending=asc)"]
+        method_chain_parts = [".sort_values(by=column_names, ascending=asc)"]
 
-        return preprocessing, method_parts
+        return method_chain_setup, method_chain_parts
 
 
-class PandasFilterConverter:
-    def __init__(self, filter_key: RowFilter, table_name: str):
+class PandasFilterHandler:
+    def __init__(self, filter_key: RowFilter, table_name: str, *, is_series: bool = False):
         self.filter_key = filter_key
         self.table_name = table_name
-        self.column_name = repr(filter_key.column_schema.column_name)
+        self.column_name = "" if is_series else f"[{filter_key.column_schema.column_name!r}]"
 
     def convert_filters(self) -> Optional[str]:
         filter_handlers = {
-            RowFilterType.Between: self._handle_between_filter,
-            RowFilterType.NotBetween: self._handle_between_filter,
-            RowFilterType.Compare: self._handle_compare_filter,
-            RowFilterType.IsEmpty: self._handle_is_empty_filter,
-            RowFilterType.NotEmpty: self._handle_not_empty_filter,
-            RowFilterType.IsNull: self._handle_is_null_filter,
-            RowFilterType.NotNull: self._handle_not_null_filter,
-            RowFilterType.IsTrue: self._handle_is_true_filter,
-            RowFilterType.IsFalse: self._handle_is_false_filter,
-            RowFilterType.Search: self._handle_text_search_filter,
+            RowFilterType.Between: self._convert_between_filter,
+            RowFilterType.NotBetween: self._convert_between_filter,
+            RowFilterType.Compare: self._convert_compare_filter,
+            RowFilterType.IsEmpty: self._convert_is_empty_filter,
+            RowFilterType.NotEmpty: self._convert_not_empty_filter,
+            RowFilterType.IsNull: self._convert_is_null_filter,
+            RowFilterType.NotNull: self._convert_not_null_filter,
+            RowFilterType.IsTrue: self._convert_is_true_filter,
+            RowFilterType.IsFalse: self._convert_is_false_filter,
+            RowFilterType.Search: self._convert_text_search_filter,
         }
 
         handler = filter_handlers.get(self.filter_key.filter_type)
@@ -151,15 +157,15 @@ class PandasFilterConverter:
 
         return None
 
-    def _handle_between_filter(self) -> str:
+    def _convert_between_filter(self) -> str:
         assert isinstance(self.filter_key.params, FilterBetween)
         is_between = self.filter_key.filter_type == RowFilterType.Between
         left = self.filter_key.params.left_value
         right = self.filter_key.params.right_value
         operator = "" if is_between else "~"
-        return f"{operator}{self.table_name}[{self.column_name}].between({left}, {right})"
+        return f"{operator}{self.table_name}{self.column_name}.between({left}, {right})"
 
-    def _handle_compare_filter(self) -> str:
+    def _convert_compare_filter(self) -> str:
         """Handle comparison filters such as equals, not equals, greater than, etc."""
         assert isinstance(self.filter_key.params, FilterComparison)
         op = (
@@ -173,6 +179,7 @@ class PandasFilterConverter:
         if self.filter_key.column_schema.type_display == ColumnDisplayType.String:
             value = repr(value)
 
+        # if it looks date-like, make it a Timestamp, which allows us to handle timezones
         elif self.filter_key.column_schema.type_display in [
             ColumnDisplayType.Datetime,
             ColumnDisplayType.Date,
@@ -183,13 +190,13 @@ class PandasFilterConverter:
                 value += f", tz={tz!r}"
             value += ")"
 
-        return f"{self.table_name}[{self.column_name}] {op} {value}"
+        return f"{self.table_name}{self.column_name} {op} {value}"
 
-    def _handle_text_search_filter(self) -> str:
+    def _convert_text_search_filter(self) -> str:
         """Handle text search filters such as contains, regex, startswith, and endswith."""
         assert isinstance(self.filter_key.params, FilterTextSearch)
 
-        column_access = f"{self.table_name}[{self.column_name}]"
+        column_access = f"{self.table_name}{self.column_name}"
         search_type = self.filter_key.params.search_type
         value = self.filter_key.params.term
         case_sensitive = self.filter_key.params.case_sensitive
@@ -214,20 +221,20 @@ class PandasFilterConverter:
         else:
             raise ValueError(f"Unsupported TextSearchType: {search_type}")
 
-    def _handle_is_empty_filter(self) -> str:
-        return f"{self.table_name}[{self.column_name}].str.len() == 0"
+    def _convert_is_empty_filter(self) -> str:
+        return f"{self.table_name}{self.column_name}.str.len() == 0"
 
-    def _handle_not_empty_filter(self) -> str:
-        return f"{self.table_name}[{self.column_name}].str.len() != 0"
+    def _convert_not_empty_filter(self) -> str:
+        return f"{self.table_name}{self.column_name}.str.len() != 0"
 
-    def _handle_is_null_filter(self) -> str:
-        return f"{self.table_name}[{self.column_name}].isna()"
+    def _convert_is_null_filter(self) -> str:
+        return f"{self.table_name}{self.column_name}.isna()"
 
-    def _handle_not_null_filter(self) -> str:
-        return f"{self.table_name}[{self.column_name}].notna()"
+    def _convert_not_null_filter(self) -> str:
+        return f"{self.table_name}{self.column_name}.notna()"
 
-    def _handle_is_true_filter(self) -> str:
-        return f"{self.table_name}[{self.column_name}] == True"
+    def _convert_is_true_filter(self) -> str:
+        return f"{self.table_name}{self.column_name} == True"
 
-    def _handle_is_false_filter(self) -> str:
-        return f"{self.table_name}[{self.column_name}] == False"
+    def _convert_is_false_filter(self) -> str:
+        return f"{self.table_name}{self.column_name} == False"

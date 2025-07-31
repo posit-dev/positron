@@ -1372,6 +1372,8 @@ class PandasView(DataExplorerTableView):
 
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
+        # hack hack hack, the front end actually does not store sort keys
+        request.sort_keys = self.state.sort_keys
         converter = PandasConverter(self.table, self.state.name, request)
         converted_code = converter.convert()
         return ConvertedCode(converted_code=converted_code).dict()
@@ -2333,7 +2335,7 @@ class PolarsView(DataExplorerTableView):
 
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        raise NotImplementedError("Polars does not support converting to code yet. ")
+        raise NotImplementedError("Convert to code is not implemented for Polars DataFrames.")
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
