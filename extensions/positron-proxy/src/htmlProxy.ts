@@ -93,16 +93,20 @@ export class HtmlProxyServer implements Disposable {
 			this._app.use(`/${serverPath}`, async (req, res, next) => {
 				const filePath = path.join(targetPath, req.path);
 				if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
-					let content = fs.readFileSync(filePath, 'utf8');
 					const fileExt = path.extname(filePath).toLowerCase();
 					const isHtmlFile = ['.html', '.htm'].includes(fileExt);
 
-					// If the file is an HTML file and we have an HTML configuration, inject the
-					// preview resources into the HTML content.
-					if (isHtmlFile && htmlConfig) {
-						content = injectPreviewResources(content, htmlConfig);
+					if (isHtmlFile) {
+						// For HTML files, read as text and potentially inject resources
+						let content = fs.readFileSync(filePath, 'utf8');
+						if (htmlConfig) {
+							content = injectPreviewResources(content, htmlConfig);
+						}
+						res.send(content);
+					} else {
+						// For non-HTML files, serve them as static files to preserve correct Content-Type
+						express.static(targetPath)(req, res, next);
 					}
-					res.send(content);
 				} else {
 					next();
 				}
