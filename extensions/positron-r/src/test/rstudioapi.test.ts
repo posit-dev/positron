@@ -10,37 +10,39 @@ import * as fs from 'fs';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as assert from 'assert';
-import { waitFor } from './utils';
+import { withRSession, waitFor } from './utils';
 
 suite('RStudio API', () => {
 	test('Navigate to file', async () => {
-		const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rstudioapi-test'));
+		await withRSession(async (_ses) => {
+			const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rstudioapi-test'));
 
-		const fooUri = vscode.Uri.file(path.join(tmpDir, 'foo.R'));
-		const barUri = vscode.Uri.file(path.join(tmpDir, 'bar.R'));
+			const fooUri = vscode.Uri.file(path.join(tmpDir, 'foo.R'));
+			const barUri = vscode.Uri.file(path.join(tmpDir, 'bar.R'));
 
-		await vscode.workspace.fs.writeFile(fooUri, Buffer.from(''));
-		await vscode.workspace.fs.writeFile(barUri, Buffer.from(''));
+			await vscode.workspace.fs.writeFile(fooUri, Buffer.from(''));
+			await vscode.workspace.fs.writeFile(barUri, Buffer.from(''));
 
-		const fooDoc = await vscode.workspace.openTextDocument(fooUri);
-		const barDoc = await vscode.workspace.openTextDocument(barUri);
+			const fooDoc = await vscode.workspace.openTextDocument(fooUri);
+			const barDoc = await vscode.workspace.openTextDocument(barUri);
 
-		await vscode.window.showTextDocument(fooDoc, { preview: false });
-		await vscode.window.showTextDocument(barDoc, { preview: false });
+			await vscode.window.showTextDocument(fooDoc, { preview: false });
+			await vscode.window.showTextDocument(barDoc, { preview: false });
 
-		// Assert defensively that bar.R is selected
-		let activeEditor = vscode.window.activeTextEditor;
-		assert.ok(activeEditor);
-		assert.strictEqual(activeEditor.document.uri.fsPath, barUri.fsPath);
+			// Assert defensively that bar.R is selected
+			let activeEditor = vscode.window.activeTextEditor;
+			assert.ok(activeEditor);
+			assert.strictEqual(activeEditor.document.uri.fsPath, barUri.fsPath);
 
-		await positron.runtime.executeCode('r', '.rs.api.navigateToFile("foo.R")', false)
+			await positron.runtime.executeCode('r', '.rs.api.navigateToFile("foo.R")', false)
 
-		// Now foo.R should be selected
-		const barSelected = await waitFor(() => {
-			const ed = vscode.window.activeTextEditor;
-			return !!ed && ed.document.uri.fsPath === barUri.fsPath;
+			// Now foo.R should be selected
+			const barSelected = await waitFor(() => {
+				const ed = vscode.window.activeTextEditor;
+				return !!ed && ed.document.uri.fsPath === barUri.fsPath;
+			});
+
+			assert.ok(barSelected, 'bar.R did not become the active editor');
 		});
-
-		assert.ok(barSelected, 'bar.R did not become the active editor');
 	});
 });

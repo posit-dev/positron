@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as positron from 'positron';
+import { RSession } from '../session';
+
 export function mock<T>(obj: Partial<T>): T {
 	return obj as T;
 }
@@ -12,6 +15,47 @@ export function createUniqueId(): string {
 }
 
 import * as assert from 'assert';
+
+export async function startR(): Promise<RSession> {
+	// There doesn't seem to be a method that resolves when a language is
+	// both discovered and ready to be started
+	let info;
+
+	const startTime = Date.now();
+	const timeout = 30000;
+
+	while (true) {
+		try {
+			info = await positron.runtime.getPreferredRuntime('r');
+			if (info) {
+				break;
+			}
+		} catch (_) {
+			if (Date.now() - startTime > timeout) {
+				throw new Error('Timeout while waiting for preferred R runtime');
+			}
+			await delay(50);
+		}
+	}
+
+	return await positron.runtime.startLanguageRuntime(info!.runtimeId, 'Tests') as RSession;
+}
+
+/**
+ * Starts an R session, runs the given closure, and ensures shutdown on exit.
+ * @param fn The closure to run with the started RSession.
+ */
+export async function withRSession<T>(
+	fn: (session: RSession) => Promise<T> | T
+): Promise<T> {
+	const session = await startR();
+	try {
+		return await fn(session);
+	} finally {
+		await session.shutdown();
+		await session.dispose();
+	}
+}
 
 /**
  * Waits until the predicate returns a non-undefined value or times out.
@@ -23,21 +67,21 @@ import * as assert from 'assert';
  * @returns The first non-undefined value returned by predicate.
  */
 export async function waitFor<T>(
-  predicate: () => T | undefined | Promise<T | undefined>,
-  intervalMs = 10,
-  timeoutMs = 5000,
-  message = 'waitFor: condition not met within timeout'
+	predicate: () => T | undefined | Promise<T | undefined>,
+	intervalMs = 10,
+	timeoutMs = 5000,
+	message = 'waitFor: condition not met within timeout'
 ): Promise<T> {
-  const start = Date.now();
-  while (Date.now() - start <= timeoutMs) {
-    const result = await predicate();
-    if (result !== undefined && result !== null) {
-    	return result;
-    }
-    await delay(intervalMs);
-  }
+	const start = Date.now();
+	while (Date.now() - start <= timeoutMs) {
+		const result = await predicate();
+		if (result !== undefined && result !== null) {
+			return result;
+		}
+		await delay(intervalMs);
+	}
 
-  assert.fail(message);
+	assert.fail(message);
 }
 
 // Import delay from util
