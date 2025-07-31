@@ -92,13 +92,13 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:8
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:9
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_USER }}
         password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:8
+        image: ghcr.io/posit-dev/positron-postgres-initialized:9
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_USER }}
           password: ${{ secrets.POSITRON_GITHUB_PAT }}
@@ -203,7 +203,7 @@ jobs:
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
         run: |
           # Start Xvfb in the background
-          sudo /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 > /tmp/Xvfb.out 2>&1 &
+          /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 > /tmp/Xvfb.out 2>&1 &
 
           # Wait until Xvfb is ready
           export DISPLAY=:10
