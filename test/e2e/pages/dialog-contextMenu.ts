@@ -35,7 +35,7 @@ export class ContextMenu {
 	}: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
-				await this._triggerAndClick({ menuTrigger, menuItemLabel });
+				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel });
 			} else {
 				await menuTrigger.click();
 				const menuItem = this.getContextMenuItem(menuItemLabel);
@@ -149,10 +149,10 @@ export class ContextMenu {
 	/**
 	 * Triggers a context menu and clicks a specified menu item in native menus (macOS/Electron).
 	 *
-	 * @param menuTrigger The element that will trigger the context menu
-	 * @param menuItemLabel The menu item to select
+	 * @param menuTrigger The locator that will trigger the context menu when clicked
+	 * @param menuItemLabel The label of the menu item to click
 	 */
-	private async _triggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
+	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
 		// Show the context menu by clicking on the trigger element
 		const menuItems = await this.showContextMenu(async () => {
 			await menuTrigger.click();
