@@ -21,8 +21,9 @@ test.describe('New Folder Flow: Jupyter Project', {
 		await settings.set({ 'interpreters.startupBehavior': 'auto' }, { waitMs: 5000 });
 	});
 
+	// Removing WIN tag until we get uv into windows CI as this expects uv to be the interpreter
 	test('Jupyter Folder Defaults', {
-		tag: [tags.CRITICAL, tags.WIN]
+		tag: [tags.CRITICAL, tags.INTERPRETER]
 	}, async function ({ app, settings }) {
 		const folderName = addRandomNumSuffix('python-notebook-runtime');
 
