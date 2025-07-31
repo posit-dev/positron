@@ -31,7 +31,6 @@ export class ContextMenu {
 	async triggerAndClick({
 		menuTrigger,
 		menuItemLabel,
-		useEnterKeyToSelect = false
 	}: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
@@ -43,15 +42,12 @@ export class ContextMenu {
 				await menuItem.hover();
 				await this.page.waitForTimeout(500);
 
-				// If a tooltip is visible, close it before clicking the menu item
-				const tooltip = this.page.locator('.monaco-hover');
-				if (await tooltip.isVisible()) {
-					await this.page.keyboard.press('Escape');
+				// Either selects the menu item or dismisses the tooltip
+				await menuItem.press('Enter');
+				if (await menuItem.isVisible()) {
+					// Tooltip must have been blocking and now we click
+					await menuItem.click();
 				}
-
-				// There are some cases where the menu item might be obstructed by a tooltip or
-				// other element and we are using the keyboard to select it instead of clicking.
-				useEnterKeyToSelect ? await menuItem.press('Enter') : await menuItem.click();
 			}
 		});
 	}
@@ -183,5 +179,4 @@ export class ContextMenu {
 interface ContextMenuClick {
 	menuTrigger: Locator;
 	menuItemLabel: string;
-	useEnterKeyToSelect?: boolean;
 }
