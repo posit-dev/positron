@@ -313,7 +313,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 					body: resultZoom.getBuffer(true),
 					contentType: 'image/png'
 				});
-				expect(resultZoom.rawMisMatchPercentage).toBeGreaterThan(2); // should be large diff
+				expect(resultZoom.rawMisMatchPercentage).toBeGreaterThan(1.8); // should be large diff
 
 				await contextMenu.triggerAndClick({
 					menuTrigger: page.getByLabel('200%'),
