@@ -28,17 +28,15 @@ export class ContextMenu {
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
 	 */
-	async triggerAndClick({
-		menuTrigger,
-		menuItemLabel,
-	}: ContextMenuClick): Promise<void> {
+	async triggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel });
 			} else {
 				await menuTrigger.click();
-				const menuItem = this.getContextMenuItem(menuItemLabel);
 
+				// Hover over the menu item
+				const menuItem = this.getContextMenuItem(menuItemLabel);
 				await menuItem.hover();
 				await this.page.waitForTimeout(500);
 

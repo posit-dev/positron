@@ -10,7 +10,7 @@ import { ComparisonOptions } from 'resemblejs';
 import * as fs from 'fs';
 import { fail } from 'assert';
 import { Application } from '../../infra';
-import { Locator } from '@playwright/test';
+import { Locator, Page } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -19,13 +19,13 @@ test.use({
 test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 	test.describe('Python Plots', () => {
 
-		test.beforeEach(async function ({ app, sessions }) {
+		test.beforeEach(async function ({ sessions, hotKeys }) {
 			await sessions.start('python');
-			await app.workbench.layouts.enterLayout('stacked');
+			await hotKeys.stackedLayout();
 		});
 
-		test.afterEach(async function ({ app }) {
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+		test.afterEach(async function ({ app, hotKeys }) {
+			await hotKeys.fullSizeSecondarySidebar();
 			await app.workbench.plots.clearPlots();
 			await app.workbench.plots.waitForNoPlots();
 		});
@@ -293,17 +293,19 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				const imgLocator = page.getByRole('img', { name: /%run/ });
 
 				await contextMenu.triggerAndClick({
-					menuTrigger: page.getByLabel('Fit'),
-					menuItemLabel: 'Fit',
+					menuTrigger: page.getByRole('button', { name: 'Fit' }),
+					menuItemLabel: 'Fit'
 				});
 				await page.waitForTimeout(300);
+				await dismissPlotZoomTooltip(page);
 				const bufferFit1 = await imgLocator.screenshot();
 				await contextMenu.triggerAndClick({
-					menuTrigger: page.getByLabel('Fit'),
-					menuItemLabel: '200%',
+					menuTrigger: page.getByRole('button', { name: 'Fit' }),
+					menuItemLabel: '200%'
 				});
 
 				await page.waitForTimeout(2000);
+				await dismissPlotZoomTooltip(page);
 				const bufferZoom = await imgLocator.screenshot();
 				// Compare: Fit vs 200%
 				const resultZoom = await resembleCompareImages(bufferFit1, bufferZoom, options);
@@ -314,10 +316,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				expect(resultZoom.rawMisMatchPercentage).toBeGreaterThan(1.5); // should be large diff
 
 				await contextMenu.triggerAndClick({
-					menuTrigger: page.getByLabel('200%'),
-					menuItemLabel: 'Fit',
+					menuTrigger: page.getByRole('button', { name: '200%' }),
+					menuItemLabel: 'Fit'
 				});
 				await page.waitForTimeout(2000);
+				await dismissPlotZoomTooltip(page);
 				const bufferFit2 = await imgLocator.screenshot();
 				// Compare: Fit vs Fit again
 				const resultBack = await resembleCompareImages(bufferFit1, bufferFit2, options);
@@ -330,13 +333,13 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		tag: [tags.ARK]
 	}, () => {
 
-		test.beforeEach(async function ({ app, sessions }) {
-			await app.workbench.layouts.enterLayout('stacked');
+		test.beforeEach(async function ({ sessions, hotKeys }) {
+			await hotKeys.stackedLayout();
 			await sessions.start('r');
 		});
 
-		test.afterEach(async function ({ app }) {
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+		test.afterEach(async function ({ app, hotKeys }) {
+			await hotKeys.fullSizeSecondarySidebar();
 			await app.workbench.plots.clearPlots();
 			await app.workbench.plots.waitForNoPlots();
 		});
@@ -759,3 +762,10 @@ tempfile <- tempfile()
 grDevices::png(filename = tempfile)
 plot(1:20)
 dev.off()`;
+
+async function dismissPlotZoomTooltip(page: Page) {
+	const plotZoomTooltip = page.getByText('Set the plot zoom');
+	if (await plotZoomTooltip.isVisible()) {
+		page.keyboard.press('Escape');
+	}
+}
