@@ -35,30 +35,10 @@ export function registerContextMenuListener(): void {
 			}));
 		}
 		// TODO: Make this only execute during an e2e run.
-		const selectListener: any = (contextMenuId: number, label: string, clickPosition?: 'center' | 'right' | 'left' | 'top' | 'bottom') => {
+		const selectListener: any = (contextMenuId: number, label: string) => {
 			const item = contextMenus.get(contextMenuId)?.items.find(item => item.label === label);
 			if (item) {
-				const bounds = item as any;
-				const menuBounds = bounds?.bounds;
-				if (menuBounds && event.sender) {
-					const pos = getClickOffset(clickPosition ?? 'center', menuBounds);
-					event.sender.sendInputEvent({
-						type: 'mouseDown',
-						x: Math.round(pos.x),
-						y: Math.round(pos.y),
-						button: 'left',
-						clickCount: 1
-					});
-					event.sender.sendInputEvent({
-						type: 'mouseUp',
-						x: Math.round(pos.x),
-						y: Math.round(pos.y),
-						button: 'left',
-						clickCount: 1
-					});
-				} else {
-					item.click();
-				}
+				item.click();
 				menu.closePopup();
 			}
 			app.removeListener('e2e:contextMenuSelect' as any, selectListener);
@@ -142,21 +122,4 @@ function createMenu(event: IpcMainEvent, onClickChannel: string, items: ISeriali
 	});
 
 	return menu;
-}
-
-function getClickOffset(position: 'center' | 'right' | 'left' | 'top' | 'bottom', bounds: Electron.Rectangle): { x: number; y: number } {
-	const { x, y, width, height } = bounds;
-	switch (position) {
-		case 'left':
-			return { x: x + 5, y: y + height / 2 };
-		case 'right':
-			return { x: x + width - 5, y: y + height / 2 };
-		case 'top':
-			return { x: x + width / 2, y: y + 5 };
-		case 'bottom':
-			return { x: x + width / 2, y: y + height - 5 };
-		case 'center':
-		default:
-			return { x: x + width / 2, y: y + height / 2 };
-	}
 }

@@ -33,6 +33,7 @@ export class ContextMenu {
 		menuTrigger,
 		menuItemLabel,
 		menuItemClickPosition = 'center',
+		force = false
 	}: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
@@ -41,15 +42,9 @@ export class ContextMenu {
 				await menuTrigger.click();
 				const menuItem = this.getContextMenuItem(menuItemLabel);
 
-				const box = await menuItem.boundingBox();
-				if (!box) {
-					throw new Error(`Could not get bounding box for menu item '${menuItemLabel}'`);
-				}
-
-				const pos = this.getClickOffset(menuItemClickPosition, box);
-				await this.page.mouse.move(pos.x, pos.y); // Hover at the specific position
+				await menuItem.hover();
 				await this.page.waitForTimeout(500);
-				await this.page.mouse.click(pos.x, pos.y); // Click at the same position
+				await menuItem.click({ force });
 			}
 		});
 	}
@@ -180,24 +175,6 @@ export class ContextMenu {
 			throw new Error(`Context menu '${menuItemLabel}' did not appear or no menu items found.`);
 		}
 	}
-
-
-	getClickOffset(position: 'center' | 'right' | 'left' | 'top' | 'bottom', bounds: Electron.Rectangle): { x: number; y: number } {
-		const { x, y, width, height } = bounds;
-		switch (position) {
-			case 'left':
-				return { x: x + 5, y: y + height / 2 };
-			case 'right':
-				return { x: x + width - 5, y: y + height / 2 };
-			case 'top':
-				return { x: x + width / 2, y: y + 5 };
-			case 'bottom':
-				return { x: x + width / 2, y: y + height - 5 };
-			case 'center':
-			default:
-				return { x: x + width / 2, y: y + height / 2 };
-		}
-	}
 }
 
 
@@ -206,5 +183,6 @@ interface ContextMenuClick {
 	menuTrigger: Locator;
 	menuItemLabel: string;
 	menuItemClickPosition?: ClickPosition;
+	force?: boolean;
 }
 type ClickPosition = 'center' | 'right' | 'left' | 'top' | 'bottom';
