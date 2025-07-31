@@ -1387,13 +1387,35 @@ def test_pandas_filter_datetimetz(dxf: DataExplorerFixture):
 
     test_df = pd.DataFrame(
         {
-            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+            "date": pd.date_range("2000-01-01", periods=5, tz=tz),
         }
     )
     dxf.register_table("dtz", test_df)
     schema = dxf.get_schema("dtz")
 
-    val = datetime.datetime(2000, 1, 3, tzinfo=tz)
+    val = tz.localize(datetime.datetime(2000, 1, 3))  # noqa: DTZ001
+
+    for op, op_func in COMPARE_OPS.items():
+        filt = _compare_filter(schema[0], op, "2000-01-03")
+        expected_df = test_df[op_func(test_df["date"], val)]
+        dxf.check_filter_case(test_df, [filt], expected_df)
+
+
+def test_pandas_filter_datetimetz_timestamps(dxf: DataExplorerFixture):
+    # ensure that we can filter datetimetz columns with
+    # timestamps as well as datetime objects
+    # see GH#8760 for context
+    tz = pytz.timezone("US/Eastern")
+
+    test_df = pd.DataFrame(
+        {
+            "date": pd.date_range("2000-01-01", periods=5, tz=tz),
+        }
+    )
+    dxf.register_table("dtz", test_df)
+    schema = dxf.get_schema("dtz")
+
+    val = pd.Timestamp("2000-01-03", tz=tz)
 
     for op, op_func in COMPARE_OPS.items():
         filt = _compare_filter(schema[0], op, "2000-01-03")
