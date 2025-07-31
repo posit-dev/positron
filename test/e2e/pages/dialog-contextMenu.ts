@@ -31,7 +31,7 @@ export class ContextMenu {
 	async triggerAndClick({
 		menuTrigger,
 		menuItemLabel,
-		force = false
+		useEnterKeyToSelect = false
 	}: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
@@ -42,7 +42,10 @@ export class ContextMenu {
 
 				await menuItem.hover();
 				await this.page.waitForTimeout(500);
-				await menuItem.click({ force });
+
+				// There are some cases where the menu item might be obstructed by a tooltip or
+				// other element and we are using the keyboard to select it instead of clicking.
+				useEnterKeyToSelect ? await menuItem.press('Enter') : await menuItem.click();
 			}
 		});
 	}
@@ -176,5 +179,5 @@ export class ContextMenu {
 interface ContextMenuClick {
 	menuTrigger: Locator;
 	menuItemLabel: string;
-	force?: boolean;
+	useEnterKeyToSelect?: boolean;
 }
