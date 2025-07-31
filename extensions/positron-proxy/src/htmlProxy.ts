@@ -101,8 +101,10 @@ export class HtmlProxyServer implements Disposable {
 					// preview resources into the HTML content.
 					if (isHtmlFile && htmlConfig) {
 						content = injectPreviewResources(content, htmlConfig);
+						res.send(content);
+					} else {
+						next();
 					}
-					res.send(content);
 				} else {
 					next();
 				}
