@@ -174,18 +174,16 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposa
 			return;
 		}
 
-		const code = cell.document.getText();
 		// Dump the cell into a temp file.
-		const dumpCellResponse = await this.dumpCell({ code });
+		const dumpCellResponse = await this.dumpCell(cell);
 		const path = dumpCellResponse.sourcePath;
-		// TODO: Do these need to be cleared?...
-		this._cellUriByTempFilePath.set(path, cellUri);
 		const kernelRequest = {
 			...request,
 			arguments: {
 				...request.arguments,
 				source: {
 					...request.arguments.source,
+					// name: `${request.arguments.source.name} (cell: ${cell.index})`,
 					path,
 				},
 			},
@@ -236,8 +234,16 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposa
 		this.emitClientMessage(response);
 	}
 
-	private async dumpCell(args: DumpCellArguments): Promise<DumpCellResponseBody> {
-		return await this.debugSession.customRequest('dumpCell', args);
+	public async dumpCell(cell: vscode.NotebookCell): Promise<DumpCellResponseBody> {
+		const response = await this.debugSession.customRequest(
+			'dumpCell',
+			{ code: cell.document.getText() } satisfies DumpCellArguments,
+		) as DumpCellResponseBody;
+
+		// TODO: Do these need to be cleared?...
+		this._cellUriByTempFilePath.set(response.sourcePath, cell.document.uri.toString());
+
+		return response;
 	}
 
 	// private async stackTrace(
@@ -322,6 +328,16 @@ class DebugCellManager implements vscode.Disposable {
 		//       Or we could also track configuration completed state in an adapter property
 		const configDisposable = this._adapter.onDidCompleteConfiguration(async () => {
 			configDisposable.dispose();
+
+			// TODO: Is this right? Should we dump all cells?
+			//       We have to at least dump this cell so that if a called function in another cell has a breakpoint,
+			//       this cell can still be referenced e.g. in the stack trace.
+			// TODO: Take cell as arg?
+			const cell = this._notebook.cellAt(this._cellIndex);
+			this._adapter.dumpCell(cell).catch((error) => {
+				log.error(`Error dumping cell ${cell.index}:`, error);
+			});
+
 			// TODO: Can this throw?
 			await vscode.commands.executeCommand('notebook.cell.execute', {
 				ranges: [{ start: this._cellIndex, end: this._cellIndex + 1 }],
@@ -469,7 +485,7 @@ async function debugCell(cell: vscode.NotebookCell | undefined): Promise<void> {
 		name: path.basename(cell.notebook.uri.fsPath),
 		request: 'attach',
 		// TODO: Get from config.
-		justMyCode: false,
+		justMyCode: true,
 		__notebookUri: cell.notebook.uri.toString(),
 		__cellUri: cell.document.uri.toString(),
 	});
