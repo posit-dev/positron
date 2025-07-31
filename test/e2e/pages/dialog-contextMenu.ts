@@ -27,18 +27,28 @@ export class ContextMenu {
 	 *
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
+	 * @param menuItemClickPosition Where to click on the menu item (defaults to center)
 	 */
-	async triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
+	async triggerAndClick({
+		menuTrigger,
+		menuItemLabel,
+		menuItemClickPosition = 'center',
+	}: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
-				await this._triggerAndClick({ menuTrigger, menuItemLabel });
-			}
-			else {
+				await this._triggerAndClick({ menuTrigger, menuItemLabel, menuItemClickPosition });
+			} else {
 				await menuTrigger.click();
-				await this.page.mouse.move(0, 0);
-				await this.getContextMenuItem(menuItemLabel).hover();
-				await this.page.waitForTimeout(350);
-				await this.getContextMenuItem(menuItemLabel).click();
+				const menuItem = this.getContextMenuItem(menuItemLabel);
+				await menuItem.hover();
+				await this.page.waitForTimeout(500);
+
+				const box = await menuItem.boundingBox();
+				if (!box) {
+					throw new Error(`Could not get bounding box for menu item '${menuItemLabel}'`);
+				}
+				const pos = this.getClickOffset(menuItemClickPosition, box);
+				await this.page.mouse.click(pos.x, pos.y);
 			}
 		});
 	}
@@ -135,30 +145,71 @@ export class ContextMenu {
 	 *
 	 * @param contextMenuId the ID of the context menu to select an item from
 	 * @param label the label of the menu item to select
+	 * @param clickPosition optional click position on the menu item
 	 */
-	private async selectContextMenuItem(contextMenuId: number, label: string): Promise<void> {
-		await this.code.electronApp?.evaluate(async ({ app }, [contextMenuId, label]) => {
-			app.emit('e2e:contextMenuSelect', contextMenuId, label);
-		}, [contextMenuId, label]);
+	private async selectContextMenuItem(contextMenuId: number, label: string, clickPosition?: ClickPosition): Promise<void> {
+		await this.code.electronApp?.evaluate(async ({ app }, [contextMenuId, label, clickPosition]) => {
+			app.emit('e2e:contextMenuSelect', contextMenuId, label, clickPosition);
+		}, [contextMenuId, label, clickPosition]);
 	}
 
 	/**
-	 * Triggers a context menu and clicks a specified menu item.
-	 * This method is used internally to handle both browser and electron contexts.
+	 * Triggers a context menu and clicks a specified menu item in native menus (macOS/Electron).
 	 *
-	 * @param menuTrigger The locator that will trigger the context menu when clicked
-	 * @param menuItemLabel The label of the menu item to click
+	 * @param menuTrigger The element that will trigger the context menu
+	 * @param menuItemLabel The menu item to select
+	 * @param triggerClickPosition Where to click on the trigger element (defaults to center)
+	 * @param menuItemClickPosition Where to click on the menu item (defaults to center)
 	 */
-	private async _triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
-		const menuItems = await this.showContextMenu(() => menuTrigger.click());
+	private async _triggerAndClick({ menuTrigger, menuItemLabel, menuItemClickPosition = 'center' }: ContextMenuClick): Promise<void> {
+		// Show the context menu by clicking on the trigger element
+		const menuItems = await this.showContextMenu(async () => {
+			await menuTrigger.click();
+		});
 
+		// Handle the menu interaction once it's shown
 		if (menuItems) {
+			// Verify the requested menu item exists
 			if (!menuItems.items.includes(menuItemLabel)) {
 				throw new Error(`Context menu '${menuItemLabel}' not found. Available items: ${menuItems.items.join(', ')}`);
 			}
-			await this.selectContextMenuItem(menuItems.menuId, menuItemLabel);
+			// Select the menu item through Electron IPC
+			await this.selectContextMenuItem(menuItems.menuId, menuItemLabel, menuItemClickPosition);
 		} else {
 			throw new Error(`Context menu '${menuItemLabel}' did not appear or no menu items found.`);
 		}
 	}
+
+	/**
+	 * Calculates the click position based on the specified position and the bounding box of the menu item.
+	 *
+	 * @param position The position to click (center, left, right, top, bottom)
+	 * @param bounds The bounding box of the menu item
+	 * @returns The calculated click coordinates
+	 */
+	getClickOffset(position: 'center' | 'right' | 'left' | 'top' | 'bottom', bounds: Electron.Rectangle): { x: number; y: number } {
+		const { x, y, width, height } = bounds;
+		switch (position) {
+			case 'left':
+				return { x: x + 5, y: y + height / 2 };
+			case 'right':
+				return { x: x + width - 5, y: y + height / 2 };
+			case 'top':
+				return { x: x + width / 2, y: y + 5 };
+			case 'bottom':
+				return { x: x + width / 2, y: y + height - 5 };
+			case 'center':
+			default:
+				return { x: x + width / 2, y: y + height / 2 };
+		}
+	}
 }
+
+
+
+interface ContextMenuClick {
+	menuTrigger: Locator;
+	menuItemLabel: string;
+	menuItemClickPosition?: ClickPosition;
+}
+type ClickPosition = 'center' | 'right' | 'left' | 'top' | 'bottom';

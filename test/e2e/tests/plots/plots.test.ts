@@ -292,13 +292,15 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await contextMenu.triggerAndClick({
 				menuTrigger: page.getByLabel('Fit'),
-				menuItemLabel: 'Fit'
+				menuItemLabel: 'Fit',
+				menuItemClickPosition: 'right'
 			});
 			await page.waitForTimeout(300);
 			const bufferFit1 = await imgLocator.screenshot();
 			await contextMenu.triggerAndClick({
 				menuTrigger: page.getByLabel('Fit'),
-				menuItemLabel: '200%'
+				menuItemLabel: '200%',
+				menuItemClickPosition: 'right'
 			});
 
 			await page.waitForTimeout(2000);
@@ -313,7 +315,8 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await contextMenu.triggerAndClick({
 				menuTrigger: page.getByLabel('200%'),
-				menuItemLabel: 'Fit'
+				menuItemLabel: 'Fit',
+				menuItemClickPosition: 'right'
 			});
 			await page.waitForTimeout(2000);
 			const bufferFit2 = await imgLocator.screenshot();
