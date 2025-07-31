@@ -635,13 +635,18 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			experimentalTokenUsage = experimentalTokenUsage.concat(approximateTokenCount);
 		}
 
+		const tokenUsageElements = templateData.value.getElementsByClassName('token-usage');
 		if (element.tokenUsage && element.isComplete && showTokens && experimentalTokenUsage.includes(element.tokenUsage.provider)) {
-			const tokenUsageElements = templateData.value.getElementsByClassName('token-usage');
 			const tokenUsageText = localize('tokenUsage', "Tokens: ↑{0} ↓{1}", element.tokenUsage.inputTokens, element.tokenUsage.outputTokens);
 			if (tokenUsageElements.length > 0) {
 				tokenUsageElements[0].textContent = tokenUsageText;
 			} else {
 				templateData.value.appendChild(dom.$('.token-usage', undefined, tokenUsageText));
+			}
+		} else {
+			// Remove token usage elements if they exist and should not be shown
+			while (tokenUsageElements.length > 0) {
+				tokenUsageElements[0].remove();
 			}
 		}
 		// --- End Positron ---

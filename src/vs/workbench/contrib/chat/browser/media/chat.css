@@ -365,6 +365,13 @@
 	> div[data-code]:first-child .interactive-result-code-block .interactive-result-code-block-toolbar > .monaco-toolbar {
 		top: 6px;
 	}
+	/* --- Start Positron --- */
+	/* Ensures that the toolbar is positioned correctly at the bottom */
+	> div[data-code]:first-child .interactive-result-code-block .interactive-result-code-block-toolbar.bottom > .monaco-toolbar {
+		top: unset;
+		bottom: 15px;
+	}
+	/* --- End Positron --- */
 }
 
 .interactive-item-container .value.inline-progress {

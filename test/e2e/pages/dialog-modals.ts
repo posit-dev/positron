@@ -97,4 +97,16 @@ export class Modals {
 			}
 		});
 	}
+
+	async expectButtonToBeVisible(buttonLabel: string) {
+		await test.step(`Verify button is visible: ${buttonLabel}`, async () => {
+			await expect(this.modalBox.getByRole('button', { name: buttonLabel })).toBeVisible();
+		});
+	}
+
+	async expectToContainText(text: string | RegExp) {
+		await test.step(`Verify modal dialog box has text: ${text}`, async () => {
+			await expect(this.modalBox).toContainText(text);
+		});
+	}
 }

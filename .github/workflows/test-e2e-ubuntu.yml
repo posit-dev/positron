@@ -114,6 +114,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Load secret
+        uses: 1password/load-secrets-action@v2
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
+
       - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc

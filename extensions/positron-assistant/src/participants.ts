@@ -12,7 +12,7 @@ import * as xml from './xml.js';
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { EXPORT_QUARTO_COMMAND, quartoHandler } from './commands/quarto';
-import { PositronAssistantToolName } from './types.js';
+import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
@@ -320,9 +320,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// not cached. Since the context message is transiently added to each request, caching it
 		// will write a prompt prefix to the cache that will never be read. We will want to keep
 		// an eye on whether the order of user prompt and context message affects model responses.
-		const contextMessage = await this.getContextMessage(request, context, response, positronContext);
-		if (contextMessage) {
-			messages.push(contextMessage);
+		const contextInfo = await this.getContextInfo(request, context, response, positronContext);
+		if (contextInfo) {
+			messages.push(contextInfo.message);
 		}
 
 		// Send the request to the language model.
@@ -333,19 +333,25 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				// Attach the model ID as metadata so that we can use the same model in the followup provider.
 				modelId: request.model.id,
 				// Include token usage if available
-				tokenUsage: tokenUsage
+				tokenUsage: tokenUsage,
+				// Include the tools available for this request
+				availableTools: tools.length > 0 ? tools.map(t => t.name) : undefined,
+				// Include the context message if available
+				positronContext: contextInfo ? { prompts: contextInfo.prompts, attachedDataTypes: contextInfo.attachedDataTypes } : undefined,
+				// Include the system prompt used for this request
+				systemPrompt: system,
 			},
 		};
 	}
 
 	protected abstract getSystemPrompt(request: vscode.ChatRequest): Promise<string>;
 
-	private async getContextMessage(
+	private async getContextInfo(
 		request: vscode.ChatRequest,
 		context: vscode.ChatContext,
 		response: vscode.ChatResponseStream,
 		positronContext: positron.ai.ChatContext,
-	): Promise<vscode.LanguageModelChatMessage2 | undefined> {
+	): Promise<ContextInfo | undefined> {
 		// This function returns a single user message containing all context
 		// relevant to a request, including:
 		// 1. A text prompt.
@@ -563,7 +569,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		parts.push(...userDataParts);
 
 		if (parts.length > 0) {
-			return vscode.LanguageModelChatMessage2.User(parts);
+			return {
+				message: vscode.LanguageModelChatMessage2.User(parts),
+				prompts,
+				attachedDataTypes: userDataParts.map(part => part.mimeType),
+			};
 		}
 
 		return undefined;
@@ -746,7 +756,21 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
 		const languages = await this.getActiveSessionInstructions();
-		return defaultSystem + '\n\n' + filepaths + '\n\n' + languages;
+		const prompts = [defaultSystem, filepaths, languages];
+		return prompts.join('\n\n');
+	}
+}
+
+/** The participant used in the chat pane in Edit mode. */
+class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
+	id = ParticipantID.Edit;
+
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
+		const languages = await this.getActiveSessionInstructions();
+		const prompts = [defaultSystem, filepaths, languages];
+		return prompts.join('\n\n');
 	}
 }
 
@@ -756,9 +780,11 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
 		const agent = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'agent.md'), 'utf8');
 		const languages = await this.getActiveSessionInstructions();
-		return defaultSystem + '\n\n' + agent + '\n\n' + languages;
+		const prompts = [defaultSystem, filepaths, agent, languages];
+		return prompts.join('\n\n');
 	}
 }
 
@@ -845,17 +871,6 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Notebook;
 	// For now, the Notebook Participant inherits everything from the Editor Participant.
-}
-
-/** The participant used in the chat pane in Edit mode. */
-class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
-	id = ParticipantID.Edit;
-
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
-		return defaultSystem + '\n\n' + filepaths;
-	}
 }
 
 export function registerParticipants(context: vscode.ExtensionContext) {

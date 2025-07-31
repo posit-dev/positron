@@ -16,7 +16,7 @@ type EditorActionBarButton =
 	| 'Move into new window'
 	| 'Open as Plain Text File'
 	| 'Deploy with Posit Publisher'
-	| 'Copy as Code';
+	| 'Convert to Code';
 
 
 export class EditorActionBar {

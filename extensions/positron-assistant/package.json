@@ -198,12 +198,6 @@
             "description": "%configuration.gitIntegration.description%",
             "tags": ["experimental"]
           },
-          "positron.assistant.getTableSummary.enable": {
-            "type": "boolean",
-            "default": false,
-            "description": "%configuration.getTableSummary.description%",
-            "tags": ["experimental"]
-          },
           "positron.assistant.showTokenUsage.enable": {
             "type": "boolean",
             "default": false,
@@ -403,8 +397,7 @@
         "tags": [
           "positron-assistant",
           "requires-session"
-        ],
-        "when": "config.positron.assistant.getTableSummary.enable"
+        ]
       },
       {
         "name": "getProjectTree",
@@ -413,7 +406,8 @@
         "canBeReferencedInPrompt": false,
         "tags": [
           "positron-assistant",
-          "requires-workspace"
+          "requires-workspace",
+          "high-token-usage"
         ],
         "inputSchema": {
           "type": "object",
@@ -536,7 +530,7 @@
     "zod": "^3.24.1"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.57.0",
     "@github/copilot-language-server": "^1.335.0",
     "vscode-languageclient": "^9.0.1"
   }

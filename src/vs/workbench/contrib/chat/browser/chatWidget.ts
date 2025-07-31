@@ -375,6 +375,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			} else if (e.affectsConfiguration(ChatConfiguration.EditRequests)) {
 				this.settingChangeCounter++;
 				this.onDidChangeItems();
+			} else if (e.affectsConfiguration('positron.assistant.showTokenUsage.enable') || e.affectsConfiguration('positron.assistant.approximateTokenCount')) {
+				this.settingChangeCounter++;
+				this.onDidChangeItems();
 			}
 		}));
 
@@ -764,6 +767,11 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			}
 
 			this.renderFollowups();
+
+			// --- Start Positron ---
+			// Update token usage display when items change
+			this.input.updateTokenUsageDisplay(this.viewModel);
+			// --- End Positron ---
 		}
 	}
 
@@ -786,7 +794,14 @@ export class ChatWidget extends Disposable implements IChatWidget {
 			);
 
 			let welcomeContent: IChatViewWelcomeContent;
+			// --- Start Positron ---
+			/*
 			if ((startupExpValue === StartupExperimentGroup.MaximizedChat
+			*/
+			// Don't use the experimental view for Positron Assistant
+			const useExpView = false;
+			if (useExpView && (startupExpValue === StartupExperimentGroup.MaximizedChat
+				// --- End Positron ---
 				|| startupExpValue === StartupExperimentGroup.SplitEmptyEditorChat
 				|| startupExpValue === StartupExperimentGroup.SplitWelcomeChat
 				|| expIsActive) && this.contextKeyService.contextMatchesRules(chatSetupTriggerContext)) {
@@ -816,6 +831,9 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				ChatViewWelcomePart,
 				welcomeContent,
 				{
+					// --- Start Positron ---
+					firstLinkToButton: !this.languageModelsService.currentProvider,
+					// --- End Positron ---
 					location: this.location,
 					isWidgetAgentWelcomeViewContent: this.input?.currentModeKind === ChatModeKind.Agent
 				}
@@ -873,7 +891,7 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 		}
 		return {
 			title: welcomeTitle,
-			message: new MarkdownString(welcomeText),
+			message: new MarkdownString(welcomeText, { supportThemeIcons: true, isTrusted: true }),
 			icon: Codicon.positronAssistant,
 			tips,
 			additionalMessage,
@@ -988,6 +1006,10 @@ Type \`/\` to use predefined commands such as \`/help\`.`,
 				// Do it after a timeout because the container is not visible yet (it should be but offsetHeight returns 0 here)
 				if (this._visible) {
 					this.onDidChangeItems(true);
+					// --- Start Positron ---
+					// Update token usage display when widget becomes visible
+					this.input.updateTokenUsageDisplay(this.viewModel);
+					// --- End Positron ---
 				}
 			}, 0));
 		} else if (wasVisible) {

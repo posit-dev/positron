@@ -62,6 +62,9 @@ export enum ModuleInstallerType {
     Poetry = 'Poetry',
     Pipenv = 'Pipenv',
     Pixi = 'Pixi',
+    // --- Start Positron ---
+    Uv = 'Uv',
+    // --- End Positron ---
 }
 
 /**

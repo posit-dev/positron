@@ -1,4 +1,4 @@
-name: 'Positron Python CI'
+name: 'Python CI'
 
 on:
   workflow_dispatch:
@@ -32,6 +32,10 @@ env:
   special-working-directory: './path with spaces'
   special-working-directory-relative: 'path with spaces'
 
+# Scope the github.token's permissions for safety
+permissions:
+  contents: read
+
 jobs:
   lint:
     name: Lint
@@ -58,6 +62,8 @@ jobs:
 
       - name: Install Node dependencies
         run: npm ci --fetch-timeout 120000
+        env:
+          POSITRON_GITHUB_PAT: ${{ github.token }}
 
       - name: Run `gulp prePublishNonBundle`
         run: npm run prePublish
@@ -279,9 +285,9 @@ jobs:
           cache: 'pip'
 
       - name: Install Node dependencies
-        run: |
-          git config credential.https://api.github.com.token ${{ secrets.POSITRON_GITHUB_PAT }}
-          npm ci --fetch-timeout 120000
+        run: npm ci --fetch-timeout 120000
+        env:
+          POSITRON_GITHUB_PAT: ${{ github.token }}
 
       - name: Run `gulp prePublishNonBundle`
         run: npm run prePublish
@@ -429,7 +435,7 @@ jobs:
 
       - name: Run smoke tests
         env:
-          POSITRON_GITHUB_PAT: ${{ secrets.POSITRON_GITHUB_PAT }}
+          POSITRON_GITHUB_PAT: ${{ github.token }}
         run: |
           npx tsc && node ./out/test/smokeTest.js
         if: matrix.test-suite == 'smoke'

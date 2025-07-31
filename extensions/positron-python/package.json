@@ -1,7 +1,7 @@
 {
     "name": "python",
-    "displayName": "Positron Python",
-    "description": "Positron Python",
+    "displayName": "Python",
+    "description": "Python Language Pack for Positron",
     "version": "2025.99.0-dev",
     "featureFlags": {
         "usingNewInterpreterStorage": true

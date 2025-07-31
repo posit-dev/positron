@@ -178,5 +178,10 @@
     "request": "^2.88.2",
     "tail": "^2.2.6",
     "ws": "^8.18.0"
+  },
+  "overrides": {
+	"request": {
+		"form-data": "^4.0.0"
+	}
   }
 }

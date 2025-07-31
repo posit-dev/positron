@@ -117,7 +117,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider {
 		token: vscode.CancellationToken
 	): Promise<any> {
 		const _messages = toAIMessage(messages);
-		const message = _messages[0];
+		const message = _messages.length > 1 ? _messages[_messages.length - 2] : _messages[0]; // Get the last user message, the last message is the context
 
 		if (typeof message.content === 'string') {
 			message.content = [{ type: 'text', text: message.content }];

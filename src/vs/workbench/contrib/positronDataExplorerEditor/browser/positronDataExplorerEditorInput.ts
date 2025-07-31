@@ -8,6 +8,7 @@ import { IUntypedEditorInput } from '../../../common/editor.js';
 import { EditorInput } from '../../../common/editor/editorInput.js';
 import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/common/positronDataExplorerUri.js';
 import { IPositronDataExplorerService } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { ThemeIcon } from '../../../../base/common/themables.js';
 
 /**
  * PositronDataExplorerEditorInput class.
@@ -91,6 +92,14 @@ export class PositronDataExplorerEditorInput extends EditorInput {
 	setName(name: string) {
 		this._name = name;
 		this._onDidChangeLabel.fire();
+	}
+
+	/**
+	 * Gets the icon to display in the editor tab.
+	 * @returns The icon to display in the editor tab.
+	 */
+	override getIcon(): ThemeIcon | undefined {
+		return ThemeIcon.fromId('table');
 	}
 
 	/**

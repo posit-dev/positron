@@ -7,3 +7,15 @@
 	width: 14px;
 	height: 14px;
 }
+
+.chat-token-usage-status {
+	padding-top: 2px;
+	font-size: 12px;
+	color: var(--vscode-descriptionForeground);
+	border-top: 1px solid var(--vscode-panel-border);
+	flex-shrink: 0;
+}
+
+.chat-token-usage-status .token-usage-total {
+	display: inline-block;
+}

@@ -104,6 +104,7 @@ test.describe('Positron Assistant Chat Editing', { tag: [tags.WIN, tags.ASSISTAN
 	test.beforeAll('Enable Assistant', async function ({ app }) {
 		await app.workbench.assistant.openPositronAssistantChat();
 		await app.workbench.quickaccess.runCommand('positron-assistant.configureModels');
+
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.clickCloseButton();
@@ -158,13 +159,12 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.selectModelProvider('echo');
 		await app.workbench.assistant.clickSignInButton();
 		await app.workbench.assistant.clickCloseButton();
-
-		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
-		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
 	});
 
-	test.beforeEach('Clear chat', async function ({ app }) {
+	test.beforeEach('Clear chat', async function ({ app, settings }) {
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
 		await app.workbench.assistant.clickNewChatButton();
+		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
 	});
 
 	test.afterAll('Sign out of Assistant', async function ({ app }) {
@@ -197,5 +197,41 @@ test.describe('Positron Assistant Chat Tokens', { tag: [tags.WIN, tags.ASSISTANT
 		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
 
 		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+	});
+
+	test('Token usage updates when settings change', async function ({ app, settings }) {
+		await app.workbench.assistant.enterChatMessage('What is the meaning of life?');
+		await app.workbench.assistant.verifyTokenUsageVisible();
+
+		await settings.set({ 'positron.assistant.approximateTokenCount': [] });
+		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+
+		await settings.set({ 'positron.assistant.approximateTokenCount': ['echo'] });
+		await app.workbench.assistant.verifyTokenUsageVisible();
+
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': false });
+		expect(await app.workbench.assistant.verifyTokenUsageNotVisible());
+
+		await settings.set({ 'positron.assistant.showTokenUsage.enable': true });
+		await app.workbench.assistant.verifyTokenUsageVisible();
+	});
+
+	test('Total token usage is displayed in chat header', async function ({ app }) {
+		const message1 = 'What is the meaning of life?';
+		const message2 = 'Forty-two';
+
+		await app.workbench.assistant.enterChatMessage(message1);
+		await app.workbench.assistant.waitForReadyToSend();
+		await app.workbench.assistant.enterChatMessage(message2);
+
+		await app.workbench.assistant.waitForReadyToSend();
+		await app.workbench.assistant.verifyNumberOfVisibleResponses(2, true);
+
+		const totalTokens = await app.workbench.assistant.getTotalTokenUsage();
+		expect(totalTokens).toBeDefined();
+		expect(totalTokens).toMatchObject({
+			inputTokens: message1.length + message2.length,
+			outputTokens: message1.length + message2.length
+		});
 	});
 });

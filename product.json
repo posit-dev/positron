@@ -2,7 +2,7 @@
 	"companyName": "Posit Software, PBC",
 	"nameShort": "Positron",
 	"nameLong": "Positron",
-	"positronVersion": "2025.08.0",
+	"positronVersion": "2025.09.0",
 	"positronBuildNumber": 0,
 	"applicationName": "positron",
 	"dataFolderName": ".positron",
@@ -108,10 +108,10 @@
 		},
 		{
 			"name": "rstudio.rstudio-workbench",
-			"version": "1.5.55",
+			"version": "1.5.62",
 			"positUrl": "https://cdn.posit.co/pwb-components/extension",
 			"type": "reh-web",
-			"sha256": "91522015766502b93673ceeeeb03a2bcc38a68dba82c3832fe37fa071c821dd4",
+			"sha256": "f8f7c6aebfca72b6c7c4714cbbc500d2dcf237d0617bf8700e00b8dd0268022e",
 			"metadata": {
 				"publisherDisplayName": "Posit Software, PBC"
 			}
@@ -230,7 +230,7 @@
 		},
 		{
 			"name": "posit.publisher",
-			"version": "1.18.0",
+			"version": "1.18.1",
 			"repo": "https://github.com/posit-dev/publisher",
 			"metadata": {
 				"id": "ccc4be7e-a835-4fcf-b439-79c25a0ae11e",

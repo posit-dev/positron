@@ -1,6 +1,6 @@
-# Positron Python Extension
+# Python Extension
 
-The Python Extension to the [Positron IDE](https://github.com/rstudio/positron).
+The Python Extension to the [Positron IDE](https://github.com/posit-dev/positron).
 
 You can read more about Positron IDE development on the [Positron Wiki](https://connect.rstudioservices.com/positron-wiki).
 
@@ -8,15 +8,15 @@ You can read more about Positron IDE development on the [Positron Wiki](https://
 
 The extension is a fork of [Microsoft's Python VSCode extension](https://github.com/microsoft/vscode-python). The main TypeScript functionality (mostly UI) is implemented in [`src`](src) and calls out to Python scripts in [`python_files`](python_files).
 
-We provide a custom Positron Python Kernel based on the following open-source Python projects:
+We provide a custom Python Kernel based on the following open-source Python projects:
 
 - [**IPyKernel**](https://github.com/ipython/ipykernel), a Jupyter kernel for the Python programming language written in Python
 - [**Jedi Language Server**](https://github.com/pappasam/jedi-language-server), a language server built on the [pygls](https://github.com/openlawlibrary/pygls) (Python Generic Language Server Framework) using the [Jedi](https://github.com/davidhalter/jedi) library for autocompletion, static analysis, and refactoring
 
 The entrypoint to our kernel is the [`positron_language_server.py`](python_files/posit/positron_language_server.py) script. The core functionality of the kernel can be found in the [`positron`](python_files/posit/positron/) package, which consists of these services:
 
-- [`positron_ipkernel`](python_files/posit/positron/positron_ipkernel.py), the Positron Python Kernel
-- [`positron_jedilsp`](python_files/posit/positron/positron_jedilsp.py), the Positron Python Language Server
+- [`positron_ipkernel`](python_files/posit/positron/positron_ipkernel.py), the Python Kernel
+- [`positron_jedilsp`](python_files/posit/positron/positron_jedilsp.py), the Python Language Server
 - [`variables`](python_files/posit/positron/variables.py), manages Positron's Variables pane
 - [`ui`](python_files/posit/positron/ui.py), manages Positron's Frontend comm channel (a global channel for communication unscoped to any particular view)
 - [`help`](python_files/posit/positron/help.py), manages Positron's Help pane

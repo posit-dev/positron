@@ -6,6 +6,8 @@
 
 import { expect, test } from '@playwright/test';
 import { Code } from '../infra/code';
+import { QuickAccess } from './quickaccess';
+import { Toasts } from './dialog-toasts';
 
 const CHAT_BUTTON = '.action-label.codicon-positron-assistant[aria-label^="Chat"]';
 const CONFIGURE_MODELS_LINK = 'a[data-href="command:positron-assistant.configureModels"]';
@@ -37,7 +39,7 @@ const INLINE_CHAT_TOOLBAR = '.interactive-input-part.compact .chat-input-toolbar
  */
 export class Assistant {
 
-	constructor(private code: Code) { }
+	constructor(private code: Code, private quickaccess: QuickAccess, private toasts: Toasts) { }
 
 	async verifyChatButtonVisible() {
 		await expect(this.code.driver.page.locator(CHAT_BUTTON)).toBeVisible();
@@ -186,6 +188,19 @@ export class Assistant {
 		await expect(this.code.driver.page.locator('.token-usage')).not.toBeVisible();
 	}
 
+	async verifyTotalTokenUsageVisible() {
+		await expect(this.code.driver.page.locator('.token-usage-total')).toBeVisible();
+		await expect(this.code.driver.page.locator('.token-usage-total')).toHaveText(/Total tokens: ↑\d+ ↓\d+/);
+	}
+
+	async verifyNumberOfVisibleResponses(expectedCount: number, checkTokenUsage: boolean = false) {
+		const responses = this.code.driver.page.locator('.interactive-response');
+		await expect(responses).toHaveCount(expectedCount);
+		if (checkTokenUsage) {
+			this.code.driver.page.locator('.token-usage').nth(expectedCount - 1).waitFor({ state: 'visible' });
+		}
+	}
+
 	async getTokenUsage() {
 		const tokenUsageElement = this.code.driver.page.locator('.token-usage');
 		await expect(tokenUsageElement).toBeVisible();
@@ -198,4 +213,139 @@ export class Assistant {
 			outputTokens: outputMatch ? parseInt(outputMatch[1], 10) : 0
 		};
 	}
+
+	async getTotalTokenUsage() {
+		const totalTokenUsageElement = this.code.driver.page.locator('.token-usage-total');
+		await expect(totalTokenUsageElement).toBeVisible();
+		const text = await totalTokenUsageElement.textContent();
+		console.log('Total Token Usage Text:', text);
+		expect(text).not.toBeNull();
+		const totalMatch = text ? text.match(/Total tokens: ↑(\d+) ↓(\d+)/) : null;
+		return {
+			inputTokens: totalMatch ? parseInt(totalMatch[1], 10) : 0,
+			outputTokens: totalMatch ? parseInt(totalMatch[2], 10) : 0
+		};
+	}
+
+	async waitForReadyToSend(timeout: number = 5000) {
+		await this.code.driver.page.waitForSelector('.chat-input-toolbars .codicon-send', { timeout });
+		await this.code.driver.page.waitForSelector('.detail-container .detail:has-text("Working")', { state: 'hidden', timeout });
+	}
+
+	async waitForSendButtonVisible() {
+		await this.code.driver.page.locator(SEND_MESSAGE_BUTTON).waitFor({ state: 'visible' });
+	}
+
+	async getChatResponseText(exportFolder?: string) {
+		// Export the chat to a file first
+		await this.quickaccess.runCommand(`positron-assistant.exportChatToFileInWorkspace`);
+		await this.toasts.waitForAppear();
+		await this.toasts.closeAll();
+
+		// Find and parse the chat export file
+		const chatExportFile = await this.findChatExportFile(exportFolder);
+		if (!chatExportFile) {
+			throw new Error('No chat export file found');
+		}
+
+		const responseText = await this.parseChatResponseFromFile(chatExportFile);
+
+		// Rename the file to prevent it from being found again
+		await this.renameChatExportFile(chatExportFile);
+
+		return responseText;
+	}
+
+	/**
+	 * Finds the most recent chat export JSON file matching the pattern 'positron-chat-export-*'
+	 * @param exportFolder Optional folder path to search in. If not provided, searches in current working directory
+	 * @returns The file path of the found chat export file, or null if not found
+	 */
+	async findChatExportFile(exportFolder?: string): Promise<string | null> {
+		const fs = require('fs').promises;
+		const path = require('path');
+
+		// Use provided folder or current working directory
+		const searchPath = exportFolder || process.cwd();
+
+		try {
+			const files = await fs.readdir(searchPath);
+			const chatExportFiles = files
+				.filter((file: string) => file.match(/^positron-chat-export-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z\.json$/))
+				.map((file: string) => ({
+					name: file,
+					path: path.join(searchPath, file),
+					// Extract timestamp from filename for sorting
+					timestamp: file.match(/positron-chat-export-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-\d{3}Z)\.json$/)?.[1]
+				}))
+				.filter((file: any) => file.timestamp)
+				.sort((a: any, b: any) => b.timestamp.localeCompare(a.timestamp)); // Sort by timestamp descending (newest first)
+
+			if (chatExportFiles.length > 0) {
+				return chatExportFiles[0].path;
+			}
+		} catch (error) {
+			// Directory might not exist or not accessible
+			console.log(`Could not search in ${searchPath}:`, error);
+		}
+
+		return null;
+	}
+
+	/**
+	 * Parses the chat response text from a chat export JSON file
+	 * @param filePath Path to the chat export JSON file
+	 * @returns The concatenated response text from all chat responses
+	 */
+	async parseChatResponseFromFile(filePath: string): Promise<string> {
+		const fs = require('fs').promises;
+
+		try {
+			const fileContent = await fs.readFile(filePath, 'utf-8');
+			const chatData = JSON.parse(fileContent);
+
+			const responses: string[] = [];
+
+			// Extract response text from all requests
+			if (chatData.requests && Array.isArray(chatData.requests)) {
+				for (const request of chatData.requests) {
+					if (request.response && Array.isArray(request.response)) {
+						for (const responseItem of request.response) {
+							if (responseItem.value && typeof responseItem.value === 'string') {
+								responses.push(responseItem.value);
+							}
+						}
+					}
+				}
+			}
+
+			return responses.join('\n');
+		} catch (error) {
+			throw new Error(`Failed to parse chat export file ${filePath}: ${error}`);
+		}
+	}
+
+	/**
+	 * Renames a chat export file to mark it as processed
+	 * @param filePath Path to the chat export JSON file to rename
+	 */
+	async renameChatExportFile(filePath: string): Promise<void> {
+		const fs = require('fs').promises;
+		const path = require('path');
+
+		try {
+			const dir = path.dirname(filePath);
+			const filename = path.basename(filePath);
+
+			// Add ".processed" before the file extension
+			const newFilename = filename.replace('.json', '.processed.json');
+			const newFilePath = path.join(dir, newFilename);
+
+			await fs.rename(filePath, newFilePath);
+		} catch (error) {
+			console.log(`Could not rename chat export file ${filePath}:`, error);
+			// Don't throw error here to avoid breaking the main flow
+		}
+	}
+
 }

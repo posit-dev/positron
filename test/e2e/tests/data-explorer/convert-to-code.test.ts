@@ -19,21 +19,27 @@ Summary:
  */
 
 import { test, tags } from '../_test.setup';
-import { dataTableScript, pandasDataFrameScript, polarsDataFrameScript, rDataFrameScript, tibbleScript } from './helpers/copy-code-data.js';
+import { pandasDataFrameScript } from './helpers/convert-to-code-data.js';
 
 const testCases: { language: 'Python' | 'R'; dataScript: string; expectedCodeStyle: string; dataFrameType: string }[] = [
 	{ language: 'Python', dataScript: pandasDataFrameScript, expectedCodeStyle: 'Pandas', dataFrameType: 'pandas.DataFrame' },
-	{ language: 'Python', dataScript: polarsDataFrameScript, expectedCodeStyle: 'Polars', dataFrameType: 'polars.DataFrame' },
-	{ language: 'R', dataScript: rDataFrameScript, expectedCodeStyle: 'Tidyverse', dataFrameType: 'data.frame' },
-	{ language: 'R', dataScript: tibbleScript, expectedCodeStyle: 'Tidyverse', dataFrameType: 'tibble' },
-	{ language: 'R', dataScript: dataTableScript, expectedCodeStyle: 'data.table', dataFrameType: 'data.table' },
+	// { language: 'Python', dataScript: polarsDataFrameScript, expectedCodeStyle: 'Polars', dataFrameType: 'polars.DataFrame' },
+	// { language: 'R', dataScript: rDataFrameScript, expectedCodeStyle: 'Tidyverse', dataFrameType: 'data.frame' },
+	// { language: 'R', dataScript: tibbleScript, expectedCodeStyle: 'Tidyverse', dataFrameType: 'tibble' },
+	// { language: 'R', dataScript: dataTableScript, expectedCodeStyle: 'data.table', dataFrameType: 'data.table' },
 ];
 
 test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Data Explorer: Copy Code', { tag: [tags.WEB, tags.WIN, tags.DATA_EXPLORER] }, () => {
+test.describe.skip('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
+
+	test.beforeAll(async function ({ settings }) {
+		await settings.set({
+			'dataExplorer.convertToCode': true
+		});
+	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
@@ -41,12 +47,12 @@ test.describe.skip('Data Explorer: Copy Code', { tag: [tags.WEB, tags.WIN, tags.
 
 	testCases.forEach(({ language, dataScript, expectedCodeStyle, dataFrameType }) => {
 
-		test(`${language} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, executeCode, hotKeys }) {
-			const { dataExplorer, variables, modals } = app.workbench;
+		test(`${language} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys }) {
+			const { dataExplorer, variables, modals, console } = app.workbench;
 			await sessions.start(language === 'Python' ? 'python' : 'r');
 
 			// execute code to create a data construct
-			await executeCode(language, dataScript);
+			await console.pasteCodeToConsole(dataScript, true);
 			await variables.doubleClickVariableRow('df');
 			await hotKeys.closeSecondarySidebar();
 
@@ -59,19 +65,24 @@ test.describe.skip('Data Explorer: Copy Code', { tag: [tags.WEB, tags.WIN, tags.
 			]);
 
 			// add filters
-			await dataExplorer.addFilter('age', 'is not null');
-			await dataExplorer.addFilter('city', 'contains', 'Austin');
+			await dataExplorer.addFilter('status', 'is equal to', 'active');            // Alice & Charlie
+			await dataExplorer.addFilter('score', 'is greater than or equal to', '85'); // Alice (89.5), Charlie (95.0)
+			await dataExplorer.addFilter('is_student', 'is false');                     // Charlie only
 
 			// copy code and verify result is accurate
-			await dataExplorer.clickCopyAsCodeButton();
-			await modals.clickCancel();
+			await dataExplorer.clickConvertToCodeButton();
+			await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
+			await modals.expectToContainText(
+				'filter_mask = (df[\'status\'] == active) & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)'
+			);
 
-			// await dataExplorer.verifyCopyCode({
-			// 	Pandas: `df = df[df["age"].notna() & (df["age"] > 30)]`,
-			// 	Polars: `df = df.filter(pl.col("age").is_not_null() & (pl.col("age") > 30))`,
-			// 	'Tidyverse': `df %>% filter(!is.na(age) & age > 30)`,
-			// 	'data.table': `df[!is.na(age) & age > 30]`
-			// }[expectedCodeStyle]);
+			const expectedGeneratedCode = {
+				'Pandas': 'filter_mask = (df[\'status\'] == active) & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)',
+				'Polars': 'tbd',
+				'Tidyverse': 'tbd',
+				'data.table': 'tbd'
+			}[expectedCodeStyle] || '';
+			await modals.expectToContainText(expectedGeneratedCode);
 		});
 	});
 });
