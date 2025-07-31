@@ -5,6 +5,7 @@ runs:
   steps:
     - name: Install Node packages
       shell: bash
+      working-directory: /__w/positron/positron
       env:
         PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
         ELECTRON_SKIP_BINARY_DOWNLOAD: 1
@@ -17,6 +18,7 @@ runs:
 
     - name: Compile and Download
       shell: bash
+      working-directory: /__w/positron/positron
       run: npm exec -- npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install
 
     - name: Set permissions on SUID sandbox helper
