@@ -190,6 +190,10 @@ jobs:
           npm run test-extension -- -l positron-r
           echo "exit_code=$?" >> $GITHUB_OUTPUT
 
+      - name: Debug output
+        run: |
+          echo "extensions: ${{ steps.extensions.outputs.exit_code }}"
+
       - name: Run Bootstrap Extensions Test
         id: bootstrap
         shell: bash
