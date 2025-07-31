@@ -27,7 +27,7 @@
       "title": "%configurationTitle%",
       "properties": {
         "positron.reticulate.enabled": {
-          "type": "boolean",
+          "type": ["boolean"],
           "default": false,
           "description": "%enabledDescription%"
         }
