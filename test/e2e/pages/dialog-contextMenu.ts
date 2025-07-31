@@ -40,15 +40,16 @@ export class ContextMenu {
 			} else {
 				await menuTrigger.click();
 				const menuItem = this.getContextMenuItem(menuItemLabel);
-				await menuItem.hover();
-				await this.page.waitForTimeout(500);
 
 				const box = await menuItem.boundingBox();
 				if (!box) {
 					throw new Error(`Could not get bounding box for menu item '${menuItemLabel}'`);
 				}
+
 				const pos = this.getClickOffset(menuItemClickPosition, box);
-				await this.page.mouse.click(pos.x, pos.y);
+				await this.page.mouse.move(pos.x, pos.y); // Hover at the specific position
+				await this.page.waitForTimeout(500);
+				await this.page.mouse.click(pos.x, pos.y); // Click at the same position
 			}
 		});
 	}
@@ -180,13 +181,7 @@ export class ContextMenu {
 		}
 	}
 
-	/**
-	 * Calculates the click position based on the specified position and the bounding box of the menu item.
-	 *
-	 * @param position The position to click (center, left, right, top, bottom)
-	 * @param bounds The bounding box of the menu item
-	 * @returns The calculated click coordinates
-	 */
+
 	getClickOffset(position: 'center' | 'right' | 'left' | 'top' | 'bottom', bounds: Electron.Rectangle): { x: number; y: number } {
 		const { x, y, width, height } = bounds;
 		switch (position) {
