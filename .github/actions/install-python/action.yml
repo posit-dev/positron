@@ -83,7 +83,7 @@ runs:
         python --version
 
     - name: Setup Conda Python 3.12 env in scratch
-      # if: ${{ inputs.install_undetectable_interpreters == 'true' }}
+      if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       uses: conda-incubator/setup-miniconda@v3
       with:
         miniforge-variant: Miniforge3
@@ -93,6 +93,17 @@ runs:
         conda-remove-defaults: true
         channels: conda-forge
         channel-priority: strict
+
+    - name: Install Conda (Miniforge) (always)
+      if: ${{ inputs.install_undetectable_interpreters != 'true' }}
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniforge-variant: Miniforge3
+        auto-activate-base: false
+        conda-remove-defaults: true
+        channels: conda-forge
+        channel-priority: strict
+
 
     # - name: Create Conda Environment with Python 3.12 in ~/scratch
     #   if: ${{ inputs.install_undetectable_interpreters == 'true' }}

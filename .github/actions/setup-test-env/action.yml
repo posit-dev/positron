@@ -35,16 +35,6 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
       with:
         tinytex: true
-
-    # - name: Install Miniforge (always)
-    #   uses: conda-incubator/setup-miniconda@v3
-    #   with:
-    #     miniforge-variant: Miniforge3
-    #     auto-activate-base: false
-    #     conda-remove-defaults: true
-    #     channels: conda-forge
-    #     channel-priority: strict
-
     # - name: Patch Conda config to avoid defaults
     #   shell: bash
     #   run: |
