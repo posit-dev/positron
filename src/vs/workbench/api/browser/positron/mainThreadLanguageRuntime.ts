@@ -235,9 +235,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				// Open an editor
 				const ed = ev.data as OpenEditorEvent;
 
-				let file = URI.parse(ed.file);
-				if (!file.scheme) {
-					// If the URI doesn't have a scheme, assume it's a file URI
+				let file;
+				if (ed.uri === true) {
+					file = URI.parse(ed.file);
+				} else {
 					file = URI.file(ed.file);
 				}
 

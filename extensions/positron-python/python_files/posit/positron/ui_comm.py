@@ -295,6 +295,10 @@ class OpenEditorParams(BaseModel):
         description="The column number to jump to",
     )
 
+    uri: Optional[StrictBool] = Field(
+        description="Whether `path` is a URI",
+    )
+
 
 class NewDocumentParams(BaseModel):
     """
