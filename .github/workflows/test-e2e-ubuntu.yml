@@ -182,13 +182,10 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright (Electron)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
-
       - name: Run Playwright Tests (Electron)
         shell: bash
         env:
-          POSITRON_PY_VER_SEL: "3.12.10 (Venv: .venv)"
+          POSITRON_PY_VER_SEL: "3.12.11 (Venv: .venv)"
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0 (Pyenv)"
           POSITRON_R_ALT_VER_SEL: 4.4.2

@@ -9,6 +9,7 @@
     "positron.assistant.enable": true,
     "positron.assistant.testModels": true,
 	"python.interpreters.include": [
-        "/root/.venv/bin/python"
+        "/root/.venv/bin/python",
+		"/root/.pyenv/versions/3.13.0/bin/python"
     ]
 }
