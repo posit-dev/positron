@@ -9,7 +9,7 @@ import React, { JSX } from 'react';
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
-import { TableSummaryCache } from '../common/tableSummaryCache.js';
+import { SummaryRowSortOption, TableSummaryCache } from '../common/tableSummaryCache.js';
 import { ColumnSummaryCell } from './components/columnSummaryCell.js';
 import { BackendState, ColumnDisplayType } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
@@ -21,6 +21,7 @@ import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoo
 import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { sort } from 'semver';
 
 /**
  * Constants.
@@ -40,6 +41,19 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	private readonly _services = PositronReactServices.services;
 
 	/**
+<<<<<<< Updated upstream
+=======
+	 * The current column name search filter text.
+	 */
+	private _searchText?: string;
+
+	/**
+	 * The current sort option for the summary rows
+	 */
+	private _sortOption = SummaryRowSortOption.Original;
+
+	/**
+>>>>>>> Stashed changes
 	 * The onDidSelectColumn event emitter.
 	 */
 	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
@@ -382,6 +396,29 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		return this._tableSummaryCache.getColumnProfile(columnIndex)?.large_frequency_table;
 	}
 
+<<<<<<< Updated upstream
+=======
+	/**
+	 * Sets the column name search filter.
+	 * @param searchText The search text used to filter column names (case insensitive).
+	 */
+	async setSearchText(searchText: string): Promise<void> {
+		this._searchText = searchText || undefined;
+		// Invalidate the cache when the search text is cleared or changed
+		await this.fetchData(!this._searchText);
+	}
+
+	/**
+	 * Sets the sort option for the summary rows.
+	 * @param sortOption The sort option used to order the rows.
+	 */
+	async setSortOption(sortOption: SummaryRowSortOption): Promise<void> {
+		this._sortOption = sortOption;
+		// Invalidate the cache when the search text is cleared
+		await this.fetchData(!this._sortOption);
+	}
+
+>>>>>>> Stashed changes
 	//#endregion Public Methods
 
 	//#region Private Methods

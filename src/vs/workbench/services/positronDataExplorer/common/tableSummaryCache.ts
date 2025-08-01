@@ -22,10 +22,35 @@ const SMALL_FREQUENCY_TABLE_LIMIT = 8;
 const LARGE_FREQUENCY_TABLE_LIMIT = 16;
 
 /**
+ * Enum options for sorting the summary row.
+ *
+ * These options are used to determine how the summary row data should be sorted.
+ *
+ * Each option corresponds to a specific sorting criterion:
+ * - Original: No sorting, uses the original order of the data
+ * - NameAscending: Sort by name in ascending order
+ * - NameDescending: Sort by name in descending order
+ * - TypeAscending: Sort by the data type of the column field in ascending order, e.g. boolean, number, string
+ * - TypeDescending: Sort by the data type of the column field in descending order, e.g. string, number, boolean
+ */
+export enum SummaryRowSortOption {
+	Original = 'original',
+	NameAscending = 'name-asc',
+	NameDescending = 'name-desc',
+	TypeAscending = 'type-asc',
+	TypeDescending = 'type-desc'
+}
+
+/**
  * UpdateDescriptor interface.
  */
 interface UpdateDescriptor {
 	invalidateCache: boolean;
+<<<<<<< Updated upstream
+=======
+	searchText?: string;
+	sortOption?: SummaryRowSortOption;
+>>>>>>> Stashed changes
 	firstColumnIndex: number;
 	screenColumns: number;
 }
@@ -52,6 +77,21 @@ export class TableSummaryCache extends Disposable {
 	private _trimCacheTimeout?: Timeout;
 
 	/**
+<<<<<<< Updated upstream
+=======
+	 * The search text used to filter the dataset in the column schema
+	 * and column profile caches. The last search text value is maintained
+	 * to avoid unnecessary cache updates when the search text has not changed.
+	 */
+	private _searchText?: string;
+
+	/**
+	 * The sort option used to order the summary rows.
+	 */
+	private _sortOption: SummaryRowSortOption = SummaryRowSortOption.Original;
+
+	/**
+>>>>>>> Stashed changes
 	 * Gets or sets the columns.
 	 */
 	private _columns = 0;
