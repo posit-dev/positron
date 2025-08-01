@@ -8,12 +8,11 @@ import './positronActionBarVariables.css';
 import './positronActionBar.css';
 
 // React.
-import React, { KeyboardEvent, PropsWithChildren, useEffect, useLayoutEffect, useRef } from 'react';
+import React, { KeyboardEvent, PropsWithChildren, useEffect, useRef } from 'react';
 
 // Other dependencies.
 import * as DOM from '../../../base/browser/dom.js';
 import { usePositronActionBarContext } from './positronActionBarContext.js';
-import { DisposableStore, toDisposable } from '../../../base/common/lifecycle.js';
 import { optionalValue, positronClassNames } from '../../../base/common/positronUtilities.js';
 
 /**
@@ -110,25 +109,6 @@ export const PositronActionBar = (props: PropsWithChildren<PositronActionBarProp
 			}
 		}
 	};
-
-	// Automatic layout useEffect.
-	useLayoutEffect(() => {
-		// Create the disposable store for cleanup.
-		const disposableStore = new DisposableStore();
-
-		// Allocate and initialize the resize observer.
-		const resizeObserver = new ResizeObserver(entries => {
-		});
-
-		// Start observing the size of the action bar.
-		resizeObserver.observe(ref.current);
-
-		// Add the resize observer to the disposable store.
-		disposableStore.add(toDisposable(() => resizeObserver.disconnect()));
-
-		// Return the cleanup function that will dispose of the disposables.
-		return () => disposableStore.dispose();
-	}, [context]);
 
 	useEffect(() => {
 		if (!props.nestedActionBar && prevIndex >= 0 && (focusedIndex !== prevIndex)) {

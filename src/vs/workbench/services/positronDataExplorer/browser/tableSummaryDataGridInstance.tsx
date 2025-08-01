@@ -8,20 +8,20 @@ import React, { JSX } from 'react';
 
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';
-import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { ColumnSummaryCell } from './components/columnSummaryCell.js';
-import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
-import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { COLUMN_PROFILE_DATE_LINE_COUNT } from './components/columnProfileDate.js';
 import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from './components/columnProfileNumber.js';
 import { COLUMN_PROFILE_OBJECT_LINE_COUNT } from './components/columnProfileObject.js';
 import { COLUMN_PROFILE_STRING_LINE_COUNT } from './components/columnProfileString.js';
 import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoolean.js';
-import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
-import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
+import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
+import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
+import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
+import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -164,7 +164,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			this._services.hoverService
 		));
 
-		// Show tooltip hovers right away
+		// Show tooltip hovers right away.
 		this._hoverManager.setCustomHoverDelay(0);
 	}
 
@@ -248,11 +248,12 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
-	 * Gets the width of a column.
+	 * Gets the custom width of a column.
 	 * @param columnIndex The column index.
+	 * @returns The custom width of the column; otherwise, undefined.
 	 */
-	override getColumnWidth(columnIndex: number): number {
-		return this.layoutWidth;
+	override getCustomColumnWidth(columnIndex: number): number | undefined {
+		return columnIndex === 0 ? this.layoutWidth : undefined;
 	}
 
 	/**
