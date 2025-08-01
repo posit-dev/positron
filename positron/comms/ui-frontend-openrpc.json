@@ -50,6 +50,14 @@
 					"schema": {
 						"type": "integer"
 					}
+				},
+				{
+					"name": "uri",
+					"description": "Whether `path` is a URI",
+					"required": false,
+					"schema": {
+						"type": "boolean"
+					}
 				}
 			]
 		},
