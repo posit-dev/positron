@@ -262,8 +262,6 @@ export class TableSummaryCache extends Disposable {
 			}
 		}
 
-		// If we have column indices we need to get data for, we will update the cache with it
-
 		// When search text is present, use `searchSchema` to get the columns into the schema cache
 		// When there is no search text, use `getSchema` to get the default order of columns into the cache
 		const tableSchema = this._searchText
@@ -278,7 +276,6 @@ export class TableSummaryCache extends Disposable {
 		for (let i = 0; i < tableSchema.columns.length; i++) {
 			this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
 		}
-
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
