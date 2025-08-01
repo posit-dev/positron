@@ -124,7 +124,6 @@ jobs:
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
-      PATH: /root/.rig/bin:${PATH}
     steps:
       - uses: actions/checkout@v4
 
