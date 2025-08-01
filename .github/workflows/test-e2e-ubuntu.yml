@@ -183,6 +183,16 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}
 
+      - name: Verify Conda Python Installation
+        shell: bash -el {0}
+        run: |
+          conda config --set channels conda-forge
+          conda config --set conda-remove-defaults true
+          conda config --set channel_priority strict
+
+          conda info
+          conda list
+
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
       - name: Preload Node.js Binary

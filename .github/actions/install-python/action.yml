@@ -83,6 +83,7 @@ runs:
         python --version
 
     - name: Setup Conda Python 3.12 env in scratch
+      if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       uses: conda-incubator/setup-miniconda@v3
       with:
         miniforge-variant: Miniforge3
@@ -96,6 +97,10 @@ runs:
     - name: Verify Conda Python Installation
       shell: bash -el {0}
       run: |
+        conda config --set channels conda-forge
+        conda config --set conda-remove-defaults true
+        conda config --set channel_priority strict
+
         conda info
         conda list
 
