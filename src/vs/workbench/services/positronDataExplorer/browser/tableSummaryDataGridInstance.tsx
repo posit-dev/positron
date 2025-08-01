@@ -9,7 +9,7 @@ import React, { JSX } from 'react';
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
-import { TableSummaryCache } from '../common/tableSummaryCache.js';
+import { SummaryRowSortOption, TableSummaryCache } from '../common/tableSummaryCache.js';
 import { ColumnSummaryCell } from './components/columnSummaryCell.js';
 import { BackendState, ColumnDisplayType } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
@@ -43,6 +43,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * The current column name search filter text.
 	 */
 	private _searchText?: string;
+
+	/**
+	 * The current sort option for the summary rows
+	 */
+	private _sortOption?: SummaryRowSortOption // TODO: replace with backend supported sort options type
 
 	/**
 	 * The onDidSelectColumn event emitter.
@@ -207,6 +212,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			await this._tableSummaryCache.update({
 				invalidateCache: !!invalidateCache,
 				searchText: this._searchText,
+				sortOption: this._sortOption,
 				firstColumnIndex: rowDescriptor.rowIndex,
 				screenColumns: this.screenRows
 			});
@@ -396,6 +402,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		this._searchText = searchText || undefined;
 		// Invalidate the cache when the search text is cleared
 		await this.fetchData(!this._searchText);
+	}
+
+	/**
+	 * Sets the sort option for the summary rows.
+	 * @param sortOption The sort option used to order the rows.
+	 */
+	async setSortOption(sortOption: SummaryRowSortOption): Promise<void> {
+		this._sortOption = sortOption;
+		await this.fetchData();
 	}
 
 	//#endregion Public Methods

@@ -13,6 +13,7 @@ import { PositronActionBar } from '../../../../../../../platform/positronActionB
 import { PositronActionBarContextProvider } from '../../../../../../../platform/positronActionBar/browser/positronActionBarContext.js';
 import { ActionBarRegion } from '../../../../../../../platform/positronActionBar/browser/components/actionBarRegion.js';
 import { ActionBarFilter, ActionBarFilterHandle } from '../../../../../../../platform/positronActionBar/browser/components/actionBarFilter.js';
+import { SummaryRowSortOption } from '../../../../../../services/positronDataExplorer/common/tableSummaryCache.js';
 
 // This is the debounce time for the search input in milliseconds.
 // It allows the user to type without triggering a search on every keystroke.
@@ -28,6 +29,8 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 	const [searchText, setSearchText] = useState('');
 	// State to hold the debounced search text that we use to filter data.
 	const [debouncedSearchText, setDebouncedSearchText] = useState('');
+	// State to hold the current sort option
+	const [sortOption, setSortOption] = useState<SummaryRowSortOption>(SummaryRowSortOption.Original);
 
 	/**
 	 * Update the debounced search text after a delay.
@@ -52,18 +55,31 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 		search();
 	}, [debouncedSearchText, instance]);
 
+	/**
+	 * Update the sort option when the user selects a new sort option from the dropdown.
+	 * @param newSortOption The new sort option selected by the user.
+	 */
+	const handleSortChanged = (newSortOption: SummaryRowSortOption) => {
+		setSortOption(newSortOption);
+		// TODO: Implement sorting logic in the TableSummaryDataGridInstance
+		// instance.setSortOption(newSortOption);
+	};
+
 
 	return (
 		<div className='summary-row-filter-bar'>
 			<PositronActionBarContextProvider>
-				<PositronActionBar>
+				<PositronActionBar paddingLeft={8} paddingRight={14}>
 					<ActionBarRegion location='left'>
-						<SummaryRowSortDropdown />
+						<SummaryRowSortDropdown
+							currentSort={sortOption}
+							onSortChanged={handleSortChanged}
+						/>
 					</ActionBarRegion>
 					<ActionBarRegion location='right'>
 						<ActionBarFilter
 							ref={filterRef}
-							width={150}
+							width={140}
 							onFilterTextChanged={filterText => setSearchText(filterText)} />
 					</ActionBarRegion>
 				</PositronActionBar>
