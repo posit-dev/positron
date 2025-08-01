@@ -65,7 +65,7 @@ export interface IChatRuntimeSessionContext {
 
 	/** The summarized execution history for the session */
 	executions: Array<IHistorySummaryEntry>;
-};
+}
 
 class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 
@@ -136,7 +136,7 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 
 		picks.push({
 			type: 'separator',
-			label: localize('chatContext.runtimeSessions.notebook', 'Console Sessions')
+			label: localize('chatContext.runtimeSessions.console', 'Console Sessions')
 		});
 		for (const consoleSession of consoleSessions) {
 			picks.push(this.toPickItem(consoleSession));
@@ -192,7 +192,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 		// finishes starting, so this catches new notebook sessions (vs.
 		// switching between existing ones).
 		this._register(this.runtimeSessionService.onDidStartRuntime(async (session) => {
-			await this.updateRuntimeContext()
+			await this.updateRuntimeContext();
 		}));
 
 		this._register(this.chatWidgetService.onDidAddWidget(async (widget) => {
