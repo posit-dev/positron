@@ -182,6 +182,9 @@ jobs:
       - name: Alter AppArmor Restrictions for Playwright (Electron)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run Playwright Tests (Electron)
         shell: bash
         env:
@@ -212,20 +215,6 @@ jobs:
             echo "Waiting for Xvfb to start..."
             sleep 1
           done
-
-          sleep 10
-
-          export ELECTRON_DISABLE_SANDBOX=true
-          export DEBUG="electron*"
-          export PWDEBUG=0  # set to 1 to pause and inspect failures
-
-          echo "--- Xvfb Output ---"
-          cat /tmp/Xvfb.out || echo "(no output)"
-
-          echo "--- Checking if display is available ---"
-          xdpyinfo || { echo "ERROR: DISPLAY :10 not accessible"; exit 1; }
-
-          DISPLAY=:10 xdpyinfo >/dev/null 2>&1 && echo "Xvfb is running" || echo "Xvfb is NOT running"
 
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
