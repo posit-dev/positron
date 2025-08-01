@@ -210,6 +210,11 @@ export interface OpenEditorParams {
 	 * The column number to jump to
 	 */
 	column: number;
+
+	/**
+	 * Whether `path` is a URI
+	 */
+	uri?: boolean;
 }
 
 /**
@@ -490,6 +495,11 @@ export interface OpenEditorEvent {
 	 * The column number to jump to
 	 */
 	column: number;
+
+	/**
+	 * Whether `path` is a URI
+	 */
+	uri?: boolean;
 
 }
 
@@ -839,7 +849,7 @@ export class PositronUiComm extends PositronBaseComm {
 		super(instance, options);
 		this.onDidBusy = super.createEventEmitter('busy', ['busy']);
 		this.onDidClearConsole = super.createEventEmitter('clear_console', []);
-		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column']);
+		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column', 'uri']);
 		this.onDidShowMessage = super.createEventEmitter('show_message', ['message']);
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);
