@@ -67,12 +67,13 @@ export const ActionBarFilter = forwardRef<ActionBarFilterHandle, ActionBarFilter
 				<input
 					ref={inputRef}
 					className='text-input'
-					placeholder={(() => localize('positronFilterPlacehold', "filter"))()}
+					placeholder={(() => localize('positronFilterPlaceholder', "filter"))()}
 					type='text'
 					value={filterText}
 					onBlur={() => setFocused(false)}
 					onChange={changeHandler}
-					onFocus={() => setFocused(true)} />
+					onFocus={() => setFocused(true)}
+				/>
 				{filterText !== '' && (
 					<button className='clear-button'>
 						<div className={'codicon codicon-positron-search-cancel'} onClick={buttonClearClickHandler} />
