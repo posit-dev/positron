@@ -94,16 +94,6 @@ runs:
         channels: conda-forge
         channel-priority: strict
 
-    - name: Verify Conda Python Installation
-      shell: bash -el {0}
-      run: |
-        conda config --set channels conda-forge
-        conda config --set conda-remove-defaults true
-        conda config --set channel_priority strict
-
-        conda info
-        conda list
-
     # - name: Create Conda Environment with Python 3.12 in ~/scratch
     #   if: ${{ inputs.install_undetectable_interpreters == 'true' }}
     #   shell: bash
