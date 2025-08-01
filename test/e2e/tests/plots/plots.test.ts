@@ -149,6 +149,21 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(plots.plotSizeButton).not.toBeDisabled();
 		});
 
+		test('Python - Verify opening plot in new window', { tag: [tags.WEB, tags.WIN, tags.PLOTS] }, async function ({ app }) {
+			const plots = app.workbench.plots;
+			await test.step('Create a Python plot', async () => {
+				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
+				await plots.waitForCurrentPlot();
+				await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+			});
+			await test.step('Open plot in new window', async () => {
+				await plots.openPlotInEditor();
+				await plots.waitForPlotInEditor();
+				await expect(plots.savePlotFromEditorButton).toBeVisible();
+				await app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
+			});
+		});
+
 		test('Python - Verify saving a Python plot', { tag: [tags.WIN] }, async function ({ app }) {
 			await test.step('Sending code to console to create plot', async () => {
 				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
