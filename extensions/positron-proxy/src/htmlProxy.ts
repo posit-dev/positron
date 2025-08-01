@@ -103,7 +103,9 @@ export class HtmlProxyServer implements Disposable {
 						content = injectPreviewResources(content, htmlConfig);
 						res.send(content);
 					} else {
-						next();
+						// Not an HTML file or no HTML configuration, serve the file as is
+						// with the correct content type.
+						express.static(targetPath)(req, res, next);
 					}
 				} else {
 					next();
