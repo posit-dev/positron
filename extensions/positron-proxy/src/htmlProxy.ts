@@ -104,7 +104,9 @@ export class HtmlProxyServer implements Disposable {
 						}
 						res.send(content);
 					} else {
-						// For non-HTML files, use sendFile with root option to prevent path traversal
+						// For non-HTML files, use sendFile with root option for security and proper Content-Type.
+						// The root option prevents path traversal attacks by restricting file access to within
+						// targetPath.
 						res.sendFile(req.path, { root: targetPath });
 					}
 				} else {
