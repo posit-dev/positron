@@ -93,6 +93,12 @@ runs:
         # Ensure Conda is available
         source "${CONDA}/etc/profile.d/conda.sh"
 
+        # Clean up all channel config and enforce conda-forge only
+        conda config --remove-key channels || true
+        conda config --add channels conda-forge
+        conda config --set channel_priority strict
+        conda config --set conda-remove-defaults true
+
         # Define environment path
         CONDA_ENV_DIR="$HOME/scratch/python-env"
 
