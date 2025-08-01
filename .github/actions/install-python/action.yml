@@ -91,7 +91,7 @@ runs:
         echo "Setting up Conda environment with Python 3.12..."
 
         # Ensure Conda is available
-        source "${CONDA}/etc/profile.d/conda.sh"
+        source "$HOME/miniforge3/etc/profile.d/conda.sh"
 
         # Clean up all channel config and enforce conda-forge only
         conda config --remove-key channels || true

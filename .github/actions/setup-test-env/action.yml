@@ -42,6 +42,7 @@ runs:
         miniforge-variant: Miniforge3
         miniforge-version: latest
         auto-activate-base: false
+        conda-prefix: ~/miniforge3
 
     - name: Setup Python
       uses: ./.github/actions/install-python
