@@ -2101,7 +2101,7 @@ def _parse_iso8601_like(x, tz=None):
             if tz is not None:
                 if isinstance(tz, str):
                     tz = pytz.timezone(tz)
-                result = result.replace(tzinfo=tz)
+                result = tz.localize(result)
 
             return result
         except ValueError:  # noqa: PERF203

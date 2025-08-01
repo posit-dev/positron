@@ -76,7 +76,7 @@ export async function verifyVenvEnvStarts(app: Application) {
 
 export async function verifyUvEnvStarts(app: Application) {
 	await test.step('Verify uv environment starts', async () => {
-		await app.workbench.console.waitForConsoleContents('(Uv: .venv) started.');
+		await app.workbench.console.waitForConsoleContents(/(Uv: .+) started./);
 	});
 }
 

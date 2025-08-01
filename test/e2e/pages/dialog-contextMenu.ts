@@ -28,17 +28,24 @@ export class ContextMenu {
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
 	 */
-	async triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
+	async triggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
-				await this._triggerAndClick({ menuTrigger, menuItemLabel });
-			}
-			else {
+				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel });
+			} else {
 				await menuTrigger.click();
-				await this.page.mouse.move(0, 0);
-				await this.getContextMenuItem(menuItemLabel).hover();
-				await this.page.waitForTimeout(250);
-				await this.getContextMenuItem(menuItemLabel).click();
+
+				// Hover over the menu item
+				const menuItem = this.getContextMenuItem(menuItemLabel);
+				await menuItem.hover();
+				await this.page.waitForTimeout(500);
+
+				// Either selects the menu item or dismisses the tooltip
+				await menuItem.press('Enter');
+				if (await menuItem.isVisible()) {
+					// Tooltip must have been blocking and now we click
+					await menuItem.click();
+				}
 			}
 		});
 	}
@@ -143,22 +150,31 @@ export class ContextMenu {
 	}
 
 	/**
-	 * Triggers a context menu and clicks a specified menu item.
-	 * This method is used internally to handle both browser and electron contexts.
+	 * Triggers a context menu and clicks a specified menu item in native menus (macOS/Electron).
 	 *
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
 	 */
-	private async _triggerAndClick({ menuTrigger, menuItemLabel }: { menuTrigger: Locator; menuItemLabel: string }): Promise<void> {
+	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
+		// Show the context menu by clicking on the trigger element
 		const menuItems = await this.showContextMenu(() => menuTrigger.click());
 
+		// Handle the menu interaction once it's shown
 		if (menuItems) {
+			// Verify the requested menu item exists
 			if (!menuItems.items.includes(menuItemLabel)) {
 				throw new Error(`Context menu '${menuItemLabel}' not found. Available items: ${menuItems.items.join(', ')}`);
 			}
+			// Select the menu item through Electron IPC
 			await this.selectContextMenuItem(menuItems.menuId, menuItemLabel);
 		} else {
 			throw new Error(`Context menu '${menuItemLabel}' did not appear or no menu items found.`);
 		}
 	}
+}
+
+
+interface ContextMenuClick {
+	menuTrigger: Locator;
+	menuItemLabel: string;
 }
