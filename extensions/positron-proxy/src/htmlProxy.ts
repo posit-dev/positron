@@ -104,8 +104,8 @@ export class HtmlProxyServer implements Disposable {
 						}
 						res.send(content);
 					} else {
-						// For non-HTML files, serve them as static files to preserve correct Content-Type
-						express.static(targetPath)(req, res, next);
+						// For non-HTML files, use sendFile to preserve correct Content-Type
+						res.sendFile(filePath);
 					}
 				} else {
 					next();
