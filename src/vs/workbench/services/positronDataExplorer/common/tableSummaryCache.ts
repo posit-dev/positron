@@ -234,7 +234,6 @@ export class TableSummaryCache extends Disposable {
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 
-		// Set the start column index and the end column index of the columns to cache.
 		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
 		// Determine the first column index to start caching from.
 		const startColumnIndex = Math.max(
@@ -272,7 +271,7 @@ export class TableSummaryCache extends Disposable {
 				? await this._dataExplorerClientInstance.searchSchema({
 					searchText: this._searchText,
 					startIndex: columnIndices[0],
-					numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1,
+					numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1
 				})
 				: await this._dataExplorerClientInstance.getSchema(columnIndices);
 
