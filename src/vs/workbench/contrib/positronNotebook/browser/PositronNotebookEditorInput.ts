@@ -16,7 +16,8 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { ExtUri } from '../../../../base/common/resources.js';
+import { ExtUri, joinPath } from '../../../../base/common/resources.js';
+import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 
 /**
  * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
@@ -101,6 +102,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		@IInstantiationService instantiationService: IInstantiationService,
 		@IContextKeyService contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
+		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -191,6 +193,67 @@ export class PositronNotebookEditorInput extends EditorInput {
 		return undefined;
 	}
 
+	/**
+	 * Saves an untitled notebook to a new location.
+	 * @param group Editor group the notebook is currently in
+	 * @param options Save options
+	 * @returns A new untyped editor input with the saved resource
+	 */
+	override async saveAs(group: GroupIdentifier, options?: ISaveOptions): Promise<IUntypedEditorInput | undefined> {
+		if (!this._editorModelReference) {
+			return undefined;
+		}
+
+		// Get the notebook provider info to validate file extensions
+		const provider = this._notebookService.getContributedNotebookType(this.viewType);
+		if (!provider) {
+			return undefined;
+		}
+
+		// Suggest a name for the file based on the current untitled name
+		const extUri = new ExtUri(() => false);
+		const suggestedName = extUri.basename(this.resource);
+		const pathCandidate = await this._suggestName(provider, suggestedName);
+
+		// Ask the user where to save the file
+		const target = await this._fileDialogService.pickFileToSave(pathCandidate, options?.availableFileSystems);
+		if (!target) {
+			return undefined; // save cancelled
+		}
+
+		// Use the model's saveAs method which handles the actual file saving
+		const result = await this._editorModelReference.object.saveAs(target);
+
+		// Return the new resource as an untyped editor input so the editor framework
+		// can properly replace this untitled editor with a new one for the saved file
+		return result;
+	}
+
+	private async _suggestName(provider: any, suggestedFilename: string): Promise<URI> {
+		// Try to extract file extension from the provider's selector
+		const firstSelector = provider.selectors?.[0];
+		let selectorStr = firstSelector && typeof firstSelector === 'string' ? firstSelector : undefined;
+
+		if (!selectorStr && firstSelector) {
+			const include = (firstSelector as { include?: string }).include;
+			if (typeof include === 'string') {
+				selectorStr = include;
+			}
+		}
+
+		if (selectorStr) {
+			const matches = /^\*\.([A-Za-z_-]*)$/.exec(selectorStr);
+			if (matches && matches.length > 1) {
+				const fileExt = matches[1];
+				if (!suggestedFilename.endsWith(fileExt)) {
+					return joinPath(await this._fileDialogService.defaultFilePath(), suggestedFilename + '.' + fileExt);
+				}
+			}
+		}
+
+		return joinPath(await this._fileDialogService.defaultFilePath(), suggestedFilename);
+	}
+
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
 		this._logService.info(this._identifier, 'resolve');
 
@@ -228,7 +291,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 			// Setup listeners for the model change events so we can forward them to the editor.
 			this._register(this._editorModelReference.object.onDidChangeDirty(() => this._onDidChangeDirty.fire()));
 			this._register(this._editorModelReference.object.onDidChangeReadonly(() => this._onDidChangeCapabilities.fire()));
-			this._register(this._editorModelReference.object.onDidRevertUntitled(() => this.dispose()));
+
 
 			// If the model is dirty we need to fire the dirty event.
 			// Not sure why this is not an event listner.

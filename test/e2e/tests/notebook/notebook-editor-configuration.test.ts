@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import path from 'path';
-import { test, tags } from '../_test.setup';
+import { test, tags, WorkerFixtures } from '../_test.setup';
 
 const NOTEBOOK_PATH = path.join('workspaces', 'bitmap-notebook', 'bitmap-notebook.ipynb');
 
@@ -12,22 +12,46 @@ test.use({
 	suiteId: __filename
 });
 
+/**
+ * Helper function to set notebook editor associations
+ * @param settings - The settings fixture
+ * @param editor - 'positron' to use Positron notebook editor, 'default' to clear associations
+ * @param waitMs - The number of milliseconds to wait for the settings to be applied
+ */
+async function setNotebookEditor(
+	settings: WorkerFixtures['settings'],
+	editor: 'positron' | 'default',
+	waitMs = 450
+) {
+	const editorAssociations = {
+		'workbench.editorAssociations': editor === 'positron'
+			? { '*.ipynb': 'workbench.editor.positronNotebook' }
+			: {}
+	};
+
+	await settings.set(editorAssociations, { waitMs });
+}
+
 test.describe('Notebook Editor Configuration', {
 	tag: [tags.CRITICAL, tags.WIN, tags.NOTEBOOKS]
 }, () => {
+
+	test.beforeEach(async function ({ settings }) {
+		// Reset editor associations to default state before each test
+		await setNotebookEditor(settings, 'default');
+	});
 
 	test.afterEach(async function ({ hotKeys }) {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Verify default editor is VS Code notebook when no association is set', async function ({ app, settings }) {
+	// After all tests, reset editor associations to default state
+	test.afterAll(async function ({ settings }) {
+		await setNotebookEditor(settings, 'default');
+	});
+
+	test('Verify default editor is VS Code notebook when no association is set', async function ({ app }) {
 		const { notebooks, notebooksVscode } = app.workbench;
-
-		// Ensure no editor association is set for .ipynb files
-		await settings.set({
-			'workbench.editorAssociations': {}
-		});
-
 		// Open the notebook file and verify it opens as a VS Code notebook
 		await notebooks.openNotebook(NOTEBOOK_PATH, false);
 		await notebooksVscode.expectToBeVisible();
@@ -38,11 +62,7 @@ test.describe('Notebook Editor Configuration', {
 		const { notebooks, notebooksPositron } = app.workbench;
 
 		// Set default editor to Positron notebook
-		await settings.set({
-			'workbench.editorAssociations': {
-				'*.ipynb': 'workbench.editor.positronNotebook'
-			}
-		});
+		await setNotebookEditor(settings, 'positron');
 
 		// Open the notebook file and verify it opens as a Positron notebook
 		await notebooks.openNotebook(NOTEBOOK_PATH, false);
@@ -54,11 +74,7 @@ test.describe('Notebook Editor Configuration', {
 		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
 
 		// First, set default editor to Positron notebook
-		await settings.set({
-			'workbench.editorAssociations': {
-				'*.ipynb': 'workbench.editor.positronNotebook'
-			}
-		});
+		await setNotebookEditor(settings, 'positron');
 
 		// Open the notebook file and verify it opens as a Positron notebook
 		await notebooks.openNotebook(NOTEBOOK_PATH, false);
@@ -66,13 +82,64 @@ test.describe('Notebook Editor Configuration', {
 
 		// Revert default editor to VS Code notebook by removing the association
 		await hotKeys.closeAllEditors();
-		await settings.set({
-			'workbench.editorAssociations': {}
-		});
+		await setNotebookEditor(settings, 'default');
 
 		// Open notebook again and verify it opens as a VS Code notebook
 		await notebooks.openNotebook(NOTEBOOK_PATH, false);
 		await notebooksVscode.expectToBeVisible();
 	});
-});
 
+	test('Verify newly created notebook respects positron editor setting', async function ({ app, settings }) {
+		const { notebooks, notebooksPositron } = app.workbench;
+
+		// Set default editor to Positron notebook
+		await setNotebookEditor(settings, 'positron');
+
+		// Create a new untitled notebook and verify it opens as a Positron notebook
+		// This tests the fix in PR #8608 - newly created notebooks should respect editor associations
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+	});
+
+	test('Verify newly created notebook opens as VS Code notebook with default settings', async function ({ app }) {
+		const { notebooks, notebooksVscode } = app.workbench;
+
+		// Create a new untitled notebook and verify it opens as a VS Code notebook
+		// When no editor association is set, new notebooks should open in the default VS Code editor
+		await notebooks.createNewNotebook();
+		await notebooksVscode.expectToBeVisible();
+	});
+
+	test('Verify multiple untitled positron notebooks get unique URIs', async function ({ app, hotKeys, settings }) {
+		const { notebooks, notebooksPositron, editors } = app.workbench;
+
+		// Set default editor to Positron notebook to test the PR's changes
+		await setNotebookEditor(settings, 'positron');
+
+		// Create first untitled notebook (uses ipynb.newUntitledIpynb command)
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+
+		// Verify first notebook has Untitled-1.ipynb name
+		await editors.verifyTab('Untitled-1.ipynb', { isVisible: true, isSelected: true });
+
+		// Create second untitled notebook without closing the first
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+
+		// Verify second notebook has Untitled-2.ipynb name (collision avoided)
+		await editors.verifyTab('Untitled-2.ipynb', { isVisible: true, isSelected: true });
+
+		// Close first notebook without saving
+		await editors.clickTab('Untitled-1.ipynb');
+		await hotKeys.closeTab();
+
+		// Open a new notebook and verify it gets Untitled-1.ipynb again (name is reused)
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+		await editors.verifyTab('Untitled-1.ipynb', { isVisible: true, isSelected: true });
+
+		// Clean up by closing all editors
+		await hotKeys.closeAllEditors();
+	});
+});
