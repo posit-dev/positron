@@ -36,14 +36,22 @@ runs:
       with:
         tinytex: true
 
-    - name: Install Miniforge (always)
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniforge-variant: Miniforge3
-        auto-activate-base: false
-        conda-remove-defaults: true
-        channels: conda-forge
-        channel-priority: strict
+    # - name: Install Miniforge (always)
+    #   uses: conda-incubator/setup-miniconda@v3
+    #   with:
+    #     miniforge-variant: Miniforge3
+    #     auto-activate-base: false
+    #     conda-remove-defaults: true
+    #     channels: conda-forge
+    #     channel-priority: strict
+
+    # - name: Patch Conda config to avoid defaults
+    #   shell: bash
+    #   run: |
+    #     conda config --remove-key channels || true
+    #     conda config --add channels conda-forge
+    #     conda config --set channel_priority strict
+    #     conda config --set conda-remove-defaults true
 
     - name: Setup Python
       uses: ./.github/actions/install-python

@@ -83,7 +83,7 @@ runs:
         python --version
 
     - name: Setup Conda Python 3.12 env in scratch
-      if: ${{ inputs.install_undetectable_interpreters == 'true' }}
+      # if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       uses: conda-incubator/setup-miniconda@v3
       with:
         miniforge-variant: Miniforge3
