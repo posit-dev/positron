@@ -247,7 +247,7 @@ export class TableSummaryCache extends Disposable {
 			firstColumnIndex + screenColumns + overscanColumns
 		);
 
-		let columnIndices: number[];
+		let columnIndices: number[] = [];
 		// If the cache is invalidated or the search text has changed,
 		// we will need to load all the columns in view into the cache again
 		if (invalidateCache || searchTextChanged) {
@@ -255,7 +255,6 @@ export class TableSummaryCache extends Disposable {
 		} else {
 			// If the cache is not invalidated and the search text has not changed,
 			// we will only load the columns in view that are not already cached
-			columnIndices = [];
 			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
 				if (!this._columnSchemaCache.has(columnIndex)) {
 					columnIndices.push(columnIndex);
@@ -264,22 +263,22 @@ export class TableSummaryCache extends Disposable {
 		}
 
 		// If we have column indices we need to get data for, we will update the cache with it
-		if (columnIndices.length) {
-			// When search text is present, use `searchSchema` to get the columns into the schema cache
-			// When there is no search text, use `getSchema` to get the default order of columns into the cache
-			const tableSchema = this._searchText
-				? await this._dataExplorerClientInstance.searchSchema({
-					searchText: this._searchText,
-					startIndex: columnIndices[0],
-					numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1
-				})
-				: await this._dataExplorerClientInstance.getSchema(columnIndices);
 
-			// Cache the column schema that was returned
-			for (let i = 0; i < tableSchema.columns.length; i++) {
-				this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
-			}
+		// When search text is present, use `searchSchema` to get the columns into the schema cache
+		// When there is no search text, use `getSchema` to get the default order of columns into the cache
+		const tableSchema = this._searchText
+			? await this._dataExplorerClientInstance.searchSchema({
+				searchText: this._searchText,
+				startIndex: columnIndices[0],
+				numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1
+			})
+			: await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+		// Cache the column schema that was returned
+		for (let i = 0; i < tableSchema.columns.length; i++) {
+			this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
 		}
+
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
