@@ -1410,13 +1410,13 @@ export abstract class DataGridInstance extends Disposable {
 			columnIndex: pinnedLayoutEntry.index,
 			left: pinnedColumnDescriptorsWidth + pinnedLayoutEntry.start,
 			width: pinnedLayoutEntry.size,
-		}))
+		}));
 
 		// Return the column descriptors.
 		return {
 			pinnedColumnDescriptors,
 			unpinnedColumnDescriptors,
-		}
+		};
 	}
 
 	/**
@@ -1450,13 +1450,13 @@ export abstract class DataGridInstance extends Disposable {
 			rowIndex: pinnedLayoutEntry.index,
 			top: pinnedRowDescriptorsHeight + pinnedLayoutEntry.start,
 			height: pinnedLayoutEntry.size,
-		}))
+		}));
 
 		// Return the row descriptors.
 		return {
 			pinnedRowDescriptors,
 			unpinnedRowDescriptors,
-		}
+		};
 	}
 
 	// YAYA
@@ -1502,18 +1502,12 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Gets the width of a column.
+	 * Gets the custom width of a column.
 	 * @param columnIndex The column index.
+	 * @returns The custom width of the column; otherwise, undefined.
 	 */
-	getColumnWidth(columnIndex: number): number {
-		// Get the column layout entry. If it wasn't found, return 0.
-		const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
-		if (!layoutEntry) {
-			return 0;
-		}
-
-		// Return the column width.
-		return layoutEntry.size;
+	getCustomColumnWidth(columnIndex: number): number | undefined {
+		return undefined;
 	}
 
 	/**

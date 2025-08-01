@@ -489,6 +489,21 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		let deltaX = e.deltaX;
 		let deltaY = e.deltaY;
 
+		// Suppress jitter on the non-dominant wheel axis.
+		{
+			// This bias factor prevents minor input noise from falsely flipping axis dominance.
+			const bias = 1.1;
+
+			// Zero out the non-dominant axis.
+			const absDeltaX = Math.abs(deltaX);
+			const absDeltaY = Math.abs(deltaY);
+			if (absDeltaX > absDeltaY * bias) {
+				deltaY = 0;
+			} else if (absDeltaY > absDeltaX * bias) {
+				deltaX = 0;
+			}
+		}
+
 		// When the user is holding the shift key, invert delta X and delta Y.
 		if (e.shiftKey) {
 			[deltaX, deltaY] = [deltaY, deltaX];
@@ -517,8 +532,15 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		);
 	};
 
-	const columnDescriptors = context.instance.getColumnDescriptors(context.instance.horizontalScrollOffset, width);
-	const rowDescriptors = context.instance.getRowDescriptors(context.instance.verticalScrollOffset, height);
+	// Get the column descriptors and row descriptors.
+	const columnDescriptors = context.instance.getColumnDescriptors(
+		context.instance.horizontalScrollOffset,
+		width
+	);
+	const rowDescriptors = context.instance.getRowDescriptors(
+		context.instance.verticalScrollOffset,
+		height
+	);
 
 	// Create the pinned data grid row elements.
 	const dataGridRows: JSX.Element[] = [];

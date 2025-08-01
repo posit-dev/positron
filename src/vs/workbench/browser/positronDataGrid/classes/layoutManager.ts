@@ -432,14 +432,14 @@ export class LayoutManager {
 	}
 
 	/**
-	 * Returns the unpinned layout entries that overlap with the specified offset and width.
+	 * Returns the unpinned layout entries that overlap with the specified offset and size.
 	 * @param offset The offset.
-	 * @param width The width.
+	 * @param size The size.
 	 * @returns An array containing the unpinned layout entries, if any; otherwise, undefined.
 	 */
-	unpinnedLayoutEntries(offset: number, width: number): ILayoutEntry[] {
-		// Validate the offset and width.
-		if (offset < 0 || width <= 0) {
+	unpinnedLayoutEntries(offset: number, size: number): ILayoutEntry[] {
+		// Validate the offset and size.
+		if (offset < 0 || size <= 0) {
 			return [];
 		}
 
@@ -448,7 +448,7 @@ export class LayoutManager {
 			return [];
 		}
 
-		// Perform a binary search to find the unpinned layout entries at the specified offset and width.
+		// Perform a binary search to find the unpinned layout entries at the specified offset and size.
 		let leftIndex = 0;
 		let rightIndex = this._unpinnedLayoutEntries.length - 1;
 		while (leftIndex <= rightIndex) {
@@ -458,7 +458,7 @@ export class LayoutManager {
 
 			// Check whether the middle unpinned layout entry contains the offset. If it does, it is
 			// the first layout entry to return.
-			if (offset >= middleLayoutEntry.start && offset < middleLayoutEntry.end) {
+			if (offset >= middleLayoutEntry.start && offset <= middleLayoutEntry.end) {
 				// Add the middle unpinned layout entry to the layout entries to return.
 				const layoutEntries: ILayoutEntry[] = [middleLayoutEntry];
 
@@ -467,8 +467,8 @@ export class LayoutManager {
 					// Get the next unpinned layout entry.
 					const layoutEntry = this._unpinnedLayoutEntries[nextIndex];
 
-					// Break when the next unpinned layout entry starts after the offset + width.
-					if (layoutEntry.start >= offset + width) {
+					// Break when the next unpinned layout entry starts after the offset + size.
+					if (layoutEntry.start >= offset + size) {
 						break;
 					}
 
@@ -488,7 +488,7 @@ export class LayoutManager {
 			}
 		}
 
-		// No unpinned layout entries that overlap with the specified offset and width were found.
+		// No unpinned layout entries that overlap with the specified offset and size were found.
 		return [];
 	}
 

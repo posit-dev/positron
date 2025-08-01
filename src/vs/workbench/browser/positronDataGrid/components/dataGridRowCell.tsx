@@ -108,7 +108,6 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 		props.columnIndex === context.instance.cursorColumnIndex &&
 		props.rowIndex === context.instance.cursorRowIndex;
 
-
 	/**
 	 * Cursor component.
 	 * @param dimmed A value which indicates whether the cursor component should be dimmed.
@@ -140,9 +139,9 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				{ pinned: props.pinned },
 			)}
 			style={{
-				left: props.left,
-				width: props.width,
 				height: props.height,
+				left: props.left,
+				width: context.instance.getCustomColumnWidth(props.columnIndex) ?? props.width,
 			}}
 			onMouseDown={mouseDownHandler}
 		>
