@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -103,7 +103,7 @@ def _reduce_debounce_time(monkeypatch):
 def create_server(
     namespace: Optional[Dict[str, Any]] = None,
     root_path: Optional[Path] = None,
-    notebook_path: Optional[Path] = None,
+    working_directory: Optional[str] = None,
 ) -> PositronJediLanguageServer:
     # Create a server.
     server = create_positron_server()
@@ -128,7 +128,7 @@ def create_server(
                 # to test deserialization too.
                 "positron": cattrs.unstructure(
                     PositronInitializationOptions(
-                        notebook_path=notebook_path,
+                        working_directory=working_directory,
                     )
                 ),
             },
@@ -476,7 +476,7 @@ def assert_has_path_completion(
     expected_completion: str,
     chars_from_end=1,
     root_path: Optional[Path] = None,
-    notebook_path: Optional[Path] = None,
+    working_directory: Optional[str] = None,
 ):
     # Replace separators for testing cross-platform.
     source = source.replace("/", os.path.sep)
@@ -486,7 +486,7 @@ def assert_has_path_completion(
     if os.name == "nt":
         expected_completion = expected_completion.replace("/", "\\" + os.path.sep)
 
-    server = create_server(root_path=root_path, notebook_path=notebook_path)
+    server = create_server(root_path=root_path, working_directory=working_directory)
     text_document = create_text_document(server, TEST_DOCUMENT_URI, source)
     character = len(source) - chars_from_end
     completions = _completions(server, text_document, character)
@@ -721,14 +721,31 @@ def test_notebook_path_completions(tmp_path) -> None:
     notebook_parent = tmp_path / "notebooks"
     notebook_parent.mkdir()
 
-    notebook_path = notebook_parent / "notebook.ipynb"
-
     # Create a file in the notebook's parent.
     file_to_complete = notebook_parent / "data.csv"
     file_to_complete.write_text("")
 
     assert_has_path_completion(
-        '""', file_to_complete.name, root_path=tmp_path, notebook_path=notebook_path
+        '""', file_to_complete.name, root_path=tmp_path, working_directory=str(notebook_parent)
+    )
+
+
+def test_notebook_path_completions_different_wd(tmp_path) -> None:
+    notebook_parent = tmp_path / "notebooks"
+    notebook_parent.mkdir()
+
+    # Make a different working directory.
+    working_directory = tmp_path / "different-working-directory"
+    working_directory.mkdir()
+
+    # Create files in the notebook's parent and the working directory.
+    bad_file = notebook_parent / "bad-data.csv"
+    bad_file.write_text("")
+    good_file = working_directory / "good-data.csv"
+    good_file.write_text("")
+
+    assert_has_path_completion(
+        '""', good_file.name, root_path=tmp_path, working_directory=working_directory
     )
 
 

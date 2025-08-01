@@ -19,6 +19,8 @@ import { TestLanguageRuntimeSession, waitForRuntimeState } from './testLanguageR
 import { createRuntimeServices, createTestLanguageRuntimeMetadata, startTestLanguageRuntimeSession } from './testRuntimeSessionService.js';
 import { TestRuntimeSessionManager } from '../../../../test/common/positronWorkbenchTestServices.js';
 import { TestWorkspaceTrustManagementService } from '../../../../test/common/workbenchTestServices.js';
+import { IConfigurationResolverService } from '../../../configurationResolver/common/configurationResolver.js';
+import { NotebookSetting } from '../../../../contrib/notebook/common/notebookCommon.js';
 
 type IStartSessionTask = (runtime: ILanguageRuntimeMetadata) => Promise<TestLanguageRuntimeSession>;
 
@@ -26,11 +28,13 @@ suite('Positron - RuntimeSessionService', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
 	const startReason = 'Test requested to start a runtime session';
 	const notebookUri = URI.file('/path/to/notebook');
+	const notebookParent = '/path/to';
 	let instantiationService: TestInstantiationService;
 	let languageRuntimeService: ILanguageRuntimeService;
 	let runtimeSessionService: IRuntimeSessionService;
 	let configService: TestConfigurationService;
 	let workspaceTrustManagementService: TestWorkspaceTrustManagementService;
+	let configurationResolverService: IConfigurationResolverService;
 	let manager: TestRuntimeSessionManager;
 	let runtime: ILanguageRuntimeMetadata;
 	let anotherRuntime: ILanguageRuntimeMetadata;
@@ -44,6 +48,7 @@ suite('Positron - RuntimeSessionService', () => {
 		runtimeSessionService = instantiationService.get(IRuntimeSessionService);
 		configService = instantiationService.get(IConfigurationService) as TestConfigurationService;
 		workspaceTrustManagementService = instantiationService.get(IWorkspaceTrustManagementService) as TestWorkspaceTrustManagementService;
+		configurationResolverService = instantiationService.get(IConfigurationResolverService);
 		manager = TestRuntimeSessionManager.instance;
 
 		// Dispose all sessions on teardown.
@@ -1181,5 +1186,101 @@ suite('Positron - RuntimeSessionService', () => {
 		// Verify the session's name has been updated
 		assert.strictEqual(session.dynState.sessionName, newName, 'Session name should be updated correctly');
 		assert.strictEqual(otherSession.dynState.sessionName, runtime.runtimeName, 'Other session name should remain unchanged');
+	});
+
+	suite('Working Directory Configuration', () => {
+		test('working directory is applied to notebook sessions when configured', async () => {
+			const workingDir = '/custom/working/directory';
+			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
+
+			const session = await startNotebook(runtime);
+
+			assert.strictEqual(session.metadata.workingDirectory, workingDir, 'Working directory should be set for notebook sessions');
+		});
+
+		test('working directory is default for console sessions even when notebook working directory is configured', async () => {
+			const workingDir = '/custom/working/directory';
+			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
+
+			const session = await startConsole(runtime);
+
+			assert.strictEqual(session.metadata.workingDirectory, undefined, 'Working directory should be undefined for console sessions');
+		});
+
+		test('working directory is default when configuration is empty string', async () => {
+			configService.setUserConfiguration(NotebookSetting.workingDirectory, '');
+
+			const session = await startNotebook(runtime);
+
+			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should be default for empty string');
+		});
+
+		test('working directory is default when configuration is whitespace only', async () => {
+			configService.setUserConfiguration(NotebookSetting.workingDirectory, '   ');
+
+			const session = await startNotebook(runtime);
+
+			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should be default for whitespace only');
+		});
+
+		test('working directory supports variable resolution for notebook sessions', async () => {
+			const workingDir = '/workspace/folder';
+			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
+
+			// Create a mock that actually resolves variables
+			const mockConfigResolver = configurationResolverService as any;
+			mockConfigResolver.resolveAsync = sinon.stub().resolves('/resolved/workspace/folder');
+
+			const session = await startNotebook(runtime);
+
+			assert.strictEqual(session.metadata.workingDirectory, '/resolved/workspace/folder', 'Working directory should be resolved');
+			sinon.assert.calledOnce(mockConfigResolver.resolveAsync);
+		});
+
+		test('working directory falls back to default when resolution fails for notebook sessions', async () => {
+			const workingDir = '/workspace/folder';
+			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
+
+			// Create a mock that throws an error during resolution
+			const mockConfigResolver = configurationResolverService as any;
+			mockConfigResolver.resolveAsync = sinon.stub().rejects(new Error('Resolution failed'));
+
+			const session = await startNotebook(runtime);
+
+			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should fall back to default');
+			sinon.assert.calledOnce(mockConfigResolver.resolveAsync);
+		});
+
+		test('working directory falls back to default when it doesnt exist', async () => {
+			const workingDir = '/non/existent/directory';
+			configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir);
+
+			const session = await startNotebook(runtime);
+
+			assert.strictEqual(session.metadata.workingDirectory, notebookParent, 'Working directory should fall back to default for non-existent directory');
+		});
+
+		test('working directory is resource-scoped for notebook sessions', async () => {
+			const workingDir = '/notebook/specific/directory';
+			await configService.setUserConfiguration(NotebookSetting.workingDirectory, workingDir, notebookUri);
+
+			const session = await startNotebook(runtime);
+
+			assert.strictEqual(session.metadata.workingDirectory, workingDir, 'Working directory should be resource-scoped');
+		});
+
+		test('working directory differs between console and notebook sessions', async () => {
+			const consoleWorkingDir = '/console/directory';
+			const notebookWorkingDir = '/notebook/directory';
+
+			await configService.setUserConfiguration(NotebookSetting.workingDirectory, consoleWorkingDir);
+			await configService.setUserConfiguration(NotebookSetting.workingDirectory, notebookWorkingDir, notebookUri);
+
+			const consoleSession = await startConsole(runtime);
+			const notebookSession = await startNotebook(runtime);
+
+			assert.strictEqual(consoleSession.metadata.workingDirectory, undefined, 'Console session should not use working directory configuration');
+			assert.strictEqual(notebookSession.metadata.workingDirectory, notebookWorkingDir, 'Notebook session should use resource-scoped configuration');
+		});
 	});
 });

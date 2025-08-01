@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -11,7 +11,6 @@ import re
 import threading
 import warnings
 from functools import lru_cache
-from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Type, Union, cast
 
 from comm.base_comm import BaseComm
@@ -248,7 +247,7 @@ class HelpTopicRequest:
 class PositronInitializationOptions:
     """Positron-specific language server initialization options."""
 
-    notebook_path: Optional[Path] = attrs.field(default=None)
+    working_directory: Optional[str] = attrs.field(default=None)
 
 
 class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
@@ -285,10 +284,7 @@ class PositronJediLanguageServerProtocol(JediLanguageServerProtocol):
             server.show_message_log(msg, msg_type=MessageType.Error)
             initialization_options = PositronInitializationOptions()
 
-        # If a notebook path was provided, set the project path to the notebook's parent.
-        # See https://github.com/posit-dev/positron/issues/5948.
-        notebook_path = initialization_options.notebook_path
-        path = notebook_path.parent if notebook_path else self._server.workspace.root_path
+        path = initialization_options.working_directory or self._server.workspace.root_path
 
         # Create the Jedi Project.
         # Note that this overwrites a Project already created in the parent class.
