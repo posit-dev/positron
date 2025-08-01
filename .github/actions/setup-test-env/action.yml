@@ -36,13 +36,14 @@ runs:
       with:
         tinytex: true
 
-    - name: Setup Conda (Miniforge3)
+    - name: Install Miniforge (always)
       uses: conda-incubator/setup-miniconda@v3
       with:
         miniforge-variant: Miniforge3
-        miniforge-version: latest
         auto-activate-base: false
-        conda-prefix: ~/miniforge3
+        conda-remove-defaults: true
+        channels: conda-forge
+        channel-priority: strict
 
     - name: Setup Python
       uses: ./.github/actions/install-python

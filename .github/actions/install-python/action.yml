@@ -82,46 +82,63 @@ runs:
         # Verify that Python is reset
         python --version
 
-    - name: Create Conda Environment with Python 3.12 in ~/scratch
-      if: ${{ inputs.install_undetectable_interpreters == 'true' }}
-      shell: bash
+    - name: Setup Conda Python 3.12 env in scratch
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        miniforge-variant: Miniforge3
+        python-version: 3.12.10
+        activate-environment: ~/scratch/python-env
+        auto-activate-base: false
+        conda-remove-defaults: true
+        channels: conda-forge
+        channel-priority: strict
+
+    - name: Verify Conda Python Installation
+      shell: bash -el {0}
       run: |
-        set -e  # Exit immediately if any command fails
+        conda info
+        conda list
 
-        echo "Setting up Conda environment with Python 3.12..."
+    # - name: Create Conda Environment with Python 3.12 in ~/scratch
+    #   if: ${{ inputs.install_undetectable_interpreters == 'true' }}
+    #   shell: bash
+    #   run: |
+    #     set -e  # Exit immediately if any command fails
 
-        # Ensure Conda is available
-        source "$HOME/miniforge3/etc/profile.d/conda.sh"
+    #     echo "Setting up Conda environment with Python 3.12..."
 
-        # Clean up all channel config and enforce conda-forge only
-        conda config --remove-key channels || true
-        conda config --add channels conda-forge
-        conda config --set channel_priority strict
-        conda config --set conda-remove-defaults true
+    #     # Ensure Conda from setup-miniconda is available
+    #     source "$CONDA/etc/profile.d/conda.sh"
 
-        # Define environment path
-        CONDA_ENV_DIR="$HOME/scratch/python-env"
+    #     # Clean up all channel config and enforce conda-forge only
+    #     conda config --remove-key channels || true
+    #     conda config --add channels conda-forge
+    #     conda config --set channel_priority strict
+    #     conda config --set conda-remove-defaults true
 
-        # Create a new Conda environment with Python 3.12
-        conda create -y --override-channels -c conda-forge -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
+    #     # Define environment path
+    #     CONDA_ENV_DIR="$HOME/scratch/python-env"
 
-        # Verify Python installation
-        PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
+    #     # Create a new Conda environment with Python 3.12
+    #     conda create -y --override-channels -c conda-forge -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
 
-        if [[ -x "$PYTHON_BIN" ]]; then
-            echo "Python successfully installed in Conda environment at $PYTHON_BIN"
-            $PYTHON_BIN --version
-        else
-            echo "Error: Python binary not found in Conda environment!"
-            exit 1
-        fi
+    #     # Verify Python installation
+    #     PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
 
-        # Verify Python modules are working
-        echo "Checking if Python modules work..."
-        $PYTHON_BIN -c "import venv, sys; print(f'Python {sys.version} modules are working!')"
+    #     if [[ -x "$PYTHON_BIN" ]]; then
+    #         echo "Python successfully installed in Conda environment at $PYTHON_BIN"
+    #         $PYTHON_BIN --version
+    #     else
+    #         echo "Error: Python binary not found in Conda environment!"
+    #         exit 1
+    #     fi
 
-        # Final verification
-        echo "Final Python check..."
-        $PYTHON_BIN -c "import sys; print(f'Python {sys.version} is working!')"
+    #     # Verify Python modules are working
+    #     echo "Checking if Python modules work..."
+    #     $PYTHON_BIN -c "import venv, sys; print(f'Python {sys.version} modules are working!')"
 
-        echo "Miniconda-based Python 3.12 setup complete!"
+    #     # Final verification
+    #     echo "Final Python check..."
+    #     $PYTHON_BIN -c "import sys; print(f'Python {sys.version} is working!')"
+
+    #     echo "Miniconda-based Python 3.12 setup complete!"
