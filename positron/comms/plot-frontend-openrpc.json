@@ -8,7 +8,16 @@
 		{
 			"name": "update",
 			"summary": "Notification that a plot has been updated on the backend.",
-			"params": []
+			"params": [
+				{
+					"name": "pre_render",
+					"description": "Optional pre-rendering data for immediate display",
+					"required": false,
+					"schema": {
+						"$ref": "../src/vs/workbench/services/languageRuntime/common/plot.json#/definitions/PlotResult"
+					}
+				}
+			]
 		},
 		{
 			"name": "show",

@@ -17,6 +17,7 @@ from typing import Any, List, Literal, Optional, Union
 
 from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictInt, StrictStr
 
+from .../src/vs/workbench/services/languageRuntime/common/plot_comm import PlotResult
 
 @enum.unique
 class PlotUnit(str, enum.Enum):
@@ -68,6 +69,7 @@ class IntrinsicSize(BaseModel):
     )
 
 
+
 class PlotResult(BaseModel):
     """
     A rendered plot
@@ -87,6 +89,7 @@ class PlotResult(BaseModel):
     )
 
 
+
 class PlotSize(BaseModel):
     """
     The size of a plot
@@ -99,6 +102,7 @@ class PlotSize(BaseModel):
     width: StrictInt = Field(
         description="The plot's width, in pixels",
     )
+
 
 
 class PlotRenderSettings(BaseModel):
@@ -119,6 +123,7 @@ class PlotRenderSettings(BaseModel):
     )
 
 
+
 @enum.unique
 class PlotBackendRequest(str, enum.Enum):
     """
@@ -131,7 +136,6 @@ class PlotBackendRequest(str, enum.Enum):
     # Render a plot
     Render = "render"
 
-
 class GetIntrinsicSizeRequest(BaseModel):
     """
     The intrinsic size of a plot is the size at which a plot would be if
@@ -143,10 +147,8 @@ class GetIntrinsicSizeRequest(BaseModel):
     )
 
     jsonrpc: str = Field(
-        default="2.0",
-        description="The JSON-RPC version specifier",
+        default="2.0",        description="The JSON-RPC version specifier",
     )
-
 
 class RenderParams(BaseModel):
     """
@@ -167,7 +169,6 @@ class RenderParams(BaseModel):
         description="The requested plot format",
     )
 
-
 class RenderRequest(BaseModel):
     """
     Requests a plot to be rendered. The plot data is returned in a
@@ -183,10 +184,8 @@ class RenderRequest(BaseModel):
     )
 
     jsonrpc: str = Field(
-        default="2.0",
-        description="The JSON-RPC version specifier",
+        default="2.0",        description="The JSON-RPC version specifier",
     )
-
 
 class PlotBackendMessageContent(BaseModel):
     comm_id: str
@@ -194,7 +193,6 @@ class PlotBackendMessageContent(BaseModel):
         GetIntrinsicSizeRequest,
         RenderRequest,
     ] = Field(..., discriminator="method")
-
 
 @enum.unique
 class PlotFrontendEvent(str, enum.Enum):
@@ -208,6 +206,14 @@ class PlotFrontendEvent(str, enum.Enum):
     # Show a plot.
     Show = "show"
 
+class UpdateParams(BaseModel):
+    """
+    Notification that a plot has been updated on the backend.
+    """
+
+    pre_render: Optional[PlotResult] = Field(
+        description="Optional pre-rendering data for immediate display",
+    )
 
 IntrinsicSize.update_forward_refs()
 
@@ -222,3 +228,6 @@ GetIntrinsicSizeRequest.update_forward_refs()
 RenderParams.update_forward_refs()
 
 RenderRequest.update_forward_refs()
+
+UpdateParams.update_forward_refs()
+
