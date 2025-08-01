@@ -92,13 +92,14 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:14
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:15
+      options: --user 0:0
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_USER }}
         password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:14
+        image: ghcr.io/posit-dev/positron-postgres-initialized:15
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_USER }}
           password: ${{ secrets.POSITRON_GITHUB_PAT }}
@@ -121,6 +122,9 @@ jobs:
       E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
       E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
+      PATH: /root/.rig/bin:${PATH}
     steps:
       - uses: actions/checkout@v4
 
@@ -181,9 +185,6 @@ jobs:
 
       - name: Alter AppArmor Restrictions for Playwright (Electron)
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
-
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
 
       - name: Run Playwright Tests (Electron)
         shell: bash
