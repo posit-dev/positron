@@ -92,13 +92,13 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:12
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:13
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_USER }}
         password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:12
+        image: ghcr.io/posit-dev/positron-postgres-initialized:13
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_USER }}
           password: ${{ secrets.POSITRON_GITHUB_PAT }}
