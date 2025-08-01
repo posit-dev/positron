@@ -552,10 +552,7 @@ async function verifyPlotInNewWindow(app: Application, language: "Python" | "R",
 		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 	});
 	await test.step('Open plot in new window', async () => {
-		await plots.openPlotInEditor();
-		await plots.waitForPlotInEditor();
-		await expect(plots.savePlotFromEditorButton).toBeVisible();
-		await app.workbench.quickaccess.runCommand('workbench.action.closeActiveEditor');
+		await plots.openPlotInNewWindow();
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 }
