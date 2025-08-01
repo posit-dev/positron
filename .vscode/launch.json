@@ -203,6 +203,18 @@
 			}
 		},
 		{
+			"name": "Extension Tests - positron-r",
+			"type": "extensionHost",
+			"request": "launch",
+			"args": [
+				"--extensionDevelopmentPath=${workspaceFolder}/extensions/positron-r",
+				"--extensionTestsPath=${workspaceFolder}/extensions/positron-r/out/test"
+			],
+			"outFiles": [
+				"${workspaceFolder}/extensions/positron-r/out/**/*.js"
+			]
+		},
+		{
 			"type": "extensionHost",
 			"request": "launch",
 			"name": "VS Code Tokenizer Performance Tests",
