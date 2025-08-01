@@ -9,23 +9,22 @@ import { PlaywrightDriver } from './playwrightDriver';
 import { IElectronConfiguration, resolveElectronConfiguration } from './electron';
 import { measureAndLog } from './logger';
 import { ChildProcess } from 'child_process';
-//import * as fs from 'fs';
+import * as fs from 'fs';
 
-/*const isDocker = () => {
+const isDocker = () => {
 	return fs.existsSync('/.dockerenv') ||
 		fs.readFileSync('/proc/1/cgroup', 'utf8').includes('docker');
-};*/
+};
 
 export async function launch(options: LaunchOptions): Promise<{ electronProcess: ChildProcess; driver: PlaywrightDriver; electronApp: playwright.ElectronApplication }> {
 
 	// Resolve electron config and update
 	const { electronPath, args, env } = await resolveElectronConfiguration(options);
 	args.push('--enable-smoke-test-driver');
-	//if (isDocker()) {
-	args.push('--disable-dev-shm-usage');
-	args.push('--disable-gpu');
-	args.push('--no-sandbox');
-	//}
+	if (isDocker()) {
+		args.push('--disable-dev-shm-usage');
+		args.push('--no-sandbox');
+	}
 
 	// Launch electron via playwright
 	const { electron, context, page } = await launchElectron({ electronPath, args, env }, options);
