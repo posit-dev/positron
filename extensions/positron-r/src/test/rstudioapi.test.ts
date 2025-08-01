@@ -11,11 +11,17 @@ import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as assert from 'assert';
 import { withRSession, waitForSuccess as pollForSuccess } from './utils';
+import { delay } from '../util';
 
 suite('RStudio API', () => {
 	test('Navigate to file', async () => {
 		await withRSession(async (_ses) => {
-			const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rstudioapi-test'));
+			await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+
+			// Use `realpathSync()` to match `normalizePath()` treatment on the R side.
+			// Otherwise our `/vars/...` tempfile becomes `/private/vars/...` and it
+			// doesn't look like the same file is being opened.
+			const tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'rstudioapi-test')));
 
 			const fooUri = vscode.Uri.file(path.join(tmpDir, 'foo.R'));
 			const barUri = vscode.Uri.file(path.join(tmpDir, 'bar.R'));
@@ -32,7 +38,6 @@ suite('RStudio API', () => {
 			const assertSelectedEditor = async (uri: vscode.Uri, text: string) => {
 				// Poll for success because we can't synchronise `navigateToFile` reliably
 				await pollForSuccess(() => {
-					assert.strictEqual(1, 2);
 					const ed = vscode.window.activeTextEditor;
 
 					if (ed === undefined || ed.document.uri.fsPath !== uri.fsPath) {
@@ -44,16 +49,16 @@ suite('RStudio API', () => {
 						text,
 						`Unexpected editor contents for ${uri.fsPath}`
 					);
-				})
+				});
 			};
 
 			// Assert defensively that bar.R is selected
-			assertSelectedEditor(barUri, 'this-is-bar');
+			await assertSelectedEditor(barUri, 'this-is-bar');
 
-			await positron.runtime.executeCode('r', '.rs.api.navigateToFile("foo.R")', false)
+			await positron.runtime.executeCode('r', `.rs.api.navigateToFile('${fooUri.fsPath}')`, false);
 
 			// Now foo.R should be selected
-			assertSelectedEditor(barUri, 'this-is-bar');
+			await assertSelectedEditor(fooUri, 'this-is-foo');
 		});
 	});
 
