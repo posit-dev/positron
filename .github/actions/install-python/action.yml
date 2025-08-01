@@ -103,7 +103,7 @@ runs:
         CONDA_ENV_DIR="$HOME/scratch/python-env"
 
         # Create a new Conda environment with Python 3.12
-        conda create -y -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
+        conda create -y --override-channels -c conda-forge -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
 
         # Verify Python installation
         PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
