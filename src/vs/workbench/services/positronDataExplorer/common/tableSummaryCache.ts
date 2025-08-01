@@ -78,22 +78,22 @@ export class TableSummaryCache extends Disposable {
 	private readonly _expandedColumns = new Set<number>();
 
 	/**
-	 * A map of the column schema that is keyed by the order
-	 * the column appears in the data grid.
+	 * A map of the column metadata where the key is the column index
+	 * of the column from the original dataset.
 	 *
-	 * A key of 0 refers to the first column in the data grid.
-	 * A key of 1 refers to the second column in the data grid,
-	 * and so on.
+	 * A key of 0 refers to the first column of the data.
+	 * A key of 1 refers to the second column of the data.
+	 * A key of N refers to the Nth+1 column of the data.
 	 */
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
 
 	/**
-	 * A map of the column summary data that is keyed by the order
-	 * the column appears in the data grid.
+	 * A map of the column summary data where the key is the column index
+	 * of the column from the original dataset.
 	 *
-	 * A key of 0 refers to the first column in the data grid.
-	 * A key of 1 refers to the second column in the data grid,
-	 * and so on.
+	 * A key of 0 refers to the first column of the data.
+	 * A key of 1 refers to the second column of the data.
+	 * A key of N refers to the Nth+1 column of the data.
 	 */
 	private readonly _columnProfileCache = new Map<number, ColumnProfileResult>();
 
@@ -544,7 +544,7 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * Trims the cache.
+	 * Trims the data in the cache that is not contained between start and end column index.
 	 * @param startColumnIndex The start column index.
 	 * @param endColumnIndex The end column index.
 	 */
