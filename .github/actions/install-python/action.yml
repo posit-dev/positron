@@ -96,7 +96,7 @@ runs:
     - name: Install Conda (Miniconda from Anaconda)
       uses: conda-incubator/setup-miniconda@v3
       with:
-        miniconda-installer-url: https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+        installer-url: https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
         auto-activate-base: false
         channels: conda-forge,defaults
         channel-priority: strict
