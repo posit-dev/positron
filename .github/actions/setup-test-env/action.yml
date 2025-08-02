@@ -35,13 +35,6 @@ runs:
         GH_TOKEN: ${{ inputs.github-token }}
       with:
         tinytex: true
-    # - name: Patch Conda config to avoid defaults
-    #   shell: bash
-    #   run: |
-    #     conda config --remove-key channels || true
-    #     conda config --add channels conda-forge
-    #     conda config --set channel_priority strict
-    #     conda config --set conda-remove-defaults true
 
     - name: Setup Python
       uses: ./.github/actions/install-python

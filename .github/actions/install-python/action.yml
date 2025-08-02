@@ -104,6 +104,15 @@ runs:
         channels: conda-forge
         channel-priority: strict
 
+    - name: Patch Conda config to avoid defaults
+      shell: bash
+      run: |
+        conda config --remove-key channels || true
+        conda config --add channels conda-forge
+        conda config --set channel_priority strict
+        conda config --set conda-remove-defaults true
+
+        conda config --show | grep conda-remove-defaults
 
     # - name: Create Conda Environment with Python 3.12 in ~/scratch
     #   if: ${{ inputs.install_undetectable_interpreters == 'true' }}
