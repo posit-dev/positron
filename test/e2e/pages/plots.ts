@@ -158,6 +158,21 @@ export class Plots {
 		await this.code.driver.page.locator('.codicon-go-to-file').click();
 	}
 
+	async openPlotInNewWindow() {
+		const { ContextMenu } = await import('./dialog-contextMenu.js');
+		const contextMenu = new ContextMenu(this.code, 'positron', process.platform);
+		const menuTrigger = this.code.driver.page.locator('button[aria-label="Select where to open plot"]');
+		const [newPage] = await Promise.all([
+			this.code.driver.page.context().waitForEvent('page', { timeout: process.env.CI ? 30000 : 15000 }),
+			contextMenu.triggerAndClick({
+				menuTrigger,
+				menuItemLabel: 'Open in new window'
+			})
+		]);
+		// increase timeout to prevent CI failures (it was working locally but failing in the CI)
+		await newPage.waitForLoadState('load', { timeout: process.env.CI ? 30000 : 15000 });
+	}
+
 	async waitForPlotInEditor() {
 		await expect(this.code.driver.page.locator('.editor-container img')).toBeVisible({ timeout: 30000 });
 	}
