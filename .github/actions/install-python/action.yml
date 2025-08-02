@@ -82,40 +82,32 @@ runs:
         # Verify that Python is reset
         python --version
 
+    - name: Install Conda (Miniconda from Anaconda)
+      uses: conda-incubator/setup-miniconda@v3
+      with:
+        installer-url: https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+        auto-activate-base: false
+        channels: conda-forge,defaults
+        channel-priority: strict
+
+    - name: Accept Anaconda ToS for defaults
+      shell: bash
+      run: |
+        conda tos accept --channel https://repo.anaconda.com/pkgs/main
+        conda tos accept --channel https://repo.anaconda.com/pkgs/r
+
     - name: Create Conda Environment with Python 3.12 in ~/scratch
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
-        set -e  # Exit immediately if any command fails
-
+        set -e
         echo "Setting up Conda environment with Python 3.12..."
 
-        # Ensure Conda is available
-        source "${CONDA}/etc/profile.d/conda.sh"
+        source "$CONDA/etc/profile.d/conda.sh"
 
-        # Define environment path
         CONDA_ENV_DIR="$HOME/scratch/python-env"
+        conda create -y --override-channels -c conda-forge -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
 
-        # Create a new Conda environment with Python 3.12
-        conda create -y -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
-
-        # Verify Python installation
-        PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
-
-        if [[ -x "$PYTHON_BIN" ]]; then
-            echo "Python successfully installed in Conda environment at $PYTHON_BIN"
-            $PYTHON_BIN --version
-        else
-            echo "Error: Python binary not found in Conda environment!"
-            exit 1
-        fi
-
-        # Verify Python modules are working
-        echo "Checking if Python modules work..."
-        $PYTHON_BIN -c "import venv, sys; print(f'Python {sys.version} modules are working!')"
-
-        # Final verification
-        echo "Final Python check..."
-        $PYTHON_BIN -c "import sys; print(f'Python {sys.version} is working!')"
-
-        echo "Miniconda-based Python 3.12 setup complete!"
+        echo "Verifying Python in Conda environment..."
+        "$CONDA_ENV_DIR/bin/python" --version
+        "$CONDA_ENV_DIR/bin/python" -c "import sys; print(f'Python {sys.version} is working!')"

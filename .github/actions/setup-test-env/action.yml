@@ -36,13 +36,6 @@ runs:
       with:
         tinytex: true
 
-    - name: Setup Conda (Miniforge3)
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniforge-variant: Miniforge3
-        miniforge-version: latest
-        auto-activate-base: false
-
     - name: Setup Python
       uses: ./.github/actions/install-python
       with:
