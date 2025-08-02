@@ -99,20 +99,16 @@ runs:
       uses: conda-incubator/setup-miniconda@v3
       with:
         miniforge-variant: Miniforge3
+        miniforge-version: latest
         auto-activate-base: false
         conda-remove-defaults: true
         channels: conda-forge
         channel-priority: strict
 
-    - name: Patch Conda config to avoid defaults
+    - name: Patch conda config to disable defaults
       shell: bash
-      run: |
-        conda config --remove-key channels || true
-        conda config --add channels conda-forge
-        conda config --set channel_priority strict
-        conda config --set conda-remove-defaults true
-
-        conda config --show | grep conda-remove-defaults
+      run:
+        conda config --show
 
     # - name: Create Conda Environment with Python 3.12 in ~/scratch
     #   if: ${{ inputs.install_undetectable_interpreters == 'true' }}
