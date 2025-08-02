@@ -97,18 +97,11 @@ runs:
       if: ${{ inputs.install_undetectable_interpreters != 'true' }}
       uses: conda-incubator/setup-miniconda@v3
       with:
-        miniforge-variant: Miniforge3
+        miniforge-variant: Miniconda3
         miniforge-version: latest
         auto-activate-base: false
         channels: conda-forge,defaults
         channel-priority: strict
-
-    # Conda 25.x removed the conda tos command.
-    - name: Downgrade Conda to 24.x to support tos acceptance
-      shell: bash
-      run: |
-        conda install -y -n base -c conda-forge conda=24.3
-        conda --version
 
     # Accept Anaconda Terms of Service for the defaults channel.
     # This is required in CI when running Chromium-based tests that trigger `create_conda.py`.
