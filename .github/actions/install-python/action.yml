@@ -90,7 +90,6 @@ runs:
         python-version: 3.12.10
         activate-environment: ~/scratch/python-env
         auto-activate-base: false
-        conda-remove-defaults: true
         channels: conda-forge
         channel-priority: strict
 
@@ -111,7 +110,6 @@ runs:
         conda config --remove-key channels || true
         conda config --add channels conda-forge
         conda config --set channel_priority strict
-        conda config --set conda-remove-defaults true
         conda config --show
 
     # - name: Create Conda Environment with Python 3.12 in ~/scratch
