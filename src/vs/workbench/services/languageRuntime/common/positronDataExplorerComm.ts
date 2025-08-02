@@ -27,14 +27,10 @@ export interface OpenDatasetResult {
  */
 export interface SearchSchemaResult {
 	/**
-	 * A schema containing matching columns up to the max_results limit
+	 * The column indices of the matching column indices in the indicated
+	 * sort order
 	 */
-	matches: TableSchema;
-
-	/**
-	 * The total number of columns matching the filter
-	 */
-	total_num_matches: number;
+	matches: Array<number>;
 
 }
 
@@ -1118,6 +1114,15 @@ export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataS
 export type ArraySelection = DataSelectionRange | DataSelectionIndices;
 
 /**
+ * Possible values for SortOrder in SearchSchema
+ */
+export enum SearchSchemaSortOrder {
+	Original = 'original',
+	Ascending = 'ascending',
+	Descending = 'descending'
+}
+
+/**
  * Possible values for ColumnDisplayType
  */
 export enum ColumnDisplayType {
@@ -1268,20 +1273,15 @@ export interface GetSchemaParams {
  */
 export interface SearchSchemaParams {
 	/**
-	 * Column filters to apply when searching
+	 * Column filters to apply when searching, can be empty
 	 */
 	filters: Array<ColumnFilter>;
 
 	/**
-	 * Index (starting from zero) of first result to fetch (for paging)
+	 * How to sort results: original in-schema order, alphabetical ascending
+	 * or descending
 	 */
-	start_index: number;
-
-	/**
-	 * Maximum number of resulting column schemas to fetch from the start
-	 * index
-	 */
-	max_results: number;
+	sort_order: SearchSchemaSortOrder;
 }
 
 /**
@@ -1518,21 +1518,18 @@ export class PositronDataExplorerComm extends PositronBaseComm {
 	}
 
 	/**
-	 * Search full, unfiltered table schema with column filters
+	 * Search table schema with column filters, optionally sort results
 	 *
-	 * Search full, unfiltered table schema for column names matching one or
-	 * more column filters
+	 * Search table schema with column filters, optionally sort results
 	 *
-	 * @param filters Column filters to apply when searching
-	 * @param startIndex Index (starting from zero) of first result to fetch
-	 * (for paging)
-	 * @param maxResults Maximum number of resulting column schemas to fetch
-	 * from the start index
+	 * @param filters Column filters to apply when searching, can be empty
+	 * @param sortOrder How to sort results: original in-schema order,
+	 * alphabetical ascending or descending
 	 *
 	 * @returns undefined
 	 */
-	searchSchema(filters: Array<ColumnFilter>, startIndex: number, maxResults: number): Promise<SearchSchemaResult> {
-		return super.performRpc('search_schema', ['filters', 'start_index', 'max_results'], [filters, startIndex, maxResults]);
+	searchSchema(filters: Array<ColumnFilter>, sortOrder: SearchSchemaSortOrder): Promise<SearchSchemaResult> {
+		return super.performRpc('search_schema', ['filters', 'sort_order'], [filters, sortOrder]);
 	}
 
 	/**
