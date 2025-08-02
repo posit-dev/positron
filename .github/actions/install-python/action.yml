@@ -101,13 +101,17 @@ runs:
         miniforge-variant: Miniforge3
         miniforge-version: latest
         auto-activate-base: false
-        conda-remove-defaults: true
+        # conda-remove-defaults: true
         channels: conda-forge
         channel-priority: strict
 
     - name: Patch conda config to disable defaults
       shell: bash
-      run:
+      run: |
+        conda config --remove-key channels || true
+        conda config --add channels conda-forge
+        conda config --set channel_priority strict
+        conda config --set conda-remove-defaults true
         conda config --show
 
     # - name: Create Conda Environment with Python 3.12 in ~/scratch
