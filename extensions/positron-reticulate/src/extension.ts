@@ -1030,6 +1030,39 @@ export function activate(context: vscode.ExtensionContext) {
 		})
 	);
 
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.reticulate.isEnabledExplicitlySet', async () => {
+			// This command is used to check if the reticulate runtime is explicitly enabled.
+			const config = vscode.workspace.getConfiguration('positron.reticulate');
+			const inspection = config.inspect<boolean>('enabled');
+
+			if (!inspection) {
+				// Should not happen, the config always exists
+				return false;
+			}
+
+			if (
+				inspection.globalValue !== undefined ||
+				inspection.workspaceValue !== undefined ||
+				inspection.workspaceFolderValue !== undefined
+			) {
+				// User set a value for one of the profiles
+				return true;
+			} else {
+				// user never set a value
+				return false;
+			}
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.reticulate.toggleEnabled', async () => {
+			const config = vscode.workspace.getConfiguration('positron.reticulate');
+			const currentValue = config.get<boolean>('enabled');
+			await config.update('enabled', !currentValue, vscode.ConfigurationTarget.Global);
+		})
+	);
+
 	context.subscriptions.push(reticulateProvider);
 
 	return reticulateProvider;
