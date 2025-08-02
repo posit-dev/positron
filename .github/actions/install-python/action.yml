@@ -103,6 +103,17 @@ runs:
         channels: conda-forge,defaults
         channel-priority: strict
 
+    - name: Upgrade Conda to support tos acceptance
+      shell: bash
+      run: |
+        conda install -y -n base -c conda-forge conda
+        conda --version
+
+    # Accept Anaconda Terms of Service for the defaults channel.
+    # This is required in CI when running Chromium-based tests that trigger `create_conda.py`.
+    # That script creates a new Conda environment without overriding channels, which causes Conda
+    # to pull from Anaconda-hosted defaults packages. Without this step, Conda will raise a
+    # CondaToSNonInteractiveError and fail to create the environment.
     - name: Accept Anaconda ToS for defaults
       shell: bash
       run: |
