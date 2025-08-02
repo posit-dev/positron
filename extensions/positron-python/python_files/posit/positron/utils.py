@@ -216,6 +216,11 @@ def guid():
     return str(uuid.uuid4())
 
 
+def var_guid():
+    """Generate a unique identifier for a variable."""
+    return f"var_{uuid.uuid4().hex}"
+
+
 def positron_ipykernel_usage():
     """
 

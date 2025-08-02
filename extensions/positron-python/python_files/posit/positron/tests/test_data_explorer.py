@@ -34,8 +34,10 @@ from ..data_explorer import (
     COMPARE_OPS,
     PANDAS_INFER_DTYPE_SIZE_LIMIT,
     SCHEMA_CACHE_THRESHOLD,
+    CodeSyntaxName,
     DataExplorerService,
     DataExplorerState,
+    FilterComparisonOp,
     PandasView,
     _get_float_formatter,
 )
@@ -53,7 +55,7 @@ from ..data_explorer_comm import (
     RowFilterTypeSupportStatus,
     SupportStatus,
 )
-from ..utils import guid
+from ..utils import guid, var_guid
 from .conftest import DummyComm, PositronShell
 from .test_variables import BIG_ARRAY_LENGTH, _assign_variables
 from .utils import dummy_rpc_request, json_rpc_notification, json_rpc_request
@@ -436,6 +438,23 @@ class DataExplorerFixture:
     def set_sort_columns(self, table_name, sort_keys=None):
         return self.do_json_rpc(table_name, "set_sort_columns", sort_keys=sort_keys)
 
+    def convert_to_code(
+        self,
+        table_name,
+        column_filters=None,
+        row_filters=None,
+        sort_keys=None,
+        code_syntax_name="",
+    ):
+        return self.do_json_rpc(
+            table_name,
+            "convert_to_code",
+            column_filters=column_filters or [],
+            row_filters=row_filters or [],
+            sort_keys=sort_keys or [],
+            code_syntax_name=CodeSyntaxName(code_syntax_name=code_syntax_name),
+        )
+
     def get_column_profiles(self, table_name, profiles, format_options=DEFAULT_FORMAT):
         callback_id = guid()
         result = self.do_json_rpc(
@@ -498,6 +517,43 @@ class DataExplorerFixture:
         response = self.set_sort_columns(table_id, sort_keys=[])
         assert response is None
         self.compare_tables(table_id, ex_unsorted_id, table.shape)
+
+    def check_conversion_case(
+        self,
+        table,
+        expected_table,
+        column_filters=None,
+        row_filters=None,
+        sort_keys=None,
+        code_syntax_name="pandas",
+    ):
+        table_id = var_guid()
+        ex_id = var_guid()
+        self.register_table(table_id, table)
+        self.register_table(ex_id, expected_table)
+
+        response = self.convert_to_code(
+            table_id, column_filters or [], row_filters or [], sort_keys or [], code_syntax_name
+        )
+        assert response["converted_code"] is not None
+
+        new_df_code = response["converted_code"]
+        print(f"new_df_code: {new_df_code}")
+
+        # added to ensure the new table is created in the shell's user namespace
+        # normally we dont want to create a new dataframe in this code
+        new_table_id = var_guid()
+        new_df_code[-1] = new_table_id + " = " + new_df_code[-1]
+        new_df_code = "\n".join(new_df_code)
+        self.shell.user_ns[table_id] = table
+
+        self.shell.run_cell(new_df_code).raise_error()
+
+        new_df = pd.DataFrame(self.shell.user_ns[new_table_id])
+        print(f"new_df: {new_df}")
+        print(f"expected_table: {expected_table}\n--------")
+        self.register_table(new_table_id, new_df)
+        self.compare_tables(new_table_id, ex_id, table.shape)
 
     def compare_tables(self, table_id: str, expected_id: str, table_shape: tuple):
         state = self.get_state(table_id)
@@ -638,20 +694,12 @@ def test_pandas_supported_features(dxf: DataExplorerFixture):
 
 def test_pandas_get_schema(dxf: DataExplorerFixture):
     cases = [
-        ([1, 2, 3, 4, 5], "int64", "number"),
-        ([True, False, True, None, True], "bool", "boolean"),
-        (["foo", "bar", None, "bar", "None"], "string", "string"),
-        (
-            np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float16),
-            "float16",
-            "number",
-        ),
-        (
-            np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float32),
-            "float32",
-            "number",
-        ),
-        ([0, 1.2, -4.5, 6, np.nan], "float64", "number"),
+        ([1, 2, 3, 4, 5], "int64", "number", None),
+        ([True, False, True, None, True], "bool", "boolean", None),
+        (["foo", "bar", None, "bar", "None"], "string", "string", None),
+        (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float16), "float16", "number", None),
+        (np.array([0, 1.2, -4.5, 6, np.nan], dtype=np.float32), "float32", "number", None),
+        ([0, 1.2, -4.5, 6, np.nan], "float64", "number", None),
         (
             pd.to_datetime(
                 [
@@ -664,40 +712,34 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             ),
             "datetime64[ns]",
             "datetime",
+            None,
         ),
-        ([None, MyData(5), MyData(-1), None, None], "mixed", "object"),
-        (["foo", 1, None, "str", False], "mixed-integer", "object"),
-        (np.array([1, 2, 3.5, None, 5], dtype=object), "mixed-integer-float", "object"),
+        ([None, MyData(5), MyData(-1), None, None], "mixed", "object", None),
+        (["foo", 1, None, "str", False], "mixed-integer", "object", None),
+        (np.array([1, 2, 3.5, None, 5], dtype=object), "mixed-integer-float", "object", None),
         (
             np.array([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], dtype="complex64"),
             "complex64",
             "number",
+            None,
         ),
-        ([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], "complex128", "number"),
-        ([None] * 5, "empty", "unknown"),
+        ([1 + 1j, 2 + 2j, 3 + 3j, 4 + 4j, 5 + 5j], "complex128", "number", None),
+        ([None] * 5, "empty", "unknown", None),
         # NA-enabled numbers
-        (pd.Series([1, 2, None, 3, 4], dtype="Int8"), "Int8", "number"),
-        (pd.Series([1, 2, None, 3, 4], dtype="Int16"), "Int16", "number"),
-        (pd.Series([1, 2, None, 3, 4], dtype="Int32"), "Int32", "number"),
-        (pd.Series([1, 2, None, 3, 4], dtype="Int64"), "Int64", "number"),
-        (pd.Series([1, 2, None, 3, 4], dtype="UInt8"), "UInt8", "number"),
-        (pd.Series([1, 2, None, 3, 4], dtype="UInt16"), "UInt16", "number"),
-        (pd.Series([1, 2, None, 3, 4], dtype="UInt32"), "UInt32", "number"),
-        (pd.Series([1, 2, None, 3, 4], dtype="UInt64"), "UInt64", "number"),
-        (pd.Series([1, 2, None, 3, 4], dtype="Float32"), "Float32", "number"),
-        (pd.Series([1, 2, None, 3, 4], dtype="Float64"), "Float64", "number"),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int8"), "Int8", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int16"), "Int16", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int32"), "Int32", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Int64"), "Int64", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt8"), "UInt8", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt16"), "UInt16", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt32"), "UInt32", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="UInt64"), "UInt64", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Float32"), "Float32", "number", None),
+        (pd.Series([1, 2, None, 3, 4], dtype="Float64"), "Float64", "number", None),
         # NA boolean
-        (
-            pd.Series([True, False, None, None, True], dtype="boolean"),
-            "boolean",
-            "boolean",
-        ),
+        (pd.Series([True, False, None, None, True], dtype="boolean"), "boolean", "boolean", None),
         # NA string
-        (
-            pd.Series(["foo", "bar", None, "baz", "qux"], dtype="string"),
-            "string",
-            "string",
-        ),
+        (pd.Series(["foo", "bar", None, "baz", "qux"], dtype="string"), "string", "string", None),
         (
             np.array(
                 ["NaT", 3600000000000, -3600000000000, 0, 0],
@@ -705,6 +747,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             ),
             "timedelta64[ns]",
             "interval",
+            None,
         ),
         (
             np.array(
@@ -721,6 +764,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
                 ).dtype
             ),
             "interval",
+            None,
         ),
         # datetimetz
         (
@@ -736,18 +780,16 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             ),
             "datetime64[ns, US/Eastern]",
             "datetime",
+            "US/Eastern",
         ),
         # categorical
         (
             pd.Series(["foo", "bar", "foo", "baz", "qux"], dtype="category"),
             "category",
             "string",
+            None,
         ),
-        (
-            pd.Series([0, 1, 0, 1, 0], dtype="category"),
-            "category",
-            "number",
-        ),
+        (pd.Series([0, 1, 0, 1, 0], dtype="category"), "category", "number", None),
     ]
 
     if hasattr(np, "complex256"):
@@ -760,6 +802,7 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
                 ),
                 "complex256",
                 "number",
+                None,
             )
         )
 
@@ -769,11 +812,12 @@ def test_pandas_get_schema(dxf: DataExplorerFixture):
             "column_index": i,
             "type_name": type_name,
             "type_display": type_display,
+            "timezone": tz,
         }
-        for i, (_, type_name, type_display) in enumerate(cases)
+        for i, (_, type_name, type_display, tz) in enumerate(cases)
     ]
 
-    test_df = pd.DataFrame({f"f{i}": data for i, (data, _, _) in enumerate(cases)})
+    test_df = pd.DataFrame({f"f{i}": data for i, (data, _, _, _) in enumerate(cases)})
     dxf.register_table("full_schema", test_df)
     result = dxf.get_schema("full_schema", list(range(100)))
 
@@ -1199,6 +1243,7 @@ def test_pandas_extension_dtypes(dxf: DataExplorerFixture):
             "column_index": 0,
             "type_name": "datetime64[ns, US/Eastern]",
             "type_display": "datetime",
+            "timezone": "US/Eastern",
         },
         {
             "column_name": "arrow_bools",
@@ -3926,3 +3971,256 @@ def test_polars_profile_summary_stats(dxf: DataExplorerFixture):
 
         stats = results[0]["summary_stats"]
         assert_summary_stats_equal(stats["type_display"], stats, ex_result)
+
+
+# ----------------------------------------------------------------------
+# Code converter tests
+
+
+def test_convert_pandas_filter_is_null_true(dxf: DataExplorerFixture):
+    test_df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema_for(test_df)
+    b_is_null = _filter("is_null", schema[1])
+    b_not_null = _filter("not_null", schema[1])
+    b_is_true = _filter("is_true", schema[1])
+    b_is_false = _filter("is_false", schema[1])
+    c_not_null = _filter("not_null", schema[2])
+
+    cases = [
+        [
+            [b_is_null],
+            test_df[test_df["b"].isna()],
+        ],
+        [
+            [b_not_null],
+            test_df[test_df["b"].notna()],
+        ],
+        [
+            [b_is_true],
+            test_df[test_df["b"] == True],
+        ],
+        [
+            [b_is_false],
+            test_df[test_df["b"] == False],
+        ],
+        [
+            [b_not_null, c_not_null],
+            test_df[test_df["b"].notna() & test_df["c"].notna()],
+        ],
+    ]
+
+    for filter_set, expected_df in cases:
+        dxf.check_conversion_case(
+            test_df, expected_df, row_filters=filter_set, code_syntax_name="pandas"
+        )
+
+
+def test_convert_pandas_filter_empty(dxf: DataExplorerFixture):
+    test_df = pd.DataFrame(
+        {
+            "a": ["foo1", "foo2", "", "2FOO", "FOO3", "bar1", "2BAR"],
+            "b": [1, 11, 31, 22, 24, 62, 89],
+        }
+    )
+
+    dxf.register_table("test_df", test_df)
+    schema = dxf.get_schema("test_df")
+    a_is_empty = _filter("is_empty", schema[0])
+    a_is_not_empty = _filter("not_empty", schema[0])
+
+    cases = [
+        [
+            [a_is_empty],
+            test_df[test_df["a"].str.len() == 0],
+        ],
+        [
+            [a_is_not_empty],
+            test_df[test_df["a"].str.len() > 0],
+        ],
+    ]
+    for filter_set, expected_df in cases:
+        dxf.check_conversion_case(
+            test_df, expected_df, row_filters=filter_set, code_syntax_name="pandas"
+        )
+
+
+def test_convert_pandas_filter_search(dxf: DataExplorerFixture):
+    test_df = pd.DataFrame(
+        {
+            "a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"],
+            "b": [1, 11, 31, 22, 24, 62, 89],
+        }
+    )
+
+    dxf.register_table("test_df", test_df)
+    schema = dxf.get_schema("test_df")
+
+    # (search_type, column_schema, term, case_sensitive, boolean mask)
+    # TODO (iz): make this more DRY since we have another test for search filters
+    cases = [
+        (
+            "contains",
+            schema[0],
+            "foo",
+            False,
+            test_df["a"].str.lower().str.contains("foo"),
+        ),
+        ("contains", schema[0], "foo", True, test_df["a"].str.contains("foo")),
+        (
+            "not_contains",
+            schema[0],
+            "foo",
+            False,
+            ~test_df["a"].str.lower().str.contains("foo", na=True),
+        ),
+        (
+            "not_contains",
+            schema[0],
+            "foo",
+            True,
+            ~test_df["a"].str.contains("foo", na=True),
+        ),
+        (
+            "starts_with",
+            schema[0],
+            "foo",
+            False,
+            test_df["a"].str.lower().str.startswith("foo"),
+        ),
+        (
+            "starts_with",
+            schema[0],
+            "foo",
+            True,
+            test_df["a"].str.startswith("foo"),
+        ),
+        (
+            "ends_with",
+            schema[0],
+            "foo",
+            False,
+            test_df["a"].str.lower().str.endswith("foo"),
+        ),
+        (
+            "ends_with",
+            schema[0],
+            "foo",
+            True,
+            test_df["a"].str.endswith("foo"),
+        ),
+        (
+            "regex_match",
+            schema[0],
+            "f[o]+",
+            False,
+            test_df["a"].str.match("f[o]+", case=False),
+        ),
+        (
+            "regex_match",
+            schema[0],
+            "f[o]+[^o]*",
+            True,
+            test_df["a"].str.match("f[o]+[^o]*", case=True),
+        ),
+    ]
+
+    for search_type, column_schema, term, cs, mask in cases:
+        search_filter = _search_filter(
+            column_schema,
+            term,
+            case_sensitive=cs,
+            search_type=search_type,
+        )
+
+        mask[mask.isna()] = False
+        expected_df = test_df[mask.astype(bool)]
+        dxf.check_conversion_case(
+            test_df,
+            expected_df,
+            row_filters=[search_filter],
+            code_syntax_name="pandas",
+        )
+
+
+def test_convert_pandas_filter_between(dxf: DataExplorerFixture):
+    test_df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")
+
+    cases = [
+        (schema[0], 2, 4),  # a column
+        (schema[0], 0, 2),  # d column
+    ]
+
+    for column_schema, left_value, right_value in cases:
+        col = test_df.iloc[:, column_schema["column_index"]]
+
+        ex_between = test_df[(col >= left_value) & (col <= right_value)]
+        ex_not_between = test_df[(col < left_value) | (col > right_value)]
+
+        dxf.check_conversion_case(
+            test_df,
+            ex_between,
+            row_filters=[_between_filter(column_schema, str(left_value), str(right_value))],
+            code_syntax_name="pandas",
+        )
+        dxf.check_conversion_case(
+            test_df,
+            ex_not_between,
+            row_filters=[_not_between_filter(column_schema, str(left_value), str(right_value))],
+            code_syntax_name="pandas",
+        )
+
+
+def test_convert_pandas_filter_compare(dxf: DataExplorerFixture):
+    # Just use the 'a' column to smoke test comparison filters on
+    # integers
+    test_df = SIMPLE_PANDAS_DF
+    column = "a"
+    schema = dxf.get_schema("simple")
+
+    for op, op_func in COMPARE_OPS.items():
+        filt = _compare_filter(schema[0], op, 3)
+        expected_df = test_df[op_func(test_df[column], 3)]
+        dxf.check_conversion_case(
+            test_df, expected_df, row_filters=[filt], code_syntax_name="pandas"
+        )
+
+
+def test_convert_pandas_filter_datetimetz(dxf: DataExplorerFixture):
+    tz = pytz.timezone("US/Eastern")
+
+    test_df = pd.DataFrame(
+        {
+            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+        }
+    )
+    dxf.register_table("dtz", test_df)
+    schema = dxf.get_schema("dtz")
+
+    val = tz.localize(datetime.datetime(2000, 1, 3))  # noqa: DTZ001
+
+    for op, op_func in COMPARE_OPS.items():
+        filt = _compare_filter(schema[0], op, "2000-01-03")
+        expected_df = test_df[op_func(test_df["date"], val)]
+        dxf.check_conversion_case(
+            test_df, expected_df, row_filters=[filt], code_syntax_name="pandas"
+        )
+
+
+def test_convert_sort_and_filter(dxf: DataExplorerFixture):
+    # Test that we can convert a sort and filter operation
+    test_df = SIMPLE_PANDAS_DF
+    schema = dxf.get_schema("simple")
+    filt = [_compare_filter(schema[2], FilterComparisonOp.Eq, "foo")]
+
+    sort_keys = [{"column_index": 0, "ascending": True}]
+
+    expected_df = test_df[test_df["c"] == "foo"].sort_values("a", ascending=True)  # type: ignore[call-arg]
+
+    dxf.check_conversion_case(
+        test_df,
+        expected_df,
+        row_filters=filt,
+        sort_keys=sort_keys,
+        code_syntax_name="pandas",
+    )
