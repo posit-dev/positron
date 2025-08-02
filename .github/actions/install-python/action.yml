@@ -82,17 +82,6 @@ runs:
         # Verify that Python is reset
         python --version
 
-    - name: Setup Conda Python 3.12 env in scratch
-      if: ${{ inputs.install_undetectable_interpreters == 'true' }}
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniforge-variant: Miniforge3
-        python-version: 3.12.10
-        activate-environment: ~/scratch/python-env
-        auto-activate-base: false
-        channels: conda-forge
-        channel-priority: strict
-
     - name: Install Conda (Miniconda from Anaconda)
       uses: conda-incubator/setup-miniconda@v3
       with:
@@ -100,65 +89,25 @@ runs:
         auto-activate-base: false
         channels: conda-forge,defaults
         channel-priority: strict
-    # Accept Anaconda Terms of Service for the defaults channel.
-    # This is required in CI when running Chromium-based tests that trigger `create_conda.py`.
-    # That script creates a new Conda environment without overriding channels, which causes Conda
-    # to pull from Anaconda-hosted defaults packages. Without this step, Conda will raise a
-    # CondaToSNonInteractiveError and fail to create the environment.
+
     - name: Accept Anaconda ToS for defaults
       shell: bash
       run: |
         conda tos accept --channel https://repo.anaconda.com/pkgs/main
         conda tos accept --channel https://repo.anaconda.com/pkgs/r
 
-    # - name: Patch conda config to disable defaults
-    #   shell: bash
-    #   run: |
-    #     conda config --remove-key channels || true
-    #     conda config --add channels conda-forge
-    #     conda config --set channel_priority strict
-    #     conda config --show
+    - name: Create Conda Environment with Python 3.12 in ~/scratch
+      if: ${{ inputs.install_undetectable_interpreters == 'true' }}
+      shell: bash
+      run: |
+        set -e
+        echo "Setting up Conda environment with Python 3.12..."
 
-    # - name: Create Conda Environment with Python 3.12 in ~/scratch
-    #   if: ${{ inputs.install_undetectable_interpreters == 'true' }}
-    #   shell: bash
-    #   run: |
-    #     set -e  # Exit immediately if any command fails
+        source "$CONDA/etc/profile.d/conda.sh"
 
-    #     echo "Setting up Conda environment with Python 3.12..."
+        CONDA_ENV_DIR="$HOME/scratch/python-env"
+        conda create -y --override-channels -c conda-forge -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
 
-    #     # Ensure Conda from setup-miniconda is available
-    #     source "$CONDA/etc/profile.d/conda.sh"
-
-    #     # Clean up all channel config and enforce conda-forge only
-    #     conda config --remove-key channels || true
-    #     conda config --add channels conda-forge
-    #     conda config --set channel_priority strict
-    #     conda config --set conda-remove-defaults true
-
-    #     # Define environment path
-    #     CONDA_ENV_DIR="$HOME/scratch/python-env"
-
-    #     # Create a new Conda environment with Python 3.12
-    #     conda create -y --override-channels -c conda-forge -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
-
-    #     # Verify Python installation
-    #     PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
-
-    #     if [[ -x "$PYTHON_BIN" ]]; then
-    #         echo "Python successfully installed in Conda environment at $PYTHON_BIN"
-    #         $PYTHON_BIN --version
-    #     else
-    #         echo "Error: Python binary not found in Conda environment!"
-    #         exit 1
-    #     fi
-
-    #     # Verify Python modules are working
-    #     echo "Checking if Python modules work..."
-    #     $PYTHON_BIN -c "import venv, sys; print(f'Python {sys.version} modules are working!')"
-
-    #     # Final verification
-    #     echo "Final Python check..."
-    #     $PYTHON_BIN -c "import sys; print(f'Python {sys.version} is working!')"
-
-    #     echo "Miniconda-based Python 3.12 setup complete!"
+        echo "Verifying Python in Conda environment..."
+        "$CONDA_ENV_DIR/bin/python" --version
+        "$CONDA_ENV_DIR/bin/python" -c "import sys; print(f'Python {sys.version} is working!')"
