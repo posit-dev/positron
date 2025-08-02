@@ -103,10 +103,11 @@ runs:
         channels: conda-forge,defaults
         channel-priority: strict
 
-    - name: Upgrade Conda to support tos acceptance
+    # Conda 25.x removed the conda tos command.
+    - name: Downgrade Conda to 24.x to support tos acceptance
       shell: bash
       run: |
-        conda install -y -n base -c conda-forge conda
+        conda install -y -n base -c conda-forge conda=24.3
         conda --version
 
     # Accept Anaconda Terms of Service for the defaults channel.
