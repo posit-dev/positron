@@ -135,6 +135,40 @@ export class QuickChatService extends Disposable implements IQuickChatService {
 		await this._currentChat?.openChatView();
 		this.close();
 	}
+	// --- Start Positron ---
+	openOne(options?: IQuickChatOpenOptions): void {
+		const disposableStore = new DisposableStore();
+
+		const input = this.quickInputService.createQuickWidget();
+		input.contextKey = 'chatInputVisible';
+		input.ignoreFocusOut = true;
+		disposableStore.add(input);
+
+		const container = dom.$('.interactive-session');
+		input.widget = container;
+
+		input.show();
+		const chat = this.instantiationService.createInstance(QuickChat);
+
+		// show needs to come after the quickpick is shown
+		chat.render(container);
+
+		disposableStore.add(input.onDidHide(() => {
+			disposableStore.dispose();
+			chat.hide();
+			this._onDidClose.fire();
+		}));
+
+		chat.focus();
+
+		if (options?.query) {
+			chat.setValue(options.query, options.selection);
+			if (!options.isPartialQuery) {
+				chat.acceptInput();
+			}
+		}
+	}
+	// --- End Positron ---
 }
 
 class QuickChat extends Disposable {

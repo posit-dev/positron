@@ -14,6 +14,7 @@ import { localize } from '../../../../../nls.js';
 import { ConsoleOutputLines } from './consoleOutputLines.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { ActivityItemErrorMessage } from '../../../../services/positronConsole/browser/classes/activityItemErrorMessage.js';
+import { ConsoleQuickFix } from './activityErrorQuickFix.js';
 
 // ActivityErrorProps interface.
 export interface ActivityErrorMessageProps {
@@ -81,6 +82,8 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 		);
 	};
 
+
+
 	// Render.
 	return (
 		<div ref={activityErrorMessageRef} className='activity-error-message'>
@@ -89,9 +92,12 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 				{props.activityItemErrorMessage.messageOutputLines.length > 0 &&
 					<ConsoleOutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
 				}
-				{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
-					<Traceback />
-				}
+				<div className='error-footer'>
+					{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
+						<Traceback />
+					}
+					<ConsoleQuickFix />
+				</div>
 			</div>
 		</div>
 	);
