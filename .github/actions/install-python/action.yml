@@ -93,16 +93,13 @@ runs:
         channels: conda-forge
         channel-priority: strict
 
-    - name: Install Conda (Miniforge) (always)
-      if: ${{ inputs.install_undetectable_interpreters != 'true' }}
+    - name: Install Conda (Miniconda from Anaconda)
       uses: conda-incubator/setup-miniconda@v3
       with:
-        miniforge-variant: Miniconda3
-        miniforge-version: latest
+        miniconda-installer-url: https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
         auto-activate-base: false
         channels: conda-forge,defaults
         channel-priority: strict
-
     # Accept Anaconda Terms of Service for the defaults channel.
     # This is required in CI when running Chromium-based tests that trigger `create_conda.py`.
     # That script creates a new Conda environment without overriding channels, which causes Conda
