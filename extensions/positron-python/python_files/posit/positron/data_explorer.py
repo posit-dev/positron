@@ -2412,7 +2412,7 @@ class PolarsView(DataExplorerTableView):
             "Object": "object",
             "List": "array",
             "Struct": "struct",
-            "Categorical": "categorical",
+            "Categorical": "string",
             "Enum": "unknown",
             "Null": "unknown",  # Not yet implemented
             "Unknown": "unknown",
@@ -2422,7 +2422,8 @@ class PolarsView(DataExplorerTableView):
     @classmethod
     def _get_type_display(cls, dtype: pl.DataType):
         key = str(dtype.base_type())
-        return cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
+        type_display = cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
+        return ColumnDisplayType(type_display)
 
     def _search_schema(
         self, filters: list[ColumnFilter], start_index: int, max_results: int
