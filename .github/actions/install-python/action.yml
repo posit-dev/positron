@@ -89,7 +89,7 @@ runs:
         # miniforge-version: latest
         installer-url: https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
         auto-activate-base: false
-        channels: conda-forge
+        channels: conda-forge,defaults  # Defaults included only to suppress warnings; all packages are still resolved from conda-forge
         conda-remove-defaults: "true"
         channel-priority: strict
 

@@ -123,7 +123,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         ]
         # If the --override-conda-forge flag is passed, we force Conda to use only the conda-forge channel.
         # This is especially helpful in CI where ToS issues with the defaults channel can break setup.
-        if args.override_conda_forge:
+        if args.override_conda_forge or os.environ.get("CI") == "true":
+            print("Using conda-forge only due to --override-conda-forge or CI=true")
             cmd += ["--override-channels", "-c", "conda-forge"]
 
         run_process(
