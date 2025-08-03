@@ -113,9 +113,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         print(f"EXISTING_CONDA_ENV:{env_path}")
     else:
         # --- Start Positron ---
-        use_conda_forge = os.environ.get("E2E") == "true"
-        if use_conda_forge:
-            print("Using conda-forge only due to E2E=true")
+        use_conda_forge = os.environ.get("PW_TEST") == "1"
 
         cmd = [
             sys.executable,
@@ -129,6 +127,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         ]
 
         if use_conda_forge:
+            print("Using conda-forge only due to PW_TEST=1")
             cmd.extend(["--override-channels", "-c", "conda-forge"])
 
         run_process(
