@@ -97,12 +97,13 @@ runs:
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
-        set -e # Exit immediately if any command fails
+        set -e  # Exit immediately if any command fails
         echo "Setting up Conda environment with Python 3.12..."
 
         # Ensure Conda is available
         source "$CONDA/etc/profile.d/conda.sh"
 
+        # Define environment path
         CONDA_ENV_DIR="$HOME/scratch/python-env"
         # NOTE: now that we're using Miniforge, conda-forge is the default and override is no longer strictly necessary,
         # but we keep it to prevent any unintentional fallback if configs change.
