@@ -44,6 +44,12 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         metavar="NAME",
         action="store",
     )
+    parser.add_argument(
+        "--override-conda-forge",
+        action="store_true",
+        default=False,
+        help="Use conda-forge only as the channel source.",
+    )
     return parser.parse_args(argv)
 
 
@@ -104,19 +110,27 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         env_path = get_conda_env_path(args.name)
         print(f"EXISTING_CONDA_ENV:{env_path}")
     else:
+        # --- Positron Start ---
+        cmd = [
+            sys.executable,
+            "-m",
+            "conda",
+            "create",
+            "--yes",
+            "--prefix",
+            args.name,
+            f"python={args.python}",
+        ]
+        # If the --override-conda-forge flag is passed, we force Conda to use only the conda-forge channel.
+        # This is especially helpful in CI where ToS issues with the defaults channel can break setup.
+        if args.override_conda_forge:
+            cmd += ["--override-channels", "-c", "conda-forge"]
+
         run_process(
-            [
-                sys.executable,
-                "-m",
-                "conda",
-                "create",
-                "--yes",
-                "--prefix",
-                args.name,
-                f"python={args.python}",
-            ],
+            cmd,
             "CREATE_CONDA.ENV_FAILED_CREATION",
         )
+        # --- Positron End ---
         env_path = get_conda_env_path(args.name)
         print(f"CREATED_CONDA_ENV:{env_path}")
         if args.git_ignore:

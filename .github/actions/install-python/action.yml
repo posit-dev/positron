@@ -83,18 +83,15 @@ runs:
         python --version
 
     - name: Install Conda (Miniconda from Anaconda)
+      # Miniforge avoids Anaconda ToS and defaults to conda-forge
       uses: conda-incubator/setup-miniconda@v3
       with:
-        installer-url: https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+        # miniforge-version: latest
+        installer-url: https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
         auto-activate-base: false
-        channels: conda-forge,defaults
+        channels: conda-forge
+        conda-remove-defaults: "true"
         channel-priority: strict
-
-    - name: Accept Anaconda ToS for defaults
-      shell: bash
-      run: |
-        conda tos accept --channel https://repo.anaconda.com/pkgs/main
-        conda tos accept --channel https://repo.anaconda.com/pkgs/r
 
     - name: Create Conda Environment with Python 3.12 in ~/scratch
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
@@ -106,6 +103,8 @@ runs:
         source "$CONDA/etc/profile.d/conda.sh"
 
         CONDA_ENV_DIR="$HOME/scratch/python-env"
+        # NOTE: now that we're using Miniforge, conda-forge is the default and override is no longer strictly necessary,
+        # but we keep it to prevent any unintentional fallback if configs change.
         conda create -y --override-channels -c conda-forge -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
 
         echo "Verifying Python in Conda environment..."
