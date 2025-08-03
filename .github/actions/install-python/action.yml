@@ -97,9 +97,10 @@ runs:
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
       run: |
-        set -e
+        set -e # Exit immediately if any command fails
         echo "Setting up Conda environment with Python 3.12..."
 
+        # Ensure Conda is available
         source "$CONDA/etc/profile.d/conda.sh"
 
         CONDA_ENV_DIR="$HOME/scratch/python-env"
@@ -110,3 +111,5 @@ runs:
         echo "Verifying Python in Conda environment..."
         "$CONDA_ENV_DIR/bin/python" --version
         "$CONDA_ENV_DIR/bin/python" -c "import sys; print(f'Python {sys.version} is working!')"
+
+        echo "Miniconda-based Python 3.12 setup complete!"
