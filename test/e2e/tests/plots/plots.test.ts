@@ -25,9 +25,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
-			await hotKeys.fullSizeSecondarySidebar();
+			await hotKeys.showSecondarySidebar();
 			await app.workbench.plots.clearPlots();
 			await app.workbench.plots.waitForNoPlots();
+			await hotKeys.closeAllEditors();
 		});
 
 		test.afterAll(async function ({ cleanup }) {
@@ -36,13 +37,12 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('Python - Verify basic plot functionality - Dynamic Plot', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger, headless }, testInfo) {
-			// modified snippet from https://www.geeksforgeeks.org/python-pandas-dataframe/
-			logger.log('Sending code to console');
-			await app.workbench.console.executeCode('Python', pythonDynamicPlot);
-			await app.workbench.plots.waitForCurrentPlot();
+		}, async function ({ app, headless, hotKeys }, testInfo) {
+			const { console, plots, toasts, clipboard } = app.workbench;
 
-			await app.workbench.toasts.closeAll();
+			await console.pasteCodeToConsole(pythonDynamicPlot, true);
+			await plots.waitForCurrentPlot();
+			await toasts.closeAll();
 
 			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
 			await compareImages({
@@ -54,38 +54,37 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			if (!headless) {
-				await app.workbench.plots.copyCurrentPlotToClipboard();
+				await plots.copyCurrentPlotToClipboard();
 
-				let clipboardImageBuffer = await app.workbench.clipboard.getClipboardImage();
+				let clipboardImageBuffer = await clipboard.getClipboardImage();
 				expect(clipboardImageBuffer).not.toBeNull();
 
-				await app.workbench.clipboard.clearClipboard();
-				clipboardImageBuffer = await app.workbench.clipboard.getClipboardImage();
+				await clipboard.clearClipboard();
+				clipboardImageBuffer = await clipboard.getClipboardImage();
 				expect(clipboardImageBuffer).toBeNull();
 			}
 
 			await test.step('Verify plot can be opened in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
-				await app.workbench.plots.waitForPlotInEditor();
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+				await plots.clickGoToFileButton();
+				await plots.waitForPlotInEditor();
+				await hotKeys.closeAllEditors();
 			});
 
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.plots.clearPlots();
-			await app.workbench.layouts.enterLayout('stacked');
-			await app.workbench.plots.waitForNoPlots();
+			await test.step('Verify plot can be copied to clipboard', async () => {
+				await plots.copyCurrentPlotToClipboard();
+			});
 		});
 
 		test('Python - Verify basic plot functionality - Static Plot', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger }, testInfo) {
-			logger.log('Sending code to console');
-			await app.workbench.console.executeCode('Python', pythonStaticPlot);
-			await app.workbench.plots.waitForCurrentStaticPlot();
+		}, async function ({ app, hotKeys, contextMenu }, testInfo) {
+			const { console, plots, toasts } = app.workbench;
 
-			await app.workbench.toasts.closeAll();
+			await console.pasteCodeToConsole(pythonStaticPlot, true);
+			await plots.waitForCurrentStaticPlot();
+			await toasts.closeAll();
 
-			const buffer = await app.workbench.plots.getCurrentStaticPlotAsBuffer();
+			const buffer = await plots.getCurrentStaticPlotAsBuffer();
 			await compareImages({
 				app,
 				buffer,
@@ -95,15 +94,20 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			await test.step('Verify plot can be opened in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
-				await app.workbench.plots.waitForPlotInEditor();
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+				await plots.clickGoToFileButton();
+				await plots.waitForPlotInEditor();
+				await hotKeys.closeAllEditors();
+			});
+
+			await test.step('Verify plot can be opened in new window', async () => {
+				const newPage = await plots.openPlotInNewWindow(contextMenu);
+				await plots.verifyNewWindowTitle(newPage, /plot-\d+/);
 			});
 
 		});
 
-		test('Python - Verify the plots pane action bar - Plot actions', { tag: [tags.WEB, tags.WIN] }, async function ({ app }) {
-			const plots = app.workbench.plots;
+		test('Python - Verify the plots pane action bar - Plot actions', { tag: [tags.WEB, tags.WIN] }, async function ({ app, hotKeys }) {
+			const { console, plots } = app.workbench;
 
 			// default plot pane state for action bar
 			await expect(plots.plotSizeButton).not.toBeVisible();
@@ -112,13 +116,13 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(plots.zoomPlotButton).not.toBeVisible();
 
 			// create plots separately so that the order is known
-			await app.workbench.console.executeCode('Python', pythonPlotActions1);
+			await console.pasteCodeToConsole(pythonPlotActions1, true);
 			await plots.waitForCurrentStaticPlot();
-			await app.workbench.console.executeCode('Python', pythonPlotActions2);
+			await console.pasteCodeToConsole(pythonPlotActions2, true);
 			await plots.waitForCurrentPlot();
 
 			// expand the plot pane to show the action bar
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+			await hotKeys.fullSizeSecondarySidebar();
 			await expect(plots.clearPlotsButton).not.toBeDisabled();
 			await expect(plots.nextPlotButton).toBeDisabled();
 			await expect(plots.previousPlotButton).not.toBeDisabled();
@@ -149,32 +153,30 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			await expect(plots.plotSizeButton).not.toBeDisabled();
 		});
 
-		test('Python - Verify opening plot in new window', { tag: [tags.WEB, tags.WIN, tags.PLOTS] }, async function ({ app }) {
-			await verifyPlotInNewWindow(app, 'Python', pythonDynamicPlot);
-		});
+		test('Python - Verify saving a Python plot', { tag: [tags.WIN] }, async function ({ app, contextMenu, hotKeys }) {
+			const { console, plots, explorer } = app.workbench;
 
-		test('Python - Verify saving a Python plot', { tag: [tags.WIN] }, async function ({ app }) {
 			await test.step('Sending code to console to create plot', async () => {
-				await app.workbench.console.executeCode('Python', pythonDynamicPlot);
-				await app.workbench.plots.waitForCurrentPlot();
-				await app.workbench.layouts.enterLayout('fullSizedAuxBar');
+				await console.pasteCodeToConsole(pythonDynamicPlot, true);
+				await plots.waitForCurrentPlot();
+				await hotKeys.fullSizeSecondarySidebar();
 			});
 
 			await test.step('Save plot', async () => {
-				await app.workbench.plots.savePlotFromPlotsPane({ name: 'Python-scatter', format: 'JPEG' });
-				await app.workbench.layouts.enterLayout('stacked');
-				await app.workbench.explorer.verifyExplorerFilesExist(['Python-scatter.jpeg']);
+				await plots.savePlotFromPlotsPane({ name: 'Python-scatter', format: 'JPEG' });
+				await hotKeys.stackedLayout();
+				await explorer.verifyExplorerFilesExist(['Python-scatter.jpeg']);
 			});
 
 			await test.step('Open plot in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
-				await app.workbench.plots.waitForPlotInEditor();
+				await plots.openPlotInEditor2(contextMenu);
+				await plots.waitForPlotInEditor();
 			});
 
 			await test.step('Save plot from editor', async () => {
-				await app.workbench.plots.savePlotFromEditor({ name: 'Python-scatter-editor', format: 'JPEG' });
-				await app.workbench.explorer.verifyExplorerFilesExist(['Python-scatter-editor.jpeg']);
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+				await plots.savePlotFromEditor({ name: 'Python-scatter-editor', format: 'JPEG' });
+				await explorer.verifyExplorerFilesExist(['Python-scatter-editor.jpeg']);
+				await hotKeys.closeAllEditors();
 			});
 
 		});
@@ -343,6 +345,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test.afterEach(async function ({ app, hotKeys }) {
+			await hotKeys.closeAllEditors();
 			await hotKeys.fullSizeSecondarySidebar();
 			await app.workbench.plots.clearPlots();
 			await app.workbench.plots.waitForNoPlots();
@@ -354,14 +357,13 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 		test('R - Verify basic plot functionality', {
 			tag: [tags.CRITICAL, tags.WEB, tags.WIN]
-		}, async function ({ app, logger, headless }, testInfo) {
-			logger.log('Sending code to console');
-			await app.workbench.console.executeCode('R', rBasicPlot);
-			await app.workbench.plots.waitForCurrentPlot();
+		}, async function ({ app, headless, hotKeys, contextMenu }, testInfo) {
+			const { console, plots, toasts } = app.workbench;
+			await console.pasteCodeToConsole(rBasicPlot, true);
+			await plots.waitForCurrentPlot();
+			await toasts.closeAll();
 
-			await app.workbench.toasts.closeAll();
-
-			const buffer = await app.workbench.plots.getCurrentPlotAsBuffer();
+			const buffer = await plots.getCurrentPlotAsBuffer();
 			await compareImages({
 				app,
 				buffer,
@@ -371,7 +373,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			if (!headless) {
-				await app.workbench.plots.copyCurrentPlotToClipboard();
+				await plots.copyCurrentPlotToClipboard();
 
 				let clipboardImageBuffer = await app.workbench.clipboard.getClipboardImage();
 				expect(clipboardImageBuffer).not.toBeNull();
@@ -382,24 +384,20 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			}
 
 			await test.step('Verify plot can be opened in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
-				await app.workbench.plots.waitForPlotInEditor();
-				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
+				await plots.clickGoToFileButton();
+				await plots.waitForPlotInEditor();
+				await hotKeys.closeAllEditors();
 			});
 
-			await app.workbench.layouts.enterLayout('fullSizedAuxBar');
-			await app.workbench.plots.clearPlots();
-			await app.workbench.layouts.enterLayout('stacked');
-			await app.workbench.plots.waitForNoPlots();
+			await test.step('Verify plot can be opened in new window', async () => {
+				const newPage = await plots.openPlotInNewWindow(contextMenu);
+				await plots.verifyNewWindowTitle(newPage, /plot-\d+/);
+			});
 		});
 
-		test('R - Verify opening plot in new window', { tag: [tags.WEB, tags.WIN, tags.PLOTS] }, async function ({ app }) {
-			await verifyPlotInNewWindow(app, 'R', rBasicPlot);
-		});
-
-		test('R - Verify saving an R plot', { tag: [tags.WIN] }, async function ({ app }) {
+		test('R - Verify saving an R plot', { tag: [tags.WIN] }, async function ({ app, contextMenu }) {
 			await test.step('Sending code to console to create plot', async () => {
-				await app.workbench.console.executeCode('R', rSavePlot);
+				await app.workbench.console.pasteCodeToConsole(rSavePlot, true);
 				await app.workbench.plots.waitForCurrentPlot();
 			});
 
@@ -414,7 +412,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			await test.step('Open plot in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
+				await app.workbench.plots.openPlotInEditor2(contextMenu);
 				await app.workbench.plots.waitForPlotInEditor();
 			});
 
@@ -510,7 +508,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await app.workbench.layouts.enterLayout('stacked');
 		});
-
 	});
 });
 
@@ -542,18 +539,6 @@ async function runScriptAndValidatePlot(app: Application, script: string, locato
 		await app.workbench.console.waitForConsoleExecution({ timeout: 15000 });
 		await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
 	}, 'Send code to console and verify plot renders').toPass({ timeout: 60000 });
-}
-
-async function verifyPlotInNewWindow(app: Application, language: "Python" | "R", plotCode: string) {
-	const plots = app.workbench.plots;
-	await test.step(`Create a ${language} plot`, async () => {
-		await app.workbench.console.executeCode(language, plotCode);
-		await plots.waitForCurrentPlot();
-	});
-	await test.step('Open plot in new window', async () => {
-		await plots.openPlotInNewWindow();
-		await app.workbench.layouts.enterLayout('stacked');
-	});
 }
 
 async function compareImages({
