@@ -33,7 +33,7 @@ if TYPE_CHECKING:
     import sqlalchemy
     from comm.base_comm import BaseComm
 
-    from .positron_ipkernel import PositronIPyKernel
+    from .kernel.ipkernel import PositronIPythonKernel
 
 
 logger = logging.getLogger(__name__)
@@ -162,7 +162,7 @@ class Connection:
 class ConnectionsService:
     """A service that manages connections to data sources."""
 
-    def __init__(self, kernel: PositronIPyKernel, comm_target_name: str):
+    def __init__(self, kernel: PositronIPythonKernel, comm_target_name: str):
         self.comms: dict[str, PositronComm] = {}
         self.comm_id_to_connection: dict[str, Connection] = {}
         self._kernel = kernel

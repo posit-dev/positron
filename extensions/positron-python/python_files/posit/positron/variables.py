@@ -48,7 +48,7 @@ if TYPE_CHECKING:
 
     from comm.base_comm import BaseComm
 
-    from .positron_ipkernel import PositronIPyKernel
+    from .kernel.ipkernel import PositronIPythonKernel
 
 logger = logging.getLogger(__name__)
 
@@ -95,7 +95,7 @@ def _resolve_value_from_path(context: Any, path: Iterable[str]) -> Any:
 
 
 class VariablesService:
-    def __init__(self, kernel: PositronIPyKernel) -> None:
+    def __init__(self, kernel: PositronIPythonKernel) -> None:
         self.kernel = kernel
 
         self._comm: PositronComm | None = None
@@ -500,7 +500,10 @@ class VariablesService:
         """Use %reset with the soft switch to delete all user defined variables from the environment."""
         # Run the %reset magic to clear user variables
         code = "%reset -sf"
+        await self.kernel.execute_request(self.kernel.shell_stream, self.kernel.shellso)
         await self.kernel.do_execute(code, silent=False, store_history=False)
+
+        self.kernel.execute_request()
 
         # Publish an input to inform clients of the "delete all" operation
         self.kernel.publish_execute_input(code, parent)

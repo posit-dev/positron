@@ -5,7 +5,7 @@
 
 import logging
 
-from ..session_mode import SessionMode
+from ..kernel.session_mode import SessionMode
 
 logger = logging.getLogger(__name__)
 

@@ -122,7 +122,7 @@ from .utils import debounce
 
 if TYPE_CHECKING:
     from ._vendor.jedi.api.classes import Completion
-    from .positron_ipkernel import PositronShell
+    from .kernel.shell import PositronShell
 
 
 logger = logging.getLogger(__name__)

@@ -30,7 +30,7 @@ from .ui_comm import (
 from .utils import JsonData, JsonRecord, alias_home, is_local_html_file
 
 if TYPE_CHECKING:
-    from .positron_ipkernel import PositronIPyKernel
+    from .kernel.ipkernel import PositronIPythonKernel
 
 logger = logging.getLogger(__name__)
 
@@ -54,7 +54,7 @@ class _InvalidParamsError(Exception):
     pass
 
 
-def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bool:
+def _is_module_loaded(kernel: "PositronIPythonKernel", params: List[JsonData]) -> bool:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], str)):
         raise _InvalidParamsError(f"Expected a module name, got: {params}")
     # Consider: this is not a perfect check for a couple of reasons:
@@ -63,7 +63,9 @@ def _is_module_loaded(kernel: "PositronIPyKernel", params: List[JsonData]) -> bo
     return params[0] in kernel.shell.user_ns
 
 
-def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) -> Optional[JsonData]:
+def _get_loaded_modules(
+    kernel: "PositronIPythonKernel", _params: List[JsonData]
+) -> Optional[JsonData]:
     # Get all keys in the user namespace that start with a module prefix
     # (e.g., 'numpy', 'pandas', etc.)
     return [
@@ -73,7 +75,7 @@ def _get_loaded_modules(kernel: "PositronIPyKernel", _params: List[JsonData]) ->
     ]
 
 
-def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> None:
+def _set_console_width(_kernel: "PositronIPythonKernel", params: List[JsonData]) -> None:
     if not (isinstance(params, list) and len(params) == 1 and isinstance(params[0], int)):
         raise _InvalidParamsError(f"Expected an integer width, got: {params}")
 
@@ -110,7 +112,7 @@ def _set_console_width(_kernel: "PositronIPyKernel", params: List[JsonData]) -> 
         torch.set_printoptions(linewidth=width)
 
 
-_RPC_METHODS: Dict[str, Callable[["PositronIPyKernel", List[JsonData]], Optional[JsonData]]] = {
+_RPC_METHODS: Dict[str, Callable[["PositronIPythonKernel", List[JsonData]], Optional[JsonData]]] = {
     "setConsoleWidth": _set_console_width,
     "isModuleLoaded": _is_module_loaded,
     "getLoadedModules": _get_loaded_modules,
@@ -124,7 +126,7 @@ class UiService:
     Used for communication with the frontend, unscoped to any particular view.
     """
 
-    def __init__(self, kernel: "PositronIPyKernel") -> None:
+    def __init__(self, kernel: "PositronIPythonKernel") -> None:
         self.kernel = kernel
 
         self._comm: Optional[PositronComm] = None

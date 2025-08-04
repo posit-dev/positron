@@ -14,12 +14,10 @@ from traitlets.config import Config
 
 import positron.utils as utils
 from positron.connections import ConnectionsService
-from positron.positron_ipkernel import (
-    PositronIPKernelApp,
-    PositronIPyKernel,
-    PositronShell,
-)
-from positron.session_mode import SessionMode
+from positron.kernel.ipkernel import PositronIPythonKernel
+from positron.kernel.kernelapp import PositronIPKernelApp
+from positron.kernel.session_mode import SessionMode
+from positron.kernel.shell import PositronShell
 from positron.variables import VariablesService
 
 utils.TESTING = True
@@ -81,7 +79,7 @@ def _prepare_shell(shell: PositronShell) -> None:
 
 
 @pytest.fixture
-def kernel() -> PositronIPyKernel:
+def kernel() -> PositronIPythonKernel:
     """The Positron kernel, configured for testing purposes."""
     # Mock the application object. We haven't needed to use it in tests yet, but we do need it to
     # pass our custom attributes down to the shell.
@@ -95,10 +93,10 @@ def kernel() -> PositronIPyKernel:
     session = MockSession()
 
     try:
-        kernel = PositronIPyKernel.instance(parent=app, session=session)
+        kernel = PositronIPythonKernel.instance(parent=app, session=session)
     except Exception:
         print(
-            "Error instantiating PositronIPyKernel. Did you import IPython.conftest, "
+            "Error instantiating PositronIPythonKernel. Did you import IPython.conftest, "
             "which instantiates a different kernel class?"
         )
         raise
@@ -187,7 +185,7 @@ def mock_handle_request(monkeypatch: pytest.MonkeyPatch) -> Mock:
 
 
 @pytest.fixture
-def variables_service(kernel: PositronIPyKernel) -> VariablesService:
+def variables_service(kernel: PositronIPythonKernel) -> VariablesService:
     """The Positron variables service."""
     return kernel.variables_service
 
@@ -209,7 +207,7 @@ def variables_comm(variables_service: VariablesService) -> DummyComm:
 
 
 @pytest.fixture
-def de_service(kernel: PositronIPyKernel):
+def de_service(kernel: PositronIPythonKernel):
     """The Positron dataviewer service."""
     fixture = kernel.data_explorer_service
     yield fixture
@@ -217,7 +215,7 @@ def de_service(kernel: PositronIPyKernel):
 
 
 @pytest.fixture
-def connections_service(kernel: PositronIPyKernel) -> ConnectionsService:
+def connections_service(kernel: PositronIPythonKernel) -> ConnectionsService:
     """The Positron connections service."""
     return kernel.connections_service
 

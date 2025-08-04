@@ -34,7 +34,7 @@ from .utils import (
 )
 
 if TYPE_CHECKING:
-    from positron.positron_ipkernel import PositronIPyKernel
+    from positron.positron_ipkernel import PositronIPythonKernel
 
 BIG_ARRAY_LENGTH = 10_000_001
 TARGET_NAME = "target_name"
@@ -46,7 +46,7 @@ def _patch_variables_timestamp(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(variables_module, "timestamp", lambda: 0)
 
 
-def test_comm_open(kernel: PositronIPyKernel) -> None:
+def test_comm_open(kernel: PositronIPythonKernel) -> None:
     service = VariablesService(kernel)
 
     # Double-check that comm is not yet open

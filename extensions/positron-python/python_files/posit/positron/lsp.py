@@ -12,7 +12,7 @@ from comm.base_comm import BaseComm
 from .positron_jedilsp import POSITRON
 
 if TYPE_CHECKING:
-    from .positron_ipkernel import PositronIPyKernel
+    from .kernel.ipkernel import PositronIPythonKernel
 
 
 logger = logging.getLogger(__name__)
@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 class LSPService:
     """LSPService manages the positron.lsp comm and coordinates starting the LSP."""
 
-    def __init__(self, kernel: "PositronIPyKernel"):
+    def __init__(self, kernel: "PositronIPythonKernel"):
         self._kernel = kernel
         self._comm: Optional[BaseComm] = None
 

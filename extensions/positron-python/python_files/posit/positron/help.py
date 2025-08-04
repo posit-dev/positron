@@ -53,13 +53,13 @@ def help(topic="help"):  # noqa: A001
     >>> df = pandas.DataFrame()
     >>> help(df)
     """
-    from .positron_ipkernel import PositronIPyKernel
+    from .kernel.ipkernel import PositronIPythonKernel
 
-    if PositronIPyKernel.initialized():
-        kernel = PositronIPyKernel.instance()
+    if PositronIPythonKernel.initialized():
+        kernel = PositronIPythonKernel.instance()
         kernel.help_service.show_help(topic)
     else:
-        raise Exception("Unexpected error. No PositronIPyKernel has been initialized.")
+        raise Exception("Unexpected error. No PositronIPythonKernel has been initialized.")
 
 
 class HelpService:

@@ -2,18 +2,15 @@
 
 import argparse
 import asyncio
-import asyncio.events
 import logging
 import os
 import sys
 
-from positron.positron_ipkernel import (
-    PositronIPKernelApp,
-    PositronIPyKernel,
-    PositronShell,
-)
+from positron.kernel.ipkernel import PositronIPythonKernel
+from positron.kernel.kernelapp import PositronIPKernelApp
+from positron.kernel.shell import PositronShell
 from positron.positron_jedilsp import POSITRON
-from positron.session_mode import SessionMode
+from python_files.posit.positron.kernel.session_mode import SessionMode
 
 logger = logging.getLogger(__name__)
 
@@ -123,7 +120,7 @@ if __name__ == "__main__":
         args.connection_file = ""
 
     # Start Positron's IPyKernel as the interpreter for our console.
-    app: PositronIPKernelApp = PositronIPKernelApp.instance(
+    app = PositronIPKernelApp.instance(
         connection_file=args.connection_file,
         log_level=args.loglevel,
         logging_config=logging_config,
@@ -143,7 +140,7 @@ if __name__ == "__main__":
 
     # IPyKernel uses Tornado which (as of version 5.0) shares the same event
     # loop as asyncio.
-    loop: asyncio.events.AbstractEventLoop = asyncio.get_event_loop_policy().get_event_loop()
+    loop = asyncio.get_event_loop_policy().get_event_loop()
 
     # Enable asyncio debug mode.
     if args.loglevel == "DEBUG":
@@ -165,7 +162,7 @@ if __name__ == "__main__":
     # This allows re-starting the ipykernel in the same process, using different
     # connection strings, etc.
     PositronShell.clear_instance()
-    PositronIPyKernel.clear_instance()
+    PositronIPythonKernel.clear_instance()
     PositronIPKernelApp.clear_instance()
     app.close()
 

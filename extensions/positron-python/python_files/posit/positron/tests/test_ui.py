@@ -15,7 +15,7 @@ import pandas as pd
 import polars as pl
 import pytest
 
-from positron.positron_ipkernel import PositronIPyKernel, PositronShell
+from positron.positron_ipkernel import PositronIPythonKernel, PositronShell
 from positron.ui import UiService
 from positron.utils import alias_home
 
@@ -37,7 +37,7 @@ TARGET_NAME = "target_name"
 
 
 @pytest.fixture
-def ui_service(kernel: PositronIPyKernel) -> UiService:
+def ui_service(kernel: PositronIPythonKernel) -> UiService:
     """The Positron UI service."""
     return kernel.ui_service
 

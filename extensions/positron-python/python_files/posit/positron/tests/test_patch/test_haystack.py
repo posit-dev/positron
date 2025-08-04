@@ -16,7 +16,7 @@ def test_haystack_patch_automatically_applied(shell: PositronShell):
     This test verifies our patch for haystack is automatically applied during runtime startup,
     ensuring that Positron is recognized as a Jupyter environment by haystack.
 
-    The patch should already be applied by the PositronIPyKernel initialization,
+    The patch should already be applied by the PositronIPythonKernel initialization,
     so we just need to check if the functions return True without manually calling the patch.
     """
     # Run a cell to import is_in_jupyter and check if it's already patched

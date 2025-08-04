@@ -15,7 +15,7 @@ from PIL import Image
 
 from positron.plot_comm import PlotSize, PlotUnit
 from positron.plots import PlotsService
-from positron.positron_ipkernel import PositronIPyKernel, _CommTarget
+from positron.positron_ipkernel import PositronIPythonKernel, _CommTarget
 
 from .conftest import DummyComm, PositronShell
 from .utils import (
@@ -48,7 +48,7 @@ def import_pyplot(shell: PositronShell) -> None:
 
 
 @pytest.fixture
-def plots_service(kernel: PositronIPyKernel) -> Iterable[PlotsService]:
+def plots_service(kernel: PositronIPythonKernel) -> Iterable[PlotsService]:
     """The Positron plots service."""
     plots_service = kernel.plots_service
 
