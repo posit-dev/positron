@@ -113,7 +113,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         print(f"EXISTING_CONDA_ENV:{env_path}")
     else:
         # --- Start Positron ---
-        use_conda_forge = os.environ.get("PW_TEST") == "1"
+        is_playwright_test = os.environ.get("PW_TEST") == "1"
 
         cmd = [
             sys.executable,
@@ -126,12 +126,12 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
             f"python={args.python}",
         ]
 
-        if use_conda_forge:
+        if is_playwright_test:
             print("MARIE Using conda-forge only due to PW_TEST=1")
             cmd.extend(["--override-channels", "-c", "conda-forge"])
         else:
             print("MARIE Using default conda channels")
-            print("MARIE", os.environ.get("PW_TEST"))
+            print(f"MARIE PW_TEST env var: {os.environ.get('PW_TEST')}")
             print("MARIE", os.environ.get("PW_TEST") == "1")
 
         run_process(

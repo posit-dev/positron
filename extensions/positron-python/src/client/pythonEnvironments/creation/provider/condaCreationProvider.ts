@@ -98,6 +98,7 @@ async function createCondaEnv(
         cwd: workspace.uri.fsPath,
         env: {
             PATH: pathEnv,
+            PW_TEST: process.env.PW_TEST,
         },
     });
 
