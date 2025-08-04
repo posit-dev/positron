@@ -23,6 +23,17 @@ Param = Any
 CallMethodResult = Any
 
 
+@enum.unique
+class OpenEditorKind(str, enum.Enum):
+    """
+    Possible values for Kind in OpenEditor
+    """
+
+    Path = "path"
+
+    Uri = "uri"
+
+
 class EditorContext(BaseModel):
     """
     Editor metadata
@@ -295,8 +306,8 @@ class OpenEditorParams(BaseModel):
         description="The column number to jump to",
     )
 
-    uri: Optional[StrictBool] = Field(
-        description="Whether `path` is a URI",
+    kind: Optional[OpenEditorKind] = Field(
+        description="How to interpret the 'file' argument: as a file path or as a URI. If omitted, defaults to 'path'.",
     )
 
 

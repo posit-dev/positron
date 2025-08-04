@@ -52,11 +52,12 @@
 					}
 				},
 				{
-					"name": "uri",
-					"description": "Whether `path` is a URI",
+					"name": "kind",
+					"description": "How to interpret the 'file' argument: as a file path or as a URI. If omitted, defaults to 'path'.",
 					"required": false,
 					"schema": {
-						"type": "boolean"
+						"type": "string",
+						"enum": ["path", "uri"]
 					}
 				}
 			]
