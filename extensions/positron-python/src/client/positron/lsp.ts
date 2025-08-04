@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
@@ -90,7 +90,7 @@ export class PythonLsp implements vscode.Disposable {
             return out.promise;
         };
 
-        const { notebookUri } = this._metadata;
+        const { notebookUri, workingDirectory } = this._metadata;
 
         // If this client belongs to a notebook, set the document selector to only include that notebook.
         // Otherwise, this is the main client for this language, so set the document selector to include
@@ -127,7 +127,7 @@ export class PythonLsp implements vscode.Disposable {
         // If this server is for a notebook, set the notebook path option.
         if (notebookUri) {
             this._clientOptions.initializationOptions.positron = {
-                notebook_path: notebookUri.fsPath,
+                working_directory: workingDirectory,
             };
         }
 
