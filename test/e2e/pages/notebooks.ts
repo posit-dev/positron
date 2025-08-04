@@ -145,7 +145,7 @@ export class Notebooks {
 		});
 	}
 
-	async assertCellOutput(text: string): Promise<void> {
+	async assertCellOutput(text: string | RegExp): Promise<void> {
 		await expect(this.frameLocator.getByText(text)).toBeVisible({ timeout: 15000 });
 	}
 
