@@ -4,7 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as positron from 'positron';
+import * as vscode from 'vscode';
 import * as assert from 'assert';
+import * as path from 'path';
+import * as os from 'os';
+import * as fs from 'fs';
 import { RSession } from '../session';
 import { delay } from '../util';
 
@@ -16,7 +20,7 @@ export function createUniqueId(): string {
 	return Math.floor(Math.random() * 0x100000000).toString(16);
 }
 
-export async function startR(): Promise<RSession> {
+export async function startR(): Promise<[RSession, vscode.Disposable]> {
 	// There doesn't seem to be a method that resolves when a language is
 	// both discovered and ready to be started
 	let info;
@@ -40,23 +44,36 @@ export async function startR(): Promise<RSession> {
 		await delay(50);
 	}
 
-	return await positron.runtime.startLanguageRuntime(info!.runtimeId, 'Tests') as RSession;
+	const session = await positron.runtime.startLanguageRuntime(info!.runtimeId, 'Tests') as RSession;
+
+	const disposable = toDisposable(async () => {
+		await session.shutdown();
+		await session.dispose();
+	});
+
+	return [session, disposable];
 }
 
 /**
- * Starts an R session, runs the given closure, and ensures shutdown on exit.
- * @param fn The closure to run with the started RSession.
+ * Create a unique temporary directory and return its path along with a disposable that deletes it.
+ * The directory name includes the provided component and a unique suffix.
  */
-export async function withRSession<T>(
-	fn: (session: RSession) => Promise<T> | T
-): Promise<T> {
-	const session = await startR();
-	try {
-		return await fn(session);
-	} finally {
-		await session.shutdown();
-		await session.dispose();
-	}
+export function makeTempDirDisposable(component: string): [string, vscode.Disposable] {
+	const uniqueId = createUniqueId();
+	const dir = path.join(os.tmpdir(), `${component}-${uniqueId}`);
+	fs.mkdirSync(dir, { recursive: true });
+
+	// Use `realpathSync()` to match `normalizePath()` treatment on the R side.
+	// Otherwise our `/vars/...` tempfile becomes `/private/vars/...` and it
+	// might not look like the same file is being opened.
+	const realPath = fs.realpathSync(dir);
+
+	const disposable = toDisposable(() => {
+		// Recursively remove the directory and its contents
+		fs.rmSync(realPath, { recursive: true, force: true });
+	});
+
+	return [realPath, disposable];
 }
 
 /**
@@ -67,7 +84,7 @@ export async function withRSession<T>(
  * @param timeoutMs Timeout in milliseconds.
  * @param message Message for assertion error on timeout.
  */
-export async function waitForSuccess(
+export async function pollForSuccess(
 	predicate: () => void | Promise<void>,
 	intervalMs = 10,
 	timeoutMs = 5000,
@@ -91,4 +108,38 @@ export async function waitForSuccess(
 
 	// Run one last time, letting any assertion errors escape
 	return await predicate();
+}
+
+/**
+ * Utility to wrap a cleanup function as a vscode.Disposable.
+ */
+export function toDisposable(fn: () => void | Promise<void>): vscode.Disposable {
+	return {
+		dispose: fn
+	};
+}
+
+/**
+ * Disposes all disposables in the array in LIFO order, awaiting any promises returned.
+ */
+export async function disposeAll(disposables: vscode.Disposable[]) {
+	// Await in reverse order
+	for (let i = disposables.length - 1; i >= 0; i--) {
+		await disposables[i].dispose();
+	}
+}
+
+/**
+ * Runs a closure with a disposables array, ensuring all disposables are disposed in reverse order after execution.
+ * @param fn The closure to run, which receives the disposables array.
+ */
+export async function withDisposables<T>(
+	fn: (disposables: vscode.Disposable[]) => Promise<T> | T
+): Promise<T> {
+	const disposables: vscode.Disposable[] = [];
+	try {
+		return await fn(disposables);
+	} finally {
+		await disposeAll(disposables);
+	}
 }

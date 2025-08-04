@@ -3,25 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as os from 'os';
 import * as path from 'path';
-import * as fs from 'fs';
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as assert from 'assert';
-import { withRSession, waitForSuccess as pollForSuccess } from './utils';
-import { delay } from '../util';
+import { makeTempDirDisposable, pollForSuccess, startR, withDisposables } from './utils';
 
 suite('RStudio API', () => {
-	test('Navigate to file', async () => {
-		await withRSession(async (_ses) => {
+	test('Navigate to file (https://github.com/posit-dev/positron/issues/8374)', async () => {
+		await withDisposables(async (disposables) => {
+			const [_ses, sesDisposable] = await startR();
+			disposables.push(sesDisposable);
+
 			await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 
-			// Use `realpathSync()` to match `normalizePath()` treatment on the R side.
-			// Otherwise our `/vars/...` tempfile becomes `/private/vars/...` and it
-			// doesn't look like the same file is being opened.
-			const tmpDir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'rstudioapi-test')));
+			const [tmpDir, dirDisposable] = makeTempDirDisposable('rstudioapi-test');
+			disposables.push(dirDisposable);
 
 			const fooUri = vscode.Uri.file(path.join(tmpDir, 'foo.R'));
 			const barUri = vscode.Uri.file(path.join(tmpDir, 'bar.R'));
