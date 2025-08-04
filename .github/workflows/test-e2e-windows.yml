@@ -42,7 +42,7 @@ on:
         required: false
         description: "Comma-separated list of tags to skip."
         type: string
-        default: "@:nightly-only"
+        default: ""
 
   workflow_dispatch:
     inputs:
@@ -61,7 +61,7 @@ on:
         description: "Comma-separated list of tags to skip."
         type: string
         default: "@:nightly-only"
-        
+
 permissions:
   id-token: write
   contents: read
