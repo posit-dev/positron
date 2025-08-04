@@ -82,16 +82,6 @@ runs:
         # Verify that Python is reset
         python --version
 
-    # Miniforge avoids Anaconda ToS and defaults to conda-forge
-    - name: Setup Conda (Miniforge3)
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniforge-version: latest
-        auto-activate-base: false
-        channels: conda-forge,defaults  # Defaults included only to suppress warnings; all packages are still resolved from conda-forge
-        conda-remove-defaults: "true"
-        channel-priority: strict
-
     - name: Create Conda Environment with Python 3.12 in ~/scratch
       if: ${{ inputs.install_undetectable_interpreters == 'true' }}
       shell: bash
