@@ -7,7 +7,6 @@ import * as vscode from 'vscode';
 import { DebugProtocol } from '@vscode/debugprotocol';
 
 export class DisposableStore implements vscode.Disposable {
-
 	private _disposables = new Set<vscode.Disposable>();
 
 	add<T extends vscode.Disposable>(disposable: T): T {
