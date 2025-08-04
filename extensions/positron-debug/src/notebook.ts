@@ -438,7 +438,7 @@ export function activateRuntimeNotebookDebugging(): vscode.Disposable {
 	const disposables = new DisposableStore();
 
 	const adapterFactory = disposables.add(new RuntimeNotebookDebugAdapterFactory());
-	disposables.add(vscode.debug.registerDebugAdapterDescriptorFactory('runtimeNotebook', adapterFactory));
+	disposables.add(vscode.debug.registerDebugAdapterDescriptorFactory('notebook', adapterFactory));
 
 	disposables.add(vscode.commands.registerCommand(Command.DebugCell, debugCell));
 

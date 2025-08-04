@@ -1,5 +1,5 @@
 {
-  "name": "positron-runtime-debug",
+  "name": "positron-debug",
   "displayName": "%displayName%",
   "description": "%description%",
   "version": "0.0.1",
@@ -30,8 +30,8 @@
     },
     "debuggers": [
       {
-        "type": "runtimeNotebook",
-        "label": "Runtime Notebook"
+        "type": "notebook",
+        "label": "Notebook"
       }
     ]
   },
