@@ -105,6 +105,7 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         print(f"EXISTING_CONDA_ENV:{env_path}")
     else:
         # --- Start Positron ---
+        # Special case for Playwright CI: force conda-forge to avoid ToS prompt from defaults
         is_playwright_test = os.environ.get("PW_TEST") == "1"
 
         cmd = [
@@ -119,7 +120,9 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         ]
 
         if is_playwright_test:
-            print("PW_TEST environment variable detected: Configuring conda to use conda-forge channel only")
+            print(
+                "PW_TEST env var detected: Configuring conda to use conda-forge channel only"
+            )
             cmd.extend(["--override-channels", "-c", "conda-forge"])
 
         run_process(

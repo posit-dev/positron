@@ -82,13 +82,14 @@ runs:
         # Verify that Python is reset
         python --version
 
-    - name: Install Conda (Miniconda from Anaconda)
-      # Miniforge avoids Anaconda ToS and defaults to conda-forge
+    # Miniforge avoids Anaconda ToS and defaults to conda-forge
+    - name: Setup Conda (Miniforge3)
       uses: conda-incubator/setup-miniconda@v3
       with:
         miniforge-version: latest
         auto-activate-base: false
-        channels: conda-forge
+        channels: conda-forge,defaults  # Defaults included only to suppress warnings; all packages are still resolved from conda-forge
+        conda-remove-defaults: "true"
         channel-priority: strict
 
     - name: Create Conda Environment with Python 3.12 in ~/scratch
@@ -96,6 +97,7 @@ runs:
       shell: bash
       run: |
         set -e  # Exit immediately if any command fails
+
         echo "Setting up Conda environment with Python 3.12..."
 
         # Ensure Conda is available
@@ -112,4 +114,4 @@ runs:
         "$CONDA_ENV_DIR/bin/python" --version
         "$CONDA_ENV_DIR/bin/python" -c "import sys; print(f'Python {sys.version} is working!')"
 
-        echo "Miniconda-based Python 3.12 setup complete!"
+        echo "Miniforge-based Python 3.12 setup complete!"
