@@ -76,13 +76,18 @@ jobs:
           # Suppress DBus lookups
           echo "DBUS_SESSION_BUS_ADDRESS=/dev/null" >> $GITHUB_ENV
 
-          # Reduce GPU noise
+          # Reduce GPU noise for all processes
           echo "ELECTRON_DISABLE_SANDBOX=true" >> $GITHUB_ENV
+          echo "ELECTRON_DISABLE_GPU=true" >> $GITHUB_ENV
+          echo "ELECTRON_NO_SANDBOX=true" >> $GITHUB_ENV
+          echo "ELECTRON_NO_ASAR=true" >> $GITHUB_ENV
+
+          # We have hardcoded these flags in test.sh as well
           echo "ELECTRON_ARGS=--disable-gpu --disable-software-rasterizer --no-sandbox --disable-features=UseDBus" >> $GITHUB_ENV
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
-        run: DISPLAY=:10 ./scripts/test.sh --electronArgs="$ELECTRON_ARGS"
+        run: DISPLAY=:10 ./scripts/test.sh
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
@@ -93,5 +98,5 @@ jobs:
 
       - name: Run Unit Tests (Browser, Chromium)
         id: browser-unit-tests
-        run: DISPLAY=:10 npm run test-browser-no-install -- --browser chromium
+        run: DISPLAY=:10 npm run test-browser-no-install -- --browser chromium --browser-arg="--no-sandbox --disable-gpu --disable-features=UseDBus"
 
