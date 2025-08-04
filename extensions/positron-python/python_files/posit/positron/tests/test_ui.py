@@ -112,7 +112,9 @@ def test_open_editor(ui_service: UiService, ui_comm: DummyComm) -> None:
     ui_service.open_editor(file, line, column)
 
     assert ui_comm.messages == [
-        json_rpc_notification("open_editor", {"file": file, "line": line, "column": column})
+        json_rpc_notification(
+            "open_editor", {"file": file, "line": line, "column": column, "kind": None}
+        )
     ]
 
 
