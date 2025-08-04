@@ -22,21 +22,4 @@ runs:
         aws-region: ${{ inputs.aws-region }}
 
     - name: Setup Xvfb
-      shell: bash
-      run: |
-        # Start Xvfb in the background
-        /usr/bin/Xvfb :10 -ac -screen 0 2560x1440x24 > /tmp/Xvfb.out 2>&1 &
-
-        # Wait until Xvfb is ready
-        export DISPLAY=:10
-        for i in {1..10}; do
-          if xdpyinfo > /dev/null 2>&1; then
-            echo "Xvfb is ready"
-            break
-          fi
-          echo "Waiting for Xvfb to start..."
-          sleep 1
-        done
-
-        # Export the DISPLAY variable for subsequent steps
-        echo "DISPLAY=:10" >> $GITHUB_ENV
+      uses: ./.github/actions/setup-xvfb
