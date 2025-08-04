@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 // React.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
@@ -18,6 +18,19 @@ import { DropdownEntry } from './components/dropdownEntry.js';
 import { CodeSyntaxName } from '../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
+import { CodeEditorWidget } from '../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { getSimpleEditorOptions } from '../../contrib/codeEditor/browser/simpleEditorOptions.js';
+import { EditorExtensionsRegistry } from '../../../editor/browser/editorExtensions.js';
+import { MenuPreventer } from '../../contrib/codeEditor/browser/menuPreventer.js';
+import { SelectionClipboardContributionID } from '../../contrib/codeEditor/browser/selectionClipboard.js';
+import { ContextMenuController } from '../../../editor/contrib/contextmenu/browser/contextmenu.js';
+import { SuggestController } from '../../../editor/contrib/suggest/browser/suggestController.js';
+import { SnippetController2 } from '../../../editor/contrib/snippet/browser/snippetController2.js';
+import { TabCompletionController } from '../../contrib/snippets/browser/tabCompletion.js';
+import { Emitter } from '../../../base/common/event.js';
+import { Button } from '../../positronComponents/button/button.js';
+import { PlatformNativeDialogActionBar } from '../positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
 
 /**
  * Shows the convert to code modal dialog.
@@ -62,8 +75,13 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.convert_to_code?.code_syntaxes ?? [];
 
 	const [selectedSyntax, setSelectedSyntax] = useState<CodeSyntaxName | undefined>(instance.suggestedSyntax);
-
 	const [codeString, setCodeString] = useState<string | undefined>(undefined);
+
+	// Code string display
+	const editorRef = useRef<CodeEditorWidget>(undefined!);
+	const editorContainerRef = useRef<HTMLDivElement>(undefined!);
+	// for our purposes, this is equivalent to the language id
+	const language = props.dataExplorerClientInstance.languageName.toLocaleLowerCase();
 
 	useEffect(() => {
 		const getCodeString = async () => {
@@ -89,6 +107,47 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 
 		getCodeString(); // Call the async function
 	}, [selectedSyntax, services.commandService]);
+
+
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		const editor = disposableStore.add(services.instantiationService.createInstance(
+			CodeEditorWidget,
+			editorContainerRef.current,
+			{
+				...getSimpleEditorOptions(services.configurationService),
+				readOnly: true,
+			},
+			{
+				isSimpleWidget: true,
+				contributions: EditorExtensionsRegistry.getSomeEditorContributions([
+					MenuPreventer.ID,
+					SelectionClipboardContributionID,
+					ContextMenuController.ID,
+					SuggestController.ID,
+					SnippetController2.ID,
+					TabCompletionController.ID,
+				])
+			}
+		));
+
+
+		const emitter = disposableStore.add(new Emitter<string>);
+		const inputModel = disposableStore.add(services.modelService.createModel(
+			codeString || '',
+			{ languageId: language || '', onDidChange: emitter.event },
+			undefined,
+			true
+		));
+
+		editor.setModel(inputModel);
+		editorRef.current = editor;
+
+		return () => {
+			disposableStore.dispose();
+		};
+	},
+		[codeString, language, services.instantiationService, services.configurationService, services.modelService]);
 
 	// Construct the syntax options dropdown entries
 	const syntaxDropdownEntries = () => {
@@ -132,11 +191,47 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 		}
 	};
 
+	const handleCopyToClipboard = async () => {
+		if (codeString) {
+			await services.clipboardService.writeText(codeString);
+			services.notificationService.info(localize(
+				'positron.dataExplorer.codeCopiedToClipboard',
+				"Code copied to clipboard"
+			));
+		}
+	};
+
+	const handleSendToConsole = async () => {
+		if (codeString) {
+			try {
+				// Send code to the current console
+				await services.commandService.executeCommand('workbench.action.terminal.sendSequence', {
+					text: codeString + '\n'
+				});
+				props.renderer.dispose();
+			} catch (error) {
+				services.notificationService.error(localize(
+					'positron.dataExplorer.failedToSendToConsole',
+					"Failed to send code to console"
+				));
+			}
+		}
+	};
+	const okButton = (
+		<Button className='action-bar-button default' onPressed={props.onAccept}>
+			{props.okButtonTitle ?? localize('positronOK', "OK")}
+		</Button>
+	);
+	const cancelButton = (
+		<Button className='action-bar-button' onPressed={() => props.renderer.dispose()}>
+			{localize('positronCancel', "Cancel")}
+		</Button>
+	);
 	// Render.
 	return (
 		<OKCancelModalDialog
 			catchErrors
-			height={300}
+			height={400}
 			renderer={props.renderer}
 			title={(() => localize(
 				'positronConvertToCodeModalDialogTitle',
@@ -157,11 +252,24 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 					title={syntaxDropdownTitle()}
 					onSelectionChanged={onSelectionChanged}
 				/>
-				<pre>
-					{codeString}
-				</pre>
+				<div style={{ display: 'flex', flexDirection: 'column', height: '350px' }}>
+					<div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+						<Button
+							disabled={!codeString}
+							onPressed={handleCopyToClipboard}
+						>
+							{localize('positron.dataExplorer.copyCode', 'Copy')}
+						</Button>
+					</div>
+					<div
+						ref={editorContainerRef}
+						style={{ flex: 1, width: '100%', border: '1px solid var(--vscode-widget-border)' }}
+					/>
+				</div>
 			</VerticalStack>
-
+			<div className='ok-cancel-action-bar top-separator'>
+				<PlatformNativeDialogActionBar primaryButton={okButton} secondaryButton={cancelButton} />
+			</div>
 		</OKCancelModalDialog>
 	);
 };
