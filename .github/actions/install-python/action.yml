@@ -87,10 +87,8 @@ runs:
       uses: conda-incubator/setup-miniconda@v3
       with:
         miniforge-version: latest
-        # installer-url: https://github.com/conda-forge/miniforge/releases/latest/download/Miniforge3-Linux-x86_64.sh
         auto-activate-base: false
-        channels: conda-forge #,defaults  # Defaults included only to suppress warnings; all packages are still resolved from conda-forge
-        conda-remove-defaults: "true"
+        channels: conda-forge
         channel-priority: strict
 
     - name: Create Conda Environment with Python 3.12 in ~/scratch
@@ -105,7 +103,8 @@ runs:
 
         # Define environment path
         CONDA_ENV_DIR="$HOME/scratch/python-env"
-        # NOTE: now that we're using Miniforge, conda-forge is the default and override is no longer strictly necessary,
+
+        # NOTE: When using Minforge conda-forge is the default and override is no longer strictly necessary,
         # but we keep it to prevent any unintentional fallback if configs change.
         conda create -y --override-channels -c conda-forge -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
 

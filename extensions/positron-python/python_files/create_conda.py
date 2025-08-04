@@ -119,12 +119,8 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         ]
 
         if is_playwright_test:
-            print("MARIE Using conda-forge only due to PW_TEST=1")
+            print("PW_TEST environment variable detected: Configuring conda to use conda-forge channel only")
             cmd.extend(["--override-channels", "-c", "conda-forge"])
-        else:
-            print("MARIE Using default conda channels")
-            print(f"MARIE PW_TEST env var: {os.environ.get('PW_TEST')}")
-            print("MARIE", os.environ.get("PW_TEST") == "1")
 
         run_process(
             cmd,
