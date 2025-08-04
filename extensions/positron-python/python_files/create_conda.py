@@ -127,8 +127,12 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         ]
 
         if use_conda_forge:
-            print("Using conda-forge only due to PW_TEST=1")
+            print("MARIE Using conda-forge only due to PW_TEST=1")
             cmd.extend(["--override-channels", "-c", "conda-forge"])
+        else:
+            print("MARIE Using default conda channels")
+            print("MARIE", os.environ.get("PW_TEST"))
+            print("MARIE", os.environ.get("PW_TEST") == "1")
 
         run_process(
             cmd,
