@@ -15,10 +15,10 @@ import { DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from '
 import { Command } from './constants.js';
 
 class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
-	private readonly _disposables: vscode.Disposable[] = [];
+	private readonly _disposables = new DisposableStore();
 
-	private readonly _onDidSendMessage = new vscode.EventEmitter<vscode.DebugProtocolMessage>();
-	private readonly _onDidCompleteConfiguration = new vscode.EventEmitter<void>();
+	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
+	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
 
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
 	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
@@ -32,9 +32,7 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposa
 		public readonly runtimeSession: positron.LanguageRuntimeSession,
 		public readonly notebook: vscode.NotebookDocument,
 	) {
-		this._disposables.push(this._onDidSendMessage, this._onDidCompleteConfiguration);
-
-		this._disposables.push(
+		this._disposables.add(
 			this.runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
 				// TODO: Could the event be for another debug session?
 				if (message.type === positron.LanguageRuntimeMessageType.DebugEvent) {
@@ -284,12 +282,12 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposa
 	}
 
 	public dispose() {
-		this._disposables.forEach((disposable) => disposable.dispose());
+		this._disposables.dispose();
 	}
 }
 
 class DebugCellManager implements vscode.Disposable {
-	private readonly _disposables: vscode.Disposable[] = [];
+	private readonly _disposables = new DisposableStore();
 
 	private _executionId?: string;
 
@@ -305,7 +303,7 @@ class DebugCellManager implements vscode.Disposable {
 		// Execute the cell when the debug session is ready.
 		// TODO: If we attach to an existing debug session, would this work?
 		//       Or we could also track configuration completed state in an adapter property
-		const configDisposable = this._adapter.onDidCompleteConfiguration(async () => {
+		const configDisposable = this._disposables.add(this._adapter.onDidCompleteConfiguration(async () => {
 			configDisposable.dispose();
 
 			// TODO: Is this right? Should we dump all cells?
@@ -322,11 +320,10 @@ class DebugCellManager implements vscode.Disposable {
 				ranges: [{ start: this._cellIndex, end: this._cellIndex + 1 }],
 				document: this._notebook.uri,
 			});
-		});
-		this._disposables.push(configDisposable);
+		}));
 
 		// Track the runtime execution ID when the cell is executed.
-		const executeDisposable = positron.runtime.onDidExecuteCode((event) => {
+		const executeDisposable = this._disposables.add(positron.runtime.onDidExecuteCode((event) => {
 			// TODO: restrict to cell and session ID as well?
 			if (
 				event.attribution.source === positron.CodeAttributionSource.Notebook &&
@@ -336,11 +333,10 @@ class DebugCellManager implements vscode.Disposable {
 				executeDisposable.dispose();
 				this._executionId = event.executionId;
 			}
-		});
-		this._disposables.push(executeDisposable);
+		}));
 
 		// End the debug session when the cell execution is complete.
-		const messageDisposable = this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
+		const messageDisposable = this._disposables.add(this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
 			// TODO: Throw or wait if execution ID is not set?
 			if (
 				this._executionId &&
@@ -352,18 +348,17 @@ class DebugCellManager implements vscode.Disposable {
 				await vscode.debug.stopDebugging(this._debugSession);
 				// TODO: this.dispose()? Or ensure its disposed elsewhere?
 			}
-		});
-		this._disposables.push(messageDisposable);
+		}));
 	}
 
 	dispose() {
-		this._disposables.forEach((disposable) => disposable.dispose());
+		this._disposables.dispose();
 	}
 }
 
 // TODO: How do we handle reusing a debug adapter/session across cells?
 class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory, vscode.Disposable {
-	private readonly _disposables: vscode.Disposable[] = [];
+	private readonly _disposables = new DisposableStore();
 
 	async createDebugAdapterDescriptor(debugSession: vscode.DebugSession, _executable: vscode.DebugAdapterExecutable) {
 		const notebook = vscode.workspace.notebookDocuments.find(
@@ -398,25 +393,22 @@ class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
 
 		// Create a new debug adapter for the notebook.
 		// TODO: Reuse adapter if it already exists for the notebook?
-		const adapter = new RuntimeNotebookDebugAdapter(debugSession, runtimeSession, notebook);
-		this._disposables.push(adapter);
+		const adapter = this._disposables.add(new RuntimeNotebookDebugAdapter(debugSession, runtimeSession, notebook));
 
 		// Create a debug cell manager to handle the cell execution and debugging.
-		const debugCellManager = new DebugCellManager(adapter, debugSession, notebook, runtimeSession, cell.index);
-		this._disposables.push(debugCellManager);
+		const debugCellManager = this._disposables.add(new DebugCellManager(adapter, debugSession, notebook, runtimeSession, cell.index));
 
 		// End the debug session when the kernel is interrupted.
-		const stateDisposable = runtimeSession.onDidChangeRuntimeState(async (state) => {
+		const stateDisposable = this._disposables.add(runtimeSession.onDidChangeRuntimeState(async (state) => {
 			console.log(`Runtime state changed: ${state}`);
 			if (state === positron.RuntimeState.Interrupting) {
 				stateDisposable.dispose();
 				await vscode.debug.stopDebugging(debugSession);
 			}
-		});
-		this._disposables.push(stateDisposable);
+		}));
 
 		// Clean up when the debug session terminates.
-		this._disposables.push(
+		this._disposables.add(
 			vscode.debug.onDidTerminateDebugSession((session) => {
 				if (session.id === debugSession.id) {
 					stateDisposable.dispose();
@@ -430,7 +422,7 @@ class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
 	}
 
 	dispose() {
-		this._disposables.forEach((disposable) => disposable.dispose());
+		this._disposables.dispose();
 	}
 }
 

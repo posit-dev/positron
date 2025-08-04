@@ -7,9 +7,11 @@ import * as vscode from 'vscode';
 import { activateRuntimeNotebookDebugging } from './notebook.js';
 
 // TODO: Create a new channel per runtime, like the supervisor does?
-export const log = vscode.window.createOutputChannel('Debug', { log: true });
+export const log = vscode.window.createOutputChannel('Debugging', { log: true });
 
 export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(log);
-	context.subscriptions.push(activateRuntimeNotebookDebugging());
+
+	const runtimeNotebookDebugging = activateRuntimeNotebookDebugging();
+	context.subscriptions.push(runtimeNotebookDebugging);
 }
