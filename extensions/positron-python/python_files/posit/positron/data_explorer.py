@@ -1429,7 +1429,10 @@ class PandasView(DataExplorerTableView):
                 categories_type_name = cls._get_inferred_dtype(
                     dtype.categories, column_index, state
                 )
-                type_display = cls.TYPE_NAME_MAPPING.get(categories_type_name, categories_type_name)
+                categories_type_name = cls.TYPE_NAME_MAPPING.get(
+                    categories_type_name, categories_type_name
+                )
+                type_display = cls._get_type_display(categories_type_name)
             else:
                 categories_type_name = str(dtype.categories.dtype)
                 type_display = cls._get_type_display(categories_type_name)
