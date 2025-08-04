@@ -56,7 +56,12 @@ on:
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
-
+      skip_tags:
+        required: false
+        description: "Comma-separated list of tags to skip."
+        type: string
+        default: "@:nightly-only"
+        
 permissions:
   id-token: write
   contents: read
