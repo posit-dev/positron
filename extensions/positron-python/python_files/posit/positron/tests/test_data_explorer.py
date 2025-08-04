@@ -1006,20 +1006,12 @@ def test_search_schema_sort_by_name(dxf: DataExplorerFixture):
         expected_ascending = sorted(range(len(column_names)), key=lambda i: column_names[i])
         assert result["matches"] == expected_ascending
 
-        # Verify the actual order is correct
-        sorted_names = [column_names[i] for i in expected_ascending]
-        assert sorted_names == sorted(column_names)
-
         # Test descending sort
         result = dxf.search_schema(name, [], "descending")
         expected_descending = sorted(
             range(len(column_names)), key=lambda i: column_names[i], reverse=True
         )
         assert result["matches"] == expected_descending
-
-        # Verify the actual order is correct
-        reverse_sorted_names = [column_names[i] for i in expected_descending]
-        assert reverse_sorted_names == sorted(column_names, reverse=True)
 
         # Test that sorting works with filters too
         filter_with_a = _text_search_filter("a")  # Should match "Zebra", "apple", "BANANA"

@@ -1529,8 +1529,8 @@ class PandasView(DataExplorerTableView):
 
     def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
         column = self.table.iloc[:, column_index]
-        type_name, _ = self._get_type(column, column_index, self.state)
-        return self._get_type_display(type_name)
+        _, type_display = self._get_type(column, column_index, self.state)
+        return type_display
 
     def _get_data_values(
         self,
