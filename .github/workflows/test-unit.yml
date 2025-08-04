@@ -12,6 +12,12 @@ jobs:
   unit-tests:
     name: unit
     runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:16
+      options: --user 0:0
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_PAT }}
     timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
