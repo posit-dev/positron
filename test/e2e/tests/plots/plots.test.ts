@@ -549,7 +549,6 @@ async function verifyPlotInNewWindow(app: Application, language: "Python" | "R",
 	await test.step(`Create a ${language} plot`, async () => {
 		await app.workbench.console.executeCode(language, plotCode);
 		await plots.waitForCurrentPlot();
-		await app.workbench.layouts.enterLayout('fullSizedAuxBar');
 	});
 	await test.step('Open plot in new window', async () => {
 		await plots.openPlotInNewWindow();
