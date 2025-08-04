@@ -65,6 +65,13 @@ jobs:
         with:
           version: "4.4.0"
 
+      - name: Setup XDG Runtime Directory
+        run: |
+          export XDG_RUNTIME_DIR=/tmp/xdg
+          mkdir -p "$XDG_RUNTIME_DIR"
+          chmod 700 "$XDG_RUNTIME_DIR"
+          echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> $GITHUB_ENV
+
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
         run: DISPLAY=:10 ./scripts/test.sh
