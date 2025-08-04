@@ -34,38 +34,46 @@ export function registerContextMenuListener(): void {
 				}
 			}));
 		}
-		// TODO: Make this only execute during an e2e run.
-		const selectListener: any = (contextMenuId: number, label: string) => {
-			const item = contextMenus.get(contextMenuId)?.items.find(item => item.label === label);
-			if (item) {
-				item.click();
-				menu.closePopup();
-			}
-			app.removeListener('e2e:contextMenuSelect' as any, selectListener);
-		};
-		app.on('e2e:contextMenuSelect' as any, selectListener);
 
-		// Close all context menus when e2e:contextMenuClose is emitted
-		const closeListener = () => {
-			for (const menu of contextMenus.values()) {
-				try {
+		// Register test-only context menu hooks when running in Playwright
+		if (process.env.PW_TEST === '1') {
+			// Allow Playwright to trigger a context menu item by label
+			const selectListener: any = (contextMenuId: number, label: string) => {
+				const item = contextMenus.get(contextMenuId)?.items.find(item => item.label === label);
+				if (item) {
+					item.click();
 					menu.closePopup();
-				} catch (e) {
-					console.warn('Failed to close menu:', e);
 				}
-			}
-			contextMenus.clear();
-			app.removeListener('e2e:contextMenuClose' as any, closeListener);
-		};
-		app.on('e2e:contextMenuClose' as any, closeListener);
+				app.removeListener('e2e:contextMenuSelect' as any, selectListener);
+			};
+			app.on('e2e:contextMenuSelect' as any, selectListener);
 
-		menu.on('menu-will-show', () => {
-			contextMenus.set(contextMenuId, menu);
-			app.emit('e2e:contextMenuShown', contextMenuId, menu.items.map(item => item.label));
-		});
-		menu.on('menu-will-close', () => {
-			contextMenus.delete(contextMenuId);
-		});
+			// Allow Playwright to programmatically dismiss open context menus
+			const closeListener = () => {
+				for (const menu of contextMenus.values()) {
+					try {
+						menu.closePopup();
+					} catch (e) {
+						console.warn('Failed to close menu:', e);
+					}
+				}
+				contextMenus.clear();
+				app.removeListener('e2e:contextMenuClose' as any, closeListener);
+			};
+
+			app.on('e2e:contextMenuClose' as any, closeListener);
+
+			// Notify Playwright that a context menu has opened and list its items
+			menu.on('menu-will-show', () => {
+				contextMenus.set(contextMenuId, menu);
+				app.emit('e2e:contextMenuShown', contextMenuId, menu.items.map(item => item.label));
+			});
+
+			// Clean up context menu reference after it closes
+			menu.on('menu-will-close', () => {
+				contextMenus.delete(contextMenuId);
+			});
+		}
 		// --- End Positron ---
 
 		menu.popup({
