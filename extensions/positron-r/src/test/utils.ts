@@ -58,7 +58,7 @@ export async function startR(): Promise<[RSession, vscode.Disposable]> {
  * Create a unique temporary directory and return its path along with a disposable that deletes it.
  * The directory name includes the provided component and a unique suffix.
  */
-export function makeTempDirDisposable(component: string): [string, vscode.Disposable] {
+export function makeTempDir(component: string): [string, vscode.Disposable] {
 	const uniqueId = createUniqueId();
 	const dir = path.join(os.tmpdir(), `${component}-${uniqueId}`);
 	fs.mkdirSync(dir, { recursive: true });
@@ -88,7 +88,6 @@ export async function pollForSuccess(
 	predicate: () => void | Promise<void>,
 	intervalMs = 10,
 	timeoutMs = 5000,
-	message = 'waitFor: condition not met within timeout'
 ): Promise<void> {
 	const start = Date.now();
 
@@ -142,4 +141,25 @@ export async function withDisposables<T>(
 	} finally {
 		await disposeAll(disposables);
 	}
+}
+
+/**
+ * Asserts that the currently active text editor matches the given URI and its
+ * contents match the provided regex string. Retries until success or timeout.
+ */
+export async function assertSelectedEditor(uri: vscode.Uri, text: string) {
+	// Poll for success because we can't synchronise `navigateToFile` reliably
+	await pollForSuccess(() => {
+		const ed = vscode.window.activeTextEditor;
+
+		if (ed === undefined || ed.document.uri.fsPath !== uri.fsPath) {
+			assert.fail(`Expected active editor for ${uri.fsPath}, but got ${ed?.document.uri.fsPath ?? 'undefined'}`);
+		}
+
+		assert.match(
+			ed.document.getText(),
+			new RegExp(text),
+			`Unexpected editor contents for ${uri.fsPath}`
+		);
+	});
 }
