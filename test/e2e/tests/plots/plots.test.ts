@@ -169,7 +169,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			await test.step('Open plot in editor', async () => {
-				await plots.openPlotInEditor2(contextMenu);
+				await plots.openPlotInEditor(contextMenu);
 				await plots.waitForPlotInEditor();
 			});
 
@@ -302,7 +302,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 					menuTrigger: page.getByRole('button', { name: 'Fit' }),
 					menuItemLabel: 'Fit'
 				});
-				await page.waitForTimeout(300);
+				await page.waitForTimeout(2000);
 				await dismissPlotZoomTooltip(page);
 				const bufferFit1 = await imgLocator.screenshot();
 				await contextMenu.triggerAndClick({
@@ -412,7 +412,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			await test.step('Open plot in editor', async () => {
-				await app.workbench.plots.openPlotInEditor2(contextMenu);
+				await app.workbench.plots.openPlotInEditor(contextMenu);
 				await app.workbench.plots.waitForPlotInEditor();
 			});
 

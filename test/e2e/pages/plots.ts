@@ -159,7 +159,7 @@ export class Plots {
 		await this.code.driver.page.locator('.codicon-go-to-file').click();
 	}
 
-	async openPlotInEditor2(contextMenu: ContextMenu) {
+	async openPlotInEditor(contextMenu: ContextMenu) {
 		await test.step('Open and plot in editor', async () => {
 			await contextMenu.triggerAndClick({
 				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
@@ -171,7 +171,7 @@ export class Plots {
 	async openPlotInNewWindow(contextMenu: ContextMenu): Promise<any> {
 		const [newPage] = await Promise.all([
 			this.code.driver.page.context().waitForEvent('page'),
-			await contextMenu.triggerAndClick({
+			contextMenu.triggerAndClick({
 				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
 				menuItemLabel: 'Open in new window'
 			})
