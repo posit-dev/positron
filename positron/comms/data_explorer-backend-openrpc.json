@@ -58,12 +58,12 @@
 		},
 		{
 			"name": "search_schema",
-			"summary": "Search full, unfiltered table schema with column filters",
-			"description": "Search full, unfiltered table schema for column names matching one or more column filters",
+			"summary": "Search table schema with column filters, optionally sort results",
+			"description": "Search table schema with column filters, optionally sort results",
 			"params": [
 				{
 					"name": "filters",
-					"description": "Column filters to apply when searching",
+					"description": "Column filters to apply when searching, can be empty",
 					"required": true,
 					"schema": {
 						"type": "array",
@@ -73,19 +73,15 @@
 					}
 				},
 				{
-					"name": "start_index",
-					"description": "Index (starting from zero) of first result to fetch (for paging)",
-					"required": true,
+					"name": "sort_order",
+					"description": "How to sort results: original in-schema order, alphabetical ascending or descending",
 					"schema": {
-						"type": "integer"
-					}
-				},
-				{
-					"name": "max_results",
-					"description": "Maximum number of resulting column schemas to fetch from the start index",
-					"required": true,
-					"schema": {
-						"type": "integer"
+						"type": "string",
+						"enum": [
+							"original",
+							"ascending",
+							"descending"
+						]
 					}
 				}
 			],
@@ -94,17 +90,15 @@
 					"name": "search_schema_result",
 					"type": "object",
 					"required": [
-						"matches",
-						"total_num_matches"
+						"matches"
 					],
 					"properties": {
 						"matches": {
-							"description": "A schema containing matching columns up to the max_results limit",
-							"$ref": "#/components/schemas/table_schema"
-						},
-						"total_num_matches": {
-							"description": "The total number of columns matching the filter",
-							"type": "integer"
+							"description": "The column indices of the matching column indices in the indicated sort order",
+							"type": "array",
+							"items": {
+								"type": "integer"
+							}
 						}
 					}
 				}

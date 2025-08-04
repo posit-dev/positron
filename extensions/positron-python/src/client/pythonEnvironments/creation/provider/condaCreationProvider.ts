@@ -98,6 +98,9 @@ async function createCondaEnv(
         cwd: workspace.uri.fsPath,
         env: {
             PATH: pathEnv,
+            // --- Start Positron ---
+            PW_TEST: process.env.PW_TEST,
+            // --- End Positron ---
         },
     });
 

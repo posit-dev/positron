@@ -30,6 +30,7 @@ jobs:
       display_name: "electron (windows)"
       currents_tags: "merge,electron/windows"
       report_testrail: false
+      skip_tags: "@:nightly-only"
       upload_logs: false
     secrets: inherit
 
