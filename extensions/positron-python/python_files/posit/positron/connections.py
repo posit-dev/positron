@@ -151,7 +151,7 @@ class Connection:
         - code: The code used to recreate the connection.
         """
         return MetadataSchema(
-            name=self.display_name,
+            name=self.display_name or "Unnamed Connection",
             language_id="python",
             host=self.host,
             type=self.type,
