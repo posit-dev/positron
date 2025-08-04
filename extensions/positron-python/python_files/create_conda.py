@@ -44,14 +44,6 @@ def parse_args(argv: Sequence[str]) -> argparse.Namespace:
         metavar="NAME",
         action="store",
     )
-    # --- Start Positron ----
-    parser.add_argument(
-        "--override-conda-forge",
-        action="store_true",
-        default=False,
-        help="Use conda-forge only as the channel source.",
-    )
-    # --- End Positron ----
     return parser.parse_args(argv)
 
 
