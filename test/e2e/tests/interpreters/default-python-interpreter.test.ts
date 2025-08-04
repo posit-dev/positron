@@ -27,8 +27,13 @@ test.describe('Default Interpreters - Python', {
 		// const homeDir = process.env.HOME || '';
 		// await settings.set({'python.defaultInterpreterPath': `${path.join(homeDir, '.pyenv/versions/3.13.0/bin/python')}`}, { reload: true });
 
-		// hidden interpreter (Conda)
-		await settings.set({ 'python.defaultInterpreterPath': '/home/runner/scratch/python-env/bin/python' }, { reload: true });
+		// hidden interpreter (Conda) - path depends on which repo it's running in
+		// GITHUB_REPOSITORY is automatically set by GitHub Actions
+		const pythonPath = process.env.GITHUB_REPOSITORY === 'posit-dev/positron-builds'
+			? '/home/runner/scratch/python-env/bin/python'  // positron-builds repo
+			: '/root/scratch/python-env/bin/python';        // positron repo
+
+		await settings.set({ 'python.defaultInterpreterPath': pythonPath }, { reload: true });
 
 	});
 

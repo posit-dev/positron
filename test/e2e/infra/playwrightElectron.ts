@@ -24,6 +24,7 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 	if (isDocker()) {
 		args.push('--disable-dev-shm-usage');
 		args.push('--no-sandbox');
+		args.push('--enable-unsafe-swiftshader');
 	}
 
 	// Launch electron via playwright

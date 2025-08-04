@@ -16,9 +16,15 @@ test.describe('Interpreter: Includes', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
+		// Path depends on which repo it's running in
+		// GITHUB_REPOSITORY is automatically set by GitHub Actions
+		const basePath = process.env.GITHUB_REPOSITORY === 'posit-dev/positron-builds'
+			? "/home/runner/scratch"
+			: "/root/scratch";
+
 		await settings.set({
-			'python.interpreters.include': ["/home/runner/scratch/python-env"],
-			'positron.r.customRootFolders': ["/home/runner/scratch"]
+			'python.interpreters.include': [`${basePath}/python-env`],
+			'positron.r.customRootFolders': [basePath]
 		}, { reload: true });
 	});
 
@@ -113,8 +119,14 @@ test.describe('Interpreter: Override', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
+		// Path depends on which repo it's running in
+		// GITHUB_REPOSITORY is automatically set by GitHub Actions
+		const pythonPath = process.env.GITHUB_REPOSITORY === 'posit-dev/positron-builds'
+			? "/home/runner/scratch/python-env"
+			: "/root/scratch/python-env";
+
 		await settings.set({
-			'python.interpreters.override': ["/home/runner/scratch/python-env"],
+			'python.interpreters.override': [pythonPath],
 			'positron.r.interpreters.override': ["/opt/R/4.4.2/bin/R"]
 		}, { reload: true });
 	});
