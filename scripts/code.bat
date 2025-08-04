@@ -33,13 +33,24 @@ for %%A in (%*) do (
 :: Launch Code
 
 %CODE% . %DISABLE_TEST_EXTENSION% %*
+:: --- Start Positron ---
+:: The changes in this file are meant to propagate exit code
+:: so that failed tests cause CI to fail. `code.bat` is invoked
+:: by `.vscode-test.js`.
+set EXITCODE=%ERRORLEVEL%
+:: --- End Positron ---
 goto end
 
 :builtin
 %CODE% build/builtin
+:: --- Start Positron ---
+set EXITCODE=%ERRORLEVEL%
+:: --- End Positron ---
 
 :end
 
 popd
 
-endlocal
+:: --- Start Positron ---
+endlocal & exit /b %EXITCODE%
+:: --- End Positron ---
