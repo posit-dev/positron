@@ -8,8 +8,6 @@ import React, { useEffect, useState, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
-import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
-import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { IPositronDataExplorerInstance } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { PositronDataExplorerCommandId } from '../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { DropDownListBox } from '../positronComponents/dropDownListBox/dropDownListBox.js';
@@ -29,8 +27,10 @@ import { SuggestController } from '../../../editor/contrib/suggest/browser/sugge
 import { SnippetController2 } from '../../../editor/contrib/snippet/browser/snippetController2.js';
 import { TabCompletionController } from '../../contrib/snippets/browser/tabCompletion.js';
 import { Emitter } from '../../../base/common/event.js';
-import { Button } from '../../positronComponents/button/button.js';
+import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
 import { PlatformNativeDialogActionBar } from '../positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
+import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
+import { ContentArea } from '../positronComponents/positronModalDialog/components/contentArea.js';
 
 /**
  * Shows the convert to code modal dialog.
@@ -198,28 +198,13 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 				'positron.dataExplorer.codeCopiedToClipboard',
 				"Code copied to clipboard"
 			));
+			props.renderer.dispose();
 		}
 	};
 
-	const handleSendToConsole = async () => {
-		if (codeString) {
-			try {
-				// Send code to the current console
-				await services.commandService.executeCommand('workbench.action.terminal.sendSequence', {
-					text: codeString + '\n'
-				});
-				props.renderer.dispose();
-			} catch (error) {
-				services.notificationService.error(localize(
-					'positron.dataExplorer.failedToSendToConsole',
-					"Failed to send code to console"
-				));
-			}
-		}
-	};
 	const okButton = (
-		<Button className='action-bar-button default' onPressed={props.onAccept}>
-			{props.okButtonTitle ?? localize('positronOK', "OK")}
+		<Button className='action-bar-button default' onPressed={() => handleCopyToClipboard()}>
+			{localize('positronOK', "Copy Code")}
 		</Button>
 	);
 	const cancelButton = (
@@ -229,8 +214,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 	);
 	// Render.
 	return (
-		<OKCancelModalDialog
-			catchErrors
+		<PositronModalDialog
 			height={400}
 			renderer={props.renderer}
 			title={(() => localize(
@@ -238,10 +222,11 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 				"Convert to Code"
 			))()}
 			width={400}
-			onAccept={() => props.renderer.dispose()}
-			onCancel={() => props.renderer.dispose()}
 		>
-			<VerticalStack>
+			<ContentArea>
+				<h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 'normal' }}>
+					{localize('positron.dataExplorer.codeSyntaxHeading', "Select code syntax")}
+				</h3>
 				<DropDownListBox
 					createItem={(item) => (
 						<DropdownEntry
@@ -252,24 +237,19 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 					title={syntaxDropdownTitle()}
 					onSelectionChanged={onSelectionChanged}
 				/>
-				<div style={{ display: 'flex', flexDirection: 'column', height: '350px' }}>
-					<div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
-						<Button
-							disabled={!codeString}
-							onPressed={handleCopyToClipboard}
-						>
-							{localize('positron.dataExplorer.copyCode', 'Copy')}
-						</Button>
-					</div>
-					<div
-						ref={editorContainerRef}
-						style={{ flex: 1, width: '100%', border: '1px solid var(--vscode-widget-border)' }}
-					/>
-				</div>
-			</VerticalStack>
+				<hr style={{ margin: '8px 0', border: 'none' }} />
+				<div
+					ref={editorContainerRef}
+					style={{
+						height: '90%',
+						width: '100%',
+						border: '1px solid var(--vscode-widget-border)',
+					}}
+				/>
+			</ContentArea>
 			<div className='ok-cancel-action-bar top-separator'>
 				<PlatformNativeDialogActionBar primaryButton={okButton} secondaryButton={cancelButton} />
 			</div>
-		</OKCancelModalDialog>
+		</PositronModalDialog>
 	);
 };
