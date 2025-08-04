@@ -12,12 +12,6 @@ jobs:
   unit-tests:
     name: unit
     runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:16
-      options: --user 0:0
-      credentials:
-        username: ${{ secrets.POSITRON_GITHUB_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_PAT }}
     timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -32,20 +26,23 @@ jobs:
         with:
           node-version-file: .nvmrc
 
+      - name: Cache node_modules, build, extensions, and remote
+        uses: ./.github/actions/cache-multi-paths
+
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
         id: attempt2
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
 
       - name: Attempt 3 - Setup Build and Compile
         if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-unit-test-build-env
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}
@@ -57,30 +54,11 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      - name: Setup XVFB
-        uses: ./.github/actions/setup-xvfb
+      # one unit test needs this: Can list tables and fields from R connections
+      - name: Setup R
+        uses: ./.github/actions/install-r
         with:
           version: "4.4.0"
-
-      - name: Setup Test Environment Variables
-        run: |
-          # Fix XDG_RUNTIME_DIR
-          export XDG_RUNTIME_DIR=/tmp/xdg
-          mkdir -p "$XDG_RUNTIME_DIR"
-          chmod 700 "$XDG_RUNTIME_DIR"
-          echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> $GITHUB_ENV
-
-          # Suppress DBus lookups
-          echo "DBUS_SESSION_BUS_ADDRESS=/dev/null" >> $GITHUB_ENV
-
-          # Reduce GPU noise for all processes
-          echo "ELECTRON_DISABLE_SANDBOX=true" >> $GITHUB_ENV
-          echo "ELECTRON_DISABLE_GPU=true" >> $GITHUB_ENV
-          echo "ELECTRON_NO_SANDBOX=true" >> $GITHUB_ENV
-          echo "ELECTRON_NO_ASAR=true" >> $GITHUB_ENV
-
-          # We have hardcoded these flags in test.sh as well
-          echo "ELECTRON_ARGS=--disable-gpu --disable-software-rasterizer --no-sandbox --disable-features=UseDBus" >> $GITHUB_ENV
 
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
@@ -95,5 +73,4 @@ jobs:
 
       - name: Run Unit Tests (Browser, Chromium)
         id: browser-unit-tests
-        run: DISPLAY=:10 npm run test-browser-no-install -- --browser chromium --browser-arg="--no-sandbox --disable-gpu --disable-features=UseDBus"
-
+        run: DISPLAY=:10 npm run test-browser-no-install -- --browser chromium

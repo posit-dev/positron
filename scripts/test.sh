@@ -30,11 +30,11 @@ npm run electron
 if [[ "$OSTYPE" == "darwin"* ]]; then
 	cd $ROOT ; ulimit -n 4096 ; \
 		ELECTRON_ENABLE_LOGGING=1 \
-		"$CODE" --no-sandbox --disable-gpu --disable-software-rasterizer --disable-features=UseDBus \
+		"$CODE" \
 		test/unit/electron/index.js --crash-reporter-directory=$VSCODECRASHDIR "$@"
 else
 	cd $ROOT ; \
 		ELECTRON_ENABLE_LOGGING=1 \
-		"$CODE" --no-sandbox --disable-gpu --disable-software-rasterizer --disable-features=UseDBus \
+		"$CODE" \
 		test/unit/electron/index.js --crash-reporter-directory=$VSCODECRASHDIR "$@"
 fi
