@@ -5,6 +5,8 @@
 
 import * as vscode from 'vscode';
 import * as assert from 'assert';
+import * as fs from 'fs';
+import * as path from 'path';
 import { delay } from '../util';
 
 /**
@@ -49,8 +51,11 @@ export async function assertSelectedEditor(uri: vscode.Uri, text: string) {
 	await pollForSuccess(() => {
 		const ed = vscode.window.activeTextEditor;
 
-		if (ed === undefined || ed.document.uri.fsPath !== uri.fsPath) {
-			assert.fail(`Expected active editor for ${uri.fsPath}, but got ${ed?.document.uri.fsPath ?? 'undefined'}`);
+		const expectedPath = fs.realpathSync.native(path.normalize(uri.fsPath)).toLowerCase();
+		const actualPath = ed ? fs.realpathSync.native(path.normalize(ed.document.uri.fsPath)).toLowerCase() : undefined;
+
+		if (ed === undefined || actualPath !== expectedPath) {
+			assert.fail(`Expected active editor for ${expectedPath}, but got ${actualPath ?? 'undefined'}`);
 		}
 
 		assert.match(
