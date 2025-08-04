@@ -32,9 +32,6 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
-
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
         uses: ./.github/actions/setup-build-env
