@@ -55,6 +55,15 @@ export async function startR(): Promise<[RSession, vscode.Disposable]> {
 }
 
 /**
+ * Executes R code using `positron.runtime.executeCode`.
+ * Doesn't take focus and incomplete statements are not allowed.
+ * @param src The R code to execute.
+ */
+export async function execute(src: string) {
+	await positron.runtime.executeCode('r', src, false, false);
+}
+
+/**
  * Create a unique temporary directory and return its path along with a disposable that deletes it.
  * The directory name includes the provided component and a unique suffix.
  */

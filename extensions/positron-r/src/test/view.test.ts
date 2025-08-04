@@ -8,7 +8,7 @@ import * as path from 'path';
 import * as vscode from 'vscode';
 import * as positron from 'positron';
 import * as assert from 'assert';
-import { assertSelectedEditor, makeTempDir, pollForSuccess, startR, withDisposables } from './utils';
+import { assertSelectedEditor, execute, makeTempDir, pollForSuccess, startR, withDisposables } from './utils';
 
 suite('View', () => {
 	// https://github.com/posit-dev/positron/issues/8504
@@ -26,8 +26,8 @@ suite('View', () => {
 			await vscode.workspace.fs.writeFile(uri, Buffer.from('f <- function() {}'));
 
 			const escapedPath = uri.fsPath.replace(/\\/g, '\\\\');
-			await positron.runtime.executeCode('r', `source('${escapedPath}')`, false, false);
-			await positron.runtime.executeCode('r', `View(f)`, false, false);
+			await execute(`source('${escapedPath}')`);
+			await execute(`View(f)`);
 
 			// Should show source file in editor
 			await assertSelectedEditor(uri, 'f <- function() {}');

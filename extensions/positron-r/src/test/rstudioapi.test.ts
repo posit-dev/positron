@@ -3,12 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
-
 import * as vscode from 'vscode';
-import * as positron from 'positron';
-import * as assert from 'assert';
-import { assertSelectedEditor, makeTempDir, pollForSuccess, startR, withDisposables } from './utils';
+import * as path from 'path';
+import { assertSelectedEditor, execute, makeTempDir, startR, withDisposables } from './utils';
 
 suite('RStudio API', () => {
 	// https://github.com/posit-dev/positron/issues/8374
@@ -38,7 +35,7 @@ suite('RStudio API', () => {
 			await assertSelectedEditor(barUri, 'this-is-bar');
 
 			const escapedPath = fooUri.fsPath.replace(/\\/g, '\\\\');
-			await positron.runtime.executeCode('r', `.rs.api.navigateToFile('${escapedPath}')`, false, false);
+			await execute(`.rs.api.navigateToFile('${escapedPath}')`);
 
 			// Now foo.R should be selected
 			await assertSelectedEditor(fooUri, 'this-is-foo');
