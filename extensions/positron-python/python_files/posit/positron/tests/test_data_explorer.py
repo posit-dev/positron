@@ -4287,9 +4287,9 @@ def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerFixture):
         )
 
     # Test combined filter and sort
-    filtered_series = test_series[test_series > 3]
-    sorted_filtered_series = filtered_series.sort_values(ascending=True)
-    expected_df = pd.DataFrame({"values": sorted_filtered_series})
+    filtered_series = test_series.sort_values(ascending=True)
+    filtered_series = filtered_series[filtered_series > 3]
+    expected_df = pd.DataFrame({"values": filtered_series})
 
     filt = _compare_filter(schema[0], ">", 3)
     sort_keys = [{"column_index": 0, "ascending": True}]

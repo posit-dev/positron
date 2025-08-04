@@ -5,8 +5,6 @@
 
 from typing import List, Optional
 
-import pandas as pd
-
 from ..data_explorer_comm import (
     ColumnDisplayType,
     ColumnSortKey,
