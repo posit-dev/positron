@@ -42,7 +42,7 @@ on:
         required: false
         description: "Comma-separated list of tags to skip."
         type: string
-        default: ""
+        default: "@:nightly-only"
 
   workflow_dispatch:
     inputs:
