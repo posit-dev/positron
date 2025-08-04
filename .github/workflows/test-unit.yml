@@ -65,16 +65,24 @@ jobs:
         with:
           version: "4.4.0"
 
-      - name: Setup XDG Runtime Directory
+      - name: Setup Test Environment Variables
         run: |
+          # Fix XDG_RUNTIME_DIR
           export XDG_RUNTIME_DIR=/tmp/xdg
           mkdir -p "$XDG_RUNTIME_DIR"
           chmod 700 "$XDG_RUNTIME_DIR"
           echo "XDG_RUNTIME_DIR=$XDG_RUNTIME_DIR" >> $GITHUB_ENV
 
+          # Suppress DBus lookups
+          echo "DBUS_SESSION_BUS_ADDRESS=/dev/null" >> $GITHUB_ENV
+
+          # Reduce GPU noise
+          echo "ELECTRON_DISABLE_SANDBOX=true" >> $GITHUB_ENV
+          echo "ELECTRON_ARGS=--disable-gpu --disable-software-rasterizer --no-sandbox --disable-features=UseDBus" >> $GITHUB_ENV
+
       - name: Run Unit Tests (Electron)
         id: electron-unit-tests
-        run: DISPLAY=:10 ./scripts/test.sh
+        run: DISPLAY=:10 ./scripts/test.sh --electronArgs="$ELECTRON_ARGS"
 
       - name: Run Unit Tests (node.js)
         id: nodejs-unit-tests
