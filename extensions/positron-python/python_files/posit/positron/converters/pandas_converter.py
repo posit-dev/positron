@@ -24,7 +24,10 @@ from .convert import CodeConverter, ConvertToCodeParams
 
 
 class PandasConverter(CodeConverter):
-    def __init__(self, table, table_name: str, params: ConvertToCodeParams):
+    def __init__(
+        self, table, table_name: str, params: ConvertToCodeParams, *, was_series: bool = False
+    ):
+        self.was_series = was_series
         super().__init__(table, table_name, params)
 
     def convert(self) -> List[StrictStr]:
@@ -52,9 +55,7 @@ class PandasConverter(CodeConverter):
         # process each filter key to some comparison string
         # that can be used in the method chain
         for filter_key in filters:
-            handler = PandasFilterHandler(
-                filter_key, self.table_name, is_series=isinstance(self.table, pd.Series)
-            )
+            handler = PandasFilterHandler(filter_key, self.table_name, was_series=self.was_series)
             comparison = handler.convert_filters()
             if comparison:
                 comparisons.append(comparison)
@@ -80,16 +81,17 @@ class PandasConverter(CodeConverter):
         if not self.params.sort_keys:
             return [], []
 
-        handler = PandasSortHandler(self.params.sort_keys, self.table)
+        handler = PandasSortHandler(self.params.sort_keys, self.table, was_series=self.was_series)
         method_chain_setup, method_chain_parts = handler.convert_sorts()
 
         return method_chain_setup, method_chain_parts
 
 
 class PandasSortHandler:
-    def __init__(self, sort_keys: List[ColumnSortKey], table):
+    def __init__(self, sort_keys: List[ColumnSortKey], table, *, was_series: bool = False):
         self.sort_keys = sort_keys
         self.table = table
+        self.was_series = was_series
 
     def convert_sorts(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """Handle the sort string."""
@@ -104,7 +106,7 @@ class PandasSortHandler:
 
         sort_key = self.sort_keys[0]
 
-        if isinstance(self.table, pd.Series):
+        if self.was_series:
             method_chain_parts.append(f".sort_values(ascending={sort_key.ascending})")
         else:
             col_idx = sort_key.column_index
@@ -131,10 +133,10 @@ class PandasSortHandler:
 
 
 class PandasFilterHandler:
-    def __init__(self, filter_key: RowFilter, table_name: str, *, is_series: bool = False):
+    def __init__(self, filter_key: RowFilter, table_name: str, *, was_series: bool = False):
         self.filter_key = filter_key
         self.table_name = table_name
-        self.column_name = "" if is_series else f"[{filter_key.column_schema.column_name!r}]"
+        self.column_name = "" if was_series else f"[{filter_key.column_schema.column_name!r}]"
 
     def convert_filters(self) -> Optional[str]:
         filter_handlers = {

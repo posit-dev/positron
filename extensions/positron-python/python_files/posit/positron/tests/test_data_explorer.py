@@ -533,12 +533,11 @@ class DataExplorerFixture:
         self.register_table(ex_id, expected_table)
 
         response = self.convert_to_code(
-            table_id, column_filters or [], row_filters or [], sort_keys or [], code_syntax_name
+            table_id, column_filters, row_filters, sort_keys, code_syntax_name
         )
         assert response["converted_code"] is not None
 
         new_df_code = response["converted_code"]
-        print(f"new_df_code: {new_df_code}")
 
         # added to ensure the new table is created in the shell's user namespace
         # normally we dont want to create a new dataframe in this code
@@ -550,8 +549,6 @@ class DataExplorerFixture:
         self.shell.run_cell(new_df_code).raise_error()
 
         new_df = pd.DataFrame(self.shell.user_ns[new_table_id])
-        print(f"new_df: {new_df}")
-        print(f"expected_table: {expected_table}\n--------")
         self.register_table(new_table_id, new_df)
         self.compare_tables(new_table_id, ex_id, table.shape)
 
@@ -561,7 +558,11 @@ class DataExplorerFixture:
 
         assert state["table_shape"] == ex_state["table_shape"]
 
-        select_all = _select_all(table_shape[0], table_shape[1])
+        try:
+            select_all = _select_all(table_shape[0], table_shape[1])
+        except IndexError:
+            # tuple index out of range, this is a pd.Series
+            select_all = _select_all(table_shape[0], 1)
 
         # Query the data and check it yields the same result as the
         # manually constructed data frame without the filter
@@ -4207,7 +4208,7 @@ def test_convert_pandas_filter_datetimetz(dxf: DataExplorerFixture):
         )
 
 
-def test_convert_sort_and_filter(dxf: DataExplorerFixture):
+def test_convert_pandas_sort_and_filter(dxf: DataExplorerFixture):
     # Test that we can convert a sort and filter operation
     test_df = SIMPLE_PANDAS_DF
     schema = dxf.get_schema("simple")
@@ -4223,4 +4224,75 @@ def test_convert_sort_and_filter(dxf: DataExplorerFixture):
         row_filters=filt,
         sort_keys=sort_keys,
         code_syntax_name="pandas",
+    )
+
+
+def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerFixture):
+    # Test filtering and sorting on pandas Series
+    series_data = [5, 2, 8, 1, 9, 3, 7, 4, 6]
+    test_series = pd.Series(series_data, name="values")
+
+    dxf.register_table("test_series", test_series)
+    schema = dxf.get_schema("test_series")
+
+    # Test comparison filters on Series
+    comparison_cases = [
+        (">", 5, test_series[test_series > 5]),
+        (">=", 5, test_series[test_series >= 5]),
+        ("<", 5, test_series[test_series < 5]),
+        ("<=", 5, test_series[test_series <= 5]),
+        ("=", 5, test_series[test_series == 5]),
+        ("!=", 5, test_series[test_series != 5]),
+    ]
+
+    for op, value, expected_series in comparison_cases:
+        filt = _compare_filter(schema[0], op, value)
+        # check as df to confirm columns
+        expected_df = pd.DataFrame({"values": expected_series})
+        dxf.check_conversion_case(
+            test_series, expected_df, row_filters=[filt], code_syntax_name="pandas"
+        )
+
+    # Test between filters
+    between_cases = [
+        (3, 7, test_series[(test_series >= 3) & (test_series <= 7)]),
+        (1, 4, test_series[(test_series >= 1) & (test_series <= 4)]),
+    ]
+
+    for left_val, right_val, expected_series in between_cases:
+        filt = _between_filter(schema[0], str(left_val), str(right_val))
+        expected_df = pd.DataFrame({"values": expected_series})
+        dxf.check_conversion_case(
+            test_series, expected_df, row_filters=[filt], code_syntax_name="pandas"
+        )
+
+        # Test not_between
+        not_between_series = test_series[(test_series < left_val) | (test_series > right_val)]
+        filt = _not_between_filter(schema[0], str(left_val), str(right_val))
+        expected_df = pd.DataFrame({"values": not_between_series})
+        dxf.check_conversion_case(
+            test_series, expected_df, row_filters=[filt], code_syntax_name="pandas"
+        )
+    # Test sorting on Series
+    sort_cases = [
+        (True, test_series.sort_values(ascending=True)),
+        (False, test_series.sort_values(ascending=False)),
+    ]
+
+    for ascending, expected_series in sort_cases:
+        sort_keys = [{"column_index": 0, "ascending": ascending}]
+        expected_df = pd.DataFrame({"values": expected_series})
+        dxf.check_conversion_case(
+            test_series, expected_df, sort_keys=sort_keys, code_syntax_name="pandas"
+        )
+
+    # Test combined filter and sort
+    filtered_series = test_series[test_series > 3]
+    sorted_filtered_series = filtered_series.sort_values(ascending=True)
+    expected_df = pd.DataFrame({"values": sorted_filtered_series})
+
+    filt = _compare_filter(schema[0], ">", 3)
+    sort_keys = [{"column_index": 0, "ascending": True}]
+    dxf.check_conversion_case(
+        test_series, expected_df, sort_keys=sort_keys, row_filters=[filt], code_syntax_name="pandas"
     )

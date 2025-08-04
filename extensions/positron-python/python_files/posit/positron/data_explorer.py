@@ -1194,6 +1194,7 @@ class PandasView(DataExplorerTableView):
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
     ):
+        self.was_series = False
         table = self._maybe_wrap(table)
 
         # For lazy importing NumPy
@@ -1216,6 +1217,9 @@ class PandasView(DataExplorerTableView):
         import pandas as pd
 
         if isinstance(value, pd.Series):
+            # track if the original value was a Series, so we can
+            # convert filters appropriately for the real type
+            self.was_series = True
             if value.name is None:
                 return pd.DataFrame({"unnamed": value})
             else:
@@ -1373,8 +1377,10 @@ class PandasView(DataExplorerTableView):
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
         # hack hack hack, the front end actually does not store sort keys
-        request.sort_keys = self.state.sort_keys
-        converter = PandasConverter(self.table, self.state.name, request)
+        request.sort_keys = request.sort_keys or self.state.sort_keys
+        converter = PandasConverter(
+            self.table, self.state.name, request, was_series=self.was_series
+        )
         converted_code = converter.convert()
         return ConvertedCode(converted_code=converted_code).dict()
 
