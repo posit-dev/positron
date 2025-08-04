@@ -5,7 +5,9 @@
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { assertSelectedEditor, execute, makeTempDir, startR, withDisposables } from './utils';
+import { makeTempDir, withDisposables } from './utils-disposables';
+import { execute, startR } from './utils-session';
+import { assertSelectedEditor } from './utils-assertions';
 
 suite('RStudio API', () => {
 	// https://github.com/posit-dev/positron/issues/8374

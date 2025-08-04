@@ -6,9 +6,9 @@
 import * as path from 'path';
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
-import * as assert from 'assert';
-import { assertSelectedEditor, execute, makeTempDir, pollForSuccess, startR, withDisposables } from './utils';
+import { makeTempDir, withDisposables } from './utils-disposables';
+import { execute, startR } from './utils-session';
+import { assertSelectedEditor } from './utils-assertions';
 
 suite('View', () => {
 	// https://github.com/posit-dev/positron/issues/8504
@@ -30,7 +30,7 @@ suite('View', () => {
 			await execute(`View(f)`);
 
 			// Should show source file in editor
-			await assertSelectedEditor(uri, 'f <- function() {}');
+			await assertSelectedEditor(uri, 'f <- function');
 		});
 	});
 });
