@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { randomUUID } from 'crypto';
 import { DisposableStore } from './util.js';
+import { murmurhash2_32 } from './murmur2.js';
 
 enum Command {
 	DebugCell = 'notebook.debugCell',
@@ -28,6 +29,35 @@ interface DumpCellArguments {
 
 interface DumpCellResponseBody {
 	sourcePath: string;
+}
+
+/**
+ * Represents the response body containing debugger information.
+ */
+interface DebugInfoResponseBody {
+	/* Indicates whether the debugger is started. */
+	isStarted: boolean;
+	/* The hash method used for code cells. Default is 'Murmur2'. */
+	hashMethod: string;
+	/* The seed for hashing code cells. */
+	hashSeed: number;
+	/* Prefix for temporary file names. */
+	tmpFilePrefix: string;
+	/* Suffix for temporary file names. */
+	tmpFileSuffix: string;
+	/* Breakpoints currently registered in the debugger. */
+	breakpoints: {
+		/* Source file. */
+		source: string;
+		/* List of breakpoints for that source file. */
+		breakpoints: DebugProtocol.Breakpoint[];
+	}[];
+	/* Threads in which the debugger is currently in a stopped state. */
+	stoppedThreads: number[];
+	/* Whether the debugger supports rich rendering of variables. */
+	richRendering: boolean;
+	/* Exception names used to match leaves or nodes in a tree of exception. */
+	exceptionPaths: string[];
 }
 
 function logMessage(message: DebugProtocol.ProtocolMessage) {
@@ -116,6 +146,18 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposa
 				}
 			}),
 		);
+
+		this.debugSession.customRequest('debugInfo').then((debugInfo: DebugInfoResponseBody) => {
+			// TODO: Block debugging until this is done?
+			// TODO: Update the map when a cell's source changes.
+			for (const cell of this.notebook.getCells()) {
+				const code = cell.document.getText();
+				// TODO: Check hash method too.
+				const id = murmurhash2_32(code, debugInfo.hashSeed);
+				const tempFilePath = `${debugInfo.tmpFilePrefix}${id}${debugInfo.tmpFileSuffix}`;
+				this._cellUriByTempFilePath.set(tempFilePath, cell.document.uri.toString());
+			}
+		});
 	}
 
 	public get notebookUri(): vscode.Uri {
@@ -176,7 +218,6 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposa
 
 		// Dump the cell into a temp file.
 		const dumpCellResponse = await this.dumpCell(cell);
-		const path = dumpCellResponse.sourcePath;
 		const kernelRequest = {
 			...request,
 			arguments: {
@@ -184,7 +225,10 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposa
 				source: {
 					...request.arguments.source,
 					// name: `${request.arguments.source.name} (cell: ${cell.index})`,
-					path,
+					// // Editor should not try to retrieve this source.
+					// // It doesn't exist in the debugger.
+					// sourceReference: 0,
+					path: dumpCellResponse.sourcePath,
 				},
 			},
 		};
@@ -198,13 +242,13 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposa
 				...kernelResponse.body,
 				breakpoints: kernelResponse.body.breakpoints.map((breakpoint) => ({
 					...breakpoint,
-					source: {
-						...breakpoint.source,
-						// Swap the source path with the original cell path.
-						path:
-							(breakpoint.source?.path && this._cellUriByTempFilePath.get(breakpoint.source.path)) ??
-							breakpoint.source?.path,
-					},
+					source: (breakpoint.source?.path && this._cellUriByTempFilePath.has(breakpoint.source.path)) ?
+						// TODO: Can we use source from above: request.arguments.source?
+						{
+							sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
+							path: this._cellUriByTempFilePath.get(breakpoint.source.path),
+							// TODO: Error in this case?
+						} : breakpoint.source,
 				})),
 			},
 		};
@@ -222,19 +266,20 @@ class RuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposa
 				...kernelResponse.body,
 				stackFrames: kernelResponse.body.stackFrames.map((frame) => ({
 					...frame,
-					source: {
-						...frame.source,
-						path:
-							(frame.source?.path && this._cellUriByTempFilePath.get(frame.source.path)) ??
-							frame.source?.path,
-					},
+					source: (frame.source?.path && this._cellUriByTempFilePath.has(frame.source.path)) ?
+						// TODO: Can we use source from above: request.arguments.source?
+						{
+							sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
+							path: this._cellUriByTempFilePath.get(frame.source.path),
+							// TODO: Error in this case?
+						} : frame.source,
 				})),
 			},
 		};
 		this.emitClientMessage(response);
 	}
 
-	public async dumpCell(cell: vscode.NotebookCell): Promise<DumpCellResponseBody> {
+	private async dumpCell(cell: vscode.NotebookCell): Promise<DumpCellResponseBody> {
 		const response = await this.debugSession.customRequest(
 			'dumpCell',
 			{ code: cell.document.getText() } satisfies DumpCellArguments,
@@ -333,10 +378,10 @@ class DebugCellManager implements vscode.Disposable {
 			//       We have to at least dump this cell so that if a called function in another cell has a breakpoint,
 			//       this cell can still be referenced e.g. in the stack trace.
 			// TODO: Take cell as arg?
-			const cell = this._notebook.cellAt(this._cellIndex);
-			this._adapter.dumpCell(cell).catch((error) => {
-				log.error(`Error dumping cell ${cell.index}:`, error);
-			});
+			// const cell = this._notebook.cellAt(this._cellIndex);
+			// this._adapter.dumpCell(cell).catch((error) => {
+			// 	log.error(`Error dumping cell ${cell.index}:`, error);
+			// });
 
 			// TODO: Can this throw?
 			await vscode.commands.executeCommand('notebook.cell.execute', {
