@@ -43,7 +43,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		}
 
 		// Create the output channel for the runtime session's debugger.
-		const outputChannel = this.getOrCreateOutputChannel(runtimeSession);
+		const outputChannel = this.createDebugAdapterOutputChannel(runtimeSession);
 
 		// TODO: Remove
 		// const runtimeSession = await positron.runtime.getNotebookSession(notebook.uri);
@@ -81,7 +81,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		return new vscode.DebugAdapterInlineImplementation(adapter);
 	}
 
-	private getOrCreateOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
+	private createDebugAdapterOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
 		let outputChannel = this._outputChannelByRuntimeSessionId.get(runtimeSession.metadata.sessionId);
 		if (!outputChannel) {
 			outputChannel = this._disposables.add(createDebuggerOutputChannel(runtimeSession));
