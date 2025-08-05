@@ -14,12 +14,10 @@ export class ContextMenu {
 	private getContextMenuItem: (label: string | RegExp) => Locator = (label: string | RegExp) => this.contextMenu.getByRole('menuitem', { name: label });
 	private getContextMenuCheckboxItem: (label: string | RegExp) => Locator = (label: string | RegExp) => this.contextMenu.getByRole('menuitemcheckbox', { name: label });
 
-	constructor(
-		private code: Code,
-		private projectName: string,
-		private platform: string,
-	) {
-		this.isNativeMenu = this.platform === 'darwin' && !this.projectName.includes('browser');
+	constructor(private code: Code) {
+		// Check if we're on macOS AND we have an Electron app instance
+		// Only macOS + Electron combination uses native context menus
+		this.isNativeMenu = process.platform === 'darwin' && !!this.code.electronApp;
 	}
 
 	/**
@@ -114,7 +112,7 @@ export class ContextMenu {
 	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: string[] } | undefined> {
 		try {
 			if (!this.code.electronApp) {
-				throw new Error(`Electron app is not available. Platform: ${this.platform}, Project: ${this.projectName}`);
+				throw new Error(`Electron app is not available. Platform: ${process.platform}`);
 			}
 
 			const shownPromise: Promise<[number, string[]]> | undefined = this.code.electronApp.evaluate(({ app }) => {

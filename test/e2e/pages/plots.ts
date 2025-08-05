@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import test, { expect, Locator, Page } from '@playwright/test';
+import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { fail } from 'assert';
 import { ContextMenu } from './dialog-contextMenu.js';
@@ -40,7 +40,7 @@ export class Plots {
 	savePlotModal: Locator;
 	overwriteModal: Locator;
 
-	constructor(private code: Code) {
+	constructor(private code: Code, private contextMenu: ContextMenu) {
 		this.plotButton = this.code.driver.page.locator(PLOT_BUTTON);
 		this.nextPlotButton = this.code.driver.page.locator(NEXT_PLOT_BUTTON);
 		this.previousPlotButton = this.code.driver.page.locator(PREVIOUS_PLOT_BUTTON);
@@ -160,30 +160,28 @@ export class Plots {
 		await this.code.driver.page.locator('.codicon-go-to-file').click();
 	}
 
-	async openPlotInEditor(contextMenu: ContextMenu) {
-		await test.step('Open plot in editor', async () => {
-			await contextMenu.triggerAndClick({
-				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
-				menuItemLabel: /Open in editor tab$/,
-				menuItemType: 'menuitemcheckbox'
+
+	async setThePlotZoom(zoomLevel: ZoomLevels) {
+		await test.step(`Set plot zoom to ${zoomLevel}`, async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.code.driver.page.getByRole('button', { name: /Fit|%/ }),
+				menuItemLabel: zoomLevel
 			});
 		});
 	}
 
-	async openPlotInNewWindow(contextMenu: ContextMenu): Promise<Page> {
-		return await test.step('Open plot in new window', async () => {
-			const context = this.code.driver.page.context();
-			const [newPage] = await Promise.all([
-				context.waitForEvent('page'),
-				contextMenu.triggerAndClick({
-					menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
-					menuItemLabel: /Open in new window$/,
-					menuItemType: 'menuitemcheckbox'
-				})
-			]);
-
-			await newPage.waitForLoadState('load');
-			return newPage;
+	async openPlotIn(plotLocation: PlotLocations) {
+		const menuItemRegex = {
+			'editor': /Open in editor tab$/,
+			'new window': /Open in new window$/,
+			'editor tab to the side': /Open in editor tab to the Side$/
+		};
+		await test.step(`Open plot in ${plotLocation}`, async () => {
+			await this.contextMenu.triggerAndClick({
+				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
+				menuItemLabel: menuItemRegex[plotLocation],
+				menuItemType: 'menuitemcheckbox'
+			});
 		});
 	}
 
@@ -245,3 +243,6 @@ export class Plots {
 
 	}
 }
+
+type ZoomLevels = 'Fit' | '50%' | '75%' | '100%' | '200%';
+type PlotLocations = 'editor' | 'new window' | 'editor tab to the side';
