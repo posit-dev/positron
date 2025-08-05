@@ -12,6 +12,7 @@ export class ContextMenu {
 	private contextMenu: Locator = this.page.locator('.monaco-menu');
 	private contextMenuItems: Locator = this.contextMenu.getByRole('menuitem');
 	private getContextMenuItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitem', { name: label });
+	private getContextMenuCheckboxItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitemcheckbox', { name: label, exact: true });
 
 	constructor(
 		private code: Code,
@@ -27,8 +28,9 @@ export class ContextMenu {
 	 *
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
+	 * @param menuItemType The type of the menu item, either 'menuitemcheckbox' or 'menuitem'
 	 */
-	async triggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
+	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem' }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel });
@@ -36,7 +38,9 @@ export class ContextMenu {
 				await menuTrigger.click();
 
 				// Hover over the menu item
-				const menuItem = this.getContextMenuItem(menuItemLabel);
+				const menuItem = menuItemType === 'menuitemcheckbox'
+					? this.getContextMenuCheckboxItem(menuItemLabel)
+					: this.getContextMenuItem(menuItemLabel);
 				await menuItem.hover();
 				await this.page.waitForTimeout(500);
 
@@ -155,7 +159,7 @@ export class ContextMenu {
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
 	 */
-	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
+	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel }: Omit<ContextMenuClick, 'menuItemType'>): Promise<void> {
 		// Show the context menu by clicking on the trigger element
 		const menuItems = await this.showContextMenu(() => menuTrigger.click());
 
@@ -177,4 +181,5 @@ export class ContextMenu {
 interface ContextMenuClick {
 	menuTrigger: Locator;
 	menuItemLabel: string;
+	menuItemType?: 'menuitemcheckbox' | 'menuitem';
 }
