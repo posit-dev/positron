@@ -31,6 +31,9 @@ const { positronBuildNumber } = require('./utils');
 const { copyExtensionBinariesTask } = require('./gulpfile.extensions');
 // --- End Positron ---
 const { compileBuildWithManglingTask } = require('./gulpfile.compile');
+// --- Start PWB ---
+const { compileBuildWithoutManglingTask } = require('./gulpfile.compile');
+// --- End PWB ---
 const { cleanExtensionsBuildTask, compileNonNativeExtensionsBuildTask, compileNativeExtensionsBuildTask, compileExtensionMediaBuildTask } = require('./gulpfile.extensions');
 const { vscodeWebResourceIncludes, createVSCodeWebFileContentMapper } = require('./gulpfile.vscode.web');
 const cp = require('child_process');
@@ -42,7 +45,6 @@ const commit = getVersion(REPO_ROOT);
 const BUILD_ROOT = path.dirname(REPO_ROOT);
 const REMOTE_FOLDER = path.join(REPO_ROOT, 'remote');
 // --- Start Positron ---
-const { compileBuildWithoutManglingTask } = require('./gulpfile.compile');
 const REMOTE_REH_WEB_FOLDER = path.join(REPO_ROOT, 'remote', 'reh-web');
 // --- End Positron ---
 

@@ -13,8 +13,9 @@ test.use({
 	suiteId: __filename
 });
 
+// Untagged for WEB due to https://github.com/posit-dev/positron/issues/8828
 test.describe('Notebook Working Directory Configuration', {
-	tag: [tags.WIN, tags.WEB, tags.NOTEBOOKS]
+	tag: [tags.WIN, tags.NOTEBOOKS]
 }, () => {
 
 	test.afterEach(async function ({ app }) {
