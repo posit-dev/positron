@@ -104,19 +104,30 @@ def main(argv: Optional[Sequence[str]] = None) -> None:
         env_path = get_conda_env_path(args.name)
         print(f"EXISTING_CONDA_ENV:{env_path}")
     else:
+        # --- Start Positron ---
+        # Special case for Playwright CI: force conda-forge to avoid ToS prompt from defaults
+        is_playwright_test = os.environ.get("PW_TEST") == "1"
+
+        cmd = [
+            sys.executable,
+            "-m",
+            "conda",
+            "create",
+            "--yes",
+            "--prefix",
+            args.name,
+            f"python={args.python}",
+        ]
+
+        if is_playwright_test:
+            print("PW_TEST env var detected: Configuring conda to use conda-forge channel only")
+            cmd.extend(["--override-channels", "-c", "conda-forge"])
+
         run_process(
-            [
-                sys.executable,
-                "-m",
-                "conda",
-                "create",
-                "--yes",
-                "--prefix",
-                args.name,
-                f"python={args.python}",
-            ],
+            cmd,
             "CREATE_CONDA.ENV_FAILED_CREATION",
         )
+        # --- End Positron ---
         env_path = get_conda_env_path(args.name)
         print(f"CREATED_CONDA_ENV:{env_path}")
         if args.git_ignore:

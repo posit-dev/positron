@@ -394,13 +394,12 @@ class DataExplorerFixture:
             column_indices=column_indices,
         )["columns"]
 
-    def search_schema(self, table_name, filters, start_index, max_results):
+    def search_schema(self, table_name, filters, sort_order="original"):
         return self.do_json_rpc(
             table_name,
             "search_schema",
             filters=filters,
-            start_index=start_index,
-            max_results=max_results,
+            sort_order=sort_order,
         )
 
     def get_state(self, table_name):
@@ -899,11 +898,11 @@ def _match_types_filter(data_types):
 def test_search_schema(dxf: DataExplorerFixture):
     # Test search_schema RPC for pandas and polars
 
-    # Make a few thousand column names we can search for
+    # Make a smaller set of column names for easier testing
     column_names = [
         f"{prefix}_{i}"
-        for prefix in ["aaa", "bbb", "ccc", "ddd"]
-        for i in range({"aaa": 1000, "bbb": 100, "ccc": 50, "ddd": 10}[prefix])
+        for prefix in ["apple", "banana", "cherry", "date"]
+        for i in range({"apple": 10, "banana": 5, "cherry": 3, "date": 2}[prefix])
     ]
 
     data_examples = {
@@ -931,54 +930,94 @@ def test_search_schema(dxf: DataExplorerFixture):
     dxf.register_table("test_df", test_df)
     dxf.register_table("dfp", dfp)
 
-    aaa_filter = _text_search_filter("aaa")
-    bbb_filter = _text_search_filter("bbb")
-    ccc_filter = _text_search_filter("ccc")
-    ddd_filter = _text_search_filter("ddd")
+    apple_filter = _text_search_filter("apple")
+    banana_filter = _text_search_filter("banana")
 
     for name in ["test_df", "dfp"]:
-        full_schema = dxf.get_schema(name, list(range(len(column_names))))
+        # Test filtering by text
+        result = dxf.search_schema(name, [apple_filter])
+        expected_apple_indices = [i for i, col in enumerate(column_names) if "apple" in col]
+        assert result["matches"] == expected_apple_indices
 
-        # (search_term, start_index, max_results, ex_total, ex_matches)
-        cases = [
-            ([aaa_filter], 0, 100, 1000, full_schema[:100]),
-            (
-                [aaa_filter, _match_types_filter([ColumnDisplayType.String])],
-                0,
-                100,
-                200,
-                full_schema[:500][1::5],
-            ),
-            (
-                [
-                    aaa_filter,
-                    _match_types_filter([ColumnDisplayType.Boolean, ColumnDisplayType.Number]),
-                ],
-                0,
-                120,
-                600,
-                [x for i, x in enumerate(full_schema[:200]) if i % 5 in (0, 2, 3)],
-            ),
-            ([aaa_filter], 100, 100, 1000, full_schema[100:200]),
-            ([aaa_filter], 950, 100, 1000, full_schema[950:1000]),
-            ([aaa_filter], 1000, 100, 1000, []),
-            ([bbb_filter], 0, 10, 100, full_schema[1000:1010]),
-            ([ccc_filter], 0, 10, 50, full_schema[1100:1110]),
-            ([ddd_filter], 0, 10, 10, full_schema[1150:1160]),
-        ]
+        result = dxf.search_schema(name, [banana_filter])
+        expected_banana_indices = [i for i, col in enumerate(column_names) if "banana" in col]
+        assert result["matches"] == expected_banana_indices
 
-        for (
-            filters,
-            start_index,
-            max_results,
-            ex_total,
-            ex_matches,
-        ) in cases:
-            result = dxf.search_schema(name, filters, start_index, max_results)
+        # Test filtering by data type
+        string_filter = _match_types_filter([ColumnDisplayType.String])
+        result = dxf.search_schema(name, [string_filter])
+        # String columns should be at indices 1, 6, 11, 16 (every 5th starting from 1)
+        expected_string_indices = [i for i in range(len(column_names)) if i % 5 == 1]
+        assert result["matches"] == expected_string_indices
 
-            assert result["total_num_matches"] == ex_total
-            matches = result["matches"]["columns"]
-            assert matches == ex_matches
+        # Test combining filters
+        result = dxf.search_schema(name, [apple_filter, string_filter])
+        # Apple columns that are also strings
+        expected_combined = [i for i in expected_apple_indices if i % 5 == 1]
+        assert result["matches"] == expected_combined
+
+        # Test sorting
+        result = dxf.search_schema(name, [], "original")
+        expected_all_indices = list(range(len(column_names)))
+        assert result["matches"] == expected_all_indices
+
+        result = dxf.search_schema(name, [], "ascending")
+        # Should be sorted by column name alphabetically
+        expected_sorted = sorted(range(len(column_names)), key=lambda i: column_names[i])
+        assert result["matches"] == expected_sorted
+
+        result = dxf.search_schema(name, [], "descending")
+        # Should be sorted by column name reverse alphabetically
+        expected_reverse_sorted = sorted(
+            range(len(column_names)), key=lambda i: column_names[i], reverse=True
+        )
+        assert result["matches"] == expected_reverse_sorted
+
+
+def test_search_schema_sort_by_name(dxf: DataExplorerFixture):
+    # Test comprehensive sort-by-name functionality
+
+    # Create a dataframe with deliberately mixed-case and varied column names
+    column_names = ["Zebra", "apple", "BANANA", "Cherry", "date", "Elephant", "fig"]
+    data = {name: [1, 2, 3, 4, 5] for name in column_names}
+
+    test_df = pd.DataFrame(data)
+    dfp = pl.DataFrame(data)
+
+    dxf.register_table("sort_test_df", test_df)
+    dxf.register_table("sort_test_dfp", dfp)
+
+    for name in ["sort_test_df", "sort_test_dfp"]:
+        # Test original order (should be same as column order)
+        result = dxf.search_schema(name, [], "original")
+        expected_original = list(range(len(column_names)))
+        assert result["matches"] == expected_original
+
+        # Test ascending sort (case-sensitive alphabetical)
+        result = dxf.search_schema(name, [], "ascending")
+        expected_ascending = sorted(range(len(column_names)), key=lambda i: column_names[i])
+        assert result["matches"] == expected_ascending
+
+        # Test descending sort
+        result = dxf.search_schema(name, [], "descending")
+        expected_descending = sorted(
+            range(len(column_names)), key=lambda i: column_names[i], reverse=True
+        )
+        assert result["matches"] == expected_descending
+
+        # Test that sorting works with filters too
+        filter_with_a = _text_search_filter("a")  # Should match "Zebra", "apple", "BANANA"
+
+        result = dxf.search_schema(name, [filter_with_a], "ascending")
+        filtered_indices = [i for i, col in enumerate(column_names) if "a" in col.lower()]
+        expected_filtered_ascending = sorted(filtered_indices, key=lambda i: column_names[i])
+        assert result["matches"] == expected_filtered_ascending
+
+        result = dxf.search_schema(name, [filter_with_a], "descending")
+        expected_filtered_descending = sorted(
+            filtered_indices, key=lambda i: column_names[i], reverse=True
+        )
+        assert result["matches"] == expected_filtered_descending
 
 
 def test_pandas_get_data_values(dxf: DataExplorerFixture):

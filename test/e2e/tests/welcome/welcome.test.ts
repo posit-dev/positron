@@ -94,11 +94,8 @@ test.describe('Welcome Page', { tag: [tags.WELCOME, tags.WEB] }, () => {
 	});
 
 	test.describe('No Workspace', () => {
-		test.beforeAll(async function ({ hotKeys }) {
-			await hotKeys.closeWorkspace();
-		});
-
 		test.beforeEach(async function ({ hotKeys, sessions }) {
+			await hotKeys.closeWorkspace();
 			await sessions.expectSessionPickerToBe('Start Session');
 			await sessions.expectNoStartUpMessaging();
 			await hotKeys.openWelcomeWalkthrough();

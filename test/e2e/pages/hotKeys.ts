@@ -156,7 +156,7 @@ export class HotKeys {
 
 	public async closeWorkspace() {
 		await this.pressHotKeys('Cmd+J W');
-		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
+		await expect(this.code.driver.page.locator('.explorer-folders-view')).not.toBeVisible();
 	}
 
 	public async importSettings() {

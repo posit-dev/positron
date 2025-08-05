@@ -80,6 +80,7 @@ from .data_explorer_comm import (
     SearchSchemaFeatures,
     SearchSchemaParams,
     SearchSchemaResult,
+    SearchSchemaSortOrder,
     SetColumnFiltersFeatures,
     SetColumnFiltersParams,
     SetRowFiltersFeatures,
@@ -296,8 +297,7 @@ class DataExplorerTableView:
 
     def search_schema(self, params: SearchSchemaParams):
         filters = params.filters
-        start_index = params.start_index
-        max_results = params.max_results
+        sort_order = params.sort_order
         if self._search_schema_last_result is not None:
             last_filters, matches = self._search_schema_last_result
             if last_filters != filters:
@@ -307,11 +307,16 @@ class DataExplorerTableView:
             matches = self._column_filter_get_matches(filters)
             self._search_schema_last_result = (filters, matches)
 
-        matches_slice = matches[start_index : start_index + max_results]
-        return SearchSchemaResult(
-            matches=TableSchema(columns=[self._get_single_column_schema(i) for i in matches_slice]),
-            total_num_matches=len(matches),
-        )
+        # Apply sorting based on sort_order
+        if sort_order == SearchSchemaSortOrder.Ascending:
+            # Sort by column name ascending
+            matches = sorted(matches, key=lambda idx: self._get_column_name(idx))
+        elif sort_order == SearchSchemaSortOrder.Descending:
+            # Sort by column name descending
+            matches = sorted(matches, key=lambda idx: self._get_column_name(idx), reverse=True)
+        # For SearchSchemaSortOrder.Original, keep original order (no sorting needed)
+
+        return SearchSchemaResult(matches=matches)
 
     def _column_filter_get_matches(self, filters: list[ColumnFilter]):
         matchers = self._get_column_filter_functions(filters)
@@ -343,8 +348,8 @@ class DataExplorerTableView:
 
         def _match_display_types(params: FilterMatchDataTypes):
             def matcher(index):
-                schema = self._get_single_column_schema(index)
-                return schema.type_display in params.display_types
+                type_display = self._get_column_type_display(index)
+                return type_display in params.display_types
 
             return matcher
 
@@ -362,6 +367,9 @@ class DataExplorerTableView:
         return matchers
 
     def _get_column_name(self, column_index: int) -> str:
+        raise NotImplementedError
+
+    def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
         raise NotImplementedError
 
     def get_data_values(self, params: GetDataValuesParams):
@@ -1434,7 +1442,10 @@ class PandasView(DataExplorerTableView):
                 categories_type_name = cls._get_inferred_dtype(
                     dtype.categories, column_index, state
                 )
-                type_display = cls.TYPE_NAME_MAPPING.get(categories_type_name, categories_type_name)
+                categories_type_name = cls.TYPE_NAME_MAPPING.get(
+                    categories_type_name, categories_type_name
+                )
+                type_display = cls._get_type_display(categories_type_name)
             else:
                 categories_type_name = str(dtype.categories.dtype)
                 type_display = cls._get_type_display(categories_type_name)
@@ -1531,6 +1542,11 @@ class PandasView(DataExplorerTableView):
 
     def _get_column_name(self, index: int):
         return str(self.table.columns[index])
+
+    def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
+        column = self.table.iloc[:, column_index]
+        _, type_display = self._get_type(column, column_index, self.state)
+        return type_display
 
     def _get_data_values(
         self,
@@ -2357,6 +2373,10 @@ class PolarsView(DataExplorerTableView):
     def _get_column_name(self, column_index: int) -> str:
         return self.table[:, column_index].name
 
+    def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
+        column = self.table[:, column_index]
+        return self._get_type_display(column.dtype)
+
     @classmethod
     def _construct_schema(
         cls,
@@ -2406,7 +2426,7 @@ class PolarsView(DataExplorerTableView):
             "Object": "object",
             "List": "array",
             "Struct": "struct",
-            "Categorical": "categorical",
+            "Categorical": "string",
             "Enum": "unknown",
             "Null": "unknown",  # Not yet implemented
             "Unknown": "unknown",
@@ -2416,7 +2436,8 @@ class PolarsView(DataExplorerTableView):
     @classmethod
     def _get_type_display(cls, dtype: pl.DataType):
         key = str(dtype.base_type())
-        return cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
+        type_display = cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
+        return ColumnDisplayType(type_display)
 
     def _search_schema(
         self, filters: list[ColumnFilter], start_index: int, max_results: int
