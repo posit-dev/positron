@@ -3,6 +3,9 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './convertToCodeModalDialog.css';
+
 // React.
 import React, { useEffect, useState, useRef } from 'react';
 
@@ -18,15 +21,7 @@ import { PositronModalReactRenderer } from '../../../base/browser/positronModalR
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
 import { CodeEditorWidget } from '../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { DisposableStore } from '../../../base/common/lifecycle.js';
-import { getSimpleEditorOptions } from '../../contrib/codeEditor/browser/simpleEditorOptions.js';
-import { EditorExtensionsRegistry } from '../../../editor/browser/editorExtensions.js';
-import { MenuPreventer } from '../../contrib/codeEditor/browser/menuPreventer.js';
-import { SelectionClipboardContributionID } from '../../contrib/codeEditor/browser/selectionClipboard.js';
-import { ContextMenuController } from '../../../editor/contrib/contextmenu/browser/contextmenu.js';
-import { SuggestController } from '../../../editor/contrib/suggest/browser/suggestController.js';
-import { SnippetController2 } from '../../../editor/contrib/snippet/browser/snippetController2.js';
-import { TabCompletionController } from '../../contrib/snippets/browser/tabCompletion.js';
-import { Emitter } from '../../../base/common/event.js';
+import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../contrib/codeEditor/browser/simpleEditorOptions.js';
 import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
 import { PlatformNativeDialogActionBar } from '../positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
 import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
@@ -111,43 +106,30 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 
 	useEffect(() => {
 		const disposableStore = new DisposableStore();
-		const editor = disposableStore.add(services.instantiationService.createInstance(
+		const codeEditorWidget = disposableStore.add(services.instantiationService.createInstance(
 			CodeEditorWidget,
 			editorContainerRef.current,
 			{
 				...getSimpleEditorOptions(services.configurationService),
 				readOnly: true,
 			},
-			{
-				isSimpleWidget: true,
-				contributions: EditorExtensionsRegistry.getSomeEditorContributions([
-					MenuPreventer.ID,
-					SelectionClipboardContributionID,
-					ContextMenuController.ID,
-					SuggestController.ID,
-					SnippetController2.ID,
-					TabCompletionController.ID,
-				])
-			}
+			getSimpleCodeEditorWidgetOptions()
 		));
 
-
-		const emitter = disposableStore.add(new Emitter<string>);
-		const inputModel = disposableStore.add(services.modelService.createModel(
+		codeEditorWidget.setModel(services.modelService.createModel(
 			codeString || '',
-			{ languageId: language || '', onDidChange: emitter.event },
+			services.languageService.createById(language),
 			undefined,
 			true
 		));
 
-		editor.setModel(inputModel);
-		editorRef.current = editor;
+		editorRef.current = codeEditorWidget;
 
 		return () => {
 			disposableStore.dispose();
 		};
 	},
-		[codeString, language, services.instantiationService, services.configurationService, services.modelService]);
+		[codeString, language, services.instantiationService, services.configurationService, services.modelService, services.languageService]);
 
 	// Construct the syntax options dropdown entries
 	const syntaxDropdownEntries = () => {
@@ -204,7 +186,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 
 	const okButton = (
 		<Button className='action-bar-button default' onPressed={() => handleCopyToClipboard()}>
-			{localize('positronOK', "Copy Code")}
+			{localize('positronCopyCode', "Copy Code")}
 		</Button>
 	);
 	const cancelButton = (
@@ -224,10 +206,11 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 			width={400}
 		>
 			<ContentArea>
-				<h3 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: 'normal' }}>
+				<h3 className='code-syntax-heading'>
 					{localize('positron.dataExplorer.codeSyntaxHeading', "Select code syntax")}
 				</h3>
 				<DropDownListBox
+					className='convert-to-code-syntax-dropdown'
 					createItem={(item) => (
 						<DropdownEntry
 							title={item.options.identifier}
@@ -237,14 +220,9 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 					title={syntaxDropdownTitle()}
 					onSelectionChanged={onSelectionChanged}
 				/>
-				<hr style={{ margin: '8px 0', border: 'none' }} />
 				<div
 					ref={editorContainerRef}
-					style={{
-						height: '90%',
-						width: '100%',
-						border: '1px solid var(--vscode-widget-border)',
-					}}
+					className='convert-to-code-editor'
 				/>
 			</ContentArea>
 			<div className='ok-cancel-action-bar top-separator'>

@@ -1,0 +1,21 @@
+/*---------------------------------------------------------------------------------------------
+ *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
+ *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+ *--------------------------------------------------------------------------------------------*/
+
+.convert-to-code-editor {
+	height: 200px;
+	width: 100%;
+	border: 1px solid var(--vscode-positronModalDialog-border);
+}
+
+.code-syntax-heading {
+	margin-block-start: 0;
+	margin-block-end: 8px;
+	margin: 0 0 0 0;
+}
+
+.convert-to-code-syntax-dropdown {
+	width: 100%;
+	margin-bottom: 16px;
+}
