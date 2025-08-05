@@ -11,8 +11,8 @@ export class ContextMenu {
 	private isNativeMenu: boolean;
 	private contextMenu: Locator = this.page.locator('.monaco-menu');
 	private contextMenuItems: Locator = this.contextMenu.getByRole('menuitem');
-	private getContextMenuItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitem', { name: label });
-	private getContextMenuCheckboxItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitemcheckbox', { name: label, exact: true });
+	private getContextMenuItem: (label: string | RegExp) => Locator = (label: string | RegExp) => this.contextMenu.getByRole('menuitem', { name: label });
+	private getContextMenuCheckboxItem: (label: string | RegExp) => Locator = (label: string | RegExp) => this.contextMenu.getByRole('menuitemcheckbox', { name: label });
 
 	constructor(
 		private code: Code,
@@ -166,13 +166,33 @@ export class ContextMenu {
 		// Handle the menu interaction once it's shown
 		if (menuItems) {
 			// Verify the requested menu item exists
-			if (!menuItems.items.includes(menuItemLabel)) {
-				throw new Error(`Context menu '${menuItemLabel}' not found. Available items: ${menuItems.items.join(', ')}`);
+			const menuItemExists = typeof menuItemLabel === 'string'
+				? menuItems.items.includes(menuItemLabel)
+				: menuItems.items.some(item => menuItemLabel.test(item));
+
+			if (!menuItemExists) {
+				const labelStr = typeof menuItemLabel === 'string'
+					? menuItemLabel
+					: menuItemLabel.toString();
+				throw new Error(`Context menu '${labelStr}' not found. Available items: ${menuItems.items.join(', ')}`);
 			}
+
+			// For RegExp, find the first matching item
+			const actualItemLabel = typeof menuItemLabel === 'string'
+				? menuItemLabel
+				: menuItems.items.find(item => menuItemLabel.test(item));
+
+			if (!actualItemLabel) {
+				throw new Error('Failed to find matching menu item');
+			}
+
 			// Select the menu item through Electron IPC
-			await this.selectContextMenuItem(menuItems.menuId, menuItemLabel);
+			await this.selectContextMenuItem(menuItems.menuId, actualItemLabel);
 		} else {
-			throw new Error(`Context menu '${menuItemLabel}' did not appear or no menu items found.`);
+			const labelStr = typeof menuItemLabel === 'string'
+				? menuItemLabel
+				: menuItemLabel.toString();
+			throw new Error(`Context menu '${labelStr}' did not appear or no menu items found.`);
 		}
 	}
 }
@@ -180,6 +200,6 @@ export class ContextMenu {
 
 interface ContextMenuClick {
 	menuTrigger: Locator;
-	menuItemLabel: string;
+	menuItemLabel: string | RegExp;
 	menuItemType?: 'menuitemcheckbox' | 'menuitem';
 }
