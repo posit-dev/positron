@@ -3,9 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import * as positron from 'positron';
-import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { DisposableStore, disposableTimeout, formatDebugMessage } from './util.js';
