@@ -3,13 +3,12 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
-import { Extensions, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
-import { Registry } from '../../../../platform/registry/common/platform.js';
-import { positronConfigurationNodeBase } from '../../languageRuntime/common/languageRuntime.js';
 
-// Key for the multiple sessions setting
+// The key for the feature flag that controls the
+// data explorer summary panel enhancements feature work.
+// This key is not registered in the configuration registry
+// because we do not want to expose this setting in the settings UI.
 export const USE_DATA_EXPLORER_SUMMARY_PANEL_ENHANCEMENTS_KEY =
 	'dataExplorer.summaryPanelEnhancements';
 
@@ -26,21 +25,3 @@ export function summaryPanelEnhancementsFeatureEnabled(
 		configurationService.getValue(USE_DATA_EXPLORER_SUMMARY_PANEL_ENHANCEMENTS_KEY)
 	);
 }
-
-// Register the configuration setting
-const configurationRegistry = Registry.as<IConfigurationRegistry>(
-	Extensions.Configuration
-);
-configurationRegistry.registerConfiguration({
-	...positronConfigurationNodeBase,
-	properties: {
-		[USE_DATA_EXPLORER_SUMMARY_PANEL_ENHANCEMENTS_KEY]: {
-			type: 'boolean',
-			default: false,
-			markdownDescription: localize(
-				'positron.enableSummaryPanelEnhancementsFeatures',
-				'**CAUTION**: Enable experimental Data Explorer Summary Panel enhancement features which may result in unexpected behaviour. Please restart Positron if you change this option.'
-			),
-		},
-	},
-});
