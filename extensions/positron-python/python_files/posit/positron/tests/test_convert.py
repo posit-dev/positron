@@ -3,11 +3,12 @@ import datetime
 import pandas as pd
 import pytz
 
+from ..data_explorer_comm import CodeSyntaxName, FilterComparisonOp
+from ..utils import var_guid
 from .test_data_explorer import (
     COMPARE_OPS,
     SIMPLE_PANDAS_DF,
     DataExplorerFixture,
-    FilterComparisonOp,
     _between_filter,
     _compare_filter,
     _filter,
@@ -16,7 +17,61 @@ from .test_data_explorer import (
 )
 
 
-def test_convert_pandas_filter_is_null_true(dxf: DataExplorerFixture):
+# ruff: noqa: E712
+class DataExplorerConvertFixture(DataExplorerFixture):
+    def convert_to_code(
+        self,
+        table_name,
+        column_filters=None,
+        row_filters=None,
+        sort_keys=None,
+        code_syntax_name="",
+    ):
+        return self.do_json_rpc(
+            table_name,
+            "convert_to_code",
+            column_filters=column_filters or [],
+            row_filters=row_filters or [],
+            sort_keys=sort_keys or [],
+            code_syntax_name=CodeSyntaxName(code_syntax_name=code_syntax_name),
+        )
+
+    def check_conversion_case(
+        self,
+        table,
+        expected_table,
+        column_filters=None,
+        row_filters=None,
+        sort_keys=None,
+        code_syntax_name="pandas",
+    ):
+        table_id = var_guid()
+        ex_id = var_guid()
+        self.register_table(table_id, table)
+        self.register_table(ex_id, expected_table)
+
+        response = self.convert_to_code(
+            table_id, column_filters, row_filters, sort_keys, code_syntax_name
+        )
+        assert response["converted_code"] is not None
+
+        new_df_code = response["converted_code"]
+
+        # added to ensure the new table is created in the shell's user namespace
+        # normally we dont want to create a new dataframe in this code
+        new_table_id = var_guid()
+        new_df_code[-1] = new_table_id + " = " + new_df_code[-1]
+        new_df_code = "\n".join(new_df_code)
+        self.shell.user_ns[table_id] = table
+
+        self.shell.run_cell(new_df_code).raise_error()
+
+        new_df = pd.DataFrame(self.shell.user_ns[new_table_id])
+        self.register_table(new_table_id, new_df)
+        self.compare_tables(new_table_id, ex_id, table.shape)
+
+
+def test_convert_pandas_filter_is_null_true(dxf: DataExplorerConvertFixture):
     test_df = SIMPLE_PANDAS_DF
     schema = dxf.get_schema_for(test_df)
     b_is_null = _filter("is_null", schema[1])
@@ -54,7 +109,7 @@ def test_convert_pandas_filter_is_null_true(dxf: DataExplorerFixture):
         )
 
 
-def test_convert_pandas_filter_empty(dxf: DataExplorerFixture):
+def test_convert_pandas_filter_empty(dxf: DataExplorerConvertFixture):
     test_df = pd.DataFrame(
         {
             "a": ["foo1", "foo2", "", "2FOO", "FOO3", "bar1", "2BAR"],
@@ -83,7 +138,7 @@ def test_convert_pandas_filter_empty(dxf: DataExplorerFixture):
         )
 
 
-def test_convert_pandas_filter_search(dxf: DataExplorerFixture):
+def test_convert_pandas_filter_search(dxf: DataExplorerConvertFixture):
     test_df = pd.DataFrame(
         {
             "a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"],
@@ -181,7 +236,7 @@ def test_convert_pandas_filter_search(dxf: DataExplorerFixture):
         )
 
 
-def test_convert_pandas_filter_between(dxf: DataExplorerFixture):
+def test_convert_pandas_filter_between(dxf: DataExplorerConvertFixture):
     test_df = SIMPLE_PANDAS_DF
     schema = dxf.get_schema("simple")
 
@@ -210,7 +265,7 @@ def test_convert_pandas_filter_between(dxf: DataExplorerFixture):
         )
 
 
-def test_convert_pandas_filter_compare(dxf: DataExplorerFixture):
+def test_convert_pandas_filter_compare(dxf: DataExplorerConvertFixture):
     # Just use the 'a' column to smoke test comparison filters on
     # integers
     test_df = SIMPLE_PANDAS_DF
@@ -225,7 +280,7 @@ def test_convert_pandas_filter_compare(dxf: DataExplorerFixture):
         )
 
 
-def test_convert_pandas_filter_datetimetz(dxf: DataExplorerFixture):
+def test_convert_pandas_filter_datetimetz(dxf: DataExplorerConvertFixture):
     tz = pytz.timezone("US/Eastern")
 
     test_df = pd.DataFrame(
@@ -246,7 +301,7 @@ def test_convert_pandas_filter_datetimetz(dxf: DataExplorerFixture):
         )
 
 
-def test_convert_pandas_sort_and_filter(dxf: DataExplorerFixture):
+def test_convert_pandas_sort_and_filter(dxf: DataExplorerConvertFixture):
     # Test that we can convert a sort and filter operation
     test_df = SIMPLE_PANDAS_DF
     schema = dxf.get_schema("simple")
@@ -265,7 +320,7 @@ def test_convert_pandas_sort_and_filter(dxf: DataExplorerFixture):
     )
 
 
-def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerFixture):
+def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerConvertFixture):
     # Test filtering and sorting on pandas Series
     series_data = [5, 2, 8, 1, 9, 3, 7, 4, 6]
     test_series = pd.Series(series_data, name="values")
