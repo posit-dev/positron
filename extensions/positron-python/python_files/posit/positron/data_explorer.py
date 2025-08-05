@@ -1418,7 +1418,9 @@ class PandasView(DataExplorerTableView):
         return state.inferred_dtypes[column_index]
 
     @classmethod
-    def _get_type(cls, column, column_index, state: DataExplorerState):
+    def _get_type(
+        cls, column, column_index, state: DataExplorerState
+    ) -> tuple[str, ColumnDisplayType, str | None]:
         import pandas as pd
 
         # A helper function for returning the backend type_name and
@@ -1510,7 +1512,7 @@ class PandasView(DataExplorerTableView):
     TYPE_MAPPERS = (_pandas_temporal_mapper,)
 
     @classmethod
-    def _get_type_display(cls, type_name):
+    def _get_type_display(cls, type_name) -> ColumnDisplayType:
         if type_name in cls.TYPE_DISPLAY_MAPPING:
             type_display = cls.TYPE_DISPLAY_MAPPING[type_name]
         else:
@@ -1545,7 +1547,7 @@ class PandasView(DataExplorerTableView):
 
     def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
         column = self.table.iloc[:, column_index]
-        _, type_display = self._get_type(column, column_index, self.state)
+        _, type_display, _ = self._get_type(column, column_index, self.state)
         return type_display
 
     def _get_data_values(
