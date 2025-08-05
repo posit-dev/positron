@@ -223,12 +223,6 @@ export class TableSummaryCache extends Disposable {
 		const searchTextChanged = searchText !== this._searchText;
 		this._searchText = searchText;
 
-		// Clear caches when search changes to force reloading new search results.
-		if (invalidateCache || searchTextChanged) {
-			this._columnSchemaCache.clear();
-			this._columnProfileCache.clear();
-		}
-
 		// Get the size of the data.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
@@ -271,6 +265,12 @@ export class TableSummaryCache extends Disposable {
 				numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1
 			})
 			: await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+		// Clear caches when search changes to force reloading new search results.
+		if (invalidateCache || searchTextChanged) {
+			this._columnSchemaCache.clear();
+			this._columnProfileCache.clear();
+		}
 
 		// Cache the column schema that was returned
 		for (let i = 0; i < tableSchema.columns.length; i++) {
