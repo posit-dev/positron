@@ -21,69 +21,34 @@ import { createDebuggerOutputChannel, performRuntimeDebugRPC } from './runtime.j
 
 export class RuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
-
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
-
-	public readonly onDidSendMessage = this._onDidSendMessage.event;
-	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
-
 	private _cellUriByTempFilePath = new Map<string, string>();
-
 	private _log: vscode.LogOutputChannel;
-
 	private sequence = 1;
+
+	/** Event emitted when a debug protocol message is sent to the client. */
+	public readonly onDidSendMessage = this._onDidSendMessage.event;
+
+	/** Event emitted when the debugger has completed its configuration. */
+	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
 
 	constructor(
 		public readonly debugSession: vscode.DebugSession,
 		public readonly runtimeSession: positron.LanguageRuntimeSession,
 	) {
-		this._log = this._disposables.add(createDebuggerOutputChannel(runtimeSession));
+		// Create the log output channel for the runtime session's debugger.
+		this._log = this._disposables.add(createDebuggerOutputChannel(this.runtimeSession));
 
-		this._disposables.add(
-			this.runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
-				// TODO: Could the event be for another debug session?
-				if (message.type === positron.LanguageRuntimeMessageType.DebugEvent) {
-					const debugEvent = message as positron.LanguageRuntimeDebugEvent;
-					this._log.debug(`[runtime] >>> SEND ${formatDebugMessage(debugEvent.content)}`);
-
-					// TODO: Do we need this?
-					// Only handle stopped events inside the cell.
-					// Otherwise the debugger stops in internal IPython/ipykernel code.
-					// if (debugEvent.content.event === 'stopped') {
-					//     const stoppedEvent = debugEvent.content as DebugProtocol.StoppedEvent;
-					//     const threadId = stoppedEvent.body.threadId;
-					//     if (threadId) {
-					//         // Call stackTrace to determine whether to forward the stop event to the client, and also to
-					//         // start the process of updating the variables view.
-					//         const stackTraceResponse = await this.stackTrace({
-					//             threadId,
-					//             startFrame: 0,
-					//             levels: 1,
-					//         });
-					//         const stackFrame = stackTraceResponse.stackFrames[0];
-					//         // NOTE: This path will be a cell URI since it uses customRequest thus
-					//         //       goes through the adapter transformations.
-					//         if (stackFrame.source?.path !== this._cell.document.uri.toString()) {
-					//             // TODO: Why do we step in?...
-					//             this._log.debug('Intercepting stopped event for non-cell source; stepping in');
-					//             // TODO: Could this be 'next'?
-					//             // Run in the background to avoid being very slow?
-					//             // this.sendRequest<DebugProtocol.StepInRequest, DebugProtocol.StepInResponse>({
-					//             //     command: 'stepIn',
-					//             //     arguments: {
-					//             //         threadId,
-					//             //     },
-					//             // }).ignoreErrors();
-					//             this.stepIn({ threadId }).ignoreErrors();
-					//             return;
-					//         }
-					//     }
-					// }
-					this.emitClientMessage(debugEvent.content);
-				}
-			})
-		);
+		// Forward debug events from the runtime session to the client.
+		this._disposables.add(this.runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
+			// TODO: Could the event be for another debug session?
+			if (message.type === positron.LanguageRuntimeMessageType.DebugEvent) {
+				const debugEvent = message as positron.LanguageRuntimeDebugEvent;
+				this._log.debug(`[runtime] >>> SEND ${formatDebugMessage(debugEvent.content)}`);
+				this.emitClientMessage(debugEvent.content);
+			}
+		}));
 	}
 
 	public handleMessage(message: DebugProtocol.ProtocolMessage): void {
@@ -99,6 +64,7 @@ export class RuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposab
 			case 'request':
 				return await this.handleRequest(message as DebugProtocol.Request);
 		}
+		// TODO: Don't we need to handle events and responses too?
 	}
 
 	private async handleRequest(request: DebugProtocol.Request): Promise<void> {
