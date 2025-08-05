@@ -6,9 +6,10 @@
 import { DebugProtocol } from '@vscode/debugprotocol';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { DumpCellResponseBody, DumpCellArguments } from './types.js';
+import { DumpCellResponseBody, DumpCellArguments, DebugInfoResponseBody } from './jupyterDebugProtocol.js';
 import { DisposableStore, formatDebugMessage } from './util.js';
 import { performRuntimeDebugRPC } from './runtime.js';
+import * as JupyterDebugProtocol from './jupyterDebugProtocol.js';
 
 // interface NextSignature<P, R> {
 // 	(this: void, data: P, next: (data: P) => R): R;
@@ -39,11 +40,10 @@ export class RuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposab
 	) {
 		// Forward debug events from the runtime session to the client.
 		this._disposables.add(this.runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
-			// TODO: Could the event be for another debug session?
 			if (message.type === positron.LanguageRuntimeMessageType.DebugEvent) {
 				const debugEvent = message as positron.LanguageRuntimeDebugEvent;
 				this._log.debug(`[runtime] >>> SEND ${formatDebugMessage(debugEvent.content)}`);
-				this.emitClientMessage(debugEvent.content);
+				this.sendMessage(debugEvent.content);
 			}
 		}));
 	}
@@ -72,7 +72,7 @@ export class RuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposab
 		// 		return await this.handleStackTraceRequest(request as DebugProtocol.StackTraceRequest);
 		// }
 		const response = await this.performRuntimeDebugRPC(request);
-		this.emitClientMessage(response);
+		this.sendMessage(response);
 	}
 
 	// private async handleSetBreakpointsRequest(request: DebugProtocol.SetBreakpointsRequest): Promise<void> {
@@ -168,10 +168,12 @@ export class RuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposab
 	// }
 
 	public async dumpCell(code: string): Promise<DumpCellResponseBody> {
-		return await this.debugSession.customRequest(
-			'dumpCell',
-			{ code } satisfies DumpCellArguments
-		) as DumpCellResponseBody;
+		const args: DumpCellArguments = { code };
+		return await this.debugSession.customRequest('dumpCell', args) as DumpCellResponseBody;
+	}
+
+	public async debugInfo(): Promise<DebugInfoResponseBody> {
+		return await this.debugSession.customRequest('debugInfo') as DebugInfoResponseBody;
 	}
 
 	// private async stackTrace(
@@ -193,7 +195,7 @@ export class RuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposab
 		return response;
 	}
 
-	private emitClientMessage<P extends DebugProtocol.ProtocolMessage>(message: Omit<P, 'seq'>): void {
+	private sendMessage<P extends DebugProtocol.ProtocolMessage>(message: Omit<P, 'seq'>): void {
 		const emittedMessage: DebugProtocol.ProtocolMessage = {
 			...message,
 			seq: this.sequence,
