@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 import { makeTempDir, toDisposable, withDisposables } from './utils-disposables';
 import { execute, startR } from './utils-session';
 import { assertSelectedEditor } from './utils-assertions';
+import { closeAllEditors } from './utils-vscode';
 
 suite('View', () => {
 	// https://github.com/posit-dev/positron/issues/8504
@@ -17,7 +18,8 @@ suite('View', () => {
 			const [_ses, sesDisposable] = await startR();
 			disposables.push(sesDisposable);
 
-			await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+			// To be safe
+			await closeAllEditors();
 
 			const [tmpDir, dirDisposable] = makeTempDir('view-test');
 			disposables.push(dirDisposable);
@@ -28,6 +30,9 @@ suite('View', () => {
 			const escapedPath = uri.fsPath.replace(/\\/g, '\\\\');
 			await execute(`source('${escapedPath}')`);
 			await execute(`View(f)`);
+
+			// Clean up editor opened by View
+			disposables.push(toDisposable(closeAllEditors));
 
 			// Should show source file in editor
 			await assertSelectedEditor(uri, 'f <- function');
