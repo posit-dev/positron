@@ -10,7 +10,7 @@ import { log } from './extension.js';
 import { DisposableStore } from './util.js';
 import { Command } from './constants.js';
 import { RuntimeNotebookDebugAdapterFactory } from './runtimeNotebookDebugAdapterFactory.js';
-import { JupyterRuntimeDebugAdapter } from './runtimeDebugAdapter.js';
+import { JupyterRuntimeNotebookDebugAdapter } from './runtimeNotebookDebugAdapter.js';
 
 export class DebugCellManager implements vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
@@ -18,7 +18,7 @@ export class DebugCellManager implements vscode.Disposable {
 	private _executionId?: string;
 
 	constructor(
-		private readonly _adapter: JupyterRuntimeDebugAdapter,
+		private readonly _adapter: JupyterRuntimeNotebookDebugAdapter,
 		private readonly _debugSession: vscode.DebugSession,
 		private readonly _notebook: vscode.NotebookDocument,
 		private readonly _runtimeSession: positron.LanguageRuntimeSession,

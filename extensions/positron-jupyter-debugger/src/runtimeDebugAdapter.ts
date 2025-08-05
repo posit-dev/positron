@@ -4,25 +4,17 @@
  *--------------------------------------------------------------------------------------------*/
 
 import { DebugProtocol } from '@vscode/debugprotocol';
+import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { DumpCellResponseBody, DumpCellArguments, DebugInfoResponseBody } from './jupyterDebugProtocol.js';
+import { DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
 import { DisposableStore, formatDebugMessage } from './util.js';
-import { performRuntimeDebugRPC } from './runtime.js';
-
-// interface NextSignature<P, R> {
-// 	(this: void, data: P, next: (data: P) => R): R;
-// }
-
-// interface Middleware {
-// 	handleSetBreakpointsRequest?: NextSignature<DebugProtocol.SetBreakpointsRequest, Promise<DebugProtocol.SetBreakpointsResponse>>;
-// 	handleStackTraceRequest?: NextSignature<DebugProtocol.StackTraceRequest, Promise<DebugProtocol.StackTraceResponse>>;
-// }
 
 export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
+	private readonly _pendingRequestIds = new Set<string>();
 	private sequence = 1;
 
 	/** Event emitted when a debug protocol message is sent to the client. */
@@ -32,138 +24,52 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
 
 	constructor(
-		private readonly _log: vscode.LogOutputChannel,
+		public readonly log: vscode.LogOutputChannel,
 		public readonly debugSession: vscode.DebugSession,
 		public readonly runtimeSession: positron.LanguageRuntimeSession,
 	) {
-		// Forward debug events from the runtime session to the client.
+		// Forward debug messages from the runtime to the client.
 		this._disposables.add(this.runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
-			if (message.type === positron.LanguageRuntimeMessageType.DebugEvent) {
-				const debugEvent = message as positron.LanguageRuntimeDebugEvent;
-				this._log.debug(`[runtime] >>> SEND ${formatDebugMessage(debugEvent.content)}`);
-				this.sendMessage(debugEvent.content);
+			switch (message.type) {
+				case positron.LanguageRuntimeMessageType.DebugEvent:
+					this.onDidReceiveDebugEvent(message as positron.LanguageRuntimeDebugEvent);
+					break;
+				case positron.LanguageRuntimeMessageType.DebugReply:
+					this.onDidReceiveDebugReply(message as positron.LanguageRuntimeDebugReply);
+					break;
+				// TODO: Do we also need to handle debug requests from the runtime?
 			}
 		}));
 	}
 
-	public handleMessage(message: DebugProtocol.ProtocolMessage): void {
-		this.handleMessageAsync(message).catch((error) => {
-			this._log.error(`[adapter] Error handling message: ${formatDebugMessage(message)}`, error);
-			// TODO: should still respond with an error response...
-		});
+	private onDidReceiveDebugEvent(debugEvent: positron.LanguageRuntimeDebugEvent): void {
+		this.log.debug(`[runtime] >>> SEND ${formatDebugMessage(debugEvent.content)}`);
+		this.sendMessage(debugEvent.content);
 	}
 
-	private async handleMessageAsync(message: DebugProtocol.ProtocolMessage): Promise<void> {
-		this._log.debug(`[adapter] <<< RECV ${formatDebugMessage(message)}`);
-		switch (message.type) {
-			case 'request':
-				return await this.handleRequest(message as DebugProtocol.Request);
+	private onDidReceiveDebugReply(debugReply: positron.LanguageRuntimeDebugReply): void {
+		if (this._pendingRequestIds.delete(debugReply.parent_id)) {
+			this.log.debug(`[runtime] >>> SEND ${formatDebugMessage(debugReply.content)}`);
+			this.sendMessage(debugReply.content);
 		}
-		// TODO: Don't we need to handle events and responses too?
 	}
 
-	private async handleRequest(request: DebugProtocol.Request): Promise<void> {
-		// switch (request.command) {
-		// 	case 'setBreakpoints':
-		// 		return await this.handleSetBreakpointsRequest(request as DebugProtocol.SetBreakpointsRequest);
-		// 	case 'stackTrace':
-		// 		return await this.handleStackTraceRequest(request as DebugProtocol.StackTraceRequest);
-		// }
-		const response = await this.performRuntimeDebugRPC(request);
-		this.sendMessage(response);
+	public handleMessage(message: DebugProtocol.ProtocolMessage): void {
+		if (message.type === 'request') {
+			this.handleRequest(message as DebugProtocol.Request);
+		}
+		// TODO: Do we need to handle events and responses too?
 	}
 
-	// private async handleSetBreakpointsRequest(request: DebugProtocol.SetBreakpointsRequest): Promise<void> {
-	// 	const cellUri = request.arguments.source.path;
-	// 	if (!cellUri) {
-	// 		throw new Error('No cell URI provided.');
-	// 	}
-	// 	const cell = this.notebook.getCells().find((cell) => cell.document.uri.toString() === cellUri);
+	private handleRequest(request: DebugProtocol.Request): void {
+		// Generate a unique ID for the request.
+		const id = randomUUID();
 
-	// 	// TODO: Abstract source mapping...
-	// 	//       i.e. client request.arguments.source.path (cell URI, console history item URI?)
-	// 	//            -> kernel temp file path
+		// Send the request to the runtime.
+		this.runtimeSession.debug(request, id);
 
-	// 	if (!cell) {
-	// 		this.emitClientMessage<DebugProtocol.SetBreakpointsResponse>({
-	// 			type: 'response',
-	// 			command: request.command,
-	// 			request_seq: request.seq,
-	// 			success: true,
-	// 			body: {
-	// 				breakpoints: request.arguments.breakpoints?.map((bp) => ({
-	// 					verified: false,
-	// 					line: bp.line,
-	// 					column: bp.column,
-	// 					message: `Unbound breakpoint`,
-	// 				})) ?? [],
-	// 			},
-	// 		});
-	// 		return;
-	// 	}
-
-	// 	// Dump the cell into a temp file.
-	// 	const dumpCellResponse = await this.dumpCell(cell);
-	// 	const runtimeRequest = {
-	// 		...request,
-	// 		arguments: {
-	// 			...request.arguments,
-	// 			source: {
-	// 				...request.arguments.source,
-	// 				// name: `${request.arguments.source.name} (cell: ${cell.index})`,
-	// 				// // Editor should not try to retrieve this source.
-	// 				// // It doesn't exist in the debugger.
-	// 				// sourceReference: 0,
-	// 				path: dumpCellResponse.sourcePath,
-	// 			},
-	// 		},
-	// 	};
-	// 	const runtimeResponse = await this.performRuntimeDebugRPC<
-	// 		DebugProtocol.SetBreakpointsRequest,
-	// 		DebugProtocol.SetBreakpointsResponse
-	// 	>(runtimeRequest);
-	// 	const response = {
-	// 		...runtimeResponse,
-	// 		body: {
-	// 			...runtimeResponse.body,
-	// 			breakpoints: runtimeResponse.body.breakpoints.map((breakpoint) => ({
-	// 				...breakpoint,
-	// 				source: (breakpoint.source?.path && this._cellUriByTempFilePath.has(breakpoint.source.path)) ?
-	// 					// TODO: Can we use source from above: request.arguments.source?
-	// 					{
-	// 						sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
-	// 						path: this._cellUriByTempFilePath.get(breakpoint.source.path),
-	// 						// TODO: Error in this case?
-	// 					} : breakpoint.source,
-	// 			})),
-	// 		},
-	// 	};
-	// 	this.emitClientMessage(response);
-	// }
-
-	// private async handleStackTraceRequest(request: DebugProtocol.StackTraceRequest): Promise<void> {
-	// 	const runtimeResponse = await this.performRuntimeDebugRPC<
-	// 		DebugProtocol.StackTraceRequest,
-	// 		DebugProtocol.StackTraceResponse
-	// 	>(request);
-	// 	const response: DebugProtocol.StackTraceResponse = {
-	// 		...runtimeResponse,
-	// 		body: {
-	// 			...runtimeResponse.body,
-	// 			stackFrames: runtimeResponse.body.stackFrames.map((frame) => ({
-	// 				...frame,
-	// 				source: (frame.source?.path && this._cellUriByTempFilePath.has(frame.source.path)) ?
-	// 					// TODO: Can we use source from above: request.arguments.source?
-	// 					{
-	// 						sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
-	// 						path: this._cellUriByTempFilePath.get(frame.source.path),
-	// 						// TODO: Error in this case?
-	// 					} : frame.source,
-	// 			})),
-	// 		},
-	// 	};
-	// 	this.emitClientMessage(response);
-	// }
+		this._pendingRequestIds.add(id);
+	}
 
 	public async dumpCell(code: string): Promise<DumpCellResponseBody> {
 		const args: DumpCellArguments = { code };
@@ -172,25 +78,6 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 
 	public async debugInfo(): Promise<DebugInfoResponseBody> {
 		return await this.debugSession.customRequest('debugInfo') as DebugInfoResponseBody;
-	}
-
-	// private async stackTrace(
-	//     args: DebugProtocol.StackTraceArguments,
-	// ): Promise<DebugProtocol.StackTraceResponse['body']> {
-	//     return await this._debugSession.customRequest('stackTrace', args);
-	// }
-
-	// private async stepIn(args: DebugProtocol.StepInArguments): Promise<DebugProtocol.StepInResponse['body']> {
-	//     return await this._debugSession.customRequest('stepIn', args);
-	// }
-
-	private async performRuntimeDebugRPC<Req extends DebugProtocol.Request, Res extends DebugProtocol.Response>(
-		request: Req
-	): Promise<Res> {
-		this._log.debug(`[runtime] <<< RECV ${formatDebugMessage(request)}`);
-		const response = await performRuntimeDebugRPC<Req, Res>(request, this.runtimeSession, this._disposables);
-		this._log.debug(`[runtime] >>> SEND ${formatDebugMessage(response)}`);
-		return response;
 	}
 
 	private sendMessage<P extends DebugProtocol.ProtocolMessage>(message: Omit<P, 'seq'>): void {
@@ -205,7 +92,7 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 		}
 
 		this.sequence++;
-		this._log.debug(`[adapter] >>> SEND ${formatDebugMessage(emittedMessage)}`);
+		this.log.debug(`[adapter] >>> SEND ${formatDebugMessage(emittedMessage)}`);
 		this._onDidSendMessage.fire(emittedMessage);
 	}
 
