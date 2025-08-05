@@ -4,9 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import { expect, Locator } from '@playwright/test';
+import test, { expect, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { fail } from 'assert';
+import { ContextMenu } from './dialog-contextMenu.js';
 
 const CURRENT_PLOT = '.plot-instance img';
 const CURRENT_STATIC_PLOT = '.plot-instance.static-plot-instance img';
@@ -14,7 +15,7 @@ const CLEAR_PLOTS = '.positron-plots-container .positron-action-bar .codicon-cle
 const NEXT_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Show next plot"]';
 const PREVIOUS_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Show previous plot"]';
 const CLEAR_PLOTS_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Clear all plots"]';
-const PLOT_SIZE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label^="Matplotlib"]';
+const PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button';
 const SAVE_PLOT_FROM_PLOTS_PANE_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Save plot"]';
 const COPY_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Copy plot to clipboard"]';
 const ZOOM_PLOT_BUTTON = '.positron-plots-container .positron-action-bar .positron-button[aria-label="Fit"]';
@@ -26,7 +27,7 @@ const INNER_WEBVIEW_FRAME = '#active-frame';
  *  Reuseable Positron plots functionality for tests to leverage.
  */
 export class Plots {
-
+	plotButton: Locator;
 	nextPlotButton: Locator;
 	previousPlotButton: Locator;
 	clearPlotsButton: Locator;
@@ -40,10 +41,11 @@ export class Plots {
 	overwriteModal: Locator;
 
 	constructor(private code: Code) {
+		this.plotButton = this.code.driver.page.locator(PLOT_BUTTON);
 		this.nextPlotButton = this.code.driver.page.locator(NEXT_PLOT_BUTTON);
 		this.previousPlotButton = this.code.driver.page.locator(PREVIOUS_PLOT_BUTTON);
 		this.clearPlotsButton = this.code.driver.page.locator(CLEAR_PLOTS_BUTTON);
-		this.plotSizeButton = this.code.driver.page.locator(PLOT_SIZE_BUTTON);
+		this.plotSizeButton = this.plotButton.filter({ hasText: /Auto|Square|Portrait|Landscape|Fill|Matplotlib|Auto|Intrinsic/ });
 		this.savePlotFromPlotsPaneButton = this.code.driver.page.locator(SAVE_PLOT_FROM_PLOTS_PANE_BUTTON);
 		this.savePlotFromEditorButton = this.code.driver.page.getByRole('button', { name: 'Save Plot From Active Editor' });
 		this.copyPlotButton = this.code.driver.page.locator(COPY_PLOT_BUTTON);
@@ -154,8 +156,35 @@ export class Plots {
 		}
 	}
 
-	async openPlotInEditor() {
+	async clickGoToFileButton() {
 		await this.code.driver.page.locator('.codicon-go-to-file').click();
+	}
+
+	async openPlotInEditor(contextMenu: ContextMenu) {
+		await test.step('Open plot in editor', async () => {
+			await contextMenu.triggerAndClick({
+				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
+				menuItemLabel: /Open in editor tab$/,
+				menuItemType: 'menuitemcheckbox'
+			});
+		});
+	}
+
+	async openPlotInNewWindow(contextMenu: ContextMenu): Promise<Page> {
+		return await test.step('Open plot in new window', async () => {
+			const context = this.code.driver.page.context();
+			const [newPage] = await Promise.all([
+				context.waitForEvent('page'),
+				contextMenu.triggerAndClick({
+					menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
+					menuItemLabel: /Open in new window$/,
+					menuItemType: 'menuitemcheckbox'
+				})
+			]);
+
+			await newPage.waitForLoadState('load');
+			return newPage;
+		});
 	}
 
 	async waitForPlotInEditor() {
