@@ -10,6 +10,7 @@ import * as vscode from 'vscode';
 import { DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
 import { DisposableStore } from './util.js';
 import { formatDebugMessage } from './debugProtocol.js';
+import { murmurhash2_32 } from './murmur.js';
 
 export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
@@ -76,8 +77,26 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 		return await this.debugSession.customRequest('dumpCell', args) as DumpCellResponseBody;
 	}
 
+	// TODO: Maybe this should be sent on startup?...
 	public async debugInfo(): Promise<DebugInfoResponseBody> {
 		return await this.debugSession.customRequest('debugInfo') as DebugInfoResponseBody;
+	}
+
+	// TODO: Align naming: id, hashCode, tempFilePath, etc.
+	public hashCode(code: string, hashMethod: string, hashSeed: number): string {
+		switch (hashMethod) {
+			case 'murmur2':
+				return murmurhash2_32(code, hashSeed).toString();
+			default:
+				throw new Error(`Unsupported hash method: ${hashMethod}`);
+		}
+	}
+
+	// TODO: Should this perhaps just take code, and we handle the debug info request internally?
+	//       We can track an internal promise and block this and hashCode requests until it resolves.
+	public getTempFilePath(code: string, debugInfo: DebugInfoResponseBody): string {
+		const id = this.hashCode(code, debugInfo.hashMethod, debugInfo.hashSeed);
+		return `${debugInfo.tmpFilePrefix}${id}${debugInfo.tmpFileSuffix}`;
 	}
 
 	private sendMessage<P extends DebugProtocol.ProtocolMessage>(message: Omit<P, 'seq'>): void {
