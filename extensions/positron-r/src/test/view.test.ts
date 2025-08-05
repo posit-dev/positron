@@ -6,7 +6,7 @@
 import * as path from 'path';
 
 import * as vscode from 'vscode';
-import { makeTempDir, withDisposables } from './utils-disposables';
+import { makeTempDir, toDisposable, withDisposables } from './utils-disposables';
 import { execute, startR } from './utils-session';
 import { assertSelectedEditor } from './utils-assertions';
 

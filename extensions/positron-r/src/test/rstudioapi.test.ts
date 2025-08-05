@@ -8,6 +8,7 @@ import * as path from 'path';
 import { makeTempDir, withDisposables } from './utils-disposables';
 import { execute, startR } from './utils-session';
 import { assertSelectedEditor } from './utils-assertions';
+import { openTextDocument } from './utils-vscode';
 
 suite('RStudio API', () => {
 	// https://github.com/posit-dev/positron/issues/8374
@@ -27,8 +28,9 @@ suite('RStudio API', () => {
 			await vscode.workspace.fs.writeFile(fooUri, Buffer.from('this-is-foo'));
 			await vscode.workspace.fs.writeFile(barUri, Buffer.from('this-is-bar'));
 
-			const fooDoc = await vscode.workspace.openTextDocument(fooUri);
-			const barDoc = await vscode.workspace.openTextDocument(barUri);
+			const [fooDoc, fooDocDisposable] = await openTextDocument(fooUri);
+			const [barDoc, barDocDisposable] = await openTextDocument(barUri);
+			disposables.push(fooDocDisposable, barDocDisposable);
 
 			await vscode.window.showTextDocument(fooDoc, { preview: false });
 			await vscode.window.showTextDocument(barDoc, { preview: false });
