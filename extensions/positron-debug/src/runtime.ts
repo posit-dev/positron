@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { randomUUID } from 'crypto';
@@ -61,10 +62,21 @@ export async function performRuntimeDebugRPC<Req extends DebugProtocol.Request, 
 	return response;
 }
 
+/**
+ * Create a log output channel for a runtime debugger.
+ *
+ * @param runtimeSession The runtime session for which to create the output channel.
+ * @returns The runtime debugger log output channel.
+ */
 export function createDebuggerOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
-	const sessionName = runtimeSession.dynState.sessionName;
+	const runtimeName = runtimeSession.runtimeMetadata.runtimeName;
 	const sessionMode = runtimeSession.metadata.sessionMode;
-	const sessionModeTitle = sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1);
-	const name = `${sessionName}: ${DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR} (${sessionModeTitle})`;
+	let sessionTitle: string;
+	if (runtimeSession.metadata.notebookUri) {
+		sessionTitle = path.basename(runtimeSession.metadata.notebookUri.fsPath);
+	} else {
+		sessionTitle = sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1);
+	}
+	const name = `${runtimeName}: ${DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR} (${sessionTitle})`;
 	return vscode.window.createOutputChannel(name, { log: true });
 }
