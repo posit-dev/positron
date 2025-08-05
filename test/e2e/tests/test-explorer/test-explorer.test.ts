@@ -25,12 +25,14 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 
 	test('R - Verify Basic Test Explorer Functionality', {
 		tag: [tags.ARK]
-	}, async function ({ app, r, openFolder }) {
+	}, async function ({ app, openFolder }) {
 
 		// Open R package embedded in qa-example-content
 		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
 
 		await app.workbench.sessions.expectAllSessionsToBeReady();
+
+		await app.workbench.sessions.start('r');
 
 		await expect(async () => {
 			await app.workbench.testExplorer.openTestExplorer();
