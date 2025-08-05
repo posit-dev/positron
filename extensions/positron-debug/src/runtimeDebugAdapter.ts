@@ -8,7 +8,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DumpCellResponseBody, DumpCellArguments } from './types.js';
 import { DisposableStore, formatDebugMessage } from './util.js';
-import { createDebuggerOutputChannel, performRuntimeDebugRPC } from './runtime.js';
+import { performRuntimeDebugRPC } from './runtime.js';
 
 // interface NextSignature<P, R> {
 // 	(this: void, data: P, next: (data: P) => R): R;
@@ -24,7 +24,6 @@ export class RuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposab
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
 	private _cellUriByTempFilePath = new Map<string, string>();
-	private _log: vscode.LogOutputChannel;
 	private sequence = 1;
 
 	/** Event emitted when a debug protocol message is sent to the client. */
@@ -34,12 +33,10 @@ export class RuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposab
 	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
 
 	constructor(
+		private readonly _log: vscode.LogOutputChannel,
 		public readonly debugSession: vscode.DebugSession,
 		public readonly runtimeSession: positron.LanguageRuntimeSession,
 	) {
-		// Create the log output channel for the runtime session's debugger.
-		this._log = this._disposables.add(createDebuggerOutputChannel(this.runtimeSession));
-
 		// Forward debug events from the runtime session to the client.
 		this._disposables.add(this.runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
 			// TODO: Could the event be for another debug session?
