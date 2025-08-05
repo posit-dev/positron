@@ -43,7 +43,7 @@ const compilations = [
 	'extensions/positron-r/tsconfig.json',
 	'extensions/positron-reticulate/tsconfig.json',
 	'extensions/positron-run-app/tsconfig.json',
-	'extensions/positron-debug/tsconfig.json',
+	'extensions/positron-jupyter-debugger/tsconfig.json',
 	'extensions/positron-supervisor/tsconfig.json',
 	'extensions/positron-viewer/tsconfig.json',
 	'extensions/positron-zed/tsconfig.json',

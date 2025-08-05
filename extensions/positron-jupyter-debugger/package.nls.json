@@ -1,0 +1,5 @@
+{
+	"displayName": "Debugging",
+	"description": "Debugging support for Positron language runtimes that support Jupyter's debugging protocol.",
+	"category.notebook": "Notebook"
+}
