@@ -8,7 +8,8 @@ import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
-import { DisposableStore, formatDebugMessage } from './util.js';
+import { DisposableStore } from './util.js';
+import { formatDebugMessage } from './debugProtocol.js';
 
 export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
@@ -43,18 +44,17 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 	}
 
 	private onDidReceiveDebugEvent(debugEvent: positron.LanguageRuntimeDebugEvent): void {
-		this.log.debug(`[runtime] >>> SEND ${formatDebugMessage(debugEvent.content)}`);
 		this.sendMessage(debugEvent.content);
 	}
 
 	private onDidReceiveDebugReply(debugReply: positron.LanguageRuntimeDebugReply): void {
 		if (this._pendingRequestIds.delete(debugReply.parent_id)) {
-			this.log.debug(`[runtime] >>> SEND ${formatDebugMessage(debugReply.content)}`);
 			this.sendMessage(debugReply.content);
 		}
 	}
 
 	public handleMessage(message: DebugProtocol.ProtocolMessage): void {
+		this.log.debug(`[runtime] <<< RECV ${formatDebugMessage(message)}`);
 		if (message.type === 'request') {
 			this.handleRequest(message as DebugProtocol.Request);
 		}
@@ -86,13 +86,14 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 			seq: this.sequence,
 		};
 
+		// TODO: Not sure if this should live here...
 		if (emittedMessage.type === 'response' &&
 			(emittedMessage as DebugProtocol.Response).command === 'configurationDone') {
 			this._onDidCompleteConfiguration.fire();
 		}
 
 		this.sequence++;
-		this.log.debug(`[adapter] >>> SEND ${formatDebugMessage(emittedMessage)}`);
+		this.log.debug(`[runtime] >>> SEND ${formatDebugMessage(emittedMessage)}`);
 		this._onDidSendMessage.fire(emittedMessage);
 	}
 

@@ -57,7 +57,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		// TODO: Reuse adapter if it already exists for the notebook?
 		// const adapter = this._disposables.add(new RuntimeNotebookDebugAdapter(debugSession, runtimeSession, notebook));
 		const innerAdapter = this._disposables.add(new JupyterRuntimeDebugAdapter(outputChannel, debugSession, runtimeSession));
-		const adapter = this._disposables.add(new JupyterRuntimeNotebookDebugAdapter(innerAdapter, debugSession, runtimeSession, notebook));
+		const adapter = this._disposables.add(new JupyterRuntimeNotebookDebugAdapter(innerAdapter, notebook));
 
 		// Create a debug cell manager to handle the cell execution and debugging.
 		const debugCellManager = this._disposables.add(new DebugCellManager(adapter, debugSession, notebook, runtimeSession, cell.index));
