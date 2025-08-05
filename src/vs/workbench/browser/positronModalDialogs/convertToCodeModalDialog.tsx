@@ -229,7 +229,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 					className='convert-to-code-editor'
 				/>
 			</ContentArea>
-			<div className='ok-cancel-action-bar top-separator'>
+			<div className='ok-cancel-action-bar'>
 				<PlatformNativeDialogActionBar primaryButton={okButton} secondaryButton={cancelButton} />
 			</div>
 		</PositronModalDialog>
