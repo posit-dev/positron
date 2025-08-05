@@ -51,10 +51,15 @@ export async function performRuntimeDebugRPC<Req extends DebugProtocol.Request, 
 			responseDisposables.dispose();
 			reject(new Error(`Timeout waiting for response to request: ${formatDebugMessage(request)}`));
 		}, 5000));
-	});
 
-	// Send the request to the runtime.
-	this.runtimeSession.debug(request, id);
+		// Send the request to the runtime.
+		try {
+			runtimeSession.debug(request, id);
+		} catch (error) {
+			responseDisposables.dispose();
+			reject(new Error(`Error sending request to runtime: ${formatDebugMessage(request)}. Reason: ${JSON.stringify(error)}`));
+		}
+	});
 
 	// Wait for the response.
 	const response = await responsePromise;
