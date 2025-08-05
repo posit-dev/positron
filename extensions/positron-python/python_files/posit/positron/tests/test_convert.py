@@ -1,10 +1,18 @@
+#
+# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
+#
+
 import datetime
 
 import pandas as pd
+import pytest
 import pytz
 
+from ..data_explorer import DataExplorerService
 from ..data_explorer_comm import CodeSyntaxName, FilterComparisonOp
 from ..utils import var_guid
+from .conftest import DummyComm, PositronShell
 from .test_data_explorer import (
     COMPARE_OPS,
     SIMPLE_PANDAS_DF,
@@ -69,6 +77,15 @@ class DataExplorerConvertFixture(DataExplorerFixture):
         new_df = pd.DataFrame(self.shell.user_ns[new_table_id])
         self.register_table(new_table_id, new_df)
         self.compare_tables(new_table_id, ex_id, table.shape)
+
+
+@pytest.fixture
+def dxf(
+    shell: PositronShell,
+    de_service: DataExplorerService,
+    variables_comm: DummyComm,
+):
+    return DataExplorerConvertFixture(shell, de_service, variables_comm)
 
 
 def test_convert_pandas_filter_is_null_true(dxf: DataExplorerConvertFixture):
@@ -207,14 +224,14 @@ def test_convert_pandas_filter_search(dxf: DataExplorerConvertFixture):
             schema[0],
             "f[o]+",
             False,
-            test_df["a"].str.match("f[o]+", case=False),
+            test_df["a"].str.match("f[o]+", case=False, na=False),
         ),
         (
             "regex_match",
             schema[0],
             "f[o]+[^o]*",
             True,
-            test_df["a"].str.match("f[o]+[^o]*", case=True),
+            test_df["a"].str.match("f[o]+[^o]*", case=True, na=False),
         ),
     ]
 
@@ -226,7 +243,6 @@ def test_convert_pandas_filter_search(dxf: DataExplorerConvertFixture):
             search_type=search_type,
         )
 
-        mask[mask.isna()] = False
         expected_df = test_df[mask.astype(bool)]
         dxf.check_conversion_case(
             test_df,

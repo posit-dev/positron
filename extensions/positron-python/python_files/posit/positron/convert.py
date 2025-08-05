@@ -29,12 +29,26 @@ class MethodChainBuilder:
         self.chain_parts: List[StrictStr] = [table_name]
 
     def add_operation(self, setup: List[StrictStr], chain: List[StrictStr]) -> None:
-        """Add setup and chain parts for an operation."""
+        """Add setup and chain parts for an operation.
+
+        Parameters
+        ----------
+        setup : List[StrictStr]
+            Setup code parts to add.
+        chain : List[StrictStr]
+            Chain code parts to add.
+        """
         self.setup_parts.extend(setup)
         self.chain_parts.extend(chain)
 
     def build(self) -> List[StrictStr]:
-        """Build the final code with setup and chained expression."""
+        """Build the final code with setup and chained expression.
+
+        Returns
+        -------
+        List[StrictStr]
+            Final code with setup and chained expression.
+        """
         result = self.setup_parts.copy()
 
         if len(self.chain_parts) > 1:
@@ -54,20 +68,29 @@ class CodeConverter:
     """Base class for generating dataframe code strings."""
 
     def __init__(self, table, table_name: str, params: ConvertToCodeParams):
-        """
-        Initialize the code generator with a default DataFrame variable name.
+        """Initialize the code generator with a default DataFrame variable name.
 
-        Args:
-            table: DataFrame or Series to generate code for
-            table_name: Name of the DataFrame variable in the generated code
-            params: Parameters for conversion, including filters and sort keys
+        Parameters
+        ----------
+        table : DataFrame or Series
+            DataFrame or Series to generate code for.
+        table_name : str
+            Name of the DataFrame variable in the generated code.
+        params : ConvertToCodeParams
+            Parameters for conversion, including filters and sort keys.
         """
         self.table = table
         self.table_name: str = table_name
         self.params: ConvertToCodeParams = params
 
     def convert(self) -> List[StrictStr]:
-        """Convert operations to code strings."""
+        """Convert operations to code strings.
+
+        Returns
+        -------
+        List[StrictStr]
+            Generated code strings.
+        """
         builder = MethodChainBuilder(self.table_name)
 
         # Add operations to the builder
@@ -80,31 +103,34 @@ class CodeConverter:
         return builder.build()
 
     def _convert_row_filters(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """
-        Convert a list of RowFilter objects to a tuple of code strings.
+        """Convert a list of RowFilter objects to a tuple of code strings.
 
-        Returns:
-            Tuple containing preprocessing and method chain code strings
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple containing preprocessing and method chain code strings.
         """
         raise NotImplementedError("Subclasses must implement _convert_row_filters method")
 
     def _convert_column_filters(
         self,
     ) -> tuple[List[StrictStr], List[StrictStr]]:
-        """
-        Convert a list of ColumnFilter objects to a tuple of code strings.
+        """Convert a list of ColumnFilter objects to a tuple of code strings.
 
-        Returns:
-            Tuple containing preprocessing and method chain code strings
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple containing preprocessing and method chain code strings.
         """
         raise NotImplementedError("Subclasses must implement _convert_column_filters method")
 
     def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """
-        Convert a list of ColumnSortKey objects to a tuple of code strings.
+        """Convert a list of ColumnSortKey objects to a tuple of code strings.
 
-        Returns:
-            Tuple containing preprocessing and method chain code strings
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple containing preprocessing and method chain code strings.
         """
         raise NotImplementedError("Subclasses must implement _convert_sorts method")
 
@@ -124,11 +150,12 @@ class PandasConverter(CodeConverter):
         return super().convert()
 
     def _convert_row_filters(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """
-        Take filters and convert them to code strings.
+        """Take filters and convert them to code strings.
 
-        Returns:
-            Tuple of (method_chain_setup, method_chain_parts)
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of (method_chain_setup, method_chain_parts).
         """
         method_chain_setup = []
         method_chain_parts = []
@@ -158,11 +185,12 @@ class PandasConverter(CodeConverter):
         return method_chain_setup, method_chain_parts
 
     def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """
-        Generate code for sorting.
+        """Generate code for sorting.
 
-        Returns:
-            Tuple of (method_chain_setup, method_chain_parts)
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of (method_chain_setup, method_chain_parts).
         """
         if not self.params.sort_keys:
             return [], []
@@ -180,7 +208,13 @@ class PandasSortHandler:
         self.was_series = was_series
 
     def convert_sorts(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Handle the sort string."""
+        """Handle the sort string.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of (method_chain_setup, method_chain_parts).
+        """
         if len(self.sort_keys) == 1:
             return self._convert_single_sort()
         else:
@@ -256,7 +290,13 @@ class PandasFilterHandler:
         return f"{operator}{self.table_name}{self.column_name}.between({left}, {right})"
 
     def _convert_compare_filter(self) -> str:
-        """Handle comparison filters such as equals, not equals, greater than, etc."""
+        """Handle comparison filters such as equals, not equals, greater than, etc.
+
+        Returns
+        -------
+        str
+            Filter comparison code string.
+        """
         assert isinstance(self.filter_key.params, FilterComparison)
         op = (
             "=="
@@ -283,7 +323,13 @@ class PandasFilterHandler:
         return f"{self.table_name}{self.column_name} {op} {value}"
 
     def _convert_text_search_filter(self) -> str:
-        """Handle text search filters such as contains, regex, startswith, and endswith."""
+        """Handle text search filters such as contains, regex, startswith, and endswith.
+
+        Returns
+        -------
+        str
+            Text search filter code string.
+        """
         assert isinstance(self.filter_key.params, FilterTextSearch)
 
         column_access = f"{self.table_name}{self.column_name}"
