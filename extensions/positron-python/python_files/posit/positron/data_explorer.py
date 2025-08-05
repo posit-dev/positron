@@ -24,7 +24,7 @@ from typing import (
 import comm
 
 from .access_keys import decode_access_key
-from .converters.pandas_converter import PandasConverter
+from .convert import PandasConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
