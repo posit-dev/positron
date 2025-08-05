@@ -17,3 +17,12 @@
 	height: 200px;
 	border: 1px solid var(--vscode-positronModalDialog-border);
 }
+
+/*
+ * Add horizontal padding to code content.
+ * The value should match the vertical padding values
+ * configured in the CodeEditorWidget.
+ */
+.convert-to-code-editor .monaco-editor .view-lines .view-line {
+	padding-left: 10px;
+}

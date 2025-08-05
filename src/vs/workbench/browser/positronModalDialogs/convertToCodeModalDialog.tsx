@@ -112,6 +112,10 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 			{
 				...getSimpleEditorOptions(services.configurationService),
 				readOnly: true,
+				padding: {
+					top: 10,
+					bottom: 10,
+				}
 			},
 			getSimpleCodeEditorWidgetOptions()
 		));
