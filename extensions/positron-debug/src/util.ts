@@ -23,6 +23,18 @@ export class DisposableStore implements vscode.Disposable {
 	}
 }
 
+export function disposableTimeout(handler: () => void, timeout: number): vscode.Disposable {
+	const timer = setTimeout(() => {
+		handler();
+	}, timeout);
+	const disposable: vscode.Disposable = {
+		dispose() {
+			clearTimeout(timer);
+		}
+	};
+	return disposable;
+}
+
 export function formatDebugMessage(message: DebugProtocol.ProtocolMessage): string {
 	switch (message.type) {
 		case 'request': {
