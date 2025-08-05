@@ -3,16 +3,20 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
-import { DisposableStore, formatDebugMessage } from './util.js';
+import { DisposableStore } from './util.js';
 import { JupyterRuntimeDebugAdapter } from './runtimeDebugAdapter.js';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { murmurhash2_32 } from './murmur.js';
+import { formatDebugMessage } from './debugProtocol.js';
+import { DebugLocation, SourceMapper } from './sourceMap.js';
 
 export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
 	private _cellUriByTempFilePath = new Map<string, string>();
+
+	private readonly _sourceMapper = new SourceMapper(this.mapLocation.bind(this));
 
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
 	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
@@ -22,36 +26,14 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 		private readonly _notebook: vscode.NotebookDocument
 	) {
 		this._disposables.add(this._adapter.onDidSendMessage((message) => {
-			const debugMessage = message as DebugProtocol.ProtocolMessage;
-			if (debugMessage.type === 'response') {
-				const response = debugMessage as DebugProtocol.Response;
-				if (response.command === 'setBreakpoints') {
-					const setBreakpointsResponse = response as DebugProtocol.SetBreakpointsResponse;
-					// TODO: Do we need this?
-					// Map the temp file paths back to cell URIs.
-					setBreakpointsResponse.body.breakpoints.forEach((breakpoint) => {
-						if (breakpoint.source?.path && this._cellUriByTempFilePath.has(breakpoint.source.path)) {
-							breakpoint.source = {
-								sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
-								path: this._cellUriByTempFilePath.get(breakpoint.source.path)!,
-							};
-						}
-					});
-				} else if (response.command === 'stackTrace') {
-					const stackTraceResponse = response as DebugProtocol.StackTraceResponse;
-					// Map the temp file paths back to cell URIs in stack frames.
-					stackTraceResponse.body.stackFrames.forEach((frame) => {
-						if (frame.source?.path && this._cellUriByTempFilePath.has(frame.source.path)) {
-							frame.source = {
-								sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
-								path: this._cellUriByTempFilePath.get(frame.source.path)!,
-							};
-						}
-					});
-				}
+			try {
+				const mappedMessage = this._sourceMapper.map(message as DebugProtocol.ProtocolMessage);
+				this._log.debug(`[notebook] >>> SEND ${formatDebugMessage(mappedMessage)}`);
+				this._onDidSendMessage.fire(mappedMessage);
+			} catch (error) {
+				this._adapter.log.error(`[notebook] Error transforming message: ${formatDebugMessage(message as DebugProtocol.ProtocolMessage)}`, error);
+				throw error;
 			}
-
-			this._onDidSendMessage.fire(message);
 		}));
 
 		this._disposables.add(this._adapter.onDidCompleteConfiguration(() => {
@@ -70,6 +52,20 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 		});
 	}
 
+	private mapLocation<T extends DebugLocation>(location: T): T {
+		if (location.source?.path && this._cellUriByTempFilePath.has(location.source.path)) {
+			return {
+				...location,
+				source: {
+					sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
+					path: this._cellUriByTempFilePath.get(location.source.path),
+				},
+			};
+		}
+		return location;
+	}
+
+
 	// TODO: Align naming: id, hashCode, tempFilePath, etc.
 	private hashCode(code: string, hashMethod: string, hashSeed: number): string {
 		switch (hashMethod) {
@@ -85,8 +81,9 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 	}
 
 	public handleMessage(message: DebugProtocol.ProtocolMessage): void {
+		this._log.debug(`[notebook] <<< RECV ${formatDebugMessage(message)}`);
 		this.handleMessageAsync(message).catch((error) => {
-			this._log.error(`[adapter] Error handling message: ${formatDebugMessage(message)}`, error);
+			this._log.error(`[notebook] Error handling message: ${formatDebugMessage(message)}`, error);
 			// TODO: should still respond with an error response...
 		});
 	}
