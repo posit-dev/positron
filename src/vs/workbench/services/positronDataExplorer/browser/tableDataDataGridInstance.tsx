@@ -127,7 +127,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 				this._horizontalScrollOffset = 0;
 				// Force a layout recomputation and repaint
 				this.softReset();
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent()
 			} else {
 				// Adjust the vertical scroll offset, if needed.
 				if (!this.firstRow) {
@@ -189,7 +189,7 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		// Add the table data cache onDidUpdate event handler.
 		this._register(this._tableDataCache.onDidUpdate(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
+			this.fireOnDidUpdateEvent()
 		));
 	}
 

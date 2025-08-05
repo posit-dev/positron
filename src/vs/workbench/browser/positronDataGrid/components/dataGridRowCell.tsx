@@ -49,6 +49,8 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 		// Stop propagation.
 		e.stopPropagation();
 
+		console.log(`DataGridRowCell: mouseDownHandler called for column ${props.columnIndex}, row ${props.rowIndex}`);
+
 		// Get the starting bounding client rect. This is used to calculate the position of the
 		// context menu.
 		const startingRect = ref.current.getBoundingClientRect();

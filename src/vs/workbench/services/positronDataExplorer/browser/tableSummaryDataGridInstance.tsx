@@ -154,7 +154,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		// Add the table summary cache onDidUpdate event handler.
 		this._register(this._tableSummaryCache.onDidUpdate(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
+			this.fireOnDidUpdateEvent()
 		));
 
 		// Create the hover manager.
