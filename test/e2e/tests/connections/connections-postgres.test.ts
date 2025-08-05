@@ -35,7 +35,7 @@ test.describe('Postgres DB Connection', {
 
 		await app.workbench.connections.fillConnectionsInputs({
 			'Database Name': dbName,
-			'Host': 'localhost',
+			'Host': 'postgres',
 			'User': user,
 			'Password': password,
 		});
@@ -102,7 +102,7 @@ test.describe('Postgres DB Connection', {
 
 		await app.workbench.connections.fillConnectionsInputs({
 			'Database Name': dbName,
-			'Host': 'localhost',
+			'Host': 'postgres',
 			'User': user,
 			'Password': password,
 		});
