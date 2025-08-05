@@ -113,6 +113,8 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 			{
 				...getSimpleEditorOptions(services.configurationService),
 				readOnly: true,
+				// lineDecorationsWidth is how we are adding left margin to the editor content
+				lineDecorationsWidth: 10,
 				padding: {
 					top: 10,
 					bottom: 10,
