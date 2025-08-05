@@ -1384,8 +1384,6 @@ class PandasView(DataExplorerTableView):
 
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        # hack hack hack, the front end actually does not store sort keys
-        request.sort_keys = request.sort_keys or self.state.sort_keys
         converter = PandasConverter(
             self.table, self.state.name, request, was_series=self.was_series
         )
