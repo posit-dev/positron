@@ -9,7 +9,6 @@ import * as vscode from 'vscode';
 import { DumpCellResponseBody, DumpCellArguments, DebugInfoResponseBody } from './jupyterDebugProtocol.js';
 import { DisposableStore, formatDebugMessage } from './util.js';
 import { performRuntimeDebugRPC } from './runtime.js';
-import * as JupyterDebugProtocol from './jupyterDebugProtocol.js';
 
 // interface NextSignature<P, R> {
 // 	(this: void, data: P, next: (data: P) => R): R;
@@ -20,11 +19,10 @@ import * as JupyterDebugProtocol from './jupyterDebugProtocol.js';
 // 	handleStackTraceRequest?: NextSignature<DebugProtocol.StackTraceRequest, Promise<DebugProtocol.StackTraceResponse>>;
 // }
 
-export class RuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
+export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
-	private _cellUriByTempFilePath = new Map<string, string>();
 	private sequence = 1;
 
 	/** Event emitted when a debug protocol message is sent to the client. */
