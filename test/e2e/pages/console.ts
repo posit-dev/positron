@@ -265,7 +265,7 @@ export class Console {
 		await this.code.driver.page.locator(MAXIMIZE_CONSOLE).click();
 	}
 
-	async pasteCodeToConsole(code: string, sendEnterKey = false, waitForExecution = true) {
+	async pasteCodeToConsole(code: string, sendEnterKey = false) {
 		await test.step(`Paste code to console: ${code}`, async () => {
 			const consoleInput = this.activeConsole.locator(CONSOLE_INPUT);
 			await this.pasteInMonaco(consoleInput!, code);
@@ -273,10 +273,6 @@ export class Console {
 			if (sendEnterKey) {
 				await expect(this.code.driver.page.getByLabel('Interrupt execution')).not.toBeVisible();
 				await this.sendEnterKey();
-			}
-
-			if (waitForExecution) {
-				await this.waitForConsoleExecution({ timeout: 30000 });
 			}
 		});
 	}

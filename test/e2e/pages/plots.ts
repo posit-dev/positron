@@ -162,7 +162,7 @@ export class Plots {
 
 
 	async setThePlotZoom(zoomLevel: ZoomLevels) {
-		await test.step(`Set plot zoom to ${zoomLevel}`, async () => {
+		await test.step(`Set plot zoom to: ${zoomLevel}`, async () => {
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.code.driver.page.getByRole('button', { name: /Fit|%/ }),
 				menuItemLabel: zoomLevel
@@ -176,7 +176,7 @@ export class Plots {
 			'new window': /Open in new window$/,
 			'editor tab to the side': /Open in editor tab to the Side$/
 		};
-		await test.step(`Open plot in ${plotLocation}`, async () => {
+		await test.step(`Open plot in: ${plotLocation}`, async () => {
 			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
 				menuItemLabel: menuItemRegex[plotLocation],
