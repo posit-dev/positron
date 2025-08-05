@@ -197,7 +197,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			tag: [tags.WEB, tags.WIN],
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5991' }],
 		}, async function ({ app }) {
-			// run line by line due to https://github.com/posit-dev/positron/issues/5991
 			await runScriptAndValidatePlot(app, plotly, '.plotly', false, true);
 		});
 
@@ -205,7 +204,6 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			tag: [tags.WEB, tags.WIN],
 			annotation: [{ type: 'issue', description: 'https://github.com/posit-dev/positron/issues/5991' }],
 		}, async function ({ app }) {
-			// Test that our fix allows hvplot to work when executed as a block
 			await runScriptAndValidatePlot(app, plotly, '.plotly', false, false);
 		});
 
@@ -384,7 +382,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			}
 
 			await test.step('Verify plot can be opened in editor', async () => {
-				await plots.clickGoToFileButton();
+				await plots.openPlotInEditor(contextMenu);
 				await plots.waitForPlotInEditor();
 				await hotKeys.closeAllEditors();
 			});
@@ -528,17 +526,9 @@ const options: ComparisonOptions = {
 };
 
 async function runScriptAndValidatePlot(app: Application, script: string, locator: string, RWeb = false, runLineByLine = false) {
-	await app.workbench.hotKeys.fullSizeSecondarySidebar();
-	const lines: string[] = runLineByLine ? script.split('\n') : [script];
-
-	await expect(async () => {
-		for (const line of lines) {
-			await app.workbench.console.pasteCodeToConsole(line);
-			await app.workbench.console.sendEnterKey();
-		}
-		await app.workbench.console.waitForConsoleExecution({ timeout: 15000 });
-		await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
-	}, 'Send code to console and verify plot renders').toPass({ timeout: 60000 });
+	await app.workbench.console.pasteCodeToConsole(script, true);
+	await app.workbench.console.waitForConsoleExecution({ timeout: 15000 });
+	await app.workbench.plots.waitForWebviewPlot(locator, 'visible', RWeb);
 }
 
 async function compareImages({

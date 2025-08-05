@@ -163,7 +163,7 @@ export class Plots {
 		await test.step('Open and plot in editor', async () => {
 			await contextMenu.triggerAndClick({
 				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
-				menuItemLabel: 'Open in editor tab',
+				menuItemLabel: /Open in editor tab$/,
 				menuItemType: 'menuitemcheckbox'
 			});
 		});
@@ -176,7 +176,7 @@ export class Plots {
 			context.waitForEvent('page'),
 			contextMenu.triggerAndClick({
 				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
-				menuItemLabel: 'Open in new window',
+				menuItemLabel: /Open in new window$/,
 				menuItemType: 'menuitemcheckbox'
 			})
 		]);
