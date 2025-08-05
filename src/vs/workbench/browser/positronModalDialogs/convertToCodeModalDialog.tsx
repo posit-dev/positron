@@ -186,7 +186,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 
 	const okButton = (
 		<Button className='action-bar-button default' onPressed={() => handleCopyToClipboard()}>
-			{localize('positronCopyCode', "Copy Code")}
+			{localize('positron.dataExplorer.positronCopyCode', "Copy Code")}
 		</Button>
 	);
 	const cancelButton = (
