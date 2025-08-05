@@ -8,6 +8,7 @@ import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
 import { createUniqueId } from './utils';
+import { delay } from '../util';
 
 /**
  * Utility to wrap a cleanup function as a vscode.Disposable.
@@ -57,10 +58,28 @@ export function makeTempDir(component: string): [string, vscode.Disposable] {
 	// might not look like the same file is being opened.
 	const realPath = fs.realpathSync(dir);
 
-	const disposable = toDisposable(() => {
-		// Recursively remove the directory and its contents
-		fs.rmSync(realPath, { recursive: true, force: true });
-	});
+	const disposable = toDisposable(async () => await retryRm(realPath));
 
 	return [realPath, disposable];
+}
+
+/**
+ * Retries async rm for a directory if EBUSY, with delay.
+ * Useful for cleanup on Windows where files are locked when in use.
+ * There might be a delay between closing an editor and the actual release of
+ * the file.
+ */
+export async function retryRm(dir: string, retries = 30, delayMs = 20) {
+	for (let i = 0; i < retries; i++) {
+		try {
+			fs.rmSync(dir, { recursive: true, force: true });
+			return;
+		} catch (err: any) {
+			if (err.code === 'EBUSY' && i < retries - 1) {
+				await delay(delayMs);
+			} else {
+				throw err;
+			}
+		}
+	}
 }
