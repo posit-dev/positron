@@ -408,7 +408,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 					// Use consistent budget allocation logic
 					const budgets = this.calculateBudgetAllocation(availableBudget, true);
-					const { truncatedInput, truncatedOutput, truncatedErrorContent } = this.truncateEntryContent(
+					const { truncatedInput, truncatedOutput, truncatedErrorContent, cost } = this.truncateEntryContent(
 						entry.input,
 						entry.output,
 						errorContent,
@@ -421,7 +421,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 						output: truncatedOutput,
 						error: JSON.parse(truncatedErrorContent),
 					});
-					currentCost += truncatedInput.length + truncatedOutput.length + truncatedErrorContent.length;
+					currentCost += cost;
 					firstTracebackIncluded = true;
 					continue;
 				}
@@ -441,7 +441,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 				// Use consistent budget allocation logic
 				const budgets = this.calculateBudgetAllocation(availableBudget, !!entry.error);
-				const { truncatedInput, truncatedOutput, truncatedErrorContent } = this.truncateEntryContent(
+				const { truncatedInput, truncatedOutput, truncatedErrorContent, cost: truncatedCost } = this.truncateEntryContent(
 					entry.input,
 					entry.output,
 					errorContent,
@@ -449,7 +449,6 @@ export class ChatRuntimeSessionContext extends Disposable {
 				);
 
 				// Calculate the total cost after truncation to see if it fits in remaining budget
-				const truncatedCost = truncatedInput.length + truncatedOutput.length + truncatedErrorContent.length;
 				if (truncatedCost > remainingBudget) {
 					// Even with aggressive truncation, this entry won't fit in the remaining space
 					// Stop processing further entries to respect the maximum cost limit
@@ -517,14 +516,14 @@ export class ChatRuntimeSessionContext extends Disposable {
 	 * @param output Original output content
 	 * @param errorContent Original error content (JSON stringified)
 	 * @param budgets Budget allocation for each component
-	 * @returns Truncated content for input, output, and error
+	 * @returns Truncated content for input, output, and error, plus the total cost
 	 */
 	private truncateEntryContent(
 		input: string,
 		output: string,
 		errorContent: string,
 		budgets: { inputBudget: number; outputBudget: number; errorBudget: number }
-	): { truncatedInput: string; truncatedOutput: string; truncatedErrorContent: string } {
+	): { truncatedInput: string; truncatedOutput: string; truncatedErrorContent: string; cost: number } {
 		// Truncate input dynamically based on budget
 		const truncatedInput = input.length > budgets.inputBudget ?
 			input.slice(0, Math.max(budgets.inputBudget - 16, 10)) + '... (truncated)' :
@@ -550,7 +549,9 @@ export class ChatRuntimeSessionContext extends Disposable {
 				errorContent.slice(-endLength);
 		}
 
-		return { truncatedInput, truncatedOutput, truncatedErrorContent };
+		const cost = truncatedInput.length + truncatedOutput.length + truncatedErrorContent.length;
+
+		return { truncatedInput, truncatedOutput, truncatedErrorContent, cost };
 	}
 
 	public toBaseEntries(): IChatRequestRuntimeSessionEntry[] {
