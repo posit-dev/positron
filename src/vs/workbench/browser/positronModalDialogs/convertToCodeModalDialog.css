@@ -3,19 +3,19 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-.convert-to-code-editor {
-	height: 200px;
-	width: 100%;
-	border: 1px solid var(--vscode-positronModalDialog-border);
-}
-
 .code-syntax-heading {
-	margin-block-start: 0;
-	margin-block-end: 8px;
-	margin: 0 0 0 0;
+	margin-top: 0;
+	margin-bottom: 8px;
 }
 
 .convert-to-code-syntax-dropdown {
 	width: 100%;
 	margin-bottom: 16px;
+}
+
+.convert-to-code-editor {
+	height: 200px;
+	width: 95%;
+	border: 1px solid var(--vscode-positronModalDialog-border);
+	padding: 8px;
 }
