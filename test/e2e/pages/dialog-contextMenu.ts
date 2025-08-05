@@ -12,7 +12,7 @@ export class ContextMenu {
 	private contextMenu: Locator = this.page.locator('.monaco-menu');
 	private contextMenuItems: Locator = this.contextMenu.getByRole('menuitem');
 	private getContextMenuItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitem', { name: label });
-	private getContextMenuCheckboxItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitemcheckbox', { name: label });
+	private getContextMenuCheckboxItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitemcheckbox', { name: label, exact: true });
 
 	constructor(
 		private code: Code,
@@ -28,6 +28,7 @@ export class ContextMenu {
 	 *
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
+	 * @param menuItemType The type of the menu item, either 'menuitemcheckbox' or 'menuitem'
 	 */
 	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem' }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
