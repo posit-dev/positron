@@ -25,7 +25,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 			return undefined;
 		}
 
-		const cell = debugSession.configuration.__cellIndex &&
+		const cell = typeof debugSession.configuration.__cellIndex === 'number' &&
 			notebook.cellAt(debugSession.configuration.__cellIndex);
 		if (!cell) {
 			return undefined;
