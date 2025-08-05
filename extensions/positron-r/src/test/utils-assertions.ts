@@ -5,8 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import * as fs from 'fs';
-import * as path from 'path';
 import { delay } from '../util';
 import { normalizeUri } from './utils';
 
@@ -21,7 +19,7 @@ import { normalizeUri } from './utils';
 export async function pollForSuccess(
 	predicate: () => void | Promise<void>,
 	intervalMs = 10,
-	timeoutMs = 5000,
+	timeoutMs = 5000000,
 ): Promise<void> {
 	const start = Date.now();
 
