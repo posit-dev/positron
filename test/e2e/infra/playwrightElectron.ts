@@ -25,6 +25,8 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 		args.push('--disable-dev-shm-usage');
 		args.push('--no-sandbox');
 		args.push('--enable-unsafe-swiftshader');
+		args.push('--use-gl=osmesa'); // or 'swiftshader'
+		args.push('--disable-gpu-compositing');
 	}
 
 	// Launch electron via playwright

@@ -15,8 +15,7 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 		try {
 			// don't use native file picker
 			await settings.set({
-				'files.simpleDialog.enable': true,
-				'interpreters.startupBehavior': 'auto'
+				'files.simpleDialog.enable': true
 			}, { reload: true });
 		} catch (e) {
 			await app.code.driver.takeScreenshot('testExplorerSetup');
