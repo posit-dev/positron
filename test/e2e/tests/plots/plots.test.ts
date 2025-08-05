@@ -65,7 +65,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			}
 
 			await test.step('Verify plot can be opened in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
+				await app.workbench.plots.openPlotIn('editor');
 				await app.workbench.plots.waitForPlotInEditor();
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
@@ -95,7 +95,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			await test.step('Verify plot can be opened in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
+				await app.workbench.plots.openPlotIn('editor');
 				await app.workbench.plots.waitForPlotInEditor();
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
@@ -163,7 +163,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			await test.step('Open plot in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
+				await app.workbench.plots.openPlotIn('editor');
 				await app.workbench.plots.waitForPlotInEditor();
 			});
 
@@ -283,7 +283,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 		});
 
 		test('Python - Verify Plot Zoom works (Fit vs. 200%)', { tag: [tags.WEB] },
-			async function ({ app, contextMenu, openFile, python, page }, testInfo) {
+			async function ({ app, openFile, python, page }, testInfo) {
 				await openFile(path.join('workspaces', 'python-plots', 'matplotlib-zoom-example.py'));
 
 				await test.step('Run Python File in Console', async () => {
@@ -292,17 +292,11 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				});
 				const imgLocator = page.getByRole('img', { name: /%run/ });
 
-				await contextMenu.triggerAndClick({
-					menuTrigger: page.getByRole('button', { name: 'Fit' }),
-					menuItemLabel: 'Fit'
-				});
-				await page.waitForTimeout(300);
+				await app.workbench.plots.setThePlotZoom('Fit');
+				await page.waitForTimeout(2000);
 				await dismissPlotZoomTooltip(page);
 				const bufferFit1 = await imgLocator.screenshot();
-				await contextMenu.triggerAndClick({
-					menuTrigger: page.getByRole('button', { name: 'Fit' }),
-					menuItemLabel: '200%'
-				});
+				await app.workbench.plots.setThePlotZoom('200%');
 
 				await page.waitForTimeout(2000);
 				await dismissPlotZoomTooltip(page);
@@ -315,10 +309,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				});
 				expect(resultZoom.rawMisMatchPercentage).toBeGreaterThan(1.5); // should be large diff
 
-				await contextMenu.triggerAndClick({
-					menuTrigger: page.getByRole('button', { name: '200%' }),
-					menuItemLabel: 'Fit'
-				});
+				await app.workbench.plots.setThePlotZoom('Fit');
 				await page.waitForTimeout(2000);
 				await dismissPlotZoomTooltip(page);
 				const bufferFit2 = await imgLocator.screenshot();
@@ -378,7 +369,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			}
 
 			await test.step('Verify plot can be opened in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
+				await app.workbench.plots.openPlotIn('editor');
 				await app.workbench.plots.waitForPlotInEditor();
 				await app.workbench.quickaccess.runCommand('workbench.action.closeAllEditors');
 			});
@@ -406,7 +397,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 			});
 
 			await test.step('Open plot in editor', async () => {
-				await app.workbench.plots.openPlotInEditor();
+				await app.workbench.plots.openPlotIn('editor');
 				await app.workbench.plots.waitForPlotInEditor();
 			});
 
