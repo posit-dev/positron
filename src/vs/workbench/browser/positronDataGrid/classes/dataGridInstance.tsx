@@ -772,7 +772,26 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	private _rowSelectionIndexes?: SelectionIndexes;
 
+	/**
+	 * A value which indicates that there is a pending onDidUpdate event.
+	 */
+	private _pendingOnDidUpdateEvent = false;
+
 	//#endregion Private Properties
+
+	//#region Private Events
+
+	/**
+	 * The onDidUpdate event emitter.
+	 */
+	private readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
+
+	/**
+	 * The onDidChangeColumnSorting event emitter.
+	 */
+	private readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>);
+
+	//#endregion Private Events
 
 	//#region Protected Properties
 
@@ -802,20 +821,6 @@ export abstract class DataGridInstance extends Disposable {
 	protected readonly _columnSortKeys = new Map<number, ColumnSortKeyDescriptor>();
 
 	//#endregion Protected Properties
-
-	//#region Protected Events
-
-	/**
-	 * The onDidUpdate event emitter.
-	 */
-	protected readonly _onDidUpdateEmitter = this._register(new Emitter<void>);
-
-	/**
-	 * The onDidChangeColumnSorting event emitter.
-	 */
-	protected readonly _onDidChangeColumnSortingEmitter = this._register(new Emitter<boolean>);
-
-	//#endregion Protected Events
 
 	//#region Constructor & Dispose
 
@@ -1356,7 +1361,7 @@ export abstract class DataGridInstance extends Disposable {
 			this._focused = focused;
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1461,48 +1466,49 @@ export abstract class DataGridInstance extends Disposable {
 
 	// YAYA
 
+	// /**
+	//  * Gets a column descriptor.
+	//  * @param columnIndex The column index.
+	//  * @returns The column descriptor, if found; otherwise, undefined.
+	//  */
+	// getColumn(columnIndex: number): ColumnDescriptor | undefined {
+	// 	// Get the column layout entry. If it wasn't found, return undefined.
+	// 	const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
+	// 	if (!layoutEntry) {
+	// 		return undefined;
+	// 	}
+
+	// 	// Return the column descriptor for the column.
+	// 	return {
+	// 		columnIndex: layoutEntry.index,
+	// 		left: layoutEntry.start,
+	// 		width: layoutEntry.size,
+	// 	};
+	// }
+
+	// /**
+	//  * Gets a row descriptor.
+	//  * @param columnIndex The row index.
+	//  * @returns The row descriptor, if found; otherwise, undefined.
+	//  */
+	// getRow(rowIndex: number): RowDescriptor | undefined {
+	// 	// Get the row layout entry. If it wasn't found, return undefined.
+	// 	const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+	// 	if (!layoutEntry) {
+	// 		return undefined;
+	// 	}
+
+	// 	// Return the row descriptor for the row.
+	// 	return {
+	// 		rowIndex: layoutEntry.index,
+	// 		top: layoutEntry.start,
+	// 		height: layoutEntry.size,
+	// 	};
+	// }
+
 	/**
-	 * Gets a column descriptor.
-	 * @param columnIndex The column index.
-	 * @returns The column descriptor, if found; otherwise, undefined.
-	 */
-	getColumn(columnIndex: number): ColumnDescriptor | undefined {
-		// Get the column layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
-		if (!layoutEntry) {
-			return undefined;
-		}
-
-		// Return the column descriptor for the column.
-		return {
-			columnIndex: layoutEntry.index,
-			left: layoutEntry.start,
-			width: layoutEntry.size,
-		};
-	}
-
-	/**
-	 * Gets a row descriptor.
-	 * @param columnIndex The row index.
-	 * @returns The row descriptor, if found; otherwise, undefined.
-	 */
-	getRow(rowIndex: number): RowDescriptor | undefined {
-		// Get the row layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
-		if (!layoutEntry) {
-			return undefined;
-		}
-
-		// Return the row descriptor for the row.
-		return {
-			rowIndex: layoutEntry.index,
-			top: layoutEntry.start,
-			height: layoutEntry.size,
-		};
-	}
-
-	/**
-	 * Gets the custom width of a column.
+	 * Gets the custom width of a column. This can be overridden by subclasses to provide
+	 * custom column widths (e.g., for fixed-width columns).
 	 * @param columnIndex The column index.
 	 * @returns The custom width of the column; otherwise, undefined.
 	 */
@@ -1529,23 +1535,23 @@ export abstract class DataGridInstance extends Disposable {
 		await this.fetchData();
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
-	/**
-	 * Gets the height of a row.
-	 * @param rowIndex The row index.
-	 */
-	getRowHeight(rowIndex: number) {
-		// Get the row layout entry. If it wasn't found, return 0.
-		const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
-		if (!layoutEntry) {
-			return undefined;
-		}
+	// /**
+	//  * Gets the height of a row.
+	//  * @param rowIndex The row index.
+	//  */
+	// getRowHeight(rowIndex: number) {
+	// 	// Get the row layout entry. If it wasn't found, return 0.
+	// 	const layoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
+	// 	if (!layoutEntry) {
+	// 		return undefined;
+	// 	}
 
-		// Return the row height.
-		return layoutEntry.size;
-	}
+	// 	// Return the row height.
+	// 	return layoutEntry.size;
+	// }
 
 	/**
 	 * Sets a row height.
@@ -1566,7 +1572,7 @@ export abstract class DataGridInstance extends Disposable {
 		await this.fetchData();
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1595,7 +1601,7 @@ export abstract class DataGridInstance extends Disposable {
 						await this.fetchData();
 
 						// Fire the onDidUpdate event.
-						this._onDidUpdateEmitter.fire();
+						this.fireOnDidUpdateEvent();
 
 						// Done.
 						return;
@@ -1607,7 +1613,7 @@ export abstract class DataGridInstance extends Disposable {
 		// Scroll to the top.
 		this.setVerticalScrollOffset(0);
 		await this.fetchData();
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1635,7 +1641,7 @@ export abstract class DataGridInstance extends Disposable {
 						await this.fetchData();
 
 						// Fire the onDidUpdate event.
-						this._onDidUpdateEmitter.fire();
+						this.fireOnDidUpdateEvent();
 
 						// Done.
 						return;
@@ -1647,7 +1653,7 @@ export abstract class DataGridInstance extends Disposable {
 		// Scroll to the bottom.
 		this.setVerticalScrollOffset(this.maximumVerticalScrollOffset);
 		await this.fetchData();
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -1679,7 +1685,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._onDidChangeColumnSortingEmitter.fire(true);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 
 		// Sort the data.
 		await this.doSortData();
@@ -1711,7 +1717,7 @@ export abstract class DataGridInstance extends Disposable {
 			this._onDidChangeColumnSortingEmitter.fire(this._columnSortKeys.size > 0);
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 
 			// Sort the data.
 			await this.doSortData();
@@ -1730,7 +1736,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._onDidChangeColumnSortingEmitter.fire(false);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 
 		// Sort the data.
 		await this.doSortData();
@@ -1751,7 +1757,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1778,7 +1784,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1804,7 +1810,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1822,7 +1828,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1840,7 +1846,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1850,15 +1856,13 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param cursorRowIndex The cursor row index.
 	 */
 	setCursorPosition(cursorColumnIndex: number, cursorRowIndex: number) {
-		if (cursorColumnIndex !== this._cursorColumnIndex ||
-			cursorRowIndex !== this._cursorRowIndex
-		) {
+		if (cursorColumnIndex !== this._cursorColumnIndex || cursorRowIndex !== this._cursorRowIndex) {
 			// Set the cursor position.
 			this._cursorColumnIndex = cursorColumnIndex;
 			this._cursorRowIndex = cursorRowIndex;
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1872,7 +1876,7 @@ export abstract class DataGridInstance extends Disposable {
 			this._cursorColumnIndex = cursorColumnIndex;
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1886,9 +1890,10 @@ export abstract class DataGridInstance extends Disposable {
 			this._cursorRowIndex = cursorRowIndex;
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
+
 
 	// YAYA
 
@@ -1908,7 +1913,7 @@ export abstract class DataGridInstance extends Disposable {
 	pinColumn(columnIndex: number) {
 		// If column pinning is enabled, and the maximum pinned columns limit has not been reached, pin the column.
 		if (this._columnPinning && this._columnLayoutManager.pinnedIndexes < this._maximumPinnedColumns && this._columnLayoutManager.pinIndex(columnIndex)) {
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1919,7 +1924,7 @@ export abstract class DataGridInstance extends Disposable {
 	unpinColumn(columnIndex: number) {
 		// If column pinning is enabled, unpin the column.
 		if (this._columnPinning && this._columnLayoutManager.unpinIndex(columnIndex)) {
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1939,7 +1944,7 @@ export abstract class DataGridInstance extends Disposable {
 	pinRow(rowIndex: number) {
 		// If row pinning is enabled, and the maximum pinned rows limit has not been reached, pin the row.
 		if (this._rowPinning && this._rowLayoutManager.pinnedIndexes < this._maximumPinnedRows && this._rowLayoutManager.pinIndex(rowIndex)) {
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -1950,8 +1955,90 @@ export abstract class DataGridInstance extends Disposable {
 	unpinRow(rowIndex: number) {
 		// If row pinning is enabled, unpin the row.
 		if (this._rowPinning && this._rowLayoutManager.unpinIndex(rowIndex)) {
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
+	}
+
+	// CURSOR MOVEMENT
+
+	/**
+	 * Moves the cursor up.
+	 */
+	moveCursorUp() {
+		// Get the previous row index using the row layout manager.
+		const previousRowIndex = this._rowLayoutManager.previousIndex(this._cursorRowIndex)
+
+		// If the previous row index is undefined, this means that the cursor is already at the top row.
+		if (previousRowIndex === undefined) {
+			return;
+		}
+
+		// Set the cursor row index to the previous row index and fire the onDidUpdate event.
+		this._cursorRowIndex = previousRowIndex;
+
+		this.scrollToCursor()
+
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
+	 * Moves the cursor down.
+	 */
+	moveCursorDown() {
+		// Get the next row index using the row layout manager.
+		const nextRowIndex = this._rowLayoutManager.nextIndex(this._cursorRowIndex)
+
+		// If the next row index is undefined, this means that the cursor is already at the bottom row.
+		if (nextRowIndex === undefined) {
+			return;
+		}
+
+		// Set the cursor row index to the next row index and fire the onDidUpdate event.
+		this._cursorRowIndex = nextRowIndex;
+
+		this.scrollToCursor()
+
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
+	 * Moves the cursor left.
+	 */
+	moveCursorLeft() {
+		// Get the previous column index using the column layout manager.
+		const previousColumnIndex = this._columnLayoutManager.previousIndex(this._cursorColumnIndex)
+
+		// If the previous column index is undefined, this means that the cursor is already at the first column.
+		if (previousColumnIndex === undefined) {
+			return;
+		}
+
+		// Set the cursor column index to the previous column index and fire the onDidUpdate event.
+		this._cursorColumnIndex = previousColumnIndex;
+
+		this.scrollToCursor()
+
+		this.fireOnDidUpdateEvent();
+	}
+
+	/**
+	 * Moves the cursor right.
+	 */
+	moveCursorRight() {
+		// Get the next column index using the column layout manager.
+		const nextColumnIndex = this._columnLayoutManager.nextIndex(this._cursorColumnIndex)
+
+		// If the next column index is undefined, this means that the cursor is already at the last column.
+		if (nextColumnIndex === undefined) {
+			return;
+		}
+
+		// Set the cursor column index to the previous column index and fire the onDidUpdate event.
+		this._cursorColumnIndex = nextColumnIndex;
+
+		this.scrollToColumn(this._cursorColumnIndex);
+
+		this.fireOnDidUpdateEvent();
 	}
 
 	// YAYA
@@ -2014,7 +2101,7 @@ export abstract class DataGridInstance extends Disposable {
 			await this.fetchData();
 
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -2023,7 +2110,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param columnIndex The column index.
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
-	async scrollToColumn(columnIndex: number): Promise<void> {
+	async scrollToColumn(columnIndex: number) {
 		// Get the column layout entry. If it wasn't found, return.
 		const columnLayoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
 		if (!columnLayoutEntry) {
@@ -2073,7 +2160,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowSelectionRange = new SelectionRange(0, this.rows - 1);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -2108,7 +2195,7 @@ export abstract class DataGridInstance extends Disposable {
 				await this.scrollToCursor();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
@@ -2126,7 +2213,7 @@ export abstract class DataGridInstance extends Disposable {
 				await this.scrollToCell(columnIndex, rowIndex);
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
@@ -2155,7 +2242,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._columnSelectionIndexes = new SelectionIndexes(columnIndex);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -2196,7 +2283,7 @@ export abstract class DataGridInstance extends Disposable {
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
@@ -2216,7 +2303,7 @@ export abstract class DataGridInstance extends Disposable {
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
@@ -2256,7 +2343,7 @@ export abstract class DataGridInstance extends Disposable {
 				}
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 		}
@@ -2279,7 +2366,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowSelectionIndexes = new SelectionIndexes(rowIndex);
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -2320,7 +2407,7 @@ export abstract class DataGridInstance extends Disposable {
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
@@ -2340,7 +2427,7 @@ export abstract class DataGridInstance extends Disposable {
 				await this.fetchData();
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 
@@ -2380,7 +2467,7 @@ export abstract class DataGridInstance extends Disposable {
 				}
 
 				// Fire the onDidUpdate event.
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 				break;
 			}
 		}
@@ -2414,7 +2501,7 @@ export abstract class DataGridInstance extends Disposable {
 					this.scrollToColumn(this._columnSelectionRange.firstIndex);
 
 					// Fire the onDidUpdate event.
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			}
 		} else if (this._columnSelectionRange) {
@@ -2423,12 +2510,12 @@ export abstract class DataGridInstance extends Disposable {
 				if (this._columnSelectionRange.firstIndex > 0) {
 					this._columnSelectionRange.firstIndex--;
 					this.scrollToColumn(this._columnSelectionRange.firstIndex);
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			} else if (this._cursorColumnIndex === this._columnSelectionRange.firstIndex) {
 				this._columnSelectionRange.lastIndex--;
 				this.scrollToColumn(this._columnSelectionRange.lastIndex);
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			}
 		} else if (this._cellSelectionRange) {
 			// Expand or contract the cell selection range along the column axis, if possible.
@@ -2436,12 +2523,12 @@ export abstract class DataGridInstance extends Disposable {
 				if (this._cellSelectionRange.firstColumnIndex > 0) {
 					this._cellSelectionRange.firstColumnIndex--;
 					this.scrollToColumn(this._cellSelectionRange.firstColumnIndex);
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			} else if (this._cursorColumnIndex === this._cellSelectionRange.firstColumnIndex) {
 				this._cellSelectionRange.lastColumnIndex--;
 				this.scrollToColumn(this._cellSelectionRange.lastColumnIndex);
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			}
 		} else if (this._cursorColumnIndex > 0) {
 			// Create a new cell selection range.
@@ -2452,7 +2539,7 @@ export abstract class DataGridInstance extends Disposable {
 				this._cursorRowIndex
 			);
 			this.scrollToCell(this._cellSelectionRange.firstColumnIndex, this._cursorRowIndex);
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -2484,7 +2571,7 @@ export abstract class DataGridInstance extends Disposable {
 					this.scrollToColumn(this._columnSelectionRange.lastIndex);
 
 					// Fire the onDidUpdate event.
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			}
 		} else if (this._columnSelectionRange) {
@@ -2493,12 +2580,12 @@ export abstract class DataGridInstance extends Disposable {
 				if (this._columnSelectionRange.lastIndex < this.columns - 1) {
 					this._columnSelectionRange.lastIndex++;
 					this.scrollToColumn(this._columnSelectionRange.lastIndex);
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			} else if (this._cursorColumnIndex === this._columnSelectionRange.lastIndex) {
 				this._columnSelectionRange.firstIndex++;
 				this.scrollToColumn(this._columnSelectionRange.firstIndex);
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			}
 		} else if (this._cellSelectionRange) {
 			// Expand or contract the cell selection range along the column axis, if possible.
@@ -2506,12 +2593,12 @@ export abstract class DataGridInstance extends Disposable {
 				if (this._cellSelectionRange.lastColumnIndex < this.columns - 1) {
 					this._cellSelectionRange.lastColumnIndex++;
 					this.scrollToColumn(this._cellSelectionRange.lastColumnIndex);
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			} else if (this._cursorColumnIndex === this._cellSelectionRange.lastColumnIndex) {
 				this._cellSelectionRange.firstColumnIndex++;
 				this.scrollToColumn(this._cellSelectionRange.firstColumnIndex);
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			}
 		} else if (this._cursorColumnIndex < this.columns - 1) {
 			// Create a new cell selection range.
@@ -2522,7 +2609,7 @@ export abstract class DataGridInstance extends Disposable {
 				this._cursorRowIndex
 			);
 			this.scrollToCell(this._cellSelectionRange.lastColumnIndex, this._cursorRowIndex);
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -2554,7 +2641,7 @@ export abstract class DataGridInstance extends Disposable {
 					this.scrollToRow(this._rowSelectionRange.firstIndex);
 
 					// Fire the onDidUpdate event.
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			}
 		} else if (this._rowSelectionRange) {
@@ -2563,12 +2650,12 @@ export abstract class DataGridInstance extends Disposable {
 				if (this._rowSelectionRange.firstIndex > 0) {
 					this._rowSelectionRange.firstIndex--;
 					this.scrollToRow(this._rowSelectionRange.firstIndex);
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			} else if (this._cursorRowIndex === this._rowSelectionRange.firstIndex) {
 				this._rowSelectionRange.lastIndex--;
 				this.scrollToRow(this._rowSelectionRange.lastIndex);
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			}
 		} else if (this._cellSelectionRange) {
 			// Expand or contract the cell selection range along the row axis, if possible.
@@ -2576,12 +2663,12 @@ export abstract class DataGridInstance extends Disposable {
 				if (this._cellSelectionRange.firstRowIndex > 0) {
 					this._cellSelectionRange.firstRowIndex--;
 					this.scrollToRow(this._cellSelectionRange.firstRowIndex);
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			} else if (this._cursorRowIndex === this._cellSelectionRange.firstRowIndex) {
 				this._cellSelectionRange.lastRowIndex--;
 				this.scrollToRow(this._cellSelectionRange.lastRowIndex);
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			}
 		} else if (this._cursorRowIndex > 0) {
 			// Create a new cell selection range.
@@ -2592,7 +2679,7 @@ export abstract class DataGridInstance extends Disposable {
 				this._cursorRowIndex
 			);
 			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionRange.firstRowIndex);
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -2624,7 +2711,7 @@ export abstract class DataGridInstance extends Disposable {
 					this.scrollToRow(this._rowSelectionRange.lastIndex);
 
 					// Fire the onDidUpdate event.
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			}
 		} else if (this._rowSelectionRange) {
@@ -2633,12 +2720,12 @@ export abstract class DataGridInstance extends Disposable {
 				if (this._rowSelectionRange.lastIndex < this.rows - 1) {
 					this._rowSelectionRange.lastIndex++;
 					this.scrollToRow(this._rowSelectionRange.lastIndex);
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			} else if (this._cursorRowIndex === this._rowSelectionRange.lastIndex) {
 				this._rowSelectionRange.firstIndex++;
 				this.scrollToRow(this._rowSelectionRange.firstIndex);
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			}
 		} else if (this._cellSelectionRange) {
 			// Expand or contract the cell selection range along the row axis, if possible.
@@ -2646,12 +2733,12 @@ export abstract class DataGridInstance extends Disposable {
 				if (this._cellSelectionRange.lastRowIndex < this.rows - 1) {
 					this._cellSelectionRange.lastRowIndex++;
 					this.scrollToRow(this._cellSelectionRange.lastRowIndex);
-					this._onDidUpdateEmitter.fire();
+					this.fireOnDidUpdateEvent();
 				}
 			} else if (this._cursorRowIndex === this._cellSelectionRange.lastRowIndex) {
 				this._cellSelectionRange.firstRowIndex++;
 				this.scrollToRow(this._cellSelectionRange.firstRowIndex);
-				this._onDidUpdateEmitter.fire();
+				this.fireOnDidUpdateEvent();
 			}
 		} else if (this._cursorRowIndex < this.rows - 1) {
 			// Create a new cell selection range.
@@ -2662,7 +2749,7 @@ export abstract class DataGridInstance extends Disposable {
 				this._cursorRowIndex + 1
 			);
 			this.scrollToCell(this._cursorColumnIndex, this._cellSelectionRange.lastRowIndex);
-			this._onDidUpdateEmitter.fire();
+			this.fireOnDidUpdateEvent();
 		}
 	}
 
@@ -2826,7 +2913,7 @@ export abstract class DataGridInstance extends Disposable {
 		this._rowSelectionIndexes = undefined;
 
 		// Fire the onDidUpdate event.
-		this._onDidUpdateEmitter.fire();
+		this.fireOnDidUpdateEvent();
 	}
 
 	/**
@@ -3008,6 +3095,19 @@ export abstract class DataGridInstance extends Disposable {
 		this._columnSelectionIndexes = undefined;
 		this._rowSelectionRange = undefined;
 		this._rowSelectionIndexes = undefined;
+	}
+
+	/**
+	 * Fires the onDidUpdate event within the same microtask tick.
+	 */
+	protected fireOnDidUpdateEvent() {
+		if (!this._pendingOnDidUpdateEvent) {
+			this._pendingOnDidUpdateEvent = true;
+			Promise.resolve().then(() => {
+				this._pendingOnDidUpdateEvent = false;
+				this._onDidUpdateEmitter.fire();
+			});
+		}
 	}
 
 	//#endregion Protected Methods

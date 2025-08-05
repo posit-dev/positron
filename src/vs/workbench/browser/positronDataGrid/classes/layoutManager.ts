@@ -102,21 +102,6 @@ class LayoutEntry implements ILayoutEntry {
 }
 
 /**
- * ICustomSize interface.
- */
-interface ICustomSize {
-	/**
-	 * Gets index.
-	 */
-	readonly index: number;
-
-	/**
-	 * Gets the custom size.
-	 */
-	readonly customSize: number;
-}
-
-/**
  * LayoutManager class.
  */
 export class LayoutManager {
@@ -148,15 +133,6 @@ export class LayoutManager {
 	 * Gets the custom sizes map. This is keyed by index and contains the custom size for that index.
 	 */
 	private readonly _customSizes = new Map<number, number>();
-
-	/**
-	 * Gets the sorted custom sizes.
-	 */
-	private get sortedCustomSizes() {
-		return Array.from(this._customSizes).
-			map(([index, size]): ICustomSize => ({ index, customSize: size })).
-			sort((a, b) => a.index - b.index);
-	}
 
 	/**
 	 * Gets or sets the pinned layout entries.
@@ -244,43 +220,71 @@ export class LayoutManager {
 			return undefined;
 		}
 
-		// If layout entries is an array, return the layout entry at the specified index.
-		if (Array.isArray(this._unpinnedLayoutEntries)) {
-			return this._unpinnedLayoutEntries[index];
-		}
+		// If the index is pinned, return the pinned layout entry.
+		if (this._pinnedIndexes.has(index)) {
+			// Get the pinned indexes as an array.
+			const pinnedIndexesArray = Array.from(this._pinnedIndexes);
 
-		// If there are no size overrides, we can calculate which layout entry to return.
-		if (!this._customSizes.size) {
-			// Return the layout entry.
-			return new LayoutEntry(
-				index,
-				index * this._defaultSize,
-				this._defaultSize
-			);
-		}
+			// Get the pinned index position.
+			const pinnedIndexPosition = pinnedIndexesArray.indexOf(index);
 
-		// Calculate the start and size of the layout entry to return.
-		const sortedSizeOverrides = this.sortedCustomSizes;
-		let start = index * this._defaultSize;
-		sortedSizeOverrides.some(sizeOverride => {
-			// If the size override index is less than the index, adjust the start and return
-			// false to continue the search.
-			if (sizeOverride.index < index) {
-				start = start - this._defaultSize + sizeOverride.customSize;
-				return false;
+			// This can't happen. We know for certain that the index is pinned.
+			if (pinnedIndexPosition === -1) {
+				return undefined;
 			}
 
-			// Return true to stop the search.
-			return true;
-		});
+			// Return the pinned layout entry at the specified index.
+			return this._pinnedLayoutEntries[pinnedIndexPosition];
+		}
 
-		// Return the layout entry.
-		return new LayoutEntry(
-			index,
-			start,
-			this._defaultSize,
-			this._customSizes.get(index)
-		);
+		// Get the unpinned index position.
+		const unpinnedIndexPosition = this.unpinnedIndexPosition(index);
+
+		// If the unpinned index position is undefined, it indicate that there is a bug. Just return undefined.
+		if (unpinnedIndexPosition === undefined) {
+			return undefined;
+		}
+
+		return this._unpinnedLayoutEntries[unpinnedIndexPosition];
+
+
+		// // If layout entries is an array, return the layout entry at the specified index.
+		// if (Array.isArray(this._unpinnedLayoutEntries)) {
+		// 	return this._unpinnedLayoutEntries[index];
+		// }
+
+		// // If there are no size overrides, we can calculate which layout entry to return.
+		// if (!this._customSizes.size) {
+		// 	// Return the layout entry.
+		// 	return new LayoutEntry(
+		// 		index,
+		// 		index * this._defaultSize,
+		// 		this._defaultSize
+		// 	);
+		// }
+
+		// // Calculate the start and size of the layout entry to return.
+		// const sortedSizeOverrides = this.sortedCustomSizes;
+		// let start = index * this._defaultSize;
+		// sortedSizeOverrides.some(sizeOverride => {
+		// 	// If the size override index is less than the index, adjust the start and return
+		// 	// false to continue the search.
+		// 	if (sizeOverride.index < index) {
+		// 		start = start - this._defaultSize + sizeOverride.customSize;
+		// 		return false;
+		// 	}
+
+		// 	// Return true to stop the search.
+		// 	return true;
+		// });
+
+		// // Return the layout entry.
+		// return new LayoutEntry(
+		// 	index,
+		// 	start,
+		// 	this._defaultSize,
+		// 	this._customSizes.get(index)
+		// );
 	}
 
 	/**
@@ -492,6 +496,106 @@ export class LayoutManager {
 		return [];
 	}
 
+	/**
+	 * Returns the previous index for the specified index.
+	 * @param index The index to get the previous index for.
+	 * @returns The previous index, if found; otherwise, undefined.
+	 */
+	previousIndex(index: number): number | undefined {
+		// If the index is pinned, return the previous pinned index, if there is one.
+		if (this._pinnedIndexes.has(index)) {
+			// Get the pinned indexes as an array.
+			const pinnedIndexesArray = Array.from(this._pinnedIndexes);
+
+			// Get the pinned index position.
+			const pinnedIndexPosition = pinnedIndexesArray.indexOf(index);
+
+			// This can't happen. We know for certain that the index is pinned.
+			if (pinnedIndexPosition === -1) {
+				return undefined;
+			}
+
+			// If the pinned index position is not the first pinned index position, return the previous pinned index.
+			if (pinnedIndexPosition > 0) {
+				return pinnedIndexesArray[pinnedIndexPosition - 1];
+			}
+
+			// The pinned index position is zero, so there is no previous pinned index.
+			return undefined;
+		}
+
+		// Get the unpinned index position.
+		const unpinnedIndexPosition = this.unpinnedIndexPosition(index);
+
+		// If the unpinned index position is undefined, it indicate that there is a bug. Just return undefined.
+		if (unpinnedIndexPosition === undefined) {
+			return undefined;
+		}
+
+		// If the unpinned index position is greater than zero, return the previous unpinned index.
+		if (unpinnedIndexPosition > 0) {
+			return this._unpinnedLayoutEntries[unpinnedIndexPosition - 1].index;
+		}
+
+		if (this._pinnedLayoutEntries.length) {
+			// Get the pinned indexes as an array.
+			const pinnedIndexesArray = Array.from(this._pinnedIndexes);
+
+			return pinnedIndexesArray[pinnedIndexesArray.length - 1];
+		}
+
+		return undefined;
+	}
+
+	/**
+	 *
+	 * @param index
+	 * @returns
+	 */
+	nextIndex(index: number): number | undefined {
+		// If the index is pinned, return the next pinned index, if there is one.
+		if (this._pinnedIndexes.has(index)) {
+			// Get the pinned indexes as an array.
+			const pinnedIndexesArray = Array.from(this._pinnedIndexes);
+
+			// Get the pinned position.
+			const pinnedPosition = pinnedIndexesArray.indexOf(index);
+
+			// This can't happen. We know for certain that the index is pinned.
+			if (pinnedPosition === -1) {
+				return undefined;
+			}
+
+			// If the pinned position is not the last pinned position, return the next pinned index.
+			if (pinnedPosition < pinnedIndexesArray.length - 1) {
+				return pinnedIndexesArray[pinnedPosition + 1];
+			}
+
+			// Return the first unpinned index.
+			if (this._unpinnedLayoutEntries.length) {
+				return this._unpinnedLayoutEntries[0].index;
+			} else {
+				// There are no unpinned layout entries, so there is no next index.
+				return undefined;
+			}
+		}
+
+		// Get the unpinned index position.
+		const unpinnedIndexPosition = this.unpinnedIndexPosition(index);
+
+		// If the unpinned index position is undefined, it indicate that there is a bug. Just return undefined.
+		if (unpinnedIndexPosition === undefined) {
+			return undefined;
+		}
+
+		// If the unpinned index position is less than the unpinned layout entries, return the next unpinned index.
+		if (unpinnedIndexPosition < this._unpinnedLayoutEntries.length - 1) {
+			return this._unpinnedLayoutEntries[unpinnedIndexPosition + 1].index;
+		}
+
+		return undefined;
+	}
+
 	//#endregion Public Methods
 
 	//#region Private Methods
@@ -503,6 +607,32 @@ export class LayoutManager {
 	 */
 	private validateIndex(index: number) {
 		return Number.isInteger(index) && index >= 0 && index < this.entryCount;
+	}
+
+	private unpinnedIndexPosition(index: number): number | undefined {
+		// Perform a binary search to find the unpinned layout entry with specified offset.
+		let leftIndex = 0;
+		let rightIndex = this._unpinnedLayoutEntries.length - 1;
+		while (leftIndex <= rightIndex) {
+			// Calculate the middle index and get the middle layout entry to check.
+			const middleIndex = Math.floor((leftIndex + rightIndex) / 2);
+			const middleLayoutEntry = this._unpinnedLayoutEntries[middleIndex];
+
+			// Check if the middle layout entry is for the specified index.
+			if (middleLayoutEntry.index === index) {
+				return middleIndex;
+			}
+
+			// Setup the next binary search.
+			if (middleLayoutEntry.index < index) {
+				leftIndex = middleIndex + 1;
+			} else {
+				rightIndex = middleIndex - 1;
+			}
+		}
+
+		// Not found.
+		return undefined;
 	}
 
 	/**

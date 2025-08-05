@@ -163,7 +163,7 @@ export class ColumnSelectorDataGridInstance extends DataGridInstance {
 		// Add the onDidUpdateCache event handler.
 		this._register(this._columnSchemaCache.onDidUpdateCache(() =>
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
+			this.fireOnDidUpdateEvent()
 		));
 	}
 
