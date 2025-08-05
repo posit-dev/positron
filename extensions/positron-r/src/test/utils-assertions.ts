@@ -8,6 +8,7 @@ import * as assert from 'assert';
 import * as fs from 'fs';
 import * as path from 'path';
 import { delay } from '../util';
+import { normalizeUri } from './utils';
 
 /**
  * Waits for the given predicate to succeed (not throw an assertion error) within the timeout.
@@ -51,8 +52,8 @@ export async function assertSelectedEditor(uri: vscode.Uri, text: string) {
 	await pollForSuccess(() => {
 		const ed = vscode.window.activeTextEditor;
 
-		const expectedPath = fs.realpathSync.native(path.normalize(uri.fsPath)).toLowerCase();
-		const actualPath = ed ? fs.realpathSync.native(path.normalize(ed.document.uri.fsPath)).toLowerCase() : undefined;
+		const expectedPath = normalizeUri(uri);
+		const actualPath = ed ? normalizeUri(ed.document.uri) : undefined;
 
 		if (ed === undefined || actualPath !== expectedPath) {
 			assert.fail(`Expected active editor for ${expectedPath}, but got ${actualPath ?? 'undefined'}`);
