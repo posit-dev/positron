@@ -75,6 +75,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 	// Code string display
 	const editorRef = useRef<CodeEditorWidget>(undefined!);
 	const editorContainerRef = useRef<HTMLDivElement>(undefined!);
+
 	// for our purposes, this is equivalent to the language id
 	const language = props.dataExplorerClientInstance.languageName.toLocaleLowerCase();
 
@@ -132,8 +133,7 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 		return () => {
 			disposableStore.dispose();
 		};
-	},
-		[codeString, language, services.instantiationService, services.configurationService, services.modelService, services.languageService]);
+	}, [codeString, language, services.instantiationService, services.configurationService, services.modelService, services.languageService]);
 
 	// Construct the syntax options dropdown entries
 	const syntaxDropdownEntries = () => {
