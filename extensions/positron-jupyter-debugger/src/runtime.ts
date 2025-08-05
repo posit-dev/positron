@@ -10,8 +10,6 @@ import { randomUUID } from 'crypto';
 import { DebugProtocol } from '@vscode/debugprotocol';
 import { DisposableStore, disposableTimeout, formatDebugMessage } from './util.js';
 
-const DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR = vscode.l10n.t('Debugger');
-
 /**
  * Send a debug request to the runtime and wait for the response.
  *
@@ -65,23 +63,4 @@ export async function performRuntimeDebugRPC<Req extends DebugProtocol.Request, 
 	const response = await responsePromise;
 
 	return response;
-}
-
-/**
- * Create a log output channel for a runtime debugger.
- *
- * @param runtimeSession The runtime session for which to create the output channel.
- * @returns The runtime debugger log output channel.
- */
-export function createDebuggerOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
-	const runtimeName = runtimeSession.runtimeMetadata.runtimeName;
-	const sessionMode = runtimeSession.metadata.sessionMode;
-	let sessionTitle: string;
-	if (runtimeSession.metadata.notebookUri) {
-		sessionTitle = path.basename(runtimeSession.metadata.notebookUri.fsPath);
-	} else {
-		sessionTitle = sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1);
-	}
-	const name = `${runtimeName}: ${DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR} (${sessionTitle})`;
-	return vscode.window.createOutputChannel(name, { log: true });
 }
