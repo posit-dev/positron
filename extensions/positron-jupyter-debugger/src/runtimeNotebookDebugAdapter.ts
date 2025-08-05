@@ -40,13 +40,13 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 			this._onDidCompleteConfiguration.fire();
 		}));
 
+		// TODO: Perhaps this should live in the jupyter runtime debug adapter
 		this._adapter.debugInfo().then((debugInfo) => {
 			// TODO: Block debugging until this is done?
 			// TODO: Update the map when a cell's source changes.
 			for (const cell of this._notebook.getCells()) {
 				const code = cell.document.getText();
-				const id = this.hashCode(code, debugInfo.hashMethod, debugInfo.hashSeed);
-				const tempFilePath = `${debugInfo.tmpFilePrefix}${id}${debugInfo.tmpFileSuffix}`;
+				const tempFilePath = this._adapter.getTempFilePath(code, debugInfo);
 				this._cellUriByTempFilePath.set(tempFilePath, cell.document.uri.toString());
 			}
 		});
@@ -63,17 +63,6 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 			};
 		}
 		return location;
-	}
-
-
-	// TODO: Align naming: id, hashCode, tempFilePath, etc.
-	private hashCode(code: string, hashMethod: string, hashSeed: number): string {
-		switch (hashMethod) {
-			case 'murmur2':
-				return murmurhash2_32(code, hashSeed).toString();
-			default:
-				throw new Error(`Unsupported hash method: ${hashMethod}`);
-		}
 	}
 
 	private get _log(): vscode.LogOutputChannel {
