@@ -8,7 +8,7 @@ import * as path from 'path';
 import { makeTempDir, withDisposables } from './utils-disposables';
 import { execute, startR } from './utils-session';
 import { assertSelectedEditor } from './utils-assertions';
-import { openTextDocument } from './utils-vscode';
+import { closeAllEditors, openTextDocument } from './utils-vscode';
 
 suite('RStudio API', () => {
 	// https://github.com/posit-dev/positron/issues/8374
@@ -17,7 +17,8 @@ suite('RStudio API', () => {
 			const [_ses, sesDisposable] = await startR();
 			disposables.push(sesDisposable);
 
-			await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+			// To be safe
+			await closeAllEditors();
 
 			const [tmpDir, dirDisposable] = makeTempDir('rstudioapi-test');
 			disposables.push(dirDisposable);
