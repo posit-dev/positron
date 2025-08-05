@@ -15,7 +15,5 @@
 
 .convert-to-code-editor {
 	height: 200px;
-	width: 95%;
 	border: 1px solid var(--vscode-positronModalDialog-border);
-	padding: 8px;
 }
