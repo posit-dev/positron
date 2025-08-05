@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { log } from './extension.js';
 import { DebugCellManager } from './notebook.js';
 import { DisposableStore } from './util.js';
-import { RuntimeDebugAdapter } from './runtimeDebugAdapter.js';
+import { JupyterRuntimeDebugAdapter } from './runtimeDebugAdapter.js';
 import { createDebuggerOutputChannel } from './runtime.js';
 
 // TODO: How do we handle reusing a debug adapter/session across cells?
@@ -53,7 +53,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		// Create a new debug adapter for the notebook.
 		// TODO: Reuse adapter if it already exists for the notebook?
 		// const adapter = this._disposables.add(new RuntimeNotebookDebugAdapter(debugSession, runtimeSession, notebook));
-		const adapter = this._disposables.add(new RuntimeDebugAdapter(outputChannel, debugSession, runtimeSession));
+		const adapter = this._disposables.add(new JupyterRuntimeDebugAdapter(outputChannel, debugSession, runtimeSession));
 
 		// Create a debug cell manager to handle the cell execution and debugging.
 		const debugCellManager = this._disposables.add(new DebugCellManager(adapter, debugSession, notebook, runtimeSession, cell.index));
