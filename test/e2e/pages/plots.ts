@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 
-import test, { expect, Locator } from '@playwright/test';
+import test, { expect, Locator, Page } from '@playwright/test';
 import { Code } from '../infra/code';
 import { fail } from 'assert';
 import { ContextMenu } from './dialog-contextMenu.js';
@@ -163,25 +163,33 @@ export class Plots {
 		await test.step('Open and plot in editor', async () => {
 			await contextMenu.triggerAndClick({
 				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
-				menuItemLabel: 'Open in editor tab'
+				menuItemLabel: 'Open in editor tab',
+				menuItemType: 'menuitemcheckbox'
 			});
 		});
 	}
 
-	async openPlotInNewWindow(contextMenu: ContextMenu): Promise<any> {
+	async openPlotInNewWindow(contextMenu: ContextMenu): Promise<Page> {
+		const context = this.code.driver.page.context();
+
 		const [newPage] = await Promise.all([
-			this.code.driver.page.context().waitForEvent('page'),
+			context.waitForEvent('page'),
 			contextMenu.triggerAndClick({
 				menuTrigger: this.code.driver.page.getByRole('button', { name: 'Select where to open plot' }),
-				menuItemLabel: 'Open in new window'
+				menuItemLabel: 'Open in new window',
+				menuItemType: 'menuitemcheckbox'
 			})
 		]);
+
 		await newPage.waitForLoadState('load');
 		return newPage;
 	}
 
-	async verifyNewWindowTitle(newPage: any, text: string | RegExp) {
-		await expect(newPage.locator('.window-title').getByText(text)).toBeVisible();
+	async verifyNewWindowTitle(isWeb: boolean, newPage: Page, text: string | RegExp) {
+		// In desktop, the plot title appears in the window title
+		if (!isWeb) {
+			await expect(newPage.locator('.window-title').getByText(text)).toBeVisible();
+		}
 	}
 
 	async waitForPlotInEditor() {

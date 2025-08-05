@@ -101,7 +101,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Verify plot can be opened in new window', async () => {
 				const newPage = await plots.openPlotInNewWindow(contextMenu);
-				await plots.verifyNewWindowTitle(newPage, /plot-\d+/);
+				await plots.verifyNewWindowTitle(app.web, newPage, /plot-\d+/);
 			});
 
 		});
@@ -391,7 +391,7 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 
 			await test.step('Verify plot can be opened in new window', async () => {
 				const newPage = await plots.openPlotInNewWindow(contextMenu);
-				await plots.verifyNewWindowTitle(newPage, /plot-\d+/);
+				await plots.verifyNewWindowTitle(app.web, newPage, /plot-\d+/);
 			});
 		});
 
