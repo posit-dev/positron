@@ -2,21 +2,18 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-import * as vscode from 'vscode';
-import { DisposableStore } from './util.js';
-import { JupyterRuntimeDebugAdapter } from './runtimeDebugAdapter.js';
 import { DebugProtocol } from '@vscode/debugprotocol';
-import { murmurhash2_32 } from './murmur.js';
-import { formatDebugMessage } from './debugProtocol.js';
-import { DebugLocation, SourceMapper } from './sourceMap.js';
+import * as vscode from 'vscode';
+import { DebugProtocolTransformer } from './debugProtocolTransformer.js';
+import { JupyterRuntimeDebugAdapter } from './runtimeDebugAdapter.js';
+import { DisposableStore, formatDebugMessage } from './util.js';
 
 export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
-	private _cellUriByTempFilePath = new Map<string, string>();
-
-	private readonly _sourceMapper = new SourceMapper(this.mapLocation.bind(this));
+	private _cellUriByCodeId = new Map<string, string>();
+	private readonly _transformer: DebugProtocolTransformer;
 
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
 	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
@@ -25,11 +22,26 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 		private readonly _adapter: JupyterRuntimeDebugAdapter,
 		private readonly _notebook: vscode.NotebookDocument
 	) {
+		this._transformer = new DebugProtocolTransformer({
+			location(location) {
+				if (location.source?.path && this._cellUriByCodeId.has(location.source.path)) {
+					return {
+						...location,
+						source: {
+							sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
+							path: this._cellUriByCodeId.get(location.source.path),
+						},
+					};
+				}
+				return location;
+			}
+		});
+
 		this._disposables.add(this._adapter.onDidSendMessage((message) => {
 			try {
-				const mappedMessage = this._sourceMapper.map(message as DebugProtocol.ProtocolMessage);
-				this._log.debug(`[notebook] >>> SEND ${formatDebugMessage(mappedMessage)}`);
-				this._onDidSendMessage.fire(mappedMessage);
+				const runtimeMessage = this._transformer.transform(message as DebugProtocol.ProtocolMessage);
+				this._log.debug(`[notebook] >>> SEND ${formatDebugMessage(runtimeMessage)}`);
+				this._onDidSendMessage.fire(runtimeMessage);
 			} catch (error) {
 				this._adapter.log.error(`[notebook] Error transforming message: ${formatDebugMessage(message as DebugProtocol.ProtocolMessage)}`, error);
 				throw error;
@@ -40,29 +52,15 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 			this._onDidCompleteConfiguration.fire();
 		}));
 
-		// TODO: Perhaps this should live in the jupyter runtime debug adapter
-		this._adapter.debugInfo().then((debugInfo) => {
+		this._disposables.add(this._adapter.onDidUpdateCodeIdOptions(() => {
 			// TODO: Block debugging until this is done?
 			// TODO: Update the map when a cell's source changes.
 			for (const cell of this._notebook.getCells()) {
 				const code = cell.document.getText();
-				const tempFilePath = this._adapter.getTempFilePath(code, debugInfo);
-				this._cellUriByTempFilePath.set(tempFilePath, cell.document.uri.toString());
+				const codeId = this._adapter.getCodeId(code);
+				this._cellUriByCodeId.set(codeId, cell.document.uri.toString());
 			}
-		});
-	}
-
-	private mapLocation<T extends DebugLocation>(location: T): T {
-		if (location.source?.path && this._cellUriByTempFilePath.has(location.source.path)) {
-			return {
-				...location,
-				source: {
-					sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
-					path: this._cellUriByTempFilePath.get(location.source.path),
-				},
-			};
-		}
-		return location;
+		}));
 	}
 
 	private get _log(): vscode.LogOutputChannel {
