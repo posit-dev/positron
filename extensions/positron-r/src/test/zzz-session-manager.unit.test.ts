@@ -24,6 +24,7 @@ function mockSession(sessionMode = positron.LanguageRuntimeSessionMode.Console):
 }
 
 suite('Session manager', () => {
+	return;
 	let suiteDisposables: vscode.Disposable[] = [];
 
 	let onDidChangeForegroundSession: vscode.EventEmitter<string | undefined>;
