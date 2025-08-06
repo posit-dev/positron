@@ -9,7 +9,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { arrayFromIndexRange } from './utils.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { dataExplorerExperimentalFeatureEnabled } from './positronDataExplorerExperimentalConfig.js';
-import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema, SearchSchemaSortOrder, SearchSchemaResult } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -74,6 +74,19 @@ export class TableSummaryCache extends Disposable {
 	 * Gets or sets the rows.
 	 */
 	private _rows = 0;
+
+	/**
+	 * An array that maps a position index in the data grid to a column index for the original dataset.
+	 * This array is always populated and serves as the single source of truth for determining the
+	 * display position and order of the summary rows.
+	 *
+	 * For un-modified datasets: [0, 1, 2, 3, 4, ...] (position and column index are the same)
+	 * For search or sort results: [0, 5, 12, 25, ...] (position and column index may differ)
+	 *
+	 * _displayPositionOrder[0] = 5 means the first row in the data grid should display data
+	 * for the 6th column (index 5) from the original un-modified dataset.
+	 */
+	private _displayPositionOrder: number[] = [];
 
 	/**
 	 * The expanded columns set is used to track which columns are expanded
@@ -154,6 +167,14 @@ export class TableSummaryCache extends Disposable {
 		return this._rows;
 	}
 
+	/**
+	 * Gets the display position order array.
+	 * This array maps display positions to original column indices.
+	 */
+	get displayPositionOrder() {
+		return this._displayPositionOrder;
+	}
+
 	//#endregion Public Properties
 
 	//#region Public Events
@@ -227,9 +248,8 @@ export class TableSummaryCache extends Disposable {
 			screenColumns
 		} = updateDescriptor;
 
-		this._sortOption = sortOption;
-		const searchTextChanged = searchText !== this._searchText;
 		this._searchText = searchText;
+		this._sortOption = sortOption;
 
 		// Get the size of the data.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
@@ -250,9 +270,11 @@ export class TableSummaryCache extends Disposable {
 		);
 
 		let columnIndices: number[] = [];
-		// If the cache is invalidated or the search text has changed,
-		// we will need to load all the columns in view into the cache again
-		if (invalidateCache || searchTextChanged) {
+		let searchResult: SearchSchemaResult | null = null;
+
+		// If the cache is invalidated we will need to load
+		// all the columns in view into the cache again
+		if (invalidateCache) {
 			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
 		} else {
 			// If the cache is not invalidated and the search text has not changed,
@@ -264,33 +286,56 @@ export class TableSummaryCache extends Disposable {
 			}
 		}
 
-		// When search text is present, use `searchSchema` to get the columns into the schema cache
+		// When search text is present, use backend search to get the columns into the schema cache
 		// When there is no search text, use `getSchema` to get the default order of columns into the cache
-		const tableSchema = this._searchText
-			? await this._dataExplorerClientInstance.searchSchema({
+		if (this._searchText) {
+			// Use the new search method that supports backend search and sort
+			searchResult = await this._dataExplorerClientInstance.searchSchema2({
 				searchText: this._searchText,
-				//sortOption: this._sortOption,
-				startIndex: columnIndices[0],
-				numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1
-			})
-			: await this._dataExplorerClientInstance.getSchema(columnIndices);
+				sortOption: this._sortOption,
+			});
 
-		// Clear caches when search changes to force reloading new search results.
-		if (invalidateCache || searchTextChanged) {
-			this._columnSchemaCache.clear();
-			this._columnProfileCache.clear();
-		}
+			// If we have matches, fetch the schema for those specific columns
+			if (searchResult.matches.length > 0) {
+				const tableSchema = await this._dataExplorerClientInstance.getSchema(searchResult.matches);
 
-		// Cache the column schema that was returned
-		for (let i = 0; i < tableSchema.columns.length; i++) {
-			this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
+				// Cache the column schema for the matching columns
+				for (let i = 0; i < tableSchema.columns.length; i++) {
+					const columnIndex = searchResult.matches[i];
+					this._columnSchemaCache.set(columnIndex, tableSchema.columns[i]);
+				}
+
+				// Update the render order to match the search results
+				this._displayPositionOrder = searchResult.matches;
+			} else {
+				// No matches found, clear list of indices to render
+				this._displayPositionOrder = [];
+			}
+		} else {
+			// No search text, use regular getSchema
+			const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+			// If we are invalidating the cache, we need to clear it before updating
+			// this can happen when the user clears the search text
+			if (invalidateCache) {
+				this._columnSchemaCache.clear();
+				this._columnProfileCache.clear();
+			}
+
+			// Cache the column schema that was returned
+			for (let i = 0; i < tableSchema.columns.length; i++) {
+				this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
+			}
+
+			// Update the display position order to match the column indices
+			this._displayPositionOrder = columnIndices;
 		}
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
 
-		// Update the column profile cache.
-		await this.updateColumnProfileCache(columnIndices);
+		// Update the column profile cache for the appropriate column indices
+		await this.updateColumnProfileCache(this._displayPositionOrder);
 
 		// Clear the updating flag.
 		this._updating = false;
@@ -313,7 +358,7 @@ export class TableSummaryCache extends Disposable {
 				this._trimCacheTimeout = undefined;
 
 				// Trim the cache.
-				this.trimCache(startColumnIndex, endColumnIndex);
+				this.trimCache(this._displayPositionOrder);
 			}, TRIM_CACHE_TIMEOUT);
 		}
 	}
@@ -548,21 +593,23 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * Trims the data in the cache that is not contained between start and end column index.
-	 * @param startColumnIndex The start column index.
-	 * @param endColumnIndex The end column index.
+	 * Trims the data in the cache if the key is not in the provided list.
+	 * @param columnIndicesToKeep The array of column indices to keep in the cache.
 	 */
-	private trimCache(startColumnIndex: number, endColumnIndex: number) {
+	private trimCache(columnIndicesToKeep: number[]) {
+		// Create a set for faster lookup of indices to keep.
+		const indicesToKeepSet = new Set(columnIndicesToKeep);
+
 		// Trim the column schema cache.
 		for (const columnIndex of this._columnSchemaCache.keys()) {
-			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+			if (!indicesToKeepSet.has(columnIndex)) {
 				this._columnSchemaCache.delete(columnIndex);
 			}
 		}
 
 		// Trim the column profile cache.
 		for (const columnIndex of this._columnProfileCache.keys()) {
-			if (columnIndex < startColumnIndex || columnIndex > endColumnIndex) {
+			if (!indicesToKeepSet.has(columnIndex)) {
 				this._columnProfileCache.delete(columnIndex);
 			}
 		}
