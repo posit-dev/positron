@@ -210,6 +210,11 @@
             "additionalProperties": {
               "type": "number"
             }
+          },
+          "positron.assistant.followups.enable": {
+            "type": "boolean",
+            "default": true,
+            "description": "%configuration.followups.enable.description%"
           }
         }
       }
