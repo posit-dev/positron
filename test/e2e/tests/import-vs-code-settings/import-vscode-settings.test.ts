@@ -140,5 +140,7 @@ async function expectDiffToBeVisible(page: Page, visible = true) {
 	} else {
 		await page.waitForTimeout(3000); // waiting to avoid false positive
 		await expect(page.getByRole('tab', { name: 'settings.json' })).not.toBeVisible();
+		await expect(page.getByText('<<<<<<< Existing')).not.toBeVisible();
+		await expect(page.getByText('>>>>>>> Incoming')).not.toBeVisible();
 	}
 }
