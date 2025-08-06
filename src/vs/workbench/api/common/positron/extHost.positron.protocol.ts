@@ -52,6 +52,7 @@ export interface MainThreadLanguageRuntimeShape extends IDisposable {
 	$restartSession(handle: number): Promise<void>;
 	$interruptSession(handle: number): Promise<void>;
 	$focusSession(handle: number): void;
+	$deleteSession(handle: number): Promise<boolean>;
 	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>>;
 	$querySessionTables(handle: number, accessKeys: Array<Array<string>>, queryTypes: Array<string>): Promise<Array<QueryTableSummaryResult>>;
 	$emitLanguageRuntimeMessage(handle: number, handled: boolean, message: SerializableObjectWithBuffers<ILanguageRuntimeMessage>): void;

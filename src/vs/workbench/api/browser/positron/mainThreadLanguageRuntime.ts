@@ -1584,6 +1584,12 @@ export class MainThreadLanguageRuntime
 		);
 	}
 
+	$deleteSession(handle: number): Promise<boolean> {
+		return this._runtimeSessionService.deleteSession(
+			this.findSession(handle).sessionId
+		);
+	}
+
 	$getSessionVariables(handle: number, accessKeys?: Array<Array<string>>): Promise<Array<Array<Variable>>> {
 		const sessionId = this.findSession(handle).sessionId;
 		const instances = this._positronVariablesService.positronVariablesInstances;
