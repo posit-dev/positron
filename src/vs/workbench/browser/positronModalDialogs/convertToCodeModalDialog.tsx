@@ -3,13 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+// CSS.
+import './convertToCodeModalDialog.css';
+
 // React.
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../nls.js';
-import { VerticalStack } from '../positronComponents/positronModalDialog/components/verticalStack.js';
-import { OKCancelModalDialog } from '../positronComponents/positronModalDialog/positronOKCancelModalDialog.js';
 import { IPositronDataExplorerInstance } from '../../services/positronDataExplorer/browser/interfaces/positronDataExplorerInstance.js';
 import { PositronDataExplorerCommandId } from '../../contrib/positronDataExplorerEditor/browser/positronDataExplorerActions.js';
 import { DropDownListBox } from '../positronComponents/dropDownListBox/dropDownListBox.js';
@@ -18,6 +19,13 @@ import { DropdownEntry } from './components/dropdownEntry.js';
 import { CodeSyntaxName } from '../../services/languageRuntime/common/positronDataExplorerComm.js';
 import { PositronModalReactRenderer } from '../../../base/browser/positronModalReactRenderer.js';
 import { usePositronReactServicesContext } from '../../../base/browser/positronReactRendererContext.js';
+import { CodeEditorWidget } from '../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
+import { DisposableStore } from '../../../base/common/lifecycle.js';
+import { getSimpleCodeEditorWidgetOptions, getSimpleEditorOptions } from '../../contrib/codeEditor/browser/simpleEditorOptions.js';
+import { Button } from '../../../base/browser/ui/positronComponents/button/button.js';
+import { PlatformNativeDialogActionBar } from '../positronComponents/positronModalDialog/components/platformNativeDialogActionBar.js';
+import { PositronModalDialog } from '../positronComponents/positronModalDialog/positronModalDialog.js';
+import { ContentArea } from '../positronComponents/positronModalDialog/components/contentArea.js';
 
 /**
  * Shows the convert to code modal dialog.
@@ -62,8 +70,14 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 	const codeSyntaxOptions = instance.cachedBackendState?.supported_features?.convert_to_code?.code_syntaxes ?? [];
 
 	const [selectedSyntax, setSelectedSyntax] = useState<CodeSyntaxName | undefined>(instance.suggestedSyntax);
-
 	const [codeString, setCodeString] = useState<string | undefined>(undefined);
+
+	// Code string display
+	const editorRef = useRef<CodeEditorWidget>(undefined!);
+	const editorContainerRef = useRef<HTMLDivElement>(undefined!);
+
+	// for our purposes, this is equivalent to the language id
+	const language = props.dataExplorerClientInstance.languageName.toLocaleLowerCase();
 
 	useEffect(() => {
 		const getCodeString = async () => {
@@ -89,6 +103,39 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 
 		getCodeString(); // Call the async function
 	}, [selectedSyntax, services.commandService]);
+
+
+	useEffect(() => {
+		const disposableStore = new DisposableStore();
+		const codeEditorWidget = disposableStore.add(services.instantiationService.createInstance(
+			CodeEditorWidget,
+			editorContainerRef.current,
+			{
+				...getSimpleEditorOptions(services.configurationService),
+				readOnly: true,
+				// lineDecorationsWidth is how we are adding left margin to the editor content
+				lineDecorationsWidth: 10,
+				padding: {
+					top: 10,
+					bottom: 10,
+				}
+			},
+			getSimpleCodeEditorWidgetOptions()
+		));
+
+		codeEditorWidget.setModel(services.modelService.createModel(
+			codeString || '',
+			services.languageService.createById(language),
+			undefined,
+			true
+		));
+
+		editorRef.current = codeEditorWidget;
+
+		return () => {
+			disposableStore.dispose();
+		};
+	}, [codeString, language, services.instantiationService, services.configurationService, services.modelService, services.languageService]);
 
 	// Construct the syntax options dropdown entries
 	const syntaxDropdownEntries = () => {
@@ -132,32 +179,44 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 		}
 	};
 
+	const handleCopyToClipboard = async () => {
+		if (codeString) {
+			await services.clipboardService.writeText(codeString);
+			services.notificationService.info(localize(
+				'positron.dataExplorer.codeCopiedToClipboard',
+				"Code copied to clipboard"
+			));
+			props.renderer.dispose();
+		}
+	};
+
+	const okButton = (
+		<Button className='action-bar-button default' onPressed={() => handleCopyToClipboard()}>
+			{localize('positron.dataExplorer.positronCopyCode', "Copy Code")}
+		</Button>
+	);
+	const cancelButton = (
+		<Button className='action-bar-button' onPressed={() => props.renderer.dispose()}>
+			{localize('positronCancel', "Cancel")}
+		</Button>
+	);
 	// Render.
 	return (
-		<OKCancelModalDialog
-			catchErrors
-			height={300}
+		<PositronModalDialog
+			height={400}
 			renderer={props.renderer}
 			title={(() => localize(
 				'positronConvertToCodeModalDialogTitle',
 				"Convert to Code"
 			))()}
 			width={400}
-			onAccept={async () => {
-				if (codeString) {
-					try {
-						await services.clipboardService.writeText(codeString);
-					} catch (error) {
-						// If clipboard write fails, still dispose the modal
-						console.error('Failed to copy to clipboard:', error);
-					}
-				}
-				props.renderer.dispose();
-			}}
-			onCancel={() => props.renderer.dispose()}
 		>
-			<VerticalStack>
+			<ContentArea>
+				<h3 className='code-syntax-heading'>
+					{localize('positron.dataExplorer.codeSyntaxHeading', "Select code syntax")}
+				</h3>
 				<DropDownListBox
+					className='convert-to-code-syntax-dropdown'
 					createItem={(item) => (
 						<DropdownEntry
 							title={item.options.identifier}
@@ -167,11 +226,14 @@ export const ConvertToCodeModalDialog = (props: ConvertToCodeDialogProps) => {
 					title={syntaxDropdownTitle()}
 					onSelectionChanged={onSelectionChanged}
 				/>
-				<pre>
-					{codeString}
-				</pre>
-			</VerticalStack>
-
-		</OKCancelModalDialog>
+				<div
+					ref={editorContainerRef}
+					className='convert-to-code-editor'
+				/>
+			</ContentArea>
+			<div className='ok-cancel-action-bar'>
+				<PlatformNativeDialogActionBar primaryButton={okButton} secondaryButton={cancelButton} />
+			</div>
+		</PositronModalDialog>
 	);
 };
