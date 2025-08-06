@@ -67,6 +67,32 @@ export interface IChatRuntimeSessionContext {
 	executions: Array<IHistorySummaryEntry>;
 }
 
+/**
+ * Budgets for truncating entry content
+ */
+interface EntryTruncationBudgets {
+	/** The budget for the input code */
+	inputBudget: number;
+	/** The budget for the output code */
+	outputBudget: number;
+	/** The budget for the error content */
+	errorBudget: number;
+}
+
+/**
+ * The result of truncating an execution history entry to fit within budget constraints.
+ */
+interface EntryTruncationResult {
+	/** The truncated input code */
+	truncatedInput: string;
+	/** The truncated output code */
+	truncatedOutput: string;
+	/** The truncated error content */
+	truncatedErrorContent: string;
+	/** The cost of the truncated entry */
+	cost: number;
+}
+
 class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 
 	readonly type = 'pickerPick';
@@ -273,7 +299,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 }
 
 export class ChatRuntimeSessionContext extends Disposable {
-	private static maxCostSettingId = 'chat.runtimeSessionContext.maxCost';
+	private static maxCostSettingId = 'chat.runtimeSessionContext.maxExecutionHistoryCost';
 	get id() {
 		return 'positron.implicit.runtimeSession';
 	}
@@ -495,7 +521,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 	 * @param hasError Whether this entry contains an error/traceback
 	 * @returns Budget allocation for input, output, and error components
 	 */
-	private calculateBudgetAllocation(availableBudget: number, hasError: boolean): { inputBudget: number; outputBudget: number; errorBudget: number } {
+	private calculateBudgetAllocation(availableBudget: number, hasError: boolean): EntryTruncationBudgets {
 		if (hasError) {
 			// Error gets priority (50%), then output (30%), then input (20%)
 			const errorBudget = Math.floor(availableBudget * 0.5);
@@ -522,8 +548,8 @@ export class ChatRuntimeSessionContext extends Disposable {
 		input: string,
 		output: string,
 		errorContent: string,
-		budgets: { inputBudget: number; outputBudget: number; errorBudget: number }
-	): { truncatedInput: string; truncatedOutput: string; truncatedErrorContent: string; cost: number } {
+		budgets: EntryTruncationBudgets
+	): EntryTruncationResult {
 		// Truncate input dynamically based on budget
 		const truncatedInput = input.length > budgets.inputBudget ?
 			input.slice(0, Math.max(budgets.inputBudget - 16, 10)) + '... (truncated)' :
