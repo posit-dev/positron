@@ -8,11 +8,11 @@ import { Emitter, Event } from '../../../../base/common/event.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
 import { URI } from '../../../../base/common/uri.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { ArraySelection, BackendState, CodeSyntaxName, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection, ConvertedCode } from './positronDataExplorerComm.js';
+import { ArraySelection, BackendState, CodeSyntaxName, ColumnFilter, ColumnProfileRequest, ColumnProfileResult, ColumnSchema, ColumnSelection, ColumnSortKey, DataExplorerFrontendEvent, DataUpdateEvent, ExportedData, ExportFormat, FilterResult, FormatOptions, ReturnColumnProfilesEvent, RowFilter, SchemaUpdateEvent, SupportedFeatures, SupportStatus, TableData, TableRowLabels, TableSchema, TableSelection, ConvertedCode, SearchSchemaSortOrder, SearchSchemaResult, ColumnFilterType, TextSearchType } from './positronDataExplorerComm.js';
 
 /**
- * TableSchemaSearchResult interface. This is here temporarily until searching the tabe schema
- * becomespart of the PositronDataExplorerComm.
+ * TableSchemaSearchResult interface. This is here temporarily until searching the table schema
+ * becomes part of the PositronDataExplorerComm.
  */
 export interface TableSchemaSearchResult {
 	/**
@@ -63,6 +63,7 @@ export interface IDataExplorerBackendClient extends Disposable {
 	onDidReturnColumnProfiles: Event<ReturnColumnProfilesEvent>;
 	getState(): Promise<BackendState>;
 	getSchema(columnIndices: Array<number>): Promise<TableSchema>;
+	searchSchema(filters: Array<ColumnFilter>, sortOrder: SearchSchemaSortOrder): Promise<SearchSchemaResult>;
 	getDataValues(columns: Array<ColumnSelection>, formatOptions: FormatOptions): Promise<TableData>;
 	getRowLabels(selection: ArraySelection, formatOptions: FormatOptions): Promise<TableRowLabels>;
 	exportDataSelection(selection: TableSelection, format: ExportFormat): Promise<ExportedData>;
@@ -375,7 +376,7 @@ export class DataExplorerClientInstance extends Disposable {
 
 		// Search the columns finding every matching one.
 		const columns = tableSchema.columns.filter(columnSchema =>
-			!options.searchText ? true : columnSchema.column_name.trim().toLocaleLowerCase().includes(options.searchText.trim().toLocaleLowerCase())
+			!options.searchText ? true : columnSchema.column_name.includes(options.searchText)
 		);
 
 		// Return the result.
@@ -383,6 +384,51 @@ export class DataExplorerClientInstance extends Disposable {
 			matching_columns: columns.length,
 			columns: columns.slice(options.startIndex, options.numColumns)
 		};
+	}
+
+	/**
+	 * This is the new search method that is used by the summary panel
+	 * as part of the enhancement work behind the  `dataExplorer.summaryPanelEnhancements`
+	 * feature flag.
+	 *
+	 * This method utilizes the backend search_schema method and is intentionally
+	 * kept separate from the existing searchSchema method to avoid breaking the column
+	 * filtering functionality that is currently implemented.
+	 *
+	 * We will want to rename this method or the other method once unknowns for
+	 * implementing search and sort are resolved. TBD on what changes, if any,
+	 * the column filtering will need to go through.
+	 *
+	 * @param options The search options.
+	 * @param options.searchText The search text, if any, to filter the schema by.
+	 * @param options.sortOption The sort option to apply to the search results, defaults to SearchSchemaSortOrder.Original.
+	 * @returns A promise that resolves to an array of matching column indices.
+	 */
+	async searchSchema2(options: {
+		searchText?: string;
+		sortOption?: SearchSchemaSortOrder;
+	}): Promise<SearchSchemaResult> {
+		// Use the provided sort order or default to Original
+		const sortOrder = options.sortOption ?? SearchSchemaSortOrder.Original;
+
+		// If we have search text, create a text search filter
+		const filters: ColumnFilter[] = [];
+		const trimmedSearchText = options.searchText?.trim();
+		if (trimmedSearchText) {
+			filters.push({
+				filter_type: ColumnFilterType.TextSearch,
+				params: {
+					search_type: TextSearchType.Contains,
+					term: trimmedSearchText,
+					case_sensitive: false
+				}
+			});
+		}
+
+		return this.runBackendTask(
+			() => this._backendClient.searchSchema(filters, sortOrder),
+			() => ({ matches: [] })
+		);
 	}
 
 	/**
