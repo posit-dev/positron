@@ -28,12 +28,12 @@ test.describe('Console: Add +', {
 
 	test('Validate can start a different runtime via Console + button', {
 		tag: [tags.ARK]
-	}, async function ({ app, page, contextMenu }) {
+	}, async function ({ app, page }) {
 		const { sessions, console } = app.workbench;
 		await sessions.start(['r', 'r']);
 
 		// Click the `+ v` button in the console to Start Another session
-		await console.clickStartAnotherSessionButton(contextMenu, 'python');
+		await console.clickStartAnotherSessionButton('python');
 		await expect(page.getByTestId(/console-tab-r-*/)).toHaveCount(2);
 		await expect(page.getByTestId(/console-tab-python-*/)).toHaveCount(1);
 		await sessions.expectAllSessionsToBeReady();
@@ -41,12 +41,12 @@ test.describe('Console: Add +', {
 
 	test('Validate Console + button menu shows both active and disconnected sessions', {
 		tag: [tags.ARK]
-	}, async function ({ app, contextMenu }) {
+	}, async function ({ app }) {
 		const { sessions, console } = app.workbench;
 		const [pythonSession, rSession] = await sessions.start(['python', 'r', 'r', 'r', 'r', 'r', 'r',]);
 
 		// Verify the Python and R sessions are listed in the console `+` menu
-		await console.expectSessionContextMenuToContain(contextMenu, [rSession.name, pythonSession.name]);
+		await console.expectSessionContextMenuToContain([rSession.name, pythonSession.name]);
 
 		// Disconnect the R session
 		await sessions.select(rSession.id);
@@ -59,6 +59,6 @@ test.describe('Console: Add +', {
 		await sessions.expectStatusToBe(pythonSession.id, 'disconnected');
 
 		// Verify the disconnected sessions are still in the console `+` menu
-		await console.expectSessionContextMenuToContain(contextMenu, [rSession.name, pythonSession.name]);
+		await console.expectSessionContextMenuToContain([rSession.name, pythonSession.name]);
 	});
 });

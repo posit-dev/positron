@@ -6,6 +6,7 @@
 		"typeRoots": [
 			"./node_modules/@types"
 		],
+		"strict": true,
 	},
 	"include": [
 		"src/**/*",

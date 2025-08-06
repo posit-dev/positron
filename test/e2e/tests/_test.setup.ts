@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, ContextMenu, getRandomUserDataDir, copyFixtureFile } from '../infra';
+import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, getRandomUserDataDir, copyFixtureFile } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -179,13 +179,6 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await app.workbench.quickaccess.runCommand('workbench.action.toggleDevTools');
 		await use();
 	}, { scope: 'test' }],
-
-	// This fixture provides a way interact with context menu items for both Electron and web apps. :tada:
-	contextMenu: [async ({ app }, use, testInfo) => {
-		const contextMenu = new ContextMenu(app.code, testInfo.project.name, process.platform);
-		await use(contextMenu);
-	},
-	{ scope: 'test' }],
 
 	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
@@ -441,7 +434,7 @@ test.afterAll(async function ({ logger }, testInfo) {
 });
 
 export { playwrightExpect as expect };
-export { TestTags as tags };
+export { TestTags as tags, WorkerFixtures };
 
 async function moveAndOverwrite(logger: MultiLogger, sourcePath: string, destinationPath: string) {
 	try {
@@ -483,7 +476,6 @@ interface TestFixtures {
 	packages: PackageManager;
 	autoTestFixture: any;
 	devTools: void;
-	contextMenu: ContextMenu;
 	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;

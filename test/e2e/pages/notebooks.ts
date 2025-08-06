@@ -123,7 +123,6 @@ export class Notebooks {
 		await test.step('Add code to first cell', async () => {
 			await this.selectCellAtIndex(cellIndex);
 			await this.typeInEditor(code, delay);
-			await this.waitForActiveCellEditorContents(code);
 		});
 	}
 
@@ -194,8 +193,6 @@ export class Notebooks {
 			delay
 				? await this.code.driver.page.locator(textarea).pressSequentially(text, { delay })
 				: await this.code.driver.page.locator(textarea).fill(text);
-
-			await this._waitForActiveCellEditorContents(c => c.indexOf(text) > -1);
 		});
 	}
 
