@@ -5,7 +5,6 @@
 
 import { Emitter } from '../../../../base/common/event.js';
 import { Disposable, DisposableStore, toDisposable } from '../../../../base/common/lifecycle.js';
-import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
 import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
@@ -35,7 +34,7 @@ import { INotebookKernelService } from '../../notebook/common/notebookKernelServ
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { isEqual } from '../../../../base/common/resources.js';
 import { IPositronWebviewPreloadService } from '../../../services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
-import { observableValue } from '../../../../base/common/observable.js';
+import { ISettableObservable, observableValue } from '../../../../base/common/observable.js';
 
 interface IPositronNotebookInstanceRequiredTextModel extends IPositronNotebookInstance {
 	textModel: NotebookTextModel;
@@ -88,6 +87,31 @@ export class PositronNotebookInstance extends Disposable implements IPositronNot
 		PositronNotebookInstance._instanceMap.set(pathOfNotebook, instance);
 		return instance;
 	}
+
+	/**
+	 * Updates the instance map when a notebook's URI changes (e.g., during save of untitled notebook).
+	 * This preserves the existing instance while updating the map key.
+	 * @param oldUri The previous URI of the notebook
+	 * @param newUri The new URI of the notebook
+	 */
+	static updateInstanceUri(oldUri: URI, newUri: URI): void {
+		const oldKey = oldUri.toString();
+		const newKey = newUri.toString();
+
+		if (oldKey === newKey) {
+			return; // No change needed
+		}
+
+		const instance = PositronNotebookInstance._instanceMap.get(oldKey);
+		if (instance) {
+			// Remove from old key
+			PositronNotebookInstance._instanceMap.delete(oldKey);
+
+			// Add to new key - the instance will be updated when getOrCreate is called with the new URI
+			PositronNotebookInstance._instanceMap.set(newKey, instance);
+		}
+	}
+
 
 	// #endregion
 

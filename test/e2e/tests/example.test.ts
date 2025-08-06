@@ -77,10 +77,10 @@ test.describe('Examples of Concepts', () => {
 
 
 test.describe('Example Context Menu Tests', { tag: [tags.WEB] }, () => {
-	test("Context Menu Open Bash", async function ({ app, page, contextMenu }) {
+	test("Context Menu Open Bash", async function ({ app, page }) {
 		await app.workbench.terminal.clickTerminalTab();
 
-		await contextMenu.triggerAndClick({
+		await app.workbench.contextMenu.triggerAndClick({
 			menuTrigger: page.getByLabel('Launch Profile...'),
 			menuItemLabel: 'bash'
 		});
@@ -89,10 +89,10 @@ test.describe('Example Context Menu Tests', { tag: [tags.WEB] }, () => {
 	});
 
 
-	test("Context Menu Fail Open Bash", async function ({ app, page, contextMenu }) {
+	test("Context Menu Fail Open Bash", async function ({ app, page }) {
 		await app.workbench.terminal.clickTerminalTab();
 
-		await contextMenu.triggerAndClick({
+		await app.workbench.contextMenu.triggerAndClick({
 			menuTrigger: page.getByLabel('Launch Profile...'),
 			menuItemLabel: 'zsh'
 		});

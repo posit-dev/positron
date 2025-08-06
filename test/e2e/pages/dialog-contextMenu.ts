@@ -11,14 +11,13 @@ export class ContextMenu {
 	private isNativeMenu: boolean;
 	private contextMenu: Locator = this.page.locator('.monaco-menu');
 	private contextMenuItems: Locator = this.contextMenu.getByRole('menuitem');
-	private getContextMenuItem: (label: string) => Locator = (label: string) => this.contextMenu.getByRole('menuitem', { name: label });
+	private getContextMenuItem: (label: string | RegExp) => Locator = (label: string | RegExp) => this.contextMenu.getByRole('menuitem', { name: label });
+	private getContextMenuCheckboxItem: (label: string | RegExp) => Locator = (label: string | RegExp) => this.contextMenu.getByRole('menuitemcheckbox', { name: label });
 
-	constructor(
-		private code: Code,
-		private projectName: string,
-		private platform: string,
-	) {
-		this.isNativeMenu = this.platform === 'darwin' && !this.projectName.includes('browser');
+	constructor(private code: Code) {
+		// Check if we're on macOS AND we have an Electron app instance
+		// Only macOS + Electron combination uses native context menus
+		this.isNativeMenu = process.platform === 'darwin' && !!this.code.electronApp;
 	}
 
 	/**
@@ -27,8 +26,9 @@ export class ContextMenu {
 	 *
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
+	 * @param menuItemType The type of the menu item, either 'menuitemcheckbox' or 'menuitem'
 	 */
-	async triggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
+	async triggerAndClick({ menuTrigger, menuItemLabel, menuItemType = 'menuitem' }: ContextMenuClick): Promise<void> {
 		await test.step(`Trigger context menu and click '${menuItemLabel}'`, async () => {
 			if (this.isNativeMenu) {
 				await this.nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel });
@@ -36,7 +36,9 @@ export class ContextMenu {
 				await menuTrigger.click();
 
 				// Hover over the menu item
-				const menuItem = this.getContextMenuItem(menuItemLabel);
+				const menuItem = menuItemType === 'menuitemcheckbox'
+					? this.getContextMenuCheckboxItem(menuItemLabel)
+					: this.getContextMenuItem(menuItemLabel);
 				await menuItem.hover();
 				await this.page.waitForTimeout(500);
 
@@ -110,7 +112,7 @@ export class ContextMenu {
 	private async showContextMenu(trigger: () => Promise<void>): Promise<{ menuId: number; items: string[] } | undefined> {
 		try {
 			if (!this.code.electronApp) {
-				throw new Error(`Electron app is not available. Platform: ${this.platform}, Project: ${this.projectName}`);
+				throw new Error(`Electron app is not available. Platform: ${process.platform}`);
 			}
 
 			const shownPromise: Promise<[number, string[]]> | undefined = this.code.electronApp.evaluate(({ app }) => {
@@ -155,20 +157,40 @@ export class ContextMenu {
 	 * @param menuTrigger The locator that will trigger the context menu when clicked
 	 * @param menuItemLabel The label of the menu item to click
 	 */
-	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel }: ContextMenuClick): Promise<void> {
+	private async nativeMenuTriggerAndClick({ menuTrigger, menuItemLabel }: Omit<ContextMenuClick, 'menuItemType'>): Promise<void> {
 		// Show the context menu by clicking on the trigger element
 		const menuItems = await this.showContextMenu(() => menuTrigger.click());
 
 		// Handle the menu interaction once it's shown
 		if (menuItems) {
 			// Verify the requested menu item exists
-			if (!menuItems.items.includes(menuItemLabel)) {
-				throw new Error(`Context menu '${menuItemLabel}' not found. Available items: ${menuItems.items.join(', ')}`);
+			const menuItemExists = typeof menuItemLabel === 'string'
+				? menuItems.items.includes(menuItemLabel)
+				: menuItems.items.some(item => menuItemLabel.test(item));
+
+			if (!menuItemExists) {
+				const labelStr = typeof menuItemLabel === 'string'
+					? menuItemLabel
+					: menuItemLabel.toString();
+				throw new Error(`Context menu '${labelStr}' not found. Available items: ${menuItems.items.join(', ')}`);
 			}
+
+			// For RegExp, find the first matching item
+			const actualItemLabel = typeof menuItemLabel === 'string'
+				? menuItemLabel
+				: menuItems.items.find(item => menuItemLabel.test(item));
+
+			if (!actualItemLabel) {
+				throw new Error('Failed to find matching menu item');
+			}
+
 			// Select the menu item through Electron IPC
-			await this.selectContextMenuItem(menuItems.menuId, menuItemLabel);
+			await this.selectContextMenuItem(menuItems.menuId, actualItemLabel);
 		} else {
-			throw new Error(`Context menu '${menuItemLabel}' did not appear or no menu items found.`);
+			const labelStr = typeof menuItemLabel === 'string'
+				? menuItemLabel
+				: menuItemLabel.toString();
+			throw new Error(`Context menu '${labelStr}' did not appear or no menu items found.`);
 		}
 	}
 }
@@ -176,5 +198,6 @@ export class ContextMenu {
 
 interface ContextMenuClick {
 	menuTrigger: Locator;
-	menuItemLabel: string;
+	menuItemLabel: string | RegExp;
+	menuItemType?: 'menuitemcheckbox' | 'menuitem';
 }
