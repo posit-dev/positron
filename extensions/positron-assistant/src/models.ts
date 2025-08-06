@@ -20,7 +20,7 @@ import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
-import { recordRequestTokenUsage, recordTokenUsage } from './extension.js';
+import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -195,7 +195,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	public readonly name;
 	public readonly provider;
 	public readonly identifier;
-	public readonly maxOutputTokens;
+	public readonly maxOutputTokens: number;
 	protected abstract model: ai.LanguageModelV1;
 
 	capabilities = {
@@ -211,7 +211,18 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
+		const maxOutputTokens = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {} as Record<string, number>);
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
+
+		// Override maxOutputTokens if specified in the configuration
+		for (const [key, value] of Object.entries(maxOutputTokens)) {
+			if (_config.model.indexOf(key) !== -1 && value) {
+				const maxOutputTokens = value * 1024; // Convert from 1K tokens to actual tokens
+				log.debug(`Setting maxOutputTokens for ${key} (${_config.model}) to ${maxOutputTokens}`);
+				this.maxOutputTokens = maxOutputTokens;
+				break;
+			}
+		}
 	}
 
 	get providerName(): string {
