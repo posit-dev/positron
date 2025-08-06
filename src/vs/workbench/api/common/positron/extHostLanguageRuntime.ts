@@ -1233,6 +1233,15 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			`it can be focused.`);
 	}
 
+	public deleteSession(sessionId: string): Promise<boolean> {
+		for (let i = 0; i < this._runtimeSessions.length; i++) {
+			if (this._runtimeSessions[i].metadata.sessionId === sessionId) {
+				return this._proxy.$deleteSession(i);
+			}
+		}
+		throw new Error(`Can't delete session with ID '${sessionId}': not found`);
+	}
+
 	public getSessionVariables(sessionId: string, accessKeys?: Array<Array<string>>):
 		Promise<Array<Array<Variable>>> {
 		for (let i = 0; i < this._runtimeSessions.length; i++) {

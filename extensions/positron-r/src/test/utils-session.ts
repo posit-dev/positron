@@ -45,8 +45,10 @@ export async function startR(): Promise<[RSession, vscode.Disposable]> {
 	await Promise.race([lspReady, lspTimeout]);
 
 	const disposable = toDisposable(async () => {
-		await session.shutdown();
-		await session.dispose();
+		const deleted = await positron.runtime.deleteSession(session.metadata.sessionId);
+		if (!deleted) {
+			throw new Error(`Can't delete session ${session.metadata.sessionId}`);
+		}
 	});
 
 	return [session, disposable];

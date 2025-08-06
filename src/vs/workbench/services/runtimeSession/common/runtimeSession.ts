@@ -1211,9 +1211,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	/**
 	 * Shutdown a runtime session if active, and delete it.
 	 * Cleans up the session and removes it from the active sessions list.
+	 *
+	 * The user can cancel the deletion if the runtime is busy. The returned
+	 * boolean indicates wether the session was deleted.
 	 * @param sessionId The session ID of the runtime to delete.
 	 */
-	async deleteSession(sessionId: string): Promise<void> {
+	async deleteSession(sessionId: string): Promise<boolean> {
 		// If the session is disconnected, we preserve the console session
 		// in the case that the extension host comes back online.
 		if (this._disconnectedSessions.has(sessionId)) {
@@ -1235,7 +1238,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 				// The session was not interrupted, so we can't delete it.
 				if (!interrupted) {
-					return;
+					return false;
 				}
 			}
 
@@ -1259,7 +1262,11 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 
 			// Fire the onDidDeleteRuntime event only if the session was actually deleted.
 			this._onDidDeleteRuntimeSessionEmitter.fire(sessionId);
+
 		}
+
+		this._logService.debug(`Session ${sessionId} has been deleted`);
+		return true;
 	}
 
 	/**

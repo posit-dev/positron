@@ -1856,9 +1856,17 @@ declare module 'positron' {
 		export function restartSession(sessionId: string): Thenable<void>;
 
 		/**
-		 * Focus a running session
+		 * Focus a running session.
 		 */
 		export function focusSession(sessionId: string): void;
+
+		/**
+		 * Delete a running session.
+		 * If the session is busy, the user is asked whether it should be interrupted.
+		 * The promise resolves with `false` if the user declines to interrupt, or `true`
+		 * if the session was deleted. It can also throw e.g. if the session is not found.
+		 */
+		export function deleteSession(sessionId: string): Thenable<boolean>;
 
 		/**
 		 * Get the runtime variables for a session.
