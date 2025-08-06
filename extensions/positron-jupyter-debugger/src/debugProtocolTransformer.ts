@@ -10,11 +10,11 @@ export interface DebugLocation {
 	endLine?: number;
 }
 
-export interface DebugProtocolTransformerOptions {
-	location: <T extends DebugLocation>(obj: T) => T;
-}
-
 type DebugProtocolTransform<T extends DebugProtocol.ProtocolMessage | DebugLocation> = (obj: T) => T;
+
+export interface DebugProtocolTransformerOptions {
+	location?: <T extends DebugLocation>(obj: T) => T | undefined;
+}
 
 export class DebugProtocolTransformer {
 	constructor(private readonly options: DebugProtocolTransformerOptions) { }
@@ -27,6 +27,8 @@ export class DebugProtocolTransformer {
 				return this.request(message as DebugProtocol.Request);
 			case 'response':
 				return this.response(message as DebugProtocol.Response);
+			default:
+				return message;
 		}
 	}
 
@@ -43,157 +45,211 @@ export class DebugProtocolTransformer {
 		}
 	};
 
-	private request: DebugProtocolTransform<DebugProtocol.Request> = request => {
-		switch (request.command) {
+	private request: DebugProtocolTransform<DebugProtocol.Request> = message => {
+		switch (message.command) {
 			case 'breakpointLocations':
-				return this.breakpointLocationsRequest(request as DebugProtocol.BreakpointLocationsRequest);
+				return this.breakpointLocationsRequest(message as DebugProtocol.BreakpointLocationsRequest);
 			case 'gotoTargets':
-				return this.gotoTargetsRequest(request as DebugProtocol.GotoTargetsRequest);
+				return this.gotoTargetsRequest(message as DebugProtocol.GotoTargetsRequest);
 			case 'setBreakpoints':
-				return this.setBreakpointsRequest(request as DebugProtocol.SetBreakpointsRequest);
+				return this.setBreakpointsRequest(message as DebugProtocol.SetBreakpointsRequest);
 			case 'source':
-				return this.sourceRequest(request as DebugProtocol.SourceRequest);
+				return this.sourceRequest(message as DebugProtocol.SourceRequest);
 			default:
-				return request;
+				return message;
 		}
 	};
 
-	private response: DebugProtocolTransform<DebugProtocol.Response> = response => {
-		switch (response.command) {
+	private response: DebugProtocolTransform<DebugProtocol.Response> = message => {
+		switch (message.command) {
 			case 'loadedSources':
-				return this.loadedSourcesResponse(response as DebugProtocol.LoadedSourcesResponse);
+				return this.loadedSourcesResponse(message as DebugProtocol.LoadedSourcesResponse);
 			case 'scopes':
-				return this.scopesResponse(response as DebugProtocol.ScopesResponse);
+				return this.scopesResponse(message as DebugProtocol.ScopesResponse);
 			case 'setBreakpoints':
-				return this.setBreakpointsResponse(response as DebugProtocol.SetBreakpointsResponse);
+				return this.setBreakpointsResponse(message as DebugProtocol.SetBreakpointsResponse);
 			case 'setFunctionBreakpoints':
-				return this.setFunctionBreakpointsResponse(response as DebugProtocol.SetFunctionBreakpointsResponse);
+				return this.setFunctionBreakpointsResponse(message as DebugProtocol.SetFunctionBreakpointsResponse);
 			case 'stackTrace':
-				return this.stackTraceResponse(response as DebugProtocol.StackTraceResponse);
+				return this.stackTraceResponse(message as DebugProtocol.StackTraceResponse);
 			default:
-				return response;
+				return message;
 		}
 	};
 
-	private breakpointEvent: DebugProtocolTransform<DebugProtocol.BreakpointEvent> = event => {
+	private breakpointEvent: DebugProtocolTransform<DebugProtocol.BreakpointEvent> = message => {
+		const breakpoint = this.options.location?.(message.body.breakpoint);
+		if (!breakpoint) {
+			return message;
+		}
 		return {
-			...event,
+			...message,
 			body: {
-				...event.body,
-				breakpoint: this.options.location(event.body.breakpoint),
+				...message.body,
+				breakpoint,
 			},
 		};
 	};
 
-	private loadedSourceEvent: DebugProtocolTransform<DebugProtocol.LoadedSourceEvent> = event => {
+	private loadedSourceEvent: DebugProtocolTransform<DebugProtocol.LoadedSourceEvent> = message => {
+		const body = this.options.location?.(message.body);
+		if (!body) {
+			return message;
+		}
 		return {
-			...event,
-			body: this.options.location(event.body),
+			...message,
+			body,
 		};
 	};
 
-	private outputEvent: DebugProtocolTransform<DebugProtocol.OutputEvent> = event => {
+	private outputEvent: DebugProtocolTransform<DebugProtocol.OutputEvent> = message => {
+		const body = this.options.location?.(message.body);
+		if (!body) {
+			return message;
+		}
 		return {
-			...event,
-			body: this.options.location(event.body),
+			...message,
+			body,
 		};
 	};
 
-	private breakpointLocationsRequest: DebugProtocolTransform<DebugProtocol.BreakpointLocationsRequest> = request => {
+	private breakpointLocationsRequest: DebugProtocolTransform<DebugProtocol.BreakpointLocationsRequest> = message => {
+		const args = message.arguments && this.options.location?.(message.arguments);
+		if (!args) {
+			return message;
+		}
 		return {
-			...request,
-			arguments: this.options.location(request.arguments),
+			...message,
+			arguments: args,
 		};
 	};
 
-	private gotoTargetsRequest: DebugProtocolTransform<DebugProtocol.GotoTargetsRequest> = request => {
+	private gotoTargetsRequest: DebugProtocolTransform<DebugProtocol.GotoTargetsRequest> = message => {
+		const args = this.options.location?.(message.arguments);
+		if (!args) {
+			return message;
+		}
 		return {
-			...request,
-			arguments: this.options.location(request.arguments),
+			...message,
+			arguments: args,
 		};
 	};
 
-	private setBreakpointsRequest: DebugProtocolTransform<DebugProtocol.SetBreakpointsRequest> = request => {
+	private setBreakpointsRequest: DebugProtocolTransform<DebugProtocol.SetBreakpointsRequest> = message => {
+		const [updatedBreakpoints, breakpoints] = message.arguments.breakpoints ?
+			transformArray(message.arguments.breakpoints, breakpoint => {
+				const location = this.options.location?.({ source: message.arguments.source, line: breakpoint.line });
+				return location && { ...breakpoint, line: location.line };
+			}) :
+			[false, message.arguments.breakpoints];
+
+		const source = this.options.location?.({ source: message.arguments.source })?.source;
+
+		if (!updatedBreakpoints && !source) {
+			return message;
+		}
+
 		return {
-			...request,
+			...message,
 			arguments: {
-				...request.arguments,
-				breakpoints: request.arguments.breakpoints?.map(breakpoint => {
-					const location = this.options.location({ source: request.arguments.source, line: breakpoint.line });
-					return {
-						...breakpoint,
-						line: location.line,
-					};
-				}),
-				source: this.options.location({ source: request.arguments.source }).source,
+				...message.arguments,
+				breakpoints,
+				source: source ?? message.arguments.source,
 			},
 		};
 	};
 
-	private sourceRequest: DebugProtocolTransform<DebugProtocol.SourceRequest> = request => {
+	private sourceRequest: DebugProtocolTransform<DebugProtocol.SourceRequest> = message => {
+		const args = this.options.location?.(message.arguments);
+		if (!args) {
+			return message;
+		}
 		return {
-			...request,
-			arguments: this.options.location(request.arguments),
+			...message,
+			arguments: args,
 		};
 	};
 
-	private loadedSourcesResponse: DebugProtocolTransform<DebugProtocol.LoadedSourcesResponse> = response => {
+	private loadedSourcesResponse: DebugProtocolTransform<DebugProtocol.LoadedSourcesResponse> = message => {
+		const [updated, sources] = transformArray(message.body.sources, source => this.options.location?.({ source })?.source);
+		if (!updated) {
+			return message;
+		}
 		return {
-			...response,
+			...message,
 			body: {
-				...response.body,
-				sources: response.body.sources.map(source => {
-					return this.options.location({ source }).source;
-				}),
+				...message.body,
+				sources,
 			},
 		};
 	};
 
-	private scopesResponse: DebugProtocolTransform<DebugProtocol.ScopesResponse> = response => {
+	private scopesResponse: DebugProtocolTransform<DebugProtocol.ScopesResponse> = message => {
+		const [updated, scopes] = transformArray(message.body.scopes, scope => this.options.location?.(scope));
+		if (!updated) {
+			return message;
+		}
 		return {
-			...response,
+			...message,
 			body: {
-				...response.body,
-				scopes: response.body.scopes.map(scope => {
-					return this.options.location(scope);
-				}),
+				...message.body,
+				scopes,
 			},
 		};
 	};
 
-	private setBreakpointsResponse: DebugProtocolTransform<DebugProtocol.SetBreakpointsResponse> = response => {
+	private setBreakpointsResponse: DebugProtocolTransform<DebugProtocol.SetBreakpointsResponse> = message => {
+		const [updated, breakpoints] = transformArray(message.body.breakpoints, breakpoint => this.options.location?.(breakpoint));
+		if (!updated) {
+			return message;
+		}
 		return {
-			...response,
+			...message,
 			body: {
-				...response.body,
-				breakpoints: response.body.breakpoints.map(breakpoint => {
-					return this.options.location(breakpoint);
-				}),
+				...message.body,
+				breakpoints,
 			},
 		};
 	};
 
-	private setFunctionBreakpointsResponse: DebugProtocolTransform<DebugProtocol.SetFunctionBreakpointsResponse> = response => {
+	private setFunctionBreakpointsResponse: DebugProtocolTransform<DebugProtocol.SetFunctionBreakpointsResponse> = message => {
+		const [updated, breakpoints] = transformArray(message.body.breakpoints, breakpoint => this.options.location?.(breakpoint));
+		if (!updated) {
+			return message;
+		}
 		return {
-			...response,
+			...message,
 			body: {
-				...response.body,
-				breakpoints: response.body.breakpoints.map(breakpoint => {
-					return this.options.location(breakpoint);
-				}),
+				...message.body,
+				breakpoints,
 			},
 		};
 	};
 
-	private stackTraceResponse: DebugProtocolTransform<DebugProtocol.StackTraceResponse> = response => {
+	private stackTraceResponse: DebugProtocolTransform<DebugProtocol.StackTraceResponse> = message => {
+		const [updated, stackFrames] = transformArray(message.body.stackFrames, frame => this.options.location?.(frame));
+		if (!updated) {
+			return message;
+		}
 		return {
-			...response,
+			...message,
 			body: {
-				...response.body,
-				stackFrames: response.body.stackFrames.map(frame => {
-					return this.options.location(frame);
-				}),
+				...message.body,
+				stackFrames,
 			},
 		};
 	};
+}
+
+function transformArray<T>(array: T[], transformFn: (item: T) => T | undefined): [boolean, T[]] {
+	let updated = false;
+	const transformedArray = array.map(item => {
+		const transformedItem = transformFn(item);
+		if (!transformedItem) {
+			return item;
+		}
+		updated = true;
+		return transformedItem;
+	});
+	return [updated, transformedArray];
 }
