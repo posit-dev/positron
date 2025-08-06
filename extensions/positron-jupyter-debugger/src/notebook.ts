@@ -11,6 +11,7 @@ import { DisposableStore } from './util.js';
 import { Command } from './constants.js';
 import { RuntimeNotebookDebugAdapterFactory } from './runtimeNotebookDebugAdapterFactory.js';
 import { JupyterRuntimeNotebookDebugAdapter } from './runtimeNotebookDebugAdapter.js';
+import { DebugProtocol } from '@vscode/debugprotocol';
 
 export class DebugCellManager implements vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
@@ -29,7 +30,12 @@ export class DebugCellManager implements vscode.Disposable {
 		// Execute the cell when the debug session is ready.
 		// TODO: If we attach to an existing debug session, would this work?
 		//       Or we could also track configuration completed state in an adapter property
-		const configDisposable = this._disposables.add(this._adapter.onDidCompleteConfiguration(async () => {
+		const configDisposable = this._disposables.add(this._adapter.onDidSendMessage(async (message) => {
+			if ((message as DebugProtocol.ProtocolMessage).type !== 'response' ||
+				(message as DebugProtocol.Response).command !== 'configurationDone') {
+				return;
+			}
+
 			configDisposable.dispose();
 
 			// TODO: Is this right? Should we dump all cells?

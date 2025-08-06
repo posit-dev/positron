@@ -11,7 +11,7 @@ import { DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from '
 import { DisposableStore, formatDebugMessage } from './util.js';
 import { murmurhash2_32 } from './murmur.js';
 
-export interface CodeIdOptions {
+export interface SourceMapOptions {
 	/* The hash method used for code cells. Default is 'Murmur2'. */
 	hashMethod: string;
 
@@ -28,15 +28,15 @@ export interface CodeIdOptions {
 export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
-	private readonly _onDidUpdateCodeIdOptions = this._disposables.add(new vscode.EventEmitter<void>());
+	private readonly _onDidUpdateSourceMapOptions = this._disposables.add(new vscode.EventEmitter<void>());
 	private readonly _pendingRequestIds = new Set<string>();
 
-	public codeIdOptions?: CodeIdOptions;
+	public sourceMapOptions?: SourceMapOptions;
 
 	/** Event emitted when a debug protocol message is sent to the client. */
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
 
-	public readonly onDidUpdateCodeIdOptions = this._onDidUpdateCodeIdOptions.event;
+	public readonly onDidUpdateSourceMapOptions = this._onDidUpdateSourceMapOptions.event;
 
 	constructor(
 		public readonly log: vscode.LogOutputChannel,
@@ -63,13 +63,13 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 
 	private async restoreState(): Promise<void> {
 		const debugInfo = await this.debugInfo();
-		this.codeIdOptions = {
+		this.sourceMapOptions = {
 			hashMethod: debugInfo.hashMethod,
 			hashSeed: debugInfo.hashSeed,
 			tmpFilePrefix: debugInfo.tmpFilePrefix,
 			tmpFileSuffix: debugInfo.tmpFileSuffix,
 		};
-		this._onDidUpdateCodeIdOptions.fire();
+		this._onDidUpdateSourceMapOptions.fire();
 	}
 
 	private handleRuntimeDebugEvent(event: positron.LanguageRuntimeDebugEvent): void {
@@ -110,25 +110,25 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 	}
 
 	private hash(code: string): string {
-		if (!this.codeIdOptions) {
+		if (!this.sourceMapOptions) {
 			throw new Error('Cannot hash code before debug options are initialized');
 		}
 
-		switch (this.codeIdOptions.hashMethod) {
+		switch (this.sourceMapOptions.hashMethod) {
 			case 'Murmur2':
-				return murmurhash2_32(code, this.codeIdOptions.hashSeed).toString();
+				return murmurhash2_32(code, this.sourceMapOptions.hashSeed).toString();
 			default:
-				throw new Error(`Unsupported hash method: ${this.codeIdOptions.hashMethod}`);
+				throw new Error(`Unsupported hash method: ${this.sourceMapOptions.hashMethod}`);
 		}
 	}
 
-	public getCodeId(code: string): string {
-		if (!this.codeIdOptions) {
+	public getRuntimeSourcePath(code: string): string {
+		if (!this.sourceMapOptions) {
 			throw new Error('Cannot get code ID before debug options are initialized');
 		}
 
 		const hashed = this.hash(code);
-		return `${this.codeIdOptions.tmpFilePrefix}${hashed}${this.codeIdOptions.tmpFileSuffix}`;
+		return `${this.sourceMapOptions.tmpFilePrefix}${hashed}${this.sourceMapOptions.tmpFileSuffix}`;
 	}
 
 	public dispose() {
