@@ -14,6 +14,10 @@
 }
 
 .convert-to-code-editor {
-	height: 200px;
+	height: 216px;
 	border: 1px solid var(--vscode-positronModalDialog-border);
+}
+
+.positron-modal-dialog-box .content-area {
+	padding-bottom: 0px;
 }
