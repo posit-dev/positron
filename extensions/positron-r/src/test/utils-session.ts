@@ -34,6 +34,15 @@ export async function startR(): Promise<[RSession, vscode.Disposable]> {
 	}
 
 	const session = await positron.runtime.startLanguageRuntime(info!.runtimeId, 'Tests') as RSession;
+	positron.runtime.focusSession(session.metadata.sessionId);
+
+	const lspReady = session.waitLsp();
+	const lspTimeout = (async () => {
+		await delay(2000);
+		throw new Error('Timeout while waiting for LSP to be ready');
+	})();
+
+	await Promise.race([lspReady, lspTimeout]);
 
 	const disposable = toDisposable(async () => {
 		await session.shutdown();
