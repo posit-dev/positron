@@ -19,8 +19,11 @@ export function createUniqueId(): string {
  * Normalize a file path for robust comparison (realpath, normalize, lower-case).
  */
 export function normalizePath(p: string): string {
-	// `realPathSync` takes care of expanding e.g. `runner~1` to `runneradmin`
-	const real = fs.realpathSync.native(path.normalize(p));
+	const normalized = path.normalize(p);
+
+	// `realPathSync` takes care of expanding e.g. `runner~1` to `runneradmin`.
+	// Can only use it if the path actually exists.
+	const real = fs.existsSync(normalized) ? fs.realpathSync.native(normalized) : normalized;
 
 	// On Windows, paths are not case sensitive and we might get mixups. On mac it
 	// depends but let's only lowercase if we find it's needed.
