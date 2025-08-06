@@ -344,19 +344,24 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 		});
 
+		// ai-sdk provides token usage in the result but it's not clear how it is calculated
+		const usage = await result.usage;
+		const outputCount = usage.completionTokens;
+		const inputCount = usage.promptTokens;
+		const requestId = (options.modelOptions as any)?.requestId;
+		log.debug(`[${this._config.name}]: input=${inputCount}, output=${outputCount}`);
+
+		if (requestId) {
+			recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+		}
+
 		if (this._context) {
-			// ai-sdk provides token usage in the result but it's not clear how it is calculated
-			const usage = await result.usage;
-			const outputCount = usage.completionTokens;
-			const inputCount = usage.promptTokens;
-			const requestId = (options.modelOptions as any)?.requestId;
-
 			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
+		}
 
-			if (requestId) {
-				recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
-			}
-
+		const other = await result.providerMetadata;
+		if (other) {
+			log.debug(`[${this._config.name}]: providerMetadata=${JSON.stringify(other)}`);
 		}
 	}
 
