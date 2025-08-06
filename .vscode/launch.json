@@ -185,6 +185,8 @@
 			}
 		},
 		{
+			// Note this uses the current Code/Positron executable.
+			// Launch from a dev version if you need dev Positron.
 			"name": "positron-r extension tests",
 			"type": "extensionHost",
 			"request": "launch",
@@ -194,6 +196,7 @@
 				"--extensionTestsPath=${workspaceFolder}/extensions/positron-r/out/test"
 			],
 			"outFiles": [
+				"${workspaceFolder}/out/**/*.js",
 				"${workspaceFolder}/extensions/positron-r/out/**/*.js"
 			],
 			"presentation": {
