@@ -8,8 +8,9 @@ import * as vscode from 'vscode';
 import { RSession } from '../session';
 import { delay } from '../util';
 import { toDisposable } from './utils-disposables';
+import { ArkLsp } from '../lsp';
 
-export async function startR(): Promise<[RSession, vscode.Disposable]> {
+export async function startR(): Promise<[RSession, vscode.Disposable, ArkLsp]> {
 	// There doesn't seem to be a method that resolves when a language is
 	// both discovered and ready to be started
 	let info;
@@ -42,7 +43,7 @@ export async function startR(): Promise<[RSession, vscode.Disposable]> {
 		throw new Error('Timeout while waiting for LSP to be ready');
 	})();
 
-	await Promise.race([lspReady, lspTimeout]);
+	const lsp = await Promise.race([lspReady, lspTimeout]);
 
 	const disposable = toDisposable(async () => {
 		const deleted = await positron.runtime.deleteSession(session.metadata.sessionId);
@@ -51,7 +52,7 @@ export async function startR(): Promise<[RSession, vscode.Disposable]> {
 		}
 	});
 
-	return [session, disposable];
+	return [session, disposable, lsp];
 }
 
 /**
