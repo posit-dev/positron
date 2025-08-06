@@ -96,7 +96,7 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 					{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
 						<Traceback />
 					}
-					<ConsoleQuickFix />
+					<ConsoleQuickFix outputLines={props.activityItemErrorMessage.messageOutputLines} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
 				</div>
 			</div>
 		</div>

@@ -8,35 +8,54 @@
 import './activityErrorQuickFix.css';
 
 // React.
-import React, { useRef } from 'react';
+import React, { useMemo, useRef } from 'react';
 
 // Other dependencies.
 import { localize } from '../../../../../nls.js';
 import { PositronButton } from '../../../../../base/browser/ui/positronComponents/button/positronButton.js';
 import { usePositronReactServicesContext } from '../../../../../base/browser/positronReactRendererContext.js';
+import { ANSIOutputLine } from '../../../../../base/common/ansiOutput.js';
 
-const fixPrompt = localize('positronConsoleErrorFixPrompt', "You are going to provide a quick fix for a Positron Console error. The Console session is attached. Provide the user an code snippet that can be applied to the Positron Console to fix the error, or explain why the error is occurring only if you cannot resolve it on your own.");
-const explainPrompt = localize('positronConsoleErrorExplainPrompt', "You are going to provide an explanation for a Positron Console error. The Console session is attached. Provide the user an explanation of why the error is occurring, and how they can resolve it. Do not provide a code snippet unless it is necessary to explain the error.");
+const fixPrompt = '/fix';
+const explainPrompt = '/explain';
 
+interface ConsoleQuickFixProps {
+	outputLines: ANSIOutputLine[];
+	tracebackLines: ANSIOutputLine[];
+}
+
+const formatOutput = (outputLines: ANSIOutputLine[], tracebackLines: ANSIOutputLine[]) => {
+	return outputLines.map(line => line.outputRuns.map(run => run.text).join('')).join('\n') + '\n' + tracebackLines.map(line => line.outputRuns.map(run => run.text).join('')).join('\n');
+};
 
 /**
  * Quick fix component.
  * @returns The rendered component.
  */
-export const ConsoleQuickFix = () => {
+export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	const buttonRef = useRef<HTMLDivElement>(undefined!);
 	const { quickChatService } = usePositronReactServicesContext();
+
+	const formattedOutput = useMemo(() => {
+		return formatOutput(props.outputLines, props.tracebackLines);
+	}, [props.outputLines, props.tracebackLines]);
 	/**
 	 * onClick handlers.
 	 */
 	const pressedFixHandler = async () => {
 		// Handle console quick fix action.
-		quickChatService.openOne({ query: fixPrompt });
+		quickChatService.openOne({
+			query: props.outputLines ? `${fixPrompt}\n\`\`\`${formattedOutput}\`\`\`` : fixPrompt,
+			renderInputOnTop: false
+		});
 	};
 
 	const pressedExplainHandler = async () => {
 		// Handle console quick explain action.
-		quickChatService.openOne({ query: explainPrompt });
+		quickChatService.openOne({
+			query: props.outputLines ? `${explainPrompt}\n\`\`\`${formattedOutput}\`\`\`` : explainPrompt,
+			renderInputOnTop: false
+		});
 	};
 
 	// Render.
