@@ -105,21 +105,22 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		// Copy keybindings and settings fixtures to the user data directory
 		await copyFixtureFile('keybindings.json', userDir, true);
 
-		let settingsFile = 'settings.json';
-
+		const settingsFileName = 'settings.json';
 		if (fs.existsSync('/.dockerenv')) {
+
+			const fixturesDir = path.join(process.cwd(), 'test/e2e/fixtures');
+			const settingsFile = path.join(fixturesDir, 'settings.json');
+
 			const mergedSettings = {
-				...JSON.parse(fs.readFileSync('settings.json', 'utf8')),
-				...JSON.parse(fs.readFileSync('settingsDocker.json', 'utf8')),
+				...JSON.parse(fs.readFileSync(settingsFile, 'utf8')),
+				...JSON.parse(fs.readFileSync(path.join(fixturesDir, 'settingsDocker.json'), 'utf8')),
 			};
 
-			// Write to temp file
-			const tmpPath = path.join(os.tmpdir(), 'merged-settings.json');
-			fs.writeFileSync(tmpPath, JSON.stringify(mergedSettings, null, 2));
-			settingsFile = tmpPath;
+			// Overwrite file
+			fs.writeFileSync(settingsFile, JSON.stringify(mergedSettings, null, 2));
 		}
 
-		await copyFixtureFile(settingsFile, userDir);
+		await copyFixtureFile(settingsFileName, userDir);
 
 		await use(userDir);
 	}, { scope: 'worker', auto: true }],
