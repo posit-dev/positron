@@ -13,8 +13,8 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 	private readonly _disposables = new DisposableStore();
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
-	private _cellUriByCodeId = new Map<string, string>();
-	private _codeIdByCellUri = new Map<string, string>();
+	private _runtimeToClientSourcePath = new Map<string, string>();
+	private _clientToRuntimeSourcePath = new Map<string, string>();
 	private readonly _runtimeToClientTransformer: DebugProtocolTransformer;
 	private readonly _clientToRuntimeTransformer: DebugProtocolTransformer;
 
@@ -25,11 +25,12 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 		private readonly _adapter: JupyterRuntimeDebugAdapter,
 		private readonly _notebook: vscode.NotebookDocument
 	) {
-		const cellUriByCodeId = this._cellUriByCodeId;
-		const codeIdByCellUri = this._codeIdByCellUri;
+		const self = this;
+		// TODO: I feel like source mapping should live in the base adapter...
+		//       CONTINUE HERE!
 		this._runtimeToClientTransformer = new DebugProtocolTransformer({
 			location(location) {
-				const cellUri = location.source?.path && cellUriByCodeId.get(location.source.path);
+				const cellUri = location.source?.path && self._runtimeToClientSourcePath.get(location.source.path);
 				if (!cellUri) {
 					return location;
 				}
@@ -45,15 +46,15 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 		});
 		this._clientToRuntimeTransformer = new DebugProtocolTransformer({
 			location(location) {
-				const codeId = location.source?.path && codeIdByCellUri.get(location.source.path);
-				if (!codeId) {
+				const sourcePath = location.source?.path && self._clientToRuntimeSourcePath.get(location.source.path);
+				if (!sourcePath) {
 					return location;
 				}
 				return {
 					...location,
 					source: {
 						...location.source,
-						path: codeId,
+						path: sourcePath,
 					},
 				};
 			}
@@ -70,33 +71,27 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 			}
 			this._log.debug(`[notebook] >>> SEND ${formatDebugMessage(clientMessage)}`);
 			this._onDidSendMessage.fire(clientMessage);
-
-			// TODO: Feel like this logic can rather live in the listener.
-			if (runtimeMessage.type === 'response' &&
-				(runtimeMessage as DebugProtocol.Response).command === 'configurationDone') {
-				this._onDidCompleteConfiguration.fire();
-			}
 		}));
 
-		this._disposables.add(this._adapter.onDidUpdateCodeIdOptions(() => {
-			this.updateCellUriByCodeId();
+		this._disposables.add(this._adapter.onDidUpdateSourceMapOptions(() => {
+			this.updateSourceMaps();
 		}));
-		if (this._adapter.codeIdOptions) {
-			this.updateCellUriByCodeId();
+		if (this._adapter.sourceMapOptions) {
+			this.updateSourceMaps();
 		}
 	}
 
-	private updateCellUriByCodeId(): void {
+	private updateSourceMaps(): void {
 		// TODO: Block debugging until this is done?
 		// TODO: Update the map when a cell's source changes.
-		this._cellUriByCodeId.clear();
-		this._codeIdByCellUri.clear();
+		this._runtimeToClientSourcePath.clear();
+		this._clientToRuntimeSourcePath.clear();
 		for (const cell of this._notebook.getCells()) {
 			const cellUri = cell.document.uri.toString();
 			const code = cell.document.getText();
-			const codeId = this._adapter.getCodeId(code);
-			this._cellUriByCodeId.set(codeId, cellUri);
-			this._codeIdByCellUri.set(cellUri, codeId);
+			const sourcePath = this._adapter.getRuntimeSourcePath(code);
+			this._runtimeToClientSourcePath.set(sourcePath, cellUri);
+			this._clientToRuntimeSourcePath.set(cellUri, sourcePath);
 		}
 	}
 
@@ -154,8 +149,8 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 	private async dumpCell(cell: NotebookCell): Promise<void> {
 		const code = cell.document.getText();
 		const { sourcePath: codeId } = await this._adapter.dumpCell(code);
-		this._cellUriByCodeId.set(codeId, cell.document.uri.toString());
-		this._codeIdByCellUri.set(cell.document.uri.toString(), codeId);
+		this._runtimeToClientSourcePath.set(codeId, cell.document.uri.toString());
+		this._clientToRuntimeSourcePath.set(cell.document.uri.toString(), codeId);
 	}
 
 	dispose(): void {
