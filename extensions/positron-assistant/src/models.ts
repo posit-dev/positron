@@ -286,12 +286,22 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}, {});
 		}
 
+		const modelTools = this._config.toolCalls ? tools : undefined;
+
+		log.debug(`[${this._config.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
+		if (modelTools) {
+			log.trace(`tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
+		}
+		if (modelOptions.system) {
+			log.trace(`system: ${modelOptions.system.length > 100 ? `${modelOptions.system.substring(0, 100)}...` : modelOptions.system} (${modelOptions.system.length} chars)`);
+		}
+		log.trace(`messages: ${JSON.stringify(aiMessages)}`);
 		const result = ai.streamText({
 			model: this.model,
 			system: modelOptions.system ?? undefined,
 			messages: aiMessages,
 			maxSteps: modelOptions.maxSteps ?? 50,
-			tools: this._config.toolCalls ? tools : undefined,
+			tools: modelTools,
 			abortSignal: signal,
 			maxTokens: modelOptions.maxTokens ?? this.maxOutputTokens,
 		});
@@ -339,7 +349,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		result.warnings.then((warnings) => {
 			if (warnings) {
 				for (const warning of warnings) {
-					log.warn(`${this.model} (${this.identifier}): ${warning}`);
+					log.warn(`[${this.model}] (${this.identifier}): ${warning}`);
 				}
 			}
 		});
