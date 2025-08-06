@@ -11,6 +11,7 @@ import { DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from '
 import { DisposableStore, formatDebugMessage } from './util.js';
 import { murmurhash2_32 } from './murmur.js';
 
+// TODO: Clean this up
 export interface CodeIdOptions {
 	/* Indicates whether the debugger is started. */
 	// isStarted: boolean;
@@ -49,7 +50,6 @@ export interface CodeIdOptions {
 export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
-	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
 	private readonly _onDidUpdateCodeIdOptions = this._disposables.add(new vscode.EventEmitter<void>());
 	private readonly _pendingRequestIds = new Set<string>();
 	private sequence = 1;
@@ -58,9 +58,6 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 
 	/** Event emitted when a debug protocol message is sent to the client. */
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
-
-	/** Event emitted when the debugger has completed its configuration. */
-	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
 
 	public readonly onDidUpdateCodeIdOptions = this._onDidUpdateCodeIdOptions.event;
 
@@ -159,16 +156,11 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 	}
 
 	private sendMessage<P extends DebugProtocol.ProtocolMessage>(message: Omit<P, 'seq'>): void {
+		// TODO: Do we need to maintain sequence number?
 		const emittedMessage: DebugProtocol.ProtocolMessage = {
 			...message,
 			seq: this.sequence,
 		};
-
-		// TODO: Not sure if this should live here...
-		if (emittedMessage.type === 'response' &&
-			(emittedMessage as DebugProtocol.Response).command === 'configurationDone') {
-			this._onDidCompleteConfiguration.fire();
-		}
 
 		this.sequence++;
 		this.log.debug(`[runtime] >>> SEND ${formatDebugMessage(emittedMessage)}`);
