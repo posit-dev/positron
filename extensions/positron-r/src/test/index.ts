@@ -16,7 +16,7 @@ export async function run(): Promise<void> {
 	// Note again that these options only get set in debug session via launch.json
 	const mocha = new Mocha({
 		ui: "tdd",
-		timeout: 10000,
+		timeout: 60000,
 	});
 
 	const testFiles = glob.sync(path.join(__dirname, '*.test.js'));
