@@ -66,7 +66,7 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 			try {
 				clientMessage = this._runtimeToClientTransformer.transform(runtimeMessage);
 			} catch (error) {
-				this._adapter.log.error(`[notebook] Error transforming message: ${formatDebugMessage(message as DebugProtocol.ProtocolMessage)}`, error);
+				this._log.error(`[notebook] Error transforming message: ${formatDebugMessage(message as DebugProtocol.ProtocolMessage)}`, error);
 			}
 			this._log.debug(`[notebook] >>> SEND ${formatDebugMessage(clientMessage)}`);
 			this._onDidSendMessage.fire(clientMessage);
