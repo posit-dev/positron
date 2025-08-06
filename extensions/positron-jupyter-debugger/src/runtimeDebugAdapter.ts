@@ -139,7 +139,7 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 		}
 
 		switch (this.codeIdOptions.hashMethod) {
-			case 'murmur2':
+			case 'Murmur2':
 				return murmurhash2_32(code, this.codeIdOptions.hashSeed).toString();
 			default:
 				throw new Error(`Unsupported hash method: ${this.codeIdOptions.hashMethod}`);
