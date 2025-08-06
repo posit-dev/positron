@@ -136,7 +136,7 @@ export class QuickChatService extends Disposable implements IQuickChatService {
 		this.close();
 	}
 	// --- Start Positron ---
-	openOne(options?: IQuickChatOpenOptions): void {
+	openOne(options?: IQuickChatOpenOptions & { renderInputOnTop?: boolean }): void {
 		const disposableStore = new DisposableStore();
 
 		const input = this.quickInputService.createQuickWidget();
@@ -149,6 +149,7 @@ export class QuickChatService extends Disposable implements IQuickChatService {
 
 		input.show();
 		const chat = this.instantiationService.createInstance(QuickChat);
+		chat.renderInputOnTop = options?.renderInputOnTop ?? true;
 
 		// show needs to come after the quickpick is shown
 		chat.render(container);
@@ -182,6 +183,9 @@ class QuickChat extends Disposable {
 	private _currentQuery: string | undefined;
 	private readonly maintainScrollTimer: MutableDisposable<IDisposable> = this._register(new MutableDisposable<IDisposable>());
 	private _deferUpdatingDynamicLayout: boolean = false;
+	// --- Start Positron ---
+	public renderInputOnTop: boolean = true;
+	// --- End Positron ---
 
 	constructor(
 		@IInstantiationService private readonly instantiationService: IInstantiationService,
@@ -255,7 +259,10 @@ class QuickChat extends Disposable {
 				ChatWidget,
 				ChatAgentLocation.Panel,
 				{ isQuickChat: true },
-				{ autoScroll: true, renderInputOnTop: true, renderStyle: 'compact', menus: { inputSideToolbar: MenuId.ChatInputSide }, enableImplicitContext: true },
+				// --- Start Positron ---
+				// { autoScroll: true, renderInputOnTop: true, renderStyle: 'compact', menus: { inputSideToolbar: MenuId.ChatInputSide }, enableImplicitContext: true },
+				{ autoScroll: true, renderInputOnTop: this.renderInputOnTop, renderStyle: 'compact', menus: { inputSideToolbar: MenuId.ChatInputSide }, enableImplicitContext: true },
+				// --- End Positron ---
 				{
 					listForeground: quickInputForeground,
 					listBackground: quickInputBackground,
