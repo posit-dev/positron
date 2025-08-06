@@ -58,7 +58,13 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	featureEnabled(): boolean | undefined {
 		// If it's disabled, don't do any registration
 		const config = vscode.workspace.getConfiguration('positron.reticulate');
-		const option = config.get<'auto' | 'never' | 'always'>('enabled');
+		const option = config.get<('auto' | 'never' | 'always') | boolean>('enabled');
+
+		if (typeof option === 'boolean') {
+			// Keep supporting the old option which was a boolean.
+			return option; // If it's a boolean, return it directly
+		}
+
 		switch (option) {
 			case 'auto':
 				const val = CONTEXT.workspaceState.get(autoEnabledStorageKey, false);
