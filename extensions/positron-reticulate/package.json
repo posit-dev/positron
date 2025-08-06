@@ -28,14 +28,14 @@
       "properties": {
         "positron.reticulate.enabled": {
           "type": "string",
-        "enum": ["auto", "never", "always"],
-        "enumDescriptions": [
-          "%autoDescription%",
-          "%neverDescription%",
-          "%alwaysDescription%"
-        ],
-        "default": "auto",
-        "description": "%enabledDescription%"
+          "enum": ["auto", "never", "always"],
+          "enumDescriptions": [
+            "%autoDescription%",
+            "%neverDescription%",
+            "%alwaysDescription%"
+          ],
+          "default": "auto",
+          "description": "%enabledDescription%"
         }
       }
     }
