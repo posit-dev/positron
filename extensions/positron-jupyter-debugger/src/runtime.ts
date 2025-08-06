@@ -6,8 +6,7 @@
 import * as positron from 'positron';
 import { randomUUID } from 'crypto';
 import { DebugProtocol } from '@vscode/debugprotocol';
-import { DisposableStore, disposableTimeout } from './util.js';
-import { formatDebugMessage } from './debugProtocol.js';
+import { DisposableStore, disposableTimeout, formatDebugMessage } from './util.js';
 
 /**
  * Send a debug request to the runtime and wait for the response.
