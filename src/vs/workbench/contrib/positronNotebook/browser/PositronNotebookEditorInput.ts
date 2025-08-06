@@ -41,7 +41,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	static count = 0;
 
-
 	/**
 	 * Unique identifier for this specific input instance
 	 */
@@ -75,7 +74,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * @param viewType The view type for the notebook. Aka `'jupyter-notebook;`.
 	 * @param options Options for the notebook editor input.
 	 */
-	static getOrCreate(instantiationService: IInstantiationService, resource: URI, _preferredResource: URI | undefined, viewType: string, options: PositronNotebookEditorInputOptions = {}) {
+	static getOrCreate(instantiationService: IInstantiationService, resource: URI, preferredResource: URI | undefined, viewType: string, options: PositronNotebookEditorInputOptions = {}) {
 
 		// In the vscode-notebooks there is some caching work done here for looking for editors that
 		// exist etc. We may need that eventually but not now.
@@ -252,7 +251,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 			return undefined; // save cancelled
 		}
 
-
 		// Transfer the runtime session when saving an untitled notebook
 		try {
 			this._logService.debug(`Reassigning notebook session URI: ${this.resource.toString()} → ${target.toString()}`);
@@ -328,7 +326,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 
 		return joinPath(await this._fileDialogService.defaultFilePath(), suggestedFilename);
 	}
-
 
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
 		this._logService.info(this._identifier, 'resolve');
