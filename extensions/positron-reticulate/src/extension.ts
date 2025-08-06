@@ -58,13 +58,26 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	featureEnabled(): boolean | undefined {
 		// If it's disabled, don't do any registration
 		const config = vscode.workspace.getConfiguration('positron.reticulate');
-		return config.get<boolean>('enabled');
+		const option = config.get<'auto' | 'never' | 'always'>('enabled');
+		switch (option) {
+			case 'auto':
+				const val = CONTEXT.workspaceState.get(autoEnabledStorageKey, false);
+				return val;
+			case 'never':
+				return false;
+			case 'always':
+				return true;
+		}
 	}
 
 	async maybeRegisterReticulateRuntime() {
 
 		if (this._metadata) {
 			return; // No-op if session is already registered.
+		}
+
+		if (!this.featureEnabled()) {
+			return;
 		}
 
 		// Get a fixed list of all current runtimes.
@@ -309,6 +322,11 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		this.setSessions(rSession.metadata.sessionId, reticulateId, session);
 
 		return session;
+	}
+
+	async validateSession(sessionId: string): Promise<boolean> {
+		LOGGER.info(`Validating Reticulate session. sessionId: ${sessionId}`);
+		return Promise.resolve(true);
 	}
 }
 
@@ -1001,6 +1019,7 @@ export class ReticulateProvider {
 
 let CONTEXT: vscode.ExtensionContext;
 const LOGGER = vscode.window.createOutputChannel('Reticulate Extension', { log: true });
+const autoEnabledStorageKey = 'positron.reticulate-auto-enabled';
 
 /**
  * Activates the extension.
@@ -1031,35 +1050,25 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron.reticulate.isEnabledExplicitlySet', async () => {
-			// This command is used to check if the reticulate runtime is explicitly enabled.
-			const config = vscode.workspace.getConfiguration('positron.reticulate');
-			const inspection = config.inspect<boolean>('enabled');
-
-			if (!inspection) {
-				// Should not happen, the config always exists
-				return false;
-			}
-
-			if (
-				inspection.globalValue !== undefined ||
-				inspection.workspaceValue !== undefined ||
-				inspection.workspaceFolderValue !== undefined
-			) {
-				// User set a value for one of the profiles
-				return true;
-			} else {
-				// user never set a value
-				return false;
-			}
+		vscode.commands.registerCommand('positron.reticulate.isAutoEnabled', async () => {
+			// Checks if reticulate is auto enabled.
+			// This should only be called if positron.reticulate.enabled = auto
+			return context.workspaceState.get<boolean>(autoEnabledStorageKey, false);
 		})
 	);
 
 	context.subscriptions.push(
-		vscode.commands.registerCommand('positron.reticulate.toggleEnabled', async () => {
-			const config = vscode.workspace.getConfiguration('positron.reticulate');
-			const currentValue = config.get<boolean>('enabled');
-			await config.update('enabled', !currentValue, vscode.ConfigurationTarget.Global);
+		vscode.commands.registerCommand('positron.reticulate.setAutoEnabled', async () => {
+			// This command is used to toggle the reticulate runtime enabled/disabled state
+			await context.workspaceState.update(autoEnabledStorageKey, true);
+			await reticulateProvider.manager.maybeRegisterReticulateRuntime();
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.reticulate.resetAutoEnabled', async () => {
+			// This command is used to toggle the reticulate runtime enabled/disabled state
+			await context.workspaceState.update(autoEnabledStorageKey, undefined);
 		})
 	);
 

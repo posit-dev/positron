@@ -27,9 +27,15 @@
       "title": "%configurationTitle%",
       "properties": {
         "positron.reticulate.enabled": {
-          "type": ["boolean"],
-          "default": false,
-          "description": "%enabledDescription%"
+          "type": "string",
+        "enum": ["auto", "never", "always"],
+        "enumDescriptions": [
+          "%autoDescription%",
+          "%neverDescription%",
+          "%alwaysDescription%"
+        ],
+        "default": "auto",
+        "description": "%enabledDescription%"
         }
       }
     }
