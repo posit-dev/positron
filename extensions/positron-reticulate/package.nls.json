@@ -3,7 +3,7 @@
 	"description": "Provides reticulate support for positron",
 	"configurationTitle": "Reticulate",
 	"enabledDescription": "Enables reticulate console sessions",
-	"autoDescription": "Enables when reticulate has been loaded in the current project at least once",
+	 "autoDescription": "Enable when the reticulate R package has been loaded in the current workspace",
 	"neverDescription": "Never use reticulate console sessions",
 	"alwaysDescription": "Always enable reticulate console sessions"
 }
