@@ -16,11 +16,12 @@
  *  - Verify the Editor Action Bar functionality:
  */
 
-import { Application } from '../../infra';
+import { Application, DataExplorer } from '../../infra';
 import { EditorActionBar } from '../../pages/editorActionBar';
 import { test, expect, tags } from '../_test.setup';
 
 let editorActionBar: EditorActionBar;
+let dataExplorer: DataExplorer;
 
 const testCases = [
 	{
@@ -56,6 +57,7 @@ test.describe('Editor Action Bar: Data Files', {
 
 	test.beforeAll(async function ({ app }) {
 		editorActionBar = app.workbench.editorActionBar;
+		dataExplorer = app.workbench.dataExplorer;
 	});
 
 	test.afterEach(async function ({ runCommand }) {
@@ -78,6 +80,9 @@ test.describe('Editor Action Bar: Data Files', {
 			if (testCase.variable) {
 				await openDataExplorerViaVariablePane(app, testCase.variable, testCase.tabName);
 			}
+
+			// Ensure the summary panel is visible
+			await dataExplorer.expandSummary();
 
 			// Verify action bar behavior
 			await editorActionBar.selectSummaryOn(app.web, 'Left');
