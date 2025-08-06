@@ -40,7 +40,13 @@ export async function withDisposables<T>(
 	try {
 		return await fn(disposables);
 	} finally {
-		await disposeAll(disposables);
+		// Catch any errors occurring while running disposables to avoid overriding
+		// errors from `fn` (typically failing assertions)
+		try {
+			await disposeAll(disposables);
+		} catch (err) {
+			console.error(`Error while running disposables: ${err}`);
+		}
 	}
 }
 
