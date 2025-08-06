@@ -3,12 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './mocha-setup'
+
 import * as vscode from 'vscode';
 import * as path from 'path';
 import { makeTempDir, withDisposables } from './utils-disposables';
 import { execute, startR } from './utils-session';
 import { assertSelectedEditor } from './utils-assertions';
-import { closeAllEditors, openTextDocument } from './utils-vscode';
+import { openTextDocument } from './utils-vscode';
 
 suite('RStudio API', () => {
 	// https://github.com/posit-dev/positron/issues/8374
@@ -16,9 +18,6 @@ suite('RStudio API', () => {
 		await withDisposables(async (disposables) => {
 			const [_ses, sesDisposable] = await startR();
 			disposables.push(sesDisposable);
-
-			// To be safe
-			await closeAllEditors();
 
 			const [tmpDir, dirDisposable] = makeTempDir('rstudioapi-test');
 			disposables.push(dirDisposable);

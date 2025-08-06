@@ -3,12 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './mocha-setup'
+
 import * as assert from 'assert';
 import * as Fs from "fs";
 import * as Sinon from 'sinon';
 import { currentRBinaryFromPATHWindows } from '../provider';
 import path = require('path');
-
 
 function createReadFileSyncStub(returnValue: string | Buffer): Sinon.SinonStub {
 	return Sinon.stub(Fs, "readFileSync").callsFake((path: number | Fs.PathLike, options?: any): string | Buffer => {

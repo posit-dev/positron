@@ -3,6 +3,8 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import './mocha-setup'
+
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as assert from 'assert';
@@ -15,9 +17,6 @@ suite('View', () => {
 	let sesDisposable: vscode.Disposable;
 
 	suiteSetup(async () => {
-		// To be safe
-		await closeAllEditors();
-
 		const [_ses, disposable] = await startR();
 		sesDisposable = disposable;
 	});
