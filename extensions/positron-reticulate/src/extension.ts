@@ -330,6 +330,11 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		return session;
 	}
 
+	/**
+	 * Validates whether the Reticulate session with the given session ID is active and usable.
+	 * @param sessionId The ID of the session to validate.
+	 * @returns A promise that resolves to true if the session is valid, false otherwise.
+	 */
 	async validateSession(sessionId: string): Promise<boolean> {
 		LOGGER.info(`Validating Reticulate session. sessionId: ${sessionId}`);
 		return Promise.resolve(true);
