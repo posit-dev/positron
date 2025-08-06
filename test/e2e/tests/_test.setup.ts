@@ -434,7 +434,7 @@ test.afterAll(async function ({ logger }, testInfo) {
 });
 
 export { playwrightExpect as expect };
-export { TestTags as tags };
+export { TestTags as tags, WorkerFixtures };
 
 async function moveAndOverwrite(logger: MultiLogger, sourcePath: string, destinationPath: string) {
 	try {
