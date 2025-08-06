@@ -20,6 +20,7 @@ import { ExtUri, joinPath } from '../../../../base/common/resources.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { INotificationService } from '../../../../platform/notification/common/notification.js';
 
 /**
  * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
@@ -40,6 +41,12 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * Used for keeping track in the logs.
 	 */
 	static count = 0;
+
+	/**
+	 * Supported file extensions for Positron notebooks.
+	 * Currently only .ipynb, but designed for easy expansion when other formats are supported.
+	 */
+	public static readonly SUPPORTED_EXTENSIONS = ['.ipynb'];
 
 	/**
 	 * Unique identifier for this specific input instance
@@ -74,7 +81,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * @param viewType The view type for the notebook. Aka `'jupyter-notebook;`.
 	 * @param options Options for the notebook editor input.
 	 */
-	static getOrCreate(instantiationService: IInstantiationService, resource: URI, preferredResource: URI | undefined, viewType: string, options: PositronNotebookEditorInputOptions = {}) {
+	static getOrCreate(instantiationService: IInstantiationService, resource: URI, _preferredResource: URI | undefined, viewType: string, options: PositronNotebookEditorInputOptions = {}) {
 
 		// In the vscode-notebooks there is some caching work done here for looking for editors that
 		// exist etc. We may need that eventually but not now.
@@ -106,6 +113,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		@ILogService private readonly _logService: ILogService,
 		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
+		@INotificationService private readonly _notificationService: INotificationService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -237,23 +245,35 @@ export class PositronNotebookEditorInput extends EditorInput {
 		const suggestedName = extUri.basename(this.resource);
 		const pathCandidate = await this._suggestName(provider, suggestedName);
 
-		// Ask the user where to save the file
-		const target = await this._fileDialogService.pickFileToSave(pathCandidate, options?.availableFileSystems);
+		// Ask the user where to save the file with proper filters
+		const target = await this._fileDialogService.showSaveDialog({
+			defaultUri: pathCandidate,
+			filters: [
+				{ name: 'Jupyter Notebook', extensions: ['ipynb'] }
+			],
+			availableFileSystems: options?.availableFileSystems
+		});
 		if (!target) {
 			return undefined; // save cancelled
 		}
 
+		// Validate and potentially fix the target path
+		// NOTE: In normal usage, this validation is rarely triggered because showSaveDialog
+		// with filters automatically appends .ipynb extensions. However, this method serves
+		// as a safety net for cases where the user bypasses the filter and types a different extension.
+		const validatedTarget = this._validateAndFixFileExtension(target);
+
 		// Transfer the runtime session when saving an untitled notebook
 		try {
-			this._logService.debug(`Reassigning notebook session URI: ${this.resource.toString()} → ${target.toString()}`);
+			this._logService.debug(`Reassigning notebook session URI: ${this.resource.toString()} → ${validatedTarget.toString()}`);
 
 			// Call updateNotebookSessionUri on the runtime service
 			// This updates internal mappings and emits events that other components listen for
-			const sessionId = this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
+			const sessionId = this._runtimeSessionService.updateNotebookSessionUri(this.resource, validatedTarget);
 
 			if (sessionId) {
 				// Log success to aid debugging session transfer issues
-				this._logService.debug(`Successfully reassigned session ${sessionId} to URI: ${target.toString()}`);
+				this._logService.debug(`Successfully reassigned session ${sessionId} to URI: ${validatedTarget.toString()}`);
 			} else {
 				// This is an expected case for notebooks without executed cells (no session yet)
 				this._logService.debug(`No session found to reassign for URI: ${this.resource.toString()}`);
@@ -267,7 +287,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 		}
 
 		// Use the model's saveAs method which handles the actual file saving
-		const result = await this._editorModelReference.object.saveAs(target);
+		const result = await this._editorModelReference.object.saveAs(validatedTarget);
 
 		if (result) {
 			// After 'saveAs', the original untitled working copy is left in a dirty state.
@@ -288,7 +308,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 
 			// Update the instance map to handle the URI change from untitled to saved file
 			// This ensures the same notebook instance continues to be used after save
-			PositronNotebookInstance.updateInstanceUri(this.resource, target);
+			PositronNotebookInstance.updateInstanceUri(this.resource, validatedTarget);
 		}
 
 		return result;
@@ -317,6 +337,66 @@ export class PositronNotebookEditorInput extends EditorInput {
 		}
 
 		return joinPath(await this._fileDialogService.defaultFilePath(), suggestedFilename);
+	}
+
+	/**
+	 * Validates and potentially fixes file extensions for notebook saving.
+	 *
+	 * NOTE: In normal usage, this validation is rarely triggered because showSaveDialog
+	 * with filters automatically appends .ipynb extensions. However, this method serves
+	 * as a safety net for several edge cases:
+	 *
+	 * 1. "All Files" filter selection - Users can bypass .ipynb filter and type any extension
+	 * 2. Platform differences - File dialog behavior varies across Windows/Mac/Linux
+	 * 3. Programmatic usage - Other code calling saveAs() with pre-constructed URIs
+	 * 4. VS Code dialog bugs - Known issues with extension preservation in showSaveDialog
+	 *
+	 * This defensive approach ensures consistent behavior regardless of how the URI is obtained.
+	 */
+	private _validateAndFixFileExtension(target: URI): URI {
+		const extUri = new ExtUri(() => false);
+		const filename = extUri.basename(target);
+
+		// Check if filename has no extension (no dot at all)
+		if (filename.indexOf('.') === -1) {
+			// Auto-append extension when filename has no extension at all
+			// This happens when:
+			// - User selects "All Files" filter and types extension-less filename
+			// - Platform-specific dialog behavior doesn't auto-append
+			// - Programmatic calls with extension-less URIs
+			//
+			// Currently defaults to .ipynb since we only support one notebook type
+			// Future enhancement: When multiple extensions are supported, could:
+			// 1. Use this.viewType to determine appropriate extension
+			// 2. Show user a quick pick to choose extension
+			// 3. Use workspace/user preferences for default
+			const defaultExtension = PositronNotebookEditorInput.SUPPORTED_EXTENSIONS[0];
+			const newFilename = `${filename}${defaultExtension}`;
+
+			// Note: No notification needed here since this is rare edge case behavior
+			// and the file dialog already shows users the expected extension
+
+			return URI.joinPath(extUri.dirname(target), newFilename);
+		}
+
+		// User provided an extension - validate it (don't auto-append)
+		// This catches cases like:
+		// - "myfile.py" when user selected "All Files" filter
+		// - Platform bugs where wrong extension wasn't caught by dialog
+		// - Programmatic usage with invalid extensions
+		const hasValidExtension = PositronNotebookEditorInput.SUPPORTED_EXTENSIONS.some(ext =>
+			filename.toLowerCase().endsWith(ext)
+		);
+
+		if (!hasValidExtension) {
+			const supportedExts = PositronNotebookEditorInput.SUPPORTED_EXTENSIONS.join(', ');
+			this._notificationService.error(
+				`File extension "${filename.substring(filename.lastIndexOf('.'))}" is not supported. Please use one of: ${supportedExts}`
+			);
+			throw new Error('Invalid file extension'); // Still throw for control flow
+		}
+
+		return target;
 	}
 
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
