@@ -65,5 +65,9 @@
     {
         "key": "cmd+b c",
         "command": "workbench.action.closeSidebar" // View: Close Primary Side Bar
+    },
+    {
+       "key": "cmd+j p",
+       "command": "workbench.action.minimizePanel" // View: Minimize Bottom Panel
     }
 ]

@@ -84,6 +84,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 
 			// import settings and verify diff displays
 			await hotKeys.importSettings();
+			await hotKeys.minimizeBottomPanel();
 			await expectDiffToBeVisible(page);
 
 			// reject the changes
@@ -98,6 +99,7 @@ test.describe('Import VSCode Settings', { tag: [tags.VSCODE_SETTINGS, tags.WIN] 
 
 			// import settings and verify diff displays
 			await hotKeys.importSettings();
+			await hotKeys.minimizeBottomPanel();
 			await expectDiffToBeVisible(page);
 
 			// accept changes
