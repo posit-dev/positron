@@ -10,186 +10,190 @@ export interface DebugLocation {
 	endLine?: number;
 }
 
-export class SourceMapper {
-	constructor(
-		private readonly mapLocation: <T extends DebugLocation>(location: T) => T,
-	) { }
+export interface DebugProtocolTransformerOptions {
+	location: <T extends DebugLocation>(obj: T) => T;
+}
 
-	map(message: DebugProtocol.ProtocolMessage): DebugProtocol.ProtocolMessage {
+type DebugProtocolTransform<T extends DebugProtocol.ProtocolMessage | DebugLocation> = (obj: T) => T;
+
+export class DebugProtocolTransformer {
+	constructor(private readonly options: DebugProtocolTransformerOptions) { }
+
+	transform(message: DebugProtocol.ProtocolMessage): DebugProtocol.ProtocolMessage {
 		switch (message.type) {
 			case 'event':
-				return this.mapEvent(message as DebugProtocol.Event);
+				return this.event(message as DebugProtocol.Event);
 			case 'request':
-				return this.mapRequest(message as DebugProtocol.Request);
+				return this.request(message as DebugProtocol.Request);
 			case 'response':
-				return this.mapResponse(message as DebugProtocol.Response);
+				return this.response(message as DebugProtocol.Response);
 		}
 	}
 
-	private mapEvent(event: DebugProtocol.Event): DebugProtocol.Event {
-		switch (event.event) {
+	private event: DebugProtocolTransform<DebugProtocol.Event> = message => {
+		switch (message.event) {
 			case 'breakpoint':
-				return this.mapBreakpointEvent(event as DebugProtocol.BreakpointEvent);
+				return this.breakpointEvent(message as DebugProtocol.BreakpointEvent);
 			case 'loadedSource':
-				return this.mapLoadedSourceEvent(event as DebugProtocol.LoadedSourceEvent);
+				return this.loadedSourceEvent(message as DebugProtocol.LoadedSourceEvent);
 			case 'output':
-				return this.mapOutputEvent(event as DebugProtocol.OutputEvent);
+				return this.outputEvent(message as DebugProtocol.OutputEvent);
 			default:
-				return event;
+				return message;
 		}
-	}
+	};
 
-	private mapRequest(request: DebugProtocol.Request): DebugProtocol.Request {
+	private request: DebugProtocolTransform<DebugProtocol.Request> = request => {
 		switch (request.command) {
 			case 'breakpointLocations':
-				return this.mapBreakpointLocationsRequest(request as DebugProtocol.BreakpointLocationsRequest);
+				return this.breakpointLocationsRequest(request as DebugProtocol.BreakpointLocationsRequest);
 			case 'gotoTargets':
-				return this.mapGotoTargetsRequest(request as DebugProtocol.GotoTargetsRequest);
+				return this.gotoTargetsRequest(request as DebugProtocol.GotoTargetsRequest);
 			case 'setBreakpoints':
-				return this.mapSetBreakpointsRequest(request as DebugProtocol.SetBreakpointsRequest);
+				return this.setBreakpointsRequest(request as DebugProtocol.SetBreakpointsRequest);
 			case 'source':
-				return this.mapSourceRequest(request as DebugProtocol.SourceRequest);
+				return this.sourceRequest(request as DebugProtocol.SourceRequest);
 			default:
 				return request;
 		}
-	}
+	};
 
-	private mapResponse(response: DebugProtocol.Response): DebugProtocol.Response {
+	private response: DebugProtocolTransform<DebugProtocol.Response> = response => {
 		switch (response.command) {
 			case 'loadedSources':
-				return this.mapLoadedSourcesResponse(response as DebugProtocol.LoadedSourcesResponse);
+				return this.loadedSourcesResponse(response as DebugProtocol.LoadedSourcesResponse);
 			case 'scopes':
-				return this.mapScopesResponse(response as DebugProtocol.ScopesResponse);
+				return this.scopesResponse(response as DebugProtocol.ScopesResponse);
 			case 'setBreakpoints':
-				return this.mapSetBreakpointsResponse(response as DebugProtocol.SetBreakpointsResponse);
+				return this.setBreakpointsResponse(response as DebugProtocol.SetBreakpointsResponse);
 			case 'setFunctionBreakpoints':
-				return this.mapSetFunctionBreakpointsResponse(response as DebugProtocol.SetFunctionBreakpointsResponse);
+				return this.setFunctionBreakpointsResponse(response as DebugProtocol.SetFunctionBreakpointsResponse);
 			case 'stackTrace':
-				return this.mapStackTraceResponse(response as DebugProtocol.StackTraceResponse);
+				return this.stackTraceResponse(response as DebugProtocol.StackTraceResponse);
 			default:
 				return response;
 		}
-	}
+	};
 
-	private mapBreakpointEvent(event: DebugProtocol.BreakpointEvent): DebugProtocol.BreakpointEvent {
+	private breakpointEvent: DebugProtocolTransform<DebugProtocol.BreakpointEvent> = event => {
 		return {
 			...event,
 			body: {
 				...event.body,
-				breakpoint: this.mapLocation(event.body.breakpoint),
+				breakpoint: this.options.location(event.body.breakpoint),
 			},
 		};
-	}
+	};
 
-	private mapLoadedSourceEvent(event: DebugProtocol.LoadedSourceEvent): DebugProtocol.LoadedSourceEvent {
+	private loadedSourceEvent: DebugProtocolTransform<DebugProtocol.LoadedSourceEvent> = event => {
 		return {
 			...event,
-			body: this.mapLocation(event.body),
+			body: this.options.location(event.body),
 		};
-	}
+	};
 
-	private mapOutputEvent(event: DebugProtocol.OutputEvent): DebugProtocol.OutputEvent {
+	private outputEvent: DebugProtocolTransform<DebugProtocol.OutputEvent> = event => {
 		return {
 			...event,
-			body: this.mapLocation(event.body),
+			body: this.options.location(event.body),
 		};
-	}
+	};
 
-	private mapBreakpointLocationsRequest(request: DebugProtocol.BreakpointLocationsRequest): DebugProtocol.BreakpointLocationsRequest {
+	private breakpointLocationsRequest: DebugProtocolTransform<DebugProtocol.BreakpointLocationsRequest> = request => {
 		return {
 			...request,
-			arguments: this.mapLocation(request.arguments),
+			arguments: this.options.location(request.arguments),
 		};
-	}
+	};
 
-	private mapGotoTargetsRequest(request: DebugProtocol.GotoTargetsRequest): DebugProtocol.GotoTargetsRequest {
+	private gotoTargetsRequest: DebugProtocolTransform<DebugProtocol.GotoTargetsRequest> = request => {
 		return {
 			...request,
-			arguments: this.mapLocation(request.arguments),
+			arguments: this.options.location(request.arguments),
 		};
-	}
+	};
 
-	private mapSetBreakpointsRequest(request: DebugProtocol.SetBreakpointsRequest): DebugProtocol.Request {
+	private setBreakpointsRequest: DebugProtocolTransform<DebugProtocol.SetBreakpointsRequest> = request => {
 		return {
 			...request,
 			arguments: {
 				...request.arguments,
-				breakpoints: request.arguments.breakpoints?.map((breakpoint) => {
-					const location = this.mapLocation({ source: request.arguments.source, line: breakpoint.line });
+				breakpoints: request.arguments.breakpoints?.map(breakpoint => {
+					const location = this.options.location({ source: request.arguments.source, line: breakpoint.line });
 					return {
 						...breakpoint,
 						line: location.line,
 					};
 				}),
-				source: this.mapLocation({ source: request.arguments.source }).source,
+				source: this.options.location({ source: request.arguments.source }).source,
 			},
 		};
-	}
+	};
 
-	private mapSourceRequest(request: DebugProtocol.SourceRequest): DebugProtocol.SourceRequest {
+	private sourceRequest: DebugProtocolTransform<DebugProtocol.SourceRequest> = request => {
 		return {
 			...request,
-			arguments: this.mapLocation(request.arguments),
+			arguments: this.options.location(request.arguments),
 		};
-	}
+	};
 
-	private mapLoadedSourcesResponse(response: DebugProtocol.LoadedSourcesResponse): DebugProtocol.LoadedSourcesResponse {
+	private loadedSourcesResponse: DebugProtocolTransform<DebugProtocol.LoadedSourcesResponse> = response => {
 		return {
 			...response,
 			body: {
 				...response.body,
-				sources: response.body.sources.map((source) => {
-					return this.mapLocation({ source }).source;
+				sources: response.body.sources.map(source => {
+					return this.options.location({ source }).source;
 				}),
 			},
 		};
-	}
+	};
 
-	private mapScopesResponse(response: DebugProtocol.ScopesResponse): DebugProtocol.ScopesResponse {
+	private scopesResponse: DebugProtocolTransform<DebugProtocol.ScopesResponse> = response => {
 		return {
 			...response,
 			body: {
 				...response.body,
-				scopes: response.body.scopes.map((scope) => {
-					return this.mapLocation(scope);
+				scopes: response.body.scopes.map(scope => {
+					return this.options.location(scope);
 				}),
 			},
 		};
-	}
+	};
 
-	private mapSetBreakpointsResponse(response: DebugProtocol.SetBreakpointsResponse): DebugProtocol.SetBreakpointsResponse {
+	private setBreakpointsResponse: DebugProtocolTransform<DebugProtocol.SetBreakpointsResponse> = response => {
 		return {
 			...response,
 			body: {
 				...response.body,
-				breakpoints: response.body.breakpoints.map((breakpoint) => {
-					return this.mapLocation(breakpoint);
+				breakpoints: response.body.breakpoints.map(breakpoint => {
+					return this.options.location(breakpoint);
 				}),
 			},
 		};
-	}
+	};
 
-	private mapSetFunctionBreakpointsResponse(response: DebugProtocol.SetFunctionBreakpointsResponse): DebugProtocol.SetFunctionBreakpointsResponse {
+	private setFunctionBreakpointsResponse: DebugProtocolTransform<DebugProtocol.SetFunctionBreakpointsResponse> = response => {
 		return {
 			...response,
 			body: {
 				...response.body,
-				breakpoints: response.body.breakpoints.map((breakpoint) => {
-					return this.mapLocation(breakpoint);
+				breakpoints: response.body.breakpoints.map(breakpoint => {
+					return this.options.location(breakpoint);
 				}),
 			},
 		};
-	}
+	};
 
-	private mapStackTraceResponse(response: DebugProtocol.StackTraceResponse): DebugProtocol.StackTraceResponse {
+	private stackTraceResponse: DebugProtocolTransform<DebugProtocol.StackTraceResponse> = response => {
 		return {
 			...response,
 			body: {
 				...response.body,
-				stackFrames: response.body.stackFrames.map((frame) => {
-					return this.mapLocation(frame);
+				stackFrames: response.body.stackFrames.map(frame => {
+					return this.options.location(frame);
 				}),
 			},
 		};
-	}
+	};
 }
