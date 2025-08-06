@@ -102,7 +102,7 @@ test.describe('Positron notebook opening and saving', {
 		await quickInput.type(path.join(app.workspacePathOrFolder, baseFileName));
 		await quickInput.clickOkButton();
 
-		// Verify the file was saved with .ipynb extension automatically added
+		// Verify the file was saved and the .ipynb extension was automatically added
 		const expectedFileName = `${baseFileName}.ipynb`;
 		await editors.waitForActiveTab(expectedFileName, false);
 		await notebooksPositron.expectToBeVisible();
