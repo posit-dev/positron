@@ -9,6 +9,7 @@
 			"es2018",
 			"DOM",
 			"DOM.Iterable"
-		]
+		],
+		"strict": true,
 	}
 }
