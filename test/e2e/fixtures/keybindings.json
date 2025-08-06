@@ -65,5 +65,9 @@
     {
         "key": "cmd+b c",
         "command": "workbench.action.closeSidebar" // View: Close Primary Side Bar
+    },
+	{
+        "key": "cmd+j q",
+        "command": "workbench.action.files.openFolder" // Open Folder
     }
 ]

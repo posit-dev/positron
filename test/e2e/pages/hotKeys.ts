@@ -192,7 +192,7 @@ export class HotKeys {
 	}
 
 	public async openFolder() {
-		await this.pressHotKeys('Cmd+O', 'Open Folder');
+		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
 	}
 
 	/**
