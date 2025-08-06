@@ -7,14 +7,16 @@ import * as vscode from 'vscode';
 import { DebugProtocolTransformer } from './debugProtocolTransformer.js';
 import { JupyterRuntimeDebugAdapter } from './runtimeDebugAdapter.js';
 import { DisposableStore, formatDebugMessage } from './util.js';
+import { NotebookCell } from 'vscode';
 
 export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
 	private _cellUriByCodeId = new Map<string, string>();
+	private _codeIdByCellUri = new Map<string, string>();
 	private readonly _runtimeToClientTransformer: DebugProtocolTransformer;
-	// private readonly _clientToRuntimeTransformer: DebugProtocolTransformer;
+	private readonly _clientToRuntimeTransformer: DebugProtocolTransformer;
 
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
 	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
@@ -24,6 +26,7 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 		private readonly _notebook: vscode.NotebookDocument
 	) {
 		const cellUriByCodeId = this._cellUriByCodeId;
+		const codeIdByCellUri = this._codeIdByCellUri;
 		this._runtimeToClientTransformer = new DebugProtocolTransformer({
 			location(location) {
 				const cellUri = location.source?.path && cellUriByCodeId.get(location.source.path);
@@ -33,17 +36,28 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 				return {
 					...location,
 					source: {
+						...location.source,
 						sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
 						path: cellUri,
 					},
 				};
 			}
 		});
-
-		// thrs._clientToRuntimeTransformer = new DebugProtocolTransformer({
-		// 	location(location) {
-		// 	}
-		// });
+		this._clientToRuntimeTransformer = new DebugProtocolTransformer({
+			location(location) {
+				const codeId = location.source?.path && codeIdByCellUri.get(location.source.path);
+				if (!codeId) {
+					return location;
+				}
+				return {
+					...location,
+					source: {
+						...location.source,
+						path: codeId,
+					},
+				};
+			}
+		});
 
 		this._disposables.add(this._adapter.onDidSendMessage(async (message) => {
 			const runtimeMessage = message as DebugProtocol.ProtocolMessage;
@@ -76,10 +90,13 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 		// TODO: Block debugging until this is done?
 		// TODO: Update the map when a cell's source changes.
 		this._cellUriByCodeId.clear();
+		this._codeIdByCellUri.clear();
 		for (const cell of this._notebook.getCells()) {
+			const cellUri = cell.document.uri.toString();
 			const code = cell.document.getText();
 			const codeId = this._adapter.getCodeId(code);
-			this._cellUriByCodeId.set(codeId, cell.document.uri.toString());
+			this._cellUriByCodeId.set(codeId, cellUri);
+			this._codeIdByCellUri.set(cellUri, codeId);
 		}
 	}
 
@@ -94,50 +111,51 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 		});
 	}
 
-	private async handleMessageAsync(message: DebugProtocol.ProtocolMessage): Promise<void> {
-		let runtimeMessage = message;
-		if (message.type === 'request') {
-			const request = message as DebugProtocol.Request;
-			if (request.command === 'setBreakpoints') {
-				const setBreakpointsRequest = request as DebugProtocol.SetBreakpointsRequest;
-				const transformedRequest = await this.transformSetBreakpointsRequest(setBreakpointsRequest);
-				if (transformedRequest) {
-					runtimeMessage = transformedRequest;
-				}
-			}
+	private async handleMessageAsync(clientMessage: DebugProtocol.ProtocolMessage): Promise<void> {
+		await this.maybeDumpCell(clientMessage);
+
+		let runtimeMessage = clientMessage;
+		try {
+			runtimeMessage = this._clientToRuntimeTransformer.transform(clientMessage);
+		} catch (error) {
+			this._log.error(`[notebook] Error transforming message: ${formatDebugMessage(clientMessage)}`, error);
 		}
 
 		// Send the message to the runtime.
 		this._adapter.handleMessage(runtimeMessage);
 	}
 
-	private async transformSetBreakpointsRequest(request: DebugProtocol.SetBreakpointsRequest): Promise<DebugProtocol.SetBreakpointsRequest | undefined> {
+	private async maybeDumpCell(message: DebugProtocol.ProtocolMessage): Promise<void> {
 		// Intercept setBreakpoint requests from the client,
 		// dump the source cell, and replace with the temp file path.
-		const cellUri = request.arguments.source.path;
-		if (!cellUri) {
-			throw new Error('No cell URI provided.');
+		if (message.type !== 'request') {
+			return;
 		}
+
+		const request = message as DebugProtocol.Request;
+		if (request.command !== 'setBreakpoints') {
+			return;
+		}
+
+		const setBreakpointsRequest = request as DebugProtocol.SetBreakpointsRequest;
+		const cellUri = setBreakpointsRequest.arguments.source.path;
+		if (!cellUri) {
+			return;
+		}
+
 		const cell = this._notebook.getCells().find((cell) => cell.document.uri.toString() === cellUri);
 		if (!cell) {
-			throw new Error(`Cell not found: ${cellUri}`);
+			return;
 		}
 
-		// Dump the cell into a temp file.
-		const code = cell.document.getText();
-		const dumpCellResponse = await this._adapter.dumpCell(code);
+		await this.dumpCell(cell);
+	}
 
-		// Replace the cell URI in the request source path with the temp file path.
-		return {
-			...request,
-			arguments: {
-				...request.arguments,
-				source: {
-					...request.arguments.source,
-					path: dumpCellResponse.sourcePath,
-				},
-			},
-		};
+	private async dumpCell(cell: NotebookCell): Promise<void> {
+		const code = cell.document.getText();
+		const { sourcePath: codeId } = await this._adapter.dumpCell(code);
+		this._cellUriByCodeId.set(codeId, cell.document.uri.toString());
+		this._codeIdByCellUri.set(cell.document.uri.toString(), codeId);
 	}
 
 	dispose(): void {
