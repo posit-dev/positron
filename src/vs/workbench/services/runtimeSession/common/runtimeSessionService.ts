@@ -475,7 +475,7 @@ export interface IRuntimeSessionService {
 	 */
 	selectRuntime(runtimeId: string, source: string, notebookUri?: URI): Promise<void>;
 
-	deleteSession(sessionId: string): Promise<void>;
+	deleteSession(sessionId: string): Promise<boolean>;
 
 	/**
 	 * Focus the runtime session by making it the foreground session if it's
