@@ -20,7 +20,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 	private readonly _debugApplicationDisposableByName = new Map<string, vscode.Disposable>();
 	private readonly _runApplicationSequencerByName = new SequencerByKey<string>();
 	private readonly _runApplicationDisposableByName = new Map<string, vscode.Disposable>();
-	private readonly _appServers = new Map<string, { terminalPid: number; proxyUri: vscode.Uri }>();
+	private readonly _appServers = new Map<string, { terminalPid: number | undefined; proxyUri: vscode.Uri }>();
 
 	constructor(
 		private readonly _globalState: vscode.Memento,
@@ -376,7 +376,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 				vscode.l10n.t(
 					"Failed to get '{0}' interpreter information. Error: {1}",
 					languageId,
-					error.message
+					JSON.stringify(error)
 				),
 			);
 		}
@@ -508,7 +508,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		return true;
 	}
 
-	private addAppServer(appUrl: string, terminalPid: number, proxyUri: vscode.Uri): void {
+	private addAppServer(appUrl: string, terminalPid: number | undefined, proxyUri: vscode.Uri): void {
 		const url = appUrl.endsWith('/')
 			? appUrl.slice(0, -1) // Remove trailing slash if present
 			: appUrl; // Otherwise, use the URL as is
@@ -517,7 +517,7 @@ export class PositronRunAppApiImpl implements PositronRunApp, vscode.Disposable 
 		log.trace(`Known app servers: ${JSON.stringify(Array.from(this._appServers.entries()))}`);
 	}
 
-	private removeAppServer(terminalPid: number): void {
+	private removeAppServer(terminalPid: number | undefined): void {
 		log.trace(`Removing app server for terminal process ID: ${terminalPid}`);
 		const serversToRemove: string[] = [];
 		this._appServers.forEach((value, key) => {
