@@ -52,11 +52,15 @@ export class ArkLsp implements vscode.Disposable {
 	/** Disposable for per-activation items */
 	private activationDisposables: vscode.Disposable[] = [];
 
+	private languageClientName: string;
+
 	public constructor(
 		private readonly _version: string,
 		private readonly _metadata: positron.RuntimeSessionMetadata,
 		private readonly _dynState: positron.LanguageRuntimeDynState,
-	) { }
+	) {
+		this.languageClientName = `Positron R Language Client (${this._version}) for session '${this._metadata.sessionId}'`;
+	}
 
 	private setState(state: LspState) {
 		this._state = state;
@@ -138,7 +142,7 @@ export class ArkLsp implements vscode.Disposable {
 		LOGGER.info(message);
 		outputChannel.appendLine(message);
 
-		this._client = new LanguageClient(id, `Positron R Language Server (${this._version})`, serverOptions, clientOptions);
+		this._client = new LanguageClient(id, this.languageClientName, serverOptions, clientOptions);
 
 		const out = new PromiseHandles<void>();
 		this._initializing = out.promise;
@@ -152,7 +156,7 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Running:
 					if (this._initializing) {
-						LOGGER.info(`ARK (R ${this._version}) language client init successful`);
+						LOGGER.info(`${this.languageClientName} init successful`);
 						this._initializing = undefined;
 						if (this._client) {
 							// Register Positron-specific LSP extension methods
@@ -164,13 +168,13 @@ export class ArkLsp implements vscode.Disposable {
 					break;
 				case State.Stopped:
 					if (this._initializing) {
-						LOGGER.info(`ARK (R ${this._version}) language client init failed`);
+						LOGGER.info(`${this.languageClientName} init failed`);
 						out.reject('Ark LSP client stopped before initialization');
 					}
 					this.setState(LspState.stopped);
 					break;
 			}
-			LOGGER.info(`ARK (R ${this._version}) language client state changed ${oldState} => ${this._state}`);
+			LOGGER.info(`${this.languageClientName} state changed ${oldState} => ${this._state}`);
 		}));
 
 		this._client.start();
@@ -193,6 +197,8 @@ export class ArkLsp implements vscode.Disposable {
 			return;
 		}
 
+		LOGGER.info(`${this.languageClientName} is stopping`);
+
 		// First wait for initialization to complete.
 		// `stop()` should not be called on a
 		// partially initialized client.
@@ -206,6 +212,7 @@ export class ArkLsp implements vscode.Disposable {
 		const stopped = new Promise<void>((resolve) => {
 			const disposable = this._client!.onDidChangeState((event) => {
 				if (event.newState === State.Stopped) {
+					LOGGER.info(`${this.languageClientName} is stopped`);
 					resolve();
 					disposable.dispose();
 				}
