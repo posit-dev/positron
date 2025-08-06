@@ -359,7 +359,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const outputCount = usage.completionTokens;
 		const inputCount = usage.promptTokens;
 		const requestId = (options.modelOptions as any)?.requestId;
-		log.debug(`[${this._config.name}]: input=${inputCount}, output=${outputCount}`);
+		log.debug(`[${this._config.name}]: ${inputCount} input tokens, ${outputCount} output tokens`);
 
 		if (requestId) {
 			recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
@@ -370,8 +370,10 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		const other = await result.providerMetadata;
-		if (other) {
-			log.debug(`[${this._config.name}]: providerMetadata=${JSON.stringify(other)}`);
+
+		// Log Bedrock usage if available
+		if (other && other.bedrock && other.bedrock.usage) {
+			log.debug(`[${this._config.name}]: Bedrock usage: ${JSON.stringify(other.bedrock.usage, null, 2)}`);
 		}
 	}
 
@@ -618,12 +620,10 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		super(_config, _context);
 
 		this.model = createAmazonBedrock({
-			bedrockOptions: {
-				// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
-				// sets the AWS region where the models are available
-				region: process.env.AWS_REGION ?? 'us-east-1',
-				credentials: fromNodeProviderChain(),
-			}
+			// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
+			// sets the AWS region where the models are available
+			region: process.env.AWS_REGION ?? 'us-east-1',
+			credentialProvider: fromNodeProviderChain(),
 		})(this._config.model);
 	}
 
