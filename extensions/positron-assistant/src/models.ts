@@ -335,6 +335,15 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 		}
 
+		// Log all the warnings from the response
+		result.warnings.then((warnings) => {
+			if (warnings) {
+				for (const warning of warnings) {
+					log.warn(`${this.model} (${this.identifier}): ${warning}`);
+				}
+			}
+		});
+
 		if (this._context) {
 			// ai-sdk provides token usage in the result but it's not clear how it is calculated
 			const usage = await result.usage;
