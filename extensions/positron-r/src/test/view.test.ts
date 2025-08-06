@@ -14,7 +14,7 @@ import { closeAllEditors } from './utils-vscode';
 suite('View', () => {
 	let sesDisposable: vscode.Disposable;
 
-	setup(async () => {
+	suiteSetup(async () => {
 		// To be safe
 		await closeAllEditors();
 
@@ -22,7 +22,7 @@ suite('View', () => {
 		sesDisposable = disposable;
 	});
 
-	teardown(async () => {
+	suiteTeardown(async () => {
 		if (sesDisposable) {
 			await sesDisposable.dispose();
 		}
