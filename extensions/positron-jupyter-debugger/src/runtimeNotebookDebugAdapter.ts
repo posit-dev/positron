@@ -14,7 +14,7 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 	private readonly _onDidCompleteConfiguration = this._disposables.add(new vscode.EventEmitter<void>());
 	private _cellUriByCodeId = new Map<string, string>();
 	private readonly _runtimeToClientTransformer: DebugProtocolTransformer;
-	// TODO: Do we also need to transform client back to runtime?
+	// private readonly _clientToRuntimeTransformer: DebugProtocolTransformer;
 
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
 	public readonly onDidCompleteConfiguration = this._onDidCompleteConfiguration.event;
@@ -40,6 +40,11 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 			}
 		});
 
+		// thrs._clientToRuntimeTransformer = new DebugProtocolTransformer({
+		// 	location(location) {
+		// 	}
+		// });
+
 		this._disposables.add(this._adapter.onDidSendMessage(async (message) => {
 			const runtimeMessage = message as DebugProtocol.ProtocolMessage;
 
@@ -52,6 +57,7 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 			this._log.debug(`[notebook] >>> SEND ${formatDebugMessage(clientMessage)}`);
 			this._onDidSendMessage.fire(clientMessage);
 
+			// TODO: Feel like this logic can rather live in the listener.
 			if (runtimeMessage.type === 'response' &&
 				(runtimeMessage as DebugProtocol.Response).command === 'configurationDone') {
 				this._onDidCompleteConfiguration.fire();
@@ -59,14 +65,22 @@ export class JupyterRuntimeNotebookDebugAdapter implements vscode.DebugAdapter, 
 		}));
 
 		this._disposables.add(this._adapter.onDidUpdateCodeIdOptions(() => {
-			// TODO: Block debugging until this is done?
-			// TODO: Update the map when a cell's source changes.
-			for (const cell of this._notebook.getCells()) {
-				const code = cell.document.getText();
-				const codeId = this._adapter.getCodeId(code);
-				this._cellUriByCodeId.set(codeId, cell.document.uri.toString());
-			}
+			this.updateCellUriByCodeId();
 		}));
+		if (this._adapter.codeIdOptions) {
+			this.updateCellUriByCodeId();
+		}
+	}
+
+	private updateCellUriByCodeId(): void {
+		// TODO: Block debugging until this is done?
+		// TODO: Update the map when a cell's source changes.
+		this._cellUriByCodeId.clear();
+		for (const cell of this._notebook.getCells()) {
+			const code = cell.document.getText();
+			const codeId = this._adapter.getCodeId(code);
+			this._cellUriByCodeId.set(codeId, cell.document.uri.toString());
+		}
 	}
 
 	private get _log(): vscode.LogOutputChannel {
