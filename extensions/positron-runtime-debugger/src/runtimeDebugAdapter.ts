@@ -11,7 +11,7 @@ import { Disposable, formatDebugMessage } from './util.js';
 import { DebugProtocolTransformer } from './debugProtocolTransformer.js';
 import { LocationMapper } from './types.js';
 
-export interface JupyterRuntimeDebugAdapterOptions {
+export interface RuntimeDebugAdapterOptions {
 	/**
 	 * The location mapper used to convert between client and runtime locations.
 	 */
@@ -37,7 +37,7 @@ export interface JupyterRuntimeDebugAdapterOptions {
  * Debug adapter that bridges VS Code's debug protocol with Positron runtimes that support
  * the {@link https://jupyter-client.readthedocs.io/en/latest/messaging.html#additions-to-the-dap Jupyter debugging protocol}.
  */
-export class JupyterRuntimeDebugAdapter extends Disposable implements vscode.DebugAdapter, vscode.Disposable {
+export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _onDidSendMessage = this._register(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidRefreshState = this._register(new vscode.EventEmitter<DebugInfoResponseBody>());
 	private readonly _locationMapper: LocationMapper;
@@ -61,7 +61,7 @@ export class JupyterRuntimeDebugAdapter extends Disposable implements vscode.Deb
 	public readonly onDidRefreshState = this._onDidRefreshState.event;
 
 	constructor(
-		options: JupyterRuntimeDebugAdapterOptions
+		options: RuntimeDebugAdapterOptions
 	) {
 		super();
 
