@@ -7,19 +7,16 @@ import './mocha-setup'
 
 import * as vscode from 'vscode';
 import * as path from 'path';
-import { makeTempDir, withDisposables } from './utils-disposables';
-import { execute, startR } from './utils-session';
-import { assertSelectedEditor } from './utils-assertions';
-import { openTextDocument } from './utils-vscode';
+import * as testKit from './kit';
 
 suite('RStudio API', () => {
 	// https://github.com/posit-dev/positron/issues/8374
 	test('Navigate to file', async () => {
-		await withDisposables(async (disposables) => {
-			const [_ses, sesDisposable] = await startR();
+		await testKit.withDisposables(async (disposables) => {
+			const [_ses, sesDisposable] = await testKit.startR();
 			disposables.push(sesDisposable);
 
-			const [tmpDir, dirDisposable] = makeTempDir('rstudioapi-test');
+			const [tmpDir, dirDisposable] = testKit.makeTempDir('rstudioapi-test');
 			disposables.push(dirDisposable);
 
 			const fooUri = vscode.Uri.file(path.join(tmpDir, 'foo.R'));
@@ -28,21 +25,21 @@ suite('RStudio API', () => {
 			await vscode.workspace.fs.writeFile(fooUri, Buffer.from('this-is-foo'));
 			await vscode.workspace.fs.writeFile(barUri, Buffer.from('this-is-bar'));
 
-			const [fooDoc, fooDocDisposable] = await openTextDocument(fooUri);
-			const [barDoc, barDocDisposable] = await openTextDocument(barUri);
+			const [fooDoc, fooDocDisposable] = await testKit.openTextDocument(fooUri);
+			const [barDoc, barDocDisposable] = await testKit.openTextDocument(barUri);
 			disposables.push(fooDocDisposable, barDocDisposable);
 
 			await vscode.window.showTextDocument(fooDoc, { preview: false });
 			await vscode.window.showTextDocument(barDoc, { preview: false });
 
 			// Assert defensively that bar.R is selected
-			await assertSelectedEditor(barUri, 'this-is-bar');
+			await testKit.assertSelectedEditor(barUri, 'this-is-bar');
 
 			const escapedPath = fooUri.fsPath.replace(/\\/g, '\\\\');
-			await execute(`.rs.api.navigateToFile('${escapedPath}')`);
+			await testKit.execute(`.rs.api.navigateToFile('${escapedPath}')`);
 
 			// Now foo.R should be selected
-			await assertSelectedEditor(fooUri, 'this-is-foo');
+			await testKit.assertSelectedEditor(fooUri, 'this-is-foo');
 		});
 	});
 });
