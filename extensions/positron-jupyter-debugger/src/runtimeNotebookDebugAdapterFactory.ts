@@ -52,7 +52,18 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 
 		const sourceMapper = new SourceMapper();
 		const sourceMap = this._disposables.add(new NotebookSourceMap(sourceMapper, notebook));
-		const adapter = this._disposables.add(new JupyterRuntimeDebugAdapter(sourceMapper, sourceMap, outputChannel, debugSession, runtimeSession));
+		const adapter = this._disposables.add(new JupyterRuntimeDebugAdapter(sourceMap, outputChannel, debugSession, runtimeSession));
+
+		// TODO: Where should this disposable live?
+		// TODO: Do we need a refresh state event or can we just call debugInfo here?
+		this._disposables.add(adapter.onDidRefreshState((debugInfo) => {
+			sourceMapper.setSourceMapOptions({
+				hashMethod: debugInfo.hashMethod,
+				hashSeed: debugInfo.hashSeed,
+				tmpFilePrefix: debugInfo.tmpFilePrefix,
+				tmpFileSuffix: debugInfo.tmpFileSuffix,
+			});
+		}));
 
 		// Create a debug cell manager to handle the cell execution and debugging.
 		const debugCellManager = this._disposables.add(new DebugCellManager(adapter, debugSession, notebook, runtimeSession, cell.index));

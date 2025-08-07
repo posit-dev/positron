@@ -7,21 +7,19 @@ import { DebugProtocol } from '@vscode/debugprotocol';
 import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
+import { DebugInfoArguments, DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
 import { DisposableStore, formatDebugMessage } from './util.js';
-import { DebugProtocolTransformer } from './debugProtocolTransformer.js';
-import { SourceMapper } from './sourceMapper.js';
+import { DebugLocation, DebugProtocolTransformer } from './debugProtocolTransformer.js';
 
 export interface SourceMap {
-	runtimeToClientSourcePath(runtimeSourcePath: string): string | undefined;
-	clientToRuntimeSourcePath(clientSourcePath: string): string | undefined;
-	refresh(): void;
+	toClientLocation<T extends DebugLocation>(location: T): T;
+	toRuntimeLocation<T extends DebugLocation>(location: T): T;
 }
 
 export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
-	private readonly _onDidUpdateSourceMapOptions = this._disposables.add(new vscode.EventEmitter<void>());
+	private readonly _onDidRefreshState = this._disposables.add(new vscode.EventEmitter<DebugInfoResponseBody>());
 	private readonly _pendingRequestIds = new Set<string>();
 
 	private readonly _runtimeToClientTransformer: DebugProtocolTransformer;
@@ -30,48 +28,21 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 	/** Event emitted when a debug protocol message is sent to the client. */
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
 
-	public readonly onDidUpdateSourceMapOptions = this._onDidUpdateSourceMapOptions.event;
+	public readonly onDidRefreshState = this._onDidRefreshState.event;
 
 	constructor(
 		// TODO: options object
-		private readonly _sourceMapper: SourceMapper,
 		private readonly _sourceMap: SourceMap,
 		public readonly log: vscode.LogOutputChannel,
 		public readonly debugSession: vscode.DebugSession,
 		public readonly runtimeSession: positron.LanguageRuntimeSession,
 	) {
-		const self = this;
 		this._runtimeToClientTransformer = new DebugProtocolTransformer({
-			location(location) {
-				const cellUri = location.source?.path && self._sourceMap.runtimeToClientSourcePath(location.source.path);
-				if (!cellUri) {
-					return location;
-				}
-				return {
-					...location,
-					source: {
-						...location.source,
-						sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
-						path: cellUri,
-					},
-				};
-			}
+			location: this._sourceMap.toClientLocation.bind(this._sourceMap)
 		});
 
 		this._clientToRuntimeTransformer = new DebugProtocolTransformer({
-			location(location) {
-				const sourcePath = location.source?.path && self._sourceMap.clientToRuntimeSourcePath(location.source.path);
-				if (!sourcePath) {
-					return location;
-				}
-				return {
-					...location,
-					source: {
-						...location.source,
-						path: sourcePath,
-					},
-				};
-			}
+			location: this._sourceMap.toRuntimeLocation.bind(this._sourceMap),
 		});
 
 		// Forward debug messages from the runtime to the client.
@@ -96,30 +67,36 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 
 	private async restoreState(): Promise<void> {
 		const debugInfo = await this.debugInfo();
-		// TODO: Could have the source mapper listen for this event... that way this class doesn't depend on it at all?
-		this._sourceMapper.setSourceMapOptions({
-			hashMethod: debugInfo.hashMethod,
-			hashSeed: debugInfo.hashSeed,
-			tmpFilePrefix: debugInfo.tmpFilePrefix,
-			tmpFileSuffix: debugInfo.tmpFileSuffix,
-		});
-		// TODO: Maybe this could also call dump cell somehow? Basically reconsider this boundary
-		this._sourceMap.refresh();
-		this._onDidUpdateSourceMapOptions.fire();
+
+		// TODO: We don't yet do anything here. But this should update the UI when reconnecting to a runtime
+		//       that is already debugging.
+
+		this._onDidRefreshState.fire(debugInfo);
 	}
 
 	private sendMessage(runtimeMessage: DebugProtocol.ProtocolMessage): void {
 		this.log.debug(`[runtime] >>> SEND ${formatDebugMessage(runtimeMessage)}`);
+		const clientMessage = this.toClientMessage(runtimeMessage);
+		this.log.debug(`[adapter] >>> SEND ${formatDebugMessage(clientMessage)}`);
+		this._onDidSendMessage.fire(clientMessage);
+	}
 
-		let clientMessage = runtimeMessage;
+	private toClientMessage(runtimeMessage: DebugProtocol.ProtocolMessage): DebugProtocol.ProtocolMessage {
 		try {
-			clientMessage = this._runtimeToClientTransformer.transform(runtimeMessage);
+			return this._runtimeToClientTransformer.transform(runtimeMessage);
 		} catch (error) {
 			this.log.error(`[adapter] Error transforming message: ${formatDebugMessage(runtimeMessage as DebugProtocol.ProtocolMessage)}`, error);
 		}
+		return runtimeMessage;
+	}
 
-		this.log.debug(`[adapter] >>> SEND ${formatDebugMessage(clientMessage)}`);
-		this._onDidSendMessage.fire(clientMessage);
+	private toRuntimeMessage(clientMessage: DebugProtocol.ProtocolMessage): DebugProtocol.ProtocolMessage {
+		try {
+			return this._clientToRuntimeTransformer.transform(clientMessage);
+		} catch (error) {
+			this.log.error(`[adapter] Error transforming message: ${formatDebugMessage(clientMessage)}`, error);
+		}
+		return clientMessage;
 	}
 
 	public handleMessage(clientMessage: DebugProtocol.ProtocolMessage): void {
@@ -142,15 +119,8 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 			this.log.error(`[adapter] Error dumping source for request: ${formatDebugMessage(clientMessage)}`, error);
 		}
 
-		let runtimeMessage = clientMessage;
-		try {
-			runtimeMessage = this._clientToRuntimeTransformer.transform(clientMessage);
-		} catch (error) {
-			this.log.error(`[adapter] Error transforming message: ${formatDebugMessage(clientMessage)}`, error);
-		}
-
+		const runtimeMessage = this.toRuntimeMessage(clientMessage);
 		this.log.debug(`[runtime] <<< RECV ${formatDebugMessage(runtimeMessage)}`);
-
 		// Send the request to the runtime.
 		const id = randomUUID();
 		// TODO: Better typing
@@ -187,13 +157,12 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 		await this.dumpCell(code);
 	}
 
-	public async dumpCell(code: string): Promise<DumpCellResponseBody> {
-		const args: DumpCellArguments = { code };
-		return await this.debugSession.customRequest('dumpCell', args) as DumpCellResponseBody;
+	private async dumpCell(code: string): Promise<DumpCellResponseBody> {
+		return await this.debugSession.customRequest('dumpCell', { code } satisfies DumpCellArguments);
 	}
 
-	public async debugInfo(): Promise<DebugInfoResponseBody> {
-		return await this.debugSession.customRequest('debugInfo') as DebugInfoResponseBody;
+	private async debugInfo(): Promise<DebugInfoResponseBody> {
+		return await this.debugSession.customRequest('debugInfo', {} satisfies DebugInfoArguments);
 	}
 
 	public dispose() {
