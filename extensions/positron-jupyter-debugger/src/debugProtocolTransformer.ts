@@ -3,30 +3,23 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { DebugProtocol } from '@vscode/debugprotocol';
+import { Location } from './types.js';
 
-/**
- * Represents a source location in the debug protocol.
- */
-export interface SourceLocation {
-	source?: DebugProtocol.Source;
-	line?: number;
-	endLine?: number;
-}
-
-type DebugProtocolTransform<T extends DebugProtocol.ProtocolMessage | SourceLocation> = (obj: T) => T;
+/* Transforms debug protocol messages. */
+type DebugProtocolTransform<T extends DebugProtocol.ProtocolMessage> = (obj: T) => T;
 
 /**
  * Options for the {@link DebugProtocolTransformer}.
  */
 export interface DebugProtocolTransformerOptions {
 	/**
-	 * Transforms a debug source location.
+	 * Transforms a source location.
 	 *
-	 * @param obj The debug source location to transform.
-	 * @return The transformed debug source location.
-	 *   If the transformation is not applicable, return `undefined`.
+	 * @param obj The source location to transform.
+	 * @return The transformed source location. If the transformation is not applicable,
+	 *   return `undefined` to keep the original location unchanged.
 	 */
-	location?: <T extends SourceLocation>(obj: T) => T | undefined;
+	location?: <T extends Location>(obj: T) => T | undefined;
 }
 
 /**
@@ -263,6 +256,7 @@ export class DebugProtocolTransformer {
 	};
 }
 
+/* Helper to transform an array and track if any items were updated. */
 function transformArray<T>(array: T[], transformFn: (item: T) => T | undefined): [boolean, T[]] {
 	let updated = false;
 	const transformedArray = array.map(item => {

@@ -2,16 +2,18 @@
  *  Copyright (C) 2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
-
 import { DebugProtocol } from '@vscode/debugprotocol';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DisposableStore } from './util.js';
 
-
+/**
+ * Controls the execution and lifecycle of a notebook cell during debugging.
+ */
 export class CellDebugController implements vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 
+	/* Tracks the runtime execution ID of the current cell. */
 	private _executionId?: string;
 
 	constructor(
@@ -73,7 +75,7 @@ export class CellDebugController implements vscode.Disposable {
 		}));
 	}
 
-	dispose() {
+	public dispose() {
 		this._disposables.dispose();
 	}
 }

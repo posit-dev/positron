@@ -5,45 +5,67 @@
 import * as vscode from 'vscode';
 import { PathEncoder } from './pathEncoder.js';
 import { DisposableStore } from './util.js';
-import { SourceLocation } from './debugProtocolTransformer.js';
-import { LocationMapper } from './jupyterRuntimeDebugAdapter.js';
+import { Location } from './types.js';
+import { LocationMapper } from './types.js';
 
+/**
+ * Maps source locations between notebook cells and runtime source paths.
+ */
 export class NotebookLocationMapper implements vscode.Disposable, LocationMapper {
 	private readonly _disposables = new DisposableStore();
-	private _runtimeSourcePathToCellUri = new Map<string, string>();
-	private _cellUriToRuntimeSourcePath = new Map<string, string>();
+
+	/* Map of cell URI keyed by runtime source path. */
+	private _cellUriByRuntimeSourcePath = new Map<string, string>();
+
+	/* Map of runtime source path keyed by cell URI. */
+	private _runtimeSourcePathByCellUri = new Map<string, string>();
 
 	constructor(
-		private readonly _sourceMapper: PathEncoder,
+		private readonly _pathEncoder: PathEncoder,
 		private readonly _notebook: vscode.NotebookDocument
 	) {
+		// Initial refresh for this notebook.
 		this.refresh();
 
-		this._disposables.add(this._sourceMapper.onDidUpdateOptions(() => {
+		// When the path encoder options change, refresh.
+		this._disposables.add(this._pathEncoder.onDidUpdateOptions(() => {
 			this.refresh();
 		}));
 
+		// When the notebook document changes, update mappings.
 		this._disposables.add(vscode.workspace.onDidChangeNotebookDocument(event => {
+			// Only handle changes for this notebook.
 			if (event.notebook.uri.toString() !== this._notebook.uri.toString()) {
 				return;
 			}
+
 			// TODO: Probably need to throttle some of these?
 			for (const change of event.contentChanges) {
+				// Add new cells.
 				for (const cell of change.addedCells) {
 					this.add(cell);
 				}
+
+				// Delete removed cells.
 				for (const cell of change.removedCells) {
 					this.delete(cell);
 				}
 			}
+
+			// Update changed cells.
 			for (const change of event.cellChanges) {
 				this.add(change.cell);
 			}
 		}));
 	}
 
-	public toClientLocation<T extends SourceLocation>(location: T): T {
-		const cellUri = location.source?.path && this._runtimeSourcePathToCellUri.get(location.source.path);
+	/**
+	 * Translates a runtime location to a client location.
+	 * @param location The runtime location.
+	 * @returns The client location (cell URI).
+	 */
+	public toClientLocation<T extends Location>(location: T): T {
+		const cellUri = location.source?.path && this._cellUriByRuntimeSourcePath.get(location.source.path);
 		if (!cellUri) {
 			return location;
 		}
@@ -57,8 +79,13 @@ export class NotebookLocationMapper implements vscode.Disposable, LocationMapper
 		};
 	}
 
-	public toRuntimeLocation<T extends SourceLocation>(location: T): T {
-		const path = location.source?.path && this._cellUriToRuntimeSourcePath.get(location.source.path);
+	/**
+	 * Translates a client location (cell URI) to a runtime location.
+	 * @param location The client location (cell URI).
+	 * @returns The runtime location.
+	 */
+	public toRuntimeLocation<T extends Location>(location: T): T {
+		const path = location.source?.path && this._runtimeSourcePathByCellUri.get(location.source.path);
 		if (!path) {
 			return location;
 		}
@@ -71,28 +98,32 @@ export class NotebookLocationMapper implements vscode.Disposable, LocationMapper
 		};
 	}
 
+	/* Clears all location maps. */
 	private clear(): void {
-		this._runtimeSourcePathToCellUri.clear();
-		this._cellUriToRuntimeSourcePath.clear();
+		this._cellUriByRuntimeSourcePath.clear();
+		this._runtimeSourcePathByCellUri.clear();
 	}
 
+	/* Adds or updates maps for a notebook cell. */
 	private add(cell: vscode.NotebookCell): void {
 		const cellUri = cell.document.uri.toString();
 		const code = cell.document.getText();
-		const sourcePath = this._sourceMapper.encode(code);
-		this._runtimeSourcePathToCellUri.set(sourcePath, cellUri);
-		this._cellUriToRuntimeSourcePath.set(cellUri, sourcePath);
+		const sourcePath = this._pathEncoder.encode(code);
+		this._cellUriByRuntimeSourcePath.set(sourcePath, cellUri);
+		this._runtimeSourcePathByCellUri.set(cellUri, sourcePath);
 	}
 
+	/* Removes entries for a notebook cell. */
 	private delete(cell: vscode.NotebookCell): void {
 		const cellUri = cell.document.uri.toString();
-		const sourcePath = this._cellUriToRuntimeSourcePath.get(cellUri);
+		const sourcePath = this._runtimeSourcePathByCellUri.get(cellUri);
 		if (sourcePath) {
-			this._runtimeSourcePathToCellUri.delete(sourcePath);
-			this._cellUriToRuntimeSourcePath.delete(cellUri);
+			this._cellUriByRuntimeSourcePath.delete(sourcePath);
+			this._runtimeSourcePathByCellUri.delete(cellUri);
 		}
 	}
 
+	/* Rebuilds all entries from current notebook state. */
 	private refresh(): void {
 		this.clear();
 		for (const cell of this._notebook.getCells()) {
@@ -100,7 +131,7 @@ export class NotebookLocationMapper implements vscode.Disposable, LocationMapper
 		}
 	}
 
-	dispose(): void {
+	public dispose(): void {
 		this._disposables.dispose();
 	}
 }
