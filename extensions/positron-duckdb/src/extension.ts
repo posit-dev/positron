@@ -816,7 +816,7 @@ export class DuckDBTableView {
 					column_name: entry.column_name,
 					column_index: index,
 					type_name: entry.column_type,
-					type_display,
+					type_display
 				};
 			}),
 		};
