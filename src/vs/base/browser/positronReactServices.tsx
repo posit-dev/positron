@@ -53,6 +53,8 @@ import { IPositronConnectionsService } from '../../workbench/services/positronCo
 import { IPositronWebviewPreloadService } from '../../workbench/services/positronWebviewPreloads/browser/positronWebviewPreloadService.js';
 import { IPositronNotebookOutputWebviewService } from '../../workbench/contrib/positronOutputWebview/browser/notebookOutputWebviewService.js';
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
+import { ILanguageFeaturesService } from '../../editor/common/services/languageFeatures.js';
+import { ILanguageConfigurationService } from '../../editor/common/languages/languageConfigurationRegistry.js';
 
 /**
  * PositronReactServices interface.
@@ -92,6 +94,8 @@ export class PositronReactServices {
 		@IInstantiationService public readonly instantiationService: IInstantiationService,
 		@IKeybindingService public readonly keybindingService: IKeybindingService,
 		@ILabelService public readonly labelService: ILabelService,
+		@ILanguageConfigurationService public readonly languageConfigurationService: ILanguageConfigurationService,
+		@ILanguageFeaturesService public readonly languageFeaturesService: ILanguageFeaturesService,
 		@ILanguageModelsService public readonly languageModelsService: ILanguageModelsService,
 		@ILanguageRuntimeService public readonly languageRuntimeService: ILanguageRuntimeService,
 		@ILanguageService public readonly languageService: ILanguageService,

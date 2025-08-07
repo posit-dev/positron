@@ -315,6 +315,10 @@ test.describe('Plots', { tag: [tags.PLOTS, tags.EDITOR] }, () => {
 				const bufferFit2 = await imgLocator.screenshot();
 				// Compare: Fit vs Fit again
 				const resultBack = await resembleCompareImages(bufferFit1, bufferFit2, options);
+				await testInfo.attach('fit-vs-fit', {
+					body: resultBack.getBuffer(true),
+					contentType: 'image/png'
+				});
 				expect(resultBack.rawMisMatchPercentage).toBeLessThan(0.75); // should be small diff
 			});
 
