@@ -5,14 +5,12 @@
 import { DebugProtocol } from '@vscode/debugprotocol';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { DisposableStore } from './util.js';
+import { Disposable } from './util.js';
 
 /**
  * Controls the execution and lifecycle of a notebook cell during debugging.
  */
-export class CellDebugController implements vscode.Disposable {
-	private readonly _disposables = new DisposableStore();
-
+export class CellDebugController extends Disposable implements vscode.Disposable {
 	/* Tracks the runtime execution ID of the current cell. */
 	private _executionId?: string;
 
@@ -23,11 +21,13 @@ export class CellDebugController implements vscode.Disposable {
 		private readonly _runtimeSession: positron.LanguageRuntimeSession,
 		private readonly _cellIndex: number
 	) {
+		super();
+
 		// TODO: Check that the cell belongs to the notebook? Or pass in cell index?
 		// Execute the cell when the debug session is ready.
 		// TODO: If we attach to an existing debug session, would this work?
 		//       Or we could also track configuration completed state in an adapter property
-		const configDisposable = this._disposables.add(this._adapter.onDidSendMessage(async (message) => {
+		const configDisposable = this._register(this._adapter.onDidSendMessage(async (message) => {
 			if ((message as DebugProtocol.ProtocolMessage).type !== 'response' ||
 				(message as DebugProtocol.Response).command !== 'configurationDone') {
 				return;
@@ -51,7 +51,7 @@ export class CellDebugController implements vscode.Disposable {
 		}));
 
 		// Track the runtime execution ID when the cell is executed.
-		const executeDisposable = this._disposables.add(positron.runtime.onDidExecuteCode((event) => {
+		const executeDisposable = this._register(positron.runtime.onDidExecuteCode((event) => {
 			// TODO: restrict to cell and session ID as well?
 			if (event.attribution.source === positron.CodeAttributionSource.Notebook &&
 				// TODO: what does this look like for untitled/unsaved files?
@@ -62,7 +62,7 @@ export class CellDebugController implements vscode.Disposable {
 		}));
 
 		// End the debug session when the cell execution is complete.
-		const messageDisposable = this._disposables.add(this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
+		const messageDisposable = this._register(this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
 			// TODO: Throw or wait if execution ID is not set?
 			if (this._executionId &&
 				message.parent_id === this._executionId &&
@@ -73,9 +73,5 @@ export class CellDebugController implements vscode.Disposable {
 				// TODO: this.dispose()? Or ensure its disposed elsewhere?
 			}
 		}));
-	}
-
-	public dispose() {
-		this._disposables.dispose();
 	}
 }

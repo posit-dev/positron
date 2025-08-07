@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { log } from './extension.js';
 import { CellDebugController } from './cellDebugController.js';
-import { createDebuggerOutputChannel, DisposableStore } from './util.js';
+import { createDebuggerOutputChannel, Disposable } from './util.js';
 import { JupyterRuntimeDebugAdapter } from './jupyterRuntimeDebugAdapter.js';
 import { PathEncoder } from './pathEncoder.js';
 import { NotebookLocationMapper } from './notebookLocationMapper.js';
@@ -16,11 +16,14 @@ import { NotebookLocationMapper } from './notebookLocationMapper.js';
 /**
  * Factory for creating debug adapters for notebook cell debugging.
  */
-export class NotebookDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory, vscode.Disposable {
-	private readonly _disposables = new DisposableStore();
+export class NotebookDebugAdapterFactory extends Disposable implements vscode.DebugAdapterDescriptorFactory, vscode.Disposable {
 
 	/* Maps runtime session IDs to their debug output channels. */
 	private readonly _outputChannelByRuntimeSessionId = new Map<string, vscode.LogOutputChannel>();
+
+	constructor() {
+		super();
+	}
 
 	async createDebugAdapterDescriptor(debugSession: vscode.DebugSession, _executable: vscode.DebugAdapterExecutable): Promise<vscode.DebugAdapterDescriptor | undefined> {
 		const notebook = vscode.workspace.notebookDocuments.find(
@@ -52,14 +55,14 @@ export class NotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
 		const outputChannel = this.createOutputChannel(runtimeSession);
 
 		const sourceMapper = new PathEncoder();
-		const mapper = this._disposables.add(new NotebookLocationMapper(sourceMapper, notebook));
-		const adapter = this._disposables.add(new JupyterRuntimeDebugAdapter({
+		const mapper = this._register(new NotebookLocationMapper(sourceMapper, notebook));
+		const adapter = this._register(new JupyterRuntimeDebugAdapter({
 			mapper, outputChannel, debugSession, runtimeSession
 		}));
 
 		// TODO: Where should this disposable live?
 		// TODO: Do we need a refresh state event or can we just call debugInfo here?
-		this._disposables.add(adapter.onDidRefreshState((debugInfo) => {
+		this._register(adapter.onDidRefreshState((debugInfo) => {
 			sourceMapper.setOptions({
 				hashMethod: debugInfo.hashMethod,
 				hashSeed: debugInfo.hashSeed,
@@ -69,10 +72,10 @@ export class NotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
 		}));
 
 		// Create a debug cell manager to handle the cell execution and debugging.
-		const debugCellManager = this._disposables.add(new CellDebugController(adapter, debugSession, notebook, runtimeSession, cell.index));
+		const debugCellManager = this._register(new CellDebugController(adapter, debugSession, notebook, runtimeSession, cell.index));
 
 		// End the debug session when the kernel is interrupted.
-		const stateDisposable = this._disposables.add(runtimeSession.onDidChangeRuntimeState(async (state) => {
+		const stateDisposable = this._register(runtimeSession.onDidChangeRuntimeState(async (state) => {
 			console.log(`Runtime state changed: ${state}`);
 			if (state === positron.RuntimeState.Interrupting) {
 				stateDisposable.dispose();
@@ -81,7 +84,7 @@ export class NotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
 		}));
 
 		// Clean up when the debug session terminates.
-		this._disposables.add(
+		this._register(
 			vscode.debug.onDidTerminateDebugSession((session) => {
 				if (session.id === debugSession.id) {
 					stateDisposable.dispose();
@@ -99,12 +102,8 @@ export class NotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
 		if (outputChannel) {
 			return outputChannel;
 		}
-		const newOutputChannel = this._disposables.add(createDebuggerOutputChannel(runtimeSession));
+		const newOutputChannel = this._register(createDebuggerOutputChannel(runtimeSession));
 		this._outputChannelByRuntimeSessionId.set(runtimeSession.metadata.sessionId, newOutputChannel);
 		return newOutputChannel;
-	}
-
-	public dispose() {
-		this._disposables.dispose();
 	}
 }
