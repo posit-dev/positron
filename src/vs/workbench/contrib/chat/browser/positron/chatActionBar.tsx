@@ -82,7 +82,7 @@ export const ChatActionBar: React.FC<ChatActionBarProps> = ((props) => {
 
 	return (
 		<div className='chat-action-bar'>
-			<PositronActionBar>
+			<PositronActionBar nestedActionBar={true}>
 				{renderCurrentProvider()}
 			</PositronActionBar>
 		</div>
