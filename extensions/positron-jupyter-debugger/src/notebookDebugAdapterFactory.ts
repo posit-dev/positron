@@ -54,16 +54,16 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 		// Create the output channel for the runtime session's debugger.
 		const outputChannel = this.createOutputChannel(runtimeSession);
 
-		const sourceMapper = new PathEncoder();
-		const mapper = this._register(new NotebookLocationMapper(sourceMapper, notebook));
+		const pathEncoder = new PathEncoder();
+		const locationMapper = this._register(new NotebookLocationMapper(pathEncoder, notebook));
 		const adapter = this._register(new JupyterRuntimeDebugAdapter({
-			mapper, outputChannel, debugSession, runtimeSession
+			locationMapper, outputChannel, debugSession, runtimeSession
 		}));
 
-		// TODO: Where should this disposable live?
+		// TODO: Where should this disposable live? In the adapter?
 		// TODO: Do we need a refresh state event or can we just call debugInfo here?
 		this._register(adapter.onDidRefreshState((debugInfo) => {
-			sourceMapper.setOptions({
+			pathEncoder.setOptions({
 				hashMethod: debugInfo.hashMethod,
 				hashSeed: debugInfo.hashSeed,
 				tmpFilePrefix: debugInfo.tmpFilePrefix,

@@ -22,25 +22,22 @@ export class CellDebugController extends Disposable implements vscode.Disposable
 	) {
 		super();
 
-		// Execute the cell when the debug session is ready.
-		// TODO: If we attach to an existing debug session, would this work?
-		//       Or we could also track configuration completed state in an adapter property
-		const configDisposable = this._register(this._adapter.onDidSendMessage(async (message) => {
+		// Execute the cell when the debug session has completed configuration.
+		const configurationDoneDisposable = this._register(this._adapter.onDidSendMessage(async (message) => {
 			if ((message as DebugProtocol.ProtocolMessage).type !== 'response' ||
 				(message as DebugProtocol.Response).command !== 'configurationDone') {
 				return;
 			}
 
-			configDisposable.dispose();
+			configurationDoneDisposable.dispose();
 
-			// TODO: Can this throw?
 			await vscode.commands.executeCommand('notebook.cell.execute', {
 				ranges: [{ start: this._cell.index, end: this._cell.index + 1 }],
 				document: this._cell.notebook.uri,
 			});
 		}));
 
-		// Track the runtime execution ID when the cell is executed.
+		// Track the runtime execution ID when the cell is first executed.
 		const executeDisposable = this._register(positron.runtime.onDidExecuteCode((event) => {
 			// TODO: restrict to cell and session ID as well?
 			if (event.attribution.source === positron.CodeAttributionSource.Notebook &&

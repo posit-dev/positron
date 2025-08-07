@@ -15,7 +15,7 @@ export interface JupyterRuntimeDebugAdapterOptions {
 	/**
 	 * The location mapper used to convert between client and runtime locations.
 	 */
-	mapper: LocationMapper;
+	locationMapper: LocationMapper;
 
 	/**
 	 * The runtime debugger log output channel.
@@ -40,7 +40,7 @@ export interface JupyterRuntimeDebugAdapterOptions {
 export class JupyterRuntimeDebugAdapter extends Disposable implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _onDidSendMessage = this._register(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
 	private readonly _onDidRefreshState = this._register(new vscode.EventEmitter<DebugInfoResponseBody>());
-	private readonly _mapper: LocationMapper;
+	private readonly _locationMapper: LocationMapper;
 	private readonly _log: vscode.LogOutputChannel;
 	private readonly _debugSession: vscode.DebugSession;
 	private readonly _runtimeSession: positron.LanguageRuntimeSession;
@@ -65,17 +65,17 @@ export class JupyterRuntimeDebugAdapter extends Disposable implements vscode.Deb
 	) {
 		super();
 
-		this._mapper = options.mapper;
+		this._locationMapper = options.locationMapper;
 		this._log = options.outputChannel;
 		this._debugSession = options.debugSession;
 		this._runtimeSession = options.runtimeSession;
 
 		// Initialize transformers for converting between client and runtime debug protocol messages.
 		this._runtimeToClientTransformer = new DebugProtocolTransformer({
-			location: this._mapper.toClientLocation.bind(this._mapper)
+			location: this._locationMapper.toClientLocation.bind(this._locationMapper)
 		});
 		this._clientToRuntimeTransformer = new DebugProtocolTransformer({
-			location: this._mapper.toRuntimeLocation.bind(this._mapper),
+			location: this._locationMapper.toRuntimeLocation.bind(this._locationMapper),
 		});
 
 		// Forward debug messages from the runtime to the client.
