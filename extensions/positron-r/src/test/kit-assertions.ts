@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as assert from 'assert';
 import { delay } from '../util';
-import { normalizeUri } from './utils';
+import { normalizeUri } from './kit';
 
 /**
  * Waits for the given predicate to succeed (not throw an assertion error) within the timeout.

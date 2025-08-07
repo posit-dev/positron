@@ -4,8 +4,8 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { normalizeUri } from './utils';
-import { toDisposable } from './utils-disposables';
+import { normalizeUri } from './kit';
+import { toDisposable } from './kit-disposables';
 
 /**
  * Closes all open editors in the current VS Code window.

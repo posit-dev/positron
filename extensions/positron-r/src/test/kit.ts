@@ -7,6 +7,12 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 
+// Re-export all utils functions from a central file
+export { closeAllEditors, openTextDocument } from './kit-vscode';
+export { pollForSuccess, assertSelectedEditor } from './kit-assertions';
+export { toDisposable, disposeAll, withDisposables, makeTempDir, retryRm } from './kit-disposables';
+export { startR, execute } from './kit-session';
+
 export function mock<T>(obj: Partial<T>): T {
 	return obj as T;
 }

@@ -6,16 +6,13 @@
 import './mocha-setup'
 
 import * as assert from 'assert';
-import { withDisposables } from './utils-disposables';
-import { startR } from './utils-session';
+import * as testKit from './kit';
 import { State } from 'vscode-languageclient/node';
-import { delay } from '../util';
-import { pollForSuccess } from './utils-assertions';
 
 suite('Session manager', () => {
 	test('should deactivate non-foreground session before activating foreground session', async () => {
-		await withDisposables(async (disposables) => {
-			const [_ses1, ses1Disposable, ses1Lsp] = await startR();
+		await testKit.withDisposables(async (disposables) => {
+			const [_ses1, ses1Disposable, ses1Lsp] = await testKit.startR();
 			disposables.push(ses1Disposable);
 
 			assert.strictEqual(ses1Lsp.client!.state, State.Running);
@@ -27,7 +24,7 @@ suite('Session manager', () => {
 				states.push([1, event.oldState, event.newState]);
 			});
 
-			const [_ses2, ses2Disposable, ses2Lsp] = await startR();
+			const [_ses2, ses2Disposable, ses2Lsp] = await testKit.startR();
 
 			// Session 1 now offline
 			assert.deepStrictEqual(states.pop(), [1, State.Running, State.Stopped]);
@@ -46,7 +43,7 @@ suite('Session manager', () => {
 			assert.deepStrictEqual(states.pop(), [2, State.Running, State.Stopped]);
 
 			// The LSP of the first session eventually goes back online
-			pollForSuccess(() => {
+			testKit.pollForSuccess(() => {
 				assert.strictEqual(ses1Lsp.client!.state, State.Running);
 			})
 

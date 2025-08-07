@@ -8,16 +8,13 @@ import './mocha-setup'
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as assert from 'assert';
-import { makeTempDir, toDisposable, withDisposables } from './utils-disposables';
-import { execute, startR } from './utils-session';
-import { assertSelectedEditor, pollForSuccess } from './utils-assertions';
-import { closeAllEditors } from './utils-vscode';
+import * as testKit from './kit';
 
 suite('View', () => {
 	let sesDisposable: vscode.Disposable;
 
 	suiteSetup(async () => {
-		const [_ses, disposable] = await startR();
+		const [_ses, disposable] = await testKit.startR();
 		sesDisposable = disposable;
 	});
 
@@ -29,35 +26,35 @@ suite('View', () => {
 
 	// https://github.com/posit-dev/positron/issues/8504
 	test('Can use `View()` on sourced function', async () => {
-		await withDisposables(async (disposables) => {
-			const [tmpDir, dirDisposable] = makeTempDir('view-test');
+		await testKit.withDisposables(async (disposables) => {
+			const [tmpDir, dirDisposable] = testKit.makeTempDir('view-test');
 			disposables.push(dirDisposable);
 
 			const uri = vscode.Uri.file(path.join(tmpDir, 'file.R'));
 			await vscode.workspace.fs.writeFile(uri, Buffer.from('f <- function() {}'));
 
 			const escapedPath = uri.fsPath.replace(/\\/g, '\\\\');
-			await execute(`source('${escapedPath}')`);
-			await execute(`View(f)`);
+			await testKit.execute(`source('${escapedPath}')`);
+			await testKit.execute(`View(f)`);
 
 			// Clean up editor opened by View
-			disposables.push(toDisposable(closeAllEditors));
+			disposables.push(testKit.toDisposable(testKit.closeAllEditors));
 
 			// Should show source file in editor
-			await assertSelectedEditor(uri, 'f <- function');
+			await testKit.assertSelectedEditor(uri, 'f <- function');
 		});
 	});
 
 	// https://github.com/posit-dev/positron/issues/4651
 	test('Can use `View()` on base function (virtual document)', async () => {
-		await withDisposables(async (disposables) => {
-			await execute(`View(identity)`);
+		await testKit.withDisposables(async (disposables) => {
+			await testKit.execute(`View(identity)`);
 
 			// Clean up editor opened by View
-			disposables.push(toDisposable(closeAllEditors));
+			disposables.push(testKit.toDisposable(testKit.closeAllEditors));
 
 			// Should show source file in editor
-			await pollForSuccess(() => {
+			await testKit.pollForSuccess(() => {
 				const ed = vscode.window.activeTextEditor;
 
 				assert.strictEqual(
