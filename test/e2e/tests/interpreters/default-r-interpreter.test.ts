@@ -26,11 +26,7 @@ test.describe('Default Interpreters - R', {
 		// local debugging sample:
 		// await settings.set({'positron.r.interpreters.default': '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R'}, { reload: true });
 
-		// hidden CI interpreter - path depends on which repo it's running in
-		// GITHUB_REPOSITORY is automatically set by GitHub Actions
-		const rPath = process.env.GITHUB_REPOSITORY === 'posit-dev/positron-builds'
-			? '/home/runner/scratch/R-4.4.1/bin/R'  // positron-builds repo
-			: '/root/scratch/R-4.4.1/bin/R';        // positron repo
+		const rPath = '/root/scratch/R-4.4.1/bin/R';
 
 		await settings.set({ 'positron.r.interpreters.default': rPath }, { reload: true });
 

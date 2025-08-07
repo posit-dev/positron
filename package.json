@@ -66,7 +66,7 @@
     "watch-cli": "node ./node_modules/gulp/bin/gulp.js watch-cli",
     "eslint": "node build/eslint",
     "stylelint": "node build/stylelint",
-    "playwright-install": "npm exec playwright install --with-deps",
+    "playwright-install": "npm exec playwright install",
     "compile-build": "node ./node_modules/gulp/bin/gulp.js compile-build-with-mangling",
     "compile-extensions-build": "node ./node_modules/gulp/bin/gulp.js compile-extensions-build",
     "minify-vscode": "node ./node_modules/gulp/bin/gulp.js minify-vscode",

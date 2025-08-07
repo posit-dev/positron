@@ -16,11 +16,7 @@ test.describe('Interpreter: Includes', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
-		// Path depends on which repo it's running in
-		// GITHUB_REPOSITORY is automatically set by GitHub Actions
-		const basePath = process.env.GITHUB_REPOSITORY === 'posit-dev/positron-builds'
-			? "/home/runner/scratch"
-			: "/root/scratch";
+		const basePath = '/root/scratch';
 
 		await settings.set({
 			'python.interpreters.include': [`${basePath}/python-env`],
@@ -119,11 +115,7 @@ test.describe('Interpreter: Override', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
-		// Path depends on which repo it's running in
-		// GITHUB_REPOSITORY is automatically set by GitHub Actions
-		const pythonPath = process.env.GITHUB_REPOSITORY === 'posit-dev/positron-builds'
-			? "/home/runner/scratch/python-env"
-			: "/root/scratch/python-env";
+		const pythonPath = '/root/scratch/python-env';
 
 		await settings.set({
 			'python.interpreters.override': [pythonPath],
