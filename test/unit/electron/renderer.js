@@ -9,6 +9,8 @@
 
 const fs = require('fs');
 
+require.extensions['.css'] = () => {};
+
 (function () {
 	const originals = {};
 	let logging = false;
