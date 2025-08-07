@@ -73,8 +73,8 @@ echo "Storing log files into '$VSCODELOGSDIR'."
 
 # Tests in the extension host
 
-// --- Start Positron ---
-// --no-sandbox is required for running in docker as root
+# --- Start Positron ---
+# --no-sandbox is required for running in docker as root
 
 echo
 echo "### API tests (folder)"
@@ -124,7 +124,7 @@ echo
 "$INTEGRATION_TEST_ELECTRON_PATH" --no-sandbox --folder-uri=$AUTHORITY$(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$REMOTE_VSCODE/configuration-editing --extensionTestsPath=$REMOTE_VSCODE/configuration-editing/out/test $API_TESTS_EXTRA_ARGS $EXTRA_INTEGRATION_TEST_ARGUMENTS
 kill_app
 
-// --- End Positron ---
+# --- End Positron ---
 
 # Cleanup
 
