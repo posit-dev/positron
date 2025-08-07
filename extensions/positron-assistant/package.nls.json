@@ -23,5 +23,7 @@
 	"configuration.inlineCompletionExcludes.description": "A list of [glob patterns](https://aka.ms/vscode-glob-patterns) to exclude from inline completions.",
 	"configuration.gitIntegration.description": "Enable Positron Assistant git integration.",
 	"configuration.getTableSummary.description": "Enable Positron Assistant get table summary tool.",
-	"configuration.showTokenUsage.description": "Show token usage in the chat view for supported providers for the session and each message and response including prompts. Check with your provider for detailed usage."
+	"configuration.showTokenUsage.description": "Show token usage in the chat view for supported providers for the session and each message and response including prompts. Check with your provider for detailed usage.",
+	"configuration.maxOutputTokens.description": "Override the maximum output tokens for specific language models. The key selects a model ID (partial match supported); the value is the maximum output tokens for that model, in 1K token units.",
+	"configuration.followups.enable.description": "Enable suggested followup prompts after chat responses."
 }
