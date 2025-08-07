@@ -624,7 +624,7 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 			// sets the AWS region where the models are available
 			region: process.env.AWS_REGION ?? 'us-east-1',
 			credentialProvider: fromNodeProviderChain(),
-		})(this._config.model);
+		})(this._config.model) as ai.LanguageModelV1;
 	}
 
 	get providerName(): string {
