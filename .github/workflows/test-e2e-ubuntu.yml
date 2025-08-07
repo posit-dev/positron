@@ -94,6 +94,7 @@ jobs:
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:21
       options: --user 0:0
+      # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
         username: ${{ secrets.POSITRON_GITHUB_USER }}
         password: ${{ secrets.POSITRON_GITHUB_PAT }}
