@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { log } from './extension.js';
 import { CellDebugController } from './cellDebugController.js';
 import { createDebuggerOutputChannel, Disposable } from './util.js';
-import { JupyterRuntimeDebugAdapter } from './jupyterRuntimeDebugAdapter.js';
+import { RuntimeDebugAdapter } from './runtimeDebugAdapter.js';
 import { PathEncoder } from './pathEncoder.js';
 import { NotebookLocationMapper } from './notebookLocationMapper.js';
 
@@ -56,7 +56,7 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 
 		const pathEncoder = new PathEncoder();
 		const locationMapper = this._register(new NotebookLocationMapper(pathEncoder, notebook));
-		const adapter = this._register(new JupyterRuntimeDebugAdapter({
+		const adapter = this._register(new RuntimeDebugAdapter({
 			locationMapper, outputChannel, debugSession, runtimeSession
 		}));
 
