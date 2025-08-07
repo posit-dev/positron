@@ -10,7 +10,7 @@ import { log } from './extension.js';
 import { DebugCellManager } from './notebook.js';
 import { DisposableStore } from './util.js';
 import { JupyterRuntimeDebugAdapter } from './runtimeDebugAdapter.js';
-import { JupyterRuntimeNotebookDebugAdapter } from './runtimeNotebookDebugAdapter.js';
+import { NotebookSourceMap } from './notebookSourceMap.js';
 
 const DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR = vscode.l10n.t('Debugger');
 
@@ -56,8 +56,9 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		// Create a new debug adapter for the notebook.
 		// TODO: Reuse adapter if it already exists for the notebook?
 		// const adapter = this._disposables.add(new RuntimeNotebookDebugAdapter(debugSession, runtimeSession, notebook));
-		const innerAdapter = this._disposables.add(new JupyterRuntimeDebugAdapter(outputChannel, debugSession, runtimeSession));
-		const adapter = this._disposables.add(new JupyterRuntimeNotebookDebugAdapter(innerAdapter, notebook));
+		const adapter = this._disposables.add(new JupyterRuntimeDebugAdapter(outputChannel, debugSession, runtimeSession));
+		const sourceMap = this._disposables.add(new NotebookSourceMap(adapter, notebook));
+		adapter.setSourceMap(sourceMap);
 
 		// Create a debug cell manager to handle the cell execution and debugging.
 		const debugCellManager = this._disposables.add(new DebugCellManager(adapter, debugSession, notebook, runtimeSession, cell.index));
