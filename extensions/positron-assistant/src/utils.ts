@@ -107,9 +107,14 @@ export function toAIMessage(
 
 		} else if (message.role === vscode.LanguageModelChatMessageRole.Assistant) {
 			const content: ai.AssistantContent = [];
+			let cacheBreakpoint = false;
 			for (const part of message.content) {
 				if (part instanceof vscode.LanguageModelTextPart) {
 					content.push({ type: 'text', text: part.value });
+				} else if (part instanceof vscode.LanguageModelDataPart) {
+					if (isCacheBreakpointPart(part)) {
+						cacheBreakpoint = true;
+					}
 				} else if (part instanceof vscode.LanguageModelToolCallPart) {
 					if (
 						!toolResultExperimentalContent &&
@@ -135,10 +140,23 @@ export function toAIMessage(
 					log.warn(`[vercel] Skipping unsupported part type in assistant message: ${part.constructor.name}`);
 				}
 			}
-			aiMessages.push({
+			const aiMessage: ai.CoreAssistantMessage = {
 				role: 'assistant',
 				content,
-			});
+			};
+
+			// If this is a cache breakpoint, note it in the message
+			// content. This is only used by the Bedrock provider.
+			if (cacheBreakpoint && bedrockCacheBreakpoint) {
+				aiMessage.providerOptions = {
+					bedrock: {
+						cachePoint: {
+							type: 'default',
+						}
+					}
+				};
+			}
+			aiMessages.push(aiMessage);
 		}
 	}
 
