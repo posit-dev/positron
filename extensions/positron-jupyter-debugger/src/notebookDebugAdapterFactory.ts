@@ -13,9 +13,13 @@ import { PathEncoder } from './pathEncoder.js';
 import { NotebookLocationMapper } from './notebookLocationMapper.js';
 
 // TODO: How do we handle reusing a debug adapter/session across cells?
+/**
+ * Factory for creating debug adapters for notebook cell debugging.
+ */
 export class NotebookDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 
+	/* Maps runtime session IDs to their debug output channels. */
 	private readonly _outputChannelByRuntimeSessionId = new Map<string, vscode.LogOutputChannel>();
 
 	async createDebugAdapterDescriptor(debugSession: vscode.DebugSession, _executable: vscode.DebugAdapterExecutable): Promise<vscode.DebugAdapterDescriptor | undefined> {
@@ -48,8 +52,10 @@ export class NotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
 		const outputChannel = this.createOutputChannel(runtimeSession);
 
 		const sourceMapper = new PathEncoder();
-		const sourceMap = this._disposables.add(new NotebookLocationMapper(sourceMapper, notebook));
-		const adapter = this._disposables.add(new JupyterRuntimeDebugAdapter(sourceMap, outputChannel, debugSession, runtimeSession));
+		const mapper = this._disposables.add(new NotebookLocationMapper(sourceMapper, notebook));
+		const adapter = this._disposables.add(new JupyterRuntimeDebugAdapter({
+			mapper, outputChannel, debugSession, runtimeSession
+		}));
 
 		// TODO: Where should this disposable live?
 		// TODO: Do we need a refresh state event or can we just call debugInfo here?
@@ -98,7 +104,7 @@ export class NotebookDebugAdapterFactory implements vscode.DebugAdapterDescripto
 		return newOutputChannel;
 	}
 
-	dispose() {
+	public dispose() {
 		this._disposables.dispose();
 	}
 }
