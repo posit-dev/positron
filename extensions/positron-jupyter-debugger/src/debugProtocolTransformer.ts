@@ -4,6 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 import { DebugProtocol } from '@vscode/debugprotocol';
 
+/**
+ * Represents a source location in the debug protocol.
+ */
 export interface DebugLocation {
 	source?: DebugProtocol.Source;
 	line?: number;
@@ -12,13 +15,32 @@ export interface DebugLocation {
 
 type DebugProtocolTransform<T extends DebugProtocol.ProtocolMessage | DebugLocation> = (obj: T) => T;
 
+/**
+ * Options for the {@link DebugProtocolTransformer}.
+ */
 export interface DebugProtocolTransformerOptions {
+	/**
+	 * Transforms a debug source location.
+	 *
+	 * @param obj The debug source location to transform.
+	 * @return The transformed debug source location.
+	 *   If the transformation is not applicable, return `undefined`.
+	 */
 	location?: <T extends DebugLocation>(obj: T) => T | undefined;
 }
 
+/**
+ * Transforms debug protocol messages.
+ */
 export class DebugProtocolTransformer {
 	constructor(private readonly options: DebugProtocolTransformerOptions) { }
 
+	/**
+	 * Transforms a debug protocol message.
+	 *
+	 * @param message The debug protocol message to transform.
+	 * @returns The transformed debug protocol message.
+	 */
 	transform(message: DebugProtocol.ProtocolMessage): DebugProtocol.ProtocolMessage {
 		switch (message.type) {
 			case 'event':

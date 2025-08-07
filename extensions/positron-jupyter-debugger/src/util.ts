@@ -3,8 +3,11 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import * as path from 'path';
+import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugProtocol } from '@vscode/debugprotocol';
+import { DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR } from './constants.js';
 
 export class DisposableStore implements vscode.Disposable {
 	private _disposables = new Set<vscode.Disposable>();
@@ -53,4 +56,18 @@ export function formatDebugMessage(message: DebugProtocol.ProtocolMessage): stri
 			return `[${message.type}]: ${JSON.stringify(message)}`;
 		}
 	}
+}
+
+export function createDebugAdapterOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
+	const runtimeName = runtimeSession.runtimeMetadata.runtimeName;
+	const sessionMode = runtimeSession.metadata.sessionMode;
+	let sessionTitle: string;
+	if (runtimeSession.metadata.notebookUri) {
+		sessionTitle = path.basename(runtimeSession.metadata.notebookUri.fsPath);
+	} else {
+		sessionTitle = sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1);
+	}
+	const name = `${runtimeName}: ${DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR} (${sessionTitle})`;
+	const outputChannel = vscode.window.createOutputChannel(name, { log: true });
+	return outputChannel;
 }

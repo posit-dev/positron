@@ -4,13 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { activateRuntimeNotebookDebugging } from './notebook.js';
+import { activateNotebookDebugging } from './notebook.js';
 
 export const log = vscode.window.createOutputChannel('Debugging', { log: true });
 
 export function activate(context: vscode.ExtensionContext): void {
 	context.subscriptions.push(log);
 
-	const runtimeNotebookDebugging = activateRuntimeNotebookDebugging();
-	context.subscriptions.push(runtimeNotebookDebugging);
+	const notebookDebugging = activateNotebookDebugging();
+	context.subscriptions.push(notebookDebugging);
 }
