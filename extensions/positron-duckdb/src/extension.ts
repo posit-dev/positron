@@ -8,6 +8,7 @@ import {
 	BackendState,
 	ColumnDisplayType,
 	ColumnFilter,
+	ColumnFilterType,
 	ColumnFrequencyTable,
 	ColumnFrequencyTableParams,
 	ColumnHistogram,
@@ -35,6 +36,7 @@ import {
 	FilterBetween,
 	FilterComparison,
 	FilterComparisonOp,
+	FilterMatchDataTypes,
 	FilterResult,
 	FilterSetMembership,
 	FilterTextSearch,
@@ -47,6 +49,9 @@ import {
 	ReturnColumnProfilesEvent,
 	RowFilter,
 	RowFilterType,
+	SearchSchemaParams,
+	SearchSchemaResult,
+	SearchSchemaSortOrder,
 	SetRowFiltersParams,
 	SetSortColumnsParams,
 	SupportStatus,
@@ -811,9 +816,122 @@ export class DuckDBTableView {
 					column_name: entry.column_name,
 					column_index: index,
 					type_name: entry.column_type,
-					type_display
+					type_display,
 				};
-			})
+			}),
+		};
+	}
+
+	async searchSchema(
+		params: SearchSchemaParams,
+	): RpcResponse<SearchSchemaResult> {
+		// Get all column indices
+		const allIndices: number[] = [];
+		for (let i = 0; i < this.fullSchema.length; i++) {
+			allIndices.push(i);
+		}
+
+		// Apply filters if any
+		let filteredIndices = allIndices;
+		if (params.filters && params.filters.length > 0) {
+			filteredIndices = allIndices.filter((index) => {
+				const entry = this.fullSchema[index];
+				const columnName = entry.column_name;
+				const columnType = entry.column_type;
+
+				// Get display type for this column
+				let displayType = SCHEMA_TYPE_MAPPING.get(columnType);
+				if (displayType === undefined) {
+					displayType = ColumnDisplayType.Unknown;
+				}
+				if (columnType.startsWith('DECIMAL')) {
+					displayType = ColumnDisplayType.Number;
+				}
+
+				// Apply each filter
+				return params.filters.every((filter) => {
+					switch (filter.filter_type) {
+						case ColumnFilterType.TextSearch: {
+							const textFilter =
+								filter.params as FilterTextSearch;
+							const searchTerm = textFilter.case_sensitive
+								? textFilter.term
+								: textFilter.term.toLowerCase();
+							const columnNameToMatch = textFilter.case_sensitive
+								? columnName
+								: columnName.toLowerCase();
+
+							switch (textFilter.search_type) {
+								case TextSearchType.Contains:
+									return columnNameToMatch.includes(
+										searchTerm,
+									);
+								case TextSearchType.NotContains:
+									return !columnNameToMatch.includes(
+										searchTerm,
+									);
+								case TextSearchType.StartsWith:
+									return columnNameToMatch.startsWith(
+										searchTerm,
+									);
+								case TextSearchType.EndsWith:
+									return columnNameToMatch.endsWith(
+										searchTerm,
+									);
+								case TextSearchType.RegexMatch:
+									try {
+										const regex = new RegExp(
+											textFilter.term,
+											textFilter.case_sensitive
+												? ''
+												: 'i',
+										);
+										return regex.test(columnName);
+									} catch {
+										return false;
+									}
+								default:
+									return false;
+							}
+						}
+						case ColumnFilterType.MatchDataTypes: {
+							const typeFilter =
+								filter.params as FilterMatchDataTypes;
+							return typeFilter.display_types.includes(
+								displayType,
+							);
+						}
+						default:
+							return false;
+					}
+				});
+			});
+		}
+
+		// Sort the filtered indices
+		switch (params.sort_order) {
+			case SearchSchemaSortOrder.Ascending:
+				filteredIndices.sort((a, b) => {
+					const nameA = this.fullSchema[a].column_name.toLowerCase();
+					const nameB = this.fullSchema[b].column_name.toLowerCase();
+					return nameA.localeCompare(nameB);
+				});
+				break;
+			case SearchSchemaSortOrder.Descending:
+				filteredIndices.sort((a, b) => {
+					const nameA = this.fullSchema[a].column_name.toLowerCase();
+					const nameB = this.fullSchema[b].column_name.toLowerCase();
+					return nameB.localeCompare(nameA);
+				});
+				break;
+			case SearchSchemaSortOrder.Original:
+			default:
+				// Keep original order
+				break;
+		}
+
+		return {
+			matches: filteredIndices,
 		};
 	}
 
@@ -999,7 +1117,7 @@ END`;
 					return columnValues;
 				} else {
 					// Set of values indices, just get the lower and upper extent
-					return spec.indices.map(i => adapter(field, i));
+					return spec.indices.map((i) => adapter(field, i));
 				}
 			};
 
@@ -1117,8 +1235,17 @@ END`;
 					]
 				},
 				search_schema: {
-					support_status: SupportStatus.Unsupported,
-					supported_types: []
+					support_status: SupportStatus.Supported,
+					supported_types: [
+						{
+							column_filter_type: ColumnFilterType.TextSearch,
+							support_status: SupportStatus.Supported,
+						},
+						{
+							column_filter_type: ColumnFilterType.MatchDataTypes,
+							support_status: SupportStatus.Supported,
+						}
+					],
 				},
 				set_column_filters: {
 					support_status: SupportStatus.Unsupported,
