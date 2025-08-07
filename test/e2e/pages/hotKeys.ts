@@ -195,6 +195,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J X', 'Reset welcome walkthrough');
 	}
 
+	public async openFolder() {
+		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
+	}
+
 	/**
 	 * Press the hotkeys.
 	 * Note: Supports multiple key sequences separated by spaces.

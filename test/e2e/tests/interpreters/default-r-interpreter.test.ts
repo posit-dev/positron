@@ -26,8 +26,9 @@ test.describe('Default Interpreters - R', {
 		// local debugging sample:
 		// await settings.set({'positron.r.interpreters.default': '/Library/Frameworks/R.framework/Versions/4.3-arm64/Resources/R'}, { reload: true });
 
-		// hidden CI interpreter:
-		await settings.set({ 'positron.r.interpreters.default': '/home/runner/scratch/R-4.4.1/bin/R' }, { reload: true });
+		const rPath = '/root/scratch/R-4.4.1/bin/R';
+
+		await settings.set({ 'positron.r.interpreters.default': rPath }, { reload: true });
 
 	});
 

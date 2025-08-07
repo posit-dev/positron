@@ -22,6 +22,12 @@ jobs:
   integration-tests:
     name: integration
     runs-on: ubuntu-latest-4x
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:21
+      options: --user 0:0
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_PAT }}
     timeout-minutes: 40
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -64,9 +70,8 @@ jobs:
           github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
-      # one integration test needs this: Connections pane works for R
-      - name: Setup R
-        uses: ./.github/actions/install-r
+      - name: Setup XVFB
+        uses: ./.github/actions/setup-xvfb
         with:
             version: "4.4.0"
 

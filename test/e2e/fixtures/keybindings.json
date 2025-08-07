@@ -69,5 +69,9 @@
     {
        "key": "cmd+j p",
        "command": "workbench.action.minimizePanel" // View: Minimize Bottom Panel
+    },
+	{
+        "key": "cmd+j q",
+        "command": "workbench.action.files.openFolder" // Open Folder
     }
 ]
