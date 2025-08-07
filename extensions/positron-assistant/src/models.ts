@@ -272,7 +272,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const processedMessages = processMessages(messages);
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
-		const toolResultExperimentalContent = this.provider === 'anthropic';
+		const toolResultExperimentalContent = this.provider === 'anthropic' ||
+			this.model.modelId.startsWith('us.anthropic');
 
 		// Only select Bedrock models support cache breakpoints; specifically,
 		// the Claude 3.5 Sonnet models don't support them.
