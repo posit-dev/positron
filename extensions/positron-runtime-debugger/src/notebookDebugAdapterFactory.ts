@@ -30,6 +30,7 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 			(doc) => doc.uri.toString() === debugSession.configuration.__notebookUri
 		);
 		if (!notebook) {
+			// TODO: Should we throw an error here?
 			return undefined;
 		}
 
@@ -37,6 +38,7 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 			(cell) => cell.document.uri.toString() === debugSession.configuration.__cellUri
 		);
 		if (!cell) {
+			// TODO: Should we throw an error here?
 			return undefined;
 		}
 
