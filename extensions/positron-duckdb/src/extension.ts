@@ -1399,11 +1399,12 @@ END`;
 								other_count: 0
 							};
 							break;
-						case ColumnProfileType.SummaryStats:
+						case ColumnProfileType.SummaryStats: {
 							// Create null summary stats appropriate for the column type
 							const columnSchema = this.fullSchema[request.column_index];
 							result.summary_stats = this.createEmptySummaryStats(columnSchema);
 							break;
+						}
 					}
 				}
 				return result;
@@ -1791,8 +1792,9 @@ export class DataExplorerRpcHandler implements vscode.Disposable {
 				return table.setRowFilters(rpc.params as SetRowFiltersParams);
 			case DataExplorerBackendRequest.SetSortColumns:
 				return table.setSortColumns(rpc.params as SetSortColumnsParams);
-			case DataExplorerBackendRequest.SetColumnFilters:
 			case DataExplorerBackendRequest.SearchSchema:
+				return table.searchSchema(rpc.params as SearchSchemaParams);
+			case DataExplorerBackendRequest.SetColumnFilters:
 				return `${rpc.method} not yet implemented`;
 			default:
 				return `unrecognized data explorer method: ${rpc.method} `;
