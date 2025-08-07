@@ -18,7 +18,7 @@ import { untildify } from '../../../../base/common/labels.js';
 
 const WAS_PROMPTED_KEY = 'positron.welcome.promptedImport';
 
-export const POSITRON_IMPORT_SETTINGS_COMMAND_ID = 'positron.workbench.action.importSettings'
+export const POSITRON_IMPORT_SETTINGS_COMMAND_ID = 'positron.workbench.action.importSettings';
 
 export async function getImportWasPrompted(
 	storageService: IStorageService,
@@ -144,7 +144,7 @@ export async function mergeSettingsJson(
 	// Read the contents of the existing and incoming settings files
 	let existingContents;
 	if (await fileService.exists(existing)) {
-		const fileContent = await fileService.readFile(incoming);
+		const fileContent = await fileService.readFile(existing);
 		existingContents = fileContent.value.toString();
 	} else {
 		existingContents = '{}';
