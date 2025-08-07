@@ -88,5 +88,5 @@ jobs:
     uses: ./.github/workflows/test-integration.yml
     secrets: inherit
     with:
-      pull_request: true
+      pull_request: false
 

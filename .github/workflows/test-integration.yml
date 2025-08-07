@@ -78,6 +78,9 @@ jobs:
       - name: Compile Integration Tests
         run: npm run --prefix test/integration/browser compile
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Run Integration Tests (Electron)
         id: electron-integration-tests
         run: |
