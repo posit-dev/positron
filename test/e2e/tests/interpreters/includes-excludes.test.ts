@@ -94,10 +94,10 @@ test.describe('Interpreter: Excludes', {
 			return fail('Alternate Python version not set');
 		}
 
-		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
+		const failMessage = 'selectInterpreter was supposed to fail as /root/.pyenv was excluded';
 		await settings.set({
-			'python.interpreters.exclude': ["~/.pyenv"]
-		}, { reload: true });
+			'python.interpreters.exclude': ["/root/.pyenv"]
+		}, { reload: true, waitMs: 5000 });
 
 		try {
 			await sessions.start('pythonAlt', { reuse: false });
