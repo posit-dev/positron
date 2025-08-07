@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
-import { JupyterRuntimeDebugAdapter } from './runtimeDebugAdapter.js';
+import { SourceMapper } from './sourceMapper.js';
 import { DisposableStore } from './util.js';
 
 export class NotebookSourceMap implements vscode.Disposable {
@@ -12,16 +12,10 @@ export class NotebookSourceMap implements vscode.Disposable {
 	private _cellUriToRuntimeSourcePath = new Map<string, string>();
 
 	constructor(
-		private readonly _adapter: JupyterRuntimeDebugAdapter,
+		private readonly _sourceMapper: SourceMapper,
 		private readonly _notebook: vscode.NotebookDocument
 	) {
-		this._disposables.add(this._adapter.onDidUpdateSourceMapOptions(() => {
-			this.refresh();
-		}));
-
-		if (this._adapter.sourceMapOptions) {
-			this.refresh();
-		}
+		this.refresh();
 
 		this._disposables.add(vscode.workspace.onDidChangeNotebookDocument(event => {
 			if (event.notebook.uri.toString() !== this._notebook.uri.toString()) {
@@ -58,7 +52,7 @@ export class NotebookSourceMap implements vscode.Disposable {
 	private add(cell: vscode.NotebookCell): void {
 		const cellUri = cell.document.uri.toString();
 		const code = cell.document.getText();
-		const sourcePath = this._adapter.getRuntimeSourcePath(code);
+		const sourcePath = this._sourceMapper.getRuntimeSourcePath(code);
 		this._runtimeSourcePathToCellUri.set(sourcePath, cellUri);
 		this._cellUriToRuntimeSourcePath.set(cellUri, sourcePath);
 	}
@@ -72,15 +66,11 @@ export class NotebookSourceMap implements vscode.Disposable {
 		}
 	}
 
-	private refresh(): void {
+	public refresh(): void {
 		this.clear();
 		for (const cell of this._notebook.getCells()) {
 			this.add(cell);
 		}
-	}
-
-	private get log(): vscode.LogOutputChannel {
-		return this._adapter.log;
 	}
 
 	dispose(): void {
