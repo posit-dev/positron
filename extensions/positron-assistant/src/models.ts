@@ -317,12 +317,24 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			maxTokens: modelOptions.maxTokens ?? this.maxOutputTokens,
 		});
 
+		let accumulatedTextDeltas: string[] = [];
+
+		const flushAccumulatedTextDeltas = () => {
+			if (accumulatedTextDeltas.length > 0) {
+				const combinedText = accumulatedTextDeltas.join('');
+				log.trace(`[${this._config.name}] RECV text-delta (${accumulatedTextDeltas.length} parts): ${combinedText}`);
+				accumulatedTextDeltas = [];
+			}
+		};
+
 		for await (const part of result.fullStream) {
 			if (token.isCancellationRequested) {
 				break;
 			}
 
 			if (part.type === 'reasoning') {
+				flushAccumulatedTextDeltas();
+				log.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
 				progress.report({
 					index: 0,
 					part: new vscode.LanguageModelTextPart(part.textDelta)
@@ -330,6 +342,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'text-delta') {
+				accumulatedTextDeltas.push(part.textDelta);
 				progress.report({
 					index: 0,
 					part: new vscode.LanguageModelTextPart(part.textDelta)
@@ -337,6 +350,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'tool-call') {
+				flushAccumulatedTextDeltas();
+				log.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
 				progress.report({
 					index: 0,
 					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
@@ -344,6 +359,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'error') {
+				flushAccumulatedTextDeltas();
+				log.trace(`[${this._config.name}] RECV error: ${JSON.stringify(part.error)}`);
 				// TODO: Deal with various LLM providers' different error response formats
 				if (typeof part.error === 'string') {
 					throw new Error(part.error);
@@ -356,11 +373,14 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 		}
 
+		// Flush any remaining accumulated text deltas
+		flushAccumulatedTextDeltas();
+
 		// Log all the warnings from the response
 		result.warnings.then((warnings) => {
 			if (warnings) {
 				for (const warning of warnings) {
-					log.warn(`[${this.model}] (${this.identifier}): ${warning}`);
+					log.warn(`[${this.model}] (${this.identifier}) warn: ${warning}`);
 				}
 			}
 		});
