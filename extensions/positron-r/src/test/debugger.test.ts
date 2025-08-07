@@ -5,17 +5,13 @@
 
 import * as vscode from 'vscode';
 import * as assert from 'assert';
-import { toDisposable, withDisposables } from "./utils-disposables";
-import { execute, startR } from './utils-session';
-import { closeAllEditors } from './utils-vscode';
-import { pollForSuccess } from './utils-assertions';
-import { delay } from '../util';
+import * as testKit from './kit';
 
 suite('Debugger', () => {
 	let sesDisposable: vscode.Disposable;
 
 	suiteSetup(async () => {
-		const [_ses, disposable] = await startR();
+		const [_ses, disposable] = await testKit.startR();
 		sesDisposable = disposable;
 	});
 
@@ -26,23 +22,23 @@ suite('Debugger', () => {
 	});
 
 	test('Can debug in virtual namespace', async () => {
-		await withDisposables(async (disposables) => {
+		await testKit.withDisposables(async (disposables) => {
 			// Generate virtual namespace synchronously via `View()`
-			await execute('View(points)');
-			await closeAllEditors();
+			await testKit.execute('View(points)');
+			await testKit.closeAllEditors();
 
-			await execute('debugonce(points)');
-			await execute('points()');
+			await testKit.execute('debugonce(points)');
+			await testKit.execute('points()');
 
 			// Clean up editor opened by the debugger
-			disposables.push(toDisposable(closeAllEditors));
+			disposables.push(testKit.toDisposable(testKit.closeAllEditors));
 
 			// Quit debugger on exit
-			disposables.push(toDisposable(async () => await execute('Q')));
+			disposables.push(testKit.toDisposable(async () => await testKit.execute('Q')));
 
 			// Should show vritual namespace in editor. We poll for success to give Ark
 			// a bit of time to generate the virtual namespace.
-			await pollForSuccess(async () => {
+			await testKit.pollForSuccess(async () => {
 				const ed = vscode.window.activeTextEditor;
 
 				assert.strictEqual(
@@ -61,19 +57,19 @@ suite('Debugger', () => {
 	});
 
 	test('Can debug in virtual fallback', async () => {
-		await withDisposables(async (disposables) => {
-			await execute('f <- function() {}');
-			await execute('debug(f)');
-			await execute('f()');
+		await testKit.withDisposables(async (disposables) => {
+			await testKit.execute('f <- function() {}');
+			await testKit.execute('debug(f)');
+			await testKit.execute('f()');
 
 			// Clean up editor opened by the debugger
-			disposables.push(toDisposable(closeAllEditors));
+			disposables.push(testKit.toDisposable(testKit.closeAllEditors));
 
 			// Quit debugger on exit
-			disposables.push(toDisposable(async () => await execute('Q')));
+			disposables.push(testKit.toDisposable(async () => await testKit.execute('Q')));
 
 			// Should show vritual fallback document in editor
-			await pollForSuccess(async () => {
+			await testKit.pollForSuccess(async () => {
 				const ed = vscode.window.activeTextEditor;
 
 				assert.strictEqual(

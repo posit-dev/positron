@@ -7,7 +7,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as os from 'os';
 import * as fs from 'fs';
-import { createUniqueId, normalizePath } from './utils';
+import { createUniqueId, normalizePath } from './kit';
 import { delay } from '../util';
 
 /**

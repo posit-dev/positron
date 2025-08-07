@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { RSession } from '../session';
 import { delay } from '../util';
-import { toDisposable } from './utils-disposables';
+import { toDisposable } from './kit-disposables';
 import { ArkLsp } from '../lsp';
 
 export async function startR(): Promise<[RSession, vscode.Disposable, ArkLsp]> {

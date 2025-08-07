@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import { closeAllEditors } from './utils-vscode';
+import * as testKit from './kit';
 
 // This will run once per import in each test files
 
@@ -13,5 +13,5 @@ suiteSetup(async () => {
 	await vscode.workspace.getConfiguration().update('positron.r.kernel.logLevel', 'trace', vscode.ConfigurationTarget.Global);
 
 	// To be safe
-	await closeAllEditors();
+	await testKit.closeAllEditors();
 });
