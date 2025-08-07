@@ -967,7 +967,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.204"
+      "ark": "posit-dev/ark@bugfix/open-file-uri"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"
