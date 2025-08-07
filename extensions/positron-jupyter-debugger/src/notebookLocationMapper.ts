@@ -3,18 +3,18 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
-import { SourceMapper } from './sourceMapper.js';
+import { PathEncoder } from './pathEncoder.js';
 import { DisposableStore } from './util.js';
-import { DebugLocation } from './debugProtocolTransformer.js';
-import { SourceMap } from './jupyterRuntimeDebugAdapter.js';
+import { SourceLocation } from './debugProtocolTransformer.js';
+import { LocationMapper } from './jupyterRuntimeDebugAdapter.js';
 
-export class NotebookSourceMap implements vscode.Disposable, SourceMap {
+export class NotebookLocationMapper implements vscode.Disposable, LocationMapper {
 	private readonly _disposables = new DisposableStore();
 	private _runtimeSourcePathToCellUri = new Map<string, string>();
 	private _cellUriToRuntimeSourcePath = new Map<string, string>();
 
 	constructor(
-		private readonly _sourceMapper: SourceMapper,
+		private readonly _sourceMapper: PathEncoder,
 		private readonly _notebook: vscode.NotebookDocument
 	) {
 		this.refresh();
@@ -42,7 +42,7 @@ export class NotebookSourceMap implements vscode.Disposable, SourceMap {
 		}));
 	}
 
-	public toClientLocation<T extends DebugLocation>(location: T): T {
+	public toClientLocation<T extends SourceLocation>(location: T): T {
 		const cellUri = location.source?.path && this._runtimeSourcePathToCellUri.get(location.source.path);
 		if (!cellUri) {
 			return location;
@@ -57,16 +57,16 @@ export class NotebookSourceMap implements vscode.Disposable, SourceMap {
 		};
 	}
 
-	public toRuntimeLocation<T extends DebugLocation>(location: T): T {
-		const sourcePath = location.source?.path && this._cellUriToRuntimeSourcePath.get(clientSourcePath);
-		if (!sourcePath) {
+	public toRuntimeLocation<T extends SourceLocation>(location: T): T {
+		const path = location.source?.path && this._cellUriToRuntimeSourcePath.get(location.source.path);
+		if (!path) {
 			return location;
 		}
 		return {
 			...location,
 			source: {
 				...location.source,
-				path: sourcePath,
+				path,
 			},
 		};
 	}
@@ -79,7 +79,7 @@ export class NotebookSourceMap implements vscode.Disposable, SourceMap {
 	private add(cell: vscode.NotebookCell): void {
 		const cellUri = cell.document.uri.toString();
 		const code = cell.document.getText();
-		const sourcePath = this._sourceMapper.getSourcePath(code);
+		const sourcePath = this._sourceMapper.encode(code);
 		this._runtimeSourcePathToCellUri.set(sourcePath, cellUri);
 		this._cellUriToRuntimeSourcePath.set(cellUri, sourcePath);
 	}
