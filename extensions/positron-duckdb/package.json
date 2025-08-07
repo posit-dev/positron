@@ -32,7 +32,7 @@
     "@vscode/vsce": "^3.3.2"
   },
   "dependencies": {
-    "@duckdb/duckdb-wasm": "1.29.0",
+    "@duckdb/duckdb-wasm": "1.29.1-dev132.0",
     "apache-arrow": "^16.0.0",
     "web-worker": "^1.3.0"
   },
