@@ -129,7 +129,7 @@ async function debugCell(cell: vscode.NotebookCell | undefined): Promise<void> {
 		// TODO: Get from config.
 		justMyCode: true,
 		__notebookUri: cell.notebook.uri.toString(),
-		__cellIndex: cell.index,
+		__cellUri: cell.document.uri.toString(),
 	});
 }
 
