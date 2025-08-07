@@ -12,17 +12,44 @@ import { DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR } from './constants.js';
 export class DisposableStore implements vscode.Disposable {
 	private _disposables = new Set<vscode.Disposable>();
 
-	add<T extends vscode.Disposable>(disposable: T): T {
+	public add<T extends vscode.Disposable>(disposable: T): T {
 		this._disposables.add(disposable);
 		return disposable;
 	}
 
-	dispose(): void {
+	public dispose(): void {
 		for (const disposable of this._disposables) {
 			disposable.dispose();
 		}
 
 		this._disposables.clear();
+	}
+}
+
+export abstract class Disposable implements vscode.Disposable {
+	private _isDisposed = false;
+
+	protected readonly _disposables = new DisposableStore();
+
+	public dispose(): void {
+		if (this._isDisposed) {
+			return;
+		}
+		this._isDisposed = true;
+		this._disposables.dispose();
+	}
+
+	protected _register<T extends vscode.Disposable>(value: T): T {
+		if (this._isDisposed) {
+			value.dispose();
+		} else {
+			this._disposables.add(value);
+		}
+		return value;
+	}
+
+	protected get isDisposed() {
+		return this._isDisposed;
 	}
 }
 

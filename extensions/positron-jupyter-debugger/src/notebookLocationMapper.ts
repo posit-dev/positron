@@ -4,15 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { PathEncoder } from './pathEncoder.js';
-import { DisposableStore } from './util.js';
-import { Location } from './types.js';
-import { LocationMapper } from './types.js';
+import { Disposable } from './util.js';
+import { Location, LocationMapper } from './types.js';
 
 /**
  * Maps source locations between notebook cells and runtime source paths.
  */
-export class NotebookLocationMapper implements vscode.Disposable, LocationMapper {
-	private readonly _disposables = new DisposableStore();
+export class NotebookLocationMapper extends Disposable implements vscode.Disposable, LocationMapper {
 
 	/* Map of cell URI keyed by runtime source path. */
 	private _cellUriByRuntimeSourcePath = new Map<string, string>();
@@ -24,16 +22,18 @@ export class NotebookLocationMapper implements vscode.Disposable, LocationMapper
 		private readonly _pathEncoder: PathEncoder,
 		private readonly _notebook: vscode.NotebookDocument
 	) {
+		super();
+
 		// Initial refresh for this notebook.
 		this.refresh();
 
 		// When the path encoder options change, refresh.
-		this._disposables.add(this._pathEncoder.onDidUpdateOptions(() => {
+		this._register(this._pathEncoder.onDidUpdateOptions(() => {
 			this.refresh();
 		}));
 
 		// When the notebook document changes, update mappings.
-		this._disposables.add(vscode.workspace.onDidChangeNotebookDocument(event => {
+		this._register(vscode.workspace.onDidChangeNotebookDocument(event => {
 			// Only handle changes for this notebook.
 			if (event.notebook.uri.toString() !== this._notebook.uri.toString()) {
 				return;
@@ -129,9 +129,5 @@ export class NotebookLocationMapper implements vscode.Disposable, LocationMapper
 		for (const cell of this._notebook.getCells()) {
 			this.add(cell);
 		}
-	}
-
-	public dispose(): void {
-		this._disposables.dispose();
 	}
 }

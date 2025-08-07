@@ -4,7 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 import { murmurhash2_32 } from './murmur.js';
-import { DisposableStore } from './util.js';
+import { Disposable } from './util.js';
 
 export interface PathEncoderOptions {
 	/* The hash method used. Default is 'Murmur2'. */
@@ -23,12 +23,15 @@ export interface PathEncoderOptions {
 /*
  * Deterministically encodes arbitrary strings into file paths.
  */
-export class PathEncoder implements vscode.Disposable {
-	private readonly _disposables = new DisposableStore();
-	private readonly _onDidUpdateOptions = this._disposables.add(new vscode.EventEmitter<void>());
+export class PathEncoder extends Disposable implements vscode.Disposable {
+	private readonly _onDidUpdateOptions = this._register(new vscode.EventEmitter<void>());
 
 	/* Current encoding options. */
 	private _options?: PathEncoderOptions;
+
+	constructor() {
+		super();
+	}
 
 	/* Event fired when encoding options are updated. */
 	public readonly onDidUpdateOptions = this._onDidUpdateOptions.event;
@@ -70,7 +73,4 @@ export class PathEncoder implements vscode.Disposable {
 		}
 	}
 
-	public dispose() {
-		this._disposables.dispose();
-	}
 }

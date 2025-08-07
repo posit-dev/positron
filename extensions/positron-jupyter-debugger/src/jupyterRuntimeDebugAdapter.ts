@@ -7,7 +7,7 @@ import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugInfoArguments, DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
-import { DisposableStore, formatDebugMessage } from './util.js';
+import { Disposable, formatDebugMessage } from './util.js';
 import { DebugProtocolTransformer } from './debugProtocolTransformer.js';
 import { LocationMapper } from './types.js';
 
@@ -37,10 +37,9 @@ export interface JupyterRuntimeDebugAdapterOptions {
  * Debug adapter that bridges VS Code's debug protocol with Positron runtimes that support
  * the {@link https://jupyter-client.readthedocs.io/en/latest/messaging.html#additions-to-the-dap Jupyter debugging protocol}.
  */
-export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
-	private readonly _disposables = new DisposableStore();
-	private readonly _onDidSendMessage = this._disposables.add(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
-	private readonly _onDidRefreshState = this._disposables.add(new vscode.EventEmitter<DebugInfoResponseBody>());
+export class JupyterRuntimeDebugAdapter extends Disposable implements vscode.DebugAdapter, vscode.Disposable {
+	private readonly _onDidSendMessage = this._register(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
+	private readonly _onDidRefreshState = this._register(new vscode.EventEmitter<DebugInfoResponseBody>());
 	private readonly _mapper: LocationMapper;
 	private readonly _log: vscode.LogOutputChannel;
 	private readonly _debugSession: vscode.DebugSession;
@@ -64,6 +63,8 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 	constructor(
 		options: JupyterRuntimeDebugAdapterOptions
 	) {
+		super();
+
 		this._mapper = options.mapper;
 		this._log = options.outputChannel;
 		this._debugSession = options.debugSession;
@@ -78,7 +79,7 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 		});
 
 		// Forward debug messages from the runtime to the client.
-		this._disposables.add(this._runtimeSession.onDidReceiveRuntimeMessage(async (runtimeMessage) => {
+		this._register(this._runtimeSession.onDidReceiveRuntimeMessage(async (runtimeMessage) => {
 			switch (runtimeMessage.type) {
 				case positron.LanguageRuntimeMessageType.DebugEvent:
 					// Forward debug events to the client.
@@ -207,9 +208,5 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 	/* Retrieves debug configuration from the runtime. */
 	private async debugInfo(): Promise<DebugInfoResponseBody> {
 		return await this._debugSession.customRequest('debugInfo', {} satisfies DebugInfoArguments);
-	}
-
-	public dispose() {
-		this._disposables.dispose();
 	}
 }
