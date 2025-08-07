@@ -122,20 +122,33 @@ function initLoadFn(opts) {
 	// set loader
 	function importModules(modules) {
 		const moduleArray = Array.isArray(modules) ? modules : [modules];
+
 		const tasks = moduleArray.map(mod => {
-			const url = new URL(`./${mod}.js`, baseUrl).href;
-			return import(url).catch(err => {
-				console.log(mod, url);
-				console.log(err);
-				_loaderErrors.push(err);
-				throw err;
-			});
+			const filePath = path.join(loadFn._out, `${mod}.js`);
+			try {
+				// Try to require the module directly (for CommonJS)
+				const result = require(filePath);
+				console.log(`✅ Loaded ${mod} via require(${filePath})`);
+				return Promise.resolve(result);
+			} catch (requireErr) {
+				console.warn(`⚠️ require() failed for ${mod}: ${requireErr.message}`);
+				console.warn(`↪️ Falling back to import()`);
+
+				const url = new URL(`./${mod}.js`, baseUrl).href;
+				return import(url).catch(err => {
+					console.error(`❌ import() failed for ${mod} at ${url}`);
+					console.error(err);
+					_loaderErrors.push(err);
+					throw err;
+				});
+			}
 		});
 
 		return Array.isArray(modules)
 			? Promise.all(tasks)
 			: tasks[0];
 	}
+
 	importModules._out = out;
 	loadFn = importModules;
 }

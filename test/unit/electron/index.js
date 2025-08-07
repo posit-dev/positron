@@ -259,6 +259,7 @@ app.on('ready', () => {
 			additionalArguments: [`--vscode-window-config=vscode:test-vscode-window-config`],
 			nodeIntegration: true,
 			contextIsolation: false,
+			sandbox: false, // disable sandboxing for tests
 			enableWebSQL: false,
 			spellcheck: false
 		}
