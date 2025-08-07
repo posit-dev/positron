@@ -1,0 +1,5 @@
+{
+	"displayName": "Debugging",
+	"description": "Debugging support for Positron language runtimes.",
+	"category.notebook": "Notebook"
+}
