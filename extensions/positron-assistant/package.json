@@ -208,7 +208,8 @@
             "default": {},
             "description": "%configuration.maxOutputTokens.description%",
             "additionalProperties": {
-              "type": "number"
+              "type": "number",
+              "minimum": 512
             }
           },
           "positron.assistant.followups.enable": {
