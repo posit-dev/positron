@@ -20,12 +20,14 @@ export async function launch(options: LaunchOptions): Promise<{ electronProcess:
 	// Resolve electron config and update
 	const { electronPath, args, env } = await resolveElectronConfiguration(options);
 	args.push('--enable-smoke-test-driver');
+
+	// the following args are required for running in docker as root
 	if (isDocker()) {
-		args.push('--disable-dev-shm-usage');
-		args.push('--no-sandbox');
-		args.push('--enable-unsafe-swiftshader');
-		args.push('--use-gl=swiftshader');
-		args.push('--disable-gpu-compositing');
+		args.push('--disable-dev-shm-usage'); // required for docker
+		args.push('--no-sandbox'); // required for root
+		args.push('--enable-unsafe-swiftshader'); // minimize warnings related to GPU
+		args.push('--use-gl=swiftshader'); // minimize warnings related to GPU
+		args.push('--disable-gpu-compositing'); // minimize warnings related to GPU
 	}
 
 	// Launch electron via playwright

@@ -70,6 +70,8 @@ kill_app
 # kill_app
 # --- End Positron ---
 
+# --- Start Positron ---
+# Note that --no-sandox is required in lines below now as these tests run as root in CI.
 echo
 echo "### Terminal Suggest tests"
 echo
@@ -99,6 +101,7 @@ echo "### Git tests"
 echo
 "$INTEGRATION_TEST_ELECTRON_PATH" --no-sandbox $(mktemp -d 2>/dev/null) --extensionDevelopmentPath=$ROOT/extensions/git --extensionTestsPath=$ROOT/extensions/git/out/test $API_TESTS_EXTRA_ARGS
 kill_app
+# --- End Positron ---
 
 echo
 echo "### Ipynb tests"
