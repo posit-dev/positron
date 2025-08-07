@@ -9,11 +9,11 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugInfoArguments, DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
 import { DisposableStore, formatDebugMessage } from './util.js';
-import { DebugLocation, DebugProtocolTransformer } from './debugProtocolTransformer.js';
+import { SourceLocation, DebugProtocolTransformer } from './debugProtocolTransformer.js';
 
-export interface SourceMap {
-	toClientLocation<T extends DebugLocation>(location: T): T;
-	toRuntimeLocation<T extends DebugLocation>(location: T): T;
+export interface LocationMapper {
+	toClientLocation<T extends SourceLocation>(location: T): T;
+	toRuntimeLocation<T extends SourceLocation>(location: T): T;
 }
 
 export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
@@ -32,17 +32,17 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 
 	constructor(
 		// TODO: options object
-		private readonly _sourceMap: SourceMap,
+		private readonly _mapper: LocationMapper,
 		public readonly log: vscode.LogOutputChannel,
 		public readonly debugSession: vscode.DebugSession,
 		public readonly runtimeSession: positron.LanguageRuntimeSession,
 	) {
 		this._runtimeToClientTransformer = new DebugProtocolTransformer({
-			location: this._sourceMap.toClientLocation.bind(this._sourceMap)
+			location: this._mapper.toClientLocation.bind(this._mapper)
 		});
 
 		this._clientToRuntimeTransformer = new DebugProtocolTransformer({
-			location: this._sourceMap.toRuntimeLocation.bind(this._sourceMap),
+			location: this._mapper.toRuntimeLocation.bind(this._mapper),
 		});
 
 		// Forward debug messages from the runtime to the client.

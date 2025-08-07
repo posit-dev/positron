@@ -58,7 +58,7 @@ export function formatDebugMessage(message: DebugProtocol.ProtocolMessage): stri
 	}
 }
 
-export function createDebugAdapterOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
+export function createDebuggerOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
 	const runtimeName = runtimeSession.runtimeMetadata.runtimeName;
 	const sessionMode = runtimeSession.metadata.sessionMode;
 	let sessionTitle: string;

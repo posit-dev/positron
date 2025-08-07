@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { murmurhash2_32 } from './murmur.js';
 import { DisposableStore } from './util.js';
 
-export interface SourceMapOptions {
+export interface PathEncoderOptions {
 	/* The hash method used for code cells. Default is 'Murmur2'. */
 	hashMethod: string;
 
@@ -20,39 +20,39 @@ export interface SourceMapOptions {
 	tmpFileSuffix: string;
 }
 
-export class SourceMapper implements vscode.Disposable {
+export class PathEncoder implements vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 
 	private readonly _onDidUpdateOptions = this._disposables.add(new vscode.EventEmitter<void>());
 
 	public readonly onDidUpdateOptions = this._onDidUpdateOptions.event;
 
-	private _options?: SourceMapOptions;
+	private _options?: PathEncoderOptions;
 
-	public setSourceMapOptions(options: SourceMapOptions): void {
+	public setOptions(options: PathEncoderOptions): void {
 		this._options = options;
 		this._onDidUpdateOptions.fire();
 	}
 
-	private hash(code: string): string {
+	private hash(string: string): string {
 		if (!this._options) {
 			throw new Error('Cannot hash code before debug options are initialized');
 		}
 
 		switch (this._options.hashMethod) {
 			case 'Murmur2':
-				return murmurhash2_32(code, this._options.hashSeed).toString();
+				return murmurhash2_32(string, this._options.hashSeed).toString();
 			default:
 				throw new Error(`Unsupported hash method: ${this._options.hashMethod}`);
 		}
 	}
 
-	public getSourcePath(code: string): string {
+	public encode(string: string): string {
 		if (!this._options) {
 			throw new Error('Cannot get code ID before debug options are initialized');
 		}
 
-		const hashed = this.hash(code);
+		const hashed = this.hash(string);
 		return `${this._options.tmpFilePrefix}${hashed}${this._options.tmpFileSuffix}`;
 	}
 

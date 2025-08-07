@@ -6,14 +6,14 @@
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { log } from './extension.js';
-import { DebugCellManager } from './notebook.js';
-import { createDebugAdapterOutputChannel, DisposableStore } from './util.js';
+import { CellDebugController } from './cellDebugController.js';
+import { createDebuggerOutputChannel, DisposableStore } from './util.js';
 import { JupyterRuntimeDebugAdapter } from './jupyterRuntimeDebugAdapter.js';
-import { SourceMapper } from './sourceMapper.js';
-import { NotebookSourceMap } from './notebookSourceMap.js';
+import { PathEncoder } from './pathEncoder.js';
+import { NotebookLocationMapper } from './notebookLocationMapper.js';
 
 // TODO: How do we handle reusing a debug adapter/session across cells?
-export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory, vscode.Disposable {
+export class NotebookDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory, vscode.Disposable {
 	private readonly _disposables = new DisposableStore();
 
 	private readonly _outputChannelByRuntimeSessionId = new Map<string, vscode.LogOutputChannel>();
@@ -47,14 +47,14 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		// Create the output channel for the runtime session's debugger.
 		const outputChannel = this.createOutputChannel(runtimeSession);
 
-		const sourceMapper = new SourceMapper();
-		const sourceMap = this._disposables.add(new NotebookSourceMap(sourceMapper, notebook));
+		const sourceMapper = new PathEncoder();
+		const sourceMap = this._disposables.add(new NotebookLocationMapper(sourceMapper, notebook));
 		const adapter = this._disposables.add(new JupyterRuntimeDebugAdapter(sourceMap, outputChannel, debugSession, runtimeSession));
 
 		// TODO: Where should this disposable live?
 		// TODO: Do we need a refresh state event or can we just call debugInfo here?
 		this._disposables.add(adapter.onDidRefreshState((debugInfo) => {
-			sourceMapper.setSourceMapOptions({
+			sourceMapper.setOptions({
 				hashMethod: debugInfo.hashMethod,
 				hashSeed: debugInfo.hashSeed,
 				tmpFilePrefix: debugInfo.tmpFilePrefix,
@@ -63,7 +63,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		}));
 
 		// Create a debug cell manager to handle the cell execution and debugging.
-		const debugCellManager = this._disposables.add(new DebugCellManager(adapter, debugSession, notebook, runtimeSession, cell.index));
+		const debugCellManager = this._disposables.add(new CellDebugController(adapter, debugSession, notebook, runtimeSession, cell.index));
 
 		// End the debug session when the kernel is interrupted.
 		const stateDisposable = this._disposables.add(runtimeSession.onDidChangeRuntimeState(async (state) => {
@@ -93,7 +93,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		if (outputChannel) {
 			return outputChannel;
 		}
-		const newOutputChannel = this._disposables.add(createDebugAdapterOutputChannel(runtimeSession));
+		const newOutputChannel = this._disposables.add(createDebuggerOutputChannel(runtimeSession));
 		this._outputChannelByRuntimeSessionId.set(runtimeSession.metadata.sessionId, newOutputChannel);
 		return newOutputChannel;
 	}
