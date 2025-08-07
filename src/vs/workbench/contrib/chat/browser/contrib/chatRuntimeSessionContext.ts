@@ -299,7 +299,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 }
 
 export class ChatRuntimeSessionContext extends Disposable {
-	private static maxCostSettingId = 'chat.runtimeSessionContext.maxExecutionHistoryCost';
+	private static maxCostSettingId = 'chat.runtimeSessionContext.maxExecutionHistoryCharacters';
 	get id() {
 		return 'positron.implicit.runtimeSession';
 	}

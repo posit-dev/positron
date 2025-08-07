@@ -194,11 +194,11 @@ configurationRegistry.registerConfiguration({
 				'panel': 'always',
 			}
 		},
-		'chat.runtimeSessionContext.maxExecutionHistoryCost': {
+		'chat.runtimeSessionContext.maxExecutionHistoryCharacters': {
 			type: 'number',
 			tags: ['experimental'],
-			description: nls.localize('chat.runtimeSessionContext.maxExecutionHistoryCost', "The maximum token cost for the runtime session execution history context. This is used to limit the size of the context that is sent to the model. The value is in tokens, with a default of 8192 tokens."),
-			default: 8192, // 8k tokens
+			description: nls.localize('chat.runtimeSessionContext.maxExecutionHistoryCharacters', "The maximum character count for the runtime session execution history context. This is used to limit the size of the context that is sent to the model. The default is 8192 characters."),
+			default: 8192, // 8k characters
 			minimum: 1024,
 		},
 		// --- End Positron ---
