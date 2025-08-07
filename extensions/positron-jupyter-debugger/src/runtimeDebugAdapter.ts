@@ -9,26 +9,13 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
 import { DisposableStore, formatDebugMessage } from './util.js';
-import { murmurhash2_32 } from './murmur.js';
 import { DebugProtocolTransformer } from './debugProtocolTransformer.js';
-
-export interface SourceMapOptions {
-	/* The hash method used for code cells. Default is 'Murmur2'. */
-	hashMethod: string;
-
-	/* The seed for hashing code cells. */
-	hashSeed: number;
-
-	/* Prefix for temporary file names. */
-	tmpFilePrefix: string;
-
-	/* Suffix for temporary file names. */
-	tmpFileSuffix: string;
-}
+import { SourceMapper } from './sourceMapper.js';
 
 export interface SourceMap {
 	runtimeToClientSourcePath(runtimeSourcePath: string): string | undefined;
 	clientToRuntimeSourcePath(clientSourcePath: string): string | undefined;
+	refresh(): void;
 }
 
 export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.Disposable {
@@ -40,10 +27,6 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 	private readonly _runtimeToClientTransformer: DebugProtocolTransformer;
 	private readonly _clientToRuntimeTransformer: DebugProtocolTransformer;
 
-	private _sourceMap?: SourceMap;
-
-	public sourceMapOptions?: SourceMapOptions;
-
 	/** Event emitted when a debug protocol message is sent to the client. */
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
 
@@ -51,6 +34,8 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 
 	constructor(
 		// TODO: options object
+		private readonly _sourceMapper: SourceMapper,
+		private readonly _sourceMap: SourceMap,
 		public readonly log: vscode.LogOutputChannel,
 		public readonly debugSession: vscode.DebugSession,
 		public readonly runtimeSession: positron.LanguageRuntimeSession,
@@ -58,10 +43,6 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 		const self = this;
 		this._runtimeToClientTransformer = new DebugProtocolTransformer({
 			location(location) {
-				if (!self._sourceMap) {
-					// TODO: Maybe this should error instead
-					return location;
-				}
 				const cellUri = location.source?.path && self._sourceMap.runtimeToClientSourcePath(location.source.path);
 				if (!cellUri) {
 					return location;
@@ -79,10 +60,6 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 
 		this._clientToRuntimeTransformer = new DebugProtocolTransformer({
 			location(location) {
-				if (!self._sourceMap) {
-					// TODO: Maybe this should error instead
-					return location;
-				}
 				const sourcePath = location.source?.path && self._sourceMap.clientToRuntimeSourcePath(location.source.path);
 				if (!sourcePath) {
 					return location;
@@ -117,19 +94,17 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 		});
 	}
 
-	public setSourceMap(sourceMap: SourceMap): void {
-		this._sourceMap = sourceMap;
-	}
-
 	private async restoreState(): Promise<void> {
 		const debugInfo = await this.debugInfo();
-		this.sourceMapOptions = {
+		// TODO: Could have the source mapper listen for this event... that way this class doesn't depend on it at all?
+		this._sourceMapper.setSourceMapOptions({
 			hashMethod: debugInfo.hashMethod,
 			hashSeed: debugInfo.hashSeed,
 			tmpFilePrefix: debugInfo.tmpFilePrefix,
 			tmpFileSuffix: debugInfo.tmpFileSuffix,
-		};
+		});
 		// TODO: Maybe this could also call dump cell somehow? Basically reconsider this boundary
+		this._sourceMap.refresh();
 		this._onDidUpdateSourceMapOptions.fire();
 	}
 
@@ -219,28 +194,6 @@ export class JupyterRuntimeDebugAdapter implements vscode.DebugAdapter, vscode.D
 
 	public async debugInfo(): Promise<DebugInfoResponseBody> {
 		return await this.debugSession.customRequest('debugInfo') as DebugInfoResponseBody;
-	}
-
-	private hash(code: string): string {
-		if (!this.sourceMapOptions) {
-			throw new Error('Cannot hash code before debug options are initialized');
-		}
-
-		switch (this.sourceMapOptions.hashMethod) {
-			case 'Murmur2':
-				return murmurhash2_32(code, this.sourceMapOptions.hashSeed).toString();
-			default:
-				throw new Error(`Unsupported hash method: ${this.sourceMapOptions.hashMethod}`);
-		}
-	}
-
-	public getRuntimeSourcePath(code: string): string {
-		if (!this.sourceMapOptions) {
-			throw new Error('Cannot get code ID before debug options are initialized');
-		}
-
-		const hashed = this.hash(code);
-		return `${this.sourceMapOptions.tmpFilePrefix}${hashed}${this.sourceMapOptions.tmpFileSuffix}`;
 	}
 
 	public dispose() {
