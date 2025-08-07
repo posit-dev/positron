@@ -5,8 +5,10 @@
 import * as vscode from 'vscode';
 import { SourceMapper } from './sourceMapper.js';
 import { DisposableStore } from './util.js';
+import { DebugLocation } from './debugProtocolTransformer.js';
+import { SourceMap } from './runtimeDebugAdapter.js';
 
-export class NotebookSourceMap implements vscode.Disposable {
+export class NotebookSourceMap implements vscode.Disposable, SourceMap {
 	private readonly _disposables = new DisposableStore();
 	private _runtimeSourcePathToCellUri = new Map<string, string>();
 	private _cellUriToRuntimeSourcePath = new Map<string, string>();
@@ -16,6 +18,10 @@ export class NotebookSourceMap implements vscode.Disposable {
 		private readonly _notebook: vscode.NotebookDocument
 	) {
 		this.refresh();
+
+		this._disposables.add(this._sourceMapper.onDidUpdateOptions(() => {
+			this.refresh();
+		}));
 
 		this._disposables.add(vscode.workspace.onDidChangeNotebookDocument(event => {
 			if (event.notebook.uri.toString() !== this._notebook.uri.toString()) {
@@ -36,12 +42,33 @@ export class NotebookSourceMap implements vscode.Disposable {
 		}));
 	}
 
-	public runtimeToClientSourcePath(runtimeSourcePath: string): string | undefined {
-		return this._runtimeSourcePathToCellUri.get(runtimeSourcePath);
+	public toClientLocation<T extends DebugLocation>(location: T): T {
+		const cellUri = location.source?.path && this._runtimeSourcePathToCellUri.get(location.source.path);
+		if (!cellUri) {
+			return location;
+		}
+		return {
+			...location,
+			source: {
+				...location.source,
+				sourceReference: 0, // Editor should not try to retrieve this source since its a known cell URI.
+				path: cellUri,
+			},
+		};
 	}
 
-	public clientToRuntimeSourcePath(clientSourcePath: string): string | undefined {
-		return this._cellUriToRuntimeSourcePath.get(clientSourcePath);
+	public toRuntimeLocation<T extends DebugLocation>(location: T): T {
+		const sourcePath = location.source?.path && this._cellUriToRuntimeSourcePath.get(clientSourcePath);
+		if (!sourcePath) {
+			return location;
+		}
+		return {
+			...location,
+			source: {
+				...location.source,
+				path: sourcePath,
+			},
+		};
 	}
 
 	private clear(): void {
@@ -52,7 +79,7 @@ export class NotebookSourceMap implements vscode.Disposable {
 	private add(cell: vscode.NotebookCell): void {
 		const cellUri = cell.document.uri.toString();
 		const code = cell.document.getText();
-		const sourcePath = this._sourceMapper.getRuntimeSourcePath(code);
+		const sourcePath = this._sourceMapper.getSourcePath(code);
 		this._runtimeSourcePathToCellUri.set(sourcePath, cellUri);
 		this._cellUriToRuntimeSourcePath.set(cellUri, sourcePath);
 	}
@@ -66,7 +93,7 @@ export class NotebookSourceMap implements vscode.Disposable {
 		}
 	}
 
-	public refresh(): void {
+	private refresh(): void {
 		this.clear();
 		for (const cell of this._notebook.getCells()) {
 			this.add(cell);
