@@ -87,7 +87,7 @@ export class DebugCellManager implements vscode.Disposable {
 	}
 }
 
-export function activateRuntimeNotebookDebugging(): vscode.Disposable {
+export function activateNotebookDebugging(): vscode.Disposable {
 	const disposables = new DisposableStore();
 
 	const adapterFactory = disposables.add(new RuntimeNotebookDebugAdapterFactory());

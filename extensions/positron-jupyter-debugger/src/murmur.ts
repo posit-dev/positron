@@ -8,8 +8,8 @@ const encoder = new TextEncoder();
 /**
  * MurmurHash2 non-cryptographic hash function.
  *
- * Ported from the MIT-licensed http://github.com/garycourt/murmurhash-js repo
- * to use NodeJS's TextEncoder to match the ipykernel implementation.
+ * Ported to TypeScript from the MIT-licensed http://github.com/garycourt/murmurhash-js repo.
+ * Also updated to use NodeJS's TextEncoder to match ipykernel's implementation.
  *
  * @param str Input string to hash.
  * @param seed Positive integer seed.

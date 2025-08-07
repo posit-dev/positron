@@ -3,17 +3,14 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { log } from './extension.js';
 import { DebugCellManager } from './notebook.js';
-import { DisposableStore } from './util.js';
-import { JupyterRuntimeDebugAdapter } from './runtimeDebugAdapter.js';
+import { createDebugAdapterOutputChannel, DisposableStore } from './util.js';
+import { JupyterRuntimeDebugAdapter } from './jupyterRuntimeDebugAdapter.js';
 import { SourceMapper } from './sourceMapper.js';
 import { NotebookSourceMap } from './notebookSourceMap.js';
-
-const DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR = vscode.l10n.t('Debugger');
 
 // TODO: How do we handle reusing a debug adapter/session across cells?
 export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDescriptorFactory, vscode.Disposable {
@@ -48,7 +45,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		}
 
 		// Create the output channel for the runtime session's debugger.
-		const outputChannel = this.createDebugAdapterOutputChannel(runtimeSession);
+		const outputChannel = this.createOutputChannel(runtimeSession);
 
 		const sourceMapper = new SourceMapper();
 		const sourceMap = this._disposables.add(new NotebookSourceMap(sourceMapper, notebook));
@@ -91,24 +88,14 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		return new vscode.DebugAdapterInlineImplementation(adapter);
 	}
 
-	private createDebugAdapterOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
-		let outputChannel = this._outputChannelByRuntimeSessionId.get(runtimeSession.metadata.sessionId);
-
-		if (!outputChannel) {
-			const runtimeName = runtimeSession.runtimeMetadata.runtimeName;
-			const sessionMode = runtimeSession.metadata.sessionMode;
-			let sessionTitle: string;
-			if (runtimeSession.metadata.notebookUri) {
-				sessionTitle = path.basename(runtimeSession.metadata.notebookUri.fsPath);
-			} else {
-				sessionTitle = sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1);
-			}
-			const name = `${runtimeName}: ${DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR} (${sessionTitle})`;
-			outputChannel = this._disposables.add(vscode.window.createOutputChannel(name, { log: true }));
-			this._outputChannelByRuntimeSessionId.set(runtimeSession.metadata.sessionId, outputChannel);
+	private createOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
+		const outputChannel = this._outputChannelByRuntimeSessionId.get(runtimeSession.metadata.sessionId);
+		if (outputChannel) {
+			return outputChannel;
 		}
-
-		return outputChannel;
+		const newOutputChannel = this._disposables.add(createDebugAdapterOutputChannel(runtimeSession));
+		this._outputChannelByRuntimeSessionId.set(runtimeSession.metadata.sessionId, newOutputChannel);
+		return newOutputChannel;
 	}
 
 	dispose() {

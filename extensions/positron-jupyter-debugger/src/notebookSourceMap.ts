@@ -6,7 +6,7 @@ import * as vscode from 'vscode';
 import { SourceMapper } from './sourceMapper.js';
 import { DisposableStore } from './util.js';
 import { DebugLocation } from './debugProtocolTransformer.js';
-import { SourceMap } from './runtimeDebugAdapter.js';
+import { SourceMap } from './jupyterRuntimeDebugAdapter.js';
 
 export class NotebookSourceMap implements vscode.Disposable, SourceMap {
 	private readonly _disposables = new DisposableStore();
