@@ -217,7 +217,15 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		// Override maxOutputTokens if specified in the configuration
 		for (const [key, value] of Object.entries(maxOutputTokens)) {
 			if (_config.model.indexOf(key) !== -1 && value) {
-				const maxOutputTokens = value * 1024; // Convert from 1K tokens to actual tokens
+				let maxOutputTokens = value;
+				if (typeof maxOutputTokens !== 'number') {
+					log.warn(`Invalid maxOutputTokens '${maxOutputTokens}' for ${key} (${_config.model}); ignoring`);
+					continue;
+				}
+				if (maxOutputTokens < 512) {
+					log.warn(`Specified maxOutputTokens '${maxOutputTokens}' for ${key} (${_config.model}) is too low; using 512 instead`);
+					maxOutputTokens = 512;
+				}
 				log.debug(`Setting maxOutputTokens for ${key} (${_config.model}) to ${maxOutputTokens}`);
 				this.maxOutputTokens = maxOutputTokens;
 				break;
