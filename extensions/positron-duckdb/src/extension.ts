@@ -1117,7 +1117,7 @@ END`;
 					return columnValues;
 				} else {
 					// Set of values indices, just get the lower and upper extent
-					return spec.indices.map((i) => adapter(field, i));
+					return spec.indices.map(i => adapter(field, i));
 				}
 			};
 
