@@ -20,7 +20,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 
 	private readonly _outputChannelByRuntimeSessionId = new Map<string, vscode.LogOutputChannel>();
 
-	async createDebugAdapterDescriptor(debugSession: vscode.DebugSession, _executable: vscode.DebugAdapterExecutable) {
+	async createDebugAdapterDescriptor(debugSession: vscode.DebugSession, _executable: vscode.DebugAdapterExecutable): Promise<vscode.DebugAdapterDescriptor | undefined> {
 		const notebook = vscode.workspace.notebookDocuments.find(
 			(doc) => doc.uri.toString() === debugSession.configuration.__notebookUri
 		);
@@ -28,8 +28,9 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 			return undefined;
 		}
 
-		const cell = typeof debugSession.configuration.__cellIndex === 'number' &&
-			notebook.cellAt(debugSession.configuration.__cellIndex);
+		const cell = notebook.getCells().find(
+			(cell) => cell.document.uri.toString() === debugSession.configuration.__cellUri
+		);
 		if (!cell) {
 			return undefined;
 		}
@@ -38,7 +39,7 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		const runtimeSessions = await positron.runtime.getActiveSessions();
 		const runtimeSession = runtimeSessions.find(
 			(session) => session.metadata.notebookUri &&
-				session.metadata.notebookUri.toString() === debugSession.configuration.__notebookUri
+				session.metadata.notebookUri.toString() === notebook.uri.toString()
 		);
 		if (!runtimeSession) {
 			log.warn(`No runtime session found for notebook: ${notebook.uri}`);
@@ -48,14 +49,6 @@ export class RuntimeNotebookDebugAdapterFactory implements vscode.DebugAdapterDe
 		// Create the output channel for the runtime session's debugger.
 		const outputChannel = this.createDebugAdapterOutputChannel(runtimeSession);
 
-		// TODO: Remove
-		// const runtimeSession = await positron.runtime.getNotebookSession(notebook.uri);
-		// if (!runtimeSession) {
-		// 	return undefined;
-		// }
-		// Create a new debug adapter for the notebook.
-		// TODO: Reuse adapter if it already exists for the notebook?
-		// const adapter = this._disposables.add(new RuntimeNotebookDebugAdapter(debugSession, runtimeSession, notebook));
 		const adapter = this._disposables.add(new JupyterRuntimeDebugAdapter(outputChannel, debugSession, runtimeSession));
 		const sourceMap = this._disposables.add(new NotebookSourceMap(adapter, notebook));
 		adapter.setSourceMap(sourceMap);
