@@ -9,9 +9,9 @@ import React, { JSX } from 'react';
 // Other dependencies.
 import { Emitter } from '../../../../base/common/event.js';
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
-import { SummaryRowSortOption, TableSummaryCache } from '../common/tableSummaryCache.js';
+import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { ColumnSummaryCell } from './components/columnSummaryCell.js';
-import { BackendState, ColumnDisplayType } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { COLUMN_PROFILE_DATE_LINE_COUNT } from './components/columnProfileDate.js';
 import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from './components/columnProfileNumber.js';
@@ -46,8 +46,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 
 	/**
 	 * The current sort option for the summary rows
+	 *
+	 * If no sort option is set, the summary rows
+	 * are displayed in their original order.
 	 */
-	private _sortOption?: SummaryRowSortOption // TODO: replace with backend supported sort options type
+	private _sortOption?: SearchSchemaSortOrder;
 
 	/**
 	 * The onDidSelectColumn event emitter.
@@ -408,7 +411,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * Sets the sort option for the summary rows.
 	 * @param sortOption The sort option used to order the rows.
 	 */
-	async setSortOption(sortOption: SummaryRowSortOption): Promise<void> {
+	async setSortOption(sortOption: SearchSchemaSortOrder): Promise<void> {
 		this._sortOption = sortOption;
 		await this.fetchData();
 	}
