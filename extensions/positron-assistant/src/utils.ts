@@ -12,10 +12,15 @@ import { log } from './extension.js';
 
 /**
  * Convert messages from VSCode Language Model format to Vercel AI format.
+ *
+ * @param messages The messages to convert.
+ * @param toolResultExperimentalContent Whether to use experimental content for tool results.
+ * @param bedrockCacheBreakpoint Whether to use Bedrock cache breakpoints.
  */
 export function toAIMessage(
 	messages: vscode.LanguageModelChatMessage2[],
-	toolResultExperimentalContent: boolean = false
+	toolResultExperimentalContent: boolean = false,
+	bedrockCacheBreakpoint: boolean = false
 ): ai.CoreMessage[] {
 	// Gather all tool call references
 	const toolCalls = messages.reduce<Record<string, vscode.LanguageModelToolCallPart>>((acc, message) => {
@@ -58,7 +63,7 @@ export function toAIMessage(
 
 				// If this is a cache breakpoint, note it in the message
 				// content. This is only used by the Bedrock provider.
-				if (cacheBreakpoint) {
+				if (cacheBreakpoint && bedrockCacheBreakpoint) {
 					messageContent.providerOptions = {
 						bedrock: {
 							cachePoint: {

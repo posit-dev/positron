@@ -273,8 +273,18 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
 		const toolResultExperimentalContent = this.provider === 'anthropic';
+
+		// Only select Bedrock models support cache breakpoints; specifically,
+		// the Claude 3.5 Sonnet models don't support them.
+		//
+		// Consider: it'd be more verbose but we should consider including this information
+		// in the hardcoded model metadata in the model config.
+		const bedrockCacheBreakpoint = this.provider === 'bedrock' &&
+			!this.model.modelId.startsWith('us.anthropic.claude-3-5')
+
 		// Convert messages to the Vercel AI format.
-		const aiMessages = toAIMessage(processedMessages, toolResultExperimentalContent);
+		const aiMessages = toAIMessage(processedMessages, toolResultExperimentalContent,
+			bedrockCacheBreakpoint);
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
@@ -600,7 +610,7 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 }
 
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model;
+	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
