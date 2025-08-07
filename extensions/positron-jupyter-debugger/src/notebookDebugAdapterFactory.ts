@@ -72,7 +72,7 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 		}));
 
 		// Create a debug cell manager to handle the cell execution and debugging.
-		const debugCellManager = this._register(new CellDebugController(adapter, debugSession, notebook, runtimeSession, cell.index));
+		const debugCellManager = this._register(new CellDebugController(adapter, debugSession, runtimeSession, cell));
 
 		// End the debug session when the kernel is interrupted.
 		const stateDisposable = this._register(runtimeSession.onDidChangeRuntimeState(async (state) => {

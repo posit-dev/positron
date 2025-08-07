@@ -17,13 +17,11 @@ export class CellDebugController extends Disposable implements vscode.Disposable
 	constructor(
 		private readonly _adapter: vscode.DebugAdapter,
 		private readonly _debugSession: vscode.DebugSession,
-		private readonly _notebook: vscode.NotebookDocument,
 		private readonly _runtimeSession: positron.LanguageRuntimeSession,
-		private readonly _cellIndex: number
+		private readonly _cell: vscode.NotebookCell,
 	) {
 		super();
 
-		// TODO: Check that the cell belongs to the notebook? Or pass in cell index?
 		// Execute the cell when the debug session is ready.
 		// TODO: If we attach to an existing debug session, would this work?
 		//       Or we could also track configuration completed state in an adapter property
@@ -35,18 +33,10 @@ export class CellDebugController extends Disposable implements vscode.Disposable
 
 			configDisposable.dispose();
 
-			// TODO: Is this right? Should we dump all cells?
-			//       We have to at least dump this cell so that if a called function in another cell has a breakpoint,
-			//       this cell can still be referenced e.g. in the stack trace.
-			// TODO: Take cell as arg?
-			// const cell = this._notebook.cellAt(this._cellIndex);
-			// this._adapter.dumpCell(cell).catch((error) => {
-			// 	log.error(`Error dumping cell ${cell.index}:`, error);
-			// });
 			// TODO: Can this throw?
 			await vscode.commands.executeCommand('notebook.cell.execute', {
-				ranges: [{ start: this._cellIndex, end: this._cellIndex + 1 }],
-				document: this._notebook.uri,
+				ranges: [{ start: this._cell.index, end: this._cell.index + 1 }],
+				document: this._cell.notebook.uri,
 			});
 		}));
 
@@ -55,7 +45,7 @@ export class CellDebugController extends Disposable implements vscode.Disposable
 			// TODO: restrict to cell and session ID as well?
 			if (event.attribution.source === positron.CodeAttributionSource.Notebook &&
 				// TODO: what does this look like for untitled/unsaved files?
-				event.attribution.metadata?.notebook === this._notebook.uri.fsPath) {
+				event.attribution.metadata?.notebook === this._cell.notebook.uri.fsPath) {
 				executeDisposable.dispose();
 				this._executionId = event.executionId;
 			}
