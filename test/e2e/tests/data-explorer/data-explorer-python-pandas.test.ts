@@ -43,6 +43,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await clipboard.expectClipboardTextToBe('Jai');
 
 		// verify sparkline hover dialog
+		await dataExplorer.expandSummary();
 		await dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
 
 		// verify null percentage hover dialog
