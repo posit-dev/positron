@@ -9,7 +9,7 @@ import { IConfigurationService } from '../../../../platform/configuration/common
 import { arrayFromIndexRange } from './utils.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { dataExplorerExperimentalFeatureEnabled } from './positronDataExplorerExperimentalConfig.js';
-import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
 
 /**
  * Constants.
@@ -22,34 +22,12 @@ const SMALL_FREQUENCY_TABLE_LIMIT = 8;
 const LARGE_FREQUENCY_TABLE_LIMIT = 16;
 
 /**
- * TODO: replace with backend supported sort options type
- *
- * Enum options for sorting the summary row.
- *
- * These options are used to determine how the summary row data should be sorted.
- *
- * Each option corresponds to a specific sorting criterion:
- * - Original: No sorting, uses the original order of the data
- * - NameAscending: Sort by name in ascending order
- * - NameDescending: Sort by name in descending order
- * - TypeAscending: Sort by the data type of the column field in ascending order, e.g. boolean, number, string
- * - TypeDescending: Sort by the data type of the column field in descending order, e.g. string, number, boolean
- */
-export enum SummaryRowSortOption {
-	Original = 'original',
-	NameAscending = 'name-asc',
-	NameDescending = 'name-desc',
-	TypeAscending = 'type-asc',
-	TypeDescending = 'type-desc'
-}
-
-/**
  * UpdateDescriptor interface.
  */
 interface UpdateDescriptor {
 	invalidateCache: boolean;
 	searchText?: string;
-	sortOption?: SummaryRowSortOption;
+	sortOption?: SearchSchemaSortOrder;
 	firstColumnIndex: number;
 	screenColumns: number;
 }
@@ -85,7 +63,7 @@ export class TableSummaryCache extends Disposable {
 	/**
 	 * The sort option used to order the summary rows.
 	 */
-	private _sortOption?: SummaryRowSortOption;
+	private _sortOption?: SearchSchemaSortOrder;
 
 	/**
 	 * Gets or sets the columns.
@@ -291,7 +269,7 @@ export class TableSummaryCache extends Disposable {
 		const tableSchema = this._searchText
 			? await this._dataExplorerClientInstance.searchSchema({
 				searchText: this._searchText,
-				//sortOption: this._sortOption ?? SummaryRowSortOption.Original,
+				//sortOption: this._sortOption,
 				startIndex: columnIndices[0],
 				numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1
 			})
