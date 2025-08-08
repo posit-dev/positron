@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Callable, Container, cast
 import psutil
 import traitlets
 from ipykernel.compiler import get_tmp_directory
+from ipykernel.debugger import _is_debugpy_available
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
@@ -509,6 +510,23 @@ class PositronIPyKernel(IPythonKernel):
 
         # Patch haystack-ai to ensure is_in_jupyter() returns True in Positron
         patch_haystack_is_in_jupyter()
+
+    @property
+    def kernel_info(self):
+        kernel_info = super().kernel_info
+
+        # Declare debugger support using the new `supported_features` property
+        # for ipykernel < 7.0.0.
+        if "supported_features" not in kernel_info:
+            supported_features = []
+            if _is_debugpy_available:
+                # If debugpy is available, add the 'debugger' feature.
+                supported_features.append("debugger")
+
+        return {
+            **kernel_info,
+            "supported_features": supported_features,
+        }
 
     def publish_execute_input(
         self,
