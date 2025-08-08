@@ -338,7 +338,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		if (modelOptions.system) {
 			log.trace(`system: ${modelOptions.system.length > 100 ? `${modelOptions.system.substring(0, 100)}...` : modelOptions.system} (${modelOptions.system.length} chars)`);
 		}
-		log.trace(`messages: ${JSON.stringify(aiMessages)}`);
+		log.trace(`messages: ${JSON.stringify(aiMessages, null, 2)}`);
 		const result = ai.streamText({
 			model: this.model,
 			system: systemMessage,
