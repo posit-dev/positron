@@ -33,6 +33,11 @@ export class PathEncoder extends Disposable implements vscode.Disposable {
 		super();
 	}
 
+	/* Checks if the encoder is initialized. */
+	public isInitialized(): boolean {
+		return this._options !== undefined;
+	}
+
 	/* Event fired when encoding options are updated. */
 	public readonly onDidUpdateOptions = this._onDidUpdateOptions.event;
 
