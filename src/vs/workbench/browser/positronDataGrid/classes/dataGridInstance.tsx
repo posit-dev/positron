@@ -1266,7 +1266,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get firstColumn(): ColumnDescriptor | undefined {
 		// Get the first column layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._columnLayoutManager.findUnpinnedLayoutEntry(this.horizontalScrollOffset);
+		const layoutEntry = this._columnLayoutManager.findFirstUnpinnedLayoutEntry(this.horizontalScrollOffset);
 		if (!layoutEntry) {
 			return undefined;
 		}
@@ -1284,7 +1284,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	get firstRow(): RowDescriptor | undefined {
 		// Get the first row layout entry. If it wasn't found, return undefined.
-		const layoutEntry = this._rowLayoutManager.findUnpinnedLayoutEntry(this.verticalScrollOffset);
+		const layoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
 		if (!layoutEntry) {
 			return undefined;
 		}
@@ -1392,7 +1392,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	getColumnDescriptors(horizontalOffset: number, width: number): ColumnDescriptors {
 		// Get the pinned column descriptors.
-		const pinnedLayoutEntries = this._columnLayoutManager.pinnedLayoutEntries();
+		const pinnedLayoutEntries = this._columnLayoutManager.pinnedLayoutEntries(width);
 		const pinnedColumnDescriptors = pinnedLayoutEntries.map((pinnedLayoutEntry): ColumnDescriptor => ({
 			columnIndex: pinnedLayoutEntry.index,
 			left: pinnedLayoutEntry.start,
@@ -1427,12 +1427,12 @@ export abstract class DataGridInstance extends Disposable {
 	/**
 	 * Gets row descriptors.
 	 * @param verticalOffset The vertical offset of the unpinned row descriptors to return.
-	 * @param height The height of the unpinned row descriptors to return.
+	 * @param layoutHeight The height of the unpinned row descriptors to return.
 	 * @returns The row descriptors.
 	 */
-	getRowDescriptors(verticalOffset: number, height: number): RowDescriptors {
+	getRowDescriptors(verticalOffset: number, layoutHeight: number): RowDescriptors {
 		// Get the pinned row descriptors.
-		const pinnedLayoutEntries = this._rowLayoutManager.pinnedLayoutEntries();
+		const pinnedLayoutEntries = this._rowLayoutManager.pinnedLayoutEntries(layoutHeight);
 		const pinnedRowDescriptors = pinnedLayoutEntries.map((pinnedLayoutEntry): RowDescriptor => ({
 			rowIndex: pinnedLayoutEntry.index,
 			top: pinnedLayoutEntry.start,
@@ -1450,7 +1450,7 @@ export abstract class DataGridInstance extends Disposable {
 		})();
 
 		// Get the unpinned row descriptors.
-		const unpinnedLayoutEntries = this._rowLayoutManager.unpinnedLayoutEntries(verticalOffset, height - pinnedRowDescriptorsHeight);
+		const unpinnedLayoutEntries = this._rowLayoutManager.unpinnedLayoutEntries(verticalOffset, layoutHeight - pinnedRowDescriptorsHeight);
 		const unpinnedRowDescriptors = unpinnedLayoutEntries.map((pinnedLayoutEntry): RowDescriptor => ({
 			rowIndex: pinnedLayoutEntry.index,
 			top: pinnedRowDescriptorsHeight + pinnedLayoutEntry.start,
@@ -1581,7 +1581,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	async scrollPageUp() {
 		// Get the first row layout entry for the vertical scroll offset.
-		const firstLayoutEntry = this._rowLayoutManager.findUnpinnedLayoutEntry(this.verticalScrollOffset);
+		const firstLayoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
 		if (firstLayoutEntry && firstLayoutEntry.index > 1) {
 			// Find the layout entry that will be to first layout entry for the previous page.
 			let lastFullyVisibleLayoutEntry: ILayoutEntry | undefined = undefined;
@@ -1622,7 +1622,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	async scrollPageDown() {
 		// Get the first row layout entry for the vertical scroll offset.
-		const firstLayoutEntry = this._rowLayoutManager.findUnpinnedLayoutEntry(this.verticalScrollOffset);
+		const firstLayoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
 		if (firstLayoutEntry && firstLayoutEntry.index < this.rows - 1) {
 
 			// Find the layout entry that will be to first layout entry for the next page.
@@ -1894,6 +1894,33 @@ export abstract class DataGridInstance extends Disposable {
 		}
 	}
 
+	/**
+	 * Gets the first column index.
+	 */
+	get firstColummIndex() {
+		return this._columnLayoutManager.firstIndex;
+	}
+
+	/**
+	 * Gets the last column index.
+	 */
+	get lastColummIndex() {
+		return this._columnLayoutManager.lastIndex;
+	}
+
+	/**
+	 * Gets the first row index.
+	 */
+	get firstRowIndex() {
+		return this._rowLayoutManager.firstIndex;
+	}
+
+	/**
+	 * Gets the last row index.
+	 */
+	get lastRowIndex() {
+		return this._rowLayoutManager.lastIndex;
+	}
 
 	// YAYA
 
@@ -1912,7 +1939,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	pinColumn(columnIndex: number) {
 		// If column pinning is enabled, and the maximum pinned columns limit has not been reached, pin the column.
-		if (this._columnPinning && this._columnLayoutManager.pinnedIndexes < this._maximumPinnedColumns && this._columnLayoutManager.pinIndex(columnIndex)) {
+		if (this._columnPinning && this._columnLayoutManager.pinnedIndexesCount < this._maximumPinnedColumns && this._columnLayoutManager.pinIndex(columnIndex)) {
 			this.fireOnDidUpdateEvent();
 		}
 	}
@@ -1943,7 +1970,7 @@ export abstract class DataGridInstance extends Disposable {
 	 */
 	pinRow(rowIndex: number) {
 		// If row pinning is enabled, and the maximum pinned rows limit has not been reached, pin the row.
-		if (this._rowPinning && this._rowLayoutManager.pinnedIndexes < this._maximumPinnedRows && this._rowLayoutManager.pinIndex(rowIndex)) {
+		if (this._rowPinning && this._rowLayoutManager.pinnedIndexesCount < this._maximumPinnedRows && this._rowLayoutManager.pinIndex(rowIndex)) {
 			this.fireOnDidUpdateEvent();
 		}
 	}
@@ -3098,16 +3125,25 @@ export abstract class DataGridInstance extends Disposable {
 	}
 
 	/**
-	 * Fires the onDidUpdate event within the same microtask tick.
+	 * Fires the onDidUpdate event.
 	 */
 	protected fireOnDidUpdateEvent() {
-		if (!this._pendingOnDidUpdateEvent) {
-			this._pendingOnDidUpdateEvent = true;
-			Promise.resolve().then(() => {
-				this._pendingOnDidUpdateEvent = false;
-				this._onDidUpdateEmitter.fire();
-			});
+		// If the onDidUpdate event has already been fired, do nothing.
+		if (this._pendingOnDidUpdateEvent) {
+			return;
 		}
+
+		// Set the pending flag.
+		this._pendingOnDidUpdateEvent = true;
+
+		// Fire the event in a microtask.
+		Promise.resolve().then(() => {
+			// Clear the pending flag.
+			this._pendingOnDidUpdateEvent = false;
+
+			// Fire the onDidUpdate event.
+			this._onDidUpdateEmitter.fire();
+		});
 	}
 
 	//#endregion Protected Methods

@@ -191,6 +191,41 @@ export class ColumnSchemaCache extends Disposable {
 		// Initialize the cache updated flag.
 		let cacheUpdated = false;
 
+		if (!searchText) {
+			// Load the column schema for the specified column indices.
+			const tableSchemaResult = await this._dataExplorerClientInstance.getSchema(columnSchemaIndices);
+
+			// Set the columns.
+			this._columns = tableSchemaResult.columns.length;
+
+			// Update the column schema cache, overwriting any entries we already have cached.
+			for (let i = 0; i < tableSchemaResult.columns.length; i++) {
+				this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchemaResult.columns[i]);
+			}
+		} else {
+			// If there are column schema indices that need to be cached, cache them.
+			if (columnSchemaIndices.length) {
+				// Get the schema.
+				const tableSchemaSearchResult = await this._dataExplorerClientInstance.searchSchema({
+					searchText,
+					startIndex: columnSchemaIndices[0],
+					numColumns: columnSchemaIndices[columnSchemaIndices.length - 1] -
+						columnSchemaIndices[0] + 1
+				});
+
+				// Set the columns.
+				this._columns = tableSchemaSearchResult.matching_columns;
+
+				// Update the column schema cache, overwriting any entries we already have cached.
+				for (let i = 0; i < tableSchemaSearchResult.columns.length; i++) {
+					this._columnSchemaCache.set(columnSchemaIndices[0] + i, tableSchemaSearchResult.columns[i]);
+				}
+
+				// Update the cache updated flag.
+				cacheUpdated = true;
+			}
+		}
+
 		// If there are column schema indices that need to be cached, cache them.
 		if (columnSchemaIndices.length) {
 			// Get the schema.

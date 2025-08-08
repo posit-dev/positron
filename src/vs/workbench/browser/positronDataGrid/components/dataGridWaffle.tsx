@@ -218,14 +218,17 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				if (isMacintosh ? e.metaKey : e.ctrlKey) {
 					context.instance.clearSelection();
 					await context.instance.setScrollOffsets(0, 0);
-					context.instance.setCursorPosition(0, 0);
+					context.instance.setCursorPosition(
+						context.instance.firstColummIndex,
+						context.instance.firstRowIndex
+					);
 					return;
 				}
 
 				// Home clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
 				await context.instance.setHorizontalScrollOffset(0);
-				context.instance.setCursorColumn(0);
+				context.instance.setCursorColumn(context.instance.firstColummIndex);
 				break;
 			}
 
@@ -259,8 +262,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 						context.instance.maximumVerticalScrollOffset
 					);
 					context.instance.setCursorPosition(
-						context.instance.columns - 1,
-						context.instance.rows - 1
+						context.instance.lastColummIndex,
+						context.instance.lastRowIndex
 					);
 					return;
 				}
@@ -268,7 +271,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// End clears the selection and positions the screen and cursor to the left.
 				context.instance.clearSelection();
 				await context.instance.setHorizontalScrollOffset(context.instance.maximumHorizontalScrollOffset);
-				context.instance.setCursorColumn(context.instance.columns - 1);
+				context.instance.setCursorColumn(context.instance.lastColummIndex);
 				break;
 			}
 
@@ -361,12 +364,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 				// Move the cursor up.
 				context.instance.moveCursorUp();
-
-				// KILL THIS CODE
-				// if (context.instance.cursorRowIndex > 0) {
-				// 	context.instance.setCursorRow(context.instance.cursorRowIndex - 1);
-				// 	context.instance.scrollToCursor();
-				// }
 				break;
 			}
 
@@ -399,12 +396,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 				// Move the cursor up.
 				context.instance.moveCursorDown();
-
-				// KILL THIS CODE
-				// if (context.instance.cursorRowIndex < context.instance.rows - 1) {
-				// 	context.instance.setCursorRow(context.instance.cursorRowIndex + 1);
-				// 	context.instance.scrollToCursor();
-				// }
 				break;
 			}
 
@@ -412,6 +403,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			case 'ArrowLeft': {
 				// Consume the event.
 				consumeEvent();
+
+				console.log(`It's ${context.instance.cursorColumnIndex}`);
 
 				// Make sure the cursor is showing.
 				if (context.instance.showCursor()) {
@@ -437,12 +430,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 				// Moves the cursor left.
 				context.instance.moveCursorLeft();
-
-				// KILL THIS CODE
-				// if (context.instance.cursorColumnIndex > 0) {
-				// 	context.instance.setCursorColumn(context.instance.cursorColumnIndex - 1);
-				// 	context.instance.scrollToCursor();
-				// }
 				break;
 			}
 
@@ -450,6 +437,8 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			case 'ArrowRight': {
 				// Consume the event.
 				consumeEvent();
+
+				console.log(`It's ${context.instance.cursorColumnIndex}`);
 
 				// Make sure the cursor is showing.
 				if (context.instance.showCursor()) {
@@ -475,13 +464,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 
 				// Moves the cursor right.
 				context.instance.moveCursorRight();
-
-				// KILL THIS CODE
-				// context.instance.clearSelection();
-				// if (context.instance.cursorColumnIndex < context.instance.columns - 1) {
-				// 	context.instance.setCursorColumn(context.instance.cursorColumnIndex + 1);
-				// 	context.instance.scrollToCursor();
-				// }
 				break;
 			}
 		}

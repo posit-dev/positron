@@ -586,6 +586,9 @@ export class TableSummaryCache extends Disposable {
 	 * @param columnIndices The column indices.
 	 */
 	private async updateColumnProfileCache(columnIndices: number[]) {
+		if (columnIndices.length !== 0) {
+			return;
+		}
 		// Determne whether histograms and frequency tables are supported.
 		const histogramSupported = this.isHistogramSupported();
 		const frequencyTableSupported = this.isFrequencyTableSupported();
