@@ -961,12 +961,12 @@ def test_search_schema(dxf: DataExplorerFixture):
         expected_all_indices = list(range(len(column_names)))
         assert result["matches"] == expected_all_indices
 
-        result = dxf.search_schema(name, [], "ascending")
+        result = dxf.search_schema(name, [], "ascending_name")
         # Should be sorted by column name alphabetically
         expected_sorted = sorted(range(len(column_names)), key=lambda i: column_names[i])
         assert result["matches"] == expected_sorted
 
-        result = dxf.search_schema(name, [], "descending")
+        result = dxf.search_schema(name, [], "descending_name")
         # Should be sorted by column name reverse alphabetically
         expected_reverse_sorted = sorted(
             range(len(column_names)), key=lambda i: column_names[i], reverse=True
@@ -993,31 +993,78 @@ def test_search_schema_sort_by_name(dxf: DataExplorerFixture):
         expected_original = list(range(len(column_names)))
         assert result["matches"] == expected_original
 
-        # Test ascending sort (case-sensitive alphabetical)
-        result = dxf.search_schema(name, [], "ascending")
-        expected_ascending = sorted(range(len(column_names)), key=lambda i: column_names[i])
+        # Test ascending sort (case-insensitive alphabetical)
+        result = dxf.search_schema(name, [], "ascending_name")
+        expected_ascending = sorted(range(len(column_names)), key=lambda i: column_names[i].lower())
         assert result["matches"] == expected_ascending
 
-        # Test descending sort
-        result = dxf.search_schema(name, [], "descending")
+        # Test descending sort (case-insensitive alphabetical)
+        result = dxf.search_schema(name, [], "descending_name")
         expected_descending = sorted(
-            range(len(column_names)), key=lambda i: column_names[i], reverse=True
+            range(len(column_names)), key=lambda i: column_names[i].lower(), reverse=True
         )
         assert result["matches"] == expected_descending
 
         # Test that sorting works with filters too
         filter_with_a = _text_search_filter("a")  # Should match "Zebra", "apple", "BANANA"
 
-        result = dxf.search_schema(name, [filter_with_a], "ascending")
+        result = dxf.search_schema(name, [filter_with_a], "ascending_name")
         filtered_indices = [i for i, col in enumerate(column_names) if "a" in col.lower()]
-        expected_filtered_ascending = sorted(filtered_indices, key=lambda i: column_names[i])
+        expected_filtered_ascending = sorted(
+            filtered_indices, key=lambda i: column_names[i].lower()
+        )
         assert result["matches"] == expected_filtered_ascending
 
-        result = dxf.search_schema(name, [filter_with_a], "descending")
+        result = dxf.search_schema(name, [filter_with_a], "descending_name")
         expected_filtered_descending = sorted(
-            filtered_indices, key=lambda i: column_names[i], reverse=True
+            filtered_indices, key=lambda i: column_names[i].lower(), reverse=True
         )
         assert result["matches"] == expected_filtered_descending
+
+
+def test_search_schema_sort_by_type(dxf: DataExplorerFixture):
+    # Test type-based sorting functionality
+
+    data = {
+        "id": [1, 2, 3],
+        "user_id": [101, 102, 103],
+        "name": ["Alice", "Bob", "Charlie"],
+        "full_name": ["Alice Smith", "Bob Jones", "Charlie Brown"],
+        "age": [25, 30, 35],
+        "created_at": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
+        "is_active": [True, False, True],
+        "birth_date": pd.to_datetime(["1999-01-01", "1994-01-01", "1989-01-01"]).date,
+        "salary": [50000.0, 60000.0, 70000.0],
+    }
+
+    test_df = pd.DataFrame(data)
+    dxf.register_table("type_sort_test_df", test_df)
+
+    # Test ascending type sort
+    result = dxf.search_schema("type_sort_test_df", [], "ascending_type")
+    expected_ascending_type = [6, 7, 5, 0, 1, 4, 8, 2, 3]  # boolean, date, datetime, number, string
+    assert result["matches"] == expected_ascending_type
+
+    # Test descending type sort
+    result = dxf.search_schema("type_sort_test_df", [], "descending_type")
+    expected_descending_type = [
+        2,
+        3,
+        0,
+        1,
+        4,
+        8,
+        5,
+        7,
+        6,
+    ]  # string, number, datetime, date, boolean
+    assert result["matches"] == expected_descending_type
+
+    # Test type sort with filters
+    number_filter = _match_types_filter([ColumnDisplayType.Number])
+    result = dxf.search_schema("type_sort_test_df", [number_filter], "ascending_type")
+    expected_number_columns = [0, 1, 4, 8]
+    assert result["matches"] == expected_number_columns
 
 
 def test_pandas_get_data_values(dxf: DataExplorerFixture):
