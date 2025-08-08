@@ -114,12 +114,8 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			);
 
 			// Set the layout entries.
-			this._columnLayoutManager.setEntries(
-				columnWidths ?? state.table_shape.num_columns
-			);
-			this._rowLayoutManager.setEntries(
-				state.table_shape.num_rows
-			);
+			this._columnLayoutManager.setEntries(state.table_shape.num_columns, columnWidths);
+			this._rowLayoutManager.setEntries(state.table_shape.num_rows);
 
 			// For zero-row case (e.g., after filtering), ensure a full reset of scroll positions
 			if (state.table_shape.num_rows === 0) {
