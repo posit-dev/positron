@@ -1165,8 +1165,10 @@ export type ArraySelection = DataSelectionRange | DataSelectionIndices;
  */
 export enum SearchSchemaSortOrder {
 	Original = 'original',
-	Ascending = 'ascending',
-	Descending = 'descending'
+	AscendingName = 'ascending_name',
+	DescendingName = 'descending_name',
+	AscendingType = 'ascending_type',
+	DescendingType = 'descending_type'
 }
 
 /**

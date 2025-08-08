@@ -79,8 +79,10 @@
 						"type": "string",
 						"enum": [
 							"original",
-							"ascending",
-							"descending"
+							"ascending_name",
+							"descending_name",
+							"ascending_type",
+							"descending_type"
 						]
 					}
 				}
@@ -94,7 +96,7 @@
 					],
 					"properties": {
 						"matches": {
-							"description": "The column indices of the matching column indices in the indicated sort order",
+							"description": "The column indices that match the search parameters in the indicated sort order.",
 							"type": "array",
 							"items": {
 								"type": "integer"

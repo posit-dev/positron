@@ -1764,7 +1764,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 	});
 
 	test('searchSchema functionality', async () => {
-		// Create a test table with various column types
+		// Create test table with overlapping column names and mixed types
 		const tableName = makeTempTableName();
 		await createTempTable(tableName, [
 			{
@@ -1774,7 +1774,25 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				values: ['1', '2', '3'],
 			},
 			{
+				name: 'user_id',
+				type: 'INTEGER',
+				display_type: ColumnDisplayType.Number,
+				values: ['101', '102', '103'],
+			},
+			{
 				name: 'name',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: ["'Alice'", "'Bob'", "'Charlie'"],
+			},
+			{
+				name: 'full_name',
+				type: 'VARCHAR',
+				display_type: ColumnDisplayType.String,
+				values: ["'Alice Smith'", "'Bob Jones'", "'Charlie Brown'"],
+			},
+			{
+				name: 'first_name',
 				type: 'VARCHAR',
 				display_type: ColumnDisplayType.String,
 				values: ["'Alice'", "'Bob'", "'Charlie'"],
@@ -1796,16 +1814,44 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				],
 			},
 			{
+				name: 'updated_at',
+				type: 'TIMESTAMP',
+				display_type: ColumnDisplayType.Datetime,
+				values: [
+					"'2024-02-01 00:00:00'",
+					"'2024-02-02 00:00:00'",
+					"'2024-02-03 00:00:00'",
+				],
+			},
+			{
 				name: 'is_active',
 				type: 'BOOLEAN',
 				display_type: ColumnDisplayType.Boolean,
 				values: ['true', 'false', 'true'],
 			},
 			{
+				name: 'is_deleted',
+				type: 'BOOLEAN',
+				display_type: ColumnDisplayType.Boolean,
+				values: ['false', 'false', 'true'],
+			},
+			{
 				name: 'birth_date',
 				type: 'DATE',
 				display_type: ColumnDisplayType.Date,
 				values: ["'1999-01-01'", "'1994-01-01'", "'1989-01-01'"],
+			},
+			{
+				name: 'start_date',
+				type: 'DATE',
+				display_type: ColumnDisplayType.Date,
+				values: ["'2020-01-01'", "'2019-01-01'", "'2018-01-01'"],
+			},
+			{
+				name: 'salary',
+				type: 'DOUBLE',
+				display_type: ColumnDisplayType.Number,
+				values: ['50000.0', '60000.0', '70000.0'],
 			},
 		]);
 
@@ -1869,7 +1915,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				{
 					filters: [],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [0, 1, 2, 3, 4, 5],
+					expected: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 					description: 'No filters, original order',
 				},
 
@@ -1877,31 +1923,43 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				{
 					filters: [textFilter(TextSearchType.Contains, 'date')],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [5],
+					expected: [7, 10, 11],
 					description: 'Contains "date"',
+				},
+				{
+					filters: [textFilter(TextSearchType.Contains, 'name')],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [2, 3, 4],
+					description: 'Contains "name"',
+				},
+				{
+					filters: [textFilter(TextSearchType.Contains, 'id')],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [0, 1],
+					description: 'Contains "id"',
 				},
 				{
 					filters: [textFilter(TextSearchType.StartsWith, 'is')],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [4],
+					expected: [8, 9],
 					description: 'Starts with "is"',
 				},
 				{
-					filters: [textFilter(TextSearchType.EndsWith, 'e')],
+					filters: [textFilter(TextSearchType.EndsWith, 'at')],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [1, 2, 4, 5],
-					description: 'Ends with "e"',
+					expected: [6, 7],
+					description: 'Ends with "at"',
 				},
 				{
 					filters: [textFilter(TextSearchType.NotContains, '_')],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [0, 1, 2],
+					expected: [0, 2, 5, 12],
 					description: 'Not contains "_"',
 				},
 				{
 					filters: [textFilter(TextSearchType.RegexMatch, '^[a-z]+$')],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [0, 1, 2],
+					expected: [0, 2, 5, 12],
 					description: 'Regex match ^[a-z]+$',
 				},
 
@@ -1909,8 +1967,20 @@ suite('Positron DuckDB Extension Test Suite', () => {
 				{
 					filters: [typeFilter(ColumnDisplayType.Number)],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [0, 2],
+					expected: [0, 1, 5, 12],
 					description: 'Number columns',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.String)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [2, 3, 4],
+					description: 'String columns',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.Boolean)],
+					sortOrder: SearchSchemaSortOrder.Original,
+					expected: [8, 9],
+					description: 'Boolean columns',
 				},
 				{
 					filters: [
@@ -1920,7 +1990,7 @@ suite('Positron DuckDB Extension Test Suite', () => {
 						),
 					],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [3, 5],
+					expected: [6, 7, 10, 11],
 					description: 'Date/Datetime columns',
 				},
 
@@ -1931,28 +2001,48 @@ suite('Positron DuckDB Extension Test Suite', () => {
 						typeFilter(ColumnDisplayType.Number),
 					],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [2],
-					description: 'Contains "a" AND type is Number',
+					expected: [5, 12],
+					description: 'Contains "a" AND Number type',
 				},
 
-				// Sort order tests
+				// Sort order tests - by name
 				{
 					filters: [],
-					sortOrder: SearchSchemaSortOrder.Ascending,
-					expected: [2, 5, 3, 0, 4, 1],
-					description: 'Ascending alphabetical order',
+					sortOrder: SearchSchemaSortOrder.AscendingName,
+					expected: [5, 10, 6, 4, 3, 0, 8, 9, 2, 12, 11, 7, 1],
+					description: 'Ascending by name',
 				},
 				{
 					filters: [],
-					sortOrder: SearchSchemaSortOrder.Descending,
-					expected: [1, 4, 0, 3, 5, 2],
-					description: 'Descending alphabetical order',
+					sortOrder: SearchSchemaSortOrder.DescendingName,
+					expected: [1, 7, 11, 12, 2, 9, 8, 0, 3, 4, 6, 10, 5],
+					description: 'Descending by name',
 				},
 				{
 					filters: [textFilter(TextSearchType.Contains, 'a')],
-					sortOrder: SearchSchemaSortOrder.Ascending,
-					expected: [2, 5, 3, 4, 1],
-					description: 'Filtered with ascending sort',
+					sortOrder: SearchSchemaSortOrder.AscendingName,
+					expected: [5, 10, 6, 4, 3, 8, 2, 12, 11, 7],
+					description: 'Filtered and sorted by name',
+				},
+
+				// Sort order tests - by type
+				{
+					filters: [],
+					sortOrder: SearchSchemaSortOrder.AscendingType,
+					expected: [8, 9, 10, 11, 12, 0, 1, 5, 6, 7, 2, 3, 4],
+					description: 'Ascending by type',
+				},
+				{
+					filters: [],
+					sortOrder: SearchSchemaSortOrder.DescendingType,
+					expected: [2, 3, 4, 6, 7, 0, 1, 5, 12, 10, 11, 8, 9],
+					description: 'Descending by type',
+				},
+				{
+					filters: [typeFilter(ColumnDisplayType.Number)],
+					sortOrder: SearchSchemaSortOrder.AscendingType,
+					expected: [12, 0, 1, 5],
+					description: 'Number columns by type',
 				},
 
 				// Case sensitivity tests
@@ -1960,13 +2050,13 @@ suite('Positron DuckDB Extension Test Suite', () => {
 					filters: [textFilter(TextSearchType.Contains, 'AGE', true)],
 					sortOrder: SearchSchemaSortOrder.Original,
 					expected: [],
-					description: 'Case-sensitive, wrong case',
+					description: 'Case-sensitive "AGE"',
 				},
 				{
 					filters: [textFilter(TextSearchType.Contains, 'age', true)],
 					sortOrder: SearchSchemaSortOrder.Original,
-					expected: [2],
-					description: 'Case-sensitive, correct case',
+					expected: [5],
+					description: 'Case-sensitive "age"',
 				},
 			];
 
