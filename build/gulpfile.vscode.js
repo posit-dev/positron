@@ -41,6 +41,7 @@ const fancyLog = require('fancy-log');
 const { getQuartoStream } = require('./lib/quarto');
 const { positronBuildNumber } = require('./utils');
 const { copyExtensionBinariesTask } = require('./gulpfile.extensions');
+const { flipFuses, FuseVersion, FuseV1Options } = require('@electron/fuses');
 // --- End Positron ---
 
 // Build
@@ -562,6 +563,44 @@ function patchWin32DependenciesTask(cwd) {
 	};
 }
 
+// --- Start Positron ---
+function flipElectronFusesTask(cwd, platform) {
+	return async () => {
+		try {
+			let electronPath;
+
+			if (platform === 'darwin') {
+				// On macOS, the executable is inside the app bundle
+				electronPath = path.join(cwd, `${product.nameLong}.app`, 'Contents', 'MacOS', 'Electron');
+			} else if (platform === 'win32') {
+				electronPath = path.join(cwd, `${product.nameShort}.exe`);
+			} else if (platform === 'linux') {
+				electronPath = path.join(cwd, product.applicationName);
+			}
+
+			if (electronPath && fs.existsSync(electronPath)) {
+				fancyLog('Flipping Electron fuses for:', electronPath);
+				await flipFuses(electronPath, {
+					version: FuseVersion.V1,
+					[FuseV1Options.RunAsNode]: false
+				});
+				fancyLog('Successfully flipped RunAsNode fuse to OFF');
+			} else {
+				fancyLog('Electron executable not found at:', electronPath);
+				if (fs.existsSync(cwd)) {
+					fancyLog('Available files in directory:', fs.readdirSync(cwd).join(', '));
+				} else {
+					fancyLog('Directory does not exist:', cwd);
+				}
+			}
+		} catch (error) {
+			fancyLog('Failed to flip Electron fuses:', error.message);
+			throw error; // Re-throw to fail the build if fuse flipping fails
+		}
+	};
+}
+// --- End Positron ---
+
 const buildRoot = path.dirname(root);
 
 const BUILD_TARGETS = [
@@ -595,9 +634,14 @@ BUILD_TARGETS.forEach(buildTarget => {
 			packageTask(platform, arch, sourceFolderName, destinationFolderName, opts)
 		];
 
+		// --- Start Positron ---
+		// Add fuse flipping task for all platforms
+		const cwd = path.join(path.dirname(root), destinationFolderName);
+		tasks.push(flipElectronFusesTask(cwd, platform));
+		// --- End Positron ---
+
 		if (platform === 'win32') {
 			// --- Start Positron ---
-			const cwd = path.join(path.dirname(root), destinationFolderName);
 			tasks.push(patchWin32DependenciesTask(cwd));
 
 			const executablePath = `${product.nameShort}.exe`;

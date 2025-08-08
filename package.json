@@ -82,6 +82,7 @@
     "rebuild": ". $NVM_DIR/nvm.sh && nvm use && ./rebuild.sh"
   },
   "dependencies": {
+    "@electron/fuses": "^2.0.0",
     "@microsoft/1ds-core-js": "^3.2.13",
     "@microsoft/1ds-post-js": "^3.2.13",
     "@parcel/watcher": "2.5.1",
@@ -246,11 +247,11 @@
     "tslib": "^2.6.3",
     "typescript": "^5.9.0-dev.20250613",
     "typescript-eslint": "^8.8.0",
+    "undici-types": "^6.20.0",
     "util": "^0.12.4",
     "webpack": "^5.94.0",
     "webpack-cli": "^5.1.4",
     "webpack-stream": "^7.0.0",
-    "undici-types": "^6.20.0",
     "xml2js": "^0.5.0",
     "yaserver": "^0.4.0"
   },
