@@ -11,15 +11,8 @@ test.use({
 });
 
 test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN, tags.WEB] }, () => {
-	test.beforeAll(async function ({ app }) {
-		try {
-			await app.workbench.extensions.installExtension('posit.shiny', true);
-			await app.workbench.extensions.closeExtension('Shiny');
-		} catch (e) {
-			await app.code.driver.takeScreenshot('shinySetup');
-			throw e;
-		}
-	});
+
+	// No longer need to install Shiny extension
 
 	test.afterEach(async function ({ app }) {
 		await app.workbench.terminal.sendKeysToTerminal('Control+C');

@@ -50,7 +50,7 @@ test.describe('Positron notebook opening and saving', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, hotKeys, settings }) {
+	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, python, hotKeys, settings }) {
 		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
 
 		// Verify default behavior - VS Code notebook editor should be used when no association is set
