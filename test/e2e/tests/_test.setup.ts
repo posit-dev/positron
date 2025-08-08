@@ -38,6 +38,7 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
+import { logMetric, MetricEnv, PerfMetric } from '../utils/metrics.js';
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -413,7 +414,29 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		logger.log('');
 	}, { scope: 'test', auto: true }],
 
-	cleanup: async ({ app }, use) => {
+	logMetric: [async ({ logger }, use) => {
+		let startTime = 0;
+		await use({
+			start: async () => {
+				startTime = Date.now();
+			},
+			stopAndSend: async (meta, env = 'local') => {
+				const duration = Date.now() - startTime;
+				const res = await logMetric({
+					...meta,
+					duration_ms: duration,
+					status: 'success',
+					env: 'local'
+				});
+				logger.log(`--- Log Metric: ${meta.feature_area} - ${meta.action} - ${meta.target_type} ---`);
+				logger.log(`Request ${res.ok ? 'successful' : 'failed'}`);
+				logger.log(`Response body: ${res.body}`);
+			}
+		});
+
+	}, { scope: 'test' }],
+
+	cleanup: async ({ app }: any, use: (arg0: TestTeardown) => any) => {
 		const cleanup = new TestTeardown(app.workspacePathOrFolder);
 		await use(cleanup);
 	},
@@ -503,6 +526,7 @@ interface TestFixtures {
 	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
+	logMetric: Timer;
 }
 
 interface WorkerFixtures {
@@ -528,3 +552,8 @@ export type CustomTestOptions = playwright.PlaywrightTestOptions & {
 	headless?: boolean;
 };
 
+type Timer = {
+	start: () => void;
+	stopAndSend: (meta: Omit<PerfMetric, 'duration_ms'>, env?: MetricEnv) => Promise<void>;
+
+};

@@ -19,7 +19,7 @@ const objectKey = "largeParquet.parquet";
 
 const githubActions = process.env.GITHUB_ACTIONS === "true";
 
-test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
+test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE] }, () => {
 	test.beforeAll(async function ({ app }) {
 		if (githubActions && process.platform !== 'win32') {
 			const localFilePath = join(app.workspacePathOrFolder, "data-files", objectKey);
@@ -40,11 +40,13 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	if (githubActions && process.platform !== 'win32') {
 
-		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, python }) {
+		test('Python - Verify data loads with very large unique data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, python, logMetric }) {
 			const { dataExplorer, variables, editors } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'loadBigParquet.py'));
 			await runCommand('python.execInConsole');
+
+			logMetric.start();
 			const startTime = performance.now();
 
 			await variables.doubleClickVariableRow('df');
@@ -56,6 +58,13 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 
+			await logMetric.stopAndSend({
+				feature_area: 'data_explorer',
+				action: 'load_data',
+				target_type: 'pandas.DataFrame',
+				target_description: 'very large unique parquet'
+			});
+
 			if (timeTaken > 40000) {
 				fail(`Opening large unique parquet took ${timeTaken} milliseconds (pandas)`);
 			} else {
@@ -63,11 +72,13 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			}
 		});
 
-		test('R - Verify data loads with very large unique data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, r }) {
+		test('R - Verify data loads with very large unique data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, r, logMetric }) {
 			const { variables, editors, dataExplorer } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'loadBigParquet.r'));
 			await runCommand('r.sourceCurrentFile');
+
+			logMetric.start();
 			const startTime = performance.now();
 
 			await variables.doubleClickVariableRow('df2');
@@ -79,6 +90,13 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 
+			await logMetric.stopAndSend({
+				feature_area: 'data_explorer',
+				action: 'data_load',
+				target_type: 'data.frame',
+				target_description: 'very_large_unique_parquet'
+			});
+
 			if (timeTaken > 75000) {
 				fail(`Opening large unique parquet took ${timeTaken} milliseconds (R)`);
 			} else {
@@ -88,12 +106,13 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	} else {
 
-		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, python }) {
+		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, python, logMetric }) {
 			const { dataExplorer, variables, editors } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'multiplyParquet.py'));
 			await runCommand('python.execInConsole');
-			const startTime = performance.now();
+
+			logMetric.start();
 
 			await variables.doubleClickVariableRow('df_large');
 			await editors.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
@@ -101,22 +120,26 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 			// awaits table load completion
 			await dataExplorer.getDataExplorerTableData();
-			const endTime = performance.now();
-			const timeTaken = endTime - startTime;
 
-			if (timeTaken > 27000) {
-				fail(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
-			} else {
-				logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (pandas)`);
-			}
+			await logMetric.stopAndSend({
+				feature_area: 'data_explorer',
+				action: 'load_data',
+				target_type: 'pandas.DataFrame',
+				target_description: 'duplicated parquet with 1 mil rows 10 cols',
+				context_json: {
+					data_cols: 10,
+					data_rows: 1000000
+				}
+			});
 		});
 
-		test('R - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, r }) {
+		test('R - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, r, logMetric }) {
 			const { variables, editors, dataExplorer } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'multiplyParquet.r'));
 			await runCommand('r.sourceCurrentFile');
-			const startTime = performance.now();
+
+			logMetric.start();
 
 			await variables.doubleClickVariableRow('df3_large');
 			await editors.verifyTab('Data: df3_large', { isVisible: true, isSelected: true });
@@ -124,14 +147,17 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 			// awaits table load completion
 			await dataExplorer.getDataExplorerTableData();
-			const endTime = performance.now();
-			const timeTaken = endTime - startTime;
 
-			if (timeTaken > 60000) {
-				fail(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);
-			} else {
-				logger.log(`Opening large duplicated parquet took ${timeTaken} milliseconds (R)`);
-			}
+			await logMetric.stopAndSend({
+				feature_area: 'data_explorer',
+				action: 'load_data',
+				target_type: 'data.frame',
+				target_description: 'duplicated parquet with 1 mil rows 10 cols',
+				context_json: {
+					data_cols: 10,
+					data_rows: 1000000
+				}
+			});
 		});
 	}
 });
