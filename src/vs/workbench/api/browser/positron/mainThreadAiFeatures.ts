@@ -116,7 +116,7 @@ export class MainThreadAiFeatures extends Disposable implements MainThreadAiFeat
 	}
 
 	/**
-	 * Check if a file should be excluded from AI completions based on configuration settings.
+	 * Check if a file should be enabled for AI completions based on configuration settings.
 	 */
 	async $areCompletionsEnabled(file: UriComponents): Promise<boolean> {
 		const uri = URI.revive(file);
