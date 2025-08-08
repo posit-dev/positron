@@ -2,11 +2,11 @@ name: Prevent GitHub Repo References in Package.json
 
 on:
   pull_request:
-    branches: [main, release/*]
+    branches: [main, release/*, prerelease/*]
     paths:
       - "extensions/positron-r/package.json"
   push:
-    branches: [main, release/*]
+    branches: [main, release/*, prerelease/*]
     paths:
       - "extensions/positron-r/package.json"
 
