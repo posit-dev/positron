@@ -24,7 +24,6 @@ import { RuntimeNotebookKernel } from './runtimeNotebookKernel.js';
 import { Emitter, Event } from '../../../../base/common/event.js';
 import { ILanguageRuntimeCodeExecutedEvent } from '../../../services/positronConsole/common/positronConsoleCodeExecution.js';
 import { LANGUAGE_RUNTIME_SELECT_RUNTIME_ID } from '../../languageRuntime/browser/languageRuntimeActions.js';
-import { IDebugService } from '../../debug/common/debug.js';
 
 /**
  * The affinity of a kernel for a notebook.
@@ -61,7 +60,6 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService private readonly _runtimeStartupService: IRuntimeStartupService,
-		@IDebugService private readonly _debugService: IDebugService,
 	) {
 		super();
 
@@ -70,13 +68,6 @@ export class RuntimeNotebookKernelService extends Disposable implements IRuntime
 
 		// Create the active notebook has running runtime context manager.
 		this._register(this._instantiationService.createInstance(ActiveNotebookHasRunningRuntimeManager));
-
-		this._register(this._debugService.getAdapterManager().registerDebugAdapterDescriptorFactory({
-			type: 'notebookKernel', async createDebugAdapterDescriptor(session) {
-				console.log('createDebugAdapterDescriptor', session);
-				return { type: 'implementation' };
-			},
-		}));
 
 		// Create a kernel when a runtime is registered.
 		this._register(this._languageRuntimeService.onDidRegisterRuntime(runtime => {
