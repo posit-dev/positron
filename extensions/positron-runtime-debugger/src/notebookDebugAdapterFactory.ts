@@ -11,6 +11,7 @@ import { createDebuggerOutputChannel, Disposable } from './util.js';
 import { RuntimeDebugAdapter } from './runtimeDebugAdapter.js';
 import { PathEncoder } from './pathEncoder.js';
 import { NotebookLocationMapper } from './notebookLocationMapper.js';
+import { getNotebookSession } from './notebookDebugService.js';
 
 // TODO: How do we handle reusing a debug adapter/session across cells?
 /**
@@ -39,11 +40,7 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 		}
 
 		// TODO: A given runtime session can only have one debug session at a time...
-		const runtimeSessions = await positron.runtime.getActiveSessions();
-		const runtimeSession = runtimeSessions.find(
-			(session) => session.metadata.notebookUri &&
-				session.metadata.notebookUri.toString() === notebook.uri.toString()
-		);
+		const runtimeSession = await getNotebookSession(notebookUri);
 		if (!runtimeSession) {
 			throw new Error(`No active runtime session found for notebook: ${notebook.uri}`);
 		}
