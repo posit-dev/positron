@@ -330,7 +330,9 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		const modelTools = this._config.toolCalls ? tools : undefined;
+		const requestId = (options.modelOptions as any)?.requestId;
 
+		log.info(`[vercel] Start request ${requestId} to ${this._config.name}: ${aiMessages.length} messages`);
 		log.debug(`[${this._config.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
 		if (modelTools) {
 			log.trace(`tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
@@ -392,7 +394,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 			if (part.type === 'error') {
 				flushAccumulatedTextDeltas();
-				log.trace(`[${this._config.name}] RECV error: ${JSON.stringify(part.error)}`);
+				log.warn(`[${this._config.name}] RECV error: ${JSON.stringify(part.error)}`);
 				// TODO: Deal with various LLM providers' different error response formats
 				if (typeof part.error === 'string') {
 					throw new Error(part.error);
@@ -421,7 +423,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const usage = await result.usage;
 		const outputCount = usage.completionTokens;
 		const inputCount = usage.promptTokens;
-		const requestId = (options.modelOptions as any)?.requestId;
 
 		if (requestId) {
 			recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
@@ -432,6 +433,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		}
 
 		const other = await result.providerMetadata;
+
+		log.info(`[vercel]: End request ${requestId}; usage: ${inputCount} input tokens, ${outputCount} output tokens`);
 
 		// Log Bedrock usage if available
 		if (other && other.bedrock && other.bedrock.usage) {
@@ -445,9 +448,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 			// Log the Bedrock usage
 			log.debug(`[${this._config.name}]: Bedrock usage: ${JSON.stringify(other.bedrock.usage, null, 2)}`);
-		} else {
-			// For all other models, log the input and output tokens alone
-			log.debug(`[${this._config.name}]: Usage: ${inputCount} input tokens, ${outputCount} output tokens`);
 		}
 	}
 
