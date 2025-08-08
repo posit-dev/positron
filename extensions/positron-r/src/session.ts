@@ -142,6 +142,13 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	/**
+	 * Information about the runtime that is only available after starting
+	 */
+	get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
+		return this._kernel?.runtimeInfo;
+	}
+
+	/**
 	 * Opens a resource in the runtime.
 	 * @param resource The resource to open.
 	 * @returns true if the resource was opened; otherwise, false.
@@ -176,7 +183,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	debug(content: positron.DebugRequest, id: string): void {
-
+		throw new Error(`Debugging is not supported in R sessions`);
 	}
 
 	execute(code: string, id: string, mode: positron.RuntimeCodeExecutionMode, errorBehavior: positron.RuntimeErrorBehavior): void {

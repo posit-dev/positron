@@ -115,6 +115,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
     /** The Runtime is externally managed. eg. a reticulate runtime */
     private _isExternallyManaged: boolean;
 
+    /** Information about the runtime that is only available after starting */
+    private _runtimeInfo?: positron.LanguageRuntimeInfo;
+
     dynState: positron.LanguageRuntimeDynState;
 
     onDidReceiveRuntimeMessage = this._messageEmitter.event;
@@ -159,6 +162,10 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         this._interpreterService = serviceContainer.get<IInterpreterService>(IInterpreterService);
         this._interpreterPathService = serviceContainer.get<IInterpreterPathService>(IInterpreterPathService);
         this._envVarsService = serviceContainer.get<IEnvironmentVariablesService>(IEnvironmentVariablesService);
+    }
+
+    get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
+        return this._runtimeInfo;
     }
 
     debug(content: positron.DebugRequest, id: string): void {
@@ -471,12 +478,11 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
             });
         }
 
-        return this._kernel!.start().then((info) => {
-            if (this.kernelSpec) {
-                this.enableAutoReloadIfEnabled(info);
-            }
-            return info;
-        });
+        this._runtimeInfo = await this._kernel.start();
+        if (this.kernelSpec) {
+            this.enableAutoReloadIfEnabled(this._runtimeInfo);
+        }
+        return this._runtimeInfo;
     }
 
     private async onConsoleWidthChange(newWidth: number): Promise<void> {

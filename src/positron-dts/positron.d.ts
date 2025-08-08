@@ -388,6 +388,9 @@ declare module 'positron' {
 		/** The language version number */
 		language_version: string;
 
+		/** List of supported features (e.g., 'debugger' for Jupyter debugging protocol support) */
+		supported_features?: string[];
+
 		/** Initial prompt string in case user customized it */
 		input_prompt?: string;
 
@@ -1078,6 +1081,9 @@ declare module 'positron' {
 		 * session is associated.
 		 */
 		readonly runtimeMetadata: LanguageRuntimeMetadata;
+
+		/** Information about the runtime that is only available after starting. */
+		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
 
 		/** The state of the runtime that changes during a user session */
 		dynState: LanguageRuntimeDynState;

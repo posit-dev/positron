@@ -166,6 +166,9 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 */
 	private _activeBackendRequestHeader: JupyterMessageHeader | null = null;
 
+	/** Information about the runtime that is only available after starting */
+	private _runtimeInfo: positron.LanguageRuntimeInfo | undefined;
+
 	/**
 	 * Constructor for the Kallichore session wrapper.
 	 *
@@ -1665,6 +1668,13 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	}
 
 	/**
+	 * Gets the runtime information for the kernel, if available.
+	 */
+	get runtimeInfo(): positron.LanguageRuntimeInfo | undefined {
+		return this._runtimeInfo;
+	}
+
+	/**
 	 * Processs and emit a state change.
 	 *
 	 * @param newState The new kernel state
@@ -1811,15 +1821,16 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 
 		// Translate the kernel info into a runtime info object
-		const info: positron.LanguageRuntimeInfo = {
+		this._runtimeInfo = {
 			banner: reply.banner,
 			implementation_version: reply.implementation_version,
 			language_version: reply.language_info.version,
+			supported_features: reply.supported_features,
 			input_prompt,
 			continuation_prompt,
 		};
 
-		return info;
+		return this._runtimeInfo;
 	}
 
 	/**
