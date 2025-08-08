@@ -340,7 +340,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}
 
 		// Calculate and return the column null percent.
-		return Math.floor(nullCount * 100 / rows);
+		return (nullCount * 100) / rows;
 	}
 
 	/**
