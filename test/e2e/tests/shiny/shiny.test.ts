@@ -12,6 +12,8 @@ test.use({
 
 test.describe('Shiny Application', { tag: [tags.APPS, tags.VIEWER, tags.WIN, tags.WEB] }, () => {
 
+	// No longer need to install Shiny extension
+
 	test.afterEach(async function ({ app }) {
 		await app.workbench.terminal.sendKeysToTerminal('Control+C');
 		await app.workbench.viewer.refreshViewer();
