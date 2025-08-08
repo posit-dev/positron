@@ -422,7 +422,6 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const outputCount = usage.completionTokens;
 		const inputCount = usage.promptTokens;
 		const requestId = (options.modelOptions as any)?.requestId;
-		log.debug(`[${this._config.name}]: ${inputCount} input tokens, ${outputCount} output tokens`);
 
 		if (requestId) {
 			recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
@@ -436,7 +435,19 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 
 		// Log Bedrock usage if available
 		if (other && other.bedrock && other.bedrock.usage) {
+			// Get the Bedrock usage object; it typically contains
+			// `cacheReadInputTokens` and `cacheWriteInputTokens`
+			const usage = other.bedrock.usage as Record<string, any>;
+
+			// Add the input and output tokens to the usage object
+			usage.inputTokens = inputCount;
+			usage.outputTokens = outputCount;
+
+			// Log the Bedrock usage
 			log.debug(`[${this._config.name}]: Bedrock usage: ${JSON.stringify(other.bedrock.usage, null, 2)}`);
+		} else {
+			// For all other models, log the input and output tokens alone
+			log.debug(`[${this._config.name}]: Usage: ${inputCount} input tokens, ${outputCount} output tokens`);
 		}
 	}
 
