@@ -64,13 +64,8 @@ export function toAIMessage(
 				// If this is a cache breakpoint, note it in the message
 				// content. This is only used by the Bedrock provider.
 				if (cacheBreakpoint && bedrockCacheBreakpoint) {
-					messageContent.providerOptions = {
-						bedrock: {
-							cachePoint: {
-								type: 'default',
-							}
-						}
-					}
+					cacheBreakpoint = false;
+					markBedrockCacheBreakpoint(messageContent);
 				}
 				aiMessages.push(messageContent);
 			}
@@ -80,10 +75,16 @@ export function toAIMessage(
 				if (part instanceof vscode.LanguageModelToolResultPart || part instanceof vscode.LanguageModelToolResultPart2) {
 					if (toolResultExperimentalContent) {
 						const toolCall = toolCalls[part.callId];
-						aiMessages.push(
-							convertToolResultToAiMessageExperimentalContent(part, toolCall)
-						);
+						const toolMessage = convertToolResultToAiMessageExperimentalContent(part, toolCall);
+						if (cacheBreakpoint && bedrockCacheBreakpoint) {
+							cacheBreakpoint = false;
+							markBedrockCacheBreakpoint(toolMessage);
+						}
+						aiMessages.push(toolMessage);
 					} else {
+						// Note that we don't need to check for cache
+						// breakpoints here since Anthropic models that support
+						// caching use the experimental content format above.
 						const toolCall = toolCalls[part.callId];
 						if (toolCall.name === PositronAssistantToolName.GetPlot) {
 							aiMessages.push(getPlotToolResultToAiMessage(part));
@@ -148,13 +149,8 @@ export function toAIMessage(
 			// If this is a cache breakpoint, note it in the message
 			// content. This is only used by the Bedrock provider.
 			if (cacheBreakpoint && bedrockCacheBreakpoint) {
-				aiMessage.providerOptions = {
-					bedrock: {
-						cachePoint: {
-							type: 'default',
-						}
-					}
-				};
+				cacheBreakpoint = false;
+				markBedrockCacheBreakpoint(aiMessage);
 			}
 			aiMessages.push(aiMessage);
 		}
@@ -164,6 +160,17 @@ export function toAIMessage(
 	return aiMessages.filter((message) => message.content.length > 0);
 }
 
+export function markBedrockCacheBreakpoint(message: ai.CoreMessage): ai.CoreMessage {
+	log.trace(`[vercel] Marking ${message.role} message as a Bedrock cache breakpoint`);
+	message.providerOptions = {
+		bedrock: {
+			cachePoint: {
+				type: 'default',
+			}
+		}
+	};
+	return message;
+}
 
 /**
  * Convert a tool result into a Vercel AI message with experimental content.
