@@ -175,18 +175,8 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 			};
 			const languageModel = newLanguageModel(newConfig, context);
 
-			const modelDisp = vscode.lm.registerChatModelProvider(`${languageModel.identifier}-${model.identifier}`, languageModel, {
-				name: languageModel.name,
-				family: languageModel.provider,
-				providerName: languageModel.providerName,
-				vendor: context.extension.packageJSON.publisher,
-				version: context.extension.packageJSON.version,
-				capabilities: languageModel.capabilities,
-				maxInputTokens: 0,
-				maxOutputTokens: languageModel.maxOutputTokens,
-				isUserSelectable: true,
-				isDefault: isDefault,
-			});
+			const vendor = 'positron'; // as defined in package.json in "languageModels"
+			const modelDisp = vscode.lm.registerChatModelProvider(vendor, languageModel);
 			isDefault = false; // only the first model is default
 			modelDisposables.push(new ModelDisposable(modelDisp, newConfig));
 			vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);

@@ -206,7 +206,7 @@ async function downloadAndReplaceKallichore(version: string,
 
 				console.log(`Successfully downloaded Kallichore ${version} (${binaryData.length} bytes).`);
 				const zipFileDest = path.join(kallichoreDir, 'kallichore.zip');
-				await writeFileAsync(zipFileDest, binaryData);
+				await writeFileAsync(zipFileDest, new Uint8Array(binaryData));
 
 				await decompress(zipFileDest, kallichoreDir).then(_files => {
 					console.log(`Successfully unzipped Kallichore ${version}.`);

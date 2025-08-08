@@ -28,10 +28,13 @@ type CacheControllableBlockParam = Anthropic.TextBlockParam |
 	Anthropic.ToolUseBlockParam |
 	Anthropic.ToolResultBlockParam;
 
-export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider {
+export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 	name: string;
 	provider: string;
-	identifier: string;
+	family: string;
+	id: string;
+	version: string;
+	maxInputTokens: number;
 	maxOutputTokens: number;
 	tokenCount: number = 0;
 
@@ -63,18 +66,35 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		client?: Anthropic,
 	) {
 		this.name = _config.name;
-		this.provider = _config.provider;
-		this.identifier = _config.id;
+		this.family = this.provider = _config.provider;
+		this.id = _config.id;
 		this._client = client ?? new Anthropic({
 			apiKey: _config.apiKey,
 		});
+		this.version = '';
+		this.maxInputTokens = 0;
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
 	}
 
-	async provideLanguageModelResponse(
+	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+		return [
+			{
+				id: this.id,
+				name: this.name,
+				family: this.provider,
+				version: this._context?.extension.packageJSON.version ?? '',
+				maxInputTokens: 0,
+				maxOutputTokens: this.maxOutputTokens,
+				capabilities: this.capabilities,
+
+			}
+		];
+	}
+
+	async provideLanguageModelChatResponse(
+		model: vscode.LanguageModelChatInformation,
 		messages: vscode.LanguageModelChatMessage2[],
 		options: vscode.LanguageModelChatRequestOptions,
-		extensionId: string,
 		progress: vscode.Progress<vscode.ChatResponseFragment2>,
 		token: vscode.CancellationToken
 	) {
@@ -215,7 +235,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 		});
 	}
 
-	async provideTokenCount(text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
+	async provideTokenCount(model: vscode.LanguageModelChatInformation, text: string | vscode.LanguageModelChatMessage2, token: vscode.CancellationToken): Promise<number> {
 		const messages: Anthropic.MessageParam[] = [];
 		if (typeof text === 'string') {
 			// For empty string, return 0 tokens
