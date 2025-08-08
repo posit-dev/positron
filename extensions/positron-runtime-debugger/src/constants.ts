@@ -4,9 +4,16 @@
  *--------------------------------------------------------------------------------------------*/
 import * as vscode from 'vscode';
 
-/* Commands contributed by this extension. */
 export enum Command {
 	DebugCell = 'notebook.debugCell',
+}
+
+export enum Context {
+	ActiveNotebookSupportsDebugging = 'activeNotebookSupportsDebugging',
+}
+
+export enum LanguageRuntimeSupportedFeature {
+	Debugger = 'debugger',
 }
 
 /* The descriptor used in each runtime's debugger output channel. */

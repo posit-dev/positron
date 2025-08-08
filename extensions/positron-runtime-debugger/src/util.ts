@@ -65,6 +65,31 @@ export function disposableTimeout(handler: () => void, timeout: number): vscode.
 	return disposable;
 }
 
+type ContextKeyScalar = null | undefined | boolean | number | string | vscode.Uri;
+
+type ContextKeyValue =
+	| ContextKeyScalar
+	| Array<ContextKeyScalar>
+	| Record<string, ContextKeyScalar>;
+
+export class ContextKey<T extends ContextKeyValue = boolean> {
+	private _value?: T;
+
+	public get value(): T | undefined {
+		return this._value;
+	}
+
+	constructor(private _name: string) { }
+
+	public async set(value: T): Promise<void> {
+		if (this._value === value) {
+			return;
+		}
+		this._value = value;
+		await vscode.commands.executeCommand('setContext', this._name, this._value);
+	}
+}
+
 export function formatDebugMessage(message: DebugProtocol.ProtocolMessage): string {
 	switch (message.type) {
 		case 'request': {
