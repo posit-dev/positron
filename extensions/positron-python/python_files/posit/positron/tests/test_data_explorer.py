@@ -1033,7 +1033,9 @@ def test_search_schema_sort_by_type(dxf: DataExplorerFixture):
         "age": [25, 30, 35],
         "created_at": pd.to_datetime(["2024-01-01", "2024-01-02", "2024-01-03"]),
         "is_active": [True, False, True],
-        "birth_date": pd.to_datetime(["1999-01-01", "1994-01-01", "1989-01-01"]).date,
+        "birth_date": pd.to_datetime(["1999-01-01", "1994-01-01", "1989-01-01"])
+        .to_series()
+        .dt.date,
         "salary": [50000.0, 60000.0, 70000.0],
     }
 
@@ -1042,11 +1044,13 @@ def test_search_schema_sort_by_type(dxf: DataExplorerFixture):
 
     # Test ascending type sort
     result = dxf.search_schema("type_sort_test_df", [], "ascending_type")
+    # is_active(6), birth_date(7), created_at(5), id(0), user_id(1), age(4), salary(8), name(2), full_name(3)
     expected_ascending_type = [6, 7, 5, 0, 1, 4, 8, 2, 3]  # boolean, date, datetime, number, string
     assert result["matches"] == expected_ascending_type
 
     # Test descending type sort
     result = dxf.search_schema("type_sort_test_df", [], "descending_type")
+    # name(2), full_name(3), id(0), user_id(1), age(4), salary(8), created_at(5), birth_date(7), is_active(6)
     expected_descending_type = [
         2,
         3,
