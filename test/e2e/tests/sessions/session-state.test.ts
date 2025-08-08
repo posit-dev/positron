@@ -82,13 +82,13 @@ test.describe('Sessions: State', {
 		// Verify Python session transitions to active when executing code
 		await sessions.select(pySession.name);
 		await console.executeCode('Python', 'import time');
-		await console.executeCode('Python', 'time.sleep(10)', { waitForReady: false, maximizeConsole: false });
+		await console.pasteCodeToConsole('time.sleep(10)', true);
 		await sessions.expectStatusToBe(pySession.name, 'active');
 
 		// Verify R session transitions to active when executing code
 		// Verify Python session continues to run and transitions to idle when finished
 		await sessions.select(rSession.name);
-		await console.executeCode('R', 'Sys.sleep(10)', { waitForReady: false, maximizeConsole: false });
+		await console.pasteCodeToConsole('Sys.sleep(2)', true);
 		await sessions.expectStatusToBe(rSession.name, 'active');
 		await sessions.expectStatusToBe(rSession.name, 'idle');
 		await sessions.expectStatusToBe(pySession.name, 'active');
