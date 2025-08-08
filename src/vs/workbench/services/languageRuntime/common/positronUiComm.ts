@@ -183,6 +183,14 @@ export interface Range {
 }
 
 /**
+ * Possible values for Kind in OpenEditor
+ */
+export enum OpenEditorKind {
+	Path = 'path',
+	Uri = 'uri'
+}
+
+/**
  * Parameters for the Busy method.
  */
 export interface BusyParams {
@@ -210,6 +218,12 @@ export interface OpenEditorParams {
 	 * The column number to jump to
 	 */
 	column: number;
+
+	/**
+	 * How to interpret the 'file' argument: as a file path or as a URI. If
+	 * omitted, defaults to 'path'.
+	 */
+	kind: OpenEditorKind;
 }
 
 /**
@@ -490,6 +504,12 @@ export interface OpenEditorEvent {
 	 * The column number to jump to
 	 */
 	column: number;
+
+	/**
+	 * How to interpret the 'file' argument: as a file path or as a URI. If
+	 * omitted, defaults to 'path'.
+	 */
+	kind?: OpenEditorKind;
 
 }
 
@@ -839,7 +859,7 @@ export class PositronUiComm extends PositronBaseComm {
 		super(instance, options);
 		this.onDidBusy = super.createEventEmitter('busy', ['busy']);
 		this.onDidClearConsole = super.createEventEmitter('clear_console', []);
-		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column']);
+		this.onDidOpenEditor = super.createEventEmitter('open_editor', ['file', 'line', 'column', 'kind']);
 		this.onDidShowMessage = super.createEventEmitter('show_message', ['message']);
 		this.onDidPromptState = super.createEventEmitter('prompt_state', ['input_prompt', 'continuation_prompt']);
 		this.onDidWorkingDirectory = super.createEventEmitter('working_directory', ['directory']);

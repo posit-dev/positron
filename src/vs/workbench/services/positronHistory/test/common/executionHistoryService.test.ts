@@ -187,7 +187,7 @@ class TestRuntimeSessionService implements IRuntimeSessionService {
 		throw new Error('Method not implemented.');
 	}
 
-	deleteSession(_sessionId: string): Promise<void> {
+	deleteSession(_sessionId: string): Promise<boolean> {
 		throw new Error('Method not implemented.');
 	}
 

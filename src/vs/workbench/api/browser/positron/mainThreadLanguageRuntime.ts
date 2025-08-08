@@ -234,9 +234,10 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 				// Open an editor
 				const ed = ev.data as OpenEditorEvent;
 
-				let file = URI.parse(ed.file);
-				if (!file.scheme) {
-					// If the URI doesn't have a scheme, assume it's a file URI
+				let file;
+				if (ed.kind === 'uri') {
+					file = URI.parse(ed.file);
+				} else {
 					file = URI.file(ed.file);
 				}
 
@@ -1568,6 +1569,12 @@ export class MainThreadLanguageRuntime
 
 	$focusSession(handle: number): void {
 		return this._runtimeSessionService.focusSession(
+			this.findSession(handle).sessionId
+		);
+	}
+
+	$deleteSession(handle: number): Promise<boolean> {
+		return this._runtimeSessionService.deleteSession(
 			this.findSession(handle).sessionId
 		);
 	}

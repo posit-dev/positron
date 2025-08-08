@@ -465,7 +465,7 @@ function* oneOfVisitor(
  * 	 `fileName` is the bare name without `-backend/fronted-openrpc.json` suffix.
  * 	 `refs` is an array of imported type names.
  */
-function collectExternalReferences(contracts: any[]): Array<{fileName: string; refs: Array<string>}> {
+function collectExternalReferences(contracts: any[]): Array<{ fileName: string; refs: Array<string> }> {
 	const externalRefs = new Map<string, Set<string>>();
 
 	for (const contract of contracts) {
@@ -799,7 +799,7 @@ function* createRustValueTypes(source: any, contracts: any[]): Generator<string>
 			yield formatComment(`/// `,
 				`Possible values for ` +
 				snakeCaseToSentenceCase(context[0]));
-			yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
+			yield '#[derive(Copy, Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display, strum_macros::EnumString)]\n';
 			yield `pub enum ${snakeCaseToSentenceCase(context[0])} {\n`;
 		} else {
 			// Enum field within another interface
@@ -807,7 +807,7 @@ function* createRustValueTypes(source: any, contracts: any[]): Generator<string>
 				`Possible values for ` +
 				snakeCaseToSentenceCase(context[0]) + ` in ` +
 				snakeCaseToSentenceCase(context[1]));
-			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display)]\n';
+			yield '#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, strum_macros::Display, strum_macros::EnumString)]\n';
 			yield `pub enum ${snakeCaseToSentenceCase(context[1])}${snakeCaseToSentenceCase(context[0])} {\n`;
 		}
 		for (let i = 0; i < values.length; i++) {
