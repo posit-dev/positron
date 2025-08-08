@@ -25,7 +25,9 @@ export class NotebookLocationMapper extends Disposable implements vscode.Disposa
 		super();
 
 		// Initial refresh for this notebook.
-		this.refresh();
+		if (this._pathEncoder.isInitialized()) {
+			this.refresh();
+		}
 
 		// When the path encoder options change, refresh.
 		this._register(this._pathEncoder.onDidUpdateOptions(() => {
