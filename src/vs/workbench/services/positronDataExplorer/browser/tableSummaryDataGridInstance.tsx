@@ -11,7 +11,7 @@ import { Emitter } from '../../../../base/common/event.js';
 import { DataGridInstance } from '../../../browser/positronDataGrid/classes/dataGridInstance.js';
 import { TableSummaryCache } from '../common/tableSummaryCache.js';
 import { ColumnSummaryCell } from './components/columnSummaryCell.js';
-import { BackendState, ColumnDisplayType } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { BackendState, ColumnDisplayType, SearchSchemaSortOrder } from '../../languageRuntime/common/positronDataExplorerComm.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { COLUMN_PROFILE_DATE_LINE_COUNT } from './components/columnProfileDate.js';
 import { COLUMN_PROFILE_NUMBER_LINE_COUNT } from './components/columnProfileNumber.js';
@@ -43,6 +43,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 * The current column name search filter text.
 	 */
 	private _searchText?: string;
+
+	/**
+	 * The current sort option for the summary rows
+	 *
+	 * If no sort option is set, the summary rows
+	 * are displayed in their original order.
+	 */
+	private _sortOption?: SearchSchemaSortOrder;
 
 	/**
 	 * The onDidSelectColumn event emitter.
@@ -141,10 +149,14 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		}));
 
 		// Add the table summary cache onDidUpdate event handler.
-		this._register(this._tableSummaryCache.onDidUpdate(() =>
+		this._register(this._tableSummaryCache.onDidUpdate(() => {
+			// Update the layout entries to reflect the current number of visible rows
+			// When searching/sorting, the number of rows displayed can change
+			this._rowLayoutManager.setLayoutEntries(this._tableSummaryCache.columns);
+
 			// Fire the onDidUpdate event.
-			this._onDidUpdateEmitter.fire()
-		));
+			this._onDidUpdateEmitter.fire();
+		}));
 
 		// Create the hover manager.
 		this._hoverManager = this._register(new PositronActionBarHoverManager(
@@ -207,6 +219,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 			await this._tableSummaryCache.update({
 				invalidateCache: !!invalidateCache,
 				searchText: this._searchText,
+				sortOption: this._sortOption,
 				firstColumnIndex: rowDescriptor.rowIndex,
 				screenColumns: this.screenRows
 			});
@@ -396,6 +409,15 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		this._searchText = searchText || undefined;
 		// Invalidate the cache when the search text is cleared
 		await this.fetchData(!this._searchText);
+	}
+
+	/**
+	 * Sets the sort option for the summary rows.
+	 * @param sortOption The sort option used to order the rows.
+	 */
+	async setSortOption(sortOption: SearchSchemaSortOrder): Promise<void> {
+		this._sortOption = sortOption;
+		await this.fetchData();
 	}
 
 	//#endregion Public Methods
