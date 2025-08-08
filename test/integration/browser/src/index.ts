@@ -64,11 +64,7 @@ type BrowserType = 'chromium' | 'firefox' | 'webkit';
 type BrowserChannel = 'msedge' | 'chrome';
 
 async function runTestsInBrowser(browserType: BrowserType, browserChannel: BrowserChannel, endpoint: url.UrlWithStringQuery, server: cp.ChildProcess): Promise<void> {
-	const browser = await playwright[browserType].launch({
-		headless: !Boolean(args.debug),
-		channel: browserChannel,
-		args: ['--no-sandbox']
-	});
+	const browser = await playwright[browserType].launch({ headless: !Boolean(args.debug), channel: browserChannel });
 	const context = await browser.newContext();
 
 	const page = await context.newPage();
