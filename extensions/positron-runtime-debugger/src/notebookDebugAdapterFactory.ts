@@ -26,20 +26,16 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 	}
 
 	async createDebugAdapterDescriptor(debugSession: vscode.DebugSession, _executable: vscode.DebugAdapterExecutable): Promise<vscode.DebugAdapterDescriptor | undefined> {
-		const notebook = vscode.workspace.notebookDocuments.find(
-			(doc) => doc.uri.toString() === debugSession.configuration.__notebookUri
-		);
+		const notebookUri = vscode.Uri.parse(debugSession.configuration.__notebookUri, true);
+		const notebook = vscode.workspace.notebookDocuments.find((doc) => doc.uri.toString() === notebookUri.toString());
 		if (!notebook) {
-			// TODO: Should we throw an error here?
-			return undefined;
+			throw new Error(`Notebook not found: ${notebookUri}`);
 		}
 
-		const cell = notebook.getCells().find(
-			(cell) => cell.document.uri.toString() === debugSession.configuration.__cellUri
-		);
+		const cellUri = vscode.Uri.parse(debugSession.configuration.__cellUri, true);
+		const cell = notebook.getCells().find((cell) => cell.document.uri.toString() === cellUri.toString());
 		if (!cell) {
-			// TODO: Should we throw an error here?
-			return undefined;
+			throw new Error(`Cell not found: ${cellUri}`);
 		}
 
 		// TODO: A given runtime session can only have one debug session at a time...
@@ -49,8 +45,7 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 				session.metadata.notebookUri.toString() === notebook.uri.toString()
 		);
 		if (!runtimeSession) {
-			log.warn(`No runtime session found for notebook: ${notebook.uri}`);
-			return undefined;
+			throw new Error(`No active runtime session found for notebook: ${notebook.uri}`);
 		}
 
 		// Create the output channel for the runtime session's debugger.
