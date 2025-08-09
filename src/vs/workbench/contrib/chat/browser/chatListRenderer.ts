@@ -366,8 +366,20 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 		}
 		this.hoverHidden(requestHover);
 		const user = dom.append(header, $('.user'));
+		// --- Start Positron ---
+		// Contain the avatar and username in a row, so that the detailContainer can be shown on
+		// a separate row. See src/vs/workbench/contrib/chat/browser/media/chat.css for the styles.
+		// https://github.com/posit-dev/positron/issues/7740
+		const userProfileRow = dom.append(user, $('.user-profile-row'));
+		/*
 		const avatarContainer = dom.append(user, $('.avatar-container'));
+		*/
+		const avatarContainer = dom.append(userProfileRow, $('.avatar-container'));
+		/*
 		const username = dom.append(user, $('h3.username'));
+		*/
+		const username = dom.append(userProfileRow, $('h3.username'));
+		// --- End Positron ---
 		username.tabIndex = 0;
 		const detailContainer = dom.append(detailContainerParent ?? user, $('span.detail-container'));
 		const detail = dom.append(detailContainer, $('span.detail'));

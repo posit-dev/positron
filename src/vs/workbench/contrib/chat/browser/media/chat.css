@@ -41,8 +41,16 @@
 
 .interactive-item-container .header .user {
 	display: flex;
-	align-items: center;
 	/* --- Start Positron --- */
+	/*
+	 * Adjust the flex item alignment and direction to position the detail-container
+	 * below the user profile row, so that the in progress state is more visually
+	 * apparent. See src/vs/workbench/contrib/chat/browser/chatListRenderer.ts for
+	 * the changes that pair with this.
+	 * https://github.com/posit-dev/positron/issues/7740
+	 */
+	align-items: flex-start;
+	flex-direction: column;
 	gap: 4px;
 	/* --- End Positron --- */
 
@@ -52,6 +60,25 @@
 	padding: 2px;
 	margin: -2px;
 }
+
+/* --- Start Positron --- */
+/*
+ * Pairs with the changes above and in src/vs/workbench/contrib/chat/browser/chatListRenderer.ts
+ * https://github.com/posit-dev/positron/issues/7740
+ */
+.interactive-item-container .header .user .user-profile-row {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 4px;
+	width: 100%;
+}
+
+.interactive-item-container .header .user .detail-container {
+	width: 100%;
+	margin: 2px;
+}
+/* --- End Positron --- */
 
 .interactive-item-container .header .username {
 	margin: 0;
