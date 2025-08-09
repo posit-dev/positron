@@ -100,6 +100,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 
 		// Log request information - the request ID is only available upon connection.
 		stream.on('connect', () => {
+			log.info(`[anthropic] Start request ${stream.request_id} to ${this._config.model}: ${anthropicMessages.length} messages`);
 			if (log.logLevel <= vscode.LogLevel.Trace) {
 				log.trace(`[anthropic] SEND messages.stream [${stream.request_id}]: ${JSON.stringify(body, null, 2)}`);
 			} else {
@@ -136,6 +137,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			await stream.done();
 		} catch (error) {
 			if (error instanceof Anthropic.APIError) {
+				log.warn(`[anthropic] Error in messages.stream [${stream.request_id}]: ${error.message}`);
 				let data: any;
 				try {
 					data = JSON.parse(error.message);
@@ -146,6 +148,7 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 					throw new Error(`Anthropic's API is temporarily overloaded.`);
 				}
 			} else if (error instanceof Anthropic.AnthropicError) {
+				log.warn(`[anthropic] Error in messages.stream [${stream.request_id}]: ${error.message}`);
 				// This can happen if the API key was not persisted correctly.
 				if (error.message.startsWith('Could not resolve authentication method')) {
 					throw new Error('Something went wrong when storing the Anthropic API key. ' +
@@ -161,9 +164,8 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			log.trace(`[anthropic] RECV messages.stream [${stream.request_id}]: ${JSON.stringify(message, null, 2)}`);
 		} else {
 			log.debug(
-				`[anthropic] RECV messages.stream [${stream.request_id}]: ` +
-				`usage: ${JSON.stringify(message.usage)}`
-			);
+				`[anthropic] RECV messages.stream [${stream.request_id}]`);
+			log.info(`[anthropic] Finished request ${stream.request_id}; usage: ${JSON.stringify(message.usage)}`);
 		}
 
 		// Record token usage

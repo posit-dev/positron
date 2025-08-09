@@ -511,7 +511,7 @@ class OpenRouterCompletion extends FimPromptCompletion {
 }
 
 class AWSCompletion extends FimPromptCompletion {
-	protected model;
+	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Completion,
@@ -529,11 +529,10 @@ class AWSCompletion extends FimPromptCompletion {
 	constructor(_config: ModelConfig) {
 		super(_config);
 
+		// Cast to ai.LanguageModelV1 to satisfy base class type
 		this.model = createAmazonBedrock({
-			bedrockOptions: {
-				credentials: fromNodeProviderChain(),
-			}
-		})(this._config.model);
+			credentialProvider: fromNodeProviderChain(),
+		})(this._config.model) as unknown as ai.LanguageModelV1;
 	}
 }
 
