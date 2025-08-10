@@ -17,10 +17,10 @@ export class RawCommImpl implements vscode.Disposable {
 	private closed = false;
 
 	constructor(
-		private readonly commId: string,
+		public readonly id: string,
 		private readonly session: KallichoreSession,
 		public readonly receiver: Receiver<CommBackendMessage>,
-	) {}
+	) { }
 
 	notify(method: string, params?: Record<string, unknown>): boolean {
 		if (this.closed) {
@@ -35,7 +35,7 @@ export class RawCommImpl implements vscode.Disposable {
 
 		// We don't expect a response here, so `id` can be created and forgotten
 		const id = createUniqueId();
-		this.session.sendClientMessage(this.commId, id, msg);
+		this.session.sendClientMessage(this.id, id, msg);
 
 		return true;
 	}
@@ -55,7 +55,7 @@ export class RawCommImpl implements vscode.Disposable {
 		};
 
 		const commMsg: JupyterCommMsg = {
-			comm_id: this.commId,
+			comm_id: this.id,
 			data: msg
 		};
 
@@ -69,7 +69,7 @@ export class RawCommImpl implements vscode.Disposable {
 
 	close_and_notify() {
 		this.close();
-		const commClose = new CommCloseCommand(this.commId);
+		const commClose = new CommCloseCommand(this.id);
 		this.session.sendCommand(commClose);
 	}
 
