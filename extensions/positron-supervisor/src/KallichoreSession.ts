@@ -758,7 +758,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 				// If already deleted, it means a `comm_close` from the backend was
 				// received and we don't need to send one.
 				if (this._comms.delete(id)) {
-					comm.close_and_notify();
+					comm.closeAndNotify();
 				}
 			}
 		});
