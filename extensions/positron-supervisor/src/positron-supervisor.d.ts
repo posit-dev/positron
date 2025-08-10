@@ -239,6 +239,9 @@ export interface JupyterKernelExtra {
  * `comm_close` message is emitted.
  */
 export interface RawComm {
+	/** The comm ID. */
+	id: string;
+
 	/** Async-iterable for messages sent from backend. */
 	receiver: Channel<CommBackendMessage>;
 
@@ -246,19 +249,19 @@ export interface RawComm {
 	notify: (method: string, params?: Record<string, unknown>) => boolean;
 
 	/** Make a request to the backend comm. Resolves when backend responds. The tuple's
-	  * first value indicates whether the comm was closed (and no request was emitted).
+		* first value indicates whether the comm was closed (and no request was emitted).
 		* The second value is the result if the request was made. */
 	request: (method: string, params?: Record<string, unknown>) => Promise<[boolean, any]>;
 
 	/** Clear resources and sends `comm_close` to backend comm (unless the channel
-	  * was closed by the backend already). */
+		* was closed by the backend already). */
 	dispose: () => void;
 }
 
 /**
  * Communication channel. Dispose to close.
  */
-export interface Channel<T> extends AsyncIterable<T>, vscode.Disposable {}
+export interface Channel<T> extends AsyncIterable<T>, vscode.Disposable { }
 
 /** Message from the backend.
  *
