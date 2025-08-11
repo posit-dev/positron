@@ -22,18 +22,19 @@ export async function fixHandler(
 	context: PositronAssistantChatContext,
 	_response: vscode.ChatResponseStream,
 	_token: vscode.CancellationToken,
+	handleDefault: () => Promise<vscode.ChatResult | void>
 ) {
 	const { systemPrompt, participantId } = context;
 
 	if (participantId !== ParticipantID.Chat) {
-		return true;
+		return handleDefault();
 	}
 
 	const prompt = await fs.promises.readFile(`${mdDir}/prompts/chat/fix.md`, 'utf8');
 	context.systemPrompt = `${systemPrompt}\n\n${prompt}`;
 	context.toolAvailability.set(PositronAssistantToolName.ExecuteCode, true);
 
-	return true;
+	return handleDefault();
 }
 
 export function registerFixCommand() {

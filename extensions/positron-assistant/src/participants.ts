@@ -16,7 +16,7 @@ import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log, getRequestTokenUsage } from './extension.js';
-import { ChatRequestHandler } from './commands/index.js';
+import { IChatRequestHandler } from './commands/index.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -120,7 +120,7 @@ export interface PositronAssistantChatContext extends vscode.ChatContext {
 abstract class PositronAssistantParticipant implements IPositronAssistantParticipant {
 	abstract id: ParticipantID;
 	private readonly _requests = new Map<string, ChatRequestData>();
-	private static readonly _commands = new WeakMap<typeof PositronAssistantParticipant, Record<string, ChatRequestHandler>>();
+	private static readonly _commands = new WeakMap<typeof PositronAssistantParticipant, Record<string, IChatRequestHandler>>();
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -174,18 +174,16 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	) {
 		this._requests.set(request.id, { request, context, response });
 
-		// Select request handler based on the command issued by the user for this request
 		try {
+			// Get an extended Assistant-specific chat context
 			const assistantContext = await this.getAssistantContext(request, context);
 
+			// Select request handler based on the command issued by the user for this request
 			if (request.command) {
 				if (request.command in this.commandRegistry) {
 					const handler = this.commandRegistry[request.command];
-					const continueHandling = await handler(request, assistantContext, response, token);
-
-					if (!continueHandling) {
-						return;
-					}
+					const handleDefault = () => this.defaultRequestHandler(request, assistantContext, response, token);
+					return await handler(request, assistantContext, response, token, handleDefault);
 				} else {
 					log.warn(`[participant] No command handler registered in participant ${this.id} for command: ${request.command}`);
 				}
@@ -196,7 +194,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		}
 	}
 
-	protected get commandRegistry(): Record<string, ChatRequestHandler> {
+	protected get commandRegistry(): Record<string, IChatRequestHandler> {
 		const constructor = this.constructor as typeof PositronAssistantParticipant;
 		if (!PositronAssistantParticipant._commands.has(constructor)) {
 			PositronAssistantParticipant._commands.set(constructor, {});
@@ -204,7 +202,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		return PositronAssistantParticipant._commands.get(constructor)!;
 	}
 
-	public static registerCommand(command: string, handler: ChatRequestHandler) {
+	public static registerCommand(command: string, handler: IChatRequestHandler) {
 		if (!PositronAssistantParticipant._commands.has(this)) {
 			PositronAssistantParticipant._commands.set(this, {});
 		}

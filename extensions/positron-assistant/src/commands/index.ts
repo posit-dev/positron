@@ -15,16 +15,16 @@ import { registerQuartoCommand } from './quarto.js';
  * @param context The chat context for the request.
  * @param response The response stream for the request.
  * @param token A cancellation token for the request.
- * @param participantOptions The modifiable options for the chat participant.
- * @returns A promise that resolves when the request is handled. True if the request should continued by the default handler, false otherwise.
+ * @param handleDefault A function to call the default request handler.
  */
-export interface ChatRequestHandler {
+export interface IChatRequestHandler {
 	(
 		request: vscode.ChatRequest,
 		context: PositronAssistantChatContext,
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
-	): Promise<boolean>;
+		handleDefault: () => Promise<vscode.ChatResult | void>
+	): Promise<vscode.ChatResult | void>;
 }
 
 export function registerAssistantCommands() {

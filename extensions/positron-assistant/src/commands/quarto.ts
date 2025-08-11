@@ -69,8 +69,6 @@ export async function quartoHandler(
 			);
 		}
 	}
-
-	return false;
 }
 
 export function registerQuartoCommand() {
