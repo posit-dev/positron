@@ -26,9 +26,11 @@ test.describe('Data Explorer - XLSX', {
 		await runCommand('python.execInConsole');
 
 		metric.start();
+
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 		await dataExplorer.waitForTableToLoad();
+
 		await metric.dataExplorer.stopAndSend({
 			action: 'load_data',
 			target_type: 'py.pandas.DataFrame',
@@ -53,9 +55,11 @@ test.describe('Data Explorer - XLSX', {
 		await runCommand('r.sourceCurrentFile');
 
 		metric.start();
+
 		await variables.doubleClickVariableRow('df2');
 		await editors.verifyTab('Data: df2', { isVisible: true });
 		await dataExplorer.waitForTableToLoad();
+
 		await metric.dataExplorer.stopAndSend({
 			action: 'load_data',
 			target_type: 'r.tibble',

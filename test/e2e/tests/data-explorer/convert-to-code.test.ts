@@ -73,9 +73,6 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			// copy code and verify result is accurate
 			metric.start();
 
-			// TODO: Get the actual row and column counts from the data explorer
-			// const dataInfo = await dataExplorer.getTableDimensions();
-
 			await dataExplorer.clickConvertToCodeButton();
 			await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
 			await expect(app.code.driver.page.locator('.convert-to-code-editor')).toBeVisible();

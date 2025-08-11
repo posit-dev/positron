@@ -416,6 +416,17 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 	metric: [async ({ logger }, use) => {
 		let startTime = 0;
+
+		// Helper function to check if we should record metrics
+		const shouldRecordMetrics = () => {
+			const isCI = process.env.CI === 'true';
+			const branch = process.env.GITHUB_REF_NAME || '';
+			const isMainBranch = branch === 'main';
+			console.log('!!!!', branch)
+
+			return isCI && isMainBranch;
+		};
+
 		await use({
 			start: async () => {
 				startTime = Date.now();
@@ -432,7 +443,12 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 						duration_ms: duration,
 						env,
 					};
-					await logMetric(payload, logger);
+
+					if (shouldRecordMetrics()) {
+						await logMetric(payload, logger);
+					} else {
+						logger.log('Skipping metric recording: not running in CI on main branch');
+					}
 				}
 			},
 			notebooks: {
@@ -444,7 +460,12 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 						duration_ms: duration,
 						env,
 					};
-					await logMetric(payload, logger);
+
+					if (shouldRecordMetrics()) {
+						await logMetric(payload, logger);
+					} else {
+						logger.log('Skipping metric recording: not running in CI on main branch');
+					}
 				}
 			}
 		});

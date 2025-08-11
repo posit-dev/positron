@@ -30,11 +30,12 @@ test.describe('Data Explorer - Large Data Frame', {
 		await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 		await runCommand('python.execInConsole');
 
-		// Open Data Explorer for the data frame
 		metric.start();
+
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 		await dataExplorer.waitForTableToLoad();
+
 		await metric.dataExplorer.stopAndSend({
 			action: 'load_data',
 			target_type: 'py.pandas.DataFrame',

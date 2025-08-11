@@ -7,49 +7,83 @@ import os from 'os';
 import { request } from 'undici';
 import { MultiLogger } from '../infra/logger.js';
 
+//-----------------------------------------------------------------------------
+// Configuration Constants
+//-----------------------------------------------------------------------------
+
 const CONNECT_API_KEY = process.env.CONNECT_API_KEY!;
 const PROD_API_URL = 'https://connect.posit.it/e2e-test-insights-api/metrics';
 const LOCAL_API_URL = 'http://127.0.0.1:8000/metrics';
 
-const platform_os = (() => {
+//-----------------------------------------------------------------------------
+// Platform Information
+//-----------------------------------------------------------------------------
+
+const platformOs = (() => {
+	const osMap = {
+		darwin: 'macOS',
+		win32: 'Windows',
+		linux: 'Linux'
+	};
 	const platform = os.platform();
-	if (platform === 'darwin') return 'macOS';
-	if (platform === 'win32') return 'Windows';
-	if (platform === 'linux') return 'Linux';
-	return platform;
+	return osMap[platform as keyof typeof osMap] || platform;
 })();
 
-const platform_version = os.release();
-const app_version = '2.1.1'; // Replace with dynamic lookup if needed
+const platformVersion = os.release();
+const appVersion = 'unknown';
 
-// Discriminated union for PerfMetric using feature_area and corresponding action types
-export type PerfMetric =
-	| {
-		env?: MetricEnv;
-		feature_area: 'data_explorer';
-		action: DataExplorerAction;
-		target_type: MetricTargetType;
-		duration_ms: number;
-		status?: MetricStatus;
-		target_description?: string;
-		context_json?: MetricContext;
-	}
-	| {
-		env?: MetricEnv;
-		feature_area: 'notebooks';
-		action: NotebooksAction;
-		target_type: MetricTargetType;
-		duration_ms: number;
-		status?: MetricStatus;
-		target_description?: string;
-		context_json?: MetricContext;
-	};
+//-----------------------------------------------------------------------------
+// Base Metric Types
+//-----------------------------------------------------------------------------
 
+/**
+ * Environment setting for metrics collection
+ */
 export type MetricEnv = 'production' | 'local';
-type DataExplorerAction = 'filter' | 'sort' | 'to_code' | 'load_data';
-type NotebooksAction = 'run_cell' | 'open_notebook' | 'save_notebook';
 
+/**
+ * Status of the operation being measured
+ */
+export type MetricStatus = 'success' | 'error';
 
+/**
+ * Additional contextual information for metrics
+ */
+export type MetricContext = {
+	language?: string;
+	data_rows?: number;
+	data_cols?: number;
+	sort_applied?: boolean;
+	filter_applied?: boolean;
+	preview_enabled?: boolean;
+};
+
+/**
+ * Response type for the logMetric function
+ */
+export interface MetricResponse {
+	statusCode: number;
+	ok: boolean;
+	body: string;
+}
+
+//-----------------------------------------------------------------------------
+// Feature-specific Types
+//-----------------------------------------------------------------------------
+
+/**
+ * Actions available in the Data Explorer
+ */
+export type DataExplorerAction = 'filter' | 'sort' | 'to_code' | 'load_data';
+
+/**
+ * Actions available in Notebooks
+ */
+export type NotebooksAction = 'run_cell' | 'open_notebook' | 'save_notebook';
+
+/**
+ * Target types for metrics tracking
+ */
 export type MetricTargetType =
 	// In-memory data structures
 	| 'r.data.frame'          // Base R data.frame
@@ -86,42 +120,55 @@ export type MetricTargetType =
 	// Remote/cloud sources
 	| 'url.csv'               // Remote CSV URL
 	| 'url.parquet'           // Remote Parquet URL
-	| 's3.parquet'            // S3 object
+	| 's3.parquet';           // S3 object
 
-type MetricStatus = 'success' | 'error';
-type MetricContext = {
-	language?: string;
-	data_rows?: number;
-	data_cols?: number;
-	sort_applied?: boolean;
-	filter_applied?: boolean;
-	preview_enabled?: boolean;
-};
+//-----------------------------------------------------------------------------
+// Metric Data Structures
+//-----------------------------------------------------------------------------
 
-// Helper types for better TypeScript autocomplete
-export type DataExplorerMetric = {
+/**
+ * Base metric properties common to all feature areas
+ */
+interface BaseMetric {
 	env?: MetricEnv;
+	target_type: MetricTargetType;
+	duration_ms: number;
+	status?: MetricStatus;
+	target_description?: string;
+	context_json?: MetricContext;
+}
+
+/**
+ * Helper type for Data Explorer metrics
+ */
+export type DataExplorerMetric = BaseMetric & {
 	feature_area: 'data_explorer';
 	action: DataExplorerAction;
-	target_type: MetricTargetType;
-	duration_ms: number;
-	status?: MetricStatus;
-	target_description?: string;
-	context_json?: MetricContext;
 };
 
-export type NotebookMetric = {
-	env?: MetricEnv;
+/**
+ * Helper type for Notebook metrics
+ */
+export type NotebookMetric = BaseMetric & {
 	feature_area: 'notebooks';
 	action: NotebooksAction;
-	target_type: MetricTargetType;
-	duration_ms: number;
-	status?: MetricStatus;
-	target_description?: string;
-	context_json?: MetricContext;
 };
 
-// Helper functions for better autocomplete
+/**
+ * Discriminated union for all performance metrics
+ */
+export type PerfMetric = DataExplorerMetric | NotebookMetric;
+
+//-----------------------------------------------------------------------------
+// Factory Functions
+//-----------------------------------------------------------------------------
+
+/**
+ * Creates a data explorer metric object with the feature_area preset
+ *
+ * @param params Parameters for the metric excluding feature_area and duration_ms
+ * @returns A partially complete metric object ready for duration_ms to be added
+ */
 export function createDataExplorerMetric(params: Omit<DataExplorerMetric, 'feature_area' | 'duration_ms'>): Omit<DataExplorerMetric, 'duration_ms'> {
 	return {
 		feature_area: 'data_explorer',
@@ -129,6 +176,12 @@ export function createDataExplorerMetric(params: Omit<DataExplorerMetric, 'featu
 	};
 }
 
+/**
+ * Creates a notebook metric object with the feature_area preset
+ *
+ * @param params Parameters for the metric excluding feature_area and duration_ms
+ * @returns A partially complete metric object ready for duration_ms to be added
+ */
 export function createNotebookMetric(params: Omit<NotebookMetric, 'feature_area' | 'duration_ms'>): Omit<NotebookMetric, 'duration_ms'> {
 	return {
 		feature_area: 'notebooks',
@@ -136,6 +189,17 @@ export function createNotebookMetric(params: Omit<NotebookMetric, 'feature_area'
 	};
 }
 
+//-----------------------------------------------------------------------------
+// API Functions
+//-----------------------------------------------------------------------------
+
+/**
+ * Logs a performance metric to the configured endpoint
+ *
+ * @param metric The performance metric to log
+ * @param logger Logger for recording status and debugging information
+ * @returns Response with status code and message
+ */
 export async function logMetric({
 	env = 'local',
 	feature_area,
@@ -145,14 +209,14 @@ export async function logMetric({
 	duration_ms,
 	status = 'success',
 	context_json = {}
-}: PerfMetric, logger: MultiLogger) {
-	const API_URL = env === 'production' ? PROD_API_URL : LOCAL_API_URL;
+}: PerfMetric, logger: MultiLogger): Promise<MetricResponse> {
+	const apiUrl = env === 'production' ? PROD_API_URL : LOCAL_API_URL;
 
 	const payload = {
 		timestamp: new Date().toISOString(),
-		app_version,
-		platform_os,
-		platform_version,
+		app_version: appVersion,
+		platform_os: platformOs,
+		platform_version: platformVersion,
 		run_id: process.env.RUN_ID ?? 'unknown',
 		feature_area,
 		action,
@@ -162,11 +226,12 @@ export async function logMetric({
 		target_description,
 		context: JSON.stringify(context_json)
 	};
+
 	logger.log(`--- Log Metric: ${payload.feature_area} - ${payload.action} - ${payload.target_type} ---`);
-	logger.log(`Payload: ${API_URL}\n${JSON.stringify(payload, null, 2)}`);
+	logger.log(`Payload: ${apiUrl}\n${JSON.stringify(payload, null, 2)}`);
 
 	try {
-		const response = await request(API_URL, {
+		const response = await request(apiUrl, {
 			method: 'POST',
 			headers: {
 				Authorization: `Key ${CONNECT_API_KEY}`,
@@ -184,15 +249,17 @@ export async function logMetric({
 			body: responseBody
 		};
 	} catch (error) {
-		console.error('Failed to send metrics:', error);
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		const errorCode = error instanceof Error && 'code' in error ? error.code : 'No code';
+		const errorCode = error instanceof Error && 'code' in error ?
+			(error as Error & { code: string | number }).code : 'No code';
 
+		console.error('Failed to send metrics:', error);
 		console.error('Error details:', {
 			message: errorMessage,
 			code: errorCode,
-			url: API_URL
+			url: apiUrl
 		});
+
 		logger.log(`Failed to send metric: ${errorMessage} (Code: ${errorCode})`);
 
 		return {

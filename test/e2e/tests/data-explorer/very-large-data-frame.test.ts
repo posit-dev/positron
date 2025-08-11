@@ -84,19 +84,18 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 	} else {
 
-		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, logger, openFile, runCommand, hotKeys, python, metric }) {
+		test('Python - Verify data loads with very large duplicated data dataframe', async function ({ app, openFile, runCommand, hotKeys, python, metric }) {
 			const { dataExplorer, variables, editors } = app.workbench;
 
 			await openFile(join('workspaces', 'performance', 'multiplyParquet.py'));
 			await runCommand('python.execInConsole');
 
 			metric.start();
+
 			await variables.doubleClickVariableRow('df_large');
 			await editors.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
-			await hotKeys.closeSecondarySidebar();
-
-			// awaits table load completion
 			await dataExplorer.getDataExplorerTableData();
+
 			await metric.dataExplorer.stopAndSend({
 				action: 'load_data',
 				target_type: 'py.pandas.DataFrame',
