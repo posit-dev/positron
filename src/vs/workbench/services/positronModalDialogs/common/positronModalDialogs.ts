@@ -65,7 +65,8 @@ export interface IPositronModalDialogsService {
 		title: string,
 		message: string,
 		okButtonTitle?: string,
-		cancelButtonTitle?: string
+		cancelButtonTitle?: string,
+		options?: { width?: number; height?: number }
 	): IModalDialogPromptInstance;
 
 	/**
@@ -101,6 +102,7 @@ export interface IPositronModalDialogsService {
 	showSimpleModalDialogMessage(
 		title: string,
 		message: string,
-		okButtonTitle?: string
+		okButtonTitle?: string,
+		options?: { width?: number; height?: number }
 	): Promise<null>;
 }
