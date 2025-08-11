@@ -93,21 +93,25 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 	}
 
 	/* Handles debug events from the runtime. */
-	private async handleRuntimeDebugEvent(debugEvent: positron.LanguageRuntimeDebugEvent): Promise<void> {
+	private async handleRuntimeDebugEvent(event: positron.LanguageRuntimeDebugEvent): Promise<void> {
+		const debugEvent = event.content as DebugProtocol.Event;
+
 		// When the debugger is initialized, restore the debug state before forwarding to client.
-		if (debugEvent.content.event === 'initialized') {
+		if (debugEvent.event === 'initialized') {
 			await this.restoreState();
 		}
 
 		// Forward debug events to the client.
-		this.sendMessage(debugEvent.content);
+		this.sendMessage(debugEvent);
 	}
 
 	/* Handles debug replies from the runtime. */
-	private handleRuntimeDebugReply(debugReply: positron.LanguageRuntimeDebugReply): void {
+	private handleRuntimeDebugReply(reply: positron.LanguageRuntimeDebugReply): void {
+		const debugReply = reply.content as DebugProtocol.Response;
+
 		// If this is a reply to one of our pending requests, send it to the client.
-		if (this._pendingRequestIds.delete(debugReply.parent_id)) {
-			this.sendMessage(debugReply.content);
+		if (this._pendingRequestIds.delete(reply.parent_id)) {
+			this.sendMessage(debugReply);
 		}
 	}
 
