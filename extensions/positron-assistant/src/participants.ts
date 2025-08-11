@@ -114,6 +114,12 @@ export interface PositronAssistantChatContext extends vscode.ChatContext {
 
 	/** The context from Positron core. */
 	readonly positronContext: Readonly<positron.ai.ChatContext>;
+
+	/** The context information that was attached to the request, if any. */
+	contextInfo?: Readonly<ContextInfo>;
+
+	/** Manually attach context information for the chat request. */
+	attachContextInfo: () => Promise<Readonly<ContextInfo> | undefined>;
 }
 
 /** Base class for Positron Assistant chat participants. */
@@ -176,7 +182,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		try {
 			// Get an extended Assistant-specific chat context
-			const assistantContext = await this.getAssistantContext(request, context);
+			const assistantContext = await this.getAssistantContext(request, context, response);
 
 			// Select request handler based on the command issued by the user for this request
 			if (request.command) {
@@ -215,7 +221,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	private async getAssistantContext(
 		request: vscode.ChatRequest,
-		incomingContext: vscode.ChatContext
+		incomingContext: vscode.ChatContext,
+		response: vscode.ChatResponseStream
 	): Promise<PositronAssistantChatContext> {
 		// System prompt
 		const systemPrompt = await this.getSystemPrompt(request);
@@ -337,12 +344,24 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				}
 			)
 		);
+
+		const participant = this;
 		return {
 			...incomingContext,
 			participantId: this.id,
 			positronContext,
 			systemPrompt,
 			toolAvailability,
+			attachContextInfo: async function () {
+				const awaitedThis = await this;
+				if (awaitedThis.contextInfo) {
+					return awaitedThis.contextInfo;
+				}
+
+				const info = await participant.getContextInfo(request, incomingContext, response, positronContext);
+				awaitedThis.contextInfo = info;
+				return info;
+			}
 		};
 	}
 
@@ -352,7 +371,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
 	) {
-		const { systemPrompt, positronContext, toolAvailability } = context;
+		const { systemPrompt, positronContext, toolAvailability, contextInfo } = context;
 
 		log.debug(`[context] Positron context for request ${request.id}:\n${JSON.stringify(positronContext, null, 2)}`);
 
@@ -382,7 +401,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// not cached. Since the context message is transiently added to each request, caching it
 		// will write a prompt prefix to the cache that will never be read. We will want to keep
 		// an eye on whether the order of user prompt and context message affects model responses.
-		const contextInfo = await this.getContextInfo(request, context, response, positronContext);
 		if (contextInfo) {
 			messages.push(contextInfo.message);
 		}
