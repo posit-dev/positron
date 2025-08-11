@@ -465,74 +465,37 @@ declare module 'positron' {
 		data: object;
 	}
 
-	export enum DebugMessageType {
-		Request = 'request',
-		Response = 'response',
-		Event = 'event'
+	/** A DebugProtocolRequest is an opaque stand-in type for the [Request](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolRequest {
+		// Properties: see [Request details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request).
 	}
 
-	export interface DebugRequest {
-		/** Sequence number of the message (also known as message ID). The `seq` for the first message sent by a client or debug adapter is 1, and for each subsequent message is 1 greater than the previous message sent by that actor. `seq` can be used to order requests, responses, and events, and to associate requests with their corresponding responses. For protocol messages of type `request` the sequence number can be used to cancel the request. */
-		seq: number;
-		/** Message type.
-			Values: 'request', 'response', 'event', etc.
-		*/
-		type: string;
-		/** The command to execute. */
-		command: string;
-		/** Object containing arguments for the command. */
-		arguments?: any;
+	/** A DebugProtocolResponse is an opaque stand-in type for the [Response](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolResponse {
+		// Properties: see [Response details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response).
 	}
 
-	export interface DebugResponse {
-		/** Sequence number of the message (also known as message ID). The `seq` for the first message sent by a client or debug adapter is 1, and for each subsequent message is 1 greater than the previous message sent by that actor. `seq` can be used to order requests, responses, and events, and to associate requests with their corresponding responses. For protocol messages of type `request` the sequence number can be used to cancel the request. */
-		seq: number;
-		/** Message type.
-			Values: 'request', 'response', 'event', etc.
-		*/
-		type: string;
-		/** Sequence number of the corresponding request. */
-		request_seq: number;
-		/** Outcome of the request.
-			If true, the request was successful and the `body` attribute may contain the result of the request.
-			If the value is false, the attribute `message` contains the error in short form and the `body` may contain additional information (see `ErrorResponse.body.error`).
-		*/
-		success: boolean;
-		/** The command requested. */
-		command: string;
-		/** Contains the raw error in short form if `success` is false.
-			This raw error might be interpreted by the client and is not shown in the UI.
-			Some predefined values exist.
-			Values:
-			'cancelled': the request was cancelled.
-			'notStopped': the request may be retried once the adapter is in a 'stopped' state.
-			etc.
-		*/
-		// TODO: Use enum
-		message?: 'cancelled' | 'notStopped' | string;
-		/** Contains request result if success is true and error details if success is false. */
-		body?: any;
+	/**
+	 * A DebugProtocolEvent is an opaque stand-in type for the [Event](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event) type defined in the Debug Adapter Protocol.
+	 */
+	export interface DebugProtocolEvent {
+		// Properties: see [Event details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event).
 	}
 
-	export interface DebugEvent {
-		/** Sequence number of the message (also known as message ID). The `seq` for the first message sent by a client or debug adapter is 1, and for each subsequent message is 1 greater than the previous message sent by that actor. `seq` can be used to order requests, responses, and events, and to associate requests with their corresponding responses. For protocol messages of type `request` the sequence number can be used to cancel the request. */
-		seq: number;
-		/** Message type.
-			Values: 'request', 'response', 'event', etc.
-		*/
-		type: string;
-		/** Type of event. */
-		event: string;
-		/** Event-specific information. */
-		body?: any;
-	}
-
+	/**
+	 * LanguageRuntimeDebugReply is a LanguageRuntimeMessage that represents a reply to a runtime debugger.
+	 */
 	export interface LanguageRuntimeDebugReply extends LanguageRuntimeMessage {
-		content: DebugResponse;
+		/** The debug adapter protocol response.  */
+		content: DebugProtocolResponse;
 	}
 
+	/**
+	 * LanguageRuntimeDebugEvent is a LanguageRuntimeMessage that represents an event from the runtime debugger.
+	 */
 	export interface LanguageRuntimeDebugEvent extends LanguageRuntimeMessage {
-		content: DebugEvent;
+		/** The debug adapter protocol event. */
+		content: DebugProtocolEvent;
 	}
 
 	/**
@@ -1104,7 +1067,13 @@ declare module 'positron' {
 		 */
 		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
 
-		debug(content: DebugRequest, id: string): void;
+		/**
+		 * Sends a Debug Adapter Protocol request to the runtime's debugger.
+		 *
+		 * @param request The Debug Adapter Protocol request.
+		 * @param id The ID of the request.
+		 */
+		debug(request: DebugProtocolRequest, id: string): void;
 
 		/**
 		 * Execute code in the runtime

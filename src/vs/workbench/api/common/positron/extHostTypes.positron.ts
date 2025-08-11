@@ -146,12 +146,6 @@ export enum RuntimeCodeFragmentStatus {
 	Unknown = 'unknown'
 }
 
-export enum DebugMessageType {
-	Request = 'request',
-	Response = 'response',
-	Event = 'event'
-}
-
 /**
  * The set of possible output locations for a LanguageRuntimeWebOutput.
  */

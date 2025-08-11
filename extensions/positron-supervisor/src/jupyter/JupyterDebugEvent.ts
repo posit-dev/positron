@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DebugProtocol } from '@vscode/debugprotocol';
+import * as positron from 'positron';
 
 /**
  * Represents a debug event message from the Jupyter kernel to the front end.
@@ -11,5 +11,5 @@ import { DebugProtocol } from '@vscode/debugprotocol';
  * @link https://jupyter-client.readthedocs.io/en/latest/messaging.html#debug-request
  */
 export interface JupyterDebugEvent {
-	content: DebugProtocol.Event;
+	content: positron.DebugProtocolEvent;
 }

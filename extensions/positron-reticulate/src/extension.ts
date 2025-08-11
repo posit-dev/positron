@@ -754,8 +754,8 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 		return this.pythonSession.runtimeInfo;
 	}
 
-	public debug(content: positron.DebugRequest, id: string): void {
-		return this.pythonSession.debug(content, id);
+	public debug(request: positron.DebugProtocolRequest, id: string): void {
+		return this.pythonSession.debug(request, id);
 	}
 
 	public execute(code: string,
