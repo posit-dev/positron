@@ -38,7 +38,7 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
-import { logMetric, MetricEnv, DataExplorerMetric, NotebookMetric } from '../utils/metrics.js';
+import { logMetric, DataExplorerMetric, NotebookMetric } from '../utils/metrics.js';
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -414,25 +414,15 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		logger.log('');
 	}, { scope: 'test', auto: true }],
 
-	metric: [async ({ logger }, use) => {
+	metric: [async ({ logger, app }, use) => {
 		let startTime = 0;
-
-		// Helper function to check if we should record metrics
-		const shouldRecordMetrics = () => {
-			const isCI = process.env.CI === 'true';
-			const branch = process.env.GITHUB_REF_NAME || '';
-			const isMainBranch = branch === 'main';
-			console.log('!!!!', branch)
-
-			return isCI && isMainBranch;
-		};
 
 		await use({
 			start: async () => {
 				startTime = Date.now();
 			},
 			dataExplorer: {
-				stopAndSend: async (meta: Omit<DataExplorerMetric, 'feature_area' | 'duration_ms'>, env: MetricEnv = 'local') => {
+				stopAndSend: async (meta: Omit<DataExplorerMetric, 'feature_area' | 'duration_ms'>) => {
 					if (startTime === 0) {
 						throw new Error('Metric start time not set. Call metric.start() before stopping.');
 					}
@@ -441,31 +431,21 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 						feature_area: 'data_explorer',
 						...meta,
 						duration_ms: duration,
-						env,
 					};
 
-					if (shouldRecordMetrics()) {
-						await logMetric(payload, logger);
-					} else {
-						logger.log('Skipping metric recording: not running in CI on main branch');
-					}
+					await logMetric(payload, !!app.code.electronApp, logger);
 				}
 			},
 			notebooks: {
-				stopAndSend: async (meta: Omit<NotebookMetric, 'feature_area' | 'duration_ms'>, env: MetricEnv = 'local') => {
+				stopAndSend: async (meta: Omit<NotebookMetric, 'feature_area' | 'duration_ms'>) => {
 					const duration = Date.now() - startTime;
 					const payload: NotebookMetric = {
 						feature_area: 'notebooks',
 						...meta,
 						duration_ms: duration,
-						env,
 					};
 
-					if (shouldRecordMetrics()) {
-						await logMetric(payload, logger);
-					} else {
-						logger.log('Skipping metric recording: not running in CI on main branch');
-					}
+					await logMetric(payload, !!app.code.electronApp, logger);
 				}
 			}
 		});
@@ -591,9 +571,9 @@ export type CustomTestOptions = playwright.PlaywrightTestOptions & {
 type Timer = {
 	start: () => void;
 	dataExplorer: {
-		stopAndSend: (meta: Omit<DataExplorerMetric, 'feature_area' | 'duration_ms'>, env?: MetricEnv) => Promise<void>;
+		stopAndSend: (meta: Omit<DataExplorerMetric, 'feature_area' | 'duration_ms'>) => Promise<void>;
 	};
 	notebooks: {
-		stopAndSend: (meta: Omit<NotebookMetric, 'feature_area' | 'duration_ms'>, env?: MetricEnv) => Promise<void>;
+		stopAndSend: (meta: Omit<NotebookMetric, 'feature_area' | 'duration_ms'>) => Promise<void>;
 	};
 };

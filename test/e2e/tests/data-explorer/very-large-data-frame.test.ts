@@ -46,9 +46,11 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			await runCommand('python.execInConsole');
 
 			metric.start();
+
 			await variables.doubleClickVariableRow('df');
 			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 			await dataExplorer.waitForTableToLoad();
+
 			await metric.dataExplorer.stopAndSend({
 				action: 'load_data',
 				target_type: 'py.pandas.DataFrame',

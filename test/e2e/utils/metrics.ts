@@ -30,7 +30,6 @@ const platformOs = (() => {
 })();
 
 const platformVersion = os.release();
-const appVersion = 'unknown';
 
 //-----------------------------------------------------------------------------
 // Base Metric Types
@@ -39,7 +38,12 @@ const appVersion = 'unknown';
 /**
  * Environment setting for metrics collection
  */
-export type MetricEnv = 'production' | 'local';
+export type GhBranch = 'main' | 'local';
+
+/**
+ * Runtime environment information
+ */
+export type MetricRuntimeEnv = 'electron' | 'chromium';
 
 /**
  * Status of the operation being measured
@@ -130,7 +134,8 @@ export type MetricTargetType =
  * Base metric properties common to all feature areas
  */
 interface BaseMetric {
-	env?: MetricEnv;
+	branch?: GhBranch;
+	runtime?: MetricRuntimeEnv;
 	target_type: MetricTargetType;
 	duration_ms: number;
 	status?: MetricStatus;
@@ -201,7 +206,6 @@ export function createNotebookMetric(params: Omit<NotebookMetric, 'feature_area'
  * @returns Response with status code and message
  */
 export async function logMetric({
-	env = 'local',
 	feature_area,
 	action,
 	target_type,
@@ -209,15 +213,15 @@ export async function logMetric({
 	duration_ms,
 	status = 'success',
 	context_json = {}
-}: PerfMetric, logger: MultiLogger): Promise<MetricResponse> {
-	const apiUrl = env === 'production' ? PROD_API_URL : LOCAL_API_URL;
+}: PerfMetric, isElectronApp: boolean, logger: MultiLogger): Promise<MetricResponse> {
+	const apiUrl = process.env.GITHUB_REF_NAME === 'main' ? PROD_API_URL : LOCAL_API_URL;
 
 	const payload = {
 		timestamp: new Date().toISOString(),
-		app_version: appVersion,
 		platform_os: platformOs,
 		platform_version: platformVersion,
-		run_id: process.env.RUN_ID ?? 'unknown',
+		runtime_env: isElectronApp ? 'electron' : 'chromium',
+		run_id: process.env.GITHUB_RUN_ID ?? process.env.RUN_ID ?? 'unknown',
 		feature_area,
 		action,
 		target_type,
@@ -253,14 +257,11 @@ export async function logMetric({
 		const errorCode = error instanceof Error && 'code' in error ?
 			(error as Error & { code: string | number }).code : 'No code';
 
-		console.error('Failed to send metrics:', error);
-		console.error('Error details:', {
+		logger.log('Error details:', {
 			message: errorMessage,
 			code: errorCode,
 			url: apiUrl
 		});
-
-		logger.log(`Failed to send metric: ${errorMessage} (Code: ${errorCode})`);
 
 		return {
 			statusCode: 0,
