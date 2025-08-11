@@ -80,7 +80,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 		title: string,
 		message: string,
 		okButtonTitle?: string,
-		cancelButtonTitle?: string
+		cancelButtonTitle?: string,
+		options: { width?: number; height?: number } = {}
 	): IModalDialogPromptInstance {
 		// Create the modal React renderer.
 		const renderer = new PositronModalReactRenderer();
@@ -99,8 +100,15 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			choiceEmitter.dispose();
 		};
 
+		const { width = 400, height = 200 } = options;
 		renderer.render(
-			<PositronModalDialog height={200} renderer={renderer} title={title} width={400} onCancel={cancelHandler}>
+			<PositronModalDialog
+				height={height}
+				renderer={renderer}
+				title={title}
+				width={width}
+				onCancel={cancelHandler}
+			>
 				<ContentArea>
 					{renderHtml(
 						message,
@@ -141,7 +149,8 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 	showModalDialogPrompt2(
 		title: string,
 		message: string,
-		okButtonTitle?: string
+		okButtonTitle?: string,
+		options: { width?: number; height?: number } = {}
 	): IModalDialogPromptInstance {
 
 		// Create the modal React renderer.
@@ -161,12 +170,13 @@ export class PositronModalDialogs implements IPositronModalDialogsService {
 			choiceEmitter.dispose();
 		};
 
+		const { width = 400, height = 200 } = options;
 		renderer.render(
 			<PositronModalDialog
-				height={200}
+				height={height}
 				renderer={renderer}
 				title={title}
-				width={400}
+				width={width}
 				onCancel={cancelHandler}
 			>
 				<ContentArea>
