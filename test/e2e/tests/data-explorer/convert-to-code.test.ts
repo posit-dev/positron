@@ -33,7 +33,7 @@ test.use({
 	suiteId: __filename
 });
 
-test.describe.skip('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
+test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPLORER] }, () => {
 
 	test.beforeAll(async function ({ settings }) {
 		await settings.set({
@@ -73,14 +73,14 @@ test.describe.skip('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA
 			await dataExplorer.clickConvertToCodeButton();
 			await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
 			await modals.expectToContainText(
-				'filter_mask = (df[\'status\'] == active) & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)'
+				'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)'
 			);
 
 			const expectedGeneratedCode = {
-				'Pandas': 'filter_mask = (df[\'status\'] == active) & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)',
-				'Polars': 'tbd',
-				'Tidyverse': 'tbd',
-				'data.table': 'tbd'
+				'Pandas': 'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)',
+				// 'Polars': 'tbd',
+				// 'Tidyverse': 'tbd',
+				// 'data.table': 'tbd'
 			}[expectedCodeStyle] || '';
 			await modals.expectToContainText(expectedGeneratedCode);
 		});
