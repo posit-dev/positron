@@ -34,6 +34,10 @@
           {
             "name": "exportQuarto",
             "description": "%chatParticipants.commands.exportQuarto.description%"
+          },
+          {
+            "name": "fix",
+            "description": "Fix code issues in the current chat."
           }
         ],
         "locations": [

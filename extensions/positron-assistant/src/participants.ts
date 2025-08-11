@@ -987,3 +987,4 @@ function addCacheControlBreakpointPartsToLastUserMessages(
 // Must be after Participant classes
 // otherwise we get an undefined error
 import './commands/quarto';
+import './commands/fix.js';
