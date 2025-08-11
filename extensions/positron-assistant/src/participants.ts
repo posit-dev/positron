@@ -11,12 +11,12 @@ import * as xml from './xml.js';
 
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
-import { EXPORT_QUARTO_COMMAND, quartoHandler } from './commands/quarto';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log, getRequestTokenUsage } from './extension.js';
+import { ChatRequestHandler, ChatRequestParticipantOptions } from './commands/index.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -105,6 +105,7 @@ export class ParticipantService implements vscode.Disposable {
 abstract class PositronAssistantParticipant implements IPositronAssistantParticipant {
 	abstract id: ParticipantID;
 	private readonly _requests = new Map<string, ChatRequestData>();
+	private static readonly _commands = new WeakMap<typeof PositronAssistantParticipant, Record<string, ChatRequestHandler>>();
 
 	constructor(
 		private readonly _context: vscode.ExtensionContext,
@@ -160,15 +161,37 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 		// Select request handler based on the command issued by the user for this request
 		try {
-			switch (request.command) {
-				case EXPORT_QUARTO_COMMAND:
-					return await quartoHandler(request, context, response, token);
-				default:
-					return await this.defaultRequestHandler(request, context, response, token);
+			const participantContext: ChatRequestParticipantOptions = {
+				systemPrompt: await this.getSystemPrompt(request),
+				allowedTools: new Set<string>()
+			};
+			if (request.command && request.command in this.commandRegistry) {
+				const handler = this.commandRegistry[request.command];
+				const continueHandling = await handler(request, context, response, token, participantContext);
+
+				if (!continueHandling) {
+					return;
+				}
 			}
+			return await this.defaultRequestHandler(request, context, response, token, participantContext);
 		} finally {
 			this._requests.delete(request.id);
 		}
+	}
+
+	protected get commandRegistry(): Record<string, ChatRequestHandler> {
+		const constructor = this.constructor as typeof PositronAssistantParticipant;
+		if (!PositronAssistantParticipant._commands.has(constructor)) {
+			PositronAssistantParticipant._commands.set(constructor, {});
+		}
+		return PositronAssistantParticipant._commands.get(constructor)!;
+	}
+
+	public static registerCommand(command: string, handler: ChatRequestHandler) {
+		if (!PositronAssistantParticipant._commands.has(this)) {
+			PositronAssistantParticipant._commands.set(this, {});
+		}
+		PositronAssistantParticipant._commands.get(this)![command] = handler;
 	}
 
 	public getRequestData(chatRequestId: string): ChatRequestData | undefined {
@@ -180,9 +203,10 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		context: vscode.ChatContext,
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
+		participantContext: ChatRequestParticipantOptions
 	) {
 		// System prompt.
-		const system = await this.getSystemPrompt(request);
+		const { systemPrompt: system } = participantContext;
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -210,12 +234,19 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			}
 		}
 
+		const { allowedTools } = participantContext;
+
 		// List of tools for use by the language model.
 		const tools: vscode.LanguageModelChatTool[] = vscode.lm.tools.filter(
 			tool => {
 				// Don't allow any tools in the terminal.
 				if (this.id === ParticipantID.Terminal) {
 					return false;
+				}
+
+				// Allow tools specified in the command handler.
+				if (allowedTools.has(tool.name)) {
+					return true;
 				}
 
 				// Define more readable variables for filtering.
@@ -952,3 +983,7 @@ function addCacheControlBreakpointPartsToLastUserMessages(
 		}
 	}
 }
+
+// Must be after Participant classes
+// otherwise we get an undefined error
+import './commands/quarto';

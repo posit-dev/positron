@@ -8,6 +8,7 @@ import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { toLanguageModelChatMessage } from '../utils';
+import { PositronAssistantChatParticipant } from '../participants.js';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -68,4 +69,8 @@ export async function quartoHandler(
 			);
 		}
 	}
+
+	return false;
 }
+
+PositronAssistantChatParticipant.registerCommand(EXPORT_QUARTO_COMMAND, quartoHandler);
