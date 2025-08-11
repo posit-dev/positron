@@ -9,13 +9,13 @@ Summary:
 - Ensures basic filters (e.g. "is not null", "contains") are applied correctly across supported data frame types.
 - Confirms the filtered result is exported in the correct syntax for each language/library combination.
 
- * |Type              |Language |Construct                         |Expected Code Style     |
- * |------------------|---------|----------------------------------|------------------------|
- * |pandas.DataFrame  |Python   |pd.DataFrame(...)                 |Pandas                  |
- * |polars.DataFrame  |Python   |pl.DataFrame(...)                 |Polars                  |
- * |data.frame        |R        |data.frame(...)                   |Tidyverse (or Base R)   |
- * |tibble            |R        |tibble::tibble(...)               |Tidyverse               |
- * |data.table        |R        |data.table::data.table(...)       |data.table              |
+ * |Type              |Language |Variable                                   |Expected Code Style     |
+ * |------------------|---------|-------------------------------------------|------------------------|
+ * |pandas.DataFrame  |Python   |<class 'pandas.core.frame.DataFrame'>      |Pandas                  |
+ * |polars.DataFrame  |Python   |<class 'polars.dataframe.frame.DataFrame'> |Polars                  |
+ * |data.frame        |R        |<data.frame>                               |Tidyverse (or Base R)   |
+ * |tibble            |R        |<tbl_df>                                   |Tidyverse               |
+ * |data.table        |R        |<data.table>                               |data.table              |
  */
 
 import { expect } from '@playwright/test';
@@ -48,7 +48,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 
 	testCases.forEach(({ language, dataScript, expectedCodeStyle, dataFrameType }) => {
 
-		test(`${language} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, logMetric }) {
+		test(`${language} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys, metric }) {
 			const { dataExplorer, variables, modals, console } = app.workbench;
 			await sessions.start(language === 'Python' ? 'python' : 'r');
 
@@ -71,7 +71,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			await dataExplorer.addFilter('is_student', 'is false');                     // Charlie only
 
 			// copy code and verify result is accurate
-			logMetric.start();
+			metric.start();
 
 			// TODO: Get the actual row and column counts from the data explorer
 			// const dataInfo = await dataExplorer.getTableDimensions();
@@ -87,19 +87,15 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			// 	'data.table': 'tbd'
 			// }[expectedCodeStyle] || '';
 			// await modals.expectToContainText(expectedGeneratedCode);
-			await logMetric.stopAndSend({
-				feature_area: 'data_explorer',
+			await metric.dataExplorer.stopAndSend({
 				action: 'to_code',
-				target_type: 'pandas.DataFrame',
+				target_type: 'py.pandas.DataFrame',
 				target_description: 'df with filters (pandas)',
 				context_json: {
 					// sort_applied: false,
-					// filter_applied: true,
-					// language: 'Python',
-					data_rows: 1000000,
-					data_cols: 10
-					// data_rows: dataInfo.rows,
-					// data_columns: dataInfo.columns
+					filter_applied: true,
+					data_rows: await dataExplorer.getRowCount(),
+					data_cols: await dataExplorer.getColumnCount(),
 				}
 			});
 		});

@@ -38,7 +38,7 @@ import {
 	fixtures as currentsFixtures
 	// eslint-disable-next-line local/code-import-patterns
 } from '@currents/playwright';
-import { logMetric, MetricEnv, PerfMetric } from '../utils/metrics.js';
+import { logMetric, MetricEnv, DataExplorerMetric, NotebookMetric } from '../utils/metrics.js';
 
 // Test fixtures
 export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures & CurrentsWorkerFixtures>({
@@ -414,23 +414,38 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		logger.log('');
 	}, { scope: 'test', auto: true }],
 
-	logMetric: [async ({ logger }, use) => {
+	metric: [async ({ logger }, use) => {
 		let startTime = 0;
 		await use({
 			start: async () => {
 				startTime = Date.now();
 			},
-			stopAndSend: async (meta, env = 'local') => {
-				const duration = Date.now() - startTime;
-				const res = await logMetric({
-					...meta,
-					duration_ms: duration,
-					status: 'success',
-					env: 'local'
-				});
-				logger.log(`--- Log Metric: ${meta.feature_area} - ${meta.action} - ${meta.target_type} ---`);
-				logger.log(`Request ${res.ok ? 'successful' : 'failed'}`);
-				logger.log(`Response body: ${res.body}`);
+			dataExplorer: {
+				stopAndSend: async (meta: Omit<DataExplorerMetric, 'feature_area' | 'duration_ms'>, env: MetricEnv = 'local') => {
+					if (startTime === 0) {
+						throw new Error('Metric start time not set. Call metric.start() before stopping.');
+					}
+					const duration = Date.now() - startTime;
+					const payload: DataExplorerMetric = {
+						feature_area: 'data_explorer',
+						...meta,
+						duration_ms: duration,
+						env,
+					};
+					await logMetric(payload, logger);
+				}
+			},
+			notebooks: {
+				stopAndSend: async (meta: Omit<NotebookMetric, 'feature_area' | 'duration_ms'>, env: MetricEnv = 'local') => {
+					const duration = Date.now() - startTime;
+					const payload: NotebookMetric = {
+						feature_area: 'notebooks',
+						...meta,
+						duration_ms: duration,
+						env,
+					};
+					await logMetric(payload, logger);
+				}
 			}
 		});
 
@@ -526,7 +541,7 @@ interface TestFixtures {
 	}) => Promise<void>;
 	hotKeys: HotKeys;
 	cleanup: TestTeardown;
-	logMetric: Timer;
+	metric: Timer;
 }
 
 interface WorkerFixtures {
@@ -554,6 +569,10 @@ export type CustomTestOptions = playwright.PlaywrightTestOptions & {
 
 type Timer = {
 	start: () => void;
-	stopAndSend: (meta: Omit<PerfMetric, 'duration_ms'>, env?: MetricEnv) => Promise<void>;
-
+	dataExplorer: {
+		stopAndSend: (meta: Omit<DataExplorerMetric, 'feature_area' | 'duration_ms'>, env?: MetricEnv) => Promise<void>;
+	};
+	notebooks: {
+		stopAndSend: (meta: Omit<NotebookMetric, 'feature_area' | 'duration_ms'>, env?: MetricEnv) => Promise<void>;
+	};
 };

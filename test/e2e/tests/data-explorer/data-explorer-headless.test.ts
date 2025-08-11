@@ -6,6 +6,7 @@
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
 import { TestTags } from '../../infra';
+import { MetricTargetType } from '../../utils/metrics.js';
 
 const LAST_CELL_CONTENTS = '2013-09-30 08:00:00';
 
@@ -13,13 +14,13 @@ test.use({
 	suiteId: __filename
 });
 
-const testCases = [
-	{ name: 'parquet', file: 'data-files/flights/flights.parquet', copyValue: '2013' },
-	{ name: 'csv', file: 'data-files/flights/flights.csv', copyValue: '0' },
-	{ name: 'gzipped csv', file: 'data-files/flights/flights.csv.gz', copyValue: '0' },
-	{ name: 'tsv', file: 'data-files/flights/flights.tsv', copyValue: '0' },
-	{ name: 'gzipped tsv', file: 'data-files/flights/flights.tsv.gz', copyValue: '0' },
-	{ name: 'pipe csv', file: 'data-files/flights/flights_piped.csv', copyValue: '0' }
+const testCases: Array<{ name: MetricTargetType; file: string; copyValue: string }> = [
+	{ name: 'file.parquet', file: 'data-files/flights/flights.parquet', copyValue: '2013' },
+	{ name: 'file.csv', file: 'data-files/flights/flights.csv', copyValue: '0' },
+	{ name: 'file.csv.gz', file: 'data-files/flights/flights.csv.gz', copyValue: '0' },
+	{ name: 'file.tsv', file: 'data-files/flights/flights.tsv', copyValue: '0' },
+	{ name: 'file.tsv.gz', file: 'data-files/flights/flights.tsv.gz', copyValue: '0' },
+	{ name: 'file.psv', file: 'data-files/flights/flights_piped.csv', copyValue: '0' }
 ];
 
 const plainTextTestCases = [
@@ -43,11 +44,22 @@ test.describe('Headless Data Explorer', {
 	});
 
 	testCases.forEach(({ name, file, copyValue }) => {
-		test(`Verify can open and view data with large ${name} file`, async function ({ app, openDataFile }) {
+		test(`Verify can open and view data with large ${name} file`, { tag: [tags.PERFORMANCE] }, async function ({ app, openDataFile, metric }) {
 			const { editors, dataExplorer, clipboard } = app.workbench;
 
+			metric.start();
 			await openDataFile(`${file}`);
 			await editors.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
+			await dataExplorer.waitForTableToLoad();
+			metric.dataExplorer.stopAndSend({
+				action: 'load_data',
+				target_type: name,
+				target_description: `headless data explorer: ${name}`,
+				context_json: {
+					data_rows: await dataExplorer.getRowCount(),
+					data_cols: await dataExplorer.getColumnCount()
+				}
+			});
 
 			// verify can copy data to clipboard
 			await dataExplorer.clickCell(0, 0);

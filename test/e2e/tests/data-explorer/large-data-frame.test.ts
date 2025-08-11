@@ -15,7 +15,7 @@ test.use({
 });
 
 test.describe('Data Explorer - Large Data Frame', {
-	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.DATA_EXPLORER]
+	tag: [tags.CRITICAL, tags.WEB, tags.WIN, tags.DATA_EXPLORER, tags.PERFORMANCE]
 }, () => {
 	test.beforeEach(async function ({ hotKeys }) {
 		await hotKeys.stackedLayout();
@@ -25,14 +25,25 @@ test.describe('Data Explorer - Large Data Frame', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Python - Verify data loads and basic filtering with large data frame', async function ({ app, openFile, runCommand, python }) {
+	test('Python - Verify data loads and basic filtering with large data frame', async function ({ app, openFile, runCommand, python, metric }) {
 		const { dataExplorer, variables, editors } = app.workbench;
 		await openFile(join('workspaces', 'nyc-flights-data-py', 'flights-data-frame.py'));
 		await runCommand('python.execInConsole');
 
 		// Open Data Explorer for the data frame
+		metric.start();
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
+		await dataExplorer.waitForTableToLoad();
+		await metric.dataExplorer.stopAndSend({
+			action: 'load_data',
+			target_type: 'py.pandas.DataFrame',
+			target_description: 'large unique parquet',
+			context_json: {
+				data_rows: await dataExplorer.getRowCount(),
+				data_cols: await dataExplorer.getColumnCount()
+			}
+		});
 
 		// Validate full grid by checking data in the bottom right corner
 		await dataExplorer.clickLowerRightCorner();
@@ -46,15 +57,26 @@ test.describe('Data Explorer - Large Data Frame', {
 
 	test('R - Verify data loads and basic filtering with large data frame', {
 		tag: [tags.WEB, tags.CRITICAL]
-	}, async function ({ app, openFile, runCommand, r }) {
+	}, async function ({ app, openFile, runCommand, metric, r }) {
 		const { dataExplorer, variables, editors } = app.workbench;
 
 		await openFile(join('workspaces', 'nyc-flights-data-r', 'flights-data-frame.r'));
 		await runCommand('r.sourceCurrentFile');
 
 		// Open Data Explorer for the data frame
+		metric.start();
 		await variables.doubleClickVariableRow('df2');
 		await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
+		await dataExplorer.waitForTableToLoad();
+		await metric.dataExplorer.stopAndSend({
+			action: 'load_data',
+			target_type: 'r.tibble',
+			target_description: 'large unique parquet',
+			context_json: {
+				data_rows: await dataExplorer.getRowCount(),
+				data_cols: await dataExplorer.getColumnCount()
+			}
+		});
 
 		// Validate full grid by checking data in the bottom right corner
 		await dataExplorer.clickLowerRightCorner();
