@@ -200,7 +200,14 @@ export class ChatViewPane extends ViewPane implements IViewWelcomeDelegate {
 							return true;
 						},
 						referencesExpandedWhenEmptyResponse: false,
+						// --- Start Positron ---
+						/*
 						progressMessageAtBottomOfResponse: mode => mode !== ChatModeKind.Ask,
+						*/
+						// Always show progress message at bottom of response to make it more apparent
+						// in all modes.
+						progressMessageAtBottomOfResponse: true,
+						// --- End Positron ---
 					},
 					editorOverflowWidgetsDomNode: editorOverflowNode,
 					enableImplicitContext: this.chatOptions.location === ChatAgentLocation.Panel,
