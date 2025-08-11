@@ -666,8 +666,8 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 	onDidEndSession: vscode.Event<positron.LanguageRuntimeExit>;
 
-	debug(content: positron.DebugRequest, id: string): void {
-		const debug = new DebugRequest(id, content);
+	debug(request: positron.DebugProtocolRequest, id: string): void {
+		const debug = new DebugRequest(id, request);
 		this.sendRequest(debug).then((reply) => {
 			this.log(`Debug reply: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
 		}).catch((err) => {

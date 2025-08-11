@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-import { DebugProtocol } from '@vscode/debugprotocol';
+import * as positron from 'positron';
 import { JupyterRequest } from './JupyterRequest';
 import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageType } from './JupyterMessageType.js';
 
-export class DebugRequest extends JupyterRequest<DebugProtocol.Request, DebugProtocol.Response> {
-	constructor(readonly requestId: string, req: DebugProtocol.Request) {
+export class DebugRequest extends JupyterRequest<positron.DebugProtocolRequest, positron.DebugProtocolResponse> {
+	constructor(readonly requestId: string, req: positron.DebugProtocolRequest) {
 		super(JupyterMessageType.DebugRequest, req, JupyterMessageType.DebugReply, JupyterChannel.Control);
 	}
 	protected override createMsgId(): string {
@@ -23,7 +23,7 @@ export class DebugRequest extends JupyterRequest<DebugProtocol.Request, DebugPro
  * @link https://jupyter-client.readthedocs.io/en/latest/messaging.html#debug-request
  */
 export interface JupyterDebugRequest {
-	content: DebugProtocol.Request;
+	content: positron.DebugProtocolRequest;
 }
 
 /**
@@ -32,5 +32,5 @@ export interface JupyterDebugRequest {
  * @link https://jupyter-client.readthedocs.io/en/latest/messaging.html#debug-request
  */
 export interface JupyterDebugReply {
-	content: DebugProtocol.Response;
+	content: positron.DebugProtocolResponse;
 }

@@ -5,7 +5,6 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
-import { DebugProtocol } from '@vscode/debugprotocol';
 import { JupyterMessage } from './jupyter/JupyterMessage';
 import { JupyterKernelStatus } from './jupyter/JupyterKernelStatus';
 import { JupyterExecuteInput } from './jupyter/JupyterExecuteInput';
@@ -61,10 +60,10 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 				this.onCommOpen(msg, msg.content as JupyterCommOpen);
 				break;
 			case JupyterMessageType.DebugEvent:
-				this.onDebugEvent(msg, msg.content as DebugProtocol.Event);
+				this.onDebugEvent(msg, msg.content as positron.DebugProtocolEvent);
 				break;
 			case JupyterMessageType.DebugReply:
-				this.onDebugReply(msg, msg.content as DebugProtocol.Response);
+				this.onDebugReply(msg, msg.content as positron.DebugProtocolResponse);
 				break;
 			case JupyterMessageType.DisplayData:
 				this.onDisplayData(msg, msg.content as JupyterDisplayData);
@@ -214,7 +213,7 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 		} satisfies positron.LanguageRuntimeCommOpen);
 	}
 
-	private onDebugEvent(message: JupyterMessage, data: DebugProtocol.Event): void {
+	private onDebugEvent(message: JupyterMessage, data: positron.DebugProtocolEvent): void {
 		this._emitter.fire({
 			id: message.header.msg_id,
 			parent_id: message.parent_header?.msg_id,
@@ -225,7 +224,7 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 		} satisfies positron.LanguageRuntimeDebugEvent);
 	}
 
-	private onDebugReply(message: JupyterMessage, data: DebugProtocol.Response): void {
+	private onDebugReply(message: JupyterMessage, data: positron.DebugProtocolResponse): void {
 		this._emitter.fire({
 			id: message.header.msg_id,
 			parent_id: message.parent_header?.msg_id,
