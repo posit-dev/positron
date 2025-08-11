@@ -172,7 +172,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	override getName(): string {
 		const extUri = new ExtUri(() => false);
-		return extUri.basename(this.resource) ?? localize('positronNotebookInputName', "Positron Notebook");
+		return extUri.basename(this.resource) ?? localize('positron.notebook.inputName', "Positron Notebook");
 	}
 
 	/**
@@ -237,8 +237,16 @@ export class PositronNotebookEditorInput extends EditorInput {
 		const suggestedName = extUri.basename(this.resource);
 		const pathCandidate = await this._suggestName(provider, suggestedName);
 
-		// Ask the user where to save the file
-		const target = await this._fileDialogService.pickFileToSave(pathCandidate, options?.availableFileSystems);
+		// Ask the user where to save the file with proper filters
+		const target = await this._fileDialogService.showSaveDialog({
+			title: localize('positron.notebook.saveAs', "Save Notebook As"),
+			defaultUri: pathCandidate,
+			filters: [
+				// This will ensure that the saved file has the .ipynb extension.
+				{ name: localize('positron.notebook.fileType', 'Jupyter Notebook'), extensions: ['ipynb'] }
+			],
+			availableFileSystems: options?.availableFileSystems
+		});
 		if (!target) {
 			return undefined; // save cancelled
 		}
