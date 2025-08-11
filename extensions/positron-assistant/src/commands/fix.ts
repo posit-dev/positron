@@ -7,8 +7,7 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from '../constants';
-import { PositronAssistantChatParticipant } from '../participants.js';
-import { ChatRequestParticipantOptions } from './index.js';
+import { ParticipantID, PositronAssistantChatParticipant, PositronAssistantEditorParticipant, PositronAssistantChatContext } from '../participants.js';
 import { PositronAssistantToolName } from '../types.js';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
@@ -20,19 +19,24 @@ export const FIX_COMMAND = 'fix';
  */
 export async function fixHandler(
 	_request: vscode.ChatRequest,
-	_context: vscode.ChatContext,
+	context: PositronAssistantChatContext,
 	_response: vscode.ChatResponseStream,
 	_token: vscode.CancellationToken,
-	participantContext: ChatRequestParticipantOptions
 ) {
-	const system = participantContext.systemPrompt;
+	const { systemPrompt, participantId } = context;
+
+	if (participantId !== ParticipantID.Chat) {
+		return true;
+	}
+
 	const prompt = await fs.promises.readFile(`${mdDir}/prompts/chat/fix.md`, 'utf8');
-
-	participantContext.systemPrompt = system ? `${system}\n\n${prompt}` : prompt;
-
-	participantContext.allowedTools.add(PositronAssistantToolName.ExecuteCode);
+	context.systemPrompt = `${systemPrompt}\n\n${prompt}`;
+	context.toolAvailability.set(PositronAssistantToolName.ExecuteCode, true);
 
 	return true;
 }
 
-PositronAssistantChatParticipant.registerCommand(FIX_COMMAND, fixHandler);
+export function registerFixCommand() {
+	PositronAssistantChatParticipant.registerCommand(FIX_COMMAND, fixHandler);
+	PositronAssistantEditorParticipant.registerCommand(FIX_COMMAND, fixHandler);
+}

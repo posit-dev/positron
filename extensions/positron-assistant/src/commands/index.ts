@@ -4,15 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-
-/** Options about the participant modifiable by the chat request handler. */
-export interface ChatRequestParticipantOptions {
-	/** The system prompt to use for the participant. */
-	systemPrompt: string;
-
-	/** The tools allowed for the participant. */
-	allowedTools: Set<string>;
-}
+import { PositronAssistantChatContext } from '../participants.js';
+import { registerFixCommand } from './fix.js';
+import { registerQuartoCommand } from './quarto.js';
 
 /**
  * A function that handles chat requests.
@@ -27,9 +21,13 @@ export interface ChatRequestParticipantOptions {
 export interface ChatRequestHandler {
 	(
 		request: vscode.ChatRequest,
-		context: vscode.ChatContext,
+		context: PositronAssistantChatContext,
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
-		participantOptions: ChatRequestParticipantOptions
 	): Promise<boolean>;
+}
+
+export function registerAssistantCommands() {
+	registerFixCommand();
+	registerQuartoCommand();
 }

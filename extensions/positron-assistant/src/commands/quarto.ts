@@ -73,4 +73,6 @@ export async function quartoHandler(
 	return false;
 }
 
-PositronAssistantChatParticipant.registerCommand(EXPORT_QUARTO_COMMAND, quartoHandler);
+export function registerQuartoCommand() {
+	PositronAssistantChatParticipant.registerCommand(EXPORT_QUARTO_COMMAND, quartoHandler);
+}
