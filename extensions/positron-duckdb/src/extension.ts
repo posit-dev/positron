@@ -910,18 +910,32 @@ export class DuckDBTableView {
 
 		// Sort the filtered indices
 		switch (params.sort_order) {
-			case SearchSchemaSortOrder.Ascending:
+			case SearchSchemaSortOrder.AscendingName:
 				filteredIndices.sort((a, b) => {
 					const nameA = this.fullSchema[a].column_name.toLowerCase();
 					const nameB = this.fullSchema[b].column_name.toLowerCase();
 					return nameA.localeCompare(nameB);
 				});
 				break;
-			case SearchSchemaSortOrder.Descending:
+			case SearchSchemaSortOrder.DescendingName:
 				filteredIndices.sort((a, b) => {
 					const nameA = this.fullSchema[a].column_name.toLowerCase();
 					const nameB = this.fullSchema[b].column_name.toLowerCase();
 					return nameB.localeCompare(nameA);
+				});
+				break;
+			case SearchSchemaSortOrder.AscendingType:
+				filteredIndices.sort((a, b) => {
+					const typeA = this.fullSchema[a].column_type.toLowerCase();
+					const typeB = this.fullSchema[b].column_type.toLowerCase();
+					return typeA.localeCompare(typeB);
+				});
+				break;
+			case SearchSchemaSortOrder.DescendingType:
+				filteredIndices.sort((a, b) => {
+					const typeA = this.fullSchema[a].column_type.toLowerCase();
+					const typeB = this.fullSchema[b].column_type.toLowerCase();
+					return typeB.localeCompare(typeA);
 				});
 				break;
 			case SearchSchemaSortOrder.Original:

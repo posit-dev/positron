@@ -26,9 +26,13 @@ class SearchSchemaSortOrder(str, enum.Enum):
 
     Original = "original"
 
-    Ascending = "ascending"
+    AscendingName = "ascending_name"
 
-    Descending = "descending"
+    DescendingName = "descending_name"
+
+    AscendingType = "ascending_type"
+
+    DescendingType = "descending_type"
 
 
 @enum.unique
@@ -243,7 +247,7 @@ class SearchSchemaResult(BaseModel):
     """
 
     matches: List[StrictInt] = Field(
-        description="The column indices of the matching column indices in the indicated sort order",
+        description="The column indices that match the search parameters in the indicated sort order.",
     )
 
 
