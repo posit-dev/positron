@@ -1,7 +1,7 @@
 {
     "name": "python",
-    "displayName": "Positron Python",
-    "description": "Positron Python",
+    "displayName": "Python",
+    "description": "Python Language Pack for Positron",
     "version": "2025.99.0-dev",
     "featureFlags": {
         "usingNewInterpreterStorage": true
@@ -1909,7 +1909,10 @@
                         }
                     }
                 },
-                "tags": ["positron-assistant", "requires-session:python"]
+                "tags": [
+                    "positron-assistant",
+                    "requires-session:python"
+                ]
             },
             {
                 "name": "getInstalledPythonPackageVersion",
@@ -1925,7 +1928,10 @@
                         }
                     }
                 },
-                "tags": ["positron-assistant", "requires-session:python"]
+                "tags": [
+                    "positron-assistant",
+                    "requires-session:python"
+                ]
             },
             {
                 "name": "get_python_environment_details",
@@ -2239,7 +2245,7 @@
     },
     "positron": {
         "externalDependencies": {
-          "pet": "v2024.16.0"
+            "pet": "2025.12"
         }
-      }
+    }
 }

@@ -7,6 +7,7 @@ import { Code } from './code';
 import { Modals } from '../pages/dialog-modals';
 import { Toasts } from '../pages/dialog-toasts';
 import { Popups } from '../pages/dialog-popups.js';
+import { ContextMenu } from '../pages/dialog-contextMenu.js';
 import { Console } from '../pages/console';
 import { Variables } from '../pages/variables';
 import { DataExplorer } from '../pages/dataExplorer';
@@ -54,6 +55,7 @@ export class Workbench {
 	readonly modals: Modals;
 	readonly toasts: Toasts;
 	readonly popups: Popups;
+	readonly contextMenu: ContextMenu;
 	readonly console: Console;
 	readonly variables: Variables;
 	readonly dataExplorer: DataExplorer;
@@ -96,10 +98,11 @@ export class Workbench {
 		this.hotKeys = new HotKeys(code);
 		this.toasts = new Toasts(code);
 		this.popups = new Popups(code);
+		this.contextMenu = new ContextMenu(code);
 		this.variables = new Variables(code, this.hotKeys);
 		this.dataExplorer = new DataExplorer(code, this);
 		this.sideBar = new SideBar(code);
-		this.plots = new Plots(code);
+		this.plots = new Plots(code, this.contextMenu);
 		this.explorer = new Explorer(code);
 		this.help = new Help(code);
 		this.topActionBar = new TopActionBar(code);
@@ -110,12 +113,12 @@ export class Workbench {
 		this.connections = new Connections(code, this.quickaccess);
 		this.newFolderFlow = new NewFolderFlow(code, this.quickaccess);
 		this.output = new Output(code, this.quickaccess, this.quickInput);
-		this.console = new Console(code, this.quickInput, this.quickaccess, this.hotKeys);
+		this.console = new Console(code, this.quickInput, this.quickaccess, this.hotKeys, this.contextMenu);
 		this.modals = new Modals(code, this.toasts, this.console);
 		this.sessions = new Sessions(code, this.quickaccess, this.quickInput, this.console);
-		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess);
-		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess);
-		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess);
+		this.notebooks = new Notebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
+		this.notebooksVscode = new VsCodeNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
+		this.notebooksPositron = new PositronNotebooks(code, this.quickInput, this.quickaccess, this.hotKeys);
 		this.welcome = new Welcome(code);
 		this.clipboard = new Clipboard(code, this.hotKeys);
 		this.terminal = new Terminal(code, this.quickaccess, this.clipboard);
@@ -131,7 +134,7 @@ export class Workbench {
 		this.references = new References(code);
 		this.scm = new SCM(code, this.layouts);
 		this.search = new Search(code);
-		this.assistant = new Assistant(code);
+		this.assistant = new Assistant(code, this.quickaccess, this.toasts);
 		this.positConnect = new PositConnect(code);
 	}
 }

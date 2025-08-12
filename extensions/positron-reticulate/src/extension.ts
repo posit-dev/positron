@@ -1,5 +1,5 @@
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2023 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
@@ -58,13 +58,32 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 	featureEnabled(): boolean | undefined {
 		// If it's disabled, don't do any registration
 		const config = vscode.workspace.getConfiguration('positron.reticulate');
-		return config.get<boolean>('enabled');
+		const option = config.get<('auto' | 'never' | 'always') | boolean>('enabled');
+
+		if (typeof option === 'boolean') {
+			// Keep supporting the old option which was a boolean.
+			return option; // If it's a boolean, return it directly
+		}
+
+		switch (option) {
+			case 'auto':
+				const val = CONTEXT.workspaceState.get(autoEnabledStorageKey, false);
+				return val;
+			case 'never':
+				return false;
+			case 'always':
+				return true;
+		}
 	}
 
 	async maybeRegisterReticulateRuntime() {
 
 		if (this._metadata) {
 			return; // No-op if session is already registered.
+		}
+
+		if (!this.featureEnabled()) {
+			return;
 		}
 
 		// Get a fixed list of all current runtimes.
@@ -309,6 +328,16 @@ export class ReticulateRuntimeManager implements positron.LanguageRuntimeManager
 		this.setSessions(rSession.metadata.sessionId, reticulateId, session);
 
 		return session;
+	}
+
+	/**
+	 * Validates whether the Reticulate session with the given session ID is active and usable.
+	 * @param sessionId The ID of the session to validate.
+	 * @returns A promise that resolves to true if the session is valid, false otherwise.
+	 */
+	async validateSession(sessionId: string): Promise<boolean> {
+		LOGGER.info(`Validating Reticulate session. sessionId: ${sessionId}`);
+		return Promise.resolve(true);
 	}
 }
 
@@ -626,7 +655,7 @@ class ReticulateRuntimeSession implements positron.LanguageRuntimeSession {
 	createPythonRuntimeSession(runtimeMetadata: positron.LanguageRuntimeMetadata, sessionMetadata: positron.RuntimeSessionMetadata, kernelSpec?: JupyterKernelSpec): positron.LanguageRuntimeSession {
 		const api = vscode.extensions.getExtension('ms-python.python');
 		if (!api) {
-			throw new Error(vscode.l10n.t('Failed to find the Positron Python extension API.'));
+			throw new Error(vscode.l10n.t('Failed to find the Python extension API.'));
 		}
 
 		const pythonSession: positron.LanguageRuntimeSession = api.exports.positron.createPythonRuntimeSession(
@@ -1001,6 +1030,7 @@ export class ReticulateProvider {
 
 let CONTEXT: vscode.ExtensionContext;
 const LOGGER = vscode.window.createOutputChannel('Reticulate Extension', { log: true });
+const autoEnabledStorageKey = 'positron.reticulate-auto-enabled';
 
 /**
  * Activates the extension.
@@ -1024,9 +1054,32 @@ export function activate(context: vscode.ExtensionContext) {
 		vscode.commands.registerCommand('positron.reticulate.getIPykernelPath', () => {
 			const api = vscode.extensions.getExtension('ms-python.python');
 			if (!api) {
-				throw new Error('Failed to find the Positron Python extension API.');
+				throw new Error('Failed to find the Python extension API.');
 			}
 			return api.extensionPath + '/python_files/posit/positron';
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.reticulate.isAutoEnabled', async () => {
+			// Checks if reticulate is auto enabled.
+			// This should only be called if positron.reticulate.enabled = auto
+			return context.workspaceState.get<boolean>(autoEnabledStorageKey, false);
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.reticulate.setAutoEnabled', async () => {
+			// This command is used to toggle the reticulate runtime enabled/disabled state
+			await context.workspaceState.update(autoEnabledStorageKey, true);
+			await reticulateProvider.manager.maybeRegisterReticulateRuntime();
+		})
+	);
+
+	context.subscriptions.push(
+		vscode.commands.registerCommand('positron.reticulate.resetAutoEnabled', async () => {
+			// This command is used to toggle the reticulate runtime enabled/disabled state
+			await context.workspaceState.update(autoEnabledStorageKey, undefined);
 		})
 	);
 
@@ -1034,4 +1087,3 @@ export function activate(context: vscode.ExtensionContext) {
 
 	return reticulateProvider;
 }
-

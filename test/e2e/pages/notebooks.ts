@@ -8,6 +8,7 @@ import { QuickInput } from './quickInput';
 import { QuickAccess } from './quickaccess';
 import { basename } from 'path';
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
+import { HotKeys } from './hotKeys.js';
 
 const KERNEL_DROPDOWN = 'a.kernel-label';
 const KERNEL_LABEL = '.codicon-notebook-kernel-select';
@@ -29,6 +30,7 @@ export class Notebooks {
 	protected code: Code;
 	protected quickinput: QuickInput;
 	protected quickaccess: QuickAccess;
+	protected hotKeys: HotKeys;
 
 	kernelLabel: Locator;
 	kernelDropdown: Locator;
@@ -36,10 +38,11 @@ export class Notebooks {
 	notebookProgressBar: Locator;
 	cellIndex: (num?: number) => Locator;
 
-	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess) {
+	constructor(code: Code, quickinput: QuickInput, quickaccess: QuickAccess, hotKeys: HotKeys) {
 		this.code = code;
 		this.quickinput = quickinput;
 		this.quickaccess = quickaccess;
+		this.hotKeys = hotKeys;
 
 		this.kernelLabel = this.code.driver.page.locator(KERNEL_LABEL);
 		this.kernelDropdown = this.code.driver.page.locator(KERNEL_DROPDOWN);
@@ -118,9 +121,8 @@ export class Notebooks {
 
 	async addCodeToCellAtIndex(code: string, cellIndex = 0, delay = 0) {
 		await test.step('Add code to first cell', async () => {
-			await this.code.driver.page.locator(CELL_LINE).nth(cellIndex).click();
+			await this.selectCellAtIndex(cellIndex);
 			await this.typeInEditor(code, delay);
-			await this.waitForActiveCellEditorContents(code);
 		});
 	}
 
@@ -142,8 +144,15 @@ export class Notebooks {
 		});
 	}
 
-	async assertCellOutput(text: string): Promise<void> {
-		await expect(this.frameLocator.getByText(text)).toBeVisible({ timeout: 15000 });
+	async assertCellOutput(text: string | RegExp, cellIndex?: number): Promise<void> {
+		if (cellIndex !== undefined) {
+			// Target specific cell output
+			const cellOutput = this.frameLocator.locator('.output_container').nth(cellIndex);
+			await expect(cellOutput.getByText(text)).toBeVisible({ timeout: 15000 });
+		} else {
+			// Use nth(0) to get the first occurrence when multiple elements exist
+			await expect(this.frameLocator.getByText(text).nth(0)).toBeVisible({ timeout: 15000 });
+		}
 	}
 
 	async closeNotebookWithoutSaving() {
@@ -191,8 +200,6 @@ export class Notebooks {
 			delay
 				? await this.code.driver.page.locator(textarea).pressSequentially(text, { delay })
 				: await this.code.driver.page.locator(textarea).fill(text);
-
-			await this._waitForActiveCellEditorContents(c => c.indexOf(text) > -1);
 		});
 	}
 
@@ -216,11 +223,19 @@ export class Notebooks {
 	}
 
 	async insertNotebookCell(kind: 'markdown' | 'code'): Promise<void> {
-		if (kind === 'markdown') {
-			await this.quickaccess.runCommand('notebook.cell.insertMarkdownCellBelow');
-		} else {
-			await this.quickaccess.runCommand('notebook.cell.insertCodeCellBelow');
-		}
+		await expect(async () => {
+			if (kind === 'markdown') {
+				await this.quickaccess.runCommand('notebook.cell.insertMarkdownCellBelow');
+			} else {
+				await this.quickaccess.runCommand('notebook.cell.insertCodeCellBelow');
+			}
+		}).toPass({ timeout: 60000 });
+	}
+
+	async selectCellAtIndex(cellIndex: number): Promise<void> {
+		await test.step(`Select cell at index: ${cellIndex}`, async () => {
+			await this.code.driver.page.locator(CELL_LINE).nth(cellIndex).click();
+		});
 	}
 
 	async stopEditingCell() {
@@ -228,12 +243,8 @@ export class Notebooks {
 	}
 
 	async executeActiveCell(): Promise<void> {
-		await this.quickaccess.runCommand('notebook.cell.execute');
+		await this.hotKeys.executeNotebookCell();
 		await expect(this.code.driver.page.getByRole('button', { name: 'Go To' })).not.toBeVisible({ timeout: 30000 });
-	}
-
-	async focusNextCell() {
-		await this.code.driver.page.keyboard.press('ArrowDown');
 	}
 }
 

@@ -244,11 +244,13 @@ export class DataExplorer {
 			}
 		}
 
-		// some rects have 'count' class, some have 'bin-count' class, some have 'count other' class
-		const rects = await this.code.driver.page.locator('.column-profile-sparkline').locator('[class*="count"]').all();
+		// Extract heights from tooltip containers which now have data-height attributes
+		// Find sparkline containers within the expanded profile area for this specific row
+		const profileAreaSelector = `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-profile-sparkline`;
+		const containers = await this.code.driver.page.locator(`${profileAreaSelector} foreignObject.tooltip-container`).all();
 		const profileSparklineHeights: string[] = [];
-		for (let i = 0; i < rects.length; i++) {
-			const height = await rects[i].getAttribute('height');
+		for (let i = 0; i < containers.length; i++) {
+			const height = await containers[i].getAttribute('data-height');
 			if (height !== null) {
 				const rounded = parseFloat(height).toFixed(1); // Round to one decimal place
 				profileSparklineHeights.push(rounded);
@@ -370,7 +372,10 @@ export class DataExplorer {
 
 	async verifySparklineHoverDialog(verificationText: string[]): Promise<void> {
 		await test.step(`Verify sparkline tooltip: ${verificationText}`, async () => {
-			const firstSparkline = this.code.driver.page.locator('.column-sparkline .tooltip-container').nth(0);
+			// Try the proper selector first, then fallback to direct vector components
+			// This handles both expanded profiles (with .column-profile-sparkline wrapper)
+			// and collapsed headers (direct vector components)
+			const firstSparkline = this.code.driver.page.locator('.column-profile-sparkline foreignObject.tooltip-container, .vector-histogram foreignObject.tooltip-container, .vector-frequency-table foreignObject.tooltip-container').nth(0);
 			await firstSparkline.hover();
 			const hoverTooltip = this.code.driver.page.locator('.hover-contents');
 			await expect(hoverTooltip).toBeVisible();
@@ -421,7 +426,7 @@ export class DataExplorer {
 		});
 	}
 
-	async clickCopyAsCodeButton() {
-		await this.workbench.editorActionBar.clickButton('Copy as Code');
+	async clickConvertToCodeButton() {
+		await this.workbench.editorActionBar.clickButton('Convert to Code');
 	}
 }

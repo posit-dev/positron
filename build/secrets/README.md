@@ -6,11 +6,68 @@ For more information on how to use detect-secrets, see the [detect-secrets docum
 
 A wrapper script [detect-secrets.js](../detect-secrets.js) is used to run detect-secrets with the appropriate configuration and baseline secrets file.
 
-## Installation
+## 🛠️ Install `detect-secrets`
+
 Install detect-secrets via `pip install detect-secrets` (Python and pip installed already) or `brew install detect-secrets` (MacOS).
 
-## Pre-commit hook
-The pre-commit hook associated with the `hygiene` command will run `detect-secrets-hook` on staged files and fail if any secrets are found (if the secrets are not already in the baseline secrets file).
+## 🏃 Run detect-secrets
+
+### When to run `detect-secrets`?
+
+`detect-secrets` automatically runs on staged files via the [pre-commit hook](#pre-commit-hook) when you run `git commit`.
+
+However, `detect-secrets` must be run manually when reviewing automated PRs, such as the [Workbench extension bump PRs](https://github.com/posit-dev/positron/pulls?q=is:pr+author:app/posit-jenkins-enterprise).
+
+### How to run `detect-secrets` manually?
+
+> [!IMPORTANT]
+> ⚠️ Windows users: please use a Mac or Linux machine to run the following commands, as the `detect-secrets` tool will rewrite all file paths to use Windows-style paths, which will cause all of the baseline file entries to be marked as new secrets that need to be audited again.
+
+> [!TIP]
+> While auditing the secrets, if you see the error `ERROR: Secret not found on line <LINE_NUMBER>! Try recreating your baseline to fix this issue.`, **_do not_** recreate the baseline file (i.e., **don't** run `node ./build/detect-secrets.js init-baseline`, as the marked false and true positives metadata may be lost). Please reach out to the team for help with this error.
+
+The core steps are:
+1. Update the baseline secrets file to include new secret-like strings
+2. Audit the baseline secrets file to mark each "secret" as okay to commit or not
+3. Commit the updated baseline secrets file
+
+Use one of the following methods to update the contents of the `.secrets.baseline` file.
+
+#### Method 1: tasks.json
+
+The `tasks.json` file in the `.vscode` directory contains tasks to run detect-secrets commands.
+
+In general, you'll run the `detect-secrets - update and audit baseline` task, which will run the `update-baseline` and `audit-baseline` commands in sequence.
+
+1. Run `Tasks: Run Task` in Command Palette and select the task `detect-secrets - update and audit baseline`
+2. Wait for the baseline secrets file to be updated and prepared for auditing
+3. Follow the instructions in the terminal to audit the baseline secrets file, generally this involves marking false positives as "yes, should be committed"
+	- If there are new secrets in the baseline file that are unrelated to your changes, notify the team. You can skip them in the audit as you assess the other detected secrets, but they should be addressed before committing the updated baseline file.
+4. Commit the updated baseline secrets file
+
+#### Method 2: `detect-secrets.js` wrapper script
+
+We have a wrapper script [detect-secrets.js](../detect-secrets.js) that runs `detect-secrets` with the appropriate configuration, arguments, baseline secrets file, and additional logging.
+
+1. Run the commands from the root of the project:
+	```bash
+	node ./build/detect-secrets.js update-baseline
+	node ./build/detect-secrets.js audit-baseline
+	```
+2. Wait for the baseline secrets file to be updated and prepared for auditing
+3. Follow the instructions in the terminal to audit the baseline secrets file, generally this involves marking false positives as "yes, should be committed"
+    - If there are new secrets in the baseline file that are unrelated to your changes, notify the team. You can skip them in the audit as you assess the other detected secrets, but they should be addressed before committing the updated baseline file.
+4. Commit the updated baseline secrets file
+
+## 📚 Additional reading
+
+Here are some additional notes on how to use `detect-secrets`, if you're having issues with the pre-commit hook or want to further customize the secrets scanning process.
+
+### Pre-commit hook
+
+The pre-commit hook associated with the `hygiene` command will run `detect-secrets-hook` on staged files and fail if any secret-like strings are found (if the secret-like strings are not already in the baseline secrets file or have changed).
+
+If secret-like strings are found and your commit fails, update the baseline secrets file and mark any false positive "secrets" as okay to commit, then commit the updated baseline secrets file. See [Updating the baseline secrets file](#updating-the-baseline-secrets-file) and [Auditing the baseline secrets file](#auditing-the-baseline-secrets-file) for more details.
 
 If you feel like something is going wrong with the pre-commit hook, you can run `node ./build/detect-secrets.js run-hook --debug` to run the hook manually with additional debug output. You can copy the generated `detect-secrets-hook` command and run it in your terminal with an additional option `--verbose` to debug further.
 
@@ -18,7 +75,7 @@ If you're committing changes that modify the line number of a previously detecte
 
 If the baseline file _doesn't_ get updated automatically, follow the instructions on [updating the baseline secrets file](#updating-the-baseline-secrets-file) to manually update the baseline file.
 
-### Example
+#### Example
 `my_secret` on line 2 is already captured in the baseline secrets file.
 ```js
 const hello = "hello";         // line 1
@@ -32,32 +89,14 @@ const hello = "hello";         // line 1
 const my_secret = "my_secret"  // line 3
 ```
 
-## False positives
-If you are receiving false positives from the pre-commit hook, you can update the baseline secrets file to mark the detected "secrets" as okay to commit.
+### Report of secrets found
 
-First, update the baseline secrets file to include the new strings. Then, run the audit command to mark the new strings as false positives. Once complete, commit the updated baseline secrets file.
+A JSON report of the detected secret-like strings can be generated. It is similar to the output of the audit command, but in JSON format instead.
 
-### Updating the baseline secrets file
-From the root of the project:
-1. Run `node ./build/detect-secrets.js update-baseline` to scan for new secrets and update the baseline secrets file
-2. See [Auditing the baseline secrets file](#auditing-the-baseline-secrets-file) below to audit the baseline secrets file
-3. Commit the updated baseline secrets file
+To generate the report, run `node ./build/detect-secrets.js generate-report` from the root of the project. The generated file `secrets_report[_pro].json` will not be committed as it is listed in our `.gitignore`.
 
-See [detect-secrets documentation](https://github.com/Yelp/detect-secrets/tree/master?tab=readme-ov-file#adding-new-secrets-to-baseline) for more details.
+### Filtering secrets
 
-### Auditing the baseline secrets file
-From the root of the project:
-1. Run `node ./build/detect-secrets.js audit-baseline` to audit the baseline secrets file (flag each secret as either true or false positive).
-    - If there are new secrets in the baseline file that are unrelated to your changes, notify the team. You can skip them in the audit as you assess the other detected secrets, but they should be addressed before committing the updated baseline file.
-    - If you see the error `ERROR: Secret not found on line <LINE_NUMBER>! Try recreating your baseline to fix this issue.`, **_do not_** recreate the baseline file (i.e., **don't** run `node ./build/detect-secrets.js init-baseline`, as the marked false and true positives metadata may be lost). Instead, follow the instructions on [updating the baseline secrets file](#updating-the-baseline-secrets-file), which should automatically remove outdated secrets (i.e., if the secret no longer exists or the line number has changed).
-
-## Report of secrets found
-From the root of the project:
-1. Run `node ./build/detect-secrets.js generate-report`.
-    - The output is similar to the output of `node ./build/detect-secrets.js audit-baseline` but in JSON format.
-    - `secrets_report[_pro].json` will not be committed as it is `.gitignore`-d
-
-## Filtering secrets
 We currently only use the built-in filtering mechanism `--exclude-files` to filter out secrets in specific files, file name patterns and directories. These directories contain third-party code that we do not want to scan for secrets.
 
 See the `excludeFiles` array in the [detect-secrets.js script](../detect-secrets.js) for the list of files, file name patterns and directories that are excluded.

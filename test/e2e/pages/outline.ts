@@ -53,11 +53,15 @@ export class Outline {
 		const outllineElements = await this.code.driver.page.locator(OUTLINE_ELEMENT).all();
 
 		const outlineData: string[] = [];
-		for (let i = 0; i < outllineElements.length; i++) {
-			const element = outllineElements[i];
-			const text = await element.textContent();
-			if (text !== null) {
-				outlineData.push(text);
+		for (const element of outllineElements) {
+			// Extract only the symbol name from `.label-name`. We use to extract
+			// metadata associated to the symbol, but this is too fragile and
+			// dependent on upstream changes. For instance the number of
+			// diagnostics/problems may be included there, and other details generated
+			// by the LSP backend.
+			const labelName = await element.locator('.label-name').textContent();
+			if (labelName !== null) {
+				outlineData.push(labelName.trim());
 			}
 		}
 

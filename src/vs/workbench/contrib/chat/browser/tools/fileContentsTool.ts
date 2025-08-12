@@ -16,8 +16,6 @@ import { getUriForFileOpenOrInsideWorkspace } from './utils.js';
 
 const getFileContentsModelDescription = `
 This tool returns the contents of the specified file in the project.
-The provided file path must be a path to a file in the workspace or a file that is currently open in the editor.
-The file path can be either absolute or relative to the workspace root.
 The tool will return the contents of the file as a string, along with its size and encoding.
 `;
 
@@ -28,14 +26,18 @@ export const FileContentsToolData: IToolData = {
 	displayName: localize('chat.tools.getFileContents', "Get File Contents"),
 	source: ToolDataSource.Internal,
 	modelDescription: getFileContentsModelDescription,
-	tags: ['positron-assistant', 'requires-workspace'],
+	tags: [
+		'positron-assistant',
+		'requires-workspace',
+		'high-token-usage',
+	],
 	canBeReferencedInPrompt: false,
 	inputSchema: {
 		type: 'object',
 		properties: {
 			filePath: {
 				type: 'string',
-				description: 'The file path to get the contents of.',
+				description: 'The absolute file path to get the contents of. The file path must be a path to a file in the workspace or a file that is currently open in the editor.',
 			},
 		},
 		required: ['filePath']

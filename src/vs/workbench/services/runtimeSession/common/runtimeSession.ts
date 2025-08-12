@@ -27,6 +27,11 @@ import { INotificationService, Severity } from '../../../../platform/notificatio
 import { localize } from '../../../../nls.js';
 import { UiClientInstance } from '../../languageRuntime/common/languageRuntimeUiClient.js';
 import { IWorkbenchEnvironmentService } from '../../environment/common/environmentService.js';
+import { IConfigurationResolverService } from '../../configurationResolver/common/configurationResolver.js';
+import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
+import { NotebookSetting } from '../../../contrib/notebook/common/notebookCommon.js';
+import { IFileService } from '../../../../platform/files/common/files.js';
+import { dirname } from '../../../../base/common/path.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -170,7 +175,10 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@IStorageService private readonly _storageService: IStorageService,
 		@IUpdateService private readonly _updateService: IUpdateService,
-		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService
+		@IWorkbenchEnvironmentService private readonly _environmentService: IWorkbenchEnvironmentService,
+		@IConfigurationResolverService private readonly _configurationResolverService: IConfigurationResolverService,
+		@IWorkspaceContextService private readonly _workspaceContextService: IWorkspaceContextService,
+		@IFileService private readonly _fileService: IFileService,
 	) {
 
 		super();
@@ -385,6 +393,70 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 */
 	getActiveSessions(): ActiveRuntimeSession[] {
 		return Array.from(this._activeSessionsBySessionId.values());
+	}
+
+	/**
+	 * Validates that a path is an existing directory.
+	 *
+	 * @param path The path to validate
+	 * @returns A promise that resolves to true if the path is a directory and exists,
+	 * false otherwise.
+	 */
+	private async isValidDirectory(path: string): Promise<boolean> {
+		try {
+			const stat = await this._fileService.stat(URI.file(path));
+			if (!stat.isDirectory) {
+				this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${path}' exists but is not a directory`);
+				return false;
+			}
+			return true;
+		} catch (error) {
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${path}' does not exist or is not accessible:`, error);
+			return false;
+		}
+	}
+
+	/**
+	 * Resolves the working directory for a notebook based on its URI and the setting.
+	 * If the setting doesn't resolve to an existing directory, use the notebook's directory.
+	 * If the directory doesn't exist, return undefined.
+	 *
+	 * @param notebookUri The URI of the notebook
+	 * @returns The resolved working directory or undefined if it doesn't exist
+	 */
+	private async resolveNotebookWorkingDirectory(notebookUri: URI): Promise<string | undefined> {
+		// The default value is the notebook's parent directory, if it exists.
+		let defaultValue: string | undefined;
+		const notebookParent = dirname(notebookUri.fsPath);
+		if (await this.isValidDirectory(notebookParent)) {
+			defaultValue = notebookParent;
+		}
+
+		const configValue = this._configurationService.getValue<string>(
+			NotebookSetting.workingDirectory, { resource: notebookUri }
+		);
+		if (!configValue || configValue.trim() === '') {
+			return defaultValue;
+		}
+		const workspaceFolder = this._workspaceContextService.getWorkspaceFolder(notebookUri);
+
+		// Resolve the variables in the setting
+		let resolvedValue: string;
+		try {
+			resolvedValue = await this._configurationResolverService.resolveAsync(
+				workspaceFolder || undefined, configValue
+			);
+		} catch (error) {
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Failed to resolve variables in '${configValue}':`, error);
+			return defaultValue;
+		}
+
+		// Check if the result is a directory that exists
+		if (await this.isValidDirectory(resolvedValue)) {
+			return resolvedValue;
+		} else {
+			return defaultValue;
+		}
 	}
 
 	/**
@@ -1535,10 +1607,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		const sessionId = this.generateNewSessionId(runtimeMetadata, sessionMode === LanguageRuntimeSessionMode.Notebook);
+
+		// Resolve the working directory configuration
+		let workingDirectory: string | undefined;
+		if (notebookUri) {
+			workingDirectory = await this.resolveNotebookWorkingDirectory(notebookUri);
+		}
+
 		const sessionMetadata: IRuntimeSessionMetadata = {
 			sessionId,
 			sessionMode,
 			notebookUri,
+			workingDirectory,
 			createdTimestamp: Date.now(),
 			startReason: source
 		};
@@ -1645,7 +1725,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	 * @param runtime The runtime to get the manager for.
 	 * @returns The session manager that manages the runtime.
 	 *
-	 * Throws an errror if no session manager is found for the runtime.
+	 * Throws an error if no session manager is found for the runtime.
 	 */
 	private async getManagerForRuntime(runtime: ILanguageRuntimeMetadata): Promise<ILanguageRuntimeSessionManager> {
 		// Look for the session manager that manages the runtime.

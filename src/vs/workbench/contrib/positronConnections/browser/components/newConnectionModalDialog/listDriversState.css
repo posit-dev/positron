@@ -6,7 +6,7 @@
 .connections-new-connection-list-drivers {
 	display: grid;
 	gap: 10px;
-	grid-template-rows: 36px 24px 1fr 28px;
+	grid-template-rows: 36px 24px 1fr 32px;
 	height: 100%;
 }
 

@@ -5,14 +5,19 @@
 
 import { Emitter, Event } from '../../../base/common/event.js';
 import { IDisposable } from '../../../base/common/lifecycle.js';
+import { IProcessEnvironment } from '../../../base/common/platform.js';
 import { URI } from '../../../base/common/uri.js';
 import { ICommandService, ICommandEvent, CommandsRegistry } from '../../../platform/commands/common/commands.js';
+import { IFileService, IFileStatWithMetadata } from '../../../platform/files/common/files.js';
+import { createFileStat } from './workbenchTestServices.js';
 import { IContextKeyService } from '../../../platform/contextkey/common/contextkey.js';
 import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
 import { IOpenerService, IOpener, IValidator, IExternalUriResolver, IExternalOpener, OpenInternalOptions, OpenExternalOptions, ResolveExternalUriOptions, IResolvedExternalUri } from '../../../platform/opener/common/opener.js';
+import { IWorkspaceFolder, IWorkspaceFolderData } from '../../../platform/workspace/common/workspace.js';
 import { NotebookCellTextModel } from '../../contrib/notebook/common/model/notebookCellTextModel.js';
 import { INotebookTextModel } from '../../contrib/notebook/common/notebookCommon.js';
 import { ICellExecutionParticipant, IDidEndNotebookCellsExecutionEvent, IDidStartNotebookCellsExecutionEvent, INotebookExecutionService } from '../../contrib/notebook/common/notebookExecutionService.js';
+import { IConfigurationResolverService } from '../../services/configurationResolver/common/configurationResolver.js';
 import { ILanguageRuntimeMetadata } from '../../services/languageRuntime/common/languageRuntimeService.js';
 import { IPositronModalDialogsService, ShowConfirmationModalDialogOptions, IModalDialogPromptInstance } from '../../services/positronModalDialogs/common/positronModalDialogs.js';
 import { ILanguageRuntimeSessionManager, IRuntimeSessionMetadata, ILanguageRuntimeSession } from '../../services/runtimeSession/common/runtimeSessionService.js';
@@ -147,6 +152,90 @@ export class TestRuntimeSessionManager implements ILanguageRuntimeSessionManager
 	setValidateMetadata(handler: (metadata: ILanguageRuntimeMetadata) => Promise<ILanguageRuntimeMetadata>): void {
 		this._validateMetadata = handler;
 	}
+}
+
+export class TestConfigurationResolverService implements IConfigurationResolverService {
+	_serviceBrand: undefined;
+
+	get resolvableVariables(): ReadonlySet<string> {
+		return new Set();
+	}
+
+	resolveAny(_folder: IWorkspaceFolder | undefined, value: any): any {
+		return value;
+	}
+
+	async resolveAsync(_folder: IWorkspaceFolder | undefined, value: any): Promise<any> {
+		return value;
+	}
+
+	resolveWithInteraction(_folder: IWorkspaceFolder | undefined, config: any): Promise<any> {
+		return Promise.resolve(config);
+	}
+
+	resolveWithEnvironment(_environment: IProcessEnvironment, _folder: IWorkspaceFolderData | undefined, value: string): Promise<string> {
+		return Promise.resolve(value);
+	}
+
+	resolveWithInteractionReplace(_folder: IWorkspaceFolder | undefined, config: any): Promise<any> {
+		return Promise.resolve(config);
+	}
+
+	contributeVariable(_variable: string, _resolver: () => Promise<string | undefined>): void {
+		// Mock implementation - does nothing
+	}
+}
+
+export class TestDirectoryFileService implements IFileService {
+	_serviceBrand: undefined;
+
+	readonly onDidChangeFileSystemProviderRegistrations = Event.None;
+	readonly onDidChangeFileSystemProviderCapabilities = Event.None;
+	readonly onWillActivateFileSystemProvider = Event.None;
+	readonly onDidFilesChange = Event.None;
+	readonly onDidRunOperation = Event.None;
+	readonly onError = Event.None;
+
+	async stat(resource: URI): Promise<IFileStatWithMetadata> {
+		if (resource.fsPath === '/non/existent/directory') {
+			// Simulate a non-existent directory by throwing an error
+			throw new Error('File not found');
+		}
+		// Make all other paths appear as directories
+		return createFileStat(resource, false, false, true, false);
+	}
+
+	// Minimal stubs for other required methods
+	canHandleResource(_resource: URI): Promise<boolean> { return Promise.resolve(true); }
+	hasProvider(_resource: URI): boolean { return true; }
+	hasCapability(_resource: URI, _capability: any): boolean { return true; }
+	listCapabilities(): any[] { return []; }
+	registerProvider(): IDisposable { return { dispose: () => { } }; }
+	getProvider(): any { return undefined; }
+	activateProvider(_scheme: string): Promise<void> { return Promise.resolve(); }
+	canCreateFile(): Promise<true | Error> { return Promise.resolve(true); }
+	canMove(): Promise<true | Error> { return Promise.resolve(true); }
+	canCopy(): Promise<true | Error> { return Promise.resolve(true); }
+	canDelete(): Promise<true | Error> { return Promise.resolve(true); }
+	exists(): Promise<boolean> { return Promise.resolve(true); }
+	resolve(): Promise<IFileStatWithMetadata> { return this.stat(URI.file('/')); }
+	realpath(): Promise<URI> { return Promise.resolve(URI.file('/')); }
+	resolveAll(): Promise<any[]> { return Promise.resolve([]); }
+	readFile(): Promise<any> { throw new Error('Not implemented'); }
+	readFileStream(): Promise<any> { throw new Error('Not implemented'); }
+	writeFile(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	move(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	copy(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	cloneFile(): Promise<void> { throw new Error('Not implemented'); }
+	createFile(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	createFolder(): Promise<IFileStatWithMetadata> { throw new Error('Not implemented'); }
+	delete(): Promise<void> { throw new Error('Not implemented'); }
+	del(): Promise<void> { throw new Error('Not implemented'); }
+	onDidWatchError = Event.None;
+	createWatcher(): any { return { onDidChange: Event.None, dispose: () => { } }; }
+	watch(): IDisposable { return { dispose: () => { } }; }
+	getWriteEncoding(): any { throw new Error('Not implemented'); }
+	dispose(): void { }
 }
 
 /**

@@ -5,7 +5,6 @@
 
 import { expect } from '@playwright/test';
 import { test, tags } from '../_test.setup';
-import * as fs from 'fs';
 
 test.use({
 	suiteId: __filename
@@ -23,12 +22,6 @@ const viewLine = '.lines-content .view-line';
 const dbName = process.env.E2E_POSTGRES_DB || 'testdb';
 const user = process.env.E2E_POSTGRES_USER || 'testuser';
 const password = process.env.E2E_POSTGRES_PASSWORD || 'testpassword';
-let host: string;
-if (fs.existsSync('/.dockerenv')) {
-	host = 'db';
-} else {
-	host = 'localhost';
-}
 
 test.describe('Postgres DB Connection', {
 	tag: [tags.WEB, tags.CONNECTIONS]
@@ -42,7 +35,7 @@ test.describe('Postgres DB Connection', {
 
 		await app.workbench.connections.fillConnectionsInputs({
 			'Database Name': dbName,
-			'Host': host,
+			'Host': 'postgres',
 			'User': user,
 			'Password': password,
 		});
@@ -109,7 +102,7 @@ test.describe('Postgres DB Connection', {
 
 		await app.workbench.connections.fillConnectionsInputs({
 			'Database Name': dbName,
-			'Host': host,
+			'Host': 'postgres',
 			'User': user,
 			'Password': password,
 		});

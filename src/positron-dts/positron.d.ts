@@ -540,6 +540,9 @@ declare module 'positron' {
 
 		/** The URI of the notebook document associated with the session, if any */
 		readonly notebookUri?: vscode.Uri;
+
+		/** The starting working directory of the session, if any */
+		readonly workingDirectory?: string;
 	}
 
 	/**

@@ -12,7 +12,7 @@ import * as xml from './xml.js';
 import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKSPACE } from './constants';
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { EXPORT_QUARTO_COMMAND, quartoHandler } from './commands/quarto';
-import { PositronAssistantToolName } from './types.js';
+import { ContextInfo, PositronAssistantToolName } from './types.js';
 import { PromptRenderer, ChatPrompt, AgentPrompt, TerminalPrompt, EditorPrompt, AttachmentsContent, SessionsContent, FollowupsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, DefaultContent, EditorContent, FilepathsContent, type AttachmentData, type SessionData, type IHistorySummaryEntry } from './prompts';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
@@ -63,7 +63,12 @@ export class ParticipantService implements vscode.Disposable {
 			participant.requestHandler.bind(participant),
 		);
 		vscodeParticipant.iconPath = participant.iconPath;
-		vscodeParticipant.followupProvider = participant.followupProvider;
+
+		// Only register followup provider if enabled
+		const followupsEnabled = vscode.workspace.getConfiguration('positron.assistant.followups').get('enable', true);
+		if (followupsEnabled) {
+			vscodeParticipant.followupProvider = participant.followupProvider;
+		}
 	}
 
 	getRequestData(chatRequestId: string): ChatRequestData | undefined {
@@ -124,6 +129,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	readonly followupProvider: vscode.ChatFollowupProvider = {
 		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
+			// Check if followups are enabled
+			const followupsEnabled = vscode.workspace.getConfiguration('positron.assistant.followups').get('enable', true);
+			if (!followupsEnabled) {
+				return [];
+			}
+
 			try {
 				const system: string = await PromptRenderer.render(FollowupsContent, {});
 				const messages = toLanguageModelChatMessage(context.history);
@@ -350,9 +361,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// not cached. Since the context message is transiently added to each request, caching it
 		// will write a prompt prefix to the cache that will never be read. We will want to keep
 		// an eye on whether the order of user prompt and context message affects model responses.
-		const contextMessage = await this.getContextMessage(request, context, response, positronContext);
-		if (contextMessage) {
-			messages.push(contextMessage);
+		const contextInfo = await this.getContextInfo(request, context, response, positronContext);
+		if (contextInfo) {
+			messages.push(contextInfo.message);
 		}
 
 		// Send the request to the language model.
@@ -363,19 +374,25 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				// Attach the model ID as metadata so that we can use the same model in the followup provider.
 				modelId: request.model.id,
 				// Include token usage if available
-				tokenUsage: tokenUsage
+				tokenUsage: tokenUsage,
+				// Include the tools available for this request
+				availableTools: tools.length > 0 ? tools.map(t => t.name) : undefined,
+				// Include the context message if available
+				positronContext: contextInfo ? { prompts: contextInfo.prompts, attachedDataTypes: contextInfo.attachedDataTypes } : undefined,
+				// Include the system prompt used for this request
+				systemPrompt: system,
 			},
 		};
 	}
 
 	protected abstract getSystemPrompt(request: vscode.ChatRequest): Promise<string>;
 
-	private async getContextMessage(
+	private async getContextInfo(
 		request: vscode.ChatRequest,
 		context: vscode.ChatContext,
 		response: vscode.ChatResponseStream,
 		positronContext: positron.ai.ChatContext,
-	): Promise<vscode.LanguageModelChatMessage2 | undefined> {
+	): Promise<ContextInfo | undefined> {
 		// This function returns a single user message containing all context
 		// relevant to a request, including:
 		// 1. A text prompt.
@@ -629,7 +646,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		parts.push(...userDataParts);
 
 		if (parts.length > 0) {
-			return vscode.LanguageModelChatMessage2.User(parts);
+			return {
+				message: vscode.LanguageModelChatMessage2.User(parts),
+				prompts,
+				attachedDataTypes: userDataParts.map(part => part.mimeType),
+			};
 		}
 
 		return undefined;

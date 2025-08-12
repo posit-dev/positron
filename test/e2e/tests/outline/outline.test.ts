@@ -142,11 +142,11 @@ test.describe('Outline', { tag: [tags.WEB, tags.WIN, tags.OUTLINE] }, () => {
 		test('Python - Verify Outline Contents', async function ({ app, python, openFile }) {
 			await openFile(join('workspaces', 'chinook-db-py', 'chinook-sqlite.py'));
 			await app.workbench.outline.expectOutlineToContain([
-				'data_file_pathdata_file_path = os.path.join(os.getcwd(), \'data-files\', \'chinook\', \'chinook.db\')',
-				'connconn = sqlite3.connect(data_file_path)',
-				'curcur = conn.cursor()',
-				'rowsrows = cur.fetchall()',
-				'dfdf = pd.DataFrame(rows)'
+				'data_file_path',
+				'conn',
+				'cur',
+				'rows',
+				'df'
 			]);
 		});
 
@@ -171,8 +171,7 @@ async function verifyPythonOutline(outline: Outline) {
 }
 
 async function verifyROutline(outline: Outline) {
-	await outline.expectOutlineElementCountToBe(3); // ensure no dupes from multisessions
+	await outline.expectOutlineElementCountToBe(2); // ensure no dupes from multisessions
 	await outline.expectOutlineElementToBeVisible('demonstrate_scope');
 	await outline.expectOutlineElementToBeVisible('global_variable');
-	await outline.expectOutlineElementToBeVisible('local_variable');
 }

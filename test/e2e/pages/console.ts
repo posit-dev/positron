@@ -40,9 +40,9 @@ export class Console {
 		return this.code.driver.page.locator(EMPTY_CONSOLE).getByText('There is no interpreter running');
 	}
 
-	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private hotKeys: HotKeys) {
+	constructor(private code: Code, private quickinput: QuickInput, private quickaccess: QuickAccess, private hotKeys: HotKeys, private contextMenu: ContextMenu) {
 		// Standard Console Button Locators
-		this.restartButton = this.code.driver.page.getByLabel('Restart console');
+		this.restartButton = this.code.driver.page.getByTestId('restart-session');
 		this.clearButton = this.code.driver.page.getByLabel('Clear console');
 		this.trashButton = this.code.driver.page.getByTestId('trash-session');
 
@@ -63,10 +63,10 @@ export class Console {
 	 * @param contextMenu
 	 * @param runtime provided when option is 'Start New' to specify the runtime for the new session.
 	 */
-	async clickStartAnotherSessionButton(contextMenu: ContextMenu, runtime: SessionRuntimes) {
+	async clickStartAnotherSessionButton(runtime: SessionRuntimes) {
 		await test.step(`Expand \`+\` session button to start new session: ${runtime}`, async () => {
 
-			await contextMenu.triggerAndClick({
+			await this.contextMenu.triggerAndClick({
 				menuTrigger: this.addSessionExpandMenuButton,
 				menuItemLabel: 'Start Another...'
 			});
@@ -93,9 +93,9 @@ export class Console {
 	 * @param contextMenu the context menu instance to use for interaction
 	 * @param runtimes the runtime names to expect in the context menu
 	 */
-	async expectSessionContextMenuToContain(contextMenu: ContextMenu, runtimes: string[]) {
+	async expectSessionContextMenuToContain(runtimes: string[]) {
 		await test.step('Verify `+` menu contains runtime(s)', async () => {
-			const menuItems = await contextMenu.getMenuItems(this.addSessionExpandMenuButton);
+			const menuItems = await this.contextMenu.getMenuItems(this.addSessionExpandMenuButton);
 			const filteredMenuItems = menuItems.filter(item => item !== 'Start Another...');
 
 			// Check if expected runtimes are present

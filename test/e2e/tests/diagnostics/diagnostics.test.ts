@@ -61,29 +61,28 @@ test.describe('Diagnostics', {
 	}, async function ({ app, runCommand, sessions }) {
 		const { problems, editor, console } = app.workbench;
 
-		// Start R Session and install 'circlize'
+		// Start R Session and define variable
 		const rSession = await sessions.start('r');
-		await console.executeCode('R', "install.packages('circlize')", { maximizeConsole: false });
-		await console.executeCode('R', 'library(circlize)', { maximizeConsole: false });
+		await console.pasteCodeToConsole('unlikelyvariablename <- 1', true);
 
-		// Open new R file and use 'circlize'
+		// Open new R file and use variable
 		await runCommand('R: New File');
-		await editor.type('library(circlize)\ncircos.points()\n');
+		await editor.type('unlikelyvariablename\n');
 
 		// Session 1 - verify no problems
 		await problems.expectDiagnosticsToBe({ badgeCount: 0, warningCount: 0, errorCount: 0 });
 		await problems.expectSquigglyCountToBe('warning', 0);
 
-		// Start R Session 2 - verify warning since circlize is not installed
+		// Start R Session 2 - verify warning since variable is not defined
 		const rSessionAlt = await sessions.start('rAlt');
 		await problems.expectSquigglyCountToBe('warning', 1);
 		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 1, errorCount: 0 });
-		await problems.expectWarningText('No symbol named \'circos.');
+		await problems.expectWarningText('No symbol named \'unlikelyvariablename');
 
 		// Introduce a syntax error
 		await editor.selectTabAndType('Untitled-1', 'x <-');
 
-		// Session 2 - verify both problems (circos and syntax) are present
+		// Session 2 - verify both problems (variable and syntax) are present
 		await sessions.select(rSessionAlt.id);
 		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
@@ -93,11 +92,10 @@ test.describe('Diagnostics', {
 		await problems.expectDiagnosticsToBe({ badgeCount: 1, warningCount: 0, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 
-		// Session 1 - restart session and verify both problems (circos and syntax) are present
-		// Diagnostics engine is not aware of the circlize package, this is expected
+		// Session 1 - restart session and verify both problems (variable and syntax) are present
+		// Diagnostics engine is not aware of the defined variable, this is expected
 		await sessions.restart(rSession.id);
 		await problems.expectDiagnosticsToBe({ badgeCount: 2, warningCount: 1, errorCount: 1 });
 		await problems.expectSquigglyCountToBe('error', 1);
 	});
 });
-

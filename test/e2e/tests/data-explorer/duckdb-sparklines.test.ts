@@ -22,6 +22,7 @@ test.describe('Data Explorer - DuckDB Column Summary', {
 		await openDataFile('data-files/100x100/100x100.parquet');
 		await hotKeys.notebookLayout();
 
+		await dataExplorer.expandSummary();
 		await dataExplorer.verifyMissingPercent([
 			{ column: 1, expected: '0%' },
 			{ column: 2, expected: '0%' },

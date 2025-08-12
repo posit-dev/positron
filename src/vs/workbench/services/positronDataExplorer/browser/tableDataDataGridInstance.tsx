@@ -229,6 +229,9 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			ascending: columnSort.ascending
 		})));
 
+		// Synchronize the backend state.
+		await this._dataExplorerClientInstance.updateBackendState();
+
 		// Get the first column layout entry and the first row layout entry. If they were found,
 		// update the cache.
 		const columnDescriptor = this.firstColumn;

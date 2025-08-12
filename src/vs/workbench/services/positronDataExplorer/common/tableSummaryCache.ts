@@ -26,6 +26,7 @@ const LARGE_FREQUENCY_TABLE_LIMIT = 16;
  */
 interface UpdateDescriptor {
 	invalidateCache: boolean;
+	searchText?: string;
 	firstColumnIndex: number;
 	screenColumns: number;
 }
@@ -52,6 +53,13 @@ export class TableSummaryCache extends Disposable {
 	private _trimCacheTimeout?: Timeout;
 
 	/**
+	 * The search text used to filter the dataset in the column schema
+	 * and column profile caches. The last search text value is maintained
+	 * to avoid unnecessary cache updates when the search text has not changed.
+	 */
+	private _searchText?: string;
+
+	/**
 	 * Gets or sets the columns.
 	 */
 	private _columns = 0;
@@ -62,17 +70,30 @@ export class TableSummaryCache extends Disposable {
 	private _rows = 0;
 
 	/**
-	 * Gets the expanded columns set.
+	 * The expanded columns set is used to track which columns are expanded
+	 * in the summary data grid. This allows the data grid to only fetch
+	 * the summary data for columns as they are expanded to avoid
+	 * unnecessary data fetching and improve rendering performance.
 	 */
 	private readonly _expandedColumns = new Set<number>();
 
 	/**
-	 * Gets the column schema cache.
+	 * A map of the column metadata where the key is the column index
+	 * of the column from the original dataset.
+	 *
+	 * A key of 0 refers to the first column of the data.
+	 * A key of 1 refers to the second column of the data.
+	 * A key of N refers to the Nth+1 column of the data.
 	 */
 	private readonly _columnSchemaCache = new Map<number, ColumnSchema>();
 
 	/**
-	 * Gets the column profile.
+	 * A map of the column summary data where the key is the column index
+	 * of the column from the original dataset.
+	 *
+	 * A key of 0 refers to the first column of the data.
+	 * A key of 1 refers to the second column of the data.
+	 * A key of N refers to the Nth+1 column of the data.
 	 */
 	private readonly _columnProfileCache = new Map<number, ColumnProfileResult>();
 
@@ -194,32 +215,40 @@ export class TableSummaryCache extends Disposable {
 		// Destructure the update descriptor.
 		const {
 			invalidateCache,
+			searchText,
 			firstColumnIndex,
 			screenColumns
 		} = updateDescriptor;
+
+		const searchTextChanged = searchText !== this._searchText;
+		this._searchText = searchText;
 
 		// Get the size of the data.
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 
-		// Set the start column index and the end column index of the columns to cache.
 		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
+		// Determine the first column index to start caching from.
 		const startColumnIndex = Math.max(
 			0,
 			firstColumnIndex - overscanColumns
 		);
+		// Determines the minimum number of columns we need to cache
+		// to fill the screen (including overscan).
 		const endColumnIndex = Math.min(
-			this._columns - 1,
+			tableState.table_shape.num_columns - 1,
 			firstColumnIndex + screenColumns + overscanColumns
 		);
 
-		// Set the column indices of the column schema we need to load.
-		let columnIndices: number[];
-		if (invalidateCache) {
+		let columnIndices: number[] = [];
+		// If the cache is invalidated or the search text has changed,
+		// we will need to load all the columns in view into the cache again
+		if (invalidateCache || searchTextChanged) {
 			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
 		} else {
-			columnIndices = [];
+			// If the cache is not invalidated and the search text has not changed,
+			// we will only load the columns in view that are not already cached
 			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
 				if (!this._columnSchemaCache.has(columnIndex)) {
 					columnIndices.push(columnIndex);
@@ -227,16 +256,23 @@ export class TableSummaryCache extends Disposable {
 			}
 		}
 
-		// Load the column schema.
-		const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+		// When search text is present, use `searchSchema` to get the columns into the schema cache
+		// When there is no search text, use `getSchema` to get the default order of columns into the cache
+		const tableSchema = this._searchText
+			? await this._dataExplorerClientInstance.searchSchema({
+				searchText: this._searchText,
+				startIndex: columnIndices[0],
+				numColumns: columnIndices[columnIndices.length - 1] - columnIndices[0] + 1
+			})
+			: await this._dataExplorerClientInstance.getSchema(columnIndices);
 
-		// Invalidate the cache, if we're supposed to.
-		if (invalidateCache) {
+		// Clear caches when search changes to force reloading new search results.
+		if (invalidateCache || searchTextChanged) {
 			this._columnSchemaCache.clear();
 			this._columnProfileCache.clear();
 		}
 
-		// Cache the column schema that was returned.
+		// Cache the column schema that was returned
 		for (let i = 0; i < tableSchema.columns.length; i++) {
 			this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
 		}
@@ -503,7 +539,7 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * Trims the cache.
+	 * Trims the data in the cache that is not contained between start and end column index.
 	 * @param startColumnIndex The start column index.
 	 * @param endColumnIndex The end column index.
 	 */

@@ -1,0 +1,6 @@
+{
+	"python.interpreters.include": [
+        "/root/.venv/bin/python",
+		"/root/.pyenv/versions/3.13.0/bin/python"
+    ]
+}
