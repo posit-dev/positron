@@ -40,6 +40,11 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	private readonly _services = PositronReactServices.services;
 
 	/**
+	 * The current column name search filter text.
+	 */
+	private _searchText?: string;
+
+	/**
 	 * The onDidSelectColumn event emitter.
 	 */
 	private readonly _onDidSelectColumnEmitter = this._register(new Emitter<number>);
@@ -201,6 +206,7 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 		if (rowDescriptor) {
 			await this._tableSummaryCache.update({
 				invalidateCache: !!invalidateCache,
+				searchText: this._searchText,
 				firstColumnIndex: rowDescriptor.rowIndex,
 				screenColumns: this.screenRows
 			});
@@ -380,6 +386,16 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	getColumnProfileLargeFrequencyTable(columnIndex: number) {
 		return this._tableSummaryCache.getColumnProfile(columnIndex)?.large_frequency_table;
+	}
+
+	/**
+	 * Sets the column name search filter.
+	 * @param searchText The search text used to filter column names (case insensitive).
+	 */
+	async setSearchText(searchText: string): Promise<void> {
+		this._searchText = searchText || undefined;
+		// Invalidate the cache when the search text is cleared
+		await this.fetchData(!this._searchText);
 	}
 
 	//#endregion Public Methods

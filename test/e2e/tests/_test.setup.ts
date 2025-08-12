@@ -104,7 +104,23 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		// Copy keybindings and settings fixtures to the user data directory
 		await copyFixtureFile('keybindings.json', userDir, true);
-		await copyFixtureFile('settings.json', userDir,);
+
+		const settingsFileName = 'settings.json';
+		if (fs.existsSync('/.dockerenv')) {
+
+			const fixturesDir = path.join(process.cwd(), 'test/e2e/fixtures');
+			const settingsFile = path.join(fixturesDir, 'settings.json');
+
+			const mergedSettings = {
+				...JSON.parse(fs.readFileSync(settingsFile, 'utf8')),
+				...JSON.parse(fs.readFileSync(path.join(fixturesDir, 'settingsDocker.json'), 'utf8')),
+			};
+
+			// Overwrite file
+			fs.writeFileSync(settingsFile, JSON.stringify(mergedSettings, null, 2));
+		}
+
+		await copyFixtureFile(settingsFileName, userDir);
 
 		await use(userDir);
 	}, { scope: 'worker', auto: true }],
@@ -202,7 +218,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	openFolder: async ({ app }, use) => {
 		await use(async (folderPath: string) => {
 			await test.step(`Open folder: ${folderPath}`, async () => {
-				await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
+				await app.workbench.hotKeys.openFolder();
 				await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
 
 				const folderNames = folderPath.split('/');

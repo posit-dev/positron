@@ -23,6 +23,8 @@ import { SORTING_BUTTON_WIDTH } from '../../../../positronDataGrid/components/da
 import { usePositronReactServicesContext } from '../../../../../../base/browser/positronReactRendererContext.js';
 import { PositronDataExplorerLayout } from '../../../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { VerticalSplitter, VerticalSplitterResizeParams } from '../../../../../../base/browser/ui/positronComponents/splitters/verticalSplitter.js';
+import { SummaryRowActionBar } from './summaryRowActionBar/summaryRowActionBar.js';
+import { summaryPanelEnhancementsFeatureEnabled } from '../../../../../services/positronDataExplorer/common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
  * Constants.
@@ -54,6 +56,9 @@ export const DataExplorer = () => {
 	const [columnsWidth, setColumnsWidth] = useState(0);
 	const [animateColumnsWidth, setAnimateColumnsWidth] = useState(false);
 	const [columnsCollapsed, setColumnsCollapsed] = useState(context.instance.isSummaryCollapsed);
+
+	// Feature flags.
+	const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(services.configurationService);
 
 	// Dynamic column width layout.
 	useLayoutEffect(() => {
@@ -235,15 +240,25 @@ export const DataExplorer = () => {
 	// Automatic layout useEffect.
 	useLayoutEffect(() => {
 		// Set the initial width.
-		setWidth(dataExplorerRef.current.offsetWidth);
+		const initialWidth = dataExplorerRef.current.offsetWidth;
+		setWidth(initialWidth);
 
 		// Set the initial columns width - use stored width or default
 		const savedWidth = context.instance.summaryWidth;
-		setColumnsWidth(
-			savedWidth > 0 ?
-				Math.max(savedWidth, MIN_COLUMN_WIDTH) :
-				DEFAULT_SUMMARY_WIDTH
-		);
+		const columnsWidth = savedWidth > 0
+			? Math.max(savedWidth, MIN_COLUMN_WIDTH)
+			: DEFAULT_SUMMARY_WIDTH;
+		setColumnsWidth(columnsWidth);
+
+		// Collapse the summary panel if it would take up more than 50%
+		// of the width and isn't already collapsed
+		if (columnsWidth > (initialWidth * 0.5) && !context.instance.isSummaryCollapsed) {
+			context.instance.collapseSummary();
+			// Set the summary panel collapsed state manually here in case the
+			// onDidCollapseSummary event is not registered by the time this
+			// layout effect runs
+			setColumnsCollapsed(true);
+		}
 
 		// Allocate and initialize the data explorer resize observer.
 		const resizeObserver = new ResizeObserver(entries => {
@@ -255,7 +270,7 @@ export const DataExplorer = () => {
 
 		// Return the cleanup function that will disconnect the resize observer.
 		return () => resizeObserver.disconnect();
-	}, [context.instance.summaryWidth]);
+	}, [context.instance]);
 
 	// ColumnsWidth Layout useEffect.
 	useLayoutEffect(() => {
@@ -327,6 +342,12 @@ export const DataExplorer = () => {
 			<div ref={sortIndexExemplarRef} className='sort-index-exemplar' />
 
 			<div ref={leftColumnRef} className='left-column'>
+				{layout === PositronDataExplorerLayout.SummaryOnLeft &&
+					showSummaryPanelEnhancements &&
+					<SummaryRowActionBar
+						instance={context.instance.tableSchemaDataGridInstance}
+					/>
+				}
 				<PositronDataGrid
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
 						context.instance.tableSchemaDataGridInstance :
@@ -359,6 +380,12 @@ export const DataExplorer = () => {
 				<div className='collapsed-right-spacer' />
 			}
 			<div ref={rightColumnRef} className='right-column'>
+				{layout !== PositronDataExplorerLayout.SummaryOnLeft &&
+					showSummaryPanelEnhancements &&
+					<SummaryRowActionBar
+						instance={context.instance.tableSchemaDataGridInstance}
+					/>
+				}
 				<PositronDataGrid
 					instance={layout === PositronDataExplorerLayout.SummaryOnLeft ?
 						context.instance.tableDataDataGridInstance :

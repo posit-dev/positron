@@ -27,8 +27,8 @@ export interface OpenDatasetResult {
  */
 export interface SearchSchemaResult {
 	/**
-	 * The column indices of the matching column indices in the indicated
-	 * sort order
+	 * The column indices that match the search parameters in the indicated
+	 * sort order.
 	 */
 	matches: Array<number>;
 
@@ -1118,8 +1118,10 @@ export type ArraySelection = DataSelectionRange | DataSelectionIndices;
  */
 export enum SearchSchemaSortOrder {
 	Original = 'original',
-	Ascending = 'ascending',
-	Descending = 'descending'
+	AscendingName = 'ascending_name',
+	DescendingName = 'descending_name',
+	AscendingType = 'ascending_type',
+	DescendingType = 'descending_type'
 }
 
 /**

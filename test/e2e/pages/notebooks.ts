@@ -144,8 +144,15 @@ export class Notebooks {
 		});
 	}
 
-	async assertCellOutput(text: string | RegExp): Promise<void> {
-		await expect(this.frameLocator.getByText(text)).toBeVisible({ timeout: 15000 });
+	async assertCellOutput(text: string | RegExp, cellIndex?: number): Promise<void> {
+		if (cellIndex !== undefined) {
+			// Target specific cell output
+			const cellOutput = this.frameLocator.locator('.output_container').nth(cellIndex);
+			await expect(cellOutput.getByText(text)).toBeVisible({ timeout: 15000 });
+		} else {
+			// Use nth(0) to get the first occurrence when multiple elements exist
+			await expect(this.frameLocator.getByText(text).nth(0)).toBeVisible({ timeout: 15000 });
+		}
 	}
 
 	async closeNotebookWithoutSaving() {

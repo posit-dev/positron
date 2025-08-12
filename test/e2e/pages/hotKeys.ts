@@ -150,6 +150,10 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+B C', 'Close primary sidebar');
 	}
 
+	public async minimizeBottomPanel() {
+		await this.pressHotKeys('Cmd+J P', 'Minimize bottom panel');
+	}
+
 	// ----------------------
 	// --- Workspace Actions ---
 	// ----------------------
@@ -189,6 +193,10 @@ export class HotKeys {
 
 	public async resetWelcomeWalkthrough() {
 		await this.pressHotKeys('Cmd+J X', 'Reset welcome walkthrough');
+	}
+
+	public async openFolder() {
+		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
 	}
 
 	/**

@@ -50,7 +50,7 @@ test.describe('Positron notebook opening and saving', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, hotKeys, settings }) {
+	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, python, hotKeys, settings }) {
 		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
 
 		// Verify default behavior - VS Code notebook editor should be used when no association is set
@@ -92,18 +92,22 @@ test.describe('Positron notebook opening and saving', {
 		// New notebooks should automatically be named "Untitled-1.ipynb" by default
 		await editors.waitForActiveTab('Untitled-1.ipynb', false);
 
-		// Save the notebook with a specific name
+		// Test save dialog functionality - save with a name that doesn't include .ipynb extension
+		// The enhanced save dialog should automatically handle extension enforcement
 		await runCommand('workbench.action.files.saveAs', { keepOpen: true });
 		await quickInput.waitForQuickInputOpened();
-		const newFileName = `saved-positron-notebook-${Math.random().toString(36).substring(7)}.ipynb`;
-		await quickInput.type(path.join(app.workspacePathOrFolder, newFileName));
+
+		// Type filename without extension to test automatic extension handling
+		const baseFileName = `saved-positron-notebook-${Math.random().toString(36).substring(7)}`;
+		await quickInput.type(path.join(app.workspacePathOrFolder, baseFileName));
 		await quickInput.clickOkButton();
 
-		// Verify the editor tab now shows the new filename instead of "Untitled" and it is a positron notebook
-		await editors.waitForActiveTab(newFileName, false);
+		// Verify the file was saved and the .ipynb extension was automatically added
+		const expectedFileName = `${baseFileName}.ipynb`;
+		await editors.waitForActiveTab(expectedFileName, false);
 		await notebooksPositron.expectToBeVisible();
 
 		// Keep the test workspace clean for subsequent test runs
-		await cleanup.removeTestFiles([newFileName]);
+		await cleanup.removeTestFiles([expectedFileName]);
 	});
 });

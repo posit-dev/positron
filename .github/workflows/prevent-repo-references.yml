@@ -1,0 +1,35 @@
+name: Prevent GitHub Repo References in Package.json
+
+on:
+  pull_request:
+    branches: [main, release/*, prerelease/*]
+    paths:
+      - "extensions/positron-r/package.json"
+  push:
+    branches: [main, release/*, prerelease/*]
+    paths:
+      - "extensions/positron-r/package.json"
+
+jobs:
+  check-repo-references:
+    name: Check for GitHub Repo References in Ark Version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check for repo references in package.json
+        run: |
+          echo "Checking for GitHub repo references in package.json"
+
+          # Extract the Ark version from package.json using jq
+          ARK_VERSION=$(jq -r '.positron.binaryDependencies.ark // empty' extensions/positron-r/package.json)
+
+          # Check if the extracted version follows the GitHub reference pattern
+          if [[ "$ARK_VERSION" =~ ^[a-zA-Z0-9_-]+/[a-zA-Z0-9_-]+@[a-zA-Z0-9._\/-]+ ]] then
+            echo "::error::GitHub repo reference found in extensions/positron-r/package.json: $ARK_VERSION"
+            echo "GitHub repo references (org/repo@revision format) are only for development and should not be used in main or release branches."
+            exit 1
+          else
+            echo "No GitHub repo references found in extensions/positron-r/package.json"
+          fi

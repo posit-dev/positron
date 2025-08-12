@@ -46,3 +46,21 @@ def _sqlalchemy():
 
 
 __all__ = ["_numpy", "_pandas", "_polars", "_pyarrow", "_sqlalchemy", "_torch"]
+
+
+def is_pandas(table):
+    try:
+        import pandas as pd
+    except ImportError:
+        return False
+
+    return bool(isinstance(table, (pd.DataFrame, pd.Series)))
+
+
+def is_polars(table):
+    try:
+        import polars as pl
+    except ImportError:
+        return False
+
+    return bool(isinstance(table, (pl.DataFrame, pl.Series)))

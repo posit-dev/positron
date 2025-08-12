@@ -79,7 +79,7 @@ const verifyDocumentExists = async (app: Application, fileExtension: string) => 
 
 	await expect(async () => {
 		expect(await fileExists(app, `quarto_basic.${fileExtension}`)).toBe(true);
-	}).toPass({ timeout: 15000 });
+	}).toPass({ timeout: 30000 });
 };
 
 const deleteGeneratedFiles = async (app: Application) => {

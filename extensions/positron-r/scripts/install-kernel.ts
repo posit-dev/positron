@@ -7,6 +7,7 @@ import * as decompress from 'decompress';
 import * as fs from 'fs';
 import { IncomingMessage } from 'http';
 import * as https from 'https';
+import * as os from 'os';
 import { platform, arch } from 'os';
 import * as path from 'path';
 import { promisify } from 'util';
@@ -16,6 +17,7 @@ import { promisify } from 'util';
 const readFileAsync = promisify(fs.readFile);
 const writeFileAsync = promisify(fs.writeFile);
 const existsAsync = promisify(fs.exists);
+const mkdtempAsync = promisify(fs.mkdtemp);
 
 // Create a promisified version of https.get. We can't use the built-in promisify
 // because the callback doesn't follow the promise convention of (error, result).
@@ -64,19 +66,29 @@ async function getLocalArkVersion(): Promise<string | null> {
  *
  * @param command The command to execute.
  * @param stdin Optional stdin to pass to the command.
+ * @param cwd Optional working directory for the command
  * @returns A promise that resolves with the stdout and stderr of the command.
  */
-async function executeCommand(command: string, stdin?: string):
-	Promise<{ stdout: string; stderr: string }> {
+async function executeCommand(
+	command: string,
+	stdin?: string,
+	cwd?: string
+): Promise<{ stdout: string; stderr: string }> {
 	const { exec } = require('child_process');
 	return new Promise((resolve, reject) => {
-		const process = exec(command, (error: any, stdout: string, stderr: string) => {
+		const options: { cwd?: string } = {};
+		if (cwd) {
+			options.cwd = cwd;
+		}
+
+		const process = exec(command, options, (error: any, stdout: string, stderr: string) => {
 			if (error) {
 				reject(error);
 			} else {
 				resolve({ stdout, stderr });
 			}
 		});
+
 		if (stdin) {
 			process.stdin.write(stdin);
 			process.stdin.end();
@@ -214,6 +226,100 @@ async function downloadAndReplaceArk(version: string,
 	}
 }
 
+/**
+ * Downloads and builds Ark from a GitHub repository at a specific branch or revision.
+ *
+ * This function supports development workflows by allowing developers to:
+ * - Test changes from non-released branches
+ * - Use experimental features not yet in a release
+ * - Develop against the latest code in a repository
+ *
+ * IMPORTANT: This feature is for DEVELOPMENT ONLY and should not be used in
+ * production environments or merged to main branches. A GitHub Action enforces
+ * this restriction by blocking PRs with repo references in package.json.
+ *
+ * @param ref The GitHub repo reference in the format 'org/repo@branch_or_revision'
+ * @param githubPat An optional Github Personal Access Token
+ */
+async function downloadFromGitHubRepository(
+	ref: string,
+	githubPat: string | undefined
+): Promise<void> {
+	const { org, repo, revision } = parseGitHubRepoReference(ref);
+
+	console.log(`Downloading and building Ark from GitHub repo: ${org}/${repo} at revision: ${revision}`);
+
+	// Create a temporary directory for cloning the repo
+	const tempDir = await mkdtempAsync(path.join(os.tmpdir(), 'ark-build-'));
+
+	try {
+		console.log(`Created temporary build directory: ${tempDir}`);
+
+		// Set up git command with credentials if available
+		let gitCloneCommand = `git clone https://github.com/${org}/${repo}.git ${tempDir}`;
+		if (githubPat) {
+			gitCloneCommand = `git clone https://x-access-token:${githubPat}@github.com/${org}/${repo}.git ${tempDir}`;
+		}
+
+		// Clone the repository
+		console.log('Cloning repository...');
+		await executeCommand(gitCloneCommand);
+
+		// Checkout the specific revision
+		console.log(`Checking out revision: ${revision}`);
+		await executeCommand(`git checkout ${revision}`, undefined, tempDir);
+
+		// Verify that we have a valid Ark repository structure
+		const cargoTomlPath = path.join(tempDir, 'Cargo.toml');
+		if (!await existsAsync(cargoTomlPath)) {
+			throw new Error(`Invalid Ark repository: Cargo.toml not found at the repository root`);
+		}
+
+		console.log('Building Ark from source...');
+
+		const buildOutput = await executeCommand('cargo build --release', undefined, tempDir);
+		console.log('Ark build stdout:', buildOutput.stdout);
+		console.log('Ark build stderr:', buildOutput.stderr);
+
+		// Determine the location of the built binary
+		const kernelName = platform() === 'win32' ? 'ark.exe' : 'ark';
+		const binaryPath = path.join(tempDir, 'target', 'release', kernelName);
+
+		// Ensure the binary was built successfully
+		if (!fs.existsSync(binaryPath)) {
+			throw new Error(`Failed to build Ark binary at ${binaryPath}`);
+		}
+
+		// Run the binary and check output. An error will be thrown if this fails.
+		const { stdout: versionStdout, stderr: versionStderr } = await executeCommand(`${binaryPath}`);
+		console.log('Ark stdout:', versionStdout);
+		console.log('Ark stderr:', versionStderr);
+
+		// Create the resources/ark directory if it doesn't exist
+		const arkDir = path.join('resources', 'ark');
+		if (!await existsAsync(arkDir)) {
+			await fs.promises.mkdir(arkDir, { recursive: true });
+		}
+
+		// Copy the binary to the resources directory
+		await fs.promises.copyFile(binaryPath, path.join(arkDir, kernelName));
+		console.log(`Successfully built and installed Ark from ${org}/${repo}@${revision}`);
+
+		// Write the version information to VERSION file
+		await writeFileAsync(path.join(arkDir, 'VERSION'), ref);
+
+	} catch (err) {
+		throw new Error(`Error building Ark from GitHub repository: ${err}`);
+	} finally {
+		// Clean up the temporary directory
+		try {
+			await fs.promises.rm(tempDir, { recursive: true, force: true });
+		} catch (err) {
+			console.warn(`Warning: Failed to clean up temporary directory ${tempDir}: ${err}`);
+		}
+	}
+}
+
 async function main() {
 	const kernelName = platform() === 'win32' ? 'ark.exe' : 'ark';
 
@@ -252,6 +358,7 @@ async function main() {
 	console.log(`package.json version: ${packageJsonVersion} `);
 	console.log(`Downloaded ark version: ${localArkVersion ? localArkVersion : 'Not found'} `);
 
+	// Skip installation if versions match
 	if (packageJsonVersion === localArkVersion) {
 		console.log('Versions match. No action required.');
 		return;
@@ -293,7 +400,35 @@ async function main() {
 		}
 	}
 
-	await downloadAndReplaceArk(packageJsonVersion, githubPat);
+	// Check if the version is a GitHub repo reference
+	if (isGitHubRepoReference(packageJsonVersion)) {
+		await downloadFromGitHubRepository(packageJsonVersion, githubPat);
+	} else {
+		await downloadAndReplaceArk(packageJsonVersion, githubPat);
+	}
+}
+
+/**
+ * Check if the version string follows the format 'org/repo@branch_or_revision'.
+ */
+function isGitHubRepoReference(version: string): boolean {
+	return /^[a-zA-Z0-9_-]+\/[a-zA-Z0-9_-]+@[a-zA-Z0-9._\/-]+$/.test(version);
+}
+
+/**
+ * Parse a GitHub repo reference in the format 'org/repo@branch_or_revision'.
+ */
+function parseGitHubRepoReference(reference: string): { org: string; repo: string; revision: string } {
+	const orgRepoMatch = reference.match(/^([a-zA-Z0-9_-]+)\/([a-zA-Z0-9_-]+)@([a-zA-Z0-9._\/-]+)$/);
+	if (!orgRepoMatch) {
+		throw new Error(`Invalid GitHub repo reference: ${reference}`);
+	}
+
+	return {
+		org: orgRepoMatch[1],
+		repo: orgRepoMatch[2],
+		revision: orgRepoMatch[3]
+	};
 }
 
 main().catch((error) => {

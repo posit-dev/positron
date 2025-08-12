@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /*---------------------------------------------------------------------------------------------
- *  Copyright (C) 2024 Posit Software, PBC. All rights reserved.
+ *  Copyright (C) 2024-2025 Posit Software, PBC. All rights reserved.
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
 /**
  * This script wraps detect-secrets for convenience. Run it from the root of the git repository.
+ * This script is also used in the tasks.json file to run detect-secrets commands.
  */
 
 // Imports
@@ -108,7 +109,7 @@ const detectSecrets = (args, stdio, throwIfError = false) => {
 // Wrapper function for running `detect-secrets scan` and returning the time taken in seconds
 const detectSecretsScan = (args, stdio) => {
 	const scanCommand = `scan ${args}`;
-	console.log('\tSecret scanning in progress...this should take a minute or so.');
+	console.log('\tSecret scanning in progress...this should take about 2 minutes.');
 	const startTime = new Date().getTime();
 	detectSecrets(scanCommand, stdio);
 	const endTime = new Date().getTime();
@@ -199,10 +200,10 @@ const runDetectSecretsHook = () => {
 			}
 			// print guidance on how to manage the possible secrets
 			console.error(
-				'\nUh oh! If you have secrets in your code, please remove them before committing.\n'
+				// allow-any-unicode-next-line
+				'\n👆 Uh oh! detect-secrets has a complaint.\n'
 					.magenta +
-				`If you are certain that these are false positives, see ${'build/secrets/README.md'.underline
-					} for instructions on how to mark them as such.\n`.magenta
+				`If you have secrets in your code, please remove them before committing.\nFor further guidance, see ${'build/secrets/README.md'.underline} for instructions on how to update and audit the secrets baseline.\n`.magenta
 			);
 			process.exit(ExitCodes.FOUND_SECRETS_OR_BASELINE_ISSUE);
 		}
@@ -277,6 +278,7 @@ switch (command) {
 		ensureBaselineFileExists();
 		// inherit the stdio so that the user can interact with the audit process
 		detectSecrets(`audit ${baselineFile}`, (stdio = 'inherit'));
+		console.log(`Finished auditing baseline file. Please commit the updated .secrets.baseline file.`);
 		break;
 	case 'update-baseline': {
 		console.log(`Updating detect-secrets baseline file ${baselineFile.underline}...`);
@@ -286,6 +288,10 @@ switch (command) {
 			`${noVerify} ${excludeFilesOption} --baseline ${baselineFile} --force-use-all-plugins`
 		);
 		console.log(`\tBaseline file updated in ${scanTime} seconds.`);
+		console.log(
+			'\tPlease review the updated baseline file and run ' +
+			`${'node build/detect-secrets.js audit-baseline'.magenta} to mark false positives.`
+		);
 		break;
 	}
 	case 'generate-report':
@@ -303,5 +309,5 @@ switch (command) {
 			`${'Error:'.red} Invalid command ${command}. Run ${'node build/detect-secrets.js help'.magenta
 			} for a list of commands.`
 		);
-		break;
+		process.exit(ExitCodes.DETECT_SECRETS_WRAPPER_ERROR);
 }
