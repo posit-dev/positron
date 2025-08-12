@@ -92,7 +92,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:23
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:24
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -100,7 +100,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:23
+        image: ghcr.io/posit-dev/positron-postgres-initialized:24
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_USER }}
           password: ${{ secrets.POSITRON_GITHUB_PAT }}
@@ -164,9 +164,6 @@ jobs:
       - name: Move Positron License
         if: ${{ inputs.install_license }}
         run: mv /positron-license /__w/positron
-
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
 
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
