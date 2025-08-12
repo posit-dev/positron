@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import { PositronAssistantChatContext } from '../participants.js';
 import { registerFixCommand } from './fix.js';
 import { registerQuartoCommand } from './quarto.js';
+import { registerExplainCommand } from './explain.js';
 
 /**
  * A function that handles chat requests.
@@ -29,5 +30,6 @@ export interface IChatRequestHandler {
 
 export function registerAssistantCommands() {
 	registerFixCommand();
+	registerExplainCommand();
 	registerQuartoCommand();
 }

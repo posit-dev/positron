@@ -38,6 +38,10 @@
           {
             "name": "fix",
             "description": "Fix code issues in the current chat."
+          },
+          {
+            "name": "explain",
+            "description": "Explain code issues in the current chat."
           }
         ],
         "locations": [
