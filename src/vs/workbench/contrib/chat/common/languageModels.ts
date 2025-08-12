@@ -228,6 +228,9 @@ export interface ILanguageModelsService {
 
 	/** List the available language model providers. */
 	getLanguageModelProviders(): IPositronChatProvider[];
+
+	/** Get the extension identifier for a provider vendor. */
+	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined;
 	// --- End Positron ---
 
 	getLanguageModelIds(): string[];
@@ -284,6 +287,10 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	private readonly _providers = new Map<string, ILanguageModelChat>();
 	private readonly _vendors = new Set<string>();
+	// --- Start Positron ---
+	// Track provider vendor to extension mapping for chat agent selection
+	private readonly _providerExtensions = new Map<string, ExtensionIdentifier>();
+	// --- End Positron ---
 
 	private readonly _onDidChangeProviders = this._store.add(new Emitter<ILanguageModelsChangeEvent>());
 	// --- Start Positron ---
@@ -443,9 +450,17 @@ export class LanguageModelsService implements ILanguageModelsService {
 	}
 
 	set currentProvider(provider: IPositronChatProvider | undefined) {
+		this._logService.debug(`[LanguageModelsService] Setting current provider to ${provider?.id ?? 'undefined'}`);
 		this._currentProvider = provider;
 		this._onDidChangeCurrentProvider.fire(provider);
 		this._storageService.store(this.getSelectedProviderStorageKey(), provider, StorageScope.APPLICATION, StorageTarget.USER);
+	}
+
+	/**
+	 * Get the extension identifier for a provider vendor.
+	 */
+	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined {
+		return this._providerExtensions.get(vendor);
 	}
 	// --- End Positron ---
 
@@ -498,10 +513,20 @@ export class LanguageModelsService implements ILanguageModelsService {
 			throw new Error(`Chat response provider with identifier ${identifier} is already registered.`);
 		}
 		this._providers.set(identifier, provider);
+		// --- Start Positron ---
+		// Track the extension that registered this provider vendor
+		this._providerExtensions.set(provider.metadata.vendor, provider.metadata.extension);
+		// --- End Positron ---
 		this._onDidChangeProviders.fire({ added: [{ identifier, metadata: provider.metadata }] });
 		this.updateUserSelectableModelsContext();
 		return toDisposable(() => {
 			// --- Start Positron ---
+			// Clean up extension mapping when provider is removed
+			if (this._providers.get(identifier)?.metadata.vendor === provider.metadata.vendor) {
+				// Only remove if this was the provider for this vendor
+				this._providerExtensions.delete(provider.metadata.vendor);
+			}
+			// --- End Positron ---
 			// Reverse order so that the context update is performed after changing the state
 			if (this._providers.delete(identifier)) {
 				this._onDidChangeProviders.fire({ removed: [identifier] });
@@ -523,6 +548,7 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	async sendChatRequest(identifier: string, from: ExtensionIdentifier, messages: IChatMessage[], options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse> {
 		const provider = this._providers.get(identifier);
+		this._logService.trace(`[LanguageModelsService] Sending chat request to provider ${identifier} (${messages.length} messages)`);
 		if (!provider) {
 			throw new Error(`Chat response provider with identifier ${identifier} is not registered.`);
 		}

@@ -29,6 +29,9 @@ import { IChatAgentEditedFileEvent, IChatProgressHistoryResponseContent, IChatRe
 import { IRawChatCommandContribution } from './chatParticipantContribTypes.js';
 import { IChatFollowup, IChatLocationData, IChatProgress, IChatResponseErrorDetails, IChatTaskDto } from './chatService.js';
 import { ChatAgentLocation, ChatConfiguration, ChatModeKind } from './constants.js';
+// --- Start Positron ---
+import { ILanguageModelsService } from './languageModels.js';
+// --- End Positron ---
 
 //#region agent service, commands etc
 
@@ -240,6 +243,10 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	constructor(
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
 		@IConfigurationService private readonly configurationService: IConfigurationService,
+		// --- Start Positron ---
+		@ILogService private readonly logService: ILogService,
+		@ILanguageModelsService private readonly languageModelsService: ILanguageModelsService,
+		// --- End Positron ---
 	) {
 		super();
 		this._hasDefaultAgent = ChatContextKeys.enabled.bindTo(this.contextKeyService);
@@ -402,13 +409,48 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	}
 
 	getDefaultAgent(location: ChatAgentLocation, mode: ChatModeKind = ChatModeKind.Ask): IChatAgent | undefined {
-		return this._preferExtensionAgent(this.getActivatedAgents().filter(a => {
+		// --- Start Positron ---
+		// Filter agents by mode and location first
+		const candidateAgents = this.getActivatedAgents().filter(a => {
 			if (mode && !a.modes.includes(mode)) {
 				return false;
 			}
-
 			return !!a.isDefault && a.locations.includes(location);
-		}));
+		});
+
+		if (candidateAgents.length === 0) {
+			return undefined;
+		}
+
+		// Get the current language model provider to help select the best agent
+		const currentProvider = this.languageModelsService.currentProvider;
+		if (currentProvider) {
+			// Get the extension identifier for the current provider
+			const extensionId = this.languageModelsService.getExtensionIdentifierForProvider(currentProvider.id);
+
+			if (extensionId) {
+				// Find an agent from the same extension as the current provider
+				const providerMatchedAgent = candidateAgents.find(agent => {
+					if (agent.extensionId.value === extensionId.value) {
+						this.logService.debug(`ChatService#getDefaultAgent: Found provider-matched agent ${agent.id} for provider ${currentProvider.id} via extension tracking`);
+						return true;
+					}
+					return false;
+				});
+
+				if (providerMatchedAgent) {
+					return providerMatchedAgent;
+				}
+			}
+		}
+
+		// Fallback to the original behavior: prefer extension agents
+		const selectedAgent = this._preferExtensionAgent(candidateAgents);
+		if (selectedAgent) {
+			this.logService.debug(`ChatService#getDefaultAgent: Found default agent ${selectedAgent.id} for location ${location} (fallback)`);
+		}
+		return selectedAgent;
+		// --- End Positron ---
 	}
 
 	public get hasToolsAgent(): boolean {
@@ -490,6 +532,7 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	}
 
 	async invokeAgent(id: string, request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatAgentResult> {
+		this.logService.debug(`[ChatAgentService] Invoking agent ${id} with request ${request.requestId} (${request.agentId})`);
 		const data = this._agents.get(id);
 		if (!data?.impl) {
 			throw new Error(`No activated agent with id "${id}"`);

@@ -59,5 +59,9 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 	getLanguageModelProviders(): IPositronChatProvider[] {
 		throw new Error('Method not implemented.');
 	}
+
+	getExtensionIdentifierForProvider(vendor: string): ExtensionIdentifier | undefined {
+		throw new Error('Method not implemented.');
+	}
 	// --- End Positron ---
 }

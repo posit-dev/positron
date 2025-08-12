@@ -10,6 +10,11 @@ import { ExtensionIdentifier } from '../../../../../platform/extensions/common/e
 import { MockContextKeyService } from '../../../../../platform/keybinding/test/common/mockKeybindingService.js';
 import { ChatAgentService, IChatAgentData, IChatAgentImplementation } from '../../common/chatAgents.js';
 import { TestConfigurationService } from '../../../../../platform/configuration/test/common/testConfigurationService.js';
+// --- Start Positron ---
+import { ILanguageModelsService } from '../../common/languageModels.js';
+import { NullLogService } from '../../../../../platform/log/common/log.js';
+import { Emitter } from '../../../../../base/common/event.js';
+// --- End Positron ---
 
 const testAgentId = 'testAgent';
 const testAgentData: IChatAgentData = {
@@ -36,6 +41,28 @@ class TestingContextKeyService extends MockContextKeyService {
 	}
 }
 
+// --- Start Positron ---
+class TestLanguageModelsService implements ILanguageModelsService {
+	readonly _serviceBrand: undefined;
+
+	onDidChangeLanguageModels = new Emitter<any>().event;
+	onDidChangeCurrentProvider = new Emitter<any>().event;
+
+	get currentProvider() { return undefined; }
+	set currentProvider(provider: any) { }
+
+	getLanguageModelIdsForCurrentProvider() { return []; }
+	getLanguageModelProviders() { return []; }
+	getLanguageModelIds() { return []; }
+	lookupLanguageModel() { return undefined; }
+	async selectLanguageModels() { return []; }
+	registerLanguageModelChat() { return { dispose: () => { } }; }
+	async sendChatRequest(): Promise<any> { throw new Error('Not implemented'); }
+	async computeTokenLength() { return 0; }
+	getExtensionIdentifierForProvider(vendor: string) { return undefined; }
+}
+// --- End Positron ---
+
 suite('ChatAgents', function () {
 	const store = ensureNoDisposablesAreLeakedInTestSuite();
 
@@ -49,8 +76,10 @@ suite('ChatAgents', function () {
 		// --- Start Positron ---
 		// Add configuration service to chat
 		configurationService = new TestConfigurationService();
+		const logService = new NullLogService();
+		const languageModelsService = new TestLanguageModelsService();
 		configurationService.setUserConfiguration('positron.assistant.enable', true);
-		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService));
+		chatAgentService = store.add(new ChatAgentService(contextKeyService, configurationService, logService, languageModelsService));
 		// --- End Positron ---
 	});
 
