@@ -165,6 +165,9 @@ jobs:
         if: ${{ inputs.install_license }}
         run: mv /positron-license /__w/positron
 
+      - name: Setup tmate session
+        uses: mxschmitt/action-tmate@v3
+
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
         with:
