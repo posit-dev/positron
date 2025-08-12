@@ -184,6 +184,20 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Gets the search text.
+	 */
+	get searchText() {
+		return this._searchText;
+	}
+
+	/**
+	 * Gets the sort option.
+	 */
+	get sortOption() {
+		return this._sortOption;
+	}
+
+	/**
 	 * Gets the scroll width.
 	 */
 	override get scrollWidth() {

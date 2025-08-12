@@ -26,11 +26,11 @@ export interface SummaryRowActionBarProps {
 export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 	const filterRef = useRef<ActionBarFilterHandle>(null);
 	// State to hold the search text typed by the user
-	const [searchText, setSearchText] = useState('');
+	const [searchText, setSearchText] = useState(instance.searchText || '');
 	// State to hold the debounced search text that we use to filter data.
 	const [debouncedSearchText, setDebouncedSearchText] = useState('');
 	// State to hold the current sort option
-	const [sortOption, setSortOption] = useState<SearchSchemaSortOrder>(SearchSchemaSortOrder.Original);
+	const [sortOption, setSortOption] = useState<SearchSchemaSortOrder>(instance.sortOption || SearchSchemaSortOrder.Original);
 
 	/**
 	 * Update the debounced search text after a delay.
@@ -56,13 +56,22 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 	}, [debouncedSearchText, instance]);
 
 	/**
+	 * Whenever the sort option changes, we request the summary data grid instance to
+	 * re-fetch the data with the new sort option.
+	 */
+	useEffect(() => {
+		const updateSortOption = async () => {
+			await instance.setSortOption(sortOption);
+		};
+		updateSortOption();
+	}, [sortOption, instance]);
+
+	/**
 	 * Update the sort option when the user selects a new sort option from the dropdown.
 	 * @param newSortOption The new sort option selected by the user.
 	 */
 	const handleSortChanged = (newSortOption: SearchSchemaSortOrder) => {
 		setSortOption(newSortOption);
-		// TODO: Implement sorting logic in the TableSummaryDataGridInstance
-		// instance.setSortOption(newSortOption);
 	};
 
 
