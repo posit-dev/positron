@@ -63,7 +63,7 @@ test.describe('Diagnostics', {
 
 		// Start R Session and define variable
 		const rSession = await sessions.start('r');
-		await console.executeCode('R', 'unlikelyvariablename <- 1', { maximizeConsole: false });
+		await console.pasteCodeToConsole('unlikelyvariablename <- 1', true);
 
 		// Open new R file and use variable
 		await runCommand('R: New File');

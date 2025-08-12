@@ -62,7 +62,12 @@ export class ParticipantService implements vscode.Disposable {
 			participant.requestHandler.bind(participant),
 		);
 		vscodeParticipant.iconPath = participant.iconPath;
-		vscodeParticipant.followupProvider = participant.followupProvider;
+
+		// Only register followup provider if enabled
+		const followupsEnabled = vscode.workspace.getConfiguration('positron.assistant.followups').get('enable', true);
+		if (followupsEnabled) {
+			vscodeParticipant.followupProvider = participant.followupProvider;
+		}
 	}
 
 	getRequestData(chatRequestId: string): ChatRequestData | undefined {
@@ -123,6 +128,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	readonly followupProvider: vscode.ChatFollowupProvider = {
 		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
+			// Check if followups are enabled
+			const followupsEnabled = vscode.workspace.getConfiguration('positron.assistant.followups').get('enable', true);
+			if (!followupsEnabled) {
+				return [];
+			}
+
 			const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'followups.md'), 'utf8');
 			const messages = toLanguageModelChatMessage(context.history);
 			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
@@ -756,7 +767,21 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
 		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
 		const languages = await this.getActiveSessionInstructions();
-		return defaultSystem + '\n\n' + filepaths + '\n\n' + languages;
+		const prompts = [defaultSystem, filepaths, languages];
+		return prompts.join('\n\n');
+	}
+}
+
+/** The participant used in the chat pane in Edit mode. */
+class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
+	id = ParticipantID.Edit;
+
+	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
+		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
+		const languages = await this.getActiveSessionInstructions();
+		const prompts = [defaultSystem, filepaths, languages];
+		return prompts.join('\n\n');
 	}
 }
 
@@ -766,9 +791,11 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
+		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
 		const agent = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'agent.md'), 'utf8');
 		const languages = await this.getActiveSessionInstructions();
-		return defaultSystem + '\n\n' + agent + '\n\n' + languages;
+		const prompts = [defaultSystem, filepaths, agent, languages];
+		return prompts.join('\n\n');
 	}
 }
 
@@ -855,17 +882,6 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 class PositronAssistantNotebookParticipant extends PositronAssistantEditorParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Notebook;
 	// For now, the Notebook Participant inherits everything from the Editor Participant.
-}
-
-/** The participant used in the chat pane in Edit mode. */
-class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
-	id = ParticipantID.Edit;
-
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const defaultSystem = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'default.md'), 'utf8');
-		const filepaths = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'filepaths.md'), 'utf8');
-		return defaultSystem + '\n\n' + filepaths;
-	}
 }
 
 export function registerParticipants(context: vscode.ExtensionContext) {

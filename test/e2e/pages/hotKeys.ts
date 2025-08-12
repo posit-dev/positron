@@ -150,13 +150,17 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+B C', 'Close primary sidebar');
 	}
 
+	public async minimizeBottomPanel() {
+		await this.pressHotKeys('Cmd+J P', 'Minimize bottom panel');
+	}
+
 	// ----------------------
 	// --- Workspace Actions ---
 	// ----------------------
 
 	public async closeWorkspace() {
 		await this.pressHotKeys('Cmd+J W');
-		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
+		await expect(this.code.driver.page.locator('.explorer-folders-view')).not.toBeVisible();
 	}
 
 	public async importSettings() {
@@ -189,6 +193,10 @@ export class HotKeys {
 
 	public async resetWelcomeWalkthrough() {
 		await this.pressHotKeys('Cmd+J X', 'Reset welcome walkthrough');
+	}
+
+	public async openFolder() {
+		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
 	}
 
 	/**

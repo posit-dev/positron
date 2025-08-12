@@ -16,6 +16,7 @@ export interface DataExplorerRpc {
 	uri?: string;
 	params: OpenDatasetParams |
 	GetSchemaParams |
+	SearchSchemaParams |
 	GetDataValuesParams |
 	GetRowLabelsParams |
 	GetColumnProfilesParams |
@@ -73,14 +74,10 @@ export interface OpenDatasetResult {
  */
 export interface SearchSchemaResult {
 	/**
-	 * A schema containing matching columns up to the max_results limit
+	 * The column indices of the matching column indices in the indicated
+	 * sort order
 	 */
-	matches: TableSchema;
-
-	/**
-	 * The total number of columns matching the filter
-	 */
-	total_num_matches: number;
+	matches: Array<number>;
 
 }
 
@@ -97,6 +94,28 @@ export interface ExportedData {
 	 * The exported data format
 	 */
 	format: ExportFormat;
+
+}
+
+/**
+ * Code snippet for the data view
+ */
+export interface ConvertedCode {
+	/**
+	 * Lines of code that implement filters and sort keys
+	 */
+	converted_code: Array<string>;
+
+}
+
+/**
+ * Syntax to use for code conversion
+ */
+export interface CodeSyntaxName {
+	/**
+	 * The name of the code syntax, eg, pandas, polars, dplyr, etc.
+	 */
+	code_syntax_name: string;
 
 }
 
@@ -815,7 +834,7 @@ export interface ColumnFrequencyTable {
 	/**
 	 * The formatted top values
 	 */
-	values: Array<string>;
+	values: Array<ColumnValue>;
 
 	/**
 	 * Counts of top values
@@ -1006,21 +1025,19 @@ export interface SetSortColumnsFeatures {
 }
 
 /**
- * Feature flags for 'convert_to_code' RPC
+ * Feature flags for convert to code RPC
  */
 export interface ConvertToCodeFeatures {
 	/**
 	 * The support status for this RPC method
-	 * */
-	support_status: SupportStatus;
-	/**
-	 * The supported code syntax names
 	 */
-	supported_code_syntaxes?: Array<CodeSyntaxName>;
-}
+	support_status: SupportStatus;
 
-export interface CodeSyntaxName {
-	code_syntax_name: string;
+	/**
+	 * The syntaxes for converted code
+	 */
+	code_syntaxes?: Array<CodeSyntaxName>;
+
 }
 
 /**
@@ -1142,6 +1159,17 @@ export type Selection = DataSelectionSingleCell | DataSelectionCellRange | DataS
 
 /// Union of selection specifications for array_selection
 export type ArraySelection = DataSelectionRange | DataSelectionIndices;
+
+/**
+ * Possible values for SortOrder in SearchSchema
+ */
+export enum SearchSchemaSortOrder {
+	Original = 'original',
+	AscendingName = 'ascending_name',
+	DescendingName = 'descending_name',
+	AscendingType = 'ascending_type',
+	DescendingType = 'descending_type'
+}
 
 /**
  * Possible values for ColumnDisplayType
@@ -1294,20 +1322,15 @@ export interface GetSchemaParams {
  */
 export interface SearchSchemaParams {
 	/**
-	 * Column filters to apply when searching
+	 * Column filters to apply when searching, can be empty
 	 */
 	filters: Array<ColumnFilter>;
 
 	/**
-	 * Index (starting from zero) of first result to fetch (for paging)
+	 * How to sort results: original in-schema order, alphabetical ascending
+	 * or descending
 	 */
-	start_index: number;
-
-	/**
-	 * Maximum number of resulting column schemas to fetch from the start
-	 * index
-	 */
-	max_results: number;
+	sort_order: SearchSchemaSortOrder;
 }
 
 /**
@@ -1353,6 +1376,31 @@ export interface ExportDataSelectionParams {
 	 * Result string format
 	 */
 	format: ExportFormat;
+}
+
+/**
+ * Parameters for the ConvertToCode method.
+ */
+export interface ConvertToCodeParams {
+	/**
+	 * Zero or more column filters to apply
+	 */
+	column_filters: Array<ColumnFilter>;
+
+	/**
+	 * Zero or more row filters to apply
+	 */
+	row_filters: Array<RowFilter>;
+
+	/**
+	 * Zero or more sort keys to apply
+	 */
+	sort_keys: Array<ColumnSortKey>;
+
+	/**
+	 * The code syntax to use for conversion
+	 */
+	code_syntax_name: CodeSyntaxName;
 }
 
 /**
@@ -1471,6 +1519,8 @@ export enum DataExplorerBackendRequest {
 	GetDataValues = 'get_data_values',
 	GetRowLabels = 'get_row_labels',
 	ExportDataSelection = 'export_data_selection',
+	ConvertToCode = 'convert_to_code',
+	SuggestCodeSyntax = 'suggest_code_syntax',
 	SetColumnFilters = 'set_column_filters',
 	SetRowFilters = 'set_row_filters',
 	SetSortColumns = 'set_sort_columns',

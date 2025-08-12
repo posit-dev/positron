@@ -15,12 +15,12 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { createMistral } from '@ai-sdk/mistral';
 import { createOllama } from 'ollama-ai-provider';
 import { createOpenRouter } from '@openrouter/ai-sdk-provider';
-import { processMessages, toAIMessage } from './utils';
+import { markBedrockCacheBreakpoint, processMessages, toAIMessage } from './utils';
 import { createAmazonBedrock } from '@ai-sdk/amazon-bedrock';
 import { fromNodeProviderChain } from '@aws-sdk/credential-providers';
 import { AnthropicLanguageModel } from './anthropic';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
-import { recordRequestTokenUsage, recordTokenUsage } from './extension.js';
+import { log, recordRequestTokenUsage, recordTokenUsage } from './extension.js';
 
 /**
  * Models used by chat participants and for vscode.lm.* API functionality.
@@ -195,7 +195,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 	public readonly name;
 	public readonly provider;
 	public readonly identifier;
-	public readonly maxOutputTokens;
+	public readonly maxOutputTokens: number;
 	protected abstract model: ai.LanguageModelV1;
 
 	capabilities = {
@@ -211,7 +211,26 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		this.identifier = _config.id;
 		this.name = _config.name;
 		this.provider = _config.provider;
+		const maxOutputTokens = vscode.workspace.getConfiguration('positron.assistant').get('maxOutputTokens', {} as Record<string, number>);
 		this.maxOutputTokens = _config.maxOutputTokens ?? DEFAULT_MAX_TOKEN_OUTPUT;
+
+		// Override maxOutputTokens if specified in the configuration
+		for (const [key, value] of Object.entries(maxOutputTokens)) {
+			if (_config.model.indexOf(key) !== -1 && value) {
+				let maxOutputTokens = value;
+				if (typeof maxOutputTokens !== 'number') {
+					log.warn(`Invalid maxOutputTokens '${maxOutputTokens}' for ${key} (${_config.model}); ignoring`);
+					continue;
+				}
+				if (maxOutputTokens < 512) {
+					log.warn(`Specified maxOutputTokens '${maxOutputTokens}' for ${key} (${_config.model}) is too low; using 512 instead`);
+					maxOutputTokens = 512;
+				}
+				log.debug(`Setting maxOutputTokens for ${key} (${_config.model}) to ${maxOutputTokens}`);
+				this.maxOutputTokens = maxOutputTokens;
+				break;
+			}
+		}
 	}
 
 	get providerName(): string {
@@ -261,9 +280,44 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 		const processedMessages = processMessages(messages);
 		// Only Anthropic currently supports experimental_content in tool
 		// results.
-		const toolResultExperimentalContent = this.provider === 'anthropic';
-		// Convert messages to the Vercel AI format.
-		const aiMessages = toAIMessage(processedMessages, toolResultExperimentalContent);
+		const toolResultExperimentalContent = this.provider === 'anthropic' ||
+			this.model.modelId.startsWith('us.anthropic');
+
+		// Only select Bedrock models support cache breakpoints; specifically,
+		// the Claude 3.5 Sonnet models don't support them.
+		//
+		// Consider: it'd be more verbose but we should consider including this information
+		// in the hardcoded model metadata in the model config.
+		const bedrockCacheBreakpoint = this.provider === 'bedrock' &&
+			!this.model.modelId.startsWith('us.anthropic.claude-3-5')
+
+		const aiMessages: ai.CoreMessage[] = [];
+
+		// The system message we will send to the model.
+		let systemMessage: string | undefined = modelOptions.system;
+
+		if (bedrockCacheBreakpoint && systemMessage) {
+			// Add the system prompt as the first message if we have a system
+			// prompt and cache breakpoints are enabled.
+			//
+			// This must be done in order to set a cache breakpoint for the
+			// system message. In general we prefer to send the system message
+			// using the 'system' option in streamText; see the
+			// CoreSystemMessage documentation for a detailed explanation.
+			const aiSystemMessage: ai.CoreSystemMessage = {
+				role: 'system',
+				content: systemMessage,
+			};
+			markBedrockCacheBreakpoint(aiSystemMessage);
+			aiMessages.push(aiSystemMessage);
+
+			// Consume the system message so it doesn't get sent a second time
+			systemMessage = undefined;
+		}
+
+		// Convert all other messages to the Vercel AI format.
+		aiMessages.push(...toAIMessage(processedMessages, toolResultExperimentalContent,
+			bedrockCacheBreakpoint));
 
 		if (options.tools && options.tools.length > 0) {
 			tools = options.tools.reduce((acc: Record<string, ai.Tool>, tool: vscode.LanguageModelChatTool) => {
@@ -275,15 +329,37 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}, {});
 		}
 
+		const modelTools = this._config.toolCalls ? tools : undefined;
+		const requestId = (options.modelOptions as any)?.requestId;
+
+		log.info(`[vercel] Start request ${requestId} to ${this._config.name}: ${aiMessages.length} messages`);
+		log.debug(`[${this._config.name}] SEND ${aiMessages.length} messages, ${modelTools ? Object.keys(modelTools).length : 0} tools`);
+		if (modelTools) {
+			log.trace(`tools: ${modelTools ? Object.keys(modelTools).join(', ') : '(none)'}`);
+		}
+		if (systemMessage) {
+			log.trace(`system: ${systemMessage.length > 100 ? `${systemMessage.substring(0, 100)}...` : systemMessage} (${systemMessage.length} chars)`);
+		}
+		log.trace(`messages: ${JSON.stringify(aiMessages, null, 2)}`);
 		const result = ai.streamText({
 			model: this.model,
-			system: modelOptions.system ?? undefined,
+			system: systemMessage,
 			messages: aiMessages,
 			maxSteps: modelOptions.maxSteps ?? 50,
-			tools: this._config.toolCalls ? tools : undefined,
+			tools: modelTools,
 			abortSignal: signal,
 			maxTokens: modelOptions.maxTokens ?? this.maxOutputTokens,
 		});
+
+		let accumulatedTextDeltas: string[] = [];
+
+		const flushAccumulatedTextDeltas = () => {
+			if (accumulatedTextDeltas.length > 0) {
+				const combinedText = accumulatedTextDeltas.join('');
+				log.trace(`[${this._config.name}] RECV text-delta (${accumulatedTextDeltas.length} parts): ${combinedText}`);
+				accumulatedTextDeltas = [];
+			}
+		};
 
 		for await (const part of result.fullStream) {
 			if (token.isCancellationRequested) {
@@ -291,6 +367,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'reasoning') {
+				flushAccumulatedTextDeltas();
+				log.trace(`[${this._config.name}] RECV reasoning: ${part.textDelta}`);
 				progress.report({
 					index: 0,
 					part: new vscode.LanguageModelTextPart(part.textDelta)
@@ -298,6 +376,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'text-delta') {
+				accumulatedTextDeltas.push(part.textDelta);
 				progress.report({
 					index: 0,
 					part: new vscode.LanguageModelTextPart(part.textDelta)
@@ -305,6 +384,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'tool-call') {
+				flushAccumulatedTextDeltas();
+				log.trace(`[${this._config.name}] RECV tool-call: ${part.toolCallId} (${part.toolName}) with args: ${JSON.stringify(part.args)}`);
 				progress.report({
 					index: 0,
 					part: new vscode.LanguageModelToolCallPart(part.toolCallId, part.toolName, part.args)
@@ -312,6 +393,8 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 
 			if (part.type === 'error') {
+				flushAccumulatedTextDeltas();
+				log.warn(`[${this._config.name}] RECV error: ${JSON.stringify(part.error)}`);
 				// TODO: Deal with various LLM providers' different error response formats
 				if (typeof part.error === 'string') {
 					throw new Error(part.error);
@@ -324,19 +407,47 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider 
 			}
 		}
 
-		if (this._context) {
-			// ai-sdk provides token usage in the result but it's not clear how it is calculated
-			const usage = await result.usage;
-			const outputCount = usage.completionTokens;
-			const inputCount = usage.promptTokens;
-			const requestId = (options.modelOptions as any)?.requestId;
+		// Flush any remaining accumulated text deltas
+		flushAccumulatedTextDeltas();
 
-			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
-
-			if (requestId) {
-				recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+		// Log all the warnings from the response
+		result.warnings.then((warnings) => {
+			if (warnings) {
+				for (const warning of warnings) {
+					log.warn(`[${this.model}] (${this.identifier}) warn: ${warning}`);
+				}
 			}
+		});
 
+		// ai-sdk provides token usage in the result but it's not clear how it is calculated
+		const usage = await result.usage;
+		const outputCount = usage.completionTokens;
+		const inputCount = usage.promptTokens;
+
+		if (requestId) {
+			recordRequestTokenUsage(requestId, this.provider, inputCount, outputCount);
+		}
+
+		if (this._context) {
+			recordTokenUsage(this._context, this.provider, inputCount, outputCount);
+		}
+
+		const other = await result.providerMetadata;
+
+		log.info(`[vercel]: End request ${requestId}; usage: ${inputCount} input tokens, ${outputCount} output tokens`);
+
+		// Log Bedrock usage if available
+		if (other && other.bedrock && other.bedrock.usage) {
+			// Get the Bedrock usage object; it typically contains
+			// `cacheReadInputTokens` and `cacheWriteInputTokens`
+			const usage = other.bedrock.usage as Record<string, any>;
+
+			// Add the input and output tokens to the usage object
+			usage.inputTokens = inputCount;
+			usage.outputTokens = outputCount;
+
+			// Log the Bedrock usage
+			log.debug(`[${this._config.name}]: Bedrock usage: ${JSON.stringify(other.bedrock.usage, null, 2)}`);
 		}
 	}
 
@@ -563,7 +674,7 @@ class VertexLanguageModel extends AILanguageModel implements positron.ai.Languag
 }
 
 export class AWSLanguageModel extends AILanguageModel implements positron.ai.LanguageModelChatProvider {
-	protected model;
+	protected model: ai.LanguageModelV1;
 
 	static source: positron.ai.LanguageModelSource = {
 		type: positron.PositronLanguageModelType.Chat,
@@ -583,13 +694,11 @@ export class AWSLanguageModel extends AILanguageModel implements positron.ai.Lan
 		super(_config, _context);
 
 		this.model = createAmazonBedrock({
-			bedrockOptions: {
-				// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
-				// sets the AWS region where the models are available
-				region: process.env.AWS_REGION ?? 'us-east-1',
-				credentials: fromNodeProviderChain(),
-			}
-		})(this._config.model);
+			// AWS_ACCESS_KEY_ID, AWS_SESSION_TOKEN, and AWS_SECRET_ACCESS_KEY must be set
+			// sets the AWS region where the models are available
+			region: process.env.AWS_REGION ?? 'us-east-1',
+			credentialProvider: fromNodeProviderChain(),
+		})(this._config.model) as ai.LanguageModelV1;
 	}
 
 	get providerName(): string {
@@ -712,17 +821,17 @@ export const availableModels = new Map<string, { name: string; identifier: strin
 			{
 				name: 'Claude 4 Sonnet Bedrock',
 				identifier: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
-				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 64K tokens available)
 			},
 			{
 				name: 'Claude 4 Opus Bedrock',
 				identifier: 'us.anthropic.claude-opus-4-20250514-v1:0',
-				maxOutputTokens: 32_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 32K tokens available)
 			},
 			{
 				name: 'Claude 3.7 Sonnet v1 Bedrock',
 				identifier: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-				maxOutputTokens: 64_000, // reference: https://docs.anthropic.com/en/docs/about-claude/models/all-models#model-comparison-table
+				maxOutputTokens: 8_192, // use more conservative value for Bedrock (up to 64K tokens available)
 			},
 			{
 				name: 'Claude 3.5 Sonnet v2 Bedrock',

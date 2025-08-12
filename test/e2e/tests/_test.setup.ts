@@ -21,7 +21,7 @@ import { randomUUID } from 'crypto';
 import archiver from 'archiver';
 
 // Local imports
-import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, ContextMenu, getRandomUserDataDir, copyFixtureFile } from '../infra';
+import { Application, createLogger, createApp, TestTags, Sessions, HotKeys, TestTeardown, ApplicationOptions, Quality, MultiLogger, VscodeSettings, getRandomUserDataDir, copyFixtureFile } from '../infra';
 import { PackageManager } from '../pages/utils/packageManager';
 
 // Constants
@@ -104,7 +104,23 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 
 		// Copy keybindings and settings fixtures to the user data directory
 		await copyFixtureFile('keybindings.json', userDir, true);
-		await copyFixtureFile('settings.json', userDir,);
+
+		const settingsFileName = 'settings.json';
+		if (fs.existsSync('/.dockerenv')) {
+
+			const fixturesDir = path.join(process.cwd(), 'test/e2e/fixtures');
+			const settingsFile = path.join(fixturesDir, 'settings.json');
+
+			const mergedSettings = {
+				...JSON.parse(fs.readFileSync(settingsFile, 'utf8')),
+				...JSON.parse(fs.readFileSync(path.join(fixturesDir, 'settingsDocker.json'), 'utf8')),
+			};
+
+			// Overwrite file
+			fs.writeFileSync(settingsFile, JSON.stringify(mergedSettings, null, 2));
+		}
+
+		await copyFixtureFile(settingsFileName, userDir);
 
 		await use(userDir);
 	}, { scope: 'worker', auto: true }],
@@ -180,13 +196,6 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 		await use();
 	}, { scope: 'test' }],
 
-	// This fixture provides a way interact with context menu items for both Electron and web apps. :tada:
-	contextMenu: [async ({ app }, use, testInfo) => {
-		const contextMenu = new ContextMenu(app.code, testInfo.project.name, process.platform);
-		await use(contextMenu);
-	},
-	{ scope: 'test' }],
-
 	// ex: await openFile('workspaces/basic-rmd-file/basicRmd.rmd');
 	openFile: async ({ app }, use) => {
 		await use(async (filePath: string, waitForFocus = true) => {
@@ -209,7 +218,7 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 	openFolder: async ({ app }, use) => {
 		await use(async (folderPath: string) => {
 			await test.step(`Open folder: ${folderPath}`, async () => {
-				await app.workbench.quickaccess.runCommand('workbench.action.files.openFolder', { keepOpen: true });
+				await app.workbench.hotKeys.openFolder();
 				await playwright.expect(app.workbench.quickInput.quickInputList.locator('a').filter({ hasText: '..' })).toBeVisible();
 
 				const folderNames = folderPath.split('/');
@@ -441,7 +450,7 @@ test.afterAll(async function ({ logger }, testInfo) {
 });
 
 export { playwrightExpect as expect };
-export { TestTags as tags };
+export { TestTags as tags, WorkerFixtures };
 
 async function moveAndOverwrite(logger: MultiLogger, sourcePath: string, destinationPath: string) {
 	try {
@@ -483,7 +492,6 @@ interface TestFixtures {
 	packages: PackageManager;
 	autoTestFixture: any;
 	devTools: void;
-	contextMenu: ContextMenu;
 	openFile: (filePath: string, waitForFocus?: boolean) => Promise<void>;
 	openDataFile: (filePath: string) => Promise<void>;
 	openFolder: (folderPath: string) => Promise<void>;

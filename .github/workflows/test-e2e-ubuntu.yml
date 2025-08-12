@@ -57,7 +57,7 @@ on:
         required: false
         description: "Whether or not to upload e2e test logs."
         type: boolean
-        default: false
+        default: true
 
   workflow_dispatch:
     inputs:
@@ -83,15 +83,27 @@ on:
 permissions:
   id-token: write
   contents: read
+  packages: read
 
 jobs:
+
   e2e-linux:
     name: ${{ inputs.display_name || 'e2e-linux' }}
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
+    container:
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:21
+      options: --user 0:0
+      # Static PAT is needed because the bot can't pass a token to the job for security reasons
+      credentials:
+        username: ${{ secrets.POSITRON_GITHUB_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
-        image: postgres:latest
+        image: ghcr.io/posit-dev/positron-postgres-initialized:21
+        credentials:
+          username: ${{ secrets.POSITRON_GITHUB_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_PAT }}
         ports:
           - 5432:5432
         env:
@@ -111,6 +123,8 @@ jobs:
       E2E_POSTGRES_DB: ${{ secrets.E2E_POSTGRES_DB }}
       E2E_CONNECT_SERVER: ${{ secrets.E2E_CONNECT_SERVER}}
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
+      R_LIBS_SITE: /usr/local/lib/R/site-library
+      R_LIBS_USER: /usr/local/lib/R/site-library
     steps:
       - uses: actions/checkout@v4
 
@@ -123,30 +137,9 @@ jobs:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
           ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version-file: .nvmrc
-
-      - name: Download sample database
-        run: |
-          wget https://raw.githubusercontent.com/neondatabase/postgres-sample-dbs/main/periodic_table.sql
-
-      - name: Connect to PostgreSQL and load sample data
-        env:
-          PGHOST: localhost
-          PGPORT: 5432
-          PGUSER: ${{ secrets.E2E_POSTGRES_USER }}
-          PGPASSWORD: ${{ secrets.E2E_POSTGRES_PASSWORD }}
-          PGDATABASE: ${{ secrets.E2E_POSTGRES_DB }}
-        run: |
-          psql -v ON_ERROR_STOP=1 -f periodic_table.sql
-
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
         shell: bash
-
-      - name: Cache node_modules, build, extensions, and remote
-        uses: ./.github/actions/cache-multi-paths
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
@@ -180,8 +173,6 @@ jobs:
         with:
           aws-role-to-assume: ${{ secrets.QA_AWS_RO_ROLE }}
           aws-region: ${{ secrets.QA_AWS_REGION }}
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}
 
       # Preloading ensures the Node.js binary is fully built and ready before
       # any parallel processes start, preventing runtime conflicts
@@ -196,10 +187,11 @@ jobs:
         run: sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
 
       - name: Run Playwright Tests (Electron)
+        shell: bash
         env:
-          POSITRON_PY_VER_SEL: 3.12.6
+          POSITRON_PY_VER_SEL: "3.12.11 (Venv: .venv)"
           POSITRON_R_VER_SEL: 4.4.0
-          POSITRON_PY_ALT_VER_SEL: "3.13.0 (Pyenv)"
+          POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
           POSITRON_HIDDEN_PY: "3.12.10 (Conda)"
           POSITRON_HIDDEN_R: 4.4.1
@@ -249,12 +241,12 @@ jobs:
           echo "Final --grep-invert argument: $GREP_INVERT_ARG"
 
           # Don't run this test in parallel & don't allow skipping it
-          echo "Running: DISPLAY=:10 npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
-          DISPLAY=:10 npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
+          echo "Running: npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null"
+          npx playwright test test/e2e/tests/extensions/bootstrap-extensions.test.ts --project ${{ inputs.project }} --reporter=null
 
           # Run the Playwright test command directly using eval
-          echo "Running: DISPLAY=:10 npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
-          eval DISPLAY=:10 SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          echo "Running: npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          eval SKIP_BOOTSTRAP=true SKIP_CLONE=true npx playwright test --project ${{ inputs.project }} --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}
@@ -263,23 +255,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_TEST_REPORTS_ROLE }}
           report-dir: ${{ env.REPORT_DIR }}
 
-      - name: Install trcli
-        if: ${{ inputs.report_testrail }}
-        shell: bash
-        run: sudo apt-get update && sudo apt-get install -y python3-pip && pip3 install trcli
-
-      - name: Upload Test Results to TestRail
-        if: ${{ inputs.report_testrail }}
-        shell: bash
-        run: |
-          TESTRAIL_TITLE="$(date +'%Y-%m-%d') ${{ env.TESTRAIL_TITLE }} - $GITHUB_REF_NAME"
-          echo "TESTRAIL_TITLE=$TESTRAIL_TITLE" >> $GITHUB_ENV
-          trcli --host "https://posit.testrail.io/" --project "${{ env.TESTRAIL_PROJECT }}" --username testrailautomation@posit.co --key "${{ env.TESTRAIL_API_KEY }}" parse_junit --file "./test-results/junit.xml" --case-matcher name --title "$TESTRAIL_TITLE" --close-run
-        env:
-          TESTRAIL_TITLE: ${{ inputs.project }}
-          TESTRAIL_PROJECT: "Positron"
-          TESTRAIL_API_KEY: ${{ secrets.TESTRAIL_API_KEY }}
-
       - name: Upload Test Logs
         if: ${{ always() && inputs.upload_logs }}
         uses: actions/upload-artifact@v4
@@ -287,4 +262,3 @@ jobs:
           name: ${{ inputs.project }}-logs
           path: test-logs
           if-no-files-found: ignore
-

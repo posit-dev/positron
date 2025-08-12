@@ -133,12 +133,6 @@
         "icon": "$(play)"
       },
       {
-        "command": "workbench.action.positronConsole.executeCode",
-        "category": "R",
-        "title": "%r.command.executeSelectionInConsole.title%",
-        "icon": "$(play)"
-      },
-      {
         "command": "r.rmarkdownRender",
         "category": "R",
         "title": "%r.command.rmarkdownRender.title%",
@@ -491,7 +485,7 @@
         "command": "r.sourceCurrentFile",
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
-        "when": "editorLangId == r && !isRPackage"
+        "when": "editorLangId == r && !isRPackage && !positron.hasCodeCells"
       },
       {
         "command": "r.insertSection",
@@ -514,13 +508,6 @@
           "command": "r.sourceCurrentFileWithEcho",
           "icon": "$(play)",
           "title": "%r.command.sourceCurrentFileWithEcho.title%",
-          "when": "editorLangId == r"
-        },
-        {
-          "category": "R",
-          "command": "workbench.action.positronConsole.executeCode",
-          "icon": "$(play)",
-          "title": "%r.command.executeSelectionInConsole.title%",
           "when": "editorLangId == r"
         },
         {
@@ -603,7 +590,6 @@
         {
           "command": "workbench.action.positronConsole.executeCode",
           "group": "R",
-          "title": "%r.command.executeSelectionInConsole.title%",
           "when": "editorLangId == r"
         },
         {
@@ -631,7 +617,6 @@
         {
           "command": "workbench.action.positronConsole.executeCode",
           "icon": "$(play)",
-          "title": "%r.command.executeSelectionInConsole.title%",
           "when": "resourceLangId == r && !isInDiffEditor"
         },
         {
@@ -981,7 +966,7 @@
   },
   "positron": {
     "binaryDependencies": {
-      "ark": "0.1.200"
+      "ark": "0.1.201"
     },
     "minimumRVersion": "4.2.0",
     "minimumRenvVersion": "1.0.9"

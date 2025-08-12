@@ -35,6 +35,6 @@ if [[ "$OSTYPE" == "darwin"* ]]; then
 else
 	cd $ROOT ; \
 		ELECTRON_ENABLE_LOGGING=1 \
-		"$CODE" \
+		"$CODE" --no-sandbox \
 		test/unit/electron/index.js --crash-reporter-directory=$VSCODECRASHDIR "$@"
 fi

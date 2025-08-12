@@ -69,8 +69,8 @@ class PositronNotebookContribution extends Disposable {
 			{
 				singlePerResource: true,
 				canSupportResource: (resource: URI) => {
-					// Only support file:// scheme initially
-					return resource.scheme === Schemas.file;
+					// Support both file:// and untitled:// schemes
+					return resource.scheme === Schemas.file || resource.scheme === Schemas.untitled;
 				}
 			},
 			{

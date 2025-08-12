@@ -16,6 +16,16 @@ import { ExtHostContext, ExtHostNotebookDocumentsShape, MainThreadNotebookDocume
 import { NotebookDto } from './mainThreadNotebookDto.js';
 import { SerializableObjectWithBuffers } from '../../services/extensions/common/proxyIdentifier.js';
 import { IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
+// --- Start Positron ---
+import { IConfigurationService } from '../../../platform/configuration/common/configuration.js';
+import { INotificationService } from '../../../platform/notification/common/notification.js';
+import { ILogService } from '../../../platform/log/common/log.js';
+import { IEditorService } from '../../services/editor/common/editorService.js';
+import { IEditorGroupsService } from '../../services/editor/common/editorGroupsService.js';
+import { IInstantiationService } from '../../../platform/instantiation/common/instantiation.js';
+import { PositronNotebookEditorInput } from '../../contrib/positronNotebook/browser/PositronNotebookEditorInput.js';
+import { usingPositronNotebooks } from '../../services/positronNotebook/common/positronNotebookUtils.js';
+// --- End Positron ---
 
 export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsShape {
 
@@ -28,6 +38,14 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 	constructor(
 		extHostContext: IExtHostContext,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelResolverService: INotebookEditorModelResolverService,
+		// --- Start Positron ---
+		@IInstantiationService private readonly _instantiationService: IInstantiationService,
+		@IEditorService private readonly _editorService: IEditorService,
+		@IEditorGroupsService private readonly _editorGroupsService: IEditorGroupsService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		@INotificationService private readonly _notificationService: INotificationService,
+		@ILogService private readonly _logService: ILogService,
+		// --- End Positron ---
 		@IUriIdentityService private readonly _uriIdentityService: IUriIdentityService
 	) {
 		this._proxy = extHostContext.getProxy(ExtHostContext.ExtHostNotebookDocuments);
@@ -127,6 +145,13 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 	}
 
 	async $tryCreateNotebook(options: { viewType: string; content?: NotebookDataDto }): Promise<UriComponents> {
+		// --- Start Positron ---
+		// Hook for custom notebook creation (e.g. Positron)
+		const customResult = await this._tryCreateCustomNotebook(options);
+		if (customResult) {
+			return customResult;
+		}
+		// --- End Positron ---
 		if (options.content) {
 			const ref = await this._notebookEditorModelResolverService.resolve({ untitledResource: undefined }, options.viewType);
 
@@ -152,6 +177,66 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 			return notebook.uri;
 		}
 	}
+	// --- Start Positron ---
+	protected async _tryCreateCustomNotebook(options: { viewType: string; content?: NotebookDataDto }): Promise<UriComponents | undefined> {
+		const isJupyterViewType = options.viewType === 'jupyter-notebook' || options.viewType === 'interactive';
+
+		if (isJupyterViewType && usingPositronNotebooks(this._configurationService)) {
+			this._logService.trace('[Positron] Creating new notebook with Positron editor based on configuration');
+
+			try {
+				// Create the notebook model first (same as VS Code logic)
+				const ref = await this._notebookEditorModelResolverService.resolve(
+					{ untitledResource: undefined },
+					options.viewType
+				);
+
+				// untitled notebooks are disposed when they get saved. we should not hold a reference
+				// to such a disposed notebook and therefore dispose the reference as well
+				Event.once(ref.object.notebook.onWillDispose)(() => {
+					ref.dispose();
+				});
+
+				// Apply content if provided
+				if (options.content) {
+					const data = NotebookDto.fromNotebookDataDto(options.content);
+					ref.object.notebook.reset(data.cells, data.metadata, ref.object.notebook.transientOptions);
+				}
+
+				const uri = ref.object.resource;
+
+				// Get the preferred editor group
+				const preferredGroup = this._editorGroupsService.activeGroup;
+
+				// Create Positron notebook editor input
+				const editorInput = PositronNotebookEditorInput.getOrCreate(
+					this._instantiationService,
+					uri,
+					undefined,
+					options.viewType
+				);
+
+				// Open the editor
+				await this._editorService.openEditor(editorInput, undefined, preferredGroup);
+
+				// Mark as dirty since it's new
+				await this._proxy.$acceptDirtyStateChanged(uri, true);
+
+				return uri.toJSON();
+			} catch (error) {
+				// Log error and show warning to user
+				this._logService.error('[Positron] Failed to create notebook with Positron editor:', error);
+				this._notificationService.warn(
+					`Failed to create notebook with Positron editor. Falling back to VS Code editor. Error: ${(error as Error).message}`
+				);
+				// Return undefined to fall back to VS Code logic
+			}
+		}
+
+		// Default implementation does nothing - allows VS Code logic to proceed
+		return undefined;
+	}
+	// --- End Positron ---
 
 	async $tryOpenNotebook(uriComponents: UriComponents): Promise<URI> {
 		const uri = URI.revive(uriComponents);
@@ -165,9 +250,63 @@ export class MainThreadNotebookDocuments implements MainThreadNotebookDocumentsS
 			});
 		}
 
+		// --- Start Positron ---
+		// Hook for custom notebook opening (e.g. Positron)
+		const customResult = await this._tryOpenCustomNotebook(uriComponents, ref);
+		if (customResult) {
+			return customResult;
+		}
+		// --- End Positron ---
 		this._modelReferenceCollection.add(uri, ref);
 		return uri;
 	}
+	// --- Start Positron ---
+	protected async _tryOpenCustomNotebook(uriComponents: UriComponents, ref: any): Promise<URI | undefined> {
+		const uri = URI.revive(uriComponents);
+		const resourcePath = uri.path.toLowerCase();
+		const isJupyterNotebook = resourcePath.endsWith('.ipynb');
+
+		if (isJupyterNotebook && usingPositronNotebooks(this._configurationService)) {
+			this._logService.trace('[Positron] Opening notebook with Positron editor based on editor association for:', uri.toString());
+
+			try {
+				// Get the preferred editor group
+				const preferredGroup = this._editorGroupsService.activeGroup;
+
+				// Create Positron notebook editor input
+				const editorInput = PositronNotebookEditorInput.getOrCreate(
+					this._instantiationService,
+					uri,
+					undefined,
+					ref.object.viewType
+				);
+
+				// Open the editor
+				await this._editorService.openEditor(editorInput, undefined, preferredGroup);
+
+				// Handle untitled notebook case
+				if (uri.scheme === 'untitled') {
+					await this._proxy.$acceptDirtyStateChanged(uri, true);
+				}
+
+				// Add the reference to the collection
+				this._modelReferenceCollection.add(uri, ref);
+
+				return uri;
+			} catch (error) {
+				// Log error and show warning to user
+				this._logService.error('[Positron] Failed to open notebook with Positron editor:', error);
+				this._notificationService.warn(
+					`Failed to open notebook with Positron editor. Falling back to VS Code editor. Error: ${(error as Error).message}`
+				);
+				// Return undefined to fall back to VS Code logic
+			}
+		}
+
+		// Default implementation does nothing - allows VS Code logic to proceed
+		return undefined;
+	}
+	// --- End Positron ---
 
 	async $trySaveNotebook(uriComponents: UriComponents) {
 		const uri = URI.revive(uriComponents);

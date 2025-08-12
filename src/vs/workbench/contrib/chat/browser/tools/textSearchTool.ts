@@ -14,12 +14,13 @@ import { CountTokensCallback, IPreparedToolInvocation, IToolData, IToolImpl, ITo
 import { ChatModel } from '../../common/chatModel.js';
 import { IChatService } from '../../common/chatService.js';
 
+const DEFAULT_MAX_RESULTS = 50;
+
 const findTextInProjectModelDescription = `
 This tool searches for the specified text inside files in the project and returns a set of files and their corresponding lines where the text is found,
 as well as messages about the search results.
-Do not use this tool to find files or directories in the workspace, as it is specifically designed for searching text within files.
+DO NOT use this tool to find files or directories in the workspace, as it is specifically designed for searching text within files.
 The search is performed across all files in the project, excluding files and directories that are ignored by the workspace settings.
-The provided pattern is interpreted as text unless indicated to be a regular expression.
 Other search options such as case sensitivity, whole word matching, and multiline matching can be specified.
 `;
 
@@ -30,14 +31,18 @@ export const TextSearchToolData: IToolData = {
 	displayName: localize('chat.tools.findTextInProject', "Find Text In Project"),
 	source: ToolDataSource.Internal,
 	modelDescription: findTextInProjectModelDescription,
-	tags: ['positron-assistant', 'requires-workspace'],
+	tags: [
+		'positron-assistant',
+		'requires-workspace',
+		'high-token-usage',
+	],
 	canBeReferencedInPrompt: false,
 	inputSchema: {
 		type: 'object',
 		properties: {
 			pattern: {
 				type: 'string',
-				description: 'The text pattern to search for in the project.',
+				description: 'The text pattern to search for in the project. This pattern is interpreted as text unless isRegExp is set to true.',
 			},
 			isRegExp: {
 				type: 'boolean',
@@ -63,6 +68,11 @@ export const TextSearchToolData: IToolData = {
 				type: 'boolean',
 				description: 'Whether the search pattern should be case-sensitive.',
 			},
+			maxResults: {
+				type: 'number',
+				description: `The maximum number of search results to return. Cannot exceed the default maximum of ${DEFAULT_MAX_RESULTS} to prevent excessive token usage.`,
+				default: DEFAULT_MAX_RESULTS
+			}
 			// Not included here: notebookInfo. See the IPatternInfo interface in src/vs/workbench/services/search/common/search.ts
 		},
 		required: ['pattern'],
@@ -91,20 +101,25 @@ export class TextSearchTool implements IToolImpl {
 		}
 
 		// Set up the text search query
-		const patternInfo = invocation.parameters as TextSearchToolParams;
+		const searchParams = invocation.parameters as TextSearchToolParams;
 		const workspaceUris = workspaceFolders.map(folder => folder.uri);
+		// Don't allow more than the default max results, even if a higher value is provided,
+		// to prevent excessive token usage and performance issues.
+		const maxResults = searchParams.maxResults && searchParams.maxResults < DEFAULT_MAX_RESULTS
+			? searchParams.maxResults
+			: DEFAULT_MAX_RESULTS;
 		const queryOptions: ITextQueryBuilderOptions = {
 			_reason: InternalTextSearchToolId,
-			maxResults: this.searchConfig.maxResults ?? undefined,
+			maxResults,
 			isSmartCase: this.searchConfig.smartCase ?? undefined,
 			disregardIgnoreFiles: this.searchConfig.useIgnoreFiles ? false : undefined,
 			disregardExcludeSettings: false,
 			onlyOpenEditors: false,
 		};
-		const query = this._queryBuilder.text(patternInfo, workspaceUris, queryOptions);
+		const query = this._queryBuilder.text(searchParams, workspaceUris, queryOptions);
 
 		// Search for the text
-		const { results, messages } = await this._searchService.textSearch(query, _token);
+		const { results, messages, limitHit } = await this._searchService.textSearch(query, _token);
 
 		// If we have a chat context, include references for each result
 		if (invocation.context) {
@@ -138,13 +153,18 @@ export class TextSearchTool implements IToolImpl {
 			}
 		}
 
+		const response: any = {
+			results,
+			messages,
+		};
+		if (limitHit) {
+			response.hitMaxResults = `Hit the maximum number of results: ${maxResults}.`;
+		}
+
 		return {
 			content: [{
 				kind: 'text',
-				value: JSON.stringify({
-					results,
-					messages,
-				}),
+				value: JSON.stringify(response),
 			}],
 		};
 	}
@@ -157,4 +177,6 @@ export class TextSearchTool implements IToolImpl {
 	}
 }
 
-export interface TextSearchToolParams extends IPatternInfo { }
+export interface TextSearchToolParams extends IPatternInfo {
+	maxResults: number;
+}
