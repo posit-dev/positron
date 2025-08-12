@@ -752,9 +752,7 @@ class DuckDBConnection(Connection):
         # DuckDB allows attaching other databases, thus we can't really get to the exact same
         # state. But we can at least show how to connect to the initial database.
         self.code = (
-            "import duckdb\n"
-            f"conn = duckdb.connect(database={self.host!r})\n"
-            "%connection_show conn\n"
+            f"import duckdb\nconn = duckdb.connect(database={self.host!r})\n%connection_show conn\n"
         )
 
     def list_objects(self, path: list[ObjectSchema]):
