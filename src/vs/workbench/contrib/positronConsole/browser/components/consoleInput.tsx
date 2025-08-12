@@ -810,9 +810,9 @@ export const ConsoleInput = (props: ConsoleInputProps) => {
 		// This fixes https://github.com/posit-dev/positron/issues/2281 by stopping mouse down
 		// events from propagating to the ConsoleInstance, which has its own context menu that was
 		// showing instead of the CodeEditorWidget's context menu.
-		codeEditorWidget.onMouseDown(e => {
+		disposableStore.add(codeEditorWidget.onMouseDown(e => {
 			e.event.stopPropagation();
-		});
+		}));
 
 		// Add the code editor widget to the disposables store.
 		disposableStore.add(codeEditorWidget);
