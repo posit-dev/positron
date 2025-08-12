@@ -4,5 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 .positron-modal-dialog-box > .connections-new-connection-modal > .content-area {
-	bottom: 0px;
+	bottom: 10px;
+}
+
+.positron-modal-dialog-box .connections-new-connection-modal .action-bar-button {
+	height: 32px;
 }
