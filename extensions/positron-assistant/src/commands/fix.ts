@@ -49,38 +49,6 @@ export async function fixHandler(
 	context.toolAvailability.set(PositronAssistantToolName.ProjectTree, true);
 
 	return handleDefault();
-
-	// const messages: vscode.LanguageModelChatMessage2[] = [
-	// 	vscode.LanguageModelChatMessage.User(request.prompt),
-	// ];
-
-	// await context.attachContextInfo(messages);
-	// const modelResponse = await request.model.sendRequest(
-	// 	messages, {
-	// 	modelOptions: {
-	// 		system: context.systemPrompt,
-	// 	}
-	// });
-
-	// // Process the model response
-	// let jsonText = '';
-	// for await (const fragment of modelResponse.text) {
-	// 	jsonText += fragment;
-	// }
-
-	// const fix = JSON.parse(jsonText) as IFixResponse;
-	// // Do something with the data
-
-	// // response.markdown(fix.summary + '\n');
-	// response.markdown('```' + (fix.language || '') + '\n');
-
-	// if (fix.uri) {
-	// 	const uri = vscode.Uri.parse(fix.uri);
-	// 	response.codeblockUri(uri);
-	// }
-
-	// response.markdown(fix.code + '\n');
-	// response.markdown('```');
 }
 
 export function registerFixCommand() {
