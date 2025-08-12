@@ -8,6 +8,7 @@ import * as fs from 'fs';
 
 import { EXTENSION_ROOT_DIR } from '../constants';
 import { ParticipantID, PositronAssistantChatParticipant, PositronAssistantEditorParticipant, PositronAssistantChatContext } from '../participants.js';
+import { PositronAssistantToolName } from '../types.js';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
@@ -16,17 +17,12 @@ export const FIX_COMMAND = 'fix';
 interface IFixResponse {
 	// The summary of the fix.
 	summary: string;
-	// The programming language of the code.
-	language: string;
-	// The fixed code.
+	// The code changes to be made.
 	code: string;
-	// Optional edits to apply in the editor.
-	edit?: {
-		// The file URI where the edit should be applied.
-		uri: string;
-		// The range of the edit in the file.
-		range: vscode.Range;
-	};
+	// The programming language of the code.
+	language?: string;
+	// The URI of the file to be edited, if available.
+	uri?: string;
 }
 
 /**
@@ -41,66 +37,50 @@ export async function fixHandler(
 ) {
 	const { systemPrompt, participantId } = context;
 
-	if (participantId !== ParticipantID.Chat) {
+	if (participantId !== ParticipantID.Chat && participantId !== ParticipantID.Edit) {
 		return handleDefault();
 	}
+
+	response.progress('Preparing edits...');
 
 	const prompt = await fs.promises.readFile(`${mdDir}/prompts/chat/fix.md`, 'utf8');
 	context.systemPrompt = `${systemPrompt}\n\n${prompt}`;
 
-	if (request.acceptedConfirmationData) {
-		for (const { fixResponse } of request.acceptedConfirmationData as { fixResponse: IFixResponse }[]) {
-			if (request.prompt.includes('Apply in Editor') && fixResponse.edit) {
-				response.progress('Applying edits...');
-				const uri = vscode.Uri.file(fixResponse.edit.uri);
+	context.toolAvailability.set(PositronAssistantToolName.ProjectTree, true);
 
-				const edit = new vscode.WorkspaceEdit();
-				edit.replace(uri, fixResponse.edit.range, fixResponse.code);
-				const success = await vscode.workspace.applyEdit(edit);
+	return handleDefault();
 
-				if (success) {
-					response.markdown('Edit complete');
-				} else {
-					response.warning('Edits failed');
-				}
-			}
-		}
-		return;
-	}
+	// const messages: vscode.LanguageModelChatMessage2[] = [
+	// 	vscode.LanguageModelChatMessage.User(request.prompt),
+	// ];
 
-	const messages: vscode.LanguageModelChatMessage2[] = [
-		vscode.LanguageModelChatMessage.User(request.prompt),
-	];
+	// await context.attachContextInfo(messages);
+	// const modelResponse = await request.model.sendRequest(
+	// 	messages, {
+	// 	modelOptions: {
+	// 		system: context.systemPrompt,
+	// 	}
+	// });
 
-	const contextInfo = await context.attachContextInfo();
-	if (contextInfo?.message) {
-		messages.push(contextInfo.message);
-	}
+	// // Process the model response
+	// let jsonText = '';
+	// for await (const fragment of modelResponse.text) {
+	// 	jsonText += fragment;
+	// }
 
-	const modelResponse = await request.model.sendRequest(messages, {
-		modelOptions: {
-			system: context.systemPrompt
-		}
-	});
+	// const fix = JSON.parse(jsonText) as IFixResponse;
+	// // Do something with the data
 
-	let jsonResponse = '';
-	for await (const chunk of modelResponse.text) {
-		jsonResponse += chunk;
-	}
+	// // response.markdown(fix.summary + '\n');
+	// response.markdown('```' + (fix.language || '') + '\n');
 
-	const fixResponse: IFixResponse = JSON.parse(jsonResponse); // throws if invalid
+	// if (fix.uri) {
+	// 	const uri = vscode.Uri.parse(fix.uri);
+	// 	response.codeblockUri(uri);
+	// }
 
-	const confirmationBody = new vscode.MarkdownString();
-	confirmationBody.appendText(fixResponse.summary);
-	confirmationBody.appendCodeblock(fixResponse.code, fixResponse.language);
-
-	const actions = ['Run in Console'];
-	if (fixResponse.edit) {
-		actions.push('Apply in Editor');
-	}
-	response.confirmation('Suggested Fix', confirmationBody.value, { fixResponse }, actions);
-
-	// return result;
+	// response.markdown(fix.code + '\n');
+	// response.markdown('```');
 }
 
 export function registerFixCommand() {
