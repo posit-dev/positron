@@ -88,7 +88,7 @@ interface EntryTruncationResult {
 	/** The truncated output code */
 	truncatedOutput: string;
 	/** The truncated error content */
-	truncatedErrorContent: string;
+	truncatedErrorContent?: string;
 	/** The cost of the truncated entry */
 	cost: number;
 }
@@ -414,7 +414,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 			// Compute the cost of the entry
 			let cost = entry.input.length + entry.output.length;
-			let errorContent = '';
+			let errorContent: string | undefined = undefined;
 			if (entry.error) {
 				errorContent = JSON.stringify(entry.error);
 				cost += errorContent.length;
@@ -445,7 +445,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 					summarized.push({
 						input: truncatedInput,
 						output: truncatedOutput,
-						error: JSON.parse(truncatedErrorContent),
+						error: truncatedErrorContent,
 					});
 					currentCost += cost;
 					firstTracebackIncluded = true;
@@ -484,7 +484,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 					summarized.push({
 						input: truncatedInput,
 						output: truncatedOutput,
-						error: entry.error ? JSON.parse(truncatedErrorContent) : undefined,
+						error: truncatedErrorContent,
 					});
 					currentCost += truncatedCost;
 					// Track that we've included a traceback if this entry had an error
@@ -547,7 +547,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 	private truncateEntryContent(
 		input: string,
 		output: string,
-		errorContent: string,
+		errorContent: string | undefined,
 		budgets: EntryTruncationBudgets
 	): EntryTruncationResult {
 		// Truncate input dynamically based on budget
@@ -575,7 +575,10 @@ export class ChatRuntimeSessionContext extends Disposable {
 				errorContent.slice(-endLength);
 		}
 
-		const cost = truncatedInput.length + truncatedOutput.length + truncatedErrorContent.length;
+		let cost = truncatedInput.length + truncatedOutput.length;
+		if (truncatedErrorContent) {
+			cost += truncatedErrorContent.length;
+		}
 
 		return { truncatedInput, truncatedOutput, truncatedErrorContent, cost };
 	}
