@@ -815,7 +815,7 @@ class DuckDBConnection(Connection):
 
         # DuckDB doesn't have deeper hierarchies. If we get to this point
         # it means the path is invalid.
-        raise ValueError(f"Path length must be at most 1, but got {len(path)}. Path: {path}")
+        raise ValueError(f"Path length must be at most 2, but got {len(path)}. Path: {path}")
 
     def list_fields(self, path: list[ObjectSchema]):
         if len(path) != 3:
