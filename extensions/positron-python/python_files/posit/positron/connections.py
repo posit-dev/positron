@@ -853,18 +853,19 @@ class DuckDBConnection(Connection):
         if len(path) != 3:
             raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
 
-        schema, table, catalog = path
+        catalog, schema, table = path
         if (
             schema.kind != "schema"
             or table.kind not in ["table", "view"]
             or catalog.kind != "catalog"
         ):
             raise ValueError(
-                "Path must include a schema and a table/view in this order.", f"Path: {path}"
+                "Path must include a catalog, a schema and a table/view in this order.",
+                f"Path: {path}",
             )
 
         # Use DuckDB's native pandas integration via .df() method
-        query = f'SELECT * FROM "{catalog.name}.{schema.name}"."{table.name}" LIMIT 1000'
+        query = f'SELECT * FROM "{catalog.name}"."{schema.name}"."{table.name}" LIMIT 1000'
         return self.conn.execute(query).df()
 
     def list_object_types(self):
