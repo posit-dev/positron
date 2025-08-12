@@ -21,6 +21,7 @@ import { COLUMN_PROFILE_BOOLEAN_LINE_COUNT } from './components/columnProfileBoo
 import { COLUMN_PROFILE_DATE_TIME_LINE_COUNT } from './components/columnProfileDatetime.js';
 import { PositronActionBarHoverManager } from '../../../../platform/positronActionBar/browser/positronActionBarHoverManager.js';
 import { PositronReactServices } from '../../../../base/browser/positronReactServices.js';
+import { summaryPanelEnhancementsFeatureEnabled } from '../common/positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
  * Constants.
@@ -225,14 +226,21 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	 */
 	override async fetchData(invalidateCache?: boolean) {
 		const rowDescriptor = this.firstRow;
+		const showSummaryPanelEnhancements = summaryPanelEnhancementsFeatureEnabled(this._services.configurationService);
 		if (rowDescriptor) {
-			await this._tableSummaryCache.update({
-				invalidateCache: !!invalidateCache,
-				searchText: this._searchText,
-				sortOption: this._sortOption,
-				firstColumnIndex: rowDescriptor.rowIndex,
-				screenColumns: this.screenRows
-			});
+			showSummaryPanelEnhancements
+				? await this._tableSummaryCache.update2({
+					invalidateCache: !!invalidateCache,
+					searchText: this._searchText,
+					sortOption: this._sortOption,
+					firstColumnIndex: rowDescriptor.rowIndex,
+					screenColumns: this.screenRows
+				})
+				: await this._tableSummaryCache.update({
+					invalidateCache: !!invalidateCache,
+					firstColumnIndex: rowDescriptor.rowIndex,
+					screenColumns: this.screenRows
+				});
 		}
 	}
 
