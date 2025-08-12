@@ -92,7 +92,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:21
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:22
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -100,7 +100,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:21
+        image: ghcr.io/posit-dev/positron-postgres-initialized:22
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_USER }}
           password: ${{ secrets.POSITRON_GITHUB_PAT }}
@@ -161,12 +161,9 @@ jobs:
         if: ${{ steps.attempt3.outcome == 'failure' }}
         run: exit 1
 
-      - name: Install Positron License
-        uses: ./.github/actions/install-license
+      - name: Move Positron License
         if: ${{ inputs.install_license }}
-        with:
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
-          license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
+        run: mv /root/positron-license /__w/positron
 
       - name: Setup E2E Test Environment
         uses: ./.github/actions/setup-test-env
