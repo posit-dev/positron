@@ -7,14 +7,15 @@
 import './dataGridWaffle.css';
 
 // React.
-import React, { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useRef, useState, WheelEvent } from 'react';
+import React, { forwardRef, JSX, KeyboardEvent, useEffect, useImperativeHandle, useLayoutEffect, useRef, useState, WheelEvent } from 'react';
 
 // Other dependencies.
 import { DataGridRow } from './dataGridRow.js';
+import * as DOM from '../../../../base/browser/dom.js';
 import { DataGridScrollbar } from './dataGridScrollbar.js';
 import { DataGridRowHeaders } from './dataGridRowHeaders.js';
 import { generateUuid } from '../../../../base/common/uuid.js';
-import { isMacintosh } from '../../../../base/common/platform.js';
+import { mainWindow } from '../../../../base/browser/window.js';
 import { DataGridCornerTopLeft } from './dataGridCornerTopLeft.js';
 import { DataGridColumnHeaders } from './dataGridColumnHeaders.js';
 import { DisposableStore } from '../../../../base/common/lifecycle.js';
@@ -22,9 +23,9 @@ import { DataGridScrollbarCorner } from './dataGridScrollbarCorner.js';
 import { pinToRange } from '../../../../base/common/positronUtilities.js';
 import { usePositronDataGridContext } from '../positronDataGridContext.js';
 import { FontConfigurationManager } from '../../fontConfigurationManager.js';
+import { isElectron, isMacintosh } from '../../../../base/common/platform.js';
 import { ExtendColumnSelectionBy, ExtendRowSelectionBy } from '../classes/dataGridInstance.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
-
 /**
  * DataGridWaffle component.
  * @param ref The foreard ref.
@@ -71,25 +72,32 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 		return () => disposableStore.dispose();
 	}, [services.configurationService, context.instance]);
 
-	// Layout useEffect.
-	useEffect(() => {
-		// Set the initial width and height.
-		setWidth(dataGridWaffleRef.current.offsetWidth);
-		setHeight(dataGridWaffleRef.current.offsetHeight);
+	// Automatic layout useLayoutEffect.
+	useLayoutEffect(() => {
+		// Wait for the data grid waffle to be mounted.
+		if (!dataGridWaffleRef.current) {
+			return;
+		}
 
 		/**
-		 * Sets the screen size.
+		 * Sets the size.
 		 * @returns A Promise<void> that resolves when the operation is complete.
 		 */
-		const setScreenSize = async (width: number, height: number) => {
-			// Set the screen size.
+		const setSize = async (width: number, height: number) => {
+			// Set the width and height in this component.
+			setWidth(width);
+			setHeight(height);
+
+			// Set the size in the data grid instance.
 			await context.instance.setSize(width, height);
 		};
 
-		// Set the initial screen size.
-		setScreenSize(
-			dataGridWaffleRef.current.offsetWidth,
-			dataGridWaffleRef.current.offsetHeight
+		// ResizeObserver does not work well on elements inside secondary Electron windows. This causes issues
+		// with the data grid's automatic layout feature, which relies on knowing when the size of the data grid
+		// waffle changes. See https://github.com/posit-dev/positron/issues/8695. This workaround ensures that the
+		// initial data grid waffle's size is updated when the component is mounted.
+		DOM.getWindow(dataGridWaffleRef.current).requestAnimationFrame(async () =>
+			await setSize(dataGridWaffleRef.current.offsetWidth, dataGridWaffleRef.current.offsetHeight)
 		);
 
 		// If automatic layout isn't enabled, return.
@@ -97,24 +105,45 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			return;
 		}
 
-		// Allocate and initialize the waffle resize observer.
-		const resizeObserver = new ResizeObserver(async entries => {
-			// Set the width and height.
-			setWidth(entries[0].contentRect.width);
-			setHeight(entries[0].contentRect.height);
+		// If we're not in Electron, or the data grid waffle is in the main window, allocate and
+		// initialize the data grid waffle resize observer. Otherwise, poll the size of the data
+		// grid waffle every 250 milliseconds. This is a workaround for ResizeObserver not working
+		// in secondary Electron windows.
+		if (!isElectron || DOM.getWindow(dataGridWaffleRef.current) === mainWindow) {
+			// Allocate and initialize the data grid waffle resize observer.
+			const dataGridWaffleResizeObserver = new ResizeObserver(async entries => {
+				await setSize(
+					entries[0].contentRect.width,
+					entries[0].contentRect.height
+				);
+			});
 
-			// Set the screen size.
-			await setScreenSize(
-				entries[0].contentRect.width,
-				entries[0].contentRect.height
-			);
-		});
+			// Start observing the size of the data grid waffle.
+			dataGridWaffleResizeObserver.observe(dataGridWaffleRef.current);
 
-		// Start observing the size of the waffle.
-		resizeObserver.observe(dataGridWaffleRef.current);
+			// Return the cleanup function that will disconnect the resize observers.
+			return () => dataGridWaffleResizeObserver.disconnect();
+		} else {
+			// Get the window of the data grid waffle.
+			const window = DOM.getWindow(dataGridWaffleRef.current);
 
-		// Return the cleanup function that will disconnect the resize observer.
-		return () => resizeObserver.disconnect();
+			// Set the last width and height.
+			let lastWidth = dataGridWaffleRef.current.offsetWidth;
+			let lastHeight = dataGridWaffleRef.current.offsetHeight;
+
+			// Poll the size of the data grid waffle every 250 milliseconds.
+			const interval = window.setInterval(async () => {
+				// If the size of the data grid waffle has changed, update the last width and height and set the screen size.
+				if (lastWidth !== dataGridWaffleRef.current.offsetWidth || lastHeight !== dataGridWaffleRef.current.offsetHeight) {
+					lastWidth = dataGridWaffleRef.current.offsetWidth;
+					lastHeight = dataGridWaffleRef.current.offsetHeight;
+					await setSize(lastWidth, lastHeight);
+				}
+			}, 250);
+
+			// Return the cleanup function that will clear the interval.
+			return () => window.clearInterval(interval);
+		}
 	}, [context.instance, dataGridWaffleRef]);
 
 	/**
