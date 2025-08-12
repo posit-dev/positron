@@ -177,8 +177,7 @@
   "dependencies": {
     "request": "^2.88.2",
     "tail": "^2.2.6",
-    "ws": "^8.18.0",
-    "@vscode/debugprotocol": "^1.28.0"
+    "ws": "^8.18.0"
   },
   "overrides": {
 	"request": {
