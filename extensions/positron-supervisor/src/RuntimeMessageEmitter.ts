@@ -28,6 +28,8 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 
 	private readonly _emitter = new vscode.EventEmitter<positron.LanguageRuntimeCommMessage
 		| positron.LanguageRuntimeCommOpen
+		| positron.LanguageRuntimeDebugEvent
+		| positron.LanguageRuntimeDebugReply
 		| positron.LanguageRuntimeResult
 		| positron.LanguageRuntimeOutput
 		| positron.LanguageRuntimeInput
@@ -36,9 +38,7 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 		| positron.LanguageRuntimeError
 		| positron.LanguageRuntimeStream
 		| positron.LanguageRuntimeUpdateOutput
-		| positron.LanguageRuntimePrompt
-		| positron.LanguageRuntimeDebugEvent
-		| positron.LanguageRuntimeDebugReply>();
+		| positron.LanguageRuntimePrompt>();
 
 	public readonly event = this._emitter.event;
 
@@ -213,6 +213,13 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 		} satisfies positron.LanguageRuntimeCommOpen);
 	}
 
+	/**
+	 * Converts a Jupyter debug event message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The debug event message
+	 */
 	private onDebugEvent(message: JupyterMessage, data: positron.DebugProtocolEvent): void {
 		this._emitter.fire({
 			id: message.header.msg_id,
@@ -224,6 +231,13 @@ export class RuntimeMessageEmitter implements vscode.Disposable {
 		} satisfies positron.LanguageRuntimeDebugEvent);
 	}
 
+	/**
+	 * Converts a Jupyter debug reply message to a LanguageRuntimeMessage and
+	 * emits it.
+	 *
+	 * @param message The message packet
+	 * @param data The debug reply message
+	 */
 	private onDebugReply(message: JupyterMessage, data: positron.DebugProtocolResponse): void {
 		this._emitter.fire({
 			id: message.header.msg_id,
