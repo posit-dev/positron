@@ -104,6 +104,7 @@ SIMPLER_NAMES = {
     "pandas.core.indexes.multi.MultiIndex": "pandas.MultiIndex",
     # Just display Int64Index as pandas.Index, since the former is deprecated since pandas v1.4.0.
     "pandas.core.indexes.numeric.Int64Index": "pandas.Index",
+    "duckdb.duckdb.DuckDBPyConnection": "duckdb.DuckDBPyConnection",
 }
 
 
