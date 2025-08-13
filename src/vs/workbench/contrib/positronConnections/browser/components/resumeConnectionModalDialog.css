@@ -4,14 +4,18 @@
  *--------------------------------------------------------------------------------------------*/
 
 .connections-resume-connection-modal .positron-modal-dialog-box .content-area {
-	bottom: 0px;
+	bottom: 10px;
+}
+
+.connections-resume-connection-modal .positron-modal-dialog-box .content-area .action-bar-button {
+	height: 32px;
 }
 
 .connections-resume-connection-modal .content {
 	height: 100%;
 	display: grid;
 	gap: 10px;
-	grid-template-rows: 18px auto 28px;
+	grid-template-rows: 18px auto 32px;
 	grid-template-columns: auto 90px;
 	grid-template-areas:
 		"title  title"
