@@ -258,12 +258,6 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 			this._group.scopedContextKeyService
 		);
 
-		// Set the convert to code context key based on the configuration value.
-		this._isConvertToCodeEnabledContextKey.set(
-			checkDataExplorerConvertToCodeEnabled(this._configurationService)
-		);
-
-
 		// Listen for configuration changes to the convert to code setting and update the context key accordingly.
 		this._register(this._configurationService.onDidChangeConfiguration(event => {
 			if (event.affectsConfiguration(DATA_EXPLORER_CONVERT_TO_CODE)) {
