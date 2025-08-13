@@ -48,6 +48,7 @@ export class DataExplorer {
 	selectFilterModalValue: (value: string) => Locator;
 	filteringMenu: Locator;
 	menuItemClearFilters: Locator;
+	codeBox: Locator;
 
 	constructor(private code: Code, private workbench: Workbench) {
 		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
@@ -59,6 +60,7 @@ export class DataExplorer {
 		this.applyFilterButton = this.code.driver.page.getByRole('button', { name: 'Apply Filter' });
 		this.filteringMenu = this.code.driver.page.getByRole('button', { name: 'Filtering' });
 		this.menuItemClearFilters = this.code.driver.page.getByRole('button', { name: 'Clear Filters' });
+		this.codeBox = this.code.driver.page.locator('.positron-modal-dialog-box .convert-to-code-editor');
 	}
 
 	async clearAllFilters() {
@@ -428,5 +430,32 @@ export class DataExplorer {
 
 	async clickConvertToCodeButton() {
 		await this.workbench.editorActionBar.clickButton('Convert to Code');
+	}
+
+	async expectConvertToCodeModalToBeVisible() {
+		await test.step('Verify convert to code modal is visible', async () => {
+			await expect(this.codeBox).toBeVisible();
+			await this.workbench.modals.expectButtonToBeVisible('Copy Code');
+			await this.workbench.modals.expectButtonToBeVisible('Cancel');
+		});
+	}
+
+	async expectSyntaxHighlighting() {
+		await test.step('Verify syntax highlighting', async () => {
+
+			// Verify code highlighting - more than one style means highlighting is active
+			const mtkLocator = this.code.driver.page.locator('[class*="mtk"]');
+			const tokenClasses = await mtkLocator.evaluateAll(spans =>
+				Array.from(new Set(
+					spans.flatMap(span => Array.from(span.classList))
+						.filter(cls => cls.startsWith('mtk'))
+				))
+			);
+			expect(tokenClasses.length).toBeGreaterThan(1);
+
+			// Verify bracket highlighting
+			const bracketHighlightingCount = await this.code.driver.page.locator('[class*="bracket-highlighting-"]').count();
+			expect(bracketHighlightingCount).toBeGreaterThan(0);
+		});
 	}
 }
