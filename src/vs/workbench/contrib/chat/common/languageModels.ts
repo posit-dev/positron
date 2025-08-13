@@ -144,6 +144,12 @@ export interface IPositronChatProvider {
 	readonly id: string;
 	readonly displayName: string;
 }
+
+// re-added in 1.103.0 merge
+export interface ILanguageModelsChangeEvent {
+	added?: ILanguageModelChatMetadataAndIdentifier[];
+	removed?: string[];
+}
 // --- End Positron ---
 
 export interface ILanguageModelChatMetadata {
@@ -197,6 +203,8 @@ export interface ILanguageModelChatResponse {
 }
 
 export interface ILanguageModelChatProvider {
+	// --- Start Positron ---
+	// --- End Positron ---
 	onDidChange: Event<void>;
 	prepareLanguageModelChat(options: { silent: boolean }, token: CancellationToken): Promise<ILanguageModelChatMetadataAndIdentifier[]>;
 	sendChatRequest(modelId: string, messages: IChatMessage[], from: ExtensionIdentifier, options: { [name: string]: any }, token: CancellationToken): Promise<ILanguageModelChatResponse>;
@@ -335,6 +343,10 @@ export class LanguageModelsService implements ILanguageModelsService {
 	private _currentProvider?: IPositronChatProvider;
 	private readonly _onDidChangeCurrentProvider = this._store.add(new Emitter<IPositronChatProvider | undefined>());
 	readonly onDidChangeCurrentProvider = this._onDidChangeCurrentProvider.event;
+
+	// this event was re-added in the 1.103.0 merge
+	private readonly _onDidChangeProviders = this._store.add(new Emitter<ILanguageModelsChangeEvent>());
+	readonly onDidChangeProviders = this._onDidChangeProviders.event;
 	// --- End Positron ---
 
 	private readonly _providers = new Map<string, ILanguageModelChatProvider>();
@@ -388,47 +400,66 @@ export class LanguageModelsService implements ILanguageModelsService {
 					this._vendors.set(item.vendor, item);
 				}
 			}
+			// --- Start Positron ---
+			// Restore provider change events that was removed in 1.103.0
+			/*
 			for (const [vendor, _] of this._providers) {
 				if (!this._vendors.has(vendor)) {
 					this._providers.delete(vendor);
 				}
 			}
+			*/
+			const removed: string[] = [];
+			for (const [vendor, _] of this._providers) {
+				if (!this._vendors.has(vendor)) {
+					this._providers.delete(vendor);
+					removed.push(vendor);
+				}
+			}
+			if (removed.length > 0) {
+				this._onDidChangeProviders.fire({ removed });
+			}
+			// --- End Positron ---
 		}));
-		// --- Start Positron ---
-		// this._store.add(this._onDidChangeProviders.event((event) => {
-		// 	const currentProvider = this._currentProvider;
-		// 	if (!currentProvider && event.added) {
-		// 		// There is no current provider and models were added, update the current provider
-		// 		// using the first added user-selectable model.
-		// 		const firstSelectableModel = event.added.find(model => model.metadata.isUserSelectable);
-		// 		if (firstSelectableModel) {
-		// 			this.currentProvider = this.getProviderFromLanguageModelMetadata(firstSelectableModel.metadata);
-		// 		}
-		// 	} else if (currentProvider && event.removed) {
-		// 		// There is a current provider and models were removed.
-		// 		// If no user-selectable models are left for the current provider,
-		// 		// switch to the next available provider.
-		// 		const hasCurrentProvider = Array.from(this._providers.values())
-		// 			.some((model) => model.metadata.isUserSelectable &&
-		// 				model.metadata.family === currentProvider.id);
-		// 		if (!hasCurrentProvider) {
-		// 			// No user-selectable models left for the current provider,
-		// 			// switch to the next available provider.
-		// 			this.currentProvider = this.getLanguageModelProviders()[0];
-		// 		}
-		// 	}
 
-		// 	// Now that the current provider is updated, fire the public language model changed event.
-		// 	this._onDidChangeLanguageModels.fire(event);
-		// }));
+		// --- Start Positron ---
+		this._store.add(this._onDidChangeProviders.event((event) => {
+			const currentProvider = this._currentProvider;
+			if (!currentProvider && event.added) {
+				// There is no current provider and models were added, update the current provider
+				// using the first added user-selectable model.
+				const firstSelectableModel = event.added.find(model => model.metadata.isUserSelectable);
+				if (firstSelectableModel) {
+					this.currentProvider = this.getProviderFromLanguageModelMetadata(firstSelectableModel.metadata);
+				}
+			} else if (currentProvider && event.removed) {
+				// There is a current provider and models were removed.
+				// If no user-selectable models are left for the current provider,
+				// switch to the next available provider.
+				// const hasCurrentProvider = Array.from(this._providers.values())
+				// 	.some((model) => model.metadata.isUserSelectable &&
+				// 		model.metadata.family === currentProvider.id);
+				// if (!hasCurrentProvider) {
+
+				if (event.removed?.includes(currentProvider.id)) {
+					// No user-selectable models left for the current provider,
+					// switch to the next available provider.
+					this.currentProvider = this.getLanguageModelProviders()[0];
+				}
+			}
+
+			// Now that the current provider is updated, fire the public language model changed event.
+			// this._onDidChangeLanguageModels.fire(event);
+			this._onLanguageModelChange.fire();
+		}));
 
 		// // Restore the current provider from storage, if it exists.
-		// const storedCurrentProvider = this._storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
-		// if (storedCurrentProvider) {
-		// 	// Set privately to avoid writing to storage again.
-		// 	this._currentProvider = storedCurrentProvider;
-		// 	this._onDidChangeCurrentProvider.fire(storedCurrentProvider);
-		// }
+		const storedCurrentProvider = this._storageService.getObject<IPositronChatProvider>(this.getSelectedProviderStorageKey(), StorageScope.APPLICATION, undefined);
+		if (storedCurrentProvider) {
+			// Set privately to avoid writing to storage again.
+			this._currentProvider = storedCurrentProvider;
+			this._onDidChangeCurrentProvider.fire(storedCurrentProvider);
+		}
 		// --- End Positron ---
 	}
 
@@ -469,9 +500,9 @@ export class LanguageModelsService implements ILanguageModelsService {
 
 	private getProviderFromLanguageModelMetadata(metadata: ILanguageModelChatMetadata): IPositronChatProvider {
 		return {
-			// TODO: Should we use vendor instead?
 			id: metadata.family,
-			displayName: metadata.providerName ?? metadata.name,
+			// TODO: Need to add the provider display name
+			displayName: metadata.providerName ?? metadata.vendor ?? metadata.family,
 		};
 	}
 

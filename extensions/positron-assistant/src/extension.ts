@@ -148,7 +148,7 @@ async function registerModelWithAPI(modelConfig: ModelConfig, context: vscode.Ex
 			throw new Error(error.message);
 		}
 
-		const vendor = 'positron'; // as defined in package.json in "languageModels"
+		const vendor = modelConfig.provider; // as defined in package.json in "languageModels"
 		const modelDisp = vscode.lm.registerChatModelProvider(vendor, languageModel);
 		modelDisposables.push(new ModelDisposable(modelDisp, modelConfig));
 		vscode.commands.executeCommand('setContext', hasChatModelsContextKey, true);

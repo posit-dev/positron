@@ -222,7 +222,16 @@
     ],
     "languageModels": [
       {
-        "vendor": "positron"
+        "vendor": "echo",
+        "displayName": "Echo"
+      },
+      {
+        "vendor": "bedrock",
+        "displayName": "Amazon Bedrock"
+      },
+      {
+        "vendor": "anthropic",
+        "displayName": "Anthropic"
       }
     ],
     "languageModelTools": [
