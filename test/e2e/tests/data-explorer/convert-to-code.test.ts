@@ -9,25 +9,61 @@ Summary:
 - Ensures basic filters (e.g. "is not null", "contains") are applied correctly across supported data frame types.
 - Confirms the filtered result is exported in the correct syntax for each language/library combination.
 
- * |Type              |Language |Construct                         |Expected Code Style     |
- * |------------------|---------|----------------------------------|------------------------|
- * |pandas.DataFrame  |Python   |pd.DataFrame(...)                 |Pandas                  |
- * |polars.DataFrame  |Python   |pl.DataFrame(...)                 |Polars                  |
- * |data.frame        |R        |data.frame(...)                   |Tidyverse (or Base R)   |
- * |tibble            |R        |tibble::tibble(...)               |Tidyverse               |
- * |data.table        |R        |data.table::data.table(...)       |data.table              |
+ * |Type              |Language |Variable                                   |Expected Code Style     |
+ * |------------------|---------|-------------------------------------------|------------------------|
+ * |pandas.DataFrame  |Python   |<class 'pandas.core.frame.DataFrame'>      |Pandas                  |
+ * |polars.DataFrame  |Python   |<class 'polars.dataframe.frame.DataFrame'> |Polars                  |
+ * |data.frame        |R        |<data.frame>                               |Tidyverse (or Base R)   |
+ * |tibble            |R        |<tbl_df>                                   |Tidyverse               |
+ * |data.table        |R        |<data.table>                               |data.table              |
  */
 
 import { test, tags } from '../_test.setup';
 import { pandasDataFrameScript } from './helpers/convert-to-code-data.js';
 
-const testCases: { language: 'Python' | 'R'; dataScript: string; expectedCodeStyle: string; dataFrameType: string }[] = [
-	{ language: 'Python', dataScript: pandasDataFrameScript, expectedCodeStyle: 'Pandas', dataFrameType: 'pandas.DataFrame' },
-	// { language: 'Python', dataScript: polarsDataFrameScript, expectedCodeStyle: 'Polars', dataFrameType: 'polars.DataFrame' },
-	// { language: 'R', dataScript: rDataFrameScript, expectedCodeStyle: 'Tidyverse', dataFrameType: 'data.frame' },
-	// { language: 'R', dataScript: tibbleScript, expectedCodeStyle: 'Tidyverse', dataFrameType: 'tibble' },
-	// { language: 'R', dataScript: dataTableScript, expectedCodeStyle: 'data.table', dataFrameType: 'data.table' },
-];
+const testCases: {
+	language: 'Python' | 'R';
+	dataScript: string;
+	expectedCodeStyle: string;
+	dataFrameType: string;
+	expectedGeneratedCode: string;
+}[] = [
+		{
+			language: 'Python',
+			dataScript: pandasDataFrameScript,
+			expectedCodeStyle: 'Pandas',
+			dataFrameType: 'pandas.DataFrame',
+			expectedGeneratedCode: 'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)'
+		},
+		// {
+		//   language: 'Python',
+		//   dataScript: polarsDataFrameScript,
+		//   expectedCodeStyle: 'Polars',
+		//   dataFrameType: 'polars.DataFrame',
+		//   expectedGeneratedCode: 'tbd'
+		// },
+		// {
+		//   language: 'R',
+		//   dataScript: rDataFrameScript,
+		//   expectedCodeStyle: 'Tidyverse',
+		//   dataFrameType: 'data.frame',
+		//   expectedGeneratedCode: 'tbd'
+		// },
+		// {
+		//   language: 'R',
+		//   dataScript: tibbleScript,
+		//   expectedCodeStyle: 'Tidyverse',
+		//   dataFrameType: 'tibble',
+		//   expectedGeneratedCode: 'tbd'
+		// },
+		// {
+		//   language: 'R',
+		//   dataScript: dataTableScript,
+		//   expectedCodeStyle: 'data.table',
+		//   dataFrameType: 'data.table',
+		//   expectedGeneratedCode: 'tbd'
+		// },
+	];
 
 test.use({
 	suiteId: __filename
@@ -45,10 +81,10 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 		await hotKeys.closeAllEditors();
 	});
 
-	testCases.forEach(({ language, dataScript, expectedCodeStyle, dataFrameType }) => {
+	testCases.forEach(({ language, dataScript, expectedCodeStyle, dataFrameType, expectedGeneratedCode }) => {
 
 		test(`${language} - ${expectedCodeStyle} (${dataFrameType}) - Verify copy code behavior with basic filters`, async function ({ app, sessions, hotKeys }) {
-			const { dataExplorer, variables, modals, console } = app.workbench;
+			const { dataExplorer, variables, modals, console, clipboard, toasts } = app.workbench;
 			await sessions.start(language === 'Python' ? 'python' : 'r');
 
 			// execute code to create a data construct
@@ -72,31 +108,29 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			// copy code and verify result is accurate
 			await dataExplorer.clickConvertToCodeButton();
 			await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
-			await modals.expectToContainText(
-				'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)'
-			);
+			await dataExplorer.convertToCodeModal.expectToBeVisible();
 
-			const expectedGeneratedCode = {
-				'Pandas': 'filter_mask = (df[\'status\'] == \'active\') & (df[\'score\'] >= 85) & (df[\'is_student\'] == False)',
-				// 'Polars': 'tbd',
-				// 'Tidyverse': 'tbd',
-				// 'data.table': 'tbd'
-			}[expectedCodeStyle] || '';
+			// verify the generated code is correct and has syntax highlights
 			await modals.expectToContainText(expectedGeneratedCode);
+			await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
+
+			// verify copy to clipboard behavior
+			await dataExplorer.convertToCodeModal.clickOK();
+			await clipboard.expectClipboardTextToBe(expectedGeneratedCode + '\ndf[filter_mask]');
+			await toasts.expectToBeVisible('Copied to clipboard');
 		});
-	});
+	})
+
+	// test('Python - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
+	// });
+
+	// test('R - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
+	// });
+
+	// test('R - Verify copy code with changed default', async function ({ app, r, openDataFile }) {
+	// });
+
 });
-
-
-// test('Python - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
-// });
-
-// test('R - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
-// });
-
-// test('R - Verify copy code with changed default', async function ({ app, r, openDataFile }) {
-// });
-
 
 
 
