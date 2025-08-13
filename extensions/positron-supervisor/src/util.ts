@@ -123,8 +123,8 @@ type PayloadStructure = {
 
 /**
  * @description Type predicate to check if an object is VSBufferLike ({ buffer: Buffer }).
- * @param {unknown} item - The item to check.
- * @returns {boolean} True if the item is VSBufferLike, false otherwise.
+ * @param item - The item to check.
+ * @returns True if the item is VSBufferLike, false otherwise.
  */
 function isVSBufferLike(item: unknown): item is VSBufferLike {
 	return (
@@ -144,8 +144,8 @@ type PayloadWithDataValue = PayloadStructure & {
 
 /**
  * @description Type predicate to check if the payload has the required nested data.value structure.
- * @param {unknown} payload - The payload to check.
- * @returns {boolean} True if the payload has the expected structure, false otherwise.
+ * @param payload - The payload to check.
+ * @returns True if the payload has the expected structure, false otherwise.
  */
 function isPayloadWithDataValue(payload: unknown): payload is PayloadWithDataValue {
 	return (
@@ -164,9 +164,9 @@ function isPayloadWithDataValue(payload: unknown): payload is PayloadWithDataVal
 
 /**
  * @description Validates if an item is a Buffer or VSBufferLike and within the size limit.
- * @param {unknown} item - The item to validate.
- * @param {number} maxSize - The maximum allowed buffer size in bytes.
- * @returns {Buffer | undefined} The Buffer instance if valid, otherwise undefined.
+ * @param item - The item to validate.
+ * @param maxSize - The maximum allowed buffer size in bytes.
+ * @returns The Buffer instance if valid, otherwise undefined.
  */
 function validateAndGetBufferInstance(item: unknown, maxSize: number): Buffer | undefined {
 	let bufferInstance: Buffer | undefined;
@@ -195,8 +195,8 @@ function validateAndGetBufferInstance(item: unknown, maxSize: number): Buffer | 
  *              found in `payload.data.value.buffers`, converts them to base64 strings,
  *              and restructures the content payload. If the expected structure isn't found,
  *              the original payload is returned as content with empty buffers.
- * @param {unknown} payload - The input payload, potentially containing serialized data and buffers.
- * @returns {UnpackedResult} An object containing the processed content and an array of base64 buffer strings.
+ * @param payload - The input payload, potentially containing serialized data and buffers.
+ * @returns An object containing the processed content and an array of base64 buffer strings.
  * @export
  */
 export function unpackSerializedObjectWithBuffers(payload: unknown): {
