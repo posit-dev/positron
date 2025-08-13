@@ -10,6 +10,7 @@ import { arrayFromIndexRange } from './utils.js';
 import { DataExplorerClientInstance } from '../../languageRuntime/common/languageRuntimeDataExplorerClient.js';
 import { dataExplorerExperimentalFeatureEnabled } from './positronDataExplorerExperimentalConfig.js';
 import { ColumnDisplayType, ColumnHistogramParamsMethod, ColumnProfileRequest, ColumnProfileResult, ColumnProfileSpec, ColumnProfileType, ColumnSchema, SearchSchemaSortOrder, SearchSchemaResult } from '../../languageRuntime/common/positronDataExplorerComm.js';
+import { summaryPanelEnhancementsFeatureEnabled } from './positronDataExplorerSummaryEnhancementsFeatureFlag.js';
 
 /**
  * Constants.
@@ -189,34 +190,47 @@ export class TableSummaryCache extends Disposable {
 	//#region Public Methods
 
 	/**
-	 * Returns a value which indicates whether the specified column index is expanded.
-	 * @param columnIndex The columm index.
-	 * @returns A value which indicates whether the specified column index is expanded.
+	 * Returns a value which indicates whether the specified display index is expanded.
+	 * @param displayIndex The display position index for the column.
+	 * @returns A value which indicates whether the specified display index is expanded.
 	 */
-	isColumnExpanded(columnIndex: number) {
-		return this._expandedColumns.has(columnIndex);
+	isColumnExpanded(displayIndex: number) {
+		const originalIndex = summaryPanelEnhancementsFeatureEnabled(this._configurationService)
+			? this._displayPositionOrder[displayIndex]
+			: displayIndex;
+
+		return originalIndex !== undefined ? this._expandedColumns.has(originalIndex) : false;
 	}
 
 	/**
-	 * Toggles the expanded state of the specified column index.
-	 * @param columnIndex The columm index.
+	 * Toggles the expanded state of the specified display index.
+	 * @param displayIndex The display position index for the column.
 	 */
-	async toggleExpandColumn(columnIndex: number) {
+	async toggleExpandColumn(displayIndex: number) {
+		// Convert display index to original column index.
+		const originalIndex = summaryPanelEnhancementsFeatureEnabled(this._configurationService)
+			? this._displayPositionOrder[displayIndex]
+			: displayIndex;
+
+		if (originalIndex === undefined) {
+			return;
+		}
+
 		// If the column is expanded, collpase it, fire the onDidUpdate event, and return.
-		if (this._expandedColumns.has(columnIndex)) {
-			this._expandedColumns.delete(columnIndex);
+		if (this._expandedColumns.has(originalIndex)) {
+			this._expandedColumns.delete(originalIndex);
 			this._onDidUpdateEmitter.fire();
 			return;
 		}
 
 		// Expand the column.
-		this._expandedColumns.add(columnIndex);
+		this._expandedColumns.add(originalIndex);
 
 		// Fire the onDidUpdate event.
 		this._onDidUpdateEmitter.fire();
 
 		// Update the column profile cache.
-		await this.updateColumnProfileCache([columnIndex]);
+		await this.updateColumnProfileCache([originalIndex]);
 	}
 
 	/**
@@ -486,21 +500,27 @@ export class TableSummaryCache extends Disposable {
 	}
 
 	/**
-	 * Gets the column schema for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column schema for the specified column index.
+	 * Gets the column schema for the specified display index.
+	 * @param displayIndex The display position index for the column.
+	 * @returns The column schema for the specified display index.
 	 */
-	getColumnSchema(columnIndex: number) {
-		return this._columnSchemaCache.get(columnIndex);
+	getColumnSchema(displayIndex: number) {
+		const originalIndex = summaryPanelEnhancementsFeatureEnabled(this._configurationService)
+			? this._displayPositionOrder[displayIndex]
+			: displayIndex;
+		return originalIndex !== undefined ? this._columnSchemaCache.get(originalIndex) : undefined;
 	}
 
 	/**
-	 * Gets the column profile for the specified column index.
-	 * @param columnIndex The column index.
-	 * @returns The column profile for the specified column index.
+	 * Gets the column profile for the specified display index.
+	 * @param displayIndex The display position index for the column.
+	 * @returns The column profile for the specified display index.
 	 */
-	getColumnProfile(columnIndex: number) {
-		return this._columnProfileCache.get(columnIndex);
+	getColumnProfile(displayIndex: number) {
+		const originalIndex = summaryPanelEnhancementsFeatureEnabled(this._configurationService)
+			? this._displayPositionOrder[displayIndex]
+			: displayIndex;
+		return originalIndex !== undefined ? this._columnProfileCache.get(originalIndex) : undefined;
 	}
 
 	//#endregion Public Methods
