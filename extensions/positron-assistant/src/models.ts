@@ -94,7 +94,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		signedIn: false,
 		provider: {
 			id: 'echo',
-			displayName: 'Echo Language Model',
+			displayName: 'Echo',
 		},
 		supportedOptions: [],
 		defaults: {

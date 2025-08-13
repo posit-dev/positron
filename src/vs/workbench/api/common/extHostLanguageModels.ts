@@ -262,6 +262,9 @@ export class ExtHostLanguageModels implements ExtHostLanguageModelsShape {
 					isDefault: m.isDefault,
 					isUserSelectable: m.isUserSelectable,
 					modelPickerCategory: m.category ?? DEFAULT_MODEL_PICKER_CATEGORY,
+					// --- Start Positron ---
+					providerName: (data.provider as any).providerName ?? data.extensionName,
+					// --- End Positron ---
 					capabilities: m.capabilities ? {
 						vision: m.capabilities.vision,
 						toolCalling: !!m.capabilities.toolCalling,
