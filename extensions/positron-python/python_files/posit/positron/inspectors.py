@@ -1153,7 +1153,7 @@ class SQLAlchemyEngineInspector(BaseConnectionInspector):
 
 
 class DuckDBConnectionInspector(BaseConnectionInspector):
-    CLASS_QNAME = ("duckdb.duckdb.DuckDBPyConnection",)
+    CLASS_QNAME = ("duckdb.DuckDBPyConnection",)
 
     def _is_active(self, value) -> bool:
         try:
