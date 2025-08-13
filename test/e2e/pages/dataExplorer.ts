@@ -48,6 +48,7 @@ export class DataExplorer {
 	selectFilterModalValue: (value: string) => Locator;
 	filteringMenu: Locator;
 	menuItemClearFilters: Locator;
+	statusBar: Locator;
 
 	constructor(private code: Code, private workbench: Workbench) {
 		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
@@ -59,6 +60,7 @@ export class DataExplorer {
 		this.applyFilterButton = this.code.driver.page.getByRole('button', { name: 'Apply Filter' });
 		this.filteringMenu = this.code.driver.page.getByRole('button', { name: 'Filtering' });
 		this.menuItemClearFilters = this.code.driver.page.getByRole('button', { name: 'Clear Filters' });
+		this.statusBar = this.code.driver.page.locator(STATUS_BAR);
 	}
 
 	async clearAllFilters() {
@@ -102,6 +104,29 @@ export class DataExplorer {
 		}
 
 		return tableData;
+	}
+
+	async getRowCount(): Promise<number> {
+		const statusText = await this.statusBar.innerText();
+		const match = statusText.match(/(\d+(?:,\d+)*)\s+rows?/);
+		if (match && match[1]) {
+			return parseInt(match[1].replace(/,/g, ''), 10);
+		}
+		return 0;
+	}
+
+	async getColumnCount(): Promise<number> {
+		const statusText = await this.statusBar.innerText();
+		const match = statusText.match(/(\d+(?:,\d+)*)\s+columns?/);
+		if (match && match[1]) {
+			return parseInt(match[1].replace(/,/g, ''), 10);
+		}
+		return 0;
+	}
+
+	async waitForTableToLoad(timeout = 60000): Promise<void> {
+		await expect(this.statusBar.getByLabel('Computing')).toBeVisible();
+		await expect(this.statusBar.getByLabel('Idle')).toBeVisible({ timeout });
 	}
 
 	async clickLowerRightCorner() {
