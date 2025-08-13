@@ -5,6 +5,9 @@
 
 .summary-row-filter-bar {
 	height: 36px;
+	min-width: 0;
+	min-height: 0;
+	overflow: hidden;
 	display: flex;
 	align-items: center;
 	justify-content: space-between;

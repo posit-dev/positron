@@ -343,7 +343,7 @@ export const DataExplorer = () => {
 
 			<div ref={leftColumnRef} className='left-column'>
 				{layout === PositronDataExplorerLayout.SummaryOnLeft &&
-					showSummaryPanelEnhancements && !columnsCollapsed &&
+					showSummaryPanelEnhancements &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
@@ -381,7 +381,7 @@ export const DataExplorer = () => {
 			}
 			<div ref={rightColumnRef} className='right-column'>
 				{layout !== PositronDataExplorerLayout.SummaryOnLeft &&
-					showSummaryPanelEnhancements && !columnsCollapsed &&
+					showSummaryPanelEnhancements &&
 					<SummaryRowActionBar
 						instance={context.instance.tableSchemaDataGridInstance}
 					/>
