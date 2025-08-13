@@ -5,6 +5,7 @@
 
 .positron-notebook-cell {
 	position: relative;
+	margin-left: 12px;
 
 	border-radius: var(--vscode-positronNotebook-cell-radius);
 
