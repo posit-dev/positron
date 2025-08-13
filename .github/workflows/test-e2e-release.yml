@@ -72,13 +72,13 @@ jobs:
       - name: Get & install latest release
         id: get_latest_release
         run: |
-          response=$(curl -s -H "Authorization: token ${{ secrets.POSITRON_GITHUB_PAT }}" "https://api.github.com/repos/posit-dev/positron-builds/releases")
+          response=$(curl -s -H "Authorization: token ${{ secrets.POSITRON_GITHUB_RO_PAT }}" "https://api.github.com/repos/posit-dev/positron-builds/releases")
           latest_tag=$(echo "${response}" | jq -r '.[0].tag_name')
           asset_url=$(echo "${response}" | jq -r '.[0].assets[] | select(.name|match("deb")) | .url')
           filename=$(echo "${response}" | jq -r '.[0].assets[] | select(.name|match("deb")) | .name')
           echo "Latest release: ${latest_tag}"
           echo "Downloading ${filename} from ${asset_url}..."
-          curl -L -H "Accept: application/octet-stream" -H "Authorization: token ${{ secrets.POSITRON_GITHUB_PAT }}" "${asset_url}" -o "${filename}"
+          curl -L -H "Accept: application/octet-stream" -H "Authorization: token ${{ secrets.POSITRON_GITHUB_RO_PAT }}" "${asset_url}" -o "${filename}"
           sudo dpkg -i "${filename}"
 
       - name: Setup E2E Test Environment

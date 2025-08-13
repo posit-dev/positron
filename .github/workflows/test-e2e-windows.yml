@@ -106,7 +106,7 @@ jobs:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         shell: pwsh
         # nvm on windows does not see .nvmrc
         #
