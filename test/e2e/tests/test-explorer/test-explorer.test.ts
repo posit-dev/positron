@@ -11,7 +11,7 @@ test.use({
 });
 
 test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
-	test.beforeAll(async function ({ app, settings, hotKeys }) {
+	test.beforeAll(async function ({ app, settings, r, hotKeys }) {
 		try {
 			// don't use native file picker
 			await settings.set({

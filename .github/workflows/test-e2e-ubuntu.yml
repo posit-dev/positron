@@ -96,14 +96,14 @@ jobs:
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
-        username: ${{ secrets.POSITRON_GITHUB_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_PAT }}
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
         image: ghcr.io/posit-dev/positron-postgres-initialized:25
         credentials:
-          username: ${{ secrets.POSITRON_GITHUB_USER }}
-          password: ${{ secrets.POSITRON_GITHUB_PAT }}
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
         ports:
           - 5432:5432
         env:
