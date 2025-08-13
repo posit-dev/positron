@@ -224,8 +224,22 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 				const folderNames = folderPath.split('/');
 
 				for (const folderName of folderNames) {
+					const quickInputOption = app.workbench.quickInput.quickInputResult.getByText(folderName);
+
+					// Ensure we are ready to select the next folder
+					await playwright.expect(async () => {
+						try {
+							await playwright.expect(quickInputOption).toBeVisible({ timeout: 2000 });
+						} catch (error) {
+							await app.code.driver.page.keyboard.press('PageDown');
+							throw error;
+						}
+
+					}).toPass({ timeout: 30000 });
+
 					await app.workbench.quickInput.quickInput.pressSequentially(folderName + '/');
-					const quickInputOption = app.workbench.quickInput.quickInput.getByRole('option', { name: folderName });
+
+					// Ensure next folder is no longer visible
 					await playwright.expect(quickInputOption).not.toBeVisible();
 				}
 
