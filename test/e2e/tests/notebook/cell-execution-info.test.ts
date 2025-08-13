@@ -3,6 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
+import { Application } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
 import { expect } from '@playwright/test';
 
@@ -13,7 +14,7 @@ test.use({
 /**
  * Helper function to execute code in a cell and wait for the execution info icon to appear
  */
-async function executeCodeAndWaitForIcon(app: any, code: string, cellIndex: number = 0) {
+async function executeCodeAndWaitForIcon(app: Application, code: string, cellIndex: number = 0) {
 	await app.workbench.notebooksPositron.addCodeToCellAtIndex(code);
 	await app.workbench.notebooksPositron.executeCodeInCell(cellIndex);
 	await app.workbench.notebooksPositron.waitForExecutionInfoIcon(cellIndex);
