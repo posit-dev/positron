@@ -295,8 +295,8 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				// Format percentage for tooltip
 				return nls.localize(
 					'positron.missingValues.some',
-					'{0}% of values are missing ({1} values)',
-					nullPercent,
+					'{0} of values are missing ({1} values)',
+					getDisplayNullPercent(),
 					nullCount.toLocaleString()
 				);
 			}
