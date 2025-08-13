@@ -188,7 +188,7 @@ jobs:
       - name: Run Playwright Tests (Electron)
         shell: bash
         env:
-          POSITRON_PY_VER_SEL: "3.12.11 (Venv: .venv)"
+          POSITRON_PY_VER_SEL: "3.12.11"
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
