@@ -108,20 +108,18 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			// copy code and verify result is accurate
 			await dataExplorer.clickConvertToCodeButton();
 			await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
-			await dataExplorer.expectConvertToCodeModalToBeVisible();
+			await dataExplorer.convertToCodeModal.expectToBeVisible();
 
 			// verify the generated code is correct and has syntax highlights
 			await modals.expectToContainText(expectedGeneratedCode);
-			await dataExplorer.expectSyntaxHighlighting();
+			await dataExplorer.convertToCodeModal.expectSyntaxHighlighting();
 
 			// verify copy to clipboard behavior
-			await modals.clickButton('Copy');
+			await dataExplorer.convertToCodeModal.clickOK();
 			await clipboard.expectClipboardTextToBe(expectedGeneratedCode + '\ndf[filter_mask]');
 			await toasts.expectToBeVisible('Copied to clipboard');
 		});
 	})
-	// `filter_mask = (df['status'] == 'active') & (df['score'] >= 85) & (df['is_student'] == False) df[filter_mask]`
-	// "filter_mask = (df['status'] == 'active') & (df['score'] >= 85) & (df['is_student'] == False)"
 
 	// test('Python - Verify copy code with many filters', async function ({ app, r, openDataFile }) {
 	// });

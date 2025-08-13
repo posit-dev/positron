@@ -48,7 +48,7 @@ export class DataExplorer {
 	selectFilterModalValue: (value: string) => Locator;
 	filteringMenu: Locator;
 	menuItemClearFilters: Locator;
-	codeBox: Locator;
+	private _convertToCodeModal: ConvertToCodeModal;
 
 	constructor(private code: Code, private workbench: Workbench) {
 		this.clearSortingButton = this.code.driver.page.locator(CLEAR_SORTING_BUTTON);
@@ -60,7 +60,7 @@ export class DataExplorer {
 		this.applyFilterButton = this.code.driver.page.getByRole('button', { name: 'Apply Filter' });
 		this.filteringMenu = this.code.driver.page.getByRole('button', { name: 'Filtering' });
 		this.menuItemClearFilters = this.code.driver.page.getByRole('button', { name: 'Clear Filters' });
-		this.codeBox = this.code.driver.page.locator('.positron-modal-dialog-box .convert-to-code-editor');
+		this._convertToCodeModal = new ConvertToCodeModal(code, workbench);
 	}
 
 	async clearAllFilters() {
@@ -432,7 +432,19 @@ export class DataExplorer {
 		await this.workbench.editorActionBar.clickButton('Convert to Code');
 	}
 
-	async expectConvertToCodeModalToBeVisible() {
+	get convertToCodeModal(): ConvertToCodeModal {
+		return this._convertToCodeModal;
+	}
+}
+
+export class ConvertToCodeModal {
+	codeBox: Locator;
+
+	constructor(private code: Code, private workbench: Workbench) {
+		this.codeBox = this.code.driver.page.locator('.positron-modal-dialog-box .convert-to-code-editor');
+	}
+
+	async expectToBeVisible() {
 		await test.step('Verify convert to code modal is visible', async () => {
 			await expect(this.codeBox).toBeVisible();
 			await this.workbench.modals.expectButtonToBeVisible('Copy Code');
@@ -442,7 +454,6 @@ export class DataExplorer {
 
 	async expectSyntaxHighlighting() {
 		await test.step('Verify syntax highlighting', async () => {
-
 			// Verify code highlighting - more than one style means highlighting is active
 			const mtkLocator = this.code.driver.page.locator('[class*="mtk"]');
 			const tokenClasses = await mtkLocator.evaluateAll(spans =>
@@ -457,5 +468,13 @@ export class DataExplorer {
 			const bracketHighlightingCount = await this.code.driver.page.locator('[class*="bracket-highlighting-"]').count();
 			expect(bracketHighlightingCount).toBeGreaterThan(0);
 		});
+	}
+
+	async clickOK() {
+		await this.workbench.modals.clickButton('Copy Code');
+	}
+
+	async clickCancel() {
+		await this.workbench.modals.clickButton('Cancel');
 	}
 }
