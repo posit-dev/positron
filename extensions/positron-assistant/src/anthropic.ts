@@ -11,6 +11,7 @@ import { isLanguageModelImagePart, LanguageModelImagePart } from './languageMode
 import { isChatImagePart, isCacheBreakpointPart, parseCacheBreakpoint, processMessages } from './utils.js';
 import { DEFAULT_MAX_TOKEN_OUTPUT } from './constants.js';
 import { log, recordTokenUsage, recordRequestTokenUsage } from './extension.js';
+import { availableModels } from './models.js';
 
 /**
  * Options for controlling cache behavior in the Anthropic language model.
@@ -77,18 +78,36 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 	}
 
 	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
-		return [
-			{
-				id: this.id,
-				name: this.name,
-				family: this.provider,
-				version: this._context?.extension.packageJSON.version ?? '',
-				maxInputTokens: 0,
-				maxOutputTokens: this.maxOutputTokens,
-				capabilities: this.capabilities,
+		const models = availableModels.get(this.provider);
 
-			}
-		];
+		if (!models || models.length === 0) {
+			return [
+				{
+					id: this.id,
+					name: this.name,
+					family: this.provider,
+					version: this._context?.extension.packageJSON.version ?? '',
+					maxInputTokens: 0,
+					maxOutputTokens: this.maxOutputTokens,
+					capabilities: this.capabilities,
+
+				}
+			];
+		}
+
+		const languageModels: vscode.LanguageModelChatInformation[] = models.map(model => ({
+			id: model.identifier,
+			name: model.name,
+			family: this._config.provider,
+			version: model.identifier, // 1.103.0 TODO: is there a better value? this may vary between providers
+			maxInputTokens: this.maxInputTokens,
+			maxOutputTokens: this.maxOutputTokens,
+			capabilities: this.capabilities,
+			isDefault: model === models[0],
+			isUserSelectable: true,
+		}));
+
+		return languageModels;
 	}
 
 	async provideLanguageModelChatResponse(

@@ -113,7 +113,7 @@ class EchoLanguageModel implements positron.ai.LanguageModelChatProvider2 {
 		return EchoLanguageModel.source.provider.displayName;
 	}
 
-	async prepareLanguageModelChat(options: { silent: boolean; }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
+	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		return [
 			{
 				id: this.id,
@@ -283,17 +283,41 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 
 	async prepareLanguageModelChat(options: { silent: boolean }, token: vscode.CancellationToken): Promise<vscode.LanguageModelChatInformation[]> {
 		// Prepare the language model chat information
-		return [
-			{
-				id: this.model.modelId,
-				name: this.name,
-				family: this.model.provider,
-				version: this.model.specificationVersion,
-				maxInputTokens: 0,
-				maxOutputTokens: this.maxOutputTokens,
-				capabilities: this.capabilities,
-			} satisfies vscode.LanguageModelChatInformation
-		];
+		const providerId = this._config.provider;
+		const models = availableModels.get(providerId);
+
+		if (!models || models.length === 0) {
+			return [
+				{
+					id: this.model.modelId,
+					name: this.name,
+					family: this.model.provider,
+					version: this.model.specificationVersion,
+					maxInputTokens: 0,
+					maxOutputTokens: this.maxOutputTokens,
+					capabilities: this.capabilities,
+					isDefault: true,
+					isUserSelectable: true,
+				} satisfies vscode.LanguageModelChatInformation
+			];
+		}
+
+		// Return the available models for this provider
+		// The first model is the default model
+		const languageModels: vscode.LanguageModelChatInformation[] = models.map(model => ({
+			id: model.identifier,
+			name: model.name,
+			family: this.model.provider,
+			version: this.model.specificationVersion,
+			maxInputTokens: 0,
+			maxOutputTokens: model.maxOutputTokens ?? this.maxOutputTokens,
+			capabilities: this.capabilities,
+			// is default if it's the first model out of models
+			isDefault: model === models[0],
+			isUserSelectable: true,
+		}));
+
+		return languageModels;
 	}
 
 	async provideLanguageModelChatResponse(
@@ -324,7 +348,7 @@ abstract class AILanguageModel implements positron.ai.LanguageModelChatProvider2
 		// Consider: it'd be more verbose but we should consider including this information
 		// in the hardcoded model metadata in the model config.
 		const bedrockCacheBreakpoint = this.provider === 'bedrock' &&
-			!this.model.modelId.startsWith('us.anthropic.claude-3-5')
+			!this.model.modelId.startsWith('us.anthropic.claude-3-5');
 
 		const aiMessages: ai.CoreMessage[] = [];
 
@@ -768,7 +792,7 @@ export function getLanguageModels() {
 	return languageModels;
 }
 
-export function newLanguageModel(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider2 {
+export function newLanguageModelChatProvider(config: ModelConfig, context: vscode.ExtensionContext): positron.ai.LanguageModelChatProvider2 {
 	const providerClass = getLanguageModels().find((cls) => cls.source.provider.id === config.provider);
 	if (!providerClass) {
 		throw new Error(`Unsupported chat provider: ${config.provider}`);
