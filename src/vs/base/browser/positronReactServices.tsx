@@ -55,6 +55,8 @@ import { IPositronNotebookOutputWebviewService } from '../../workbench/contrib/p
 import { IPositronDataExplorerService } from '../../workbench/services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { ILanguageFeaturesService } from '../../editor/common/services/languageFeatures.js';
 import { ILanguageConfigurationService } from '../../editor/common/languages/languageConfigurationRegistry.js';
+import { IQuickChatService } from '../../workbench/contrib/chat/browser/chat.js';
+import { IActionWidgetService } from '../../platform/actionWidget/browser/actionWidget.js';
 
 /**
  * PositronReactServices interface.
@@ -80,6 +82,7 @@ export class PositronReactServices {
 	 */
 	public constructor(
 		@IAccessibilityService public readonly accessibilityService: IAccessibilityService,
+		@IActionWidgetService public readonly actionWidgetService: IActionWidgetService,
 		@IClipboardService public readonly clipboardService: IClipboardService,
 		@ICommandService public readonly commandService: ICommandService,
 		@IConfigurationService public readonly configurationService: IConfigurationService,
@@ -118,6 +121,7 @@ export class PositronReactServices {
 		@IPositronVariablesService public readonly positronVariablesService: IPositronVariablesService,
 		@IPositronWebviewPreloadService public readonly positronWebviewPreloadService: IPositronWebviewPreloadService,
 		@IPreferencesService public readonly preferencesService: IPreferencesService,
+		@IQuickChatService public readonly quickChatService: IQuickChatService,
 		@IQuickInputService public readonly quickInputService: IQuickInputService,
 		@IRuntimeSessionService public readonly runtimeSessionService: IRuntimeSessionService,
 		@IRuntimeStartupService public readonly runtimeStartupService: IRuntimeStartupService,
