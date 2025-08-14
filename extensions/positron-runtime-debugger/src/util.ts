@@ -7,7 +7,9 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugProtocol } from '@vscode/debugprotocol';
-import { DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR } from './constants.js';
+
+/* The descriptor used in each runtime's debugger output channel. */
+const DebuggerOutputChannelDescriptor = vscode.l10n.t('Debugger');
 
 export class DisposableStore implements vscode.Disposable {
 	private _disposables = new Set<vscode.Disposable>();
@@ -119,7 +121,7 @@ export function createDebuggerOutputChannel(runtimeSession: positron.LanguageRun
 	} else {
 		sessionTitle = sessionMode.charAt(0).toUpperCase() + sessionMode.slice(1);
 	}
-	const name = `${runtimeName}: ${DEBUGGER_OUTPUT_CHANNEL_DESCRIPTOR} (${sessionTitle})`;
+	const name = `${runtimeName}: ${DebuggerOutputChannelDescriptor} (${sessionTitle})`;
 	const outputChannel = vscode.window.createOutputChannel(name, { log: true });
 	return outputChannel;
 }

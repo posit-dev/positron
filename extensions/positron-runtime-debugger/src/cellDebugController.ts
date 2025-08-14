@@ -10,7 +10,7 @@ import { Disposable } from './util.js';
 /**
  * Controls the execution and lifecycle of a notebook cell during debugging.
  */
-export class CellDebugController extends Disposable implements vscode.Disposable {
+export class CellDebugController extends Disposable {
 	/* Tracks the runtime execution ID of the current cell. */
 	private _executionId?: string;
 

@@ -23,7 +23,7 @@ export interface PathEncoderOptions {
 /*
  * Deterministically encodes arbitrary strings into file paths.
  */
-export class PathEncoder extends Disposable implements vscode.Disposable {
+export class PathEncoder extends Disposable {
 	private readonly _onDidUpdateOptions = this._register(new vscode.EventEmitter<void>());
 
 	/* Current encoding options. */

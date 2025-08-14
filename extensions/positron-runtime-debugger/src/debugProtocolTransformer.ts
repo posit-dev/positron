@@ -3,7 +3,7 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { DebugProtocol } from '@vscode/debugprotocol';
-import { Location } from './types.js';
+import { Location } from './locationMapper.js';
 
 /* Transforms debug protocol messages. */
 type DebugProtocolTransform<T extends DebugProtocol.ProtocolMessage> = (obj: T) => T;
