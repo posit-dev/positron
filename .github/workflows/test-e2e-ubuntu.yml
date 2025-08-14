@@ -201,7 +201,6 @@ jobs:
           CURRENTS_TAG: ${{ inputs.currents_tags || 'electron/ubuntu' }}
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID}}
-          ANTHROPIC_API_KEY: ${{ steps.load_from_1password.outputs.ANTHROPIC_API_KEY }}
         run: |
           echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
 
