@@ -2,7 +2,7 @@
 # Copyright (C) 2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from .data_explorer_comm import (
     ColumnDisplayType,
@@ -135,15 +135,28 @@ class CodeConverter:
         raise NotImplementedError("Subclasses must implement _convert_sorts method")
 
 
-class PandasConverter(CodeConverter):
+class DataFrameConverter(CodeConverter):
+    """Base class for specific DataFrame converters like Pandas and Polars."""
+
     def __init__(
-        self, table, table_name: str, params: ConvertToCodeParams, *, was_series: bool = False
+        self,
+        table,
+        table_name: str,
+        params: ConvertToCodeParams,
+        *,
+        was_series: bool = False,
+        syntax_name: str,
+        filter_handler_class,
+        sort_handler_class,
     ):
         self.was_series = was_series
+        self.syntax_name = syntax_name
+        self.filter_handler_class = filter_handler_class
+        self.sort_handler_class = sort_handler_class
         super().__init__(table, table_name, params)
 
     def convert(self) -> List[StrictStr]:
-        if self.params.code_syntax_name.code_syntax_name != "pandas":
+        if self.params.code_syntax_name.code_syntax_name != self.syntax_name:
             raise NotImplementedError(
                 f"Code conversion for {self.params.code_syntax_name} is not implemented."
             )
@@ -168,21 +181,53 @@ class PandasConverter(CodeConverter):
         # process each filter key to some comparison string
         # that can be used in the method chain
         for filter_key in filters:
-            handler = PandasFilterHandler(filter_key, self.table_name, was_series=self.was_series)
+            handler = self.filter_handler_class(
+                filter_key, self.table_name, was_series=self.was_series
+            )
             comparison = handler.convert_filters()
             if comparison:
                 comparisons.append(comparison)
 
-        if len(comparisons) == 1:
-            # Single comparison, no need for filter mask
-            method_chain_parts.append(f"[{comparisons[0]}]")
+        if len(comparisons) == 1 and comparisons:
+            # Single comparison
+            method_chain_setup, method_chain_parts = self._format_single_filter(comparisons[0])
         elif comparisons:
-            method_chain_setup.append(
-                f"filter_mask = {' & '.join(f'({comp})' for comp in comparisons)}"
-            )
-            method_chain_parts.append("[filter_mask]")
+            # Multiple comparisons
+            method_chain_setup, method_chain_parts = self._format_multi_filter(comparisons)
 
         return method_chain_setup, method_chain_parts
+
+    def _format_single_filter(self, comparison: str) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Format code for a single filter.
+
+        Parameters
+        ----------
+        comparison : str
+            Filter comparison string.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of (method_chain_setup, method_chain_parts).
+        """
+        raise NotImplementedError("Subclasses must implement _format_single_filter method")
+
+    def _format_multi_filter(
+        self, comparisons: List[str]
+    ) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Format code for multiple filters.
+
+        Parameters
+        ----------
+        comparisons : List[str]
+            List of filter comparison strings.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of (method_chain_setup, method_chain_parts).
+        """
+        raise NotImplementedError("Subclasses must implement _format_multi_filter method")
 
     def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """Generate code for sorting.
@@ -195,13 +240,71 @@ class PandasConverter(CodeConverter):
         if not self.params.sort_keys:
             return [], []
 
-        handler = PandasSortHandler(self.params.sort_keys, self.table, was_series=self.was_series)
+        handler = self.sort_handler_class(
+            self.params.sort_keys, self.table, was_series=self.was_series
+        )
         method_chain_setup, method_chain_parts = handler.convert_sorts()
 
         return method_chain_setup, method_chain_parts
 
 
-class PandasSortHandler:
+class PandasConverter(DataFrameConverter):
+    def __init__(
+        self, table, table_name: str, params: ConvertToCodeParams, *, was_series: bool = False
+    ):
+        super().__init__(
+            table,
+            table_name,
+            params,
+            was_series=was_series,
+            syntax_name="pandas",
+            filter_handler_class=PandasFilterHandler,
+            sort_handler_class=PandasSortHandler,
+        )
+
+    def _format_single_filter(self, comparison: str) -> tuple[List[StrictStr], List[StrictStr]]:
+        # Single comparison, use direct indexing syntax
+        return [], [f"[{comparison}]"]
+
+    def _format_multi_filter(
+        self, comparisons: List[str]
+    ) -> tuple[List[StrictStr], List[StrictStr]]:
+        # Multiple comparisons, create filter mask
+        setup = [f"filter_mask = {' & '.join(f'({comp})' for comp in comparisons)}"]
+        parts = ["[filter_mask]"]
+        return setup, parts
+
+
+class PolarsConverter(DataFrameConverter):
+    def __init__(
+        self, table, table_name: str, params: ConvertToCodeParams, *, was_series: bool = False
+    ):
+        super().__init__(
+            table,
+            table_name,
+            params,
+            was_series=was_series,
+            syntax_name="polars",
+            filter_handler_class=PolarsFilterHandler,
+            sort_handler_class=PolarsSortHandler,
+        )
+
+    def _format_single_filter(self, comparison: str) -> tuple[List[StrictStr], List[StrictStr]]:
+        # Single comparison, use .filter() method
+        return [], [f".filter({comparison})"]
+
+    def _format_multi_filter(
+        self, comparisons: List[str]
+    ) -> tuple[List[StrictStr], List[StrictStr]]:
+        # Multiple comparisons, create expression and use .filter() method
+        setup = [f"filter_expr = {' & '.join(f'({comp})' for comp in comparisons)}"]
+        parts = [".filter(filter_expr)"]
+        return setup, parts
+
+
+class SortHandler:
+    """Base class for sort handlers."""
+
     def __init__(self, sort_keys: List[ColumnSortKey], table, *, was_series: bool = False):
         self.sort_keys = sort_keys
         self.table = table
@@ -221,6 +324,39 @@ class PandasSortHandler:
             return self._convert_multi_sort()
 
     def _convert_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Convert a single sort key to code.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of (method_chain_setup, method_chain_parts).
+        """
+        raise NotImplementedError("Subclasses must implement _convert_single_sort method")
+
+    def _convert_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Convert multiple sort keys to code.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of (method_chain_setup, method_chain_parts).
+        """
+        raise NotImplementedError("Subclasses must implement _convert_multi_sort method")
+
+    def _get_column_names_from_indices(self) -> List[str]:
+        """Extract column names from indices.
+
+        Returns
+        -------
+        List[str]
+            List of column names.
+        """
+        col_indices = [key.column_index for key in self.sort_keys]
+        return [self.table.columns[i] for i in col_indices]
+
+
+class PandasSortHandler(SortHandler):
+    def _convert_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
         method_chain_setup = []
         method_chain_parts = []
 
@@ -238,8 +374,7 @@ class PandasSortHandler:
         return method_chain_setup, method_chain_parts
 
     def _convert_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        col_indices = [key.column_index for key in self.sort_keys]
-        column_names = [self.table.columns[i] for i in col_indices]
+        column_names = self._get_column_names_from_indices()
         ascending_values = [sk.ascending for sk in self.sort_keys]
 
         method_chain_setup = [
@@ -252,14 +387,47 @@ class PandasSortHandler:
         return method_chain_setup, method_chain_parts
 
 
-class PandasFilterHandler:
+class PolarsSortHandler(SortHandler):
+    def _convert_single_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+        method_chain_setup = []
+        method_chain_parts = []
+
+        sort_key = self.sort_keys[0]
+        col_idx = sort_key.column_index
+        column_name = self.table.columns[col_idx]
+
+        # In polars we use .sort() instead of .sort_values()
+        # and descending instead of ascending=False
+        if sort_key.ascending:
+            method_chain_parts.append(f".sort({column_name!r})")
+        else:
+            method_chain_parts.append(f".sort({column_name!r}, descending=True)")
+
+        return method_chain_setup, method_chain_parts
+
+    def _convert_multi_sort(self) -> tuple[List[StrictStr], List[StrictStr]]:
+        column_names = self._get_column_names_from_indices()
+        descending_values = [not sk.ascending for sk in self.sort_keys]
+
+        # For polars, we use a list of columns and a separate descending parameter
+        method_chain_setup = [
+            f"sort_columns = {column_names}",
+            f"descending = {descending_values}",
+        ]
+
+        method_chain_parts = [".sort(sort_columns, descending=descending)"]
+
+        return method_chain_setup, method_chain_parts
+
+
+class FilterHandler:
+    """Base class for filter handlers."""
+
     def __init__(self, filter_key: RowFilter, table_name: str, *, was_series: bool = False):
         self.filter_key = filter_key
         self.table_name = table_name
         self.column_name = "" if was_series else f"[{filter_key.column_schema.column_name!r}]"
-
-    def convert_filters(self) -> Optional[str]:
-        filter_handlers = {
+        self.filter_handlers = {
             RowFilterType.Between: self._convert_between_filter,
             RowFilterType.NotBetween: self._convert_between_filter,
             RowFilterType.Compare: self._convert_compare_filter,
@@ -272,7 +440,15 @@ class PandasFilterHandler:
             RowFilterType.Search: self._convert_text_search_filter,
         }
 
-        handler = filter_handlers.get(self.filter_key.filter_type)
+    def convert_filters(self) -> Optional[str]:
+        """Convert filter to code string.
+
+        Returns
+        -------
+        Optional[str]
+            Filter code string or None if not implemented.
+        """
+        handler = self.filter_handlers.get(self.filter_key.filter_type)
         if handler:
             return handler()
 
@@ -280,6 +456,38 @@ class PandasFilterHandler:
             return None  # Currently not implemented
 
         return None
+
+    def _convert_between_filter(self) -> str:
+        raise NotImplementedError("Subclasses must implement _convert_between_filter method")
+
+    def _convert_compare_filter(self) -> str:
+        raise NotImplementedError("Subclasses must implement _convert_compare_filter method")
+
+    def _convert_text_search_filter(self) -> str:
+        raise NotImplementedError("Subclasses must implement _convert_text_search_filter method")
+
+    def _convert_is_empty_filter(self) -> str:
+        raise NotImplementedError("Subclasses must implement _convert_is_empty_filter method")
+
+    def _convert_not_empty_filter(self) -> str:
+        raise NotImplementedError("Subclasses must implement _convert_not_empty_filter method")
+
+    def _convert_is_null_filter(self) -> str:
+        raise NotImplementedError("Subclasses must implement _convert_is_null_filter method")
+
+    def _convert_not_null_filter(self) -> str:
+        raise NotImplementedError("Subclasses must implement _convert_not_null_filter method")
+
+    def _convert_is_true_filter(self) -> str:
+        raise NotImplementedError("Subclasses must implement _convert_is_true_filter method")
+
+    def _convert_is_false_filter(self) -> str:
+        raise NotImplementedError("Subclasses must implement _convert_is_false_filter method")
+
+
+class PandasFilterHandler(FilterHandler):
+    def __init__(self, filter_key: RowFilter, table_name: str, *, was_series: bool = False):
+        super().__init__(filter_key, table_name, was_series=was_series)
 
     def _convert_between_filter(self) -> str:
         assert isinstance(self.filter_key.params, FilterBetween)
@@ -374,3 +582,109 @@ class PandasFilterHandler:
 
     def _convert_is_false_filter(self) -> str:
         return f"{self.table_name}{self.column_name} == False"
+
+
+class PolarsFilterHandler(FilterHandler):
+    def __init__(self, filter_key: RowFilter, table_name: str, *, was_series: bool = False):
+        super().__init__(filter_key, table_name, was_series=was_series)
+        # In Polars, we use column expressions without the DataFrame reference
+        # we just need the column name without table reference
+        self.col_expr = f"pl.col({filter_key.column_schema.column_name!r})"
+
+    def _convert_between_filter(self) -> str:
+        assert isinstance(self.filter_key.params, FilterBetween)
+        is_between = self.filter_key.filter_type == RowFilterType.Between
+        left = self.filter_key.params.left_value
+        right = self.filter_key.params.right_value
+
+        # Polars uses .is_between() function
+        if is_between:
+            return f"{self.col_expr}.is_between({left}, {right})"
+        else:
+            return f"~{self.col_expr}.is_between({left}, {right})"
+
+    def _convert_compare_filter(self) -> str:
+        """Handle comparison filters for Polars.
+
+        Returns
+        -------
+        str
+            Filter comparison code string.
+        """
+        assert isinstance(self.filter_key.params, FilterComparison)
+        op = (
+            "=="
+            if self.filter_key.params.op.value == FilterComparisonOp.Eq
+            else self.filter_key.params.op.value
+        )
+
+        value = self.filter_key.params.value
+
+        if self.filter_key.column_schema.type_display == ColumnDisplayType.String:
+            value = repr(value)
+
+        # Handle date-like values for Polars
+        elif self.filter_key.column_schema.type_display in [
+            ColumnDisplayType.Datetime,
+            ColumnDisplayType.Date,
+        ]:
+            # For Polars use pl.datetime() or pl.date()
+            if self.filter_key.column_schema.type_display == ColumnDisplayType.Datetime:
+                value = f"pl.datetime({repr(value)})"
+            else:
+                value = f"pl.date({repr(value)})"
+
+        return f"{self.col_expr} {op} {value}"
+
+    def _convert_text_search_filter(self) -> str:
+        """Handle text search filters for Polars.
+
+        Returns
+        -------
+        str
+            Text search filter code string.
+        """
+        assert isinstance(self.filter_key.params, FilterTextSearch)
+
+        search_type = self.filter_key.params.search_type
+        value = self.filter_key.params.term
+        case_sensitive = self.filter_key.params.case_sensitive
+
+        # For case insensitive search in Polars
+        if not case_sensitive:
+            col_expr = f"{self.col_expr}.str.to_lowercase()"
+            if isinstance(value, str):
+                value = value.lower()
+        else:
+            col_expr = self.col_expr
+
+        if search_type == TextSearchType.Contains:
+            return f"{col_expr}.str.contains({value!r})"
+        elif search_type == TextSearchType.NotContains:
+            return f"~{col_expr}.str.contains({value!r})"
+        elif search_type == TextSearchType.RegexMatch:
+            return f"{col_expr}.str.contains({value!r}, literal=False)"
+        elif search_type == TextSearchType.StartsWith:
+            return f"{col_expr}.str.starts_with({value!r})"
+        elif search_type == TextSearchType.EndsWith:
+            return f"{col_expr}.str.ends_with({value!r})"
+        else:
+            raise ValueError(f"Unsupported TextSearchType: {search_type}")
+
+    def _convert_is_empty_filter(self) -> str:
+        return f"{self.col_expr}.str.lengths() == 0"
+
+    def _convert_not_empty_filter(self) -> str:
+        return f"{self.col_expr}.str.lengths() > 0"
+
+    def _convert_is_null_filter(self) -> str:
+        return f"{self.col_expr}.is_null()"
+
+    def _convert_not_null_filter(self) -> str:
+        return f"{self.col_expr}.is_not_null()"
+
+    def _convert_is_true_filter(self) -> str:
+        return f"{self.col_expr} == True"
+
+    def _convert_is_false_filter(self) -> str:
+        return f"{self.col_expr} == False"
