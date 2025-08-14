@@ -396,22 +396,22 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	}
 
 	/**
-	 * Validates that a path is an existing directory.
+	 * Validates that a URI is an existing directory.
 	 *
-	 * @param path The path to validate
-	 * @returns A promise that resolves to true if the path is a directory and exists,
+	 * @param uri The URI to validate
+	 * @returns A promise that resolves to true if the URI is a directory and exists,
 	 * false otherwise.
 	 */
-	private async isValidDirectory(path: string): Promise<boolean> {
+	private async isValidDirectory(uri: URI): Promise<boolean> {
 		try {
-			const stat = await this._fileService.stat(URI.file(path));
+			const stat = await this._fileService.stat(uri);
 			if (!stat.isDirectory) {
-				this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${path}' exists but is not a directory`);
+				this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri.fsPath}' exists but is not a directory`);
 				return false;
 			}
 			return true;
 		} catch (error) {
-			this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${path}' does not exist or is not accessible:`, error);
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri.fsPath}' does not exist or is not accessible:`, error);
 			return false;
 		}
 	}
@@ -428,7 +428,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		// The default value is the notebook's parent directory, if it exists.
 		let defaultValue: string | undefined;
 		const notebookParent = dirname(notebookUri.fsPath);
-		if (await this.isValidDirectory(notebookParent)) {
+		if (await this.isValidDirectory(notebookUri.with({ path: notebookParent }))) {
 			defaultValue = notebookParent;
 		}
 
@@ -452,7 +452,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Check if the result is a directory that exists
-		if (await this.isValidDirectory(resolvedValue)) {
+		if (await this.isValidDirectory(notebookUri.with({ path: resolvedValue }))) {
 			return resolvedValue;
 		} else {
 			return defaultValue;
