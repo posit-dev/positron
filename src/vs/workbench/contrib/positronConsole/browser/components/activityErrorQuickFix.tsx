@@ -44,17 +44,15 @@ export const ConsoleQuickFix = (props: ConsoleQuickFixProps) => {
 	 */
 	const pressedFixHandler = async () => {
 		// Handle console quick fix action.
-		quickChatService.openOne({
-			query: props.outputLines ? `${fixPrompt}\n\`\`\`${formattedOutput}\`\`\`` : fixPrompt,
-			renderInputOnTop: false
+		quickChatService.open({
+			query: props.outputLines ? `${fixPrompt}\n\`\`\`${formattedOutput}\`\`\`` : fixPrompt
 		});
 	};
 
 	const pressedExplainHandler = async () => {
 		// Handle console quick explain action.
-		quickChatService.openOne({
-			query: props.outputLines ? `${explainPrompt}\n\`\`\`${formattedOutput}\`\`\`` : explainPrompt,
-			renderInputOnTop: false
+		quickChatService.open({
+			query: props.outputLines ? `${explainPrompt}\n\`\`\`${formattedOutput}\`\`\`` : explainPrompt
 		});
 	};
 
