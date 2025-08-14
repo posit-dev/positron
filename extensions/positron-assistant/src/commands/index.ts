@@ -8,6 +8,7 @@ import { PositronAssistantChatContext } from '../participants.js';
 import { registerFixCommand } from './fix.js';
 import { registerQuartoCommand } from './quarto.js';
 import { registerExplainCommand } from './explain.js';
+import { registerDocCommand } from './doc.js';
 
 /**
  * A function that handles chat requests.
@@ -32,4 +33,5 @@ export function registerAssistantCommands() {
 	registerFixCommand();
 	registerExplainCommand();
 	registerQuartoCommand();
+	registerDocCommand();
 }
