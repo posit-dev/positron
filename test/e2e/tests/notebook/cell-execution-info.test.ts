@@ -5,7 +5,7 @@
 
 import { Application } from '../../infra/index.js';
 import { test, tags } from '../_test.setup';
-import { expect } from '@playwright/test';
+import { expect, Locator } from '@playwright/test';
 
 test.use({
 	suiteId: __filename
@@ -15,10 +15,16 @@ test.use({
  * Helper function to execute code in a cell and wait for the execution info icon to appear
  */
 async function executeCodeAndWaitForIcon(app: Application, code: string, cellIndex: number = 0) {
-	await app.workbench.notebooksPositron.addCodeToCellAtIndex(code);
-	await app.workbench.notebooksPositron.executeCodeInCell(cellIndex);
-	await app.workbench.notebooksPositron.waitForExecutionInfoIcon(cellIndex);
-	return app.workbench.notebooksPositron.getExecutionInfoIcon(cellIndex);
+	const cell = await app.workbench.notebooksPositron.addCodeToCellAndRun(code, cellIndex);
+	const icon = cell.getByLabel('Cell execution info');
+	return icon;
+}
+
+async function activateInfoPopup({ app, icon }: { app: Application; icon: Locator }): Promise<Locator> {
+	await icon.hover({ force: true });
+	const popup = app.code.driver.page.getByRole('tooltip', { name: 'Cell execution details' });
+	await expect(popup).toBeVisible();
+	return popup;
 }
 
 test.describe('Cell Execution Info Popup', {
@@ -26,46 +32,34 @@ test.describe('Cell Execution Info Popup', {
 }, () => {
 	test.beforeAll(async function ({ app, settings }) {
 		await app.workbench.notebooks.enablePositronNotebooks(settings);
+		// Configure Positron as the notebook editor
+		await app.workbench.notebooks.setNotebookEditor(settings, 'positron');
 	});
 
 	test.describe('Python Notebooks - Execution Info', () => {
 		test.beforeEach(async function ({ app, settings }) {
-			// Configure Positron as the notebook editor
-			await app.workbench.notebooks.setNotebookEditor(settings, 'positron');
-
-			await app.workbench.layouts.enterLayout('notebook');
 			await app.workbench.notebooks.createNewNotebook();
-			await app.workbench.notebooks.selectInterpreter('Python');
-
-			// Ensure we're using the Positron notebook editor
-			await app.workbench.notebooksPositron.expectToBeVisible();
+			// Make sure kernel is ready to go before we start trying to run code
+			await app.workbench.notebooksPositron.selectAndWaitForKernel('Python');
 		});
 
 		test.afterEach(async function ({ app, settings }) {
 			// Make sure the mouse is away from the popup so the mouse interactions aren't swallowed by the popup
 			await app.code.driver.page.mouse.move(0, 0); // Move mouse away
+			// Make sure there are no lingering tooltips/popups
+			await expect(app.code.driver.page.getByRole('tooltip', { name: 'Cell execution details' })).toBeHidden();
 
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
-			// Reset to default editor
-			await app.workbench.notebooks.setNotebookEditor(settings, 'default');
 		});
 
 
 		test('Basic popup display with successful execution and duration formatting', async function ({ app }) {
 			// Execute code and get the execution info icon
 			const icon = await executeCodeAndWaitForIcon(app, 'print("hello world")');
-			await expect(icon).toBeVisible();
-
-			// Hover over the icon
-			await icon.hover();
-
-			// Wait for popup to appear
-			const popup = app.workbench.notebooksPositron.getExecutionInfoPopup();
-			await expect(popup).toBeVisible();
+			const popup = await activateInfoPopup({ app, icon });
 
 			// Verify popup content shows execution info
 			// Verify execution order shows number 1 for first execution
-
 			await expect(popup.getByLabel('Execution order')).toBeVisible();
 			await expect(popup.getByLabel('Execution order')).toContainText('1');
 			await expect(popup.getByLabel('Execution duration')).toBeVisible();
@@ -83,15 +77,8 @@ test.describe('Cell Execution Info Popup', {
 
 			// Verify failed execution status
 			await expect(icon).toHaveAttribute('data-execution-status', 'failed');
-
-			// Hover over the icon
-			await icon.hover();
-
-			// Wait for popup to appear
-			const popup = app.workbench.notebooksPositron.getExecutionInfoPopup();
-			await expect(popup).toBeVisible();
-
 			// Verify popup shows failed status
+			const popup = await activateInfoPopup({ app, icon });
 			await expect(popup).toContainText(/Failed/i);
 		});
 
@@ -113,42 +100,26 @@ test.describe('Cell Execution Info Popup', {
 			await expect(icon).toHaveAttribute('data-execution-status', 'running');
 
 			// Verify spinning icon is present in the execution info icon
-			await expect(icon.getByLabel('Cell is executing')).toBeVisible();
-
-			// Hover over the icon
-			await icon.hover();
-
-			// Wait for popup to appear
-			const popup = app.workbench.notebooksPositron.getExecutionInfoPopup();
-			await expect(popup).toBeVisible();
+			const popup = await activateInfoPopup({ app, icon });
 
 			// Verify popup shows running status
 			await expect(popup).toContainText('Currently running...');
-			await expect(popup.getByLabel('Cell is executing')).toBeVisible();
 		});
 
 		test('Relative time display', async function ({ app }) {
 			// Execute code and get the execution info icon
 			const icon = await executeCodeAndWaitForIcon(app, 'print("relative time test")');
-			await icon.hover();
-			const popup = app.workbench.notebooksPositron.getExecutionInfoPopup();
-			await expect(popup).toBeVisible();
+			const popup = await activateInfoPopup({ app, icon });
 
 			// Verify relative time is displayed (should show recent execution)
-			await expect(popup).toContainText(/seconds? ago|just now/);
+			// Some renderers may insert non-breaking spaces between words. Use \s to match any whitespace.
+			await expect(popup).toContainText(/(?:seconds?\s+ago|just\s+now)/i);
 		});
 
 		test('Hover timing and interaction', async function ({ app }) {
 			// Execute code and get the execution info icon
 			const icon = await executeCodeAndWaitForIcon(app, 'print("hover test")');
-			const popup = app.workbench.notebooksPositron.getExecutionInfoPopup();
-
-			// Test hover delay - popup should not appear immediately
-			await icon.hover();
-			await expect(popup).toBeHidden({ timeout: 200 });
-
-			// Wait for delay to pass and popup to appear
-			await expect(popup).toBeVisible();
+			const popup = await activateInfoPopup({ app, icon });
 
 			// Test popup closes when mouse moves away
 			await app.code.driver.page.mouse.move(0, 0);

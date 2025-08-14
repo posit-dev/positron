@@ -115,6 +115,48 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Add code to a cell and run it - combined operation for efficiency.
+	 * This avoids repeatedly finding the same cell and provides better performance.
+	 * Returns the cell locator for further operations.
+	 */
+	async addCodeToCellAndRun(code: string, cellIndex = 0, delay = 0): Promise<Locator> {
+		return await test.step(`Add code and run cell ${cellIndex}`, async () => {
+			// Get the cell once and reuse the reference
+			const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
+
+			// Select the cell
+			await cell.click();
+
+			// Find and fill the Monaco editor
+			const editor = cell.locator('.positron-cell-editor-monaco-widget textarea');
+			await editor.focus();
+
+			if (delay) {
+				await editor.pressSequentially(code, { delay });
+			} else {
+				await editor.fill(code);
+			}
+
+			// Find and click the run button
+			const runButton = cell.getByLabel('Run cell');
+			await runButton.click();
+
+			// // Wait for execution to complete
+			// const spinner = cell.getByLabel('Cell is executing');
+
+			// // Wait for spinner to appear (cell is executing)
+			// await expect(spinner).toBeVisible({ timeout: DEFAULT_TIMEOUT }).catch(() => {
+			// 	// Spinner might not appear for very fast executions, that's okay
+			// });
+
+			// // Wait for spinner to disappear (execution complete)
+			// await expect(spinner).toHaveCount(0, { timeout: DEFAULT_TIMEOUT });
+
+			return cell;
+		});
+	}
+
+	/**
 	 * Get execution info icon for a specific cell
 	 */
 	getExecutionInfoIcon(cellIndex = 0): Locator {
@@ -122,12 +164,6 @@ export class PositronNotebooks extends Notebooks {
 		return cell.getByLabel('Cell execution info');
 	}
 
-	/**
-	 * Get the execution info popup
-	 */
-	getExecutionInfoPopup(): Locator {
-		return this.code.driver.page.getByRole('tooltip', { name: 'Cell execution details' });
-	}
 
 	/**
 	 * Get the execution status for a specific cell
@@ -144,6 +180,65 @@ export class PositronNotebooks extends Notebooks {
 		await test.step(`Wait for execution info icon in cell ${cellIndex}`, async () => {
 			const icon = this.getExecutionInfoIcon(cellIndex);
 			await expect(icon).toBeVisible({ timeout });
+		});
+	}
+
+	/**
+	 * Select interpreter and wait for the kernel to be ready.
+	 * This combines selecting the interpreter with waiting for kernel connection to prevent flakiness.
+	 * Directly implements Positron-specific logic without unnecessary notebook type detection.
+	 */
+	async selectAndWaitForKernel(
+		kernelGroup: 'Python' | 'R',
+		desiredKernel = kernelGroup === 'Python'
+			? process.env.POSITRON_PY_VER_SEL!
+			: process.env.POSITRON_R_VER_SEL!
+	): Promise<void> {
+		await test.step(`Select kernel and wait for ready: ${desiredKernel}`, async () => {
+			// Ensure notebook is visible
+			await this.expectToBeVisible();
+
+			// Wait for kernel detection to complete
+			await expect(this.code.driver.page.locator('.cell-status-item-has-runnable .codicon-sync')).not.toBeVisible({ timeout: 30000 });
+			await expect(this.code.driver.page.locator('text="Detecting Kernels"')).not.toBeVisible({ timeout: 30000 });
+
+			// Get the kernel status badge using aria-label
+			const kernelStatusBadge = this.code.driver.page.getByLabel(/notebook kernel status/i);
+			await expect(kernelStatusBadge).toBeVisible({ timeout: 5000 });
+
+			try {
+				// Check if the desired kernel is already selected
+				const currentKernelText = await kernelStatusBadge.textContent();
+				if (currentKernelText && currentKernelText.includes(desiredKernel) && currentKernelText.includes('Connected')) {
+					this.code.logger.log(`Kernel already selected and connected: ${desiredKernel}`);
+					return;
+				}
+			} catch (e) {
+				this.code.logger.log('Could not check current kernel status');
+			}
+
+			// Need to select the kernel
+			try {
+				// Click on kernel status badge to open selection
+				this.code.logger.log(`Clicking kernel status badge to select: ${desiredKernel}`);
+				await kernelStatusBadge.click();
+
+				// Wait for kernel selection UI to appear
+				await this.quickinput.waitForQuickInputOpened();
+
+				// Select the desired kernel
+				await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+				await this.quickinput.waitForQuickInputClosed();
+
+				this.code.logger.log(`Selected kernel: ${desiredKernel}`);
+			} catch (e) {
+				this.code.logger.log(`Failed to select kernel: ${e}`);
+				throw e;
+			}
+
+			// Wait for the kernel status to show "Connected"
+			await expect(kernelStatusBadge).toContainText('Connected', { timeout: 30000 });
+			this.code.logger.log('Kernel is connected and ready');
 		});
 	}
 
