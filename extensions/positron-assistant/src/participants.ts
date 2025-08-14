@@ -439,6 +439,22 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	protected abstract getSystemPrompt(request: vscode.ChatRequest): Promise<string>;
 
+	protected mapDiagnostics(diagnostics: vscode.Diagnostic[], selection?: vscode.Position | vscode.Range | vscode.Selection): string {
+		const severityMap = {
+			[vscode.DiagnosticSeverity.Error]: 'Error',
+			[vscode.DiagnosticSeverity.Warning]: 'Warning',
+			[vscode.DiagnosticSeverity.Information]: 'Information',
+			[vscode.DiagnosticSeverity.Hint]: 'Hint',
+		};
+		if (selection && selection instanceof vscode.Selection && !selection.isEmpty) {
+			diagnostics = diagnostics.filter(d => {
+				const intersection = selection.intersection(d.range);
+				return intersection !== undefined && !intersection.isEmpty;
+			});
+		}
+		return diagnostics.map(d => `${d.range.start.line + 1}:${d.range.start.character + 1} - ${severityMap[d.severity]} - ${d.message}`).join('\n');
+	}
+
 	private async getContextInfo(
 		request: vscode.ChatRequest,
 		context: vscode.ChatContext,
@@ -936,15 +952,27 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		const selectedText = document.getText(selection);
 		const documentText = document.getText();
 		const filePath = uriToString(document.uri);
-		const editorNode = xml.node('editor',
-			[
-				xml.node('document', documentText, {
-					description: 'Full contents of the active file',
-				}),
-				xml.node('selection', selectedText, {
-					description: 'Selected text in the active file',
-				})
-			].join('\n'),
+
+		const editorNodes = [
+			xml.node('document', documentText, {
+				description: 'Full contents of the active file',
+			}),
+			xml.node('selection', selectedText, {
+				description: 'Selected text in the active file',
+			})
+		];
+
+		// If there are diagnostics for the file that contain the specified location, add them to the prompt.
+		const diagnostics = vscode.languages.getDiagnostics(document.uri);
+		if (diagnostics.length > 0) {
+			const diagnosticsText = this.mapDiagnostics(diagnostics, selection);
+			const diagnosticsNode = xml.node('diagnostics', diagnosticsText, {
+				description: 'Diagnostics for the active file',
+			});
+			editorNodes.push(diagnosticsNode);
+		}
+
+		const editorNode = xml.node('editor', editorNodes.join('\n'),
 			{
 				description: 'Current active editor',
 				filePath,
