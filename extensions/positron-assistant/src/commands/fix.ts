@@ -12,22 +12,11 @@ import { PositronAssistantToolName } from '../types.js';
 
 export const FIX_COMMAND = 'fix';
 
-interface IFixResponse {
-	// The summary of the fix.
-	summary: string;
-	// The code changes to be made.
-	code: string;
-	// The programming language of the code.
-	language?: string;
-	// The URI of the file to be edited, if available.
-	uri?: string;
-}
-
 /**
  * Handler for the custom chat participant command `/fix`.
  */
 export async function fixHandler(
-	request: vscode.ChatRequest,
+	_request: vscode.ChatRequest,
 	context: PositronAssistantChatContext,
 	response: vscode.ChatResponseStream,
 	_token: vscode.CancellationToken,
