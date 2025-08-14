@@ -32,6 +32,9 @@ import {
 	ReturnColumnProfilesEvent,
 	RowFilter,
 	SchemaUpdateEvent,
+	SearchSchemaParams,
+	SearchSchemaResult,
+	SearchSchemaSortOrder,
 	SetColumnFiltersParams,
 	SetRowFiltersParams,
 	SetSortColumnsParams,
@@ -57,6 +60,7 @@ export interface DataExplorerRpc {
 	uri?: string;
 	params: OpenDatasetParams |
 	GetSchemaParams |
+	SearchSchemaParams |
 	GetDataValuesParams |
 	GetRowLabelsParams |
 	GetColumnProfilesParams |
@@ -173,6 +177,17 @@ export class PositronDataExplorerDuckDBBackend extends Disposable implements IDa
 			method: DataExplorerBackendRequest.GetSchema,
 			uri: this.uri.toString(),
 			params: { column_indices: columnIndices } satisfies GetSchemaParams
+		});
+	}
+
+	async searchSchema(filters: Array<ColumnFilter>, sortOrder: SearchSchemaSortOrder): Promise<SearchSchemaResult> {
+		return this._execRpc<SearchSchemaResult>({
+			method: DataExplorerBackendRequest.SearchSchema,
+			uri: this.uri.toString(),
+			params: {
+				filters: filters,
+				sort_order: sortOrder
+			} satisfies SearchSchemaParams
 		});
 	}
 
