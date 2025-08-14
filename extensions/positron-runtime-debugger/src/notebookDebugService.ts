@@ -45,19 +45,24 @@ export class NotebookDebugService extends Disposable {
 	}
 
 	private async updateActiveNotebookSupportsDebugging(editor: vscode.NotebookEditor | undefined): Promise<void> {
+		let logPrefix = '[NotebookDebugService] onDidChangeActiveNotebookEditor';
+
 		// Not a notebook editor.
 		if (!editor) {
-			log.debug('[NotebookDebugService] onDidChangeActiveNotebookEditor: No active notebook editor');
+			log.debug(`${logPrefix}: No active notebook editor`);
 			this._activeNotebookSupportsDebugging.set(false);
 			return;
 		}
+
+		// Add the notebook URI to the log prefix.
+		logPrefix += ` (${editor.notebook.uri.toString()})`;
 
 		// Get the runtime session for the notebook.
 		const runtimeSession = await getNotebookSession(editor.notebook.uri);
 
 		// No active runtime session for the notebook.
 		if (!runtimeSession) {
-			log.debug('[NotebookDebugService] onDidChangeActiveNotebookEditor: No active runtime session');
+			log.debug(`${logPrefix}: No active runtime session`);
 			this._activeNotebookSupportsDebugging.set(false);
 			return;
 		}
@@ -66,7 +71,7 @@ export class NotebookDebugService extends Disposable {
 
 		// If there is no runtime info yet, wait for the runtime to start.
 		if (!runtimeInfo) {
-			log.debug('[NotebookDebugService] onDidChangeActiveNotebookEditor: No runtime info available, waiting for runtime to start');
+			log.debug(`${logPrefix}: No runtime info available, waiting for runtime to start`);
 
 			// Disable the context key until we have runtime info.
 			this._activeNotebookSupportsDebugging.set(false);
@@ -83,14 +88,14 @@ export class NotebookDebugService extends Disposable {
 
 			// This shouldn't happen, log just in case.
 			if (!runtimeInfo) {
-				log.error(`[NotebookDebugService] Unexpected error: No runtime info available for session: ${runtimeSession.metadata.sessionId}`);
+				log.error(`${logPrefix} Unexpected error: No runtime info available for session: ${runtimeSession.metadata.sessionId}`);
 				return;
 			}
 		}
 
 		// Update the context key based on the runtime's supported features.
 		const supportedFeatures = runtimeInfo?.supported_features ?? [];
-		log.debug(`[NotebookDebugService] onDidChangeActiveNotebookEditor: Runtime supports features: ${JSON.stringify(supportedFeatures)}`);
+		log.debug(`${logPrefix}: Runtime supports features: ${JSON.stringify(supportedFeatures)}`);
 		this._activeNotebookSupportsDebugging.set(supportedFeatures.includes(LanguageRuntimeSupportedFeature.Debugger));
 	}
 }
