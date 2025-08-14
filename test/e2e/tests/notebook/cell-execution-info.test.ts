@@ -44,9 +44,9 @@ test.describe('Cell Execution Info Popup', {
 		});
 
 		test.afterEach(async function ({ app, settings }) {
-			// Make sure the mouse is away from the popup so the mouse interactions aren't swallowed by the popup
+			// For some reason playwright has a hard time running command pallete commands when the tooltip is visible.
+			// This is not a problem when running manually.
 			await app.code.driver.page.mouse.move(0, 0); // Move mouse away
-			// Make sure there are no lingering tooltips/popups
 			await expect(app.code.driver.page.getByRole('tooltip', { name: 'Cell execution details' })).toBeHidden();
 
 			await app.workbench.notebooks.closeNotebookWithoutSaving();
@@ -59,7 +59,6 @@ test.describe('Cell Execution Info Popup', {
 			const popup = await activateInfoPopup({ app, icon });
 
 			// Verify popup content shows execution info
-			// Verify execution order shows number 1 for first execution
 			await expect(popup.getByLabel('Execution order')).toBeVisible();
 			await expect(popup.getByLabel('Execution order')).toContainText('1');
 			await expect(popup.getByLabel('Execution duration')).toBeVisible();
