@@ -20,7 +20,7 @@ jobs:
       web_tag_found: ${{ steps.pr-tags.outputs.web_tag_found }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh

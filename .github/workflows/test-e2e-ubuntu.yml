@@ -126,7 +126,7 @@ jobs:
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Load secret
         uses: 1password/load-secrets-action@v2
