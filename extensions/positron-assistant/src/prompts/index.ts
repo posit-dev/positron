@@ -12,7 +12,7 @@ export { ActivationSteering } from './components/base/ActivationSteering';
 export { CommunicationGuidelines } from './components/base/CommunicationGuidelines';
 
 // Content components
-export { DefaultContent, AgentContent, EditorContent, TerminalContent, FilepathsContent, AttachmentsContent, FollowupsContent, SessionsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, Attachment, Session, type AttachmentData, type SessionData, type IHistorySummaryEntry } from './components/content';
+export { DefaultContent, AgentContent, EditorContent, TerminalContent, FilepathsContent, AttachmentsContent, FollowupsContent, SessionsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, QuartoContent, MapEditContent, Attachment, Session, type AttachmentData, type SessionData, type IHistorySummaryEntry } from './components/content';
 
 // Language-specific components
 export { LanguageInstructions } from './components/language/LanguageInstructions';

@@ -15,6 +15,8 @@ export { SessionsContent } from './SessionsContent';
 export { EditorStreamingContent } from './EditorStreamingContent';
 export { SelectionStreamingContent } from './SelectionStreamingContent';
 export { SelectionContent } from './SelectionContent';
+export { QuartoContent } from './QuartoContent';
+export { MapEditContent } from './MapEditContent';
 
 // Individual item components
 export { Attachment, type AttachmentData } from './Attachment';
