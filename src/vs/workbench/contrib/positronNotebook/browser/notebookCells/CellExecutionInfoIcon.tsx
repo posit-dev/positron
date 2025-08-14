@@ -46,7 +46,8 @@ export function CellExecutionInfoIcon({ cell }: CellExecutionInfoIconProps) {
 			const timeoutId = targetWindow.setTimeout(() => {
 				const renderer = new PositronModalReactRenderer({
 					container: services.workbenchLayoutService.getContainer(DOM.getWindow(containerRef.current!)),
-					onDisposed: () => setPopupRenderer(null)
+					onDisposed: () => setPopupRenderer(null),
+					disableCaptures: true // Prevents the popup from swallowing keyboard events when open.
 				});
 
 				// Render the popup
