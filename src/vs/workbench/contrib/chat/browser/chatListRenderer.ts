@@ -973,6 +973,12 @@ export class ChatListItemRenderer extends Disposable implements ITreeRenderer<Ch
 			!lastPart ||
 			lastPart.kind === 'references' ||
 			(lastPart.kind === 'toolInvocation' && (lastPart.isComplete || lastPart.presentation === 'hidden')) ||
+			// --- Start Positron ---
+			// Show working progress if the last part is markdown content and the response is in progress
+			// This is especially helpful when running in Agent mode, when the executeCode code block is still being constructed
+			// This causes the in progress indicator to show in any mode, while markdown text is being rendered and the response is not complete
+			(lastPart.kind === 'markdownContent' && element.model.isInProgress.get()) ||
+			// --- End Positron ---
 			((lastPart.kind === 'textEditGroup' || lastPart.kind === 'notebookEditGroup') && lastPart.done && !partsToRender.some(part => part.kind === 'toolInvocation' && !part.isComplete)) ||
 			(lastPart.kind === 'progressTask' && lastPart.deferred.isSettled) ||
 			lastPart.kind === 'prepareToolInvocation'
