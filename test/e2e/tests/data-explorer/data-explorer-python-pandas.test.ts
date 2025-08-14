@@ -15,7 +15,7 @@ test.describe('Data Explorer - Python Pandas', {
 }, () => {
 
 	test.afterEach(async function ({ app, hotKeys }) {
-		await app.workbench.dataExplorer.clearAllFilters();
+		await app.workbench.dataExplorer.filters.clearAll();
 		await hotKeys.closeAllEditors();
 		await hotKeys.showSecondarySidebar();
 	});
@@ -30,7 +30,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await hotKeys.closeSecondarySidebar();
 
 		// verify table data, clipboard, sparkline hover, and null percentage hover
-		await dataExplorer.verifyTableData([
+		await dataExplorer.grid.verifyTableData([
 			{ 'Name': 'Jai', 'Age': '27', 'Address': 'Delhi' },
 			{ 'Name': 'Princi', 'Age': '24', 'Address': 'Kanpur' },
 			{ 'Name': 'Gaurav', 'Age': '22', 'Address': 'Allahabad' },
@@ -38,16 +38,16 @@ test.describe('Data Explorer - Python Pandas', {
 		]);
 
 		// verify can copy data to clipboard
-		await dataExplorer.clickCell(0, 0);
+		await dataExplorer.grid.clickCell(0, 0);
 		await clipboard.copy();
 		await clipboard.expectClipboardTextToBe('Jai');
 
 		// verify sparkline hover dialog
-		await dataExplorer.expandSummary();
-		await dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+		await dataExplorer.summaryPanel.expand();
+		await dataExplorer.summaryPanel.verifySparklineHoverDialog(['Value', 'Count']);
 
 		// verify null percentage hover dialog
-		await dataExplorer.verifyNullPercentHoverDialog();
+		await dataExplorer.summaryPanel.verifyNullPercentHoverDialog();
 	});
 
 	test('Python Pandas - Verify data explorer functionality with empty fields', async function ({ app, python }) {
@@ -57,10 +57,10 @@ test.describe('Data Explorer - Python Pandas', {
 		await console.executeCode('Python', emptyFieldsScript);
 		await variables.doubleClickVariableRow('emptyFields');
 		await editors.verifyTab('Data: emptyFields', { isVisible: true, isSelected: true });
-		await dataExplorer.maximizeDataExplorer(true);
+		await dataExplorer.maximize(true);
 
 		// verify table data with empty fields
-		await dataExplorer.verifyTableData([
+		await dataExplorer.grid.verifyTableData([
 			{ 'A': '1.00', 'B': 'foo', 'C': 'NaN', 'D': 'NaT', 'E': 'None' },
 			{ 'A': '2.00', 'B': 'NaN', 'C': '2.50', 'D': 'NaT', 'E': 'text' },
 			{ 'A': 'NaN', 'B': 'bar', 'C': '3.10', 'D': '2023-01-01 00:00:00', 'E': 'more text' },
@@ -69,8 +69,8 @@ test.describe('Data Explorer - Python Pandas', {
 		]);
 
 		// verify missing percentages
-		await dataExplorer.expandSummary();
-		await dataExplorer.verifyMissingPercent([
+		await dataExplorer.summaryPanel.expand();
+		await dataExplorer.summaryPanel.verifyMissingPercent([
 			{ column: 1, expected: '20%' },
 			{ column: 2, expected: '40%' },
 			{ column: 3, expected: '40%' },
@@ -79,7 +79,7 @@ test.describe('Data Explorer - Python Pandas', {
 		]);
 
 		// verify column profile data
-		await dataExplorer.verifyColumnData([
+		await dataExplorer.summaryPanel.verifyColumnData([
 			{ column: 1, expected: { 'Missing': '1', 'Min': '1.00', 'Median': '3.00', 'Mean': '3.00', 'Max': '5.00', 'SD': '1.83' } },
 			{ column: 2, expected: { 'Missing': '2', 'Empty': '0', 'Unique': '3' } },
 			{ column: 3, expected: { 'Missing': '2', 'Min': '2.50', 'Median': '3.10', 'Mean': '3.47', 'Max': '4.80', 'SD': '1.19' } },
@@ -103,23 +103,23 @@ test.describe('Data Explorer - Python Pandas', {
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
 		await hotKeys.notebookLayout();
-		await dataExplorer.verifyTableDataLength(11);
+		await dataExplorer.grid.verifyTableDataLength(11);
 
 		// execute the next cell and verify data in the data explorer
 		await editors.clickTab(pythonNotebook);
 		await notebooks.selectCellAtIndex(1);
 		await notebooks.executeActiveCell();
 		await editors.clickTab('Data: df');
-		await dataExplorer.verifyTableDataLength(12);
+		await dataExplorer.grid.verifyTableDataLength(12);
 
 		// execute the next cell to sort the DataFrame and verify sorted data
 		await editors.clickTab(pythonNotebook);
 		await notebooks.selectCellAtIndex(2);
 		await notebooks.executeActiveCell();
 		await editors.clickTab('Data: df');
-		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
-		await dataExplorer.verifyTableDataLength(12);
-		await dataExplorer.verifyTableDataRowValue(0, { 'Year': '2025' });
+		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
+		await dataExplorer.grid.verifyTableDataLength(12);
+		await dataExplorer.grid.verifyTableDataRowValue(0, { 'Year': '2025' });
 	});
 
 	test('Python Pandas - Verify opening Data Explorer for the second time brings focus back', async function ({ app, python }) {
@@ -145,7 +145,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await console.executeCode('Python', blankSpacesScript);
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
-		await dataExplorer.verifyTableData([
+		await dataExplorer.grid.verifyTableData([
 			{ 'x': 'a·' },
 			{ 'x': 'a' },
 			{ 'x': '···' },

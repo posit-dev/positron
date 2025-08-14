@@ -52,6 +52,10 @@ export class HotKeys {
 		await this.pressHotKeys('Shift+Enter', 'Execute notebook cell');
 	}
 
+	public async runFileInConsole() {
+		await this.pressHotKeys('Cmd+Shift+Enter', 'Run file in console');
+	}
+
 	// --------------------
 	// --- File Actions ---
 	// --------------------

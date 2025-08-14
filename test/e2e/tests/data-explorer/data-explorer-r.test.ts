@@ -33,17 +33,17 @@ test.describe('Data Explorer - R ', {
 		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Verify the data in the table
-		await dataExplorer.maximizeDataExplorer(true);
-		await dataExplorer.verifyTableDataLength(3);
-		await dataExplorer.verifyTableData([
+		await dataExplorer.maximize(true);
+		await dataExplorer.grid.verifyTableDataLength(3);
+		await dataExplorer.grid.verifyTableData([
 			{ 'Training': 'Strength', 'Pulse': '100.00', 'Duration': '60.00', 'Note': 'NA' },
 			{ 'Training': 'Stamina', 'Pulse': 'NA', 'Duration': '30.00', 'Note': 'NA' },
 			{ 'Training': 'Other', 'Pulse': '120.00', 'Duration': '45.00', 'Note': 'Note' }
 		]);
 
 		// Verify the summary column data
-		await dataExplorer.expandSummary();
-		await dataExplorer.verifyColumnData([
+		await dataExplorer.summaryPanel.expand();
+		await dataExplorer.summaryPanel.verifyColumnData([
 			{ column: 1, expected: { 'Missing': '0', 'Empty': '0', 'Unique': '3' } },
 			{ column: 2, expected: { 'Missing': '1', 'Min': '100.00', 'Median': '110.00', 'Mean': '110.00', 'Max': '120.00', 'SD': '14.14' } },
 			{ column: 3, expected: { 'Missing': '0', 'Min': '30.00', 'Median': '45.00', 'Mean': '45.00', 'Max': '60.00', 'SD': '15.00' } },
@@ -51,15 +51,15 @@ test.describe('Data Explorer - R ', {
 		]);
 
 		// verify can copy data to clipboard
-		await dataExplorer.clickCell(0, 0);
+		await dataExplorer.grid.clickCell(0, 0);
 		await clipboard.copy();
 		await clipboard.expectClipboardTextToBe('Strength');
 
 		// verify sparkline hover dialog
-		await dataExplorer.verifySparklineHoverDialog(['Value', 'Count']);
+		await dataExplorer.summaryPanel.verifySparklineHoverDialog(['Value', 'Count']);
 
 		// verify null percentage hover dialog
-		await dataExplorer.verifyNullPercentHoverDialog();
+		await dataExplorer.summaryPanel.verifyNullPercentHoverDialog();
 	});
 
 	test('R - Verify opening Data Explorer for the second time brings focus back', {
@@ -96,8 +96,8 @@ test.describe('Data Explorer - R ', {
 		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Verify blank spaces in the table
-		await dataExplorer.verifyTableDataLength(4);
-		await dataExplorer.verifyTableData([
+		await dataExplorer.grid.verifyTableDataLength(4);
+		await dataExplorer.grid.verifyTableData([
 			{ 'x': 'a·' },
 			{ 'x': 'a' },
 			{ 'x': '···' },
