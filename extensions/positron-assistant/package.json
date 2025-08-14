@@ -41,7 +41,7 @@
           },
           {
             "name": "explain",
-            "description": "Explain code issues in the current chat."
+            "description": "Explain how code works in the current chat."
           }
         ],
         "locations": [
@@ -89,6 +89,10 @@
           {
             "name": "fix",
             "description": "Fix code issues."
+          },
+          {
+            "name": "explain",
+            "description": "Explain how code works."
           },
           {
             "name": "doc",

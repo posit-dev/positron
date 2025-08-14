@@ -22,12 +22,6 @@ export async function explainHandler(
 	_token: vscode.CancellationToken,
 	handleDefault: () => Promise<vscode.ChatResult | void>
 ) {
-	const { participantId } = context;
-
-	if (participantId !== ParticipantID.Chat) {
-		return handleDefault();
-	}
-
 	context.systemPrompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/explain.md`, 'utf8');
 
 	return handleDefault();
