@@ -403,7 +403,8 @@ export class DataExplorer {
 			await firstNullPercent.hover();
 			const hoverTooltip = this.code.driver.page.locator('.hover-contents');
 			await expect(hoverTooltip).toBeVisible();
-			await expect(hoverTooltip).toContainText('Missing Values');
+			// After streamlining, tooltip shows either "No missing values" or "X% of values are missing"
+			await expect(hoverTooltip).toContainText(/No missing values|of values are missing/);
 		});
 	}
 
