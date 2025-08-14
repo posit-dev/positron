@@ -47,11 +47,54 @@ export class PositronNotebooks extends Notebooks {
 	}
 
 	/**
+	 * Get the current number of cells in the notebook
+	 */
+	private async getCellCount(): Promise<number> {
+		return await this.code.driver.page.locator('[data-testid="notebook-cell"]').count();
+	}
+
+	/**
+	 * Create a new code cell at the specified index
+	 */
+	private async createNewCodeCell(index: number): Promise<void> {
+		await test.step(`Create new code cell at index ${index}`, async () => {
+			// Find all "New Code Cell" buttons - they appear between cells
+			const addCellButtons = this.code.driver.page.getByLabel('New Code Cell');
+			const buttonCount = await addCellButtons.count();
+
+			if (buttonCount === 0) {
+				throw new Error('No "New Code Cell" buttons found');
+			}
+
+			// Click the last button (which adds a cell at the end)
+			// Note: This assumes we're always adding at the end, which matches the validation in addCodeToCellAtIndex
+			await addCellButtons.last().click();
+
+			// Wait for the new cell to appear
+			await expect(this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(index)).toBeVisible({ timeout: DEFAULT_TIMEOUT });
+		});
+	}
+
+	/**
 	 * Override addCodeToCellAtIndex to use Positron-specific selectors and Monaco editor
 	 */
 	async addCodeToCellAtIndex(code: string, cellIndex = 0, delay = 0): Promise<void> {
 		await test.step('Add code to Positron cell', async () => {
-			// Select the cell first
+			// Check if the cell exists
+			const currentCellCount = await this.getCellCount();
+
+			if (cellIndex >= currentCellCount) {
+				// Cell doesn't exist, need to create it
+				// Verify we're only adding one cell at the end
+				if (cellIndex > currentCellCount) {
+					throw new Error(`Cannot create cell at index ${cellIndex}. Current cell count is ${currentCellCount}. Can only add cells sequentially.`);
+				}
+
+				// Create the new cell
+				await this.createNewCodeCell(cellIndex);
+			}
+
+			// Now select and fill the cell (existing logic)
 			await this.selectCellAtIndex(cellIndex);
 
 			// Find the Monaco editor within the Positron cell
@@ -121,6 +164,20 @@ export class PositronNotebooks extends Notebooks {
 	 */
 	async addCodeToCellAndRun(code: string, cellIndex = 0, delay = 0): Promise<Locator> {
 		return await test.step(`Add code and run cell ${cellIndex}`, async () => {
+			// Check if the cell exists
+			const currentCellCount = await this.getCellCount();
+
+			if (cellIndex >= currentCellCount) {
+				// Cell doesn't exist, need to create it
+				// Verify we're only adding one cell at the end
+				if (cellIndex > currentCellCount) {
+					throw new Error(`Cannot create cell at index ${cellIndex}. Current cell count is ${currentCellCount}. Can only add cells sequentially.`);
+				}
+
+				// Create the new cell
+				await this.createNewCodeCell(cellIndex);
+			}
+
 			// Get the cell once and reuse the reference
 			const cell = this.code.driver.page.locator('[data-testid="notebook-cell"]').nth(cellIndex);
 
