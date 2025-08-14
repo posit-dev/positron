@@ -92,7 +92,7 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:25
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:26
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
@@ -100,7 +100,7 @@ jobs:
         password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:25
+        image: ghcr.io/posit-dev/positron-postgres-initialized:26
         credentials:
           username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
           password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
@@ -188,7 +188,7 @@ jobs:
       - name: Run Playwright Tests (Electron)
         shell: bash
         env:
-          POSITRON_PY_VER_SEL: "3.12.11 (Venv: .venv)"
+          POSITRON_PY_VER_SEL: "3.10.12"
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2
