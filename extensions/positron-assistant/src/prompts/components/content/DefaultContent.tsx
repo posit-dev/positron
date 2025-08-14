@@ -4,7 +4,6 @@
  *--------------------------------------------------------------------------------------------*/
 
 import {
-	AssistantMessage,
 	BasePromptElementProps,
 	PromptElement
 } from '@vscode/prompt-tsx';
@@ -20,7 +19,7 @@ export interface DefaultContentProps extends BasePromptElementProps {
 export class DefaultContent extends PromptElement<DefaultContentProps> {
 	render() {
 		return (
-			<AssistantMessage priority={this.props.priority || 100}>
+			<>
 				<Tag name="activation-steering">
 					R for Data Science, Tidy Modeling with R, Happy Git with R,
 					Advanced R, tidyverse, ggplot2, tidyr, dplyr, .by, shiny,
@@ -158,7 +157,7 @@ export class DefaultContent extends PromptElement<DefaultContentProps> {
 					the USER to the user guides provided online at
 					{"<https://quarto.org/docs/guide/>"}.
 				</Tag>
-			</AssistantMessage>
+			</>
 		);
 	}
 }

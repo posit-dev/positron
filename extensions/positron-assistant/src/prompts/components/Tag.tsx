@@ -46,10 +46,11 @@ export class Tag extends PromptElement<TagProps> {
 
 		return (
 			<>
-				<KeepWith>{`<${name}${attrStr}>\n`}</KeepWith>
-				<TagInner priority={1} flexGrow={1}>{children}<br /></TagInner>
-				<KeepWith>{`</${name}>`}</KeepWith>
-				<br />
+				<KeepWith><TextChunk>{`<${name}${attrStr}>\n`}</TextChunk></KeepWith>
+				<TagInner priority={1} flexGrow={1}>{children}</TagInner>
+				<TextChunk><br /></TextChunk>
+				<KeepWith><TextChunk>{`</${name}>`}</TextChunk></KeepWith>
+				<TextChunk><br /></TextChunk>
 			</>
 		);
 	}
@@ -57,6 +58,6 @@ export class Tag extends PromptElement<TagProps> {
 
 class TagInner extends PromptElement {
 	render() {
-		return <>{this.props.children}</>;
+		return <TextChunk>{this.props.children}</TextChunk>;
 	}
 }
