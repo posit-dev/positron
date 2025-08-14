@@ -1,0 +1,1 @@
+You are tasked with determining the user's intent based on the provided Participants, Commands, and User prompt. Return a JSON object like `{"participant": "ChatParticipant", "command": "fix"}`, or `null` if unable to determine with the given information. Do not respond with any other text.
