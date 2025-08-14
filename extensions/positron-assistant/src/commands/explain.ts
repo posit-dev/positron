@@ -6,10 +6,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
-import { EXTENSION_ROOT_DIR } from '../constants';
+import { MD_DIR } from '../constants';
 import { ParticipantID, PositronAssistantChatParticipant, PositronAssistantEditorParticipant, PositronAssistantChatContext } from '../participants.js';
 
-const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 export const EXPLAIN_COMMAND = 'explain';
 
@@ -29,7 +28,7 @@ export async function explainHandler(
 		return handleDefault();
 	}
 
-	context.systemPrompt = await fs.promises.readFile(`${mdDir}/prompts/chat/explain.md`, 'utf8');
+	context.systemPrompt = await fs.promises.readFile(`${MD_DIR}/prompts/chat/explain.md`, 'utf8');
 
 	return handleDefault();
 }
