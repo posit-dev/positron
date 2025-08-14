@@ -483,6 +483,9 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 			result = es.merge(result, gulp.src('.build/policies/win32/**', { base: '.build/policies/win32' })
 				.pipe(rename(f => f.dirname = `policies/${f.dirname}`)));
 
+			// --- Start Positron ---
+			// Positron doesn't build for the Windows store
+			/*
 			if (quality !== 'exploration') {
 				result = es.merge(result, gulp.src('.build/win32/appx/**', { base: '.build/win32' }));
 				const rawVersion = version.replace(/-\w+$/, '').split('.');
@@ -499,6 +502,8 @@ function packageTask(platform, arch, sourceFolderName, destinationFolderName, op
 					.pipe(replace('@@FileExplorerContextMenuDLL@@', `${quality === 'stable' ? 'code' : 'code_insider'}_explorer_command_${arch}.dll`))
 					.pipe(rename(f => f.dirname = `appx/manifest`)));
 			}
+			*/
+			// --- End Positron ---
 		} else if (platform === 'linux') {
 			result = es.merge(result, gulp.src('resources/linux/bin/code.sh', { base: '.' })
 				.pipe(replace('@@PRODNAME@@', product.nameLong))
