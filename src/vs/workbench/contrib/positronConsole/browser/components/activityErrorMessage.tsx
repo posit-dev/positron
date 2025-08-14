@@ -41,48 +41,10 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 		}
 	}, [showTraceback]);
 
-	/**
-	 * Traceback component.
-	 * @returns The rendered component.
-	 */
-	const Traceback = () => {
-		/**
-		 * onClick handler.
-		 */
-		const pressedHandler = () => {
-			// Toggle show traceback.
-			setShowTraceback(!showTraceback);
-		};
-
-		// Render.
-		return (
-			<div className='traceback'>
-				<PositronButton className='toggle-traceback' onPressed={pressedHandler}>
-					{showTraceback ?
-						<>
-							<div className='expansion-indicator codicon codicon-positron-triangle-down'></div>
-							<div className='link-text'>{localize('positronHideTraceback', "Hide Traceback")}</div>
-
-						</> :
-						<>
-							<div className='expansion-indicator codicon codicon-positron-triangle-right'></div>
-							<div className='link-text'>{localize('positronShowTraceback', "Show Traceback")}</div>
-						</>
-					}
-				</PositronButton>
-				{showTraceback &&
-					<div className='traceback-lines'>
-						<div />
-						<div>
-							<ConsoleOutputLines outputLines={props.activityItemErrorMessage.tracebackOutputLines} />
-						</div>
-					</div>
-				}
-			</div>
-		);
+	const pressedTracebackHandler = () => {
+		// Toggle show traceback.
+		setShowTraceback(!showTraceback);
 	};
-
-
 
 	// Render.
 	return (
@@ -93,10 +55,34 @@ export const ActivityErrorMessage = (props: ActivityErrorMessageProps) => {
 					<ConsoleOutputLines outputLines={props.activityItemErrorMessage.messageOutputLines} />
 				}
 				<div className='error-footer'>
-					{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
-						<Traceback />
-					}
-					<ConsoleQuickFix outputLines={props.activityItemErrorMessage.messageOutputLines} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
+					<div className='traceback'>
+						<div className='actions'>
+							{props.activityItemErrorMessage.tracebackOutputLines.length > 0 &&
+								<PositronButton className='toggle-traceback' onPressed={pressedTracebackHandler}>
+									{showTraceback ?
+										<>
+											<div className='expansion-indicator codicon codicon-positron-triangle-down'></div>
+											<div className='link-text'>{localize('positronHideTraceback', "Hide Traceback")}</div>
+
+										</> :
+										<>
+											<div className='expansion-indicator codicon codicon-positron-triangle-right'></div>
+											<div className='link-text'>{localize('positronShowTraceback', "Show Traceback")}</div>
+										</>
+									}
+								</PositronButton>
+							}
+							<ConsoleQuickFix outputLines={props.activityItemErrorMessage.messageOutputLines} tracebackLines={props.activityItemErrorMessage.tracebackOutputLines} />
+						</div>
+						{showTraceback &&
+							<div className='traceback-lines'>
+								<div />
+								<div>
+									<ConsoleOutputLines outputLines={props.activityItemErrorMessage.tracebackOutputLines} />
+								</div>
+							</div>
+						}
+					</div>
 				</div>
 			</div>
 		</div>
