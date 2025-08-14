@@ -8,17 +8,24 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { log } from './extension.js';
 import { ContextKey, Disposable } from './util.js';
-import { Command, Context, LanguageRuntimeSupportedFeature } from './constants.js';
 import { NotebookDebugAdapterFactory } from './notebookDebugAdapterFactory.js';
+
+const DebugCellCommand = 'notebook.debugCell';
+
+const ActiveNotebookSupportsDebuggingContext = 'activeNotebookSupportsDebugging';
+
+enum LanguageRuntimeSupportedFeature {
+	Debugger = 'debugger',
+}
 
 /**
  * Service to manage debugging notebooks.
  */
-export class NotebookDebugService extends Disposable implements vscode.Disposable {
+export class NotebookDebugService extends Disposable {
 	/**
 	 * Context key to indicate if the active notebook's language runtime supports debugging.
 	 */
-	private readonly _activeNotebookSupportsDebugging = new ContextKey(Context.ActiveNotebookSupportsDebugging);
+	private readonly _activeNotebookSupportsDebugging = new ContextKey(ActiveNotebookSupportsDebuggingContext);
 
 	constructor() {
 		super();
@@ -28,7 +35,7 @@ export class NotebookDebugService extends Disposable implements vscode.Disposabl
 		this._register(vscode.debug.registerDebugAdapterDescriptorFactory('notebook', adapterFactory));
 
 		// Register the command to debug a notebook cell.
-		this._register(vscode.commands.registerCommand(Command.DebugCell, debugCell));
+		this._register(vscode.commands.registerCommand(DebugCellCommand, debugCell));
 
 		// Update context key for notebook debugging support.
 		this._register(vscode.window.onDidChangeActiveNotebookEditor(async (editor) => {
@@ -104,7 +111,7 @@ async function debugCell(cell: vscode.NotebookCell | undefined): Promise<void> {
 
 		// It shouldn't be possible to call this command without a cell, log just in case.
 		if (!cell) {
-			log.error(`${Command.DebugCell} command called without a cell.`);
+			log.error(`${DebugCellCommand} command called without a cell.`);
 			return;
 		}
 	}

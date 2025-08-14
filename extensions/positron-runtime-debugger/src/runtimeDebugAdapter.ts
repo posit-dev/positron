@@ -9,7 +9,7 @@ import * as vscode from 'vscode';
 import { DebugInfoArguments, DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
 import { Disposable, formatDebugMessage } from './util.js';
 import { DebugProtocolTransformer } from './debugProtocolTransformer.js';
-import { LocationMapper } from './types.js';
+import { LocationMapper } from './locationMapper.js';
 
 export interface RuntimeDebugAdapterOptions {
 	/**

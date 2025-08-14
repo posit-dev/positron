@@ -5,12 +5,12 @@
 import * as vscode from 'vscode';
 import { PathEncoder } from './pathEncoder.js';
 import { Disposable } from './util.js';
-import { Location, LocationMapper } from './types.js';
+import { Location, LocationMapper } from './locationMapper.js';
 
 /**
  * Maps source locations between notebook cells and runtime source paths.
  */
-export class NotebookLocationMapper extends Disposable implements vscode.Disposable, LocationMapper {
+export class NotebookLocationMapper extends Disposable implements LocationMapper {
 
 	/* Map of cell URI keyed by runtime source path. */
 	private _cellUriByRuntimeSourcePath = new Map<string, string>();
