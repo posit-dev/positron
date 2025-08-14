@@ -71,7 +71,7 @@ export interface IQuickChatService {
 	close(): void;
 	openInChatView(): void;
 	// --- Start Positron ---
-	openOne(options?: IQuickChatOpenOptions & { renderInputOnTop?: boolean }): void;
+	openOne(options?: IQuickChatOpenOptions): void;
 	// --- End Positron ---
 }
 
