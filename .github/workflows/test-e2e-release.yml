@@ -120,7 +120,7 @@ jobs:
         id: electron-e2e-tests
         run: |
           export DISPLAY=:10
-          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 2 --grep "${{ env.PW_TAGS }}" --max-failures 10
+          BUILD=/usr/share/positron npx playwright test --project e2e-electron --workers 3 --grep "${{ env.PW_TAGS }}" --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ !cancelled() }}
