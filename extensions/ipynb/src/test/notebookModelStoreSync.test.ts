@@ -81,7 +81,8 @@ suite(`Notebook Model Store Sync`, () => {
 			kind: NotebookCellKind.Code,
 			metadata: {},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -110,7 +111,8 @@ suite(`Notebook Model Store Sync`, () => {
 			kind: NotebookCellKind.Code,
 			metadata: {},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -141,7 +143,8 @@ suite(`Notebook Model Store Sync`, () => {
 			kind: NotebookCellKind.Code,
 			metadata: {},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -177,7 +180,8 @@ suite(`Notebook Model Store Sync`, () => {
 				id: '1234'
 			},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -214,7 +218,8 @@ suite(`Notebook Model Store Sync`, () => {
 				metadata: {}
 			},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -255,7 +260,8 @@ suite(`Notebook Model Store Sync`, () => {
 				}
 			},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -305,7 +311,8 @@ suite(`Notebook Model Store Sync`, () => {
 				}
 			},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -349,7 +356,8 @@ suite(`Notebook Model Store Sync`, () => {
 				}
 			},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -400,7 +408,8 @@ suite(`Notebook Model Store Sync`, () => {
 				}
 			},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -449,7 +458,8 @@ suite(`Notebook Model Store Sync`, () => {
 			kind: NotebookCellKind.Code,
 			metadata: {},
 			notebook,
-			outputs: []
+			outputs: [],
+			mime: undefined
 		};
 		const e: NotebookDocumentChangeEvent = {
 			notebook,
@@ -462,6 +472,7 @@ suite(`Notebook Model Store Sync`, () => {
 				}
 			],
 			cellChanges: []
+
 		};
 
 		onDidChangeNotebookDocument.fire(e);

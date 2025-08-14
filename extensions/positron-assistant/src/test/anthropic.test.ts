@@ -76,10 +76,10 @@ suite('AnthropicLanguageModel', () => {
 		messages: vscode.LanguageModelChatMessage2[],
 		options: vscode.LanguageModelChatRequestOptions = {},
 	) {
-		await model.provideLanguageModelResponse(
+		await model.provideLanguageModelChatResponse(
+			model,
 			messages,
 			options,
-			'test-extension',
 			progress,
 			cancellationToken
 		);

@@ -116,6 +116,7 @@ export class PaneCompositeBar extends Disposable {
 		@IWorkbenchLayoutService protected readonly layoutService: IWorkbenchLayoutService,
 	) {
 		super();
+
 		this.location = paneCompositePart.partId === Parts.PANEL_PART
 			? ViewContainerLocation.Panel : paneCompositePart.partId === Parts.AUXILIARYBAR_PART
 				? ViewContainerLocation.AuxiliaryBar : ViewContainerLocation.Sidebar;
@@ -234,6 +235,7 @@ export class PaneCompositeBar extends Disposable {
 	}
 
 	private registerListeners(): void {
+
 		// View Container Changes
 		this._register(this.viewDescriptorService.onDidChangeViewContainers(({ added, removed }) => this.onDidChangeViewContainers(added, removed)));
 		this._register(this.viewDescriptorService.onDidChangeContainerLocation(({ viewContainer, from, to }) => this.onDidChangeViewContainerLocation(viewContainer, from, to)));

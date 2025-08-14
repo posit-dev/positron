@@ -11,6 +11,7 @@ import { MainThreadWebviews } from './mainThreadWebviews.js';
 import { MainThreadWebviewsViews } from './mainThreadWebviewViews.js';
 import * as extHostProtocol from '../common/extHost.protocol.js';
 import { extHostCustomer, IExtHostContext } from '../../services/extensions/common/extHostCustomers.js';
+import { MainThreadChatOutputRenderer } from './mainThreadChatOutputRenderer.js';
 
 // --- Begin Positron ---
 import { MainThreadPreviewPanel } from './positron/mainThreadPreviewPanel.js';
@@ -36,6 +37,9 @@ export class MainThreadWebviewManager extends Disposable {
 
 		const webviewViews = this._register(instantiationService.createInstance(MainThreadWebviewsViews, context, webviews));
 		context.set(extHostProtocol.MainContext.MainThreadWebviewViews, webviewViews);
+
+		const chatOutputRenderers = this._register(instantiationService.createInstance(MainThreadChatOutputRenderer, context, webviews));
+		context.set(extHostProtocol.MainContext.MainThreadChatOutputRenderer, chatOutputRenderers);
 
 		// --- Begin Positron ---
 		const webviewPreviews = this._register(instantiationService.createInstance(MainThreadPreviewPanel, context, webviews));

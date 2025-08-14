@@ -73,7 +73,10 @@ const colorizeCodeOutoutLines = (
 			'none',
 			false,
 			false,
-			null
+			null,
+			null,
+			0,
+			false
 		);
 
 		// Render the render line input.

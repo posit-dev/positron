@@ -93,6 +93,7 @@ function getServerArgs(
 ): string[] {
 	const args = [
 		'--disable-telemetry',
+		'--disable-experiments',
 		'--disable-workspace-trust',
 		`--port=${port}`,
 		'--enable-smoke-test-driver',

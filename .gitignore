@@ -21,6 +21,7 @@ vscode.db
 /cli/openssl
 product.overrides.json
 *.snap.actual
+*.tsbuildinfo
 .vscode-test
 
 # --- Start Positron ---

@@ -37,5 +37,5 @@
 		// --- End Positron ---
 		"./vscode-dts/vscode.proposed.*.d.ts",
 		"./vscode-dts/vscode.d.ts"
-	]
+	],
 }

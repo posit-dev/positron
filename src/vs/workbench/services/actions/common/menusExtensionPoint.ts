@@ -144,6 +144,11 @@ const apiMenus: IAPIMenu[] = [
 		description: localize('menus.debugVariablesContext', "The debug variables view context menu")
 	},
 	{
+		key: 'debug/watch/context',
+		id: MenuId.DebugWatchContext,
+		description: localize('menus.debugWatchContext', "The debug watch view context menu")
+	},
+	{
 		key: 'debug/toolBar',
 		id: MenuId.DebugToolBar,
 		description: localize('menus.debugToolBar', "The debug toolbar menu")
@@ -483,20 +488,6 @@ const apiMenus: IAPIMenu[] = [
 		description: localize('searchPanel.aiResultsCommands', "The commands that will contribute to the menu rendered as buttons next to the AI search title"),
 	},
 	{
-		key: 'chat/modelPicker',
-		id: MenuId.ChatModelPicker,
-		description: localize('menus.chatModelPicker', "The chat model picker dropdown menu"),
-		supportsSubmenus: false,
-		proposed: 'chatParticipantPrivate'
-	},
-	{
-		key: 'explorer/context/chat',
-		id: MenuId.ChatExplorerMenu,
-		description: localize('menus.chatExplorer', "The Chat submenu in the explorer context menu."),
-		supportsSubmenus: false,
-		proposed: 'chatParticipantPrivate'
-	},
-	{
 		key: 'editor/context/chat',
 		id: MenuId.ChatTextEditorMenu,
 		description: localize('menus.chatTextEditor', "The Chat submenu in the text editor context menu."),
@@ -509,7 +500,14 @@ const apiMenus: IAPIMenu[] = [
 		description: localize('menus.chatTerminal', "The Chat submenu in the terminal context menu."),
 		supportsSubmenus: false,
 		proposed: 'chatParticipantPrivate'
-	}
+	},
+	{
+		key: 'chat/chatSessions',
+		id: MenuId.ChatSessionsMenu,
+		description: localize('menus.chatSessions', "The Chat Sessions menu."),
+		supportsSubmenus: false,
+		proposed: 'chatSessionsProvider'
+	},
 ];
 
 namespace schema {
