@@ -6,8 +6,10 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 
 import { CancellationToken, ChatRequest, ChatContext, ChatLocation, ChatParticipantDetectionResult, ChatParticipantMetadata, ProviderResult, chat } from 'vscode';
-import { MD_DIR } from './constants.js';
+import { EXTENSION_ROOT_DIR } from './constants.js';
 import { json } from 'stream/consumers';
+
+const MD_DIR = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 function isDetectionResult(result: any): result is ChatParticipantDetectionResult {
 	return result && typeof result.participant === 'string' && (typeof result.command === 'string' || typeof result.command === 'undefined');
