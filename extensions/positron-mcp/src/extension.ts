@@ -28,8 +28,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		// Create the API wrapper
 		const apiWrapper = new PositronApiWrapper(context);
 
-		// Create and start the MCP server with the API wrapper
-		mcpServer = new McpServer(apiWrapper);
+		// Create and start the MCP server with the API wrapper and context
+		mcpServer = new McpServer(apiWrapper, context);
 		await mcpServer.start();
 
 		logger.info('Extension', 'Positron MCP extension activated successfully');
@@ -55,7 +55,61 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		logger.show();
 	});
 
-	context.subscriptions.push(enableCommand, showLogsCommand);
+	// Register security-related commands
+	const resetConsentCommand = vscode.commands.registerCommand('positron.mcp.resetConsent', async () => {
+		if (mcpServer) {
+			await mcpServer.resetSecurityConsent();
+			vscode.window.showInformationMessage('Code execution consent has been reset.');
+		} else {
+			vscode.window.showWarningMessage('MCP server is not running.');
+		}
+	});
+
+	const showAuditLogCommand = vscode.commands.registerCommand('positron.mcp.showAuditLog', () => {
+		if (mcpServer) {
+			const auditLog = mcpServer.getSecurityAuditLog();
+			if (auditLog.length === 0) {
+				vscode.window.showInformationMessage('Security audit log is empty.');
+			} else {
+				// Create a webview panel to show the audit log
+				const panel = vscode.window.createWebviewPanel(
+					'mcpAuditLog',
+					'MCP Security Audit Log',
+					vscode.ViewColumn.One,
+					{ enableScripts: true }
+				);
+				
+				const htmlContent = generateAuditLogHtml(auditLog);
+				panel.webview.html = htmlContent;
+			}
+		} else {
+			vscode.window.showWarningMessage('MCP server is not running.');
+		}
+	});
+
+	const clearAuditLogCommand = vscode.commands.registerCommand('positron.mcp.clearAuditLog', async () => {
+		if (mcpServer) {
+			const answer = await vscode.window.showWarningMessage(
+				'Are you sure you want to clear the security audit log?',
+				'Yes',
+				'No'
+			);
+			if (answer === 'Yes') {
+				mcpServer.clearSecurityAuditLog();
+				vscode.window.showInformationMessage('Security audit log has been cleared.');
+			}
+		} else {
+			vscode.window.showWarningMessage('MCP server is not running.');
+		}
+	});
+
+	context.subscriptions.push(
+		enableCommand,
+		showLogsCommand,
+		resetConsentCommand,
+		showAuditLogCommand,
+		clearAuditLogCommand
+	);
 
 	// Clean up server on deactivation
 	context.subscriptions.push({
@@ -143,4 +197,74 @@ async function createOrUpdateMcpConfig(): Promise<string | undefined> {
 		logger.error('Config', 'Failed to create/update .mcp.json', error);
 		return undefined;
 	}
+}
+
+function generateAuditLogHtml(auditLog: any[]): string {
+	return `
+		<!DOCTYPE html>
+		<html>
+		<head>
+			<style>
+				body {
+					font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+					padding: 20px;
+					background: var(--vscode-editor-background);
+					color: var(--vscode-editor-foreground);
+				}
+				h1 {
+					border-bottom: 1px solid var(--vscode-panel-border);
+					padding-bottom: 10px;
+				}
+				.entry {
+					margin: 10px 0;
+					padding: 10px;
+					border: 1px solid var(--vscode-panel-border);
+					border-radius: 4px;
+					background: var(--vscode-editor-inactiveSelectionBackground);
+				}
+				.entry.error {
+					border-color: var(--vscode-errorForeground);
+				}
+				.entry.security {
+					border-color: var(--vscode-warningForeground);
+				}
+				.timestamp {
+					color: var(--vscode-descriptionForeground);
+					font-size: 0.9em;
+				}
+				.method {
+					font-weight: bold;
+					color: var(--vscode-symbolIcon-methodForeground);
+				}
+				.details {
+					margin-top: 5px;
+					font-family: 'Courier New', Courier, monospace;
+					font-size: 0.9em;
+					background: var(--vscode-textCodeBlock-background);
+					padding: 5px;
+					border-radius: 3px;
+					white-space: pre-wrap;
+				}
+			</style>
+		</head>
+		<body>
+			<h1>MCP Security Audit Log</h1>
+			<div>Total entries: ${auditLog.length}</div>
+			<hr>
+			${auditLog.map(entry => `
+				<div class="entry ${entry.eventType}">
+					<div class="timestamp">${entry.timestamp}</div>
+					<div>
+						<span class="method">${entry.eventType.toUpperCase()}</span>
+						${entry.method ? ` - ${entry.method}` : ''}
+						${entry.tool ? ` - Tool: ${entry.tool}` : ''}
+						${entry.success ? ' ✓' : ' ✗'}
+					</div>
+					${entry.origin ? `<div>Origin: ${entry.origin}</div>` : ''}
+					${entry.details ? `<div class="details">${JSON.stringify(entry.details, null, 2)}</div>` : ''}
+				</div>
+			`).join('')}
+		</body>
+		</html>
+	`;
 }
