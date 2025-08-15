@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import { McpServer } from './mcpServer';
+import { PositronApiWrapper } from './positronApiWrapper';
 
 let mcpServer: McpServer | undefined;
 
@@ -19,8 +20,11 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	}
 
 	try {
-		// Create and start the MCP server
-		mcpServer = new McpServer();
+		// Create the API wrapper
+		const apiWrapper = new PositronApiWrapper(context);
+
+		// Create and start the MCP server with the API wrapper
+		mcpServer = new McpServer(apiWrapper);
 		await mcpServer.start();
 
 		console.log('Positron MCP extension activated');
