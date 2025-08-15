@@ -78,7 +78,9 @@ This represents a **70% reduction in complexity** for edit operations alone.
 
 ### Revised Recommendation
 
-**With no extension compatibility required, building an independent Positron notebook model is now recommended.** The reduced complexity makes it achievable in 10-14 weeks with significant long-term benefits.
+**With no extension compatibility required, building an independent Positron notebook model is recommended.** 
+
+**Important caveat for remote UI scenarios**: If your UI and backend run on different machines/processes, you'll need a simplified operation pattern for serialization across the network boundary. This is still much simpler than VS Code's ICellEditOperation but necessary for remote transport.
 
 ## Simplified Architecture (No Extension Compatibility)
 
@@ -125,6 +127,57 @@ export class PositronNotebookModel {
 | Service Integration | 3-4 weeks | 2 weeks |
 | Migration | 3-4 weeks | 3-4 weeks |
 | **Total** | **20-28 weeks** | **10-14 weeks** |
+
+## Remote UI Architecture Considerations
+
+### If You Need Remote UI Support
+
+When the UI and backend run on different machines/processes, you need **serializable operations** for network transport:
+
+```typescript
+// Can't send functions or class instances over network
+model.addCell(cellInstance); // ❌ Won't work remotely
+
+// Need serializable data
+model.applyOperation({ type: 'addCell', content: '...', index: 0 }); // ✅ Works
+```
+
+### Simplified Operation Pattern for Positron
+
+You can use a **much simpler** operation pattern than VS Code's:
+
+```typescript
+// Positron's simplified operations (5-10 types vs VS Code's 20+)
+type NotebookOp = 
+    | { type: 'addCell', data: { cellType: string, content: string, index: number }}
+    | { type: 'removeCell', data: { cellId: string }}
+    | { type: 'moveCell', data: { cellId: string, newIndex: number }}
+    | { type: 'updateContent', data: { cellId: string, content: string }}
+    | { type: 'updateOutput', data: { cellId: string, outputs: any[] }};
+
+// Simple processor - no complex merging logic
+class OperationProcessor {
+    process(op: NotebookOp) {
+        switch(op.type) {
+            case 'addCell': 
+                return this.model.addCell(op.data.cellType, op.data.content, op.data.index);
+            // Direct mapping, no complexity
+        }
+    }
+}
+```
+
+This gives you:
+- ✅ Remote UI support with serialization
+- ✅ Still 70% simpler than VS Code's pattern
+- ✅ Efficient batching for network calls
+- ✅ Simple undo/redo implementation
+
+### Timeline Impact
+
+If you need remote UI support, add 1-2 weeks for the simplified operation layer:
+- **Without remote UI**: 10-14 weeks  
+- **With remote UI**: 11-16 weeks (still much less than VS Code's approach)
 
 ## Original Analysis: Proposed Architectures
 
