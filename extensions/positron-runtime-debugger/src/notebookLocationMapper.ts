@@ -35,30 +35,30 @@ export class NotebookLocationMapper extends Disposable implements LocationMapper
 		}));
 
 		// When the notebook document changes, update mappings.
-		this._register(vscode.workspace.onDidChangeNotebookDocument(event => {
-			// Only handle changes for this notebook.
-			if (event.notebook.uri.toString() !== this._notebook.uri.toString()) {
-				return;
-			}
+		// this._register(vscode.workspace.onDidChangeNotebookDocument(event => {
+		// 	// Only handle changes for this notebook.
+		// 	if (event.notebook.uri.toString() !== this._notebook.uri.toString()) {
+		// 		return;
+		// 	}
 
-			// TODO: Probably need to throttle some of these?
-			for (const change of event.contentChanges) {
-				// Add new cells.
-				for (const cell of change.addedCells) {
-					this.add(cell);
-				}
+		// 	// TODO: Probably need to throttle some of these?
+		// 	for (const change of event.contentChanges) {
+		// 		// Add new cells.
+		// 		for (const cell of change.addedCells) {
+		// 			this.add(cell);
+		// 		}
 
-				// Delete removed cells.
-				for (const cell of change.removedCells) {
-					this.delete(cell);
-				}
-			}
+		// 		// Delete removed cells.
+		// 		for (const cell of change.removedCells) {
+		// 			this.delete(cell);
+		// 		}
+		// 	}
 
-			// Update changed cells.
-			for (const change of event.cellChanges) {
-				this.add(change.cell);
-			}
-		}));
+		// 	// Update changed cells.
+		// 	for (const change of event.cellChanges) {
+		// 		this.add(change.cell);
+		// 	}
+		// }));
 	}
 
 	/**
