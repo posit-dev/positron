@@ -4,9 +4,9 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import * as positron from 'positron';
-import express from 'express';
-import { Server } from 'http';
+import express, { Request, Response, NextFunction } from 'express';
+import { Server } from 'node:http';
+import { PositronMcpApi } from './positronApi';
 
 interface McpRequest {
 	jsonrpc: string;
@@ -54,6 +54,7 @@ interface RuntimeVariableState {
 export class McpServer implements vscode.Disposable {
 	private app: express.Express;
 	private server: Server | undefined;
+	private readonly outputChannel: vscode.OutputChannel;
 	private readonly port = (() => {
 		const DEFAULT_PORT = 43123;
 		try {
@@ -65,15 +66,14 @@ export class McpServer implements vscode.Disposable {
 			if (Number.isInteger(parsed) && parsed >= 1024 && parsed <= 65535) {
 				return parsed;
 			}
-			console.warn(`Ignoring invalid POSITRON_MCP_PORT='${raw}'. Using default ${DEFAULT_PORT}.`);
 			return DEFAULT_PORT;
 		} catch (error) {
-			console.warn('Failed to resolve POSITRON_MCP_PORT from environment. Using default 43123.', error);
 			return DEFAULT_PORT;
 		}
 	})();
 
-	constructor() {
+	constructor(private readonly api: PositronMcpApi) {
+		this.outputChannel = vscode.window.createOutputChannel('Positron MCP Server');
 		this.app = express();
 		this.setupMiddleware();
 		this.setupRoutes();
@@ -81,7 +81,7 @@ export class McpServer implements vscode.Disposable {
 
 	private setupMiddleware(): void {
 		// Set CORS headers for browser clients
-		this.app.use((_req, res, next) => {
+		this.app.use((_req: Request, res: Response, next: NextFunction) => {
 			res.setHeader('Access-Control-Allow-Origin', '*');
 			res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
 			res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
@@ -94,30 +94,30 @@ export class McpServer implements vscode.Disposable {
 
 	private setupRoutes(): void {
 		// Handle OPTIONS requests
-		this.app.options('*', (_req, res) => {
+		this.app.options('*', (_req: Request, res: Response) => {
 			res.sendStatus(200);
 		});
 
 		// Main MCP endpoint
-		this.app.post('/', (req, res) => {
+		this.app.post('/', (req: Request, res: Response) => {
 			this.handleMcpRequest(req, res);
 		});
 
 		// Health check endpoint
-		this.app.get('/health', (_req, res) => {
+		this.app.get('/health', (_req: Request, res: Response) => {
 			res.json({ status: 'ok', server: 'positron-mcp-server' });
 		});
 	}
 
-	private async handleMcpRequest(req: express.Request, res: express.Response): Promise<void> {
+	private async handleMcpRequest(req: Request, res: Response): Promise<void> {
 		try {
 			const request: McpRequest = req.body;
-			console.log(`MCP request: ${request.method}`);
+			this.outputChannel.appendLine(`MCP request: ${request.method}`);
 
 			const response = await this.processRequest(request);
 			res.json(response);
 		} catch (error) {
-			console.error('Error handling MCP request:', error);
+			this.outputChannel.appendLine(`Error handling MCP request: ${error}`);
 			res.status(400).json({
 				jsonrpc: '2.0',
 				error: {
@@ -177,6 +177,59 @@ export class McpServer implements vscode.Disposable {
 									type: 'object',
 									properties: {},
 									additionalProperties: false
+								}
+							},
+							{
+								name: 'execute-code',
+								description: 'Execute code in the active runtime session',
+								inputSchema: {
+									type: 'object',
+									properties: {
+										languageId: {
+											type: 'string',
+											description: 'Language identifier (python, r, etc.)',
+											enum: ['python', 'r', 'javascript', 'typescript']
+										},
+										code: {
+											type: 'string',
+											description: 'Code to execute'
+										},
+										options: {
+											type: 'object',
+											properties: {
+												focus: { type: 'boolean', default: false },
+												mode: {
+													type: 'string',
+													enum: ['interactive', 'non-interactive', 'transient', 'silent'],
+													default: 'interactive'
+												},
+												allowIncomplete: { type: 'boolean', default: false }
+											}
+										}
+									},
+									required: ['languageId', 'code']
+								}
+							},
+							{
+								name: 'get-active-document',
+								description: 'Get information about the currently active document',
+								inputSchema: {
+									type: 'object',
+									properties: {
+										includeContent: { type: 'boolean', default: false },
+										includeSelection: { type: 'boolean', default: true }
+									}
+								}
+							},
+							{
+								name: 'get-workspace-info',
+								description: 'Get comprehensive workspace information',
+								inputSchema: {
+									type: 'object',
+									properties: {
+										includeConfig: { type: 'boolean', default: true },
+										configSection: { type: 'string' }
+									}
 								}
 							}
 						]
@@ -274,6 +327,155 @@ export class McpServer implements vscode.Disposable {
 					};
 				}
 
+			case 'execute-code':
+				try {
+					const { languageId, code, options = {} } = request.params.arguments;
+					const result = await this.api.runtime.executeCode(languageId, code, options);
+					return {
+						jsonrpc: '2.0',
+						id: request.id,
+						result: {
+							content: [
+								{
+									type: 'text',
+									text: JSON.stringify(result)
+								}
+							]
+						}
+					};
+				} catch (error) {
+					return {
+						jsonrpc: '2.0',
+						id: request.id,
+						error: {
+							code: -32603,
+							message: `Code execution failed: ${error}`
+						}
+					};
+				}
+
+			case 'get-active-document':
+				try {
+					const { includeContent = false, includeSelection = true } = request.params?.arguments || {};
+					const document = await this.api.editor.getActiveDocument();
+					
+					if (!document) {
+						return {
+							jsonrpc: '2.0',
+							id: request.id,
+							result: {
+								content: [
+									{
+										type: 'text',
+										text: JSON.stringify({ document: null, selection: null })
+									}
+								]
+							}
+						};
+					}
+
+					const result: any = {
+						document: {
+							uri: document.uri,
+							languageId: document.languageId,
+							fileName: document.fileName,
+							lineCount: document.lineCount,
+							isDirty: document.isDirty
+						}
+					};
+
+					if (includeContent) {
+						result.document.content = document.content;
+					}
+
+					if (includeSelection) {
+						const selection = await this.api.editor.getSelection();
+						result.selection = selection || null;
+					}
+
+					return {
+						jsonrpc: '2.0',
+						id: request.id,
+						result: {
+							content: [
+								{
+									type: 'text',
+									text: JSON.stringify(result)
+								}
+							]
+						}
+					};
+				} catch (error) {
+					return {
+						jsonrpc: '2.0',
+						id: request.id,
+						error: {
+							code: -32603,
+							message: `Failed to get active document: ${error}`
+						}
+					};
+				}
+
+			case 'get-workspace-info':
+				try {
+					const { includeConfig = true, configSection } = request.params?.arguments || {};
+					
+					const folders = this.api.workspace.getWorkspaceFolders();
+					const activeSession = await this.api.runtime.getForegroundSession();
+					const activeSessions = await this.api.runtime.getActiveSessions();
+
+					const result: any = {
+						folders,
+						activeRuntimes: activeSessions.map(s => ({
+							languageId: s.runtimeMetadata.languageId,
+							sessionId: s.metadata.sessionId,
+							sessionName: s.metadata.sessionName,
+							isActive: activeSession?.metadata.sessionId === s.metadata.sessionId
+						}))
+					};
+
+					if (includeConfig) {
+						const config = this.api.workspace.getWorkspaceConfiguration(configSection);
+						const configData: Record<string, any> = {};
+						
+						// Get some common configuration values
+						if (configSection) {
+							// Get all keys for the specific section
+							const inspection = config.inspect('');
+							if (inspection) {
+								configData[configSection] = inspection;
+							}
+						} else {
+							// Get some common settings
+							configData['positron.mcp.enable'] = config.get('positron.mcp.enable');
+						}
+						
+						result.configuration = configData;
+					}
+
+					return {
+						jsonrpc: '2.0',
+						id: request.id,
+						result: {
+							content: [
+								{
+									type: 'text',
+									text: JSON.stringify(result)
+								}
+							]
+						}
+					};
+				} catch (error) {
+					return {
+						jsonrpc: '2.0',
+						id: request.id,
+						error: {
+							code: -32603,
+							message: `Failed to get workspace info: ${error}`
+						}
+					};
+				}
+
 			default:
 				return {
 					jsonrpc: '2.0',
@@ -288,54 +490,45 @@ export class McpServer implements vscode.Disposable {
 
 	private async getForegroundSessionInfo(): Promise<ForegroundSessionInfo | undefined> {
 		try {
-			const session = await positron.runtime.getForegroundSession();
+			const session = await this.api.runtime.getForegroundSession();
 			if (!session) {
 				return undefined;
 			}
 
 			return {
 				sessionId: session.metadata.sessionId,
-				sessionName: session.dynState.sessionName,
+				sessionName: session.metadata.sessionName,
 				languageId: session.runtimeMetadata.languageId,
 				runtimeId: session.runtimeMetadata.runtimeId,
-				sessionMode: session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Console
-					? 'Console'
-					: session.metadata.sessionMode === positron.LanguageRuntimeSessionMode.Notebook
-						? 'Notebook'
-						: 'Other',
-				state: session.dynState.currentState ?? 'Unknown'
+				sessionMode: session.metadata.sessionMode as 'Console' | 'Notebook' | 'Other',
+				state: session.metadata.state
 			};
 		} catch (error) {
-			console.error('Failed to get foreground session info:', error);
+			this.outputChannel.appendLine(`Failed to get foreground session info: ${error}`);
 			return undefined;
 		}
 	}
 
 	private async getCurrentVariableState(): Promise<RuntimeVariableState | undefined> {
 		try {
-			const session = await positron.runtime.getForegroundSession();
+			const session = await this.api.runtime.getForegroundSession();
 			if (!session) {
 				return undefined;
 			}
 
 			// Get all variables for the session
-			const variablesData = await positron.runtime.getSessionVariables(session.metadata.sessionId);
+			const variablesData = await this.api.runtime.getSessionVariables(session.metadata.sessionId);
 
-			// Flatten the nested array structure and convert to our format
-			const variables: VariableStateInfo[] = [];
-			for (const variableGroup of variablesData) {
-				for (const runtimeVar of variableGroup) {
-					variables.push({
-						name: runtimeVar.display_name,
-						type: runtimeVar.display_type,
-						value: runtimeVar.display_value,
-						size: runtimeVar.size || 0,
-						kind: runtimeVar.kind || 'unknown',
-						hasChildren: runtimeVar.has_children || false,
-						path: runtimeVar.access_key ? runtimeVar.access_key.split('.') : [runtimeVar.display_name]
-					});
-				}
-			}
+			// Convert to our format
+			const variables: VariableStateInfo[] = variablesData.map(v => ({
+				name: v.name,
+				type: v.type,
+				value: v.value,
+				size: v.size || 0,
+				kind: v.kind || 'unknown',
+				hasChildren: v.hasChildren || false,
+				path: v.path || [v.name]
+			}));
 
 			return {
 				sessionId: session.metadata.sessionId,
@@ -344,7 +537,7 @@ export class McpServer implements vscode.Disposable {
 				isLoading: false
 			};
 		} catch (error) {
-			console.error('Failed to get current variable state:', error);
+			this.outputChannel.appendLine(`Failed to get current variable state: ${error}`);
 			return undefined;
 		}
 	}
@@ -354,15 +547,10 @@ export class McpServer implements vscode.Disposable {
 			return;
 		}
 
-		return new Promise((resolve, reject) => {
-			this.server = this.app.listen(this.port, 'localhost', (error?: Error) => {
-				if (error) {
-					console.error('Failed to start Positron MCP server:', error);
-					reject(error);
-				} else {
-					console.log(`Positron MCP server started on http://localhost:${this.port}`);
-					resolve();
-				}
+		return new Promise((resolve) => {
+			this.server = this.app.listen(this.port, 'localhost', () => {
+				this.outputChannel.appendLine(`Positron MCP server started on http://localhost:${this.port}`);
+				resolve();
 			});
 		});
 	}
@@ -371,7 +559,8 @@ export class McpServer implements vscode.Disposable {
 		if (this.server) {
 			this.server.close();
 			this.server = undefined;
-			console.log('Positron MCP server stopped');
+			this.outputChannel.appendLine('Positron MCP server stopped');
 		}
+		this.outputChannel.dispose();
 	}
 }

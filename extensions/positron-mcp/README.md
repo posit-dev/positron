@@ -10,9 +10,12 @@ This extension exposes Positron's runtime sessions and variable data through a s
 
 ### Available MCP Tools
 
-- **`get-time`** - Returns current ISO timestamp
+- **`execute-code`** - Execute code in active runtime sessions (Python, R, JavaScript, TypeScript)
+- **`get-active-document`** - Get information about the currently active document
+- **`get-workspace-info`** - Get comprehensive workspace information including folders and runtime sessions
 - **`foreground-session`** - Returns information about the active runtime session (R, Python, etc.)
 - **`get-variables`** - Returns all variables from the active session with their types, values, and metadata
+- **`get-time`** - Returns current ISO timestamp
 
 ### Key Benefits
 
@@ -114,12 +117,13 @@ No IPC complexity, no service injection - just simple API calls!
 ```
 extensions/positron-mcp/
 ├── src/
-│   ├── extension.ts      # Extension activation & commands
-│   ├── mcpServer.ts      # HTTP server implementation
-│   └── vscode.d.ts       # TypeScript definitions
-├── package.json          # Extension manifest
-├── tsconfig.json         # TypeScript configuration
-└── README.md            # This file
+│   ├── extension.ts           # Extension activation & commands
+│   ├── mcpServer.ts          # HTTP server implementation
+│   ├── positronApi.ts        # API interface definitions
+│   └── positronApiWrapper.ts # API implementation wrapper
+├── package.json              # Extension manifest
+├── tsconfig.json             # TypeScript configuration
+└── README.md                 # This file
 ```
 
 ## MCP Protocol Details
@@ -225,16 +229,31 @@ The extension follows standard VS Code extension patterns:
 
 ## Roadmap
 
-### Near Term
-- [ ] Enhanced variable filtering (by type, size, name patterns)
-- [ ] Code execution tool for running code in active session
+### Phase 1 (Complete ✅)
+- [x] Interface-first API design (positronApi.ts)
+- [x] Core Runtime APIs implementation
+- [x] Code execution tool for running code in active session
+- [x] Active document and workspace info tools
+- [x] API wrapper for controlled access to Positron features
+
+### Phase 0 (Security - High Priority)
+- [ ] Implement permission system with user consent
+- [ ] Remove wildcard CORS policy
+- [ ] Add audit logging for all operations
+- [ ] Security middleware for dangerous operations
+
+### Phase 2 (Extended APIs)
+- [ ] Complete window APIs (console, plots, dialogs)
+- [ ] Extended editor manipulation APIs
+- [ ] Enhanced workspace file operations
 - [ ] Session management (switch sessions, list all)
 
-### Future Ideas  
+### Phase 3 (Advanced Features)
+- [ ] Language services integration
+- [ ] AI and chat APIs
+- [ ] Connection management
+- [ ] Environment APIs
 - [ ] Data export tools (variables, plots to various formats)
-- [ ] Security hardening (rate limiting, request size limits)
-- [ ] Configuration UI for server management
-- [ ] Automated E2E testing for all endpoints
 
 ## Contributing
 
