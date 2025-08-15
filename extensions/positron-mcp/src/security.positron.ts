@@ -4,6 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { Request, Response, NextFunction } from 'express';
 import { getLogger } from './logger';
 import * as crypto from 'crypto';
@@ -68,6 +69,7 @@ interface AuditEvent {
 export class UserConsentManager {
 	private readonly consentCache = new Map<string, boolean>();
 	private readonly consentTimeout = 5 * 60 * 1000; // 5 minutes
+	private readonly logger = getLogger();
 	
 	constructor(private readonly context: vscode.ExtensionContext) {}
 
@@ -83,34 +85,51 @@ export class UserConsentManager {
 			return cached;
 		}
 
-		// Truncate code for display if too long
-		const displayCode = code.length > 200 
-			? code.substring(0, 200) + '...' 
-			: code;
-
-		const message = `An AI assistant wants to execute the following ${languageId} code:\n\n\`\`\`${languageId}\n${displayCode}\n\`\`\`\n\nDo you want to allow this?`;
-
-		const result = await vscode.window.showWarningMessage(
-			message,
-			{ modal: true },
-			'Allow Once',
-			'Allow All (This Session)',
-			'Deny'
-		);
-
-		if (result === 'Allow All (This Session)') {
-			// Store in context for this session
-			await this.context.workspaceState.update('mcp.allowAllCodeExecution', true);
-			this.consentCache.set(cacheKey, true);
-			setTimeout(() => this.consentCache.delete(cacheKey), this.consentTimeout);
-			return true;
-		} else if (result === 'Allow Once') {
+		// Check if all execution is allowed for this session
+		if (await this.isAllCodeExecutionAllowed()) {
 			this.consentCache.set(cacheKey, true);
 			setTimeout(() => this.consentCache.delete(cacheKey), this.consentTimeout);
 			return true;
 		}
 
-		return false;
+		// Log the full code for transparency
+		this.logger.info('Code Execution Request', `Language: ${languageId}, Lines: ${code.split('\n').length}`);
+		this.logger.debug('Code Content', code);
+		
+		// Create a concise summary of the code
+		const codeLines = code.split('\n').length;
+		const codePreview = code.length > 100 
+			? code.substring(0, 100).replace(/\n/g, ' ') + '...' 
+			: code.replace(/\n/g, ' ');
+
+		// First ask if they want to allow this specific execution
+		const allowExecution = await positron.window.showSimpleModalDialogPrompt(
+			`Execute ${languageId.toUpperCase()} Code?`,
+			`AI wants to run ${codeLines} lines of code. Preview: "${codePreview}" (Full code in MCP logs)`,
+			'Allow',
+			'Deny'
+		);
+
+		if (!allowExecution) {
+			return false;
+		}
+
+		// If they allowed it, ask if they want to allow all for this session
+		const allowAllSession = await positron.window.showSimpleModalDialogPrompt(
+			'Allow All Code Execution?',
+			'Allow all AI code execution this session? (Reset via command palette)',
+			'Allow All (This Session)',
+			'Just This Once'
+		);
+
+		if (allowAllSession) {
+			// Store in context for this session
+			await this.context.workspaceState.update('mcp.allowAllCodeExecution', true);
+		}
+
+		this.consentCache.set(cacheKey, true);
+		setTimeout(() => this.consentCache.delete(cacheKey), this.consentTimeout);
+		return true;
 	}
 
 	/**
