@@ -19,7 +19,7 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 - **Language Support**: `Please read .claude/language-support.md` - For Python/R language features
 - **UI Components**: `Please read .claude/ui-components.md` - For Positron-specific UI development
 - **Backend Services**: `Please read .claude/backend.md` - For kernel and service integration
-- **Build System**: `Please read .claude/build.md` - For build, packaging, and deployment
+- **Build System**: `Please read .claude/build-system.md` - For build, packaging, and deployment
 
 ## Quick Start Commands
 
