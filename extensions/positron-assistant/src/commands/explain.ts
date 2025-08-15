@@ -13,7 +13,7 @@ import { ParticipantID, PositronAssistantChatParticipant, PositronAssistantEdito
 export const EXPLAIN_COMMAND = 'explain';
 
 /**
- * Handler for the custom chat participant command `/fix`.
+ * Handler for the custom chat participant command `/explain`.
  */
 export async function explainHandler(
 	_request: vscode.ChatRequest,

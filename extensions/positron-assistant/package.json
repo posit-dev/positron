@@ -37,11 +37,11 @@
           },
           {
             "name": "fix",
-            "description": "Fix code issues in the current chat."
+            "description": "%chatParticipants.commands.fix.description%"
           },
           {
             "name": "explain",
-            "description": "Explain how code works in the current chat."
+            "description": "%chatParticipants.commands.explain.description%"
           }
         ],
         "locations": [
@@ -88,15 +88,15 @@
         "commands": [
           {
             "name": "fix",
-            "description": "Fix code issues."
+            "description": "%chatParticipants.commands.fix.description%"
           },
           {
             "name": "explain",
-            "description": "Explain how code works."
+            "description": "%chatParticipants.commands.explain.description%"
           },
           {
             "name": "doc",
-            "description": "Generate documentation."
+            "description": "%chatParticipants.commands.doc.description%"
           }
         ]
       },
