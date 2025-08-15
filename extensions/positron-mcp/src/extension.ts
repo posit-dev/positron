@@ -4,11 +4,13 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
+import * as positron from 'positron';
 import { McpServer } from './mcpServer';
 import { PositronApiWrapper } from './positronApiWrapper';
 import { getLogger } from './logger';
 
 let mcpServer: McpServer | undefined;
+let apiWrapper: PositronApiWrapper | undefined;
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
 	// Check if MCP server is enabled via configuration
@@ -17,25 +19,30 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 	const logger = getLogger();
 	
+	// Always create the API wrapper so commands can use it
+	apiWrapper = new PositronApiWrapper(context);
+	
 	if (!enabled) {
 		logger.info('Extension', 'Positron MCP server is disabled in configuration');
-		return;
-	}
+		// Still register commands even if server is disabled
+	} else {
+		try {
+			logger.info('Extension', 'Initializing Positron MCP extension');
 
-	try {
-		logger.info('Extension', 'Initializing Positron MCP extension');
-		
-		// Create the API wrapper
-		const apiWrapper = new PositronApiWrapper(context);
+			// Create and start the MCP server with the API wrapper and context
+			mcpServer = new McpServer(apiWrapper, context);
+			await mcpServer.start();
 
-		// Create and start the MCP server with the API wrapper and context
-		mcpServer = new McpServer(apiWrapper, context);
-		await mcpServer.start();
-
-		logger.info('Extension', 'Positron MCP extension activated successfully');
-	} catch (error) {
-		logger.error('Extension', 'Failed to start Positron MCP server', error);
-		vscode.window.showErrorMessage(`Failed to start Positron MCP server: ${error}`);
+			logger.info('Extension', 'Positron MCP extension activated successfully');
+		} catch (error) {
+			logger.error('Extension', 'Failed to start Positron MCP server', error);
+			// Use Positron's modal dialog for better UX
+			await positron.window.showSimpleModalDialogMessage(
+				'MCP Server Error',
+				`Failed to start Positron MCP server: ${error}`,
+				'OK'
+			);
+		}
 	}
 
 	// Register command to enable MCP server
@@ -45,7 +52,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		} catch (error) {
 			const logger = getLogger();
 			logger.error('Command', 'Failed to enable MCP server', error);
-			vscode.window.showErrorMessage(`Failed to enable Positron MCP server: ${error}`);
+			// Show error using apiWrapper if available, fallback to VS Code
+			await positron.window.showSimpleModalDialogMessage(
+				'Failed to Enable MCP Server',
+				`Failed to enable Positron MCP server: ${error}`,
+				'OK'
+			);
 		}
 	});
 
@@ -59,17 +71,29 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const resetConsentCommand = vscode.commands.registerCommand('positron.mcp.resetConsent', async () => {
 		if (mcpServer) {
 			await mcpServer.resetSecurityConsent();
-			vscode.window.showInformationMessage('Code execution consent has been reset.');
+			await positron.window.showSimpleModalDialogMessage(
+				'Consent Reset',
+				'Code execution consent has been reset. You will be prompted again for future code execution requests.',
+				'OK'
+			);
 		} else {
-			vscode.window.showWarningMessage('MCP server is not running.');
+			await positron.window.showSimpleModalDialogMessage(
+				'MCP Server Not Running',
+				'The MCP server is not currently running. Please enable it first.',
+				'OK'
+			);
 		}
 	});
 
-	const showAuditLogCommand = vscode.commands.registerCommand('positron.mcp.showAuditLog', () => {
+	const showAuditLogCommand = vscode.commands.registerCommand('positron.mcp.showAuditLog', async () => {
 		if (mcpServer) {
 			const auditLog = mcpServer.getSecurityAuditLog();
 			if (auditLog.length === 0) {
-				vscode.window.showInformationMessage('Security audit log is empty.');
+				await positron.window.showSimpleModalDialogMessage(
+					'Audit Log Empty',
+					'The security audit log is currently empty. Actions will be logged as they occur.',
+					'OK'
+				);
 			} else {
 				// Create a webview panel to show the audit log
 				const panel = vscode.window.createWebviewPanel(
@@ -83,23 +107,36 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 				panel.webview.html = htmlContent;
 			}
 		} else {
-			vscode.window.showWarningMessage('MCP server is not running.');
+			await positron.window.showSimpleModalDialogMessage(
+				'MCP Server Not Running',
+				'The MCP server is not currently running. Please enable it first.',
+				'OK'
+			);
 		}
 	});
 
 	const clearAuditLogCommand = vscode.commands.registerCommand('positron.mcp.clearAuditLog', async () => {
 		if (mcpServer) {
-			const answer = await vscode.window.showWarningMessage(
-				'Are you sure you want to clear the security audit log?',
-				'Yes',
-				'No'
+			const confirmed = await positron.window.showSimpleModalDialogPrompt(
+				'Clear Security Audit Log',
+				'Are you sure you want to clear the security audit log? This action cannot be undone.',
+				'Clear',
+				'Cancel'
 			);
-			if (answer === 'Yes') {
+			if (confirmed) {
 				mcpServer.clearSecurityAuditLog();
-				vscode.window.showInformationMessage('Security audit log has been cleared.');
+				await positron.window.showSimpleModalDialogMessage(
+					'Audit Log Cleared',
+					'The security audit log has been cleared successfully.',
+					'OK'
+				);
 			}
 		} else {
-			vscode.window.showWarningMessage('MCP server is not running.');
+			await positron.window.showSimpleModalDialogMessage(
+				'MCP Server Not Running',
+				'The MCP server is not currently running. Please enable it first.',
+				'OK'
+			);
 		}
 	});
 
