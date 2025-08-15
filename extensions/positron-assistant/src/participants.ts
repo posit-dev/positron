@@ -193,11 +193,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
 	) {
-		// System prompt (empty string, we'll add system messages to the messages array instead).
+		// Get system prompt for this participant
 		const system = await this.getSystemPrompt(request);
-
-		// Get system messages from prompt components
-		const systemMessages = await this.getSystemMessages(request);
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -319,12 +316,9 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
 
-		// Start with system messages from prompt components
-		const messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[] = [...systemMessages];
-
-		// Add the chat history.
+		// Start with the chat history.
 		// Note that context.history excludes tool calls and results.
-		messages.push(...toLanguageModelChatMessage(context.history));
+		const messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[] = [...toLanguageModelChatMessage(context.history)];
 
 		// Add the user's prompt.
 		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
@@ -363,11 +357,6 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	}
 
 	protected abstract getSystemPrompt(request: vscode.ChatRequest): Promise<string>;
-
-	protected async getSystemMessages(request: vscode.ChatRequest): Promise<vscode.LanguageModelChatMessage[]> {
-		// Default implementation returns empty array, subclasses can override
-		return [];
-	}
 
 	private async getContextInfo(
 		request: vscode.ChatRequest,
@@ -775,6 +764,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		return instructionsMap;
 	}
 
+	/** Get active session languages */
+	protected async getActiveSessionLanguages(): Promise<string[]> {
+		// Extract language names from active sessions
+		const sessions = await positron.runtime.getActiveSessions();
+		const languages = sessions.map((session) => session.runtimeMetadata.languageId);
+		return [...new Set(languages)]; // Remove duplicates
+	}
+
 	dispose(): void { }
 }
 
@@ -783,28 +780,25 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 	id = ParticipantID.Chat;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		// Use the new prompt-tsx system
 		const activeSessions = await this.getActiveSessionLanguages();
 		const languageInstructions = await this.getActiveSessionLanguageInstructions();
-		const rendered = await PromptRenderer.renderSystemPrompt(
-			ChatPrompt,
-			{
-				includeFilepaths: true,
-				activeSessions,
-				languageInstructions,
-				priority: 100
-			},
-			request.model,
-			`chat-prompt-${activeSessions.join('-')}-${Array.from(languageInstructions.keys()).join('-')}` // Cache key includes session state and loaded instructions
-		);
-		return rendered;
-	}
 
-	private async getActiveSessionLanguages(): Promise<string[]> {
-		// Extract language names from active sessions
-		const sessions = await positron.runtime.getActiveSessions();
-		const languages = sessions.map((session) => session.runtimeMetadata.languageId);
-		return [...new Set(languages)]; // Remove duplicates
+		try {
+			return await PromptRenderer.renderSystemPrompt(
+				ChatPrompt,
+				{
+					includeFilepaths: true,
+					activeSessions,
+					languageInstructions,
+					priority: 100
+				},
+				request.model,
+				`chat-prompt-${activeSessions.join('-')}-${Array.from(languageInstructions.keys()).join('-')}`
+			);
+		} catch (error) {
+			console.error('Error getting system prompt:', error);
+			return '';
+		}
 	}
 }
 
@@ -813,16 +807,11 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 	id = ParticipantID.Agent;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		// For now, return empty string and handle system messages differently
-		return '';
-	}
-
-	protected async getSystemMessages(request: vscode.ChatRequest): Promise<vscode.LanguageModelChatMessage[]> {
 		const activeSessions = await this.getActiveSessionLanguages();
 		const languageInstructions = await this.getActiveSessionLanguageInstructions();
-		
+
 		try {
-			const { systemPrompt, messages } = await PromptRenderer.renderToSystemAndMessages(
+			return await PromptRenderer.renderSystemPrompt(
 				AgentPrompt,
 				{
 					activeSessions,
@@ -832,30 +821,10 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 				request.model,
 				`agent-prompt-${activeSessions.join('-')}-${Array.from(languageInstructions.keys()).join('-')}`
 			);
-			
-			// Convert system prompt to a system message
-			const systemMessages: vscode.LanguageModelChatMessage[] = [];
-			if (systemPrompt.trim()) {
-				systemMessages.push(vscode.LanguageModelChatMessage.User([
-					new vscode.LanguageModelTextPart(systemPrompt)
-				]));
-			}
-			
-			// Add any additional messages
-			systemMessages.push(...messages);
-			
-			return systemMessages;
 		} catch (error) {
-			console.error('Error getting system messages:', error);
-			return [];
+			console.error('Error getting system prompt:', error);
+			return '';
 		}
-	}
-
-	private async getActiveSessionLanguages(): Promise<string[]> {
-		// Extract language names from active sessions
-		const sessions = await positron.runtime.getActiveSessions();
-		const languages = sessions.map((session) => session.runtimeMetadata.languageId);
-		return [...new Set(languages)]; // Remove duplicates
 	}
 }
 
@@ -864,16 +833,19 @@ class PositronAssistantTerminalParticipant extends PositronAssistantParticipant 
 	id = ParticipantID.Terminal;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		// Use the new prompt-tsx system
-		const rendered = await PromptRenderer.renderSystemPrompt(
-			TerminalPrompt,
-			{
-				priority: 100
-			},
-			request.model,
-			'terminal-prompt' // Static cache key since terminal prompts are simpler
-		);
-		return rendered;
+		try {
+			return await PromptRenderer.renderSystemPrompt(
+				TerminalPrompt,
+				{
+					priority: 100
+				},
+				request.model,
+				'terminal-prompt'
+			);
+		} catch (error) {
+			console.error('Error getting system prompt:', error);
+			return '';
+		}
 	}
 }
 
@@ -892,18 +864,21 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		const fileExtension = path.extname(document.uri.fsPath).substring(1);
 		const isTextEdit = !selection.isEmpty;
 
-		// Use the new prompt-tsx system
-		const rendered = await PromptRenderer.renderSystemPrompt(
-			EditorPrompt,
-			{
-				isTextEdit,
-				fileExtension,
-				priority: 100
-			},
-			request.model,
-			`editor-prompt-${isTextEdit ? 'selection' : 'document'}-${fileExtension}`
-		);
-		return rendered;
+		try {
+			return await PromptRenderer.renderSystemPrompt(
+				EditorPrompt,
+				{
+					isTextEdit,
+					fileExtension,
+					priority: 100
+				},
+				request.model,
+				`editor-prompt-${isTextEdit ? 'selection' : 'document'}-${fileExtension}`
+			);
+		} catch (error) {
+			console.error('Error getting system prompt:', error);
+			return '';
+		}
 	}
 
 	async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
@@ -955,18 +930,21 @@ class PositronAssistantEditParticipant extends PositronAssistantParticipant impl
 	id = ParticipantID.Edit;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		// Use the new prompt-tsx system for edit mode (similar to chat but with filepaths)
-		const rendered = await PromptRenderer.renderSystemPrompt(
-			ChatPrompt,
-			{
-				includeFilepaths: true,
-				activeSessions: [],
-				priority: 100
-			},
-			request.model,
-			'edit-prompt'
-		);
-		return rendered;
+		try {
+			return await PromptRenderer.renderSystemPrompt(
+				ChatPrompt,
+				{
+					includeFilepaths: true,
+					activeSessions: [],
+					priority: 100
+				},
+				request.model,
+				'edit-prompt'
+			);
+		} catch (error) {
+			console.error('Error getting system prompt:', error);
+			return '';
+		}
 	}
 }
 

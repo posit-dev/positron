@@ -440,7 +440,7 @@ function toAnthropicTools(tools: vscode.LanguageModelChatTool[]): Anthropic.Tool
 
 	// Ensure a stable sort order for prompt caching.
 	anthropicTools.sort((a, b) => a.name.localeCompare(b.name));
-	
+
 	console.log(`Successfully converted ${anthropicTools.length} tools`);
 	return anthropicTools;
 }
@@ -450,11 +450,11 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 		type: 'object',
 		properties: {},
 	};
-	
+
 	// Debug logging to help identify the problematic tool
 	if (!input_schema.type) {
-		console.error('Tool missing type in input_schema:', { 
-			name: tool.name, 
+		console.error('Tool missing type in input_schema:', {
+			name: tool.name,
 			description: tool.description,
 			inputSchema: tool.inputSchema,
 			computed_input_schema: input_schema
@@ -462,7 +462,7 @@ function toAnthropicTool(tool: vscode.LanguageModelChatTool): Anthropic.ToolUnio
 		// Ensure type is always present
 		input_schema.type = 'object';
 	}
-	
+
 	return {
 		name: tool.name,
 		description: tool.description,
