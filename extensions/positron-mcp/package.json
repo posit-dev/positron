@@ -25,6 +25,20 @@
           "type": "boolean",
           "default": false,
           "description": "Enable the experimental Positron MCP server (requires restart)."
+        },
+        "positron.mcp.logLevel": {
+          "type": "string",
+          "enum": ["off", "error", "warning", "info", "debug", "trace"],
+          "default": "info",
+          "description": "Set the log level for the Positron MCP server. Higher verbosity levels provide more detailed debugging information. Requires restart to take effect.",
+          "enumDescriptions": [
+            "Turn off logging",
+            "Log only errors",
+            "Log errors and warnings",
+            "Log errors, warnings, and informational messages (default)",
+            "Log detailed debugging information including request/response data",
+            "Log everything including internal trace information"
+          ]
         }
       }
     },
@@ -33,12 +47,20 @@
         "command": "positron.mcp.enableServer",
         "title": "Positron MCP: Enable Server",
         "category": "Positron"
+      },
+      {
+        "command": "positron.mcp.showLogs",
+        "title": "Positron MCP: Show Logs",
+        "category": "Positron"
       }
     ],
     "menus": {
       "commandPalette": [
         {
           "command": "positron.mcp.enableServer"
+        },
+        {
+          "command": "positron.mcp.showLogs"
         }
       ]
     }

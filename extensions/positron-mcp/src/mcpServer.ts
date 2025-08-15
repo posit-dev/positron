@@ -7,6 +7,7 @@ import * as vscode from 'vscode';
 import express, { Request, Response, NextFunction } from 'express';
 import { Server } from 'node:http';
 import { PositronMcpApi } from './positronApi';
+import { getLogger } from './logger';
 
 interface McpRequest {
 	jsonrpc: string;
@@ -54,7 +55,7 @@ interface RuntimeVariableState {
 export class McpServer implements vscode.Disposable {
 	private app: express.Express;
 	private server: Server | undefined;
-	private readonly outputChannel: vscode.OutputChannel;
+	private readonly logger = getLogger();
 	private readonly port = (() => {
 		const DEFAULT_PORT = 43123;
 		try {
@@ -73,7 +74,6 @@ export class McpServer implements vscode.Disposable {
 	})();
 
 	constructor(private readonly api: PositronMcpApi) {
-		this.outputChannel = vscode.window.createOutputChannel('Positron MCP Server');
 		this.app = express();
 		this.setupMiddleware();
 		this.setupRoutes();
@@ -112,19 +112,22 @@ export class McpServer implements vscode.Disposable {
 	private async handleMcpRequest(req: Request, res: Response): Promise<void> {
 		try {
 			const request: McpRequest = req.body;
-			this.outputChannel.appendLine(`MCP request: ${request.method}`);
+			this.logger.logMcpRequest(request.method, request.params);
 
 			const response = await this.processRequest(request);
+			this.logger.logMcpResponse(request.method, !response.error, response);
 			res.json(response);
 		} catch (error) {
-			this.outputChannel.appendLine(`Error handling MCP request: ${error}`);
-			res.status(400).json({
+			this.logger.error('MCP.Handler', 'Error handling MCP request', error);
+			const errorResponse = {
 				jsonrpc: '2.0',
 				error: {
 					code: -32700,
 					message: 'Parse error'
 				}
-			});
+			};
+			this.logger.logMcpResponse('unknown', false, errorResponse);
+			res.status(400).json(errorResponse);
 		}
 	}
 
@@ -253,6 +256,7 @@ export class McpServer implements vscode.Disposable {
 
 	private async handleToolCall(request: McpRequest): Promise<McpResponse> {
 		const toolName = request.params?.name;
+		this.logger.debug('MCP.Tool', `Executing tool: ${toolName}`, request.params?.arguments);
 
 		switch (toolName) {
 			case 'get-time':
@@ -274,6 +278,7 @@ export class McpServer implements vscode.Disposable {
 			case 'foreground-session':
 				try {
 					const sessionInfo = await this.getForegroundSessionInfo();
+					this.logger.debug('Tool.Result', 'foreground-session', sessionInfo);
 					
 					// Format the response in a more readable way
 					let formattedText: string;
@@ -313,6 +318,7 @@ Session ID: ${sessionInfo.sessionId}`;
 			case 'get-variables':
 				try {
 					const variableState = await this.getCurrentVariableState();
+					this.logger.debug('Tool.Result', 'get-variables', { hasData: !!variableState, count: variableState?.totalCount });
 					
 					let formattedText: string;
 					if (variableState && variableState.variables.length > 0) {
@@ -378,7 +384,9 @@ Session ID: ${sessionInfo.sessionId}`;
 			case 'execute-code':
 				try {
 					const { languageId, code, options = {} } = request.params.arguments;
+					this.logger.logApiCall('runtime', 'executeCode', { languageId, codeLength: code.length, options });
 					const result = await this.api.runtime.executeCode(languageId, code, options);
+					this.logger.logApiResult('runtime', 'executeCode', true, result);
 					return {
 						jsonrpc: '2.0',
 						id: request.id,
@@ -405,7 +413,9 @@ Session ID: ${sessionInfo.sessionId}`;
 			case 'get-active-document':
 				try {
 					const { includeContent = false, includeSelection = true } = request.params?.arguments || {};
+					this.logger.logApiCall('editor', 'getActiveDocument');
 					const document = await this.api.editor.getActiveDocument();
+					this.logger.logApiResult('editor', 'getActiveDocument', !!document);
 					
 					if (!document) {
 						return {
@@ -437,7 +447,9 @@ Session ID: ${sessionInfo.sessionId}`;
 					}
 
 					if (includeSelection) {
+						this.logger.logApiCall('editor', 'getSelection');
 						const selection = await this.api.editor.getSelection();
+						this.logger.logApiResult('editor', 'getSelection', !!selection);
 						result.selection = selection || null;
 					}
 
@@ -468,9 +480,17 @@ Session ID: ${sessionInfo.sessionId}`;
 				try {
 					const { includeConfig = true, configSection } = request.params?.arguments || {};
 					
+					this.logger.logApiCall('workspace', 'getWorkspaceFolders');
 					const folders = this.api.workspace.getWorkspaceFolders();
+					this.logger.logApiResult('workspace', 'getWorkspaceFolders', true, { count: folders.length });
+					
+					this.logger.logApiCall('runtime', 'getForegroundSession');
 					const activeSession = await this.api.runtime.getForegroundSession();
+					this.logger.logApiResult('runtime', 'getForegroundSession', !!activeSession);
+					
+					this.logger.logApiCall('runtime', 'getActiveSessions');
 					const activeSessions = await this.api.runtime.getActiveSessions();
+					this.logger.logApiResult('runtime', 'getActiveSessions', true, { count: activeSessions.length });
 
 					const result: any = {
 						folders,
@@ -538,7 +558,9 @@ Session ID: ${sessionInfo.sessionId}`;
 
 	private async getForegroundSessionInfo(): Promise<ForegroundSessionInfo | undefined> {
 		try {
+			this.logger.logApiCall('runtime', 'getForegroundSession');
 			const session = await this.api.runtime.getForegroundSession();
+			this.logger.logApiResult('runtime', 'getForegroundSession', !!session, session);
 			if (!session) {
 				return undefined;
 			}
@@ -552,20 +574,25 @@ Session ID: ${sessionInfo.sessionId}`;
 				state: session.metadata.state
 			};
 		} catch (error) {
-			this.outputChannel.appendLine(`Failed to get foreground session info: ${error}`);
+			this.logger.error('API.Session', 'Failed to get foreground session info', error);
 			return undefined;
 		}
 	}
 
 	private async getCurrentVariableState(): Promise<RuntimeVariableState | undefined> {
 		try {
+			this.logger.logApiCall('runtime', 'getForegroundSession');
 			const session = await this.api.runtime.getForegroundSession();
+			this.logger.logApiResult('runtime', 'getForegroundSession', !!session, session);
+			
 			if (!session) {
 				return undefined;
 			}
 
 			// Get all variables for the session
+			this.logger.logApiCall('runtime', 'getSessionVariables', session.metadata.sessionId);
 			const variablesData = await this.api.runtime.getSessionVariables(session.metadata.sessionId);
+			this.logger.logApiResult('runtime', 'getSessionVariables', true, { count: variablesData.length });
 
 			// Convert to our format
 			const variables: VariableStateInfo[] = variablesData.map(v => ({
@@ -585,7 +612,7 @@ Session ID: ${sessionInfo.sessionId}`;
 				isLoading: false
 			};
 		} catch (error) {
-			this.outputChannel.appendLine(`Failed to get current variable state: ${error}`);
+			this.logger.error('API.Variables', 'Failed to get current variable state', error);
 			return undefined;
 		}
 	}
@@ -595,20 +622,27 @@ Session ID: ${sessionInfo.sessionId}`;
 			return;
 		}
 
-		return new Promise((resolve) => {
+		this.logger.logServerStart(this.port);
+		
+		return new Promise((resolve, reject) => {
 			this.server = this.app.listen(this.port, 'localhost', () => {
-				this.outputChannel.appendLine(`Positron MCP server started on http://localhost:${this.port}`);
+				this.logger.logServerStarted(this.port);
 				resolve();
+			});
+			
+			this.server.on('error', (error) => {
+				this.logger.error('Server', `Failed to start server on port ${this.port}`, error);
+				reject(error);
 			});
 		});
 	}
 
 	dispose(): void {
 		if (this.server) {
+			this.logger.logServerStop();
 			this.server.close();
 			this.server = undefined;
-			this.outputChannel.appendLine('Positron MCP server stopped');
+			this.logger.logServerStopped();
 		}
-		this.outputChannel.dispose();
 	}
 }

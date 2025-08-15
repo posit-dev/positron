@@ -5,6 +5,7 @@
 
 import * as vscode from 'vscode';
 import * as positron from 'positron';
+import { getLogger } from './logger';
 import {
 	PositronMcpApi,
 	PositronRuntimeApi,
@@ -35,30 +36,38 @@ export class PositronApiWrapper implements PositronMcpApi {
 	public readonly window: PositronWindowApi;
 	public readonly editor: PositronEditorApi;
 	public readonly workspace: PositronWorkspaceApi;
+	private readonly logger = getLogger();
 
 	constructor(_context: vscode.ExtensionContext) {
 		// Initialize runtime API
 		this.runtime = {
 			getForegroundSession: async (): Promise<RuntimeSession | undefined> => {
 				try {
+					this.logger.trace('API.Runtime', 'Getting foreground session');
 					const session = await positron.runtime.getForegroundSession();
 					if (!session) {
+						this.logger.debug('API.Runtime', 'No foreground session available');
 						return undefined;
 					}
 
-					return this.convertToRuntimeSession(session);
+					const result = this.convertToRuntimeSession(session);
+					this.logger.debug('API.Runtime', 'Foreground session retrieved', { sessionId: result.metadata.sessionId });
+					return result;
 				} catch (error) {
-					console.error('Failed to get foreground session:', error);
+					this.logger.error('API.Runtime', 'Failed to get foreground session', error);
 					return undefined;
 				}
 			},
 
 			getActiveSessions: async (): Promise<RuntimeSession[]> => {
 				try {
+					this.logger.trace('API.Runtime', 'Getting active sessions');
 					const sessions = await positron.runtime.getActiveSessions();
-					return sessions.map(s => this.convertToRuntimeSession(s));
+					const result = sessions.map(s => this.convertToRuntimeSession(s));
+					this.logger.debug('API.Runtime', 'Active sessions retrieved', { count: result.length });
+					return result;
 				} catch (error) {
-					console.error('Failed to get active sessions:', error);
+					this.logger.error('API.Runtime', 'Failed to get active sessions', error);
 					return [];
 				}
 			},
@@ -69,9 +78,11 @@ export class PositronApiWrapper implements PositronMcpApi {
 				}
 
 				try {
+					this.logger.info('API.Runtime', `Selecting language runtime: ${runtimeId}`);
 					await positron.runtime.selectLanguageRuntime(runtimeId);
+					this.logger.debug('API.Runtime', `Language runtime selected: ${runtimeId}`);
 				} catch (error) {
-					console.error('Failed to select language runtime:', error);
+					this.logger.error('API.Runtime', `Failed to select language runtime: ${runtimeId}`, error);
 					throw error;
 				}
 			},
@@ -92,7 +103,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 					);
 					return this.convertToRuntimeSession(session);
 				} catch (error) {
-					console.error('Failed to start language runtime:', error);
+					this.logger.error('API.Runtime', 'Failed to start language runtime', error);
 					throw error;
 				}
 			},
@@ -105,7 +116,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					await positron.runtime.restartSession(sessionId);
 				} catch (error) {
-					console.error('Failed to restart session:', error);
+					this.logger.error('API.Runtime', 'Failed to restart session', error);
 					throw error;
 				}
 			},
@@ -118,7 +129,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					positron.runtime.focusSession(sessionId);
 				} catch (error) {
-					console.error('Failed to focus session:', error);
+					this.logger.error('API.Runtime', 'Failed to focus session', error);
 					throw error;
 				}
 			},
@@ -131,6 +142,8 @@ export class PositronApiWrapper implements PositronMcpApi {
 				if (!code?.trim()) {
 					throw new Error('code is required');
 				}
+
+				this.logger.debug('API.Runtime', 'Executing code', { languageId, codeLength: code.length, options });
 
 				try {
 					const {
@@ -186,6 +199,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 						}
 					};
 				} catch (error) {
+					this.logger.error('API.Runtime', 'Failed to execute code', error);
 					return {
 						success: false,
 						error: {
@@ -221,7 +235,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 					}
 					return variables;
 				} catch (error) {
-					console.error('Failed to get session variables:', error);
+					this.logger.error('API.Runtime', 'Failed to get session variables', error);
 					return [];
 				}
 			},
@@ -239,7 +253,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 						rowCount: result.row_count || 0
 					}));
 				} catch (error) {
-					console.error('Failed to query session tables:', error);
+					this.logger.error('API.Runtime', 'Failed to query session tables', error);
 					return [];
 				}
 			},
@@ -270,7 +284,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 						height: 25
 					};
 				} catch (error) {
-					console.error('Failed to get console for language:', error);
+					this.logger.error('API.Window', 'Failed to get console for language', error);
 					return undefined;
 				}
 			},
@@ -279,7 +293,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					return await positron.window.getConsoleWidth();
 				} catch (error) {
-					console.error('Failed to get console width:', error);
+					this.logger.error('API.Window', 'Failed to get console width', error);
 					return 80; // Default fallback
 				}
 			},
@@ -296,7 +310,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 						format: (settings.format || 'png') as 'png' | 'svg' | 'jpeg'
 					};
 				} catch (error) {
-					console.error('Failed to get plots render settings:', error);
+					this.logger.error('API.Window', 'Failed to get plots render settings', error);
 					// Return sensible defaults
 					return {
 						width: 800,
@@ -313,7 +327,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					return await positron.window.showSimpleModalDialogPrompt(title, message, okButton, cancelButton);
 				} catch (error) {
-					console.error('Failed to show modal dialog prompt:', error);
+					this.logger.error('API.Window', 'Failed to show modal dialog prompt', error);
 					return false;
 				}
 			},
@@ -322,7 +336,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					await positron.window.showSimpleModalDialogMessage(title, message, okButton);
 				} catch (error) {
-					console.error('Failed to show modal dialog message:', error);
+					this.logger.error('API.Window', 'Failed to show modal dialog message', error);
 				}
 			},
 
@@ -442,7 +456,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 						visibleRanges: [...editor.visibleRanges]
 					};
 				} catch (error) {
-					console.error('Failed to get last active editor context:', error);
+					this.logger.error('API.Editor', 'Failed to get last active editor context', error);
 					return null;
 				}
 			},
@@ -452,7 +466,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 					const document = await vscode.workspace.openTextDocument(vscode.Uri.parse(uri));
 					return range ? document.getText(range) : document.getText();
 				} catch (error) {
-					console.error('Failed to get document text:', error);
+					this.logger.error('API.Editor', 'Failed to get document text', error);
 					throw error;
 				}
 			},
@@ -465,7 +479,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 						editBuilder.insert(position, text);
 					});
 				} catch (error) {
-					console.error('Failed to insert text:', error);
+					this.logger.error('API.Editor', 'Failed to insert text', error);
 					throw error;
 				}
 			},
@@ -478,7 +492,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 						editBuilder.replace(range, text);
 					});
 				} catch (error) {
-					console.error('Failed to replace text:', error);
+					this.logger.error('API.Editor', 'Failed to replace text', error);
 					throw error;
 				}
 			}
@@ -507,7 +521,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					return await vscode.workspace.fs.readFile(vscode.Uri.parse(uri));
 				} catch (error) {
-					console.error('Failed to read file:', error);
+					this.logger.error('API.Workspace', 'Failed to read file', error);
 					throw error;
 				}
 			},
@@ -516,7 +530,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					await vscode.workspace.fs.writeFile(vscode.Uri.parse(uri), content);
 				} catch (error) {
-					console.error('Failed to write file:', error);
+					this.logger.error('API.Workspace', 'Failed to write file', error);
 					throw error;
 				}
 			},
@@ -525,7 +539,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					await vscode.workspace.fs.writeFile(vscode.Uri.parse(uri), new Uint8Array());
 				} catch (error) {
-					console.error('Failed to create file:', error);
+					this.logger.error('API.Workspace', 'Failed to create file', error);
 					throw error;
 				}
 			},
@@ -534,7 +548,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					await vscode.workspace.fs.delete(vscode.Uri.parse(uri));
 				} catch (error) {
-					console.error('Failed to delete file:', error);
+					this.logger.error('API.Workspace', 'Failed to delete file', error);
 					throw error;
 				}
 			},
@@ -543,7 +557,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					return await vscode.workspace.findFiles(include, exclude, maxResults);
 				} catch (error) {
-					console.error('Failed to find files:', error);
+					this.logger.error('API.Workspace', 'Failed to find files', error);
 					return [];
 				}
 			},
@@ -552,7 +566,7 @@ export class PositronApiWrapper implements PositronMcpApi {
 				try {
 					return await vscode.workspace.openTextDocument(vscode.Uri.parse(uri));
 				} catch (error) {
-					console.error('Failed to open text document:', error);
+					this.logger.error('API.Workspace', 'Failed to open text document', error);
 					throw error;
 				}
 			}
