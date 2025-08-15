@@ -78,9 +78,9 @@ This represents a **70% reduction in complexity** for edit operations alone.
 
 ### Revised Recommendation
 
-**With no extension compatibility required, building an independent Positron notebook model is recommended.** 
+**With no extension compatibility required, building an independent Positron notebook model is strongly recommended.** 
 
-**Important caveat for remote UI scenarios**: If your UI and backend run on different machines/processes, you'll need a simplified operation pattern for serialization across the network boundary. This is still much simpler than VS Code's ICellEditOperation but necessary for remote transport.
+**Key insight**: The current architecture has UI and model in the same renderer process, so you don't need any operation pattern for serialization. You can use simple, direct methods that are intuitive and easy to maintain. The ICellEditOperation complexity is completely unnecessary for your use case.
 
 ## Simplified Architecture (No Extension Compatibility)
 
@@ -128,11 +128,31 @@ export class PositronNotebookModel {
 | Migration | 3-4 weeks | 3-4 weeks |
 | **Total** | **20-28 weeks** | **10-14 weeks** |
 
-## Remote UI Architecture Considerations
+## Process Architecture Clarification
 
-### If You Need Remote UI Support
+### Current Architecture: UI and Model in Same Process
 
-When the UI and backend run on different machines/processes, you need **serializable operations** for network transport:
+**Critical insight**: In VS Code/Positron's current architecture, the NotebookTextModel lives in the **same renderer process** as the UI. There's no serialization needed between them:
+
+```
+[Renderer Process]
+├── UI Components (React)
+├── PositronNotebookInstance  
+├── NotebookTextModel ← Direct access, no serialization!
+└── MainThreadNotebook (for extensions only)
+```
+
+This means you can use **simple, direct methods** without any operation pattern:
+
+```typescript
+// Works perfectly in current architecture
+model.addCell('code', 'print("hello")');  // Direct synchronous call
+model.removeCell(cellId);                  // No serialization needed
+```
+
+### Future Consideration: True Remote UI
+
+If you later move to a true remote architecture where the UI and backend run on different machines/processes, you would need **serializable operations** for network transport:
 
 ```typescript
 // Can't send functions or class instances over network
