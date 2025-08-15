@@ -18,7 +18,7 @@
         "command": "notebook.debugCell",
         "icon": "$(debug-alt-small)",
         "title": "Debug Cell",
-        "enablement": "notebookInterpreterSupportsDebugging"
+        "enablement": "notebookInterpreterSupportsDebugging && resource not in debuggedNotebooks"
       },
       {
         "command": "positron-runtime-debugger.showRuntimeError",
