@@ -6,9 +6,8 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
-import { EXTENSION_ROOT_DIR } from './constants';
+import { MD_DIR } from './constants';
 import { IPositronAssistantParticipant, ParticipantID, ParticipantService } from './participants.js';
-const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
 
 type LMTextEdit = { append: string } | { delete: string; replace: string };
 
@@ -125,7 +124,7 @@ async function mapEdit(
 	block: string,
 	token: vscode.CancellationToken,
 ): Promise<string | null> {
-	const system: string = await fs.promises.readFile(`${mdDir}/prompts/chat/mapedit.md`, 'utf8');
+	const system: string = await fs.promises.readFile(`${MD_DIR}/prompts/chat/mapedit.md`, 'utf8');
 	const response = await model.sendRequest([
 		vscode.LanguageModelChatMessage.User(
 			JSON.stringify({ document, block })

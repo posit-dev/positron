@@ -30,3 +30,6 @@ export const TOOL_TAG_REQUIRES_WORKSPACE = 'requires-workspace';
  * If no language ID is specified, it indicates that any active session is sufficient.
  */
 export const TOOL_TAG_REQUIRES_ACTIVE_SESSION = 'requires-session';
+
+/** The absolute path to the directory containing markdown files (e.g. prompt templates). */
+export const MD_DIR = `${EXTENSION_ROOT_DIR}/src/md/`;

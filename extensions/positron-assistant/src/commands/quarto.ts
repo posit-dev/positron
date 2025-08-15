@@ -6,10 +6,9 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
-import { EXTENSION_ROOT_DIR } from '../constants';
+import { MD_DIR } from '../constants';
 import { toLanguageModelChatMessage } from '../utils';
-
-const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
+import { PositronAssistantChatParticipant } from '../participants.js';
 
 export const EXPORT_QUARTO_COMMAND = 'exportQuarto';
 
@@ -22,7 +21,7 @@ export async function quartoHandler(
 	response: vscode.ChatResponseStream,
 	token: vscode.CancellationToken
 ) {
-	const system = await fs.promises.readFile(`${mdDir}/prompts/chat/quarto.md`, 'utf8');
+	const system = await fs.promises.readFile(`${MD_DIR}/prompts/chat/quarto.md`, 'utf8');
 
 	response.markdown(vscode.l10n.t('Okay!'));
 	response.progress(vscode.l10n.t('Creating new Quarto document...'));
@@ -68,4 +67,8 @@ export async function quartoHandler(
 			);
 		}
 	}
+}
+
+export function registerQuartoCommand() {
+	PositronAssistantChatParticipant.registerCommand(EXPORT_QUARTO_COMMAND, quartoHandler);
 }

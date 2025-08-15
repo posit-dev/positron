@@ -138,12 +138,13 @@ async function getSummarizedProjectTree(workspaceTrees: DirectoryInfo[], itemLim
 		return {};
 	}
 
-	const summary = new Map<string, { files: string[]; directories: string[]; totalFiles: number }>();
+	const summary = new Map<string, { files: string[]; directories: string[]; totalFiles: number; workspaceUri: string }>();
 	for (const workspace of workspaceTrees) {
 		summary.set(workspace.folder.name, {
 			totalFiles: workspace.totalFiles,
 			files: [],
-			directories: []
+			directories: [],
+			workspaceUri: workspace.folder.uri.toString(),
 		});
 
 		// Get the top-level items in the workspace folder
