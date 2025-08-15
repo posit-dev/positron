@@ -77,18 +77,41 @@ type ContextKeyValue =
 export class ContextKey<T extends ContextKeyValue = boolean> {
 	private _value?: T;
 
-	public get value(): T | undefined {
+	constructor(private _name: string) { }
+
+	public get(): T | undefined {
 		return this._value;
 	}
 
-	constructor(private _name: string) { }
-
 	public async set(value: T): Promise<void> {
-		if (this._value === value) {
-			return;
-		}
 		this._value = value;
 		await vscode.commands.executeCommand('setContext', this._name, this._value);
+	}
+}
+
+export class ResourceSetContextKey extends ContextKey<Array<vscode.Uri>> {
+	public has(value: vscode.Uri): boolean {
+		return Boolean(this.get()?.some((uri) => isUriEqual(uri, value)));
+	}
+
+	public async add(value: vscode.Uri): Promise<this> {
+		const current = this.get() ?? [];
+		if (!current.some((uri) => isUriEqual(uri, value))) {
+			current.push(value);
+			await this.set(current);
+		}
+		return this;
+	}
+
+	public async delete(value: vscode.Uri): Promise<boolean> {
+		const current = this.get() ?? [];
+		const index = current.findIndex((uri) => isUriEqual(uri, value));
+		if (index === -1) {
+			return false;
+		}
+		current.splice(index, 1);
+		await this.set(current);
+		return true;
 	}
 }
 
@@ -124,4 +147,8 @@ export function createDebuggerOutputChannel(runtimeSession: positron.LanguageRun
 	const name = `${runtimeName}: ${DebuggerOutputChannelDescriptor} (${sessionTitle})`;
 	const outputChannel = vscode.window.createOutputChannel(name, { log: true });
 	return outputChannel;
+}
+
+export function isUriEqual(a: vscode.Uri, b: vscode.Uri): boolean {
+	return a.toString() === b.toString();
 }

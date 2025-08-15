@@ -7,7 +7,7 @@ import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { log } from './extension.js';
-import { Disposable } from './util.js';
+import { Disposable, isUriEqual } from './util.js';
 import { NotebookDebugAdapterFactory } from './notebookDebugAdapterFactory.js';
 
 const DebugCellCommand = 'notebook.debugCell';
@@ -78,8 +78,7 @@ function getActiveNotebookCell(): vscode.NotebookCell | undefined {
 export async function getNotebookSession(notebookUri: vscode.Uri): Promise<positron.LanguageRuntimeSession | undefined> {
 	const runtimeSessions = await positron.runtime.getActiveSessions();
 	const runtimeSession = runtimeSessions.find(
-		(session) => session.metadata.notebookUri &&
-			session.metadata.notebookUri.toString() === notebookUri.toString()
+		(session) => session.metadata.notebookUri && isUriEqual(session.metadata.notebookUri, notebookUri)
 	);
 	return runtimeSession;
 }

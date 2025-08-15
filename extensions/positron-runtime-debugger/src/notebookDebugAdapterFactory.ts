@@ -5,8 +5,9 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
+import { log } from './extension.js';
 import { DebugCellController } from './debugCellController.js';
-import { createDebuggerOutputChannel, Disposable, DisposableStore } from './util.js';
+import { ContextKey, createDebuggerOutputChannel, Disposable, DisposableStore, isUriEqual, ResourceSetContextKey } from './util.js';
 import { RuntimeDebugAdapter } from './runtimeDebugAdapter.js';
 import { PathEncoder } from './pathEncoder.js';
 import { NotebookLocationMapper } from './notebookLocationMapper.js';
@@ -21,19 +22,22 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 	/* Maps runtime session IDs to their debug output channels. */
 	private readonly _outputChannelByRuntimeSessionId = new Map<string, vscode.LogOutputChannel>();
 
-	constructor() {
-		super();
-	}
+	private readonly _debuggedNotebookUris = new ResourceSetContextKey('debuggedNotebooks');
 
 	async createDebugAdapterDescriptor(debugSession: vscode.DebugSession, _executable: vscode.DebugAdapterExecutable): Promise<vscode.DebugAdapterDescriptor | undefined> {
 		const notebookUri = vscode.Uri.parse(debugSession.configuration.__notebookUri, true);
-		const notebook = vscode.workspace.notebookDocuments.find((doc) => doc.uri.toString() === notebookUri.toString());
+
+		if (this._debuggedNotebookUris.has(notebookUri)) {
+			throw new Error(`Notebook is already being debugged: ${notebookUri}`);
+		}
+
+		const notebook = vscode.workspace.notebookDocuments.find((doc) => isUriEqual(doc.uri, notebookUri));
 		if (!notebook) {
 			throw new Error(`Notebook not found: ${notebookUri}`);
 		}
 
 		const cellUri = vscode.Uri.parse(debugSession.configuration.__cellUri, true);
-		const cell = notebook.getCells().find((cell) => cell.document.uri.toString() === cellUri.toString());
+		const cell = notebook.getCells().find((cell) => isUriEqual(cell.document.uri, cellUri));
 		if (!cell) {
 			throw new Error(`Cell not found: ${cellUri}`);
 		}
@@ -53,9 +57,13 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 
 		disposables.add(new DebugCellController(adapter, debugSession, runtimeSession, cell));
 
+		// Track that the notebook is being debugged.
+		await this._debuggedNotebookUris.add(notebookUri);
+
 		// Clean up when the debug session terminates.
-		disposables.add(vscode.debug.onDidTerminateDebugSession((session) => {
+		disposables.add(vscode.debug.onDidTerminateDebugSession(async (session) => {
 			if (session.id === debugSession.id) {
+				await this._debuggedNotebookUris.delete(notebookUri);
 				disposables.dispose();
 			}
 		}));
