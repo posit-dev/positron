@@ -135,14 +135,14 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 				return [];
 			}
 
-			const system: string = await PromptRenderer.render(FollowupsContent, {});
-			const messages = toLanguageModelChatMessage(context.history);
-			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
-
 			const models = await vscode.lm.selectChatModels({ id: result.metadata?.modelId });
 			if (models.length === 0) {
 				throw new Error(vscode.l10n.t('Selected model not available.'));
 			}
+
+			const system: string = await PromptRenderer.renderSystemPrompt(FollowupsContent, {}, models[0]);
+			const messages = toLanguageModelChatMessage(context.history);
+			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));
 
 			const response = await models[0].sendRequest(messages, { modelOptions: { system } }, token);
 
@@ -193,8 +193,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
 	) {
-		// System prompt.
+		// System prompt (empty string, we'll add system messages to the messages array instead).
 		const system = await this.getSystemPrompt(request);
+
+		// Get system messages from prompt components
+		const systemMessages = await this.getSystemMessages(request);
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -316,9 +319,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		// Construct the transient message thread sent to the language model.
 		// Note that this is not the same as the chat history shown in the UI.
 
-		// Start with the chat history.
+		// Start with system messages from prompt components
+		const messages: (vscode.LanguageModelChatMessage | vscode.LanguageModelChatMessage2)[] = [...systemMessages];
+
+		// Add the chat history.
 		// Note that context.history excludes tool calls and results.
-		const messages = toLanguageModelChatMessage(context.history);
+		messages.push(...toLanguageModelChatMessage(context.history));
 
 		// Add the user's prompt.
 		const userPromptPart = new vscode.LanguageModelTextPart(request.prompt);
@@ -357,6 +363,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 	}
 
 	protected abstract getSystemPrompt(request: vscode.ChatRequest): Promise<string>;
+
+	protected async getSystemMessages(request: vscode.ChatRequest): Promise<vscode.LanguageModelChatMessage[]> {
+		// Default implementation returns empty array, subclasses can override
+		return [];
+	}
 
 	private async getContextInfo(
 		request: vscode.ChatRequest,
@@ -527,13 +538,13 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 			if (attachmentData.length > 0) {
 				// Add the attachments to the prompt using TSX component
-				const attachmentsText = await PromptRenderer.render(AttachmentsContent, { attachments: attachmentData });
+				const attachmentsText = await PromptRenderer.renderToContent(AttachmentsContent, { attachments: attachmentData });
 				prompts.push(xml.node('attachments', attachmentsText));
 			}
 
 			if (sessionData.length > 0) {
 				// Add the session prompts to the context using TSX component
-				const sessionText = await PromptRenderer.render(SessionsContent, { sessions: sessionData });
+				const sessionText = await PromptRenderer.renderToContent(SessionsContent, { sessions: sessionData });
 				prompts.push(xml.node('sessions', sessionText));
 			}
 		}
@@ -775,7 +786,7 @@ export class PositronAssistantChatParticipant extends PositronAssistantParticipa
 		// Use the new prompt-tsx system
 		const activeSessions = await this.getActiveSessionLanguages();
 		const languageInstructions = await this.getActiveSessionLanguageInstructions();
-		const rendered = await PromptRenderer.render(
+		const rendered = await PromptRenderer.renderSystemPrompt(
 			ChatPrompt,
 			{
 				includeFilepaths: true,
@@ -802,20 +813,42 @@ export class PositronAssistantAgentParticipant extends PositronAssistantParticip
 	id = ParticipantID.Agent;
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		// Use the new prompt-tsx system
+		// For now, return empty string and handle system messages differently
+		return '';
+	}
+
+	protected async getSystemMessages(request: vscode.ChatRequest): Promise<vscode.LanguageModelChatMessage[]> {
 		const activeSessions = await this.getActiveSessionLanguages();
 		const languageInstructions = await this.getActiveSessionLanguageInstructions();
-		const rendered = await PromptRenderer.render(
-			AgentPrompt,
-			{
-				activeSessions,
-				languageInstructions,
-				priority: 100
-			},
-			request.model,
-			`agent-prompt-${activeSessions.join('-')}-${Array.from(languageInstructions.keys()).join('-')}`
-		);
-		return rendered;
+		
+		try {
+			const { systemPrompt, messages } = await PromptRenderer.renderToSystemAndMessages(
+				AgentPrompt,
+				{
+					activeSessions,
+					languageInstructions,
+					priority: 100
+				},
+				request.model,
+				`agent-prompt-${activeSessions.join('-')}-${Array.from(languageInstructions.keys()).join('-')}`
+			);
+			
+			// Convert system prompt to a system message
+			const systemMessages: vscode.LanguageModelChatMessage[] = [];
+			if (systemPrompt.trim()) {
+				systemMessages.push(vscode.LanguageModelChatMessage.User([
+					new vscode.LanguageModelTextPart(systemPrompt)
+				]));
+			}
+			
+			// Add any additional messages
+			systemMessages.push(...messages);
+			
+			return systemMessages;
+		} catch (error) {
+			console.error('Error getting system messages:', error);
+			return [];
+		}
 	}
 
 	private async getActiveSessionLanguages(): Promise<string[]> {
@@ -832,7 +865,7 @@ class PositronAssistantTerminalParticipant extends PositronAssistantParticipant 
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		// Use the new prompt-tsx system
-		const rendered = await PromptRenderer.render(
+		const rendered = await PromptRenderer.renderSystemPrompt(
 			TerminalPrompt,
 			{
 				priority: 100
@@ -860,7 +893,7 @@ export class PositronAssistantEditorParticipant extends PositronAssistantPartici
 		const isTextEdit = !selection.isEmpty;
 
 		// Use the new prompt-tsx system
-		const rendered = await PromptRenderer.render(
+		const rendered = await PromptRenderer.renderSystemPrompt(
 			EditorPrompt,
 			{
 				isTextEdit,
@@ -923,7 +956,7 @@ class PositronAssistantEditParticipant extends PositronAssistantParticipant impl
 
 	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
 		// Use the new prompt-tsx system for edit mode (similar to chat but with filepaths)
-		const rendered = await PromptRenderer.render(
+		const rendered = await PromptRenderer.renderSystemPrompt(
 			ChatPrompt,
 			{
 				includeFilepaths: true,

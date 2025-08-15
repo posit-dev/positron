@@ -4,8 +4,10 @@
  *--------------------------------------------------------------------------------------------*/
 
 import {
+	AssistantMessage,
 	BasePromptElementProps,
-	PromptElement
+	PromptElement,
+	SystemMessage
 } from '@vscode/prompt-tsx';
 import { ActivationSteering } from '../components/base/ActivationSteering';
 import { CommunicationGuidelines } from '../components/base/CommunicationGuidelines';
@@ -32,6 +34,7 @@ export class AgentPrompt extends PromptElement<AgentPromptProps> {
 		// Agent has similar structure to Chat but with agent-specific activation
 		return (
 			<>
+			<SystemMessage priority={100}>
 				<ActivationSteering
 					participantType="agent"
 					priority={100}
@@ -46,6 +49,7 @@ export class AgentPrompt extends PromptElement<AgentPromptProps> {
 					languageInstructions={this.props.languageInstructions}
 					priority={80}
 				/>
+			</SystemMessage>
 			</>
 		);
 	}

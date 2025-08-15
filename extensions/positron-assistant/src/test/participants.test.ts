@@ -93,7 +93,7 @@ suite('PositronAssistantParticipant', () => {
 	let llmsTxtUri: vscode.Uri;
 	let chatParticipant: PositronAssistantChatParticipant;
 	let editorParticipant: PositronAssistantEditorParticipant;
-	
+
 	setup(() => {
 		disposables = [];
 
@@ -113,7 +113,7 @@ suite('PositronAssistantParticipant', () => {
 		disposables.push(participantService);
 		chatParticipant = new PositronAssistantChatParticipant(extensionContext, participantService);
 		editorParticipant = new PositronAssistantEditorParticipant(extensionContext, participantService);
-		
+
 		// FIXED: Mock positron runtime sessions and system prompts to work with new TSX-based prompt system
 		// These mocks bypass the TSX rendering complexities while still testing the core functionality
 		sinon.stub(positron.runtime, 'getActiveSessions').resolves([]);
