@@ -47,7 +47,7 @@ test.describe('Data Explorer - Python Polars', {
 		await clipboard.expectClipboardTextToBe('1');
 
 		// verify sparkline hover
-		await dataExplorer.summaryPanel.expand();
+		await dataExplorer.summaryPanel.show();
 		await dataExplorer.summaryPanel.verifySparklineHoverDialog(['Range', 'Count']);
 
 		// verify null percentage hover
@@ -57,7 +57,7 @@ test.describe('Data Explorer - Python Polars', {
 
 	test('Python Polars - Verify column info functionality: missing %s, profile data', async function ({ app }) {
 		const { dataExplorer } = app.workbench;
-		await dataExplorer.summaryPanel.expand();
+		await dataExplorer.summaryPanel.show();
 
 		// Verify all missing percentages
 		await dataExplorer.summaryPanel.verifyMissingPercent([
@@ -96,7 +96,7 @@ test.describe('Data Explorer - Python Polars', {
 		const { dataExplorer } = app.workbench;
 
 		// sort table by column 1 (foo): descending
-		await dataExplorer.summaryPanel.expand();
+		await dataExplorer.summaryPanel.show();
 		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
 		await dataExplorer.grid.verifyTableData([
 			{ 'foo': '3', 'bar': '8.00', 'ham': '2022-05-06' },

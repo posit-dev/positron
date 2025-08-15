@@ -158,9 +158,9 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+J P', 'Minimize bottom panel');
 	}
 
-	// ----------------------
+	// -------------------------
 	// --- Workspace Actions ---
-	// ----------------------
+	// -------------------------
 
 	public async closeWorkspace() {
 		await this.pressHotKeys('Cmd+J W');
@@ -201,6 +201,18 @@ export class HotKeys {
 
 	public async openFolder() {
 		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
+	}
+
+	// -----------------------
+	// ---  Data Explorer  ---
+	// -----------------------
+
+	public async showDataExplorerSummaryPanel() {
+		await this.pressHotKeys('Cmd+J Y', 'Expand/show the Summary Panel in DE');
+	}
+
+	public async hideDataExplorerSummaryPanel() {
+		await this.pressHotKeys('Cmd+J Z', 'Collapse/hide the Summary Panel in DE');
 	}
 
 	/**

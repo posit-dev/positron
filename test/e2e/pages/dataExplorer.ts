@@ -90,7 +90,7 @@ export class DataExplorer {
 		await this.workbench.hotKeys.toggleBottomPanel();
 
 		if (collapseSummary) {
-			await this.summaryPanel.collapse();
+			await this.summaryPanel.hide();
 		}
 	}
 
@@ -358,6 +358,7 @@ export class SummaryPanel {
 	private searchFilter: Locator;
 	private sortFilter: Locator;
 	private columnSummary: Locator;
+	private verticalScrollbar: Locator;
 
 	constructor(private code: Code, private workbench: Workbench) {
 		this.summaryPanel = this.code.driver.page.locator('.data-explorer .left-column');
@@ -365,11 +366,19 @@ export class SummaryPanel {
 		this.searchFilter = this.summaryFilterBar.getByRole('textbox', { name: 'filter' });
 		this.sortFilter = this.summaryFilterBar.getByRole('button', { name: 'Sort summary row data' });
 		this.columnSummary = this.summaryPanel.locator('.column-summary');
+		this.verticalScrollbar = this.summaryPanel.locator('div.data-grid-scrollbar-slider');
 	}
 
 	async search(filterText: string) {
 		await test.step('Search summary panel', async () => {
 			await this.searchFilter.fill(filterText);
+			await this.searchFilter.press('Enter');
+		});
+	}
+
+	async clearSearch() {
+		await test.step('Clear search filter in summary panel', async () => {
+			await this.searchFilter.fill('');
 			await this.searchFilter.press('Enter');
 		});
 	}
@@ -394,6 +403,14 @@ export class SummaryPanel {
 		await test.step('Verify column count in summary panel', async () => {
 			await expect(this.columnSummary).toHaveCount(count);
 		});
+	}
+
+	async expectScrollbarToBeVisible(visible = true) {
+		await test.step(`Verify vertical scrollbar: ${visible ? 'visible' : 'not visible'}`, async () => {
+			visible
+				? await expect(this.verticalScrollbar).toBeVisible({ timeout: 5000 })
+				: await expect(this.verticalScrollbar).not.toBeVisible({ timeout: 5000 });
+		})
 	}
 
 	async getColumnMissingPercent(rowNumber: number): Promise<string> {
@@ -457,14 +474,12 @@ export class SummaryPanel {
 		await this.code.driver.page.locator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
 	}
 
-	async collapse(): Promise<void> {
-		await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.collapseSummary');
+	async hide(): Promise<void> {
+		await this.workbench.hotKeys.hideDataExplorerSummaryPanel();
 	}
 
-	async expand(): Promise<void> {
-		await test.step('Expand data explorer summary', async () => {
-			await this.workbench.quickaccess.runCommand('workbench.action.positronDataExplorer.expandSummary');
-		});
+	async show(): Promise<void> {
+		await this.workbench.hotKeys.showDataExplorerSummaryPanel();
 	}
 
 	async verifyMissingPercent(expectedValues: Array<{ column: number; expected: string }>) {
@@ -472,6 +487,25 @@ export class SummaryPanel {
 			for (const { column, expected } of expectedValues) {
 				const missingPercent = await this.getColumnMissingPercent(column);
 				expect(missingPercent).toBe(expected);
+			}
+		});
+	}
+
+	async expectColumnProfileToBeExpanded(columnSummaryIndex: number) {
+		await this.expectColumnSummaryIndexExpansion(columnSummaryIndex, 'expanded');
+	}
+
+	async expectColumnToBeCollapsed(columnSummaryIndex: number) {
+		await this.expectColumnSummaryIndexExpansion(columnSummaryIndex, 'collapsed');
+	}
+
+	private async expectColumnSummaryIndexExpansion(columnSummaryIndex: number, expansion: 'expanded' | 'collapsed') {
+		await test.step(`Verify column ${columnSummaryIndex} is ${expansion}`, async () => {
+			const column = this.code.driver.page.locator('.column-summary').nth(columnSummaryIndex);
+			if (expansion === 'expanded') {
+				await expect(column.locator('.codicon-chevron-down')).toBeVisible();
+			} else {
+				await expect(column.locator('.codicon-chevron-right')).toBeVisible();
 			}
 		});
 	}

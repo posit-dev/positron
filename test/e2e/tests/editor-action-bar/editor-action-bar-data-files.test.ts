@@ -82,7 +82,7 @@ test.describe('Editor Action Bar: Data Files', {
 			}
 
 			// Ensure the summary panel is visible
-			await dataExplorer.summaryPanel.expand();
+			await dataExplorer.summaryPanel.show();
 
 			// Verify action bar behavior
 			await editorActionBar.selectSummaryOn(app.web, 'Left');

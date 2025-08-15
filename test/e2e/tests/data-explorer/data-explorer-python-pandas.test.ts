@@ -43,7 +43,7 @@ test.describe('Data Explorer - Python Pandas', {
 		await clipboard.expectClipboardTextToBe('Jai');
 
 		// verify sparkline hover dialog
-		await dataExplorer.summaryPanel.expand();
+		await dataExplorer.summaryPanel.show();
 		await dataExplorer.summaryPanel.verifySparklineHoverDialog(['Value', 'Count']);
 
 		// verify null percentage hover dialog
@@ -69,7 +69,7 @@ test.describe('Data Explorer - Python Pandas', {
 		]);
 
 		// verify missing percentages
-		await dataExplorer.summaryPanel.expand();
+		await dataExplorer.summaryPanel.show();
 		await dataExplorer.summaryPanel.verifyMissingPercent([
 			{ column: 1, expected: '20%' },
 			{ column: 2, expected: '40%' },

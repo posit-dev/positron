@@ -42,7 +42,7 @@ test.describe('Data Explorer - R ', {
 		]);
 
 		// Verify the summary column data
-		await dataExplorer.summaryPanel.expand();
+		await dataExplorer.summaryPanel.show();
 		await dataExplorer.summaryPanel.verifyColumnData([
 			{ column: 1, expected: { 'Missing': '0', 'Empty': '0', 'Unique': '3' } },
 			{ column: 2, expected: { 'Missing': '1', 'Min': '100.00', 'Median': '110.00', 'Mean': '110.00', 'Max': '120.00', 'SD': '14.14' } },
