@@ -41,4 +41,7 @@ export interface KernelInfoReply {
 
 	/** A list of help links */
 	help_links: Array<JupyterHelpLink>;
+
+	/** A list of optional features such as 'debugger' and 'kernel subshells' */
+	supported_features: Array<string>;
 }

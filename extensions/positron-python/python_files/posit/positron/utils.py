@@ -7,9 +7,12 @@ import asyncio
 import concurrent.futures
 import functools
 import inspect
+import json
 import logging
+import re
 import sys
 import threading
+import urllib.parse
 import uuid
 from pathlib import Path
 from typing import (
@@ -417,3 +420,21 @@ def with_logging(func: Callable):
         return result
 
     return wrapper
+
+
+def get_command_uri(command: str, *args: str) -> str:
+    """Create a VS Code command URI."""
+    args_json = json.dumps(args)
+    args_quoted = urllib.parse.quote(args_json)
+    parse_result = urllib.parse.ParseResult(
+        scheme="command", netloc="", path=command, params="", query=args_quoted, fragment=""
+    )
+    return urllib.parse.urlunparse(parse_result)
+
+
+ansi_escape_re = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def strip_ansi(text):
+    """Strip ANSI escape sequences from text."""
+    return ansi_escape_re.sub("", text)

@@ -412,6 +412,9 @@ export interface ILanguageRuntimeInfo {
 
 	/** Custom continuation prompt, if any */
 	continuation_prompt?: string;
+
+	/** List of supported features (e.g., 'debugger' for Jupyter debugging protocol support) */
+	supported_features?: string[];
 }
 
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */
@@ -565,6 +568,12 @@ export enum LanguageRuntimeMessageType {
 
 	/** A message indicating that a comm (client instance) was closed from the server side */
 	CommClosed = 'comm_closed',
+
+	/** A message representing a debug event to the frontend */
+	DebugEvent = 'debug_event',
+
+	/** A message representing a debug reply to the frontend */
+	DebugReply = 'debug_reply',
 
 	/** A message that should be handled by an IPyWidget */
 	IPyWidget = 'ipywidget',

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023-2024 Posit Software, PBC. All rights reserved.
+# Copyright (C) 2023-2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
 
@@ -426,3 +426,10 @@ def test_import_lightning_and_torch_dynamo(shell: PositronShell) -> None:
     # Earlier versions of torch will not have the dynamo module.
     with contextlib.suppress(ModuleNotFoundError):
         shell.run_cell("import torch._dynamo").raise_error()
+
+
+def test_kernel_info(kernel):
+    # 'supported_features' is only added in ipykernel 7.0.0, but we backport it to older versions
+    # since it's used by Positron to detect debugger support.
+    assert "supported_features" in kernel.kernel_info
+    assert "debugger" in kernel.kernel_info["supported_features"]

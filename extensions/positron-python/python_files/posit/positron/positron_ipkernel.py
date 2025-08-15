@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Any, Callable, Container, cast
 import psutil
 import traitlets
 from ipykernel.compiler import get_tmp_directory
+from ipykernel.debugger import _is_debugpy_available
 from ipykernel.ipkernel import IPythonKernel
 from ipykernel.kernelapp import IPKernelApp
 from ipykernel.zmqshell import ZMQDisplayPublisher, ZMQInteractiveShell
@@ -31,6 +32,7 @@ from IPython.utils import PyColorize
 from .access_keys import encode_access_key
 from .connections import ConnectionsService
 from .data_explorer import DataExplorerService, DataExplorerWarning
+from .debugger import PositronDebugger
 from .help import HelpService, help  # noqa: A004
 from .lsp import LSPService
 from .patch.bokeh import handle_bokeh_output, patch_bokeh_no_access
@@ -463,6 +465,17 @@ class PositronIPyKernel(IPythonKernel):
 
         super().__init__(**kwargs)
 
+        # Override the Debugger
+        if _is_debugpy_available:
+            self.debugger = PositronDebugger(
+                self.log,
+                self.debugpy_stream,
+                self._publish_debug_event,
+                self.debug_shell_socket,
+                self.session,
+                self.debug_just_my_code,
+            )
+
         self.job_queue = BackgroundJobQueue()
 
         # Create Positron services
@@ -509,6 +522,20 @@ class PositronIPyKernel(IPythonKernel):
 
         # Patch haystack-ai to ensure is_in_jupyter() returns True in Positron
         patch_haystack_is_in_jupyter()
+
+    @property
+    def kernel_info(self):
+        kernel_info = super().kernel_info
+
+        # 'supported_features' is only added in ipykernel 7.0.0, but we backport it to older versions
+        # since it's used by Positron to detect debugger support.
+        if "supported_features" not in kernel_info:
+            kernel_info["supported_features"] = []
+            if _is_debugpy_available:
+                # If debugpy is available, add the 'debugger' feature.
+                kernel_info["supported_features"].append("debugger")
+
+        return kernel_info
 
     def publish_execute_input(
         self,

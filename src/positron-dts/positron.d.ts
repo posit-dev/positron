@@ -56,6 +56,12 @@ declare module 'positron' {
 		/** A message indicating that a comm (client instance) was closed from the server side */
 		CommClosed = 'comm_closed',
 
+		/** A message representing a debug event to the frontend */
+		DebugEvent = 'debug_event',
+
+		/** A message representing a debug reply to the frontend */
+		DebugReply = 'debug_reply',
+
 		/** A message that should be handled by an IPyWidget */
 		IPyWidget = 'ipywidget',
 
@@ -384,6 +390,9 @@ declare module 'positron' {
 		/** The language version number */
 		language_version: string;
 
+		/** List of supported features (e.g., 'debugger' for Jupyter debugging protocol support) */
+		supported_features?: string[];
+
 		/** Initial prompt string in case user customized it */
 		input_prompt?: string;
 
@@ -456,6 +465,39 @@ declare module 'positron' {
 
 		/** The data from the back-end */
 		data: object;
+	}
+
+	/** A DebugProtocolRequest is an opaque stand-in type for the [Request](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolRequest {
+		// Properties: see [Request details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Request).
+	}
+
+	/** A DebugProtocolResponse is an opaque stand-in type for the [Response](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response) type defined in the Debug Adapter Protocol. */
+	export interface DebugProtocolResponse {
+		// Properties: see [Response details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Response).
+	}
+
+	/**
+	 * A DebugProtocolEvent is an opaque stand-in type for the [Event](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event) type defined in the Debug Adapter Protocol.
+	 */
+	export interface DebugProtocolEvent {
+		// Properties: see [Event details](https://microsoft.github.io/debug-adapter-protocol/specification#Base_Protocol_Event).
+	}
+
+	/**
+	 * LanguageRuntimeDebugReply is a LanguageRuntimeMessage that represents a reply to a runtime debugger.
+	 */
+	export interface LanguageRuntimeDebugReply extends LanguageRuntimeMessage {
+		/** The debug adapter protocol response.  */
+		content: DebugProtocolResponse;
+	}
+
+	/**
+	 * LanguageRuntimeDebugEvent is a LanguageRuntimeMessage that represents an event from the runtime debugger.
+	 */
+	export interface LanguageRuntimeDebugEvent extends LanguageRuntimeMessage {
+		/** The debug adapter protocol event. */
+		content: DebugProtocolEvent;
 	}
 
 	/**
@@ -836,6 +878,9 @@ declare module 'positron' {
 	 * An event that is emitted when code is executed in Positron.
 	 */
 	export interface CodeExecutionEvent {
+		/** The ID of the code execution. */
+		executionId: string;
+
 		/** The ID of the language in which the code was executed (e.g. 'python') */
 		languageId: string;
 
@@ -1003,6 +1048,9 @@ declare module 'positron' {
 		 */
 		readonly runtimeMetadata: LanguageRuntimeMetadata;
 
+		/** Information about the runtime that is only available after starting. */
+		readonly runtimeInfo: LanguageRuntimeInfo | undefined;
+
 		/** The state of the runtime that changes during a user session */
 		dynState: LanguageRuntimeDynState;
 
@@ -1021,6 +1069,14 @@ declare module 'positron' {
 		 * @returns true if the resource was opened; otherwise, false.
 		 */
 		openResource?(resource: vscode.Uri | string): Thenable<boolean>;
+
+		/**
+		 * Sends a Debug Adapter Protocol request to the runtime's debugger.
+		 *
+		 * @param request The Debug Adapter Protocol request.
+		 * @returns The Debug Adapter Protocol response.
+		 */
+		debug(request: DebugProtocolRequest): Thenable<DebugProtocolResponse>;
 
 		/**
 		 * Execute code in the runtime
