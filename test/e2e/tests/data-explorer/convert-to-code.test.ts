@@ -93,7 +93,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			await hotKeys.closeSecondarySidebar();
 
 			// verify the data in the table
-			await dataExplorer.verifyTableData([
+			await dataExplorer.grid.verifyTableData([
 				{ name: 'Alice', age: 25, city: 'Austin' },
 				{ name: 'Bob', age: 35, city: 'Dallas' },
 				{ name: 'Charlie', age: 40, city: 'Austin' },
@@ -101,9 +101,9 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			]);
 
 			// add filters
-			await dataExplorer.addFilter('status', 'is equal to', 'active');            // Alice & Charlie
-			await dataExplorer.addFilter('score', 'is greater than or equal to', '85'); // Alice (89.5), Charlie (95.0)
-			await dataExplorer.addFilter('is_student', 'is false');                     // Charlie only
+			await dataExplorer.filters.add('status', 'is equal to', 'active');            // Alice & Charlie
+			await dataExplorer.filters.add('score', 'is greater than or equal to', '85'); // Alice (89.5), Charlie (95.0)
+			await dataExplorer.filters.add('is_student', 'is false');                     // Charlie only
 
 			// copy code and verify result is accurate
 			await dataExplorer.clickConvertToCodeButton();
