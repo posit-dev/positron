@@ -68,7 +68,7 @@ node scripts/format.js file1.ts file2.tsx file3.js
 - `npm run eslint` (runs on entire codebase, too broad)
 - Any other third-party formatters
 
-When editing files, format them with `npx eslint --fix <file_path>` to match the project's formatting standards exactly.
+When editing files, format them with `node scripts/format.js <file_path>` to match the project's formatting standards exactly.
 
 ### Testing
 ```bash
