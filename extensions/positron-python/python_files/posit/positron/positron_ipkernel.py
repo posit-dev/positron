@@ -530,15 +530,12 @@ class PositronIPyKernel(IPythonKernel):
         # Declare debugger support using the new `supported_features` property
         # for ipykernel < 7.0.0.
         if "supported_features" not in kernel_info:
-            supported_features = []
+            kernel_info["supported_features"] = []
             if _is_debugpy_available:
                 # If debugpy is available, add the 'debugger' feature.
-                supported_features.append("debugger")
+                kernel_info["supported_features"].append("debugger")
 
-        return {
-            **kernel_info,
-            "supported_features": supported_features,
-        }
+        return kernel_info
 
     def publish_execute_input(
         self,

@@ -39,7 +39,7 @@ class PositronDebugger(Debugger):
                 Path(tmp_dir).mkdir(parents=True)
             host, port = self.debugpy_client.get_host_port()
             code = "import debugpy;"
-            code += 'debugpy.listen(("' + host + '",' + port + "))"
+            code += 'debugpy.listen(("' + host + '",' + port + "))"  # type: ignore
             content = {"code": code, "silent": True}
             self.session.send(
                 self.shell_socket,
@@ -81,7 +81,7 @@ class PositronDebugger(Debugger):
             # --- End Positron ---
 
         # Don't remove leading empty lines when debugging so the breakpoints are correctly positioned
-        cleanup_transforms = get_ipython().input_transformer_manager.cleanup_transforms
+        cleanup_transforms = get_ipython().input_transformer_manager.cleanup_transforms  # type: ignore
         if leading_empty_lines in cleanup_transforms:
             index = cleanup_transforms.index(leading_empty_lines)
             self._removed_cleanup[index] = cleanup_transforms.pop(index)
