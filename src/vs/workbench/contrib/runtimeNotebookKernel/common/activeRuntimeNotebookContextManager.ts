@@ -92,6 +92,7 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 			if (state === RuntimeState.Ready) {
 				// The session became ready.
 				this.activeNotebookHasRunningRuntime.set(true);
+				this.setActiveNotebookSupportsDebugging(session.runtimeInfo);
 			} else if (state === RuntimeState.Exited ||
 				state === RuntimeState.Exiting ||
 				state === RuntimeState.Restarting ||
