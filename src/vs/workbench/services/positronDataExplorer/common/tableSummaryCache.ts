@@ -450,27 +450,36 @@ export class TableSummaryCache extends Disposable {
 
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 
-		// For more than 10 million rows, we request profiles one by one rather than as a batch for
+		// For more than 1 million rows, we request profiles one by one rather than as a batch for
 		// better responsiveness
-		const BATCHING_THRESHOLD = 5_000_000;
+		const BATCHING_THRESHOLD = 1_000_000;
 		if (tableState.table_shape.num_rows > BATCHING_THRESHOLD) {
-			const BATCH_SIZE = 4;
-			for (let i = 0; i < columnIndices.length; i += BATCH_SIZE) {
-				// Get the next batch of up to 4 requests
-				const batchColumnRequests = columnRequests.slice(i, i + BATCH_SIZE);
-				const batchColumnIndices = columnIndices.slice(i, i + BATCH_SIZE);
+			// Start all requests and store promises
+			const profilePromises = columnRequests.map((columnRequest, index) => {
+				const columnIndex = columnIndices[index];
 
-				// Send the batch of requests to getColumnProfiles
-				const results = await this._dataExplorerClientInstance.getColumnProfiles(batchColumnRequests);
+				// Start the request and handle result immediately when it completes
+				const promise = this._dataExplorerClientInstance.getColumnProfiles([columnRequest])
+					.then(results => {
+						// Cache the result as soon as it's available
+						if (results.length > 0) {
+							this._columnProfileCache.set(columnIndex, results[0]);
+						}
+						// Fire the onDidUpdate event immediately
+						this._onDidUpdateEmitter.fire();
+						return results;
+					})
+					.catch(error => {
+						// Handle errors gracefully
+						console.error(`Failed to get column profile for index ${columnIndex}:`, error);
+						throw error;
+					});
 
-				// Cache the returned column profiles for each index in the batch
-				for (let j = 0; j < results.length; j++) {
-					this._columnProfileCache.set(batchColumnIndices[j], results[j]);
-				}
+				return promise;
+			});
 
-				// Fire the onDidUpdate event so things update as soon as they are returned
-				this._onDidUpdateEmitter.fire();
-			}
+			// Wait for all requests to complete
+			await Promise.allSettled(profilePromises);
 		} else {
 			// Load the column profiles as a batch
 			const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
