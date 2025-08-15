@@ -6,6 +6,7 @@
 import * as vscode from 'vscode';
 import { McpServer } from './mcpServer';
 import { PositronApiWrapper } from './positronApiWrapper';
+import { getLogger } from './logger';
 
 let mcpServer: McpServer | undefined;
 
@@ -14,12 +15,16 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 	const config = vscode.workspace.getConfiguration('positron.mcp');
 	const enabled = config.get<boolean>('enable', false);
 
+	const logger = getLogger();
+	
 	if (!enabled) {
-		console.log('Positron MCP server is disabled in configuration');
+		logger.info('Extension', 'Positron MCP server is disabled in configuration');
 		return;
 	}
 
 	try {
+		logger.info('Extension', 'Initializing Positron MCP extension');
+		
 		// Create the API wrapper
 		const apiWrapper = new PositronApiWrapper(context);
 
@@ -27,9 +32,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		mcpServer = new McpServer(apiWrapper);
 		await mcpServer.start();
 
-		console.log('Positron MCP extension activated');
+		logger.info('Extension', 'Positron MCP extension activated successfully');
 	} catch (error) {
-		console.error('Failed to start Positron MCP server:', error);
+		logger.error('Extension', 'Failed to start Positron MCP server', error);
+		vscode.window.showErrorMessage(`Failed to start Positron MCP server: ${error}`);
 	}
 
 	// Register command to enable MCP server
@@ -37,17 +43,26 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 		try {
 			await enableMcpServer();
 		} catch (error) {
+			const logger = getLogger();
+			logger.error('Command', 'Failed to enable MCP server', error);
 			vscode.window.showErrorMessage(`Failed to enable Positron MCP server: ${error}`);
-			console.error(error);
 		}
 	});
 
-	context.subscriptions.push(enableCommand);
+	// Register command to show logs
+	const showLogsCommand = vscode.commands.registerCommand('positron.mcp.showLogs', () => {
+		const logger = getLogger();
+		logger.show();
+	});
+
+	context.subscriptions.push(enableCommand, showLogsCommand);
 
 	// Clean up server on deactivation
 	context.subscriptions.push({
 		dispose: () => {
 			if (mcpServer) {
+				const logger = getLogger();
+				logger.info('Extension', 'Disposing MCP server');
 				mcpServer.dispose();
 				mcpServer = undefined;
 			}
@@ -56,6 +71,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export function deactivate(): void {
+	const logger = getLogger();
+	logger.info('Extension', 'Deactivating Positron MCP extension');
+	
 	if (mcpServer) {
 		mcpServer.dispose();
 		mcpServer = undefined;
@@ -63,6 +81,9 @@ export function deactivate(): void {
 }
 
 async function enableMcpServer(): Promise<void> {
+	const logger = getLogger();
+	logger.info('Command', 'Enabling MCP server via command');
+	
 	const config = vscode.workspace.getConfiguration();
 	await config.update('positron.mcp.enable', true, vscode.ConfigurationTarget.Global);
 
@@ -114,9 +135,12 @@ async function createOrUpdateMcpConfig(): Promise<string | undefined> {
 		const configContent = JSON.stringify(existingConfig, null, 2);
 		await vscode.workspace.fs.writeFile(mcpConfigPath, Buffer.from(configContent, 'utf8'));
 
+		const logger = getLogger();
+		logger.info('Config', `Created/updated .mcp.json at ${mcpConfigPath.fsPath}`);
 		return mcpConfigPath.fsPath;
 	} catch (error) {
-		console.error('Failed to create/update .mcp.json:', error);
+		const logger = getLogger();
+		logger.error('Config', 'Failed to create/update .mcp.json', error);
 		return undefined;
 	}
 }
