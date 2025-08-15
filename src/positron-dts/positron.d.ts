@@ -2080,6 +2080,7 @@ declare module 'positron' {
 			numCtx?: number;
 			maxOutputTokens?: number;
 			completions?: boolean;
+			apiKeyEnvVar?: { key: string; signedIn: boolean }; // The environment variable name for the API key
 		}
 
 		/**

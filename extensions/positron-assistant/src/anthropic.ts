@@ -49,11 +49,12 @@ export class AnthropicLanguageModel implements positron.ai.LanguageModelChatProv
 			id: 'anthropic',
 			displayName: 'Anthropic'
 		},
-		supportedOptions: ['apiKey'],
+		supportedOptions: ['apiKey', 'apiKeyEnvVar'],
 		defaults: {
 			name: 'Claude 3.5 Sonnet v2',
 			model: 'claude-3-5-sonnet-latest',
 			toolCalls: true,
+			apiKeyEnvVar: { key: 'ANTHROPIC_API_KEY', signedIn: false },
 		},
 	};
 
