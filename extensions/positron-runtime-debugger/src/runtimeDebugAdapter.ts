@@ -88,6 +88,18 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 				//       and we handle replies directly in `handleMessage`.
 			}
 		}));
+
+		// Stop debugging when the runtime is interrupted.
+		this._register(this._runtimeSession.onDidChangeRuntimeState(async (state) => {
+			if (state === positron.RuntimeState.Interrupting) {
+				await vscode.debug.stopDebugging(this._debugSession);
+			}
+		}));
+
+		// Stop debugging when the runtime exits.
+		this._register(this._runtimeSession.onDidEndSession(async () => {
+			await vscode.debug.stopDebugging(this._debugSession);
+		}));
 	}
 
 	/* Handles debug events from the runtime. */
