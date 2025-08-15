@@ -53,7 +53,7 @@ class MockRuntimeSession extends Disposable implements Partial<ILanguageRuntimeS
 	onDidCompleteStartup = this._onDidCompleteStartup.event;
 	onDidEndSession = this._onDidEndSession.event;
 
-	constructor(notebookUri?: URI, sessionMode = LanguageRuntimeSessionMode.Notebook) {
+	constructor(notebookUri: URI | undefined, sessionMode: LanguageRuntimeSessionMode) {
 		super();
 		this.metadata = {
 			sessionId: generateUuid(),
@@ -75,11 +75,11 @@ class MockRuntimeSession extends Disposable implements Partial<ILanguageRuntimeS
 		return this._runtimeInfo;
 	}
 
-	async shutdown(exitReason: RuntimeExitReason): Promise<void> {
+	endSession(): void {
 		this.setState(RuntimeState.Exited);
 		this._onDidEndSession.fire({
 			exit_code: 0,
-			reason: exitReason,
+			reason: RuntimeExitReason.Shutdown,
 			runtime_name: 'test-runtime',
 			session_name: 'test-session',
 			message: 'Session ended'
@@ -106,279 +106,155 @@ class MockRuntimeSessionService extends Disposable implements Partial<IRuntimeSe
 
 suite('ActiveRuntimeNotebookContextManager', () => {
 	const disposables = ensureNoDisposablesAreLeakedInTestSuite();
+	const textUri = URI.file('script.py');
+	const notebookUri = URI.file('notebook.ipynb');
+	const notebookUri2 = URI.file('notebook2.ipynb');
+
 	let editorService: TestEditorService2;
 	let instantiationService: TestInstantiationService;
 	let runtimeSessionService: MockRuntimeSessionService;
-
+	let notebookEditorInput: TestEditorInput;
+	let notebookEditorInput2: TestEditorInput;
+	let textEditorInput: TestEditorInput;
+	let notebookSession: MockRuntimeSession;
+	let notebookSession2: MockRuntimeSession;
+	let consoleSession: MockRuntimeSession;
+	let manager: ActiveRuntimeNotebookContextManager;
 	setup(() => {
 		editorService = disposables.add(new TestEditorService2());
 		runtimeSessionService = disposables.add(new MockRuntimeSessionService());
 		instantiationService = new TestInstantiationService();
+		notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
+		notebookEditorInput2 = disposables.add(new TestEditorInput(notebookUri2, NotebookEditorInput.ID));
+		textEditorInput = disposables.add(new TestEditorInput(textUri, TextResourceEditorInput.ID));
+		notebookSession = disposables.add(new MockRuntimeSession(notebookUri, LanguageRuntimeSessionMode.Notebook));
+		notebookSession2 = disposables.add(new MockRuntimeSession(notebookUri2, LanguageRuntimeSessionMode.Notebook));
+		consoleSession = disposables.add(new MockRuntimeSession(undefined, LanguageRuntimeSessionMode.Console));
 
 		instantiationService.stub(IEditorService, editorService);
 		instantiationService.stub(IRuntimeSessionService, runtimeSessionService as any);
 		instantiationService.stub(IContextKeyService, new MockContextKeyService());
+
+		manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
 	});
 
-	// === Initialization ===
-
-	test('initializes with both contexts disabled', () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
+	test('start session without active notebook', () => {
+		runtimeSessionService.startSession(notebookSession as any);
 
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
 		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 	});
 
-	// === Session Filtering ===
-
-	test('ignores console and other non-notebook session types', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const session = disposables.add(new MockRuntimeSession(undefined, LanguageRuntimeSessionMode.Console));
-
-		runtimeSessionService.startSession(session as any);
-
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
-	});
-
-	// === Editor Change Handling ===
-
-	test('keeps contexts disabled when activating notebook without session', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri = URI.file('notebook.ipynb');
-		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
-
+	test('open notebook without active session', () => {
 		editorService.activeEditor = notebookEditorInput;
 
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
 		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 	});
 
-	test('disables contexts when switching to non-notebook editor', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri = URI.file('notebook.ipynb');
-		const textEditorInput = disposables.add(new TestEditorInput(notebookUri, TextResourceEditorInput.ID));
-		const session = disposables.add(new MockRuntimeSession(notebookUri));
-		runtimeSessionService.startSession(session as any);
+	test("session enters 'ready' state with active notebook, no debugger", () => {
+		runtimeSessionService.startSession(notebookSession as any);
+		editorService.activeEditor = notebookEditorInput;
+
+		notebookSession.setState(RuntimeState.Ready);
+
+		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
+	});
+
+	test("session enters 'ready' state with active notebook, with debugger", () => {
+		runtimeSessionService.startSession(notebookSession as any);
+		editorService.activeEditor = notebookEditorInput;
+		notebookSession.enableDebuggingSupport();
+
+		notebookSession.setState(RuntimeState.Ready);
+
+		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
+	});
+
+	test('open notebook with active session, no debugger', () => {
+		runtimeSessionService.startSession(notebookSession as any);
+
+		editorService.activeEditor = notebookEditorInput;
+
+		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
+	});
+
+	test('open notebook with active session, with debugger', () => {
+		runtimeSessionService.startSession(notebookSession as any);
+		notebookSession.enableDebuggingSupport();
+
+		editorService.activeEditor = notebookEditorInput;
+
+		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
+	});
+
+	suite('session enters exiting state', () => {
+		for (const state of [RuntimeState.Uninitialized, RuntimeState.Exiting, RuntimeState.Restarting]) {
+			test(`state: ${state}, with active notebook, with debugger`, () => {
+				editorService.activeEditor = notebookEditorInput;
+				notebookSession.enableDebuggingSupport();
+
+				runtimeSessionService.startSession(notebookSession as any);
+				assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
+				assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
+
+				notebookSession.setState(RuntimeState.Exiting);
+				assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
+				assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
+			});
+		}
+	});
+
+	test('session ends with active notebook, with debugger', () => {
+		editorService.activeEditor = notebookEditorInput;
+		notebookSession.enableDebuggingSupport();
+
+		runtimeSessionService.startSession(notebookSession as any);
+		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
+
+		notebookSession.endSession();
+		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
+	});
+
+	test('switch editors, with debugger', () => {
+		editorService.activeEditor = notebookEditorInput;
+		notebookSession.enableDebuggingSupport();
+		runtimeSessionService.startSession(notebookSession as any);
 
 		editorService.activeEditor = textEditorInput;
-
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
 		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
-	});
 
-	test('enables hasRunningRuntime when notebook has active session', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri = URI.file('notebook.ipynb');
-		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
-		const session = disposables.add(new MockRuntimeSession(notebookUri));
-
-		// Test both scenarios: session first, then editor, and vice versa
-		runtimeSessionService.startSession(session as any);
 		editorService.activeEditor = notebookEditorInput;
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
 
-		// Reset and test opposite order
-		editorService.activeEditor = undefined;
-		const notebookUri2 = URI.file('notebook2.ipynb');
-		const notebookEditorInput2 = disposables.add(new TestEditorInput(notebookUri2, NotebookEditorInput.ID));
 		editorService.activeEditor = notebookEditorInput2;
-		const session2 = disposables.add(new MockRuntimeSession(notebookUri2));
-		runtimeSessionService.startSession(session2 as any);
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-	});
-
-	// === Event Isolation (Inactive Notebooks) ===
-
-	test('ignores runtime state changes from inactive notebook sessions', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri1 = URI.file('notebook1.ipynb');
-		const notebookUri2 = URI.file('notebook2.ipynb');
-		const notebookEditorInput1 = disposables.add(new TestEditorInput(notebookUri1, NotebookEditorInput.ID));
-		const session1 = disposables.add(new MockRuntimeSession(notebookUri1));
-		const session2 = disposables.add(new MockRuntimeSession(notebookUri2));
-
-		// Start both sessions
-		runtimeSessionService.startSession(session1 as any);
-		runtimeSessionService.startSession(session2 as any);
-
-		// Make notebook1 active
-		editorService.activeEditor = notebookEditorInput1;
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-
-		// Change state of non-active notebook's session
-		session2.setState(RuntimeState.Restarting);
-		// Context should remain unchanged
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-
-		// Change state of active notebook's session
-		session1.setState(RuntimeState.Restarting);
-		// Now context should change
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-	});
-
-	test('ignores onDidCompleteStartup events from inactive notebook sessions', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri1 = URI.file('notebook1.ipynb');
-		const notebookUri2 = URI.file('notebook2.ipynb');
-		const notebookEditorInput1 = disposables.add(new TestEditorInput(notebookUri1, NotebookEditorInput.ID));
-		const session1 = disposables.add(new MockRuntimeSession(notebookUri1));
-		const session2 = disposables.add(new MockRuntimeSession(notebookUri2));
-
-		// Start both sessions
-		runtimeSessionService.startSession(session1 as any);
-		runtimeSessionService.startSession(session2 as any);
-
-		// Make notebook1 active
-		editorService.activeEditor = notebookEditorInput1;
-
-		// Complete startup for non-active notebook with debugging
-		session2.enableDebuggingSupport();
-		await session2.start();
-
-		// Debugging context should remain false since it's not the active notebook
-		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
-
-		// Complete startup for active notebook with debugging
-		session1.enableDebuggingSupport();
-		await session1.start();
-
-		// Now debugging should be enabled
-		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
-	});
-
-	// === Runtime State Transitions ===
-
-	test('disables contexts when session enters exiting or uninitialized states', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri = URI.file('notebook.ipynb');
-		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
-		const session = disposables.add(new MockRuntimeSession(notebookUri));
-		runtimeSessionService.startSession(session as any);
-		editorService.activeEditor = notebookEditorInput;
-
-		session.setState(RuntimeState.Ready);
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-
-		// Test Exiting state
-		session.setState(RuntimeState.Exiting);
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-
-		// Back to ready
-		session.setState(RuntimeState.Ready);
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-
-		// Test Uninitialized state
-		session.setState(RuntimeState.Uninitialized);
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-
-		// Test Restarting state
-		session.setState(RuntimeState.Ready);
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-		session.setState(RuntimeState.Restarting);
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-	});
-
-	// === Session Lifecycle & Debugging Support ===
-
-	test('detects debugging support from pre-initialized session on attach', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri = URI.file('notebook.ipynb');
-		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
-		const session = disposables.add(new MockRuntimeSession(notebookUri));
-
-		// Set debugging support and start session before attaching
-		session.enableDebuggingSupport();
-		await session.start();
-
-		// Make notebook active first
-		editorService.activeEditor = notebookEditorInput;
-
-		// Now start the session (which triggers attach)
-		runtimeSessionService.startSession(session as any);
-
-		// Debugging support should be set immediately from existing runtimeInfo
-		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
-	});
-
-	test('enables supportsDebugging when runtime completes startup with debugger feature', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri = URI.file('notebook.ipynb');
-		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
-		const session = disposables.add(new MockRuntimeSession(notebookUri));
-
-
-		runtimeSessionService.startSession(session as any);
-		editorService.activeEditor = notebookEditorInput;
-
-		// Complete startup with debugging support
-		session.enableDebuggingSupport();
-		await session.start();
-
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
-	});
-
-	test('updates debugging context when switching between notebooks with different capabilities', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri = URI.file('notebook.ipynb');
-		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
-		const notebookUri2 = URI.file('notebook2.ipynb');
-		const notebookEditorInput2 = disposables.add(new TestEditorInput(notebookUri2, NotebookEditorInput.ID));
-
-		// Start first session with debugging support
-		const session1 = disposables.add(new MockRuntimeSession(notebookUri));
-		runtimeSessionService.startSession(session1 as any);
-		editorService.activeEditor = notebookEditorInput;
-
-		session1.enableDebuggingSupport();
-		await session1.start();
-
-		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
-
-		// Start second session without debugging support
-		const session2 = disposables.add(new MockRuntimeSession(notebookUri2));
-		runtimeSessionService.startSession(session2 as any);
-
-		// Switch to second notebook first
-		editorService.activeEditor = notebookEditorInput2;
-
-		// Then complete startup for second session without debugging
-		await session2.start();
-
-		// Second session has no debugging support
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
-
-		// Switch back to first notebook
-		editorService.activeEditor = notebookEditorInput;
-		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
-	});
-
-	test('disables both contexts when active session ends', async () => {
-		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
-		const notebookUri = URI.file('notebook.ipynb');
-		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
-		const session = disposables.add(new MockRuntimeSession(notebookUri));
-		runtimeSessionService.startSession(session as any);
-		editorService.activeEditor = notebookEditorInput;
-
-		// Set session to ready state first
-		session.setState(RuntimeState.Ready);
-
-		// Set up debugging support
-		session.enableDebuggingSupport();
-		await session.start();
-
-		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
-
-		// End the session
-		await session.shutdown(RuntimeExitReason.Shutdown);
-
-		// Both contexts should be disabled
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
 		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 	});
 
+	test('ignores inactive notebook session', () => {
+		notebookSession2.enableDebuggingSupport();
+		editorService.activeEditor = notebookEditorInput;
+
+		runtimeSessionService.startSession(notebookSession2 as any);
+		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
+	});
+
+	test('ignores console sessions', () => {
+		consoleSession.enableDebuggingSupport();
+		editorService.activeEditor = notebookEditorInput;
+
+		runtimeSessionService.startSession(consoleSession as any);
+		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
+	});
 });
