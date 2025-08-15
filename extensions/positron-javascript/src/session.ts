@@ -57,7 +57,7 @@ export class JavaScriptLanguageRuntimeSession implements positron.LanguageRuntim
 		return this._runtimeInfo;
 	}
 
-	debug(request: positron.DebugProtocolRequest, id: string): void {
+	async debug(request: positron.DebugProtocolRequest, id: string): Promise<positron.DebugProtocolResponse> {
 		throw new Error('Method not implemented.');
 	}
 

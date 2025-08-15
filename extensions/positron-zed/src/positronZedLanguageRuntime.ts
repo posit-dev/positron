@@ -268,8 +268,9 @@ export class PositronZedRuntimeSession implements positron.LanguageRuntimeSessio
 		return this._runtimeInfo;
 	}
 
-	debug(request: positron.DebugProtocolRequest, id: string): void {
+	async debug(request: positron.DebugProtocolRequest, id: string): Promise<positron.DebugProtocolResponse> {
 		// Not implemented.
+		return Promise.resolve({});
 	}
 
 	/**

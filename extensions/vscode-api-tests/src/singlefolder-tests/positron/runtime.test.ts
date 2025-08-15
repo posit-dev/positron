@@ -199,7 +199,7 @@ class TestLanguageRuntimeSession implements positron.LanguageRuntimeSession {
 		this._currentExecutionId = '';
 	}
 
-	debug(_content: unknown, _id: string): void {
+	async debug(_content: positron.DebugProtocolRequest, _id: string): Promise<positron.DebugProtocolResponse> {
 		throw new Error('Not implemented.');
 	}
 
