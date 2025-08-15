@@ -21,6 +21,7 @@ import { ActionButton } from '../utilityComponents/ActionButton.js';
 import { NotebookCellWrapper } from './NotebookCellWrapper.js';
 import { PositronNotebookCodeCell } from '../PositronNotebookCells/PositronNotebookCodeCell.js';
 import { PreloadMessageOutput } from './PreloadMessageOutput.js';
+import { CellExecutionInfoIcon } from './CellExecutionInfoIcon.js';
 
 interface CellExecutionControlsProps {
 	isRunning: boolean;
@@ -44,7 +45,7 @@ interface CellOutputsSectionProps {
 
 function CellOutputsSection({ outputs = [] }: CellOutputsSectionProps) {
 	return (
-		<div className='positron-notebook-code-cell-outputs'>
+		<div className='positron-notebook-code-cell-outputs' data-testid='cell-output'>
 			{outputs?.map((output) => (
 				<CellOutput key={output.outputId} {...output} />
 			))}
@@ -66,6 +67,7 @@ export function NotebookCodeCell({ cell }: { cell: PositronNotebookCodeCell }) {
 				<CellEditorMonacoWidget cell={cell} />
 				<CellOutputsSection outputs={outputContents} />
 			</div>
+			<CellExecutionInfoIcon cell={cell} />
 		</NotebookCellWrapper>
 	);
 }

@@ -24,6 +24,8 @@ import { BareFontInfo } from '../../../../editor/common/config/fontInfo.js';
 import { PixelRatio } from '../../../../base/browser/pixelRatio.js';
 import { PositronNotebookCellGeneral } from './PositronNotebookCells/PositronNotebookCell.js';
 import { usePositronReactServicesContext } from '../../../../base/browser/positronReactRendererContext.js';
+import { PositronNotebookCodeCell } from './PositronNotebookCells/PositronNotebookCodeCell.js';
+import { PositronNotebookMarkdownCell } from './PositronNotebookCells/PositronNotebookMarkdownCell.js';
 
 
 export function PositronNotebookComponent() {
@@ -72,11 +74,11 @@ function NotebookCell({ cell }: {
 }) {
 
 	if (cell.isCodeCell()) {
-		return <NotebookCodeCell cell={cell} />;
+		return <NotebookCodeCell cell={cell as PositronNotebookCodeCell} />;
 	}
 
 	if (cell.isMarkdownCell()) {
-		return <NotebookMarkdownCell cell={cell} />;
+		return <NotebookMarkdownCell cell={cell as PositronNotebookMarkdownCell} />;
 	}
 
 	throw new Error('Unknown cell type');

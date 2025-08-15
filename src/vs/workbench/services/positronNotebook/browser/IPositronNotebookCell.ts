@@ -5,10 +5,11 @@
 
 import { VSBuffer } from '../../../../base/common/buffer.js';
 import { Disposable } from '../../../../base/common/lifecycle.js';
-import { ISettableObservable } from '../../../../base/common/observableInternal/base.js';
 import { URI } from '../../../../base/common/uri.js';
 import { CodeEditorWidget } from '../../../../editor/browser/widget/codeEditor/codeEditorWidget.js';
 import { NotebookPreloadOutputResults } from '../../positronWebviewPreloads/browser/positronWebviewPreloadService.js';
+import { ISettableObservable } from '../../../../base/common/observable.js';
+import { NotebookCellTextModel } from '../../../contrib/notebook/common/model/notebookCellTextModel.js';
 
 export type ExecutionStatus = 'running' | 'pending' | 'unconfirmed' | 'idle';
 
@@ -52,7 +53,7 @@ export interface IPositronNotebookCell extends Disposable {
 	/**
 	 * The notebook text model for the cell.
 	 */
-	cellModel: PositronNotebookCellTextModel;
+	cellModel: NotebookCellTextModel;
 
 	/**
 	 * Get the handle number for cell from cell model
@@ -129,6 +130,26 @@ export interface IPositronNotebookCodeCell extends IPositronNotebookCell {
 	 * Current cell outputs as an observable
 	 */
 	outputs: ISettableObservable<NotebookCellOutputs[], void>;
+
+	/**
+	 * Duration of the last execution in milliseconds
+	 */
+	lastExecutionDuration: ISettableObservable<number | undefined>;
+
+	/**
+	 * Execution order number for the last execution
+	 */
+	lastExecutionOrder: ISettableObservable<number | undefined>;
+
+	/**
+	 * Whether the last execution was successful
+	 */
+	lastRunSuccess: ISettableObservable<boolean | undefined>;
+
+	/**
+	 * Timestamp when the last execution ended
+	 */
+	lastRunEndTime: ISettableObservable<number | undefined>;
 }
 
 
@@ -205,7 +226,7 @@ export interface NotebookCellOutputs {
 /**
  * Lightweight copy of the vscode `NotebookCellTextModel` interface.
  */
-interface PositronNotebookCellTextModel {
+export interface PositronNotebookCellTextModel {
 	readonly uri: URI;
 	handle: number;
 	language: string;

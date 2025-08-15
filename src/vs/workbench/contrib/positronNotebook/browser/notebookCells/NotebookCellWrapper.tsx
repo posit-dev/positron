@@ -34,6 +34,7 @@ export function NotebookCellWrapper({ cell, children }: { cell: IPositronNoteboo
 		ref={cellRef}
 		className={`positron-notebook-cell positron-notebook-${cell.kind === CellKind.Code ? 'code' : 'markdown'}-cell ${selectionStatus}`}
 		data-is-running={executionStatus === 'running'}
+		data-testid='notebook-cell'
 		tabIndex={0}
 		onClick={(e) => {
 			const clickTarget = e.nativeEvent.target as HTMLElement;

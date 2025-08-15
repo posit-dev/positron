@@ -89,6 +89,9 @@ export interface PositronModalPopupProps {
 	readonly fixedHeight?: boolean;
 	readonly focusableElementSelectors?: string;
 	readonly keyboardNavigationStyle: KeyboardNavigationStyle;
+	readonly autoCloseOnMouseLeave?: boolean;
+	readonly autoCloseDelay?: number;
+	readonly autoCloseAnchorElement?: HTMLElement;
 }
 
 /**
@@ -110,6 +113,7 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		popupLayout.top = -10000;
 		return popupLayout;
 	});
+	const [autoCloseTimeoutId, setAutoCloseTimeoutId] = useState<number | null>(null);
 
 	/**
 	 * Updates the popup layout.
@@ -414,6 +418,72 @@ export const PositronModalPopup = (props: PropsWithChildren<PositronModalPopupPr
 		// Return the clean up for our event handlers.
 		return () => disposableStore.dispose();
 	}, [props, updatePopupLayout]);
+
+	// Auto-close on mouse leave functionality.
+	useEffect(() => {
+		if (!props.autoCloseOnMouseLeave || !popupRef.current) {
+			return;
+		}
+
+		const targetWindow = DOM.getWindow(popupRef.current);
+		const autoCloseDelay = props.autoCloseDelay ?? 250;
+
+		const handleGlobalMouseMove = (event: MouseEvent) => {
+			const popupElement = popupRef.current;
+			if (!popupElement) {
+				return;
+			}
+
+			// Check if mouse is over popup
+			const popupRect = popupElement.getBoundingClientRect();
+			const isOverPopup = 
+				event.clientX >= popupRect.left &&
+				event.clientX <= popupRect.right &&
+				event.clientY >= popupRect.top &&
+				event.clientY <= popupRect.bottom;
+
+			// Check if mouse is over anchor element (if provided)
+			let isOverAnchor = false;
+			const anchorElement = props.autoCloseAnchorElement || props.anchorElement;
+			if (anchorElement) {
+				const anchorRect = anchorElement.getBoundingClientRect();
+				isOverAnchor = 
+					event.clientX >= anchorRect.left &&
+					event.clientX <= anchorRect.right &&
+					event.clientY >= anchorRect.top &&
+					event.clientY <= anchorRect.bottom;
+			}
+
+			// If mouse is not over either popup or anchor, start close timer
+			if (!isOverPopup && !isOverAnchor) {
+				if (autoCloseTimeoutId !== null) {
+					targetWindow.clearTimeout(autoCloseTimeoutId);
+				}
+				
+				const timeoutId = targetWindow.setTimeout(() => {
+					props.renderer.dispose();
+					setAutoCloseTimeoutId(null);
+				}, autoCloseDelay);
+				
+				setAutoCloseTimeoutId(timeoutId);
+			} else {
+				// Cancel close timer if mouse is over popup or anchor
+				if (autoCloseTimeoutId !== null) {
+					targetWindow.clearTimeout(autoCloseTimeoutId);
+					setAutoCloseTimeoutId(null);
+				}
+			}
+		};
+
+		targetWindow.document.addEventListener('mousemove', handleGlobalMouseMove);
+		
+		return () => {
+			targetWindow.document.removeEventListener('mousemove', handleGlobalMouseMove);
+			if (autoCloseTimeoutId !== null) {
+				targetWindow.clearTimeout(autoCloseTimeoutId);
+			}
+		};
+	}, [props.autoCloseOnMouseLeave, props.autoCloseDelay, props.autoCloseAnchorElement, props.anchorElement, props.renderer, autoCloseTimeoutId]);
 
 	// Render.
 	return (

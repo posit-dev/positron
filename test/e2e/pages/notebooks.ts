@@ -10,8 +10,13 @@ import { basename } from 'path';
 import test, { expect, FrameLocator, Locator } from '@playwright/test';
 import { HotKeys } from './hotKeys.js';
 
+// VS Code notebook selectors
 const KERNEL_DROPDOWN = 'a.kernel-label';
 const KERNEL_LABEL = '.codicon-notebook-kernel-select';
+
+// Positron notebook selectors
+const POSITRON_NOTEBOOK = '.positron-notebook';
+const POSITRON_KERNEL_STATUS_BADGE = '.positron-notebook-kernel-status-badge';
 const DETECTING_KERNELS_TEXT = 'Detecting Kernels';
 const NEW_NOTEBOOK_COMMAND = 'ipynb.newUntitledIpynb';
 const CELL_LINE = '.cell div.view-lines';
@@ -51,6 +56,19 @@ export class Notebooks {
 		this.cellIndex = (num = 0) => this.code.driver.page.locator('.cell-inner-container > .cell').nth(num);
 	}
 
+	/**
+	 * Detect if the current notebook is a Positron notebook or VS Code notebook
+	 * @returns Promise<'positron' | 'vscode'>
+	 */
+	private async detectNotebookType(): Promise<'positron' | 'vscode'> {
+		try {
+			await expect(this.code.driver.page.locator(POSITRON_NOTEBOOK)).toBeVisible({ timeout: 1000 });
+			return 'positron';
+		} catch {
+			return 'vscode';
+		}
+	}
+
 	async selectInterpreter(
 		kernelGroup: 'Python' | 'R',
 		desiredKernel = kernelGroup === 'Python'
@@ -61,43 +79,106 @@ export class Notebooks {
 			await expect(this.notebookProgressBar).not.toBeVisible({ timeout: 30000 });
 			await expect(this.code.driver.page.locator(DETECTING_KERNELS_TEXT)).not.toBeVisible({ timeout: 30000 });
 
-			try {
-				// 1. Try finding by text
-				await expect(this.kernelDropdown.filter({ hasText: desiredKernel })).toBeVisible({ timeout: 2500 });
-				this.code.logger.log(`Kernel: found by text: ${desiredKernel}`);
-				return;
-			} catch (e) {
-				this.code.logger.log(`Kernel: not found by text: ${desiredKernel}`);
+			// Detect notebook type and use appropriate strategy
+			const notebookType = await this.detectNotebookType();
+			this.code.logger.log(`Detected notebook type: ${notebookType}`);
+
+			if (notebookType === 'positron') {
+				await this.selectPositronKernel(kernelGroup, desiredKernel);
+			} else {
+				await this.selectVSCodeKernel(kernelGroup, desiredKernel);
 			}
+		});
+	}
 
-			try {
-				// 2. Try finding by label
-				const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
-				await expect(kernelLabelLocator).toHaveAttribute('aria-label', new RegExp(desiredKernel), { timeout: 2500 });
-				this.code.logger.log(`Kernel: found by label: ${desiredKernel}`);
+	/**
+	 * Select kernel for VS Code notebooks
+	 */
+	private async selectVSCodeKernel(kernelGroup: 'Python' | 'R', desiredKernel: string) {
+		try {
+			// 1. Try finding by text
+			await expect(this.kernelDropdown.filter({ hasText: desiredKernel })).toBeVisible({ timeout: 2500 });
+			this.code.logger.log(`VS Code Kernel: found by text: ${desiredKernel}`);
+			return;
+		} catch (e) {
+			this.code.logger.log(`VS Code Kernel: not found by text: ${desiredKernel}`);
+		}
+
+		try {
+			// 2. Try finding by label
+			const kernelLabelLocator = this.code.driver.page.locator(KERNEL_LABEL);
+			await expect(kernelLabelLocator).toHaveAttribute('aria-label', new RegExp(desiredKernel), { timeout: 2500 });
+			this.code.logger.log(`VS Code Kernel: found by label: ${desiredKernel}`);
+			return;
+		} catch (e) {
+			this.code.logger.log(`VS Code Kernel: not found by label: ${desiredKernel}`);
+		}
+
+		// 3. Open dropdown to select kernel
+		this.code.logger.log(`VS Code Kernel: opening dropdown to select: ${desiredKernel}`);
+
+		await this.code.driver.page.locator(KERNEL_DROPDOWN).click();
+		await this.quickinput.waitForQuickInputOpened();
+		await this.code.driver.page.getByText('Select Another Kernel...').click();
+		await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} Environments...`);
+		await this.quickinput.selectQuickInputElementContaining(desiredKernel);
+		await this.quickinput.waitForQuickInputClosed();
+
+		// Wait for kernel initialization
+		await expect(this.code.driver.page.locator('.kernel-action-view-item .codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
+	}
+
+	/**
+	 * Select kernel for Positron notebooks
+	 */
+	private async selectPositronKernel(kernelGroup: 'Python' | 'R', desiredKernel: string) {
+		try {
+			// 1. Check if the desired kernel is already selected by looking at the kernel status badge
+			const kernelStatusBadge = this.code.driver.page.locator(POSITRON_KERNEL_STATUS_BADGE);
+			await expect(kernelStatusBadge).toBeVisible({ timeout: 5000 });
+			
+			const currentKernelText = await kernelStatusBadge.textContent();
+			if (currentKernelText && currentKernelText.includes(desiredKernel)) {
+				this.code.logger.log(`Positron Kernel: already selected: ${desiredKernel}`);
 				return;
-			} catch (e) {
-				this.code.logger.log(`Kernel: not found by label: ${desiredKernel}`);
 			}
+		} catch (e) {
+			this.code.logger.log(`Positron Kernel: could not check current kernel status`);
+		}
 
-			// 3. Open dropdown to select kernel
-			this.code.logger.log(`Kernel: opening dropdown to select: ${desiredKernel}`);
-
-			await this.code.driver.page.locator(KERNEL_DROPDOWN).click();
+		try {
+			// 2. Click on kernel status badge to open selection
+			this.code.logger.log(`Positron Kernel: clicking kernel status badge to select: ${desiredKernel}`);
+			await this.code.driver.page.locator(POSITRON_KERNEL_STATUS_BADGE).click();
+			
+			// Wait for kernel selection UI to appear (could be dropdown or quick input)
 			await this.quickinput.waitForQuickInputOpened();
-			await this.code.driver.page.getByText('Select Another Kernel...').click();
-			await this.quickinput.selectQuickInputElementContaining(`${kernelGroup} Environments...`);
+			
+			// Select the desired kernel
 			await this.quickinput.selectQuickInputElementContaining(desiredKernel);
 			await this.quickinput.waitForQuickInputClosed();
-
-			// Wait for kernel initialization
-			await expect(this.code.driver.page.locator('.kernel-action-view-item .codicon-modifier-spin')).not.toBeVisible({ timeout: 30000 });
-		});
+			
+			this.code.logger.log(`Positron Kernel: selected: ${desiredKernel}`);
+		} catch (e) {
+			this.code.logger.log(`Positron Kernel: failed to select kernel through status badge, trying fallback`);
+			
+			// Fallback: try using VS Code-style kernel selection (some Positron features may fall back to this)
+			await this.selectVSCodeKernel(kernelGroup, desiredKernel);
+		}
 	}
 
 	async expectKernelToBe(kernelName: string) {
 		await test.step(`Expect kernel to be: ${kernelName}`, async () => {
-			await expect(this.kernelDropdown).toHaveText(new RegExp(escapeRegExp(kernelName), 'i'), { timeout: 30000 });
+			const notebookType = await this.detectNotebookType();
+			
+			if (notebookType === 'positron') {
+				// For Positron notebooks, check the kernel status badge
+				const kernelStatusBadge = this.code.driver.page.locator(POSITRON_KERNEL_STATUS_BADGE);
+				await expect(kernelStatusBadge).toContainText(kernelName, { timeout: 30000 });
+			} else {
+				// For VS Code notebooks, check the kernel dropdown
+				await expect(this.kernelDropdown).toHaveText(new RegExp(escapeRegExp(kernelName), 'i'), { timeout: 30000 });
+			}
 		});
 	}
 
@@ -250,6 +331,41 @@ export class Notebooks {
 	async executeActiveCell(): Promise<void> {
 		await this.hotKeys.executeNotebookCell();
 		await expect(this.code.driver.page.getByRole('button', { name: 'Go To' })).not.toBeVisible({ timeout: 30000 });
+	}
+
+	/**
+	 * Helper function to enable Positron notebooks with reload
+	 * @param settings - The settings fixture
+	 */
+	async enablePositronNotebooks(
+		settings: {
+			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+		}
+	) {
+		await settings.set({
+			'positron.notebook.enabled': true,
+		}, { reload: true });
+	}
+
+	/**
+	 * Helper function to set notebook editor associations
+	 * @param settings - The settings fixture
+	 * @param editor - 'positron' to use Positron notebook editor, 'default' to clear associations
+	 * @param waitMs - The number of milliseconds to wait for the settings to be applied
+	 */
+	async setNotebookEditor(
+		settings: {
+			set: (settings: Record<string, unknown>, options?: { reload?: boolean | 'web'; waitMs?: number; waitForReady?: boolean; keepOpen?: boolean }) => Promise<void>;
+		},
+		editor: 'positron' | 'default',
+		waitMs = 800
+	) {
+		await settings.set({
+			'positron.notebook.enabled': true,
+			'workbench.editorAssociations': editor === 'positron'
+				? { '*.ipynb': 'workbench.editor.positronNotebook' }
+				: {}
+		}, { waitMs });
 	}
 }
 
