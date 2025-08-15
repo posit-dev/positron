@@ -34,6 +34,8 @@ export class NotebookLocationMapper extends Disposable implements LocationMapper
 			this.refresh();
 		}));
 
+		// TODO: Do we need to update mappings when the notebook changes?
+		//       Probably need to throttle this if so.
 		// When the notebook document changes, update mappings.
 		// this._register(vscode.workspace.onDidChangeNotebookDocument(event => {
 		// 	// Only handle changes for this notebook.
@@ -41,7 +43,6 @@ export class NotebookLocationMapper extends Disposable implements LocationMapper
 		// 		return;
 		// 	}
 
-		// 	// TODO: Probably need to throttle some of these?
 		// 	for (const change of event.contentChanges) {
 		// 		// Add new cells.
 		// 		for (const cell of change.addedCells) {
