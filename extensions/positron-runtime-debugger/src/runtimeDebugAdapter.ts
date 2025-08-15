@@ -3,13 +3,13 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 import { DebugProtocol } from '@vscode/debugprotocol';
-import { randomUUID } from 'crypto';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugInfoArguments, DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
 import { Disposable, formatDebugMessage } from './util.js';
 import { DebugProtocolTransformer } from './debugProtocolTransformer.js';
 import { LocationMapper } from './locationMapper.js';
+import { PathEncoder } from './pathEncoder.js';
 
 export interface RuntimeDebugAdapterOptions {
 	/**
@@ -21,6 +21,11 @@ export interface RuntimeDebugAdapterOptions {
 	 * The runtime debugger log output channel.
 	 */
 	outputChannel: vscode.LogOutputChannel;
+
+	/**
+	 * The path encoder used to encode runtime source code to file paths.
+	 */
+	pathEncoder: PathEncoder;
 
 	/**
 	 * The associated debug session.
@@ -39,14 +44,11 @@ export interface RuntimeDebugAdapterOptions {
  */
 export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapter, vscode.Disposable {
 	private readonly _onDidSendMessage = this._register(new vscode.EventEmitter<vscode.DebugProtocolMessage>());
-	private readonly _onDidRefreshState = this._register(new vscode.EventEmitter<DebugInfoResponseBody>());
 	private readonly _locationMapper: LocationMapper;
 	private readonly _log: vscode.LogOutputChannel;
+	private readonly _pathEncoder: PathEncoder;
 	private readonly _debugSession: vscode.DebugSession;
 	private readonly _runtimeSession: positron.LanguageRuntimeSession;
-
-	/* Tracks IDs of pending debug requests to the runtime. */
-	private readonly _pendingRequestIds = new Set<string>();
 
 	/* Transforms messages from runtime to client format. */
 	private readonly _runtimeToClientTransformer: DebugProtocolTransformer;
@@ -57,9 +59,6 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 	/* Event emitted when a debug protocol message is sent to the client. */
 	public readonly onDidSendMessage = this._onDidSendMessage.event;
 
-	/* Event emitted when the runtime debugger state is refreshed. */
-	public readonly onDidRefreshState = this._onDidRefreshState.event;
-
 	constructor(
 		options: RuntimeDebugAdapterOptions
 	) {
@@ -67,6 +66,7 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 
 		this._locationMapper = options.locationMapper;
 		this._log = options.outputChannel;
+		this._pathEncoder = options.pathEncoder;
 		this._debugSession = options.debugSession;
 		this._runtimeSession = options.runtimeSession;
 
@@ -109,8 +109,13 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 
 		// TODO: We should update the UI when reconnecting to a runtime that's already debugging.
 
-		// Notify listeners that the debug state has been refreshed.
-		this._onDidRefreshState.fire(debugInfo);
+		// Update path encoder options based on the runtime's debug configuration.
+		this._pathEncoder.setOptions({
+			hashMethod: debugInfo.hashMethod,
+			hashSeed: debugInfo.hashSeed,
+			tmpFilePrefix: debugInfo.tmpFilePrefix,
+			tmpFileSuffix: debugInfo.tmpFileSuffix,
+		});
 	}
 
 	/* Sends a debug message from runtime to client. */
