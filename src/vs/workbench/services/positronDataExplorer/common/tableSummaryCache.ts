@@ -21,6 +21,7 @@ const SMALL_HISTOGRAM_NUM_BINS = 80;
 const LARGE_HISTOGRAM_NUM_BINS = 200;
 const SMALL_FREQUENCY_TABLE_LIMIT = 8;
 const LARGE_FREQUENCY_TABLE_LIMIT = 16;
+const UPDATE_EVENT_DEBOUNCE_DELAY = 50;
 
 /**
  * UpdateDescriptor interface.
@@ -53,6 +54,11 @@ export class TableSummaryCache extends Disposable {
 	 * Gets or sets the trim cache timeout.
 	 */
 	private _trimCacheTimeout?: Timeout;
+
+	/**
+	 * Gets or sets the debounced update event timeout.
+	 */
+	private _debouncedUpdateTimeout?: Timeout;
 
 	/**
 	 * The search text used to filter the dataset in the column schema
@@ -145,6 +151,9 @@ export class TableSummaryCache extends Disposable {
 	public override dispose(): void {
 		// Clear the trim cache timeout.
 		this.clearTrimCacheTimeout();
+
+		// Clear the debounced update timeout.
+		this.clearDebouncedUpdateTimeout();
 
 		// Call the base class's dispose method.
 		super.dispose();
@@ -676,27 +685,36 @@ export class TableSummaryCache extends Disposable {
 
 		const tableState = await this._dataExplorerClientInstance.getBackendState();
 
-		// For more than 10 million rows, we request profiles one by one rather than as a batch for
+		// For more than 1 million rows, we request profiles one by one rather than as a batch for
 		// better responsiveness
-		const BATCHING_THRESHOLD = 5_000_000;
+		const BATCHING_THRESHOLD = 1_000_000;
 		if (tableState.table_shape.num_rows > BATCHING_THRESHOLD) {
-			const BATCH_SIZE = 4;
-			for (let i = 0; i < columnIndices.length; i += BATCH_SIZE) {
-				// Get the next batch of up to 4 requests
-				const batchColumnRequests = columnRequests.slice(i, i + BATCH_SIZE);
-				const batchColumnIndices = columnIndices.slice(i, i + BATCH_SIZE);
+			// Start all requests and store promises
+			const profilePromises = columnRequests.map((columnRequest, index) => {
+				const columnIndex = columnIndices[index];
 
-				// Send the batch of requests to getColumnProfiles
-				const results = await this._dataExplorerClientInstance.getColumnProfiles(batchColumnRequests);
+				// Start the request and handle result immediately when it completes
+				const promise = this._dataExplorerClientInstance.getColumnProfiles([columnRequest])
+					.then(results => {
+						// Cache the result as soon as it's available
+						if (results.length > 0) {
+							this._columnProfileCache.set(columnIndex, results[0]);
+						}
+						// Fire the onDidUpdate event with debouncing for smoother updates
+						this.fireOnDidUpdateDebounced();
+						return results;
+					})
+					.catch(error => {
+						// Handle errors gracefully
+						console.error(`Failed to get column profile for index ${columnIndex}:`, error);
+						throw error;
+					});
 
-				// Cache the returned column profiles for each index in the batch
-				for (let j = 0; j < results.length; j++) {
-					this._columnProfileCache.set(batchColumnIndices[j], results[j]);
-				}
+				return promise;
+			});
 
-				// Fire the onDidUpdate event so things update as soon as they are returned
-				this._onDidUpdateEmitter.fire();
-			}
+			// Wait for all requests to complete
+			await Promise.allSettled(profilePromises);
 		} else {
 			// Load the column profiles as a batch
 			const columnProfileResults = await this._dataExplorerClientInstance.getColumnProfiles(
@@ -762,6 +780,31 @@ export class TableSummaryCache extends Disposable {
 			clearTimeout(this._trimCacheTimeout);
 			this._trimCacheTimeout = undefined;
 		}
+	}
+
+	/**
+	 * Clears the debounced update timeout.
+	 */
+	private clearDebouncedUpdateTimeout() {
+		// If there is a debounced update timeout scheduled, clear it.
+		if (this._debouncedUpdateTimeout) {
+			clearTimeout(this._debouncedUpdateTimeout);
+			this._debouncedUpdateTimeout = undefined;
+		}
+	}
+
+	/**
+	 * Fires the onDidUpdate event with debouncing to smooth incremental updates.
+	 */
+	private fireOnDidUpdateDebounced() {
+		// Clear any existing debounced update timeout.
+		this.clearDebouncedUpdateTimeout();
+
+		// Set a new debounced update timeout.
+		this._debouncedUpdateTimeout = setTimeout(() => {
+			this._debouncedUpdateTimeout = undefined;
+			this._onDidUpdateEmitter.fire();
+		}, UPDATE_EVENT_DEBOUNCE_DELAY);
 	}
 
 	/**
