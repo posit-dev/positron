@@ -163,13 +163,15 @@ test.describe('Autocomplete', {
 // Helper functions
 
 async function triggerAutocompleteInConsole(app: Application, session: SessionMetaData) {
-	const { console } = app.workbench;
+	const { console, sessions } = app.workbench;
 
 	if (session.name.includes('Python')) {
 		await console.typeToConsole('import pandas as pd', true, 0);
+		await sessions.expectAllSessionsToBeReady();
 		await console.typeToConsole('pd.DataF', false, 250);
 	} else {
 		await console.typeToConsole('library(arrow)', true, 0);
+		await sessions.expectAllSessionsToBeReady();
 		await console.typeToConsole('read_p', false, 250);
 	}
 }
