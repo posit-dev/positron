@@ -13,6 +13,7 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 - **E2E Testing**: `Please read .claude/e2e-testing.md` - For working with Playwright end-to-end tests
 - **Extensions**: `Please read .claude/extensions.md` - For Positron-specific extensions development  
 - **Data Explorer**: `Please read .claude/data-explorer.md` - For data viewing and exploration features
+- **DuckDB Extension**: `Please read .claude/positron-duckdb.md` - For positron-duckdb extension development
 - **Console/REPL**: `Please read .claude/console.md` - For console and REPL functionality
 - **Notebooks**: `Please read .claude/notebooks.md` - For Jupyter notebook integration
 - **Language Support**: `Please read .claude/language-support.md` - For Python/R language features
