@@ -65,6 +65,7 @@ export interface IPositronLanguageModelConfig {
 	numCtx?: number;
 	maxOutputTokens?: number;
 	completions?: boolean;
+	apiKeyEnvVar?: { key: string; signedIn: boolean };
 }
 
 //#endregion

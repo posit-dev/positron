@@ -140,8 +140,9 @@ function interpolate(text: string, value: (key: string) => React.ReactNode | und
 export const LanguageModelConfigComponent = (props: LanguageModelConfigComponentProps) => {
 	const { authMethod, authStatus, config, source } = props;
 	const { apiKey } = config;
-	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN;
-	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN;
+	const hasEnvApiKey = !!source.defaults.apiKeyEnvVar && source.defaults.apiKeyEnvVar.signedIn;
+	const showApiKeyInput = authMethod === AuthMethod.API_KEY && authStatus !== AuthStatus.SIGNED_IN && !hasEnvApiKey;
+	const showCancelButton = authMethod === AuthMethod.OAUTH && authStatus === AuthStatus.SIGNING_IN && !hasEnvApiKey;
 
 	// This currently only updates the API key for the provider, but in the future it may be extended to support
 	// additional configuration options for language models.
@@ -150,7 +151,7 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 	};
 
 	return <>
-		<div className='language-model-container input'>
+		{!hasEnvApiKey && <div className='language-model-container input'>
 			{showApiKeyInput && <ApiKey apiKey={apiKey} onChange={onChange} />}
 			<SignInButton authMethod={authMethod} authStatus={authStatus} onSignIn={props.onSignIn} />
 			{showCancelButton &&
@@ -158,7 +159,8 @@ export const LanguageModelConfigComponent = (props: LanguageModelConfigComponent
 					{localize('positron.languageModelConfig.cancel', "Cancel")}
 				</Button>
 			}
-		</div>
+		</div>}
+		<ExternalAPIKey envKeyName={source.defaults.apiKeyEnvVar} provider={source.provider.id} />
 		<ProviderNotice provider={source.provider} />
 	</>;
 }
@@ -230,4 +232,19 @@ const ExternalLink = (props: { href: string, children: React.ReactNode }) => {
 	return <a href={props.href} rel='noreferrer' target='_blank'>
 		{props.children}
 	</a>;
+}
+
+const ExternalAPIKey = (props: { provider: string, envKeyName?: { key: string; signedIn: boolean } }) => {
+
+	return (
+		props.envKeyName ?
+			<div className='language-model-external-api-key'>
+				{
+					props.envKeyName && props.envKeyName.signedIn ?
+						<p>{localize('positron.languageModelConfig.externalApiInUse', "The {0} environment variable is currently in use", props.envKeyName?.key)}</p>
+						:
+						<p>{localize('positron.languageModelConfig.externalApiSetup', "You can also assign the {0} environment variable and restart Positron", props.envKeyName.key)}</p>
+				}
+			</div> : null
+	);
 }
