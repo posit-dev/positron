@@ -527,8 +527,8 @@ class PositronIPyKernel(IPythonKernel):
     def kernel_info(self):
         kernel_info = super().kernel_info
 
-        # Declare debugger support using the new `supported_features` property
-        # for ipykernel < 7.0.0.
+        # 'supported_features' is only added in ipykernel 7.0.0, but we backport it to older versions
+        # since it's used by Positron to detect debugger support.
         if "supported_features" not in kernel_info:
             kernel_info["supported_features"] = []
             if _is_debugpy_available:
