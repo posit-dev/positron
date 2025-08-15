@@ -19,7 +19,7 @@ import { ILanguageRuntimeExit, ILanguageRuntimeInfo, LanguageRuntimeSessionMode,
 import { ILanguageRuntimeSession, IRuntimeSessionMetadata, IRuntimeSessionService } from '../../../../services/runtimeSession/common/runtimeSessionService.js';
 import { TestEditorInput, TestEditorService } from '../../../../test/browser/workbenchTestServices.js';
 import { NotebookEditorInput } from '../../../notebook/common/notebookEditorInput.js';
-import { ActiveRuntimeNotebookContextManager } from '../../common/activeRuntimeNotebookContextManager.js';
+import { ActiveRuntimeNotebookContextManager, DebuggerRuntimeSupportedFeature } from '../../common/activeRuntimeNotebookContextManager.js';
 import { isEqual } from '../../../../../base/common/resources.js';
 
 /** A TestEditorService that fires the onDidActiveEditorChange event when changing the activeEditor. */
@@ -63,6 +63,7 @@ class MockRuntimeSession extends Disposable implements Partial<ILanguageRuntimeS
 	}
 
 	get runtimeInfo() { return this._runtimeInfo; }
+	enableDebuggingSupport() { this._runtimeInfo.supported_features!.push(DebuggerRuntimeSupportedFeature); }
 
 	setState(state: RuntimeState) {
 		this._onDidChangeRuntimeState.fire(state);
@@ -121,11 +122,11 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 
 	// === Initialization ===
 
-	test('initializes with contexts properly set', () => {
+	test('initializes with both contexts disabled', () => {
 		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
 
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-		assert.strictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), undefined);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 	});
 
 	// === Session Filtering ===
@@ -137,7 +138,7 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 		runtimeSessionService.startSession(session as any);
 
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-		assert.strictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), undefined);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 	});
 
 	// === Editor Change Handling ===
@@ -150,7 +151,7 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 		editorService.activeEditor = notebookEditorInput;
 
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-		assert.strictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), undefined);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 	});
 
 	test('disables contexts when switching to non-notebook editor', async () => {
@@ -163,7 +164,7 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 		editorService.activeEditor = textEditorInput;
 
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-		assert.strictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), undefined);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 	});
 
 	test('enables hasRunningRuntime when notebook has active session', async () => {
@@ -231,20 +232,19 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 		// Make notebook1 active
 		editorService.activeEditor = notebookEditorInput1;
 
-		// Complete startup for non-active notebook with a supported feature
-		session2.runtimeInfo.supported_features = ['dadjokes'];
+		// Complete startup for non-active notebook with debugging
+		session2.enableDebuggingSupport();
 		await session2.start();
 
-		// Supported features should be empty array since session1 hasn't completed startup yet
-		const initialFeatures = manager.activeNotebookInterpreterSupportedFeatures.get();
-		assert.ok(initialFeatures);
-		assert.strictEqual(initialFeatures.length, 0);
+		// Debugging context should remain false since it's not the active notebook
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 
-		// Complete startup for active notebook with a supported feature
-		session1.runtimeInfo.supported_features = ['gregexprs'];
+		// Complete startup for active notebook with debugging
+		session1.enableDebuggingSupport();
 		await session1.start();
 
-		assert.deepStrictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), ['gregexprs']);
+		// Now debugging should be enabled
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
 	});
 
 	// === Runtime State Transitions ===
@@ -281,14 +281,14 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 
 	// === Session Lifecycle & Debugging Support ===
 
-	test('detects supported features from pre-initialized session on attach', async () => {
+	test('detects debugging support from pre-initialized session on attach', async () => {
 		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
 		const notebookUri = URI.file('notebook.ipynb');
 		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
 		const session = disposables.add(new MockRuntimeSession(notebookUri));
 
-		// Set supported features and start session before attaching
-		session.runtimeInfo.supported_features = ['dadjokes'];
+		// Set debugging support and start session before attaching
+		session.enableDebuggingSupport();
 		await session.start();
 
 		// Make notebook active first
@@ -297,11 +297,11 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 		// Now start the session (which triggers attach)
 		runtimeSessionService.startSession(session as any);
 
-		// Supported features should be set immediately from existing runtimeInfo
-		assert.deepStrictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), ['dadjokes']);
+		// Debugging support should be set immediately from existing runtimeInfo
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
 	});
 
-	test('enables supported features when runtime completes startup', async () => {
+	test('enables supportsDebugging when runtime completes startup with debugger feature', async () => {
 		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
 		const notebookUri = URI.file('notebook.ipynb');
 		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
@@ -311,15 +311,15 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 		runtimeSessionService.startSession(session as any);
 		editorService.activeEditor = notebookEditorInput;
 
-		// Complete startup with supported features
-		session.runtimeInfo.supported_features = ['dadjokes'];
+		// Complete startup with debugging support
+		session.enableDebuggingSupport();
 		await session.start();
 
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-		assert.deepStrictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), ['dadjokes']);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
 	});
 
-	test('updates supported features when switching between notebooks with different capabilities', async () => {
+	test('updates debugging context when switching between notebooks with different capabilities', async () => {
 		const manager = disposables.add(instantiationService.createInstance(ActiveRuntimeNotebookContextManager));
 		const notebookUri = URI.file('notebook.ipynb');
 		const notebookEditorInput = disposables.add(new TestEditorInput(notebookUri, NotebookEditorInput.ID));
@@ -331,29 +331,28 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 		runtimeSessionService.startSession(session1 as any);
 		editorService.activeEditor = notebookEditorInput;
 
-		session1.runtimeInfo.supported_features = ['dadjokes'];
+		session1.enableDebuggingSupport();
 		await session1.start();
 
-		assert.deepStrictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), ['dadjokes']);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
 
-		// Start second session with different features
+		// Start second session without debugging support
 		const session2 = disposables.add(new MockRuntimeSession(notebookUri2));
 		runtimeSessionService.startSession(session2 as any);
 
 		// Switch to second notebook first
 		editorService.activeEditor = notebookEditorInput2;
 
-		// Then complete startup for second session with different features
-		session2.runtimeInfo.supported_features = ['ai'];
+		// Then complete startup for second session without debugging
 		await session2.start();
 
-		// Second session has different features
+		// Second session has no debugging support
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-		assert.deepStrictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), ['ai']);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 
 		// Switch back to first notebook
 		editorService.activeEditor = notebookEditorInput;
-		assert.deepStrictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), ['dadjokes']);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
 	});
 
 	test('disables both contexts when active session ends', async () => {
@@ -367,19 +366,19 @@ suite('ActiveRuntimeNotebookContextManager', () => {
 		// Set session to ready state first
 		session.setState(RuntimeState.Ready);
 
-		// Set up supported features
-		session.runtimeInfo.supported_features = ['dadjokes'];
+		// Set up debugging support
+		session.enableDebuggingSupport();
 		await session.start();
 
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), true);
-		assert.deepStrictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), ['dadjokes']);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), true);
 
 		// End the session
 		await session.shutdown(RuntimeExitReason.Shutdown);
 
 		// Both contexts should be disabled
 		assert.strictEqual(manager.activeNotebookHasRunningRuntime.get(), false);
-		assert.strictEqual(manager.activeNotebookInterpreterSupportedFeatures.get(), undefined);
+		assert.strictEqual(manager.activeNotebookRuntimeSupportsDebugging.get(), false);
 	});
 
 });
