@@ -35,6 +35,41 @@ npm run watch
 npm test
 ```
 
+### Code Formatting
+
+**🚨 CRITICAL: DO NOT USE PRETTIER**
+
+Positron uses VSCode's built-in TypeScript formatter, not Prettier. Using Prettier will create formatting conflicts that are very difficult to resolve.
+
+**Correct way to format files:**
+```bash
+# Format specific TypeScript/JavaScript files using the project's formatter script
+node scripts/format.js <file1> [file2] [file3] ...
+
+# Examples:
+node scripts/format.js src/vs/workbench/contrib/positronDataExplorer/browser/positronDataExplorer.tsx
+node scripts/format.js src/vs/workbench/services/positronDataExplorer/common/tableSummaryCache.ts
+
+# Format multiple files at once:
+node scripts/format.js file1.ts file2.tsx file3.js
+```
+
+**This script uses TypeScript's built-in formatter - the exact same formatter used by the pre-commit hook.**
+
+**Project formatting rules:**
+- Uses **tabs** (not spaces)  
+- Uses **single quotes**
+- Inserts final newlines
+- VSCode's TypeScript formatter handles all formatting
+- ESLint with `@stylistic/eslint-plugin-ts` provides additional style rules
+
+**Never use:**
+- `prettier` or `npx prettier` commands
+- `npm run eslint` (runs on entire codebase, too broad)
+- Any other third-party formatters
+
+When editing files, format them with `npx eslint --fix <file_path>` to match the project's formatting standards exactly.
+
 ### Testing
 ```bash
 # Run specific e2e test
