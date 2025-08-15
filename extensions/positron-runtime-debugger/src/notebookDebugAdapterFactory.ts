@@ -5,9 +5,8 @@
 
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { log } from './extension.js';
 import { DebugCellController } from './debugCellController.js';
-import { ContextKey, createDebuggerOutputChannel, Disposable } from './util.js';
+import { createDebuggerOutputChannel, Disposable, DisposableStore } from './util.js';
 import { RuntimeDebugAdapter } from './runtimeDebugAdapter.js';
 import { PathEncoder } from './pathEncoder.js';
 import { NotebookLocationMapper } from './notebookLocationMapper.js';
@@ -21,8 +20,6 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 
 	/* Maps runtime session IDs to their debug output channels. */
 	private readonly _outputChannelByRuntimeSessionId = new Map<string, vscode.LogOutputChannel>();
-
-	private readonly _notebookDebugDocuments = new ContextKey<vscode.Uri[]>('notebookDebugResources');
 
 	constructor() {
 		super();
@@ -41,49 +38,27 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 			throw new Error(`Cell not found: ${cellUri}`);
 		}
 
-		// TODO: A given runtime session can only have one debug session at a time...
+		// TODO: Don't allow multiple debug sessions for the same notebook.
 		const runtimeSession = await getNotebookSession(notebookUri);
 		if (!runtimeSession) {
 			throw new Error(`No active runtime session found for notebook: ${notebook.uri}`);
 		}
 
-		// Create the output channel for the runtime session's debugger.
+		// Create the debug adapter and its components.
+		const disposables = this._register(new DisposableStore());
 		const outputChannel = this.createOutputChannel(runtimeSession);
-
 		const pathEncoder = new PathEncoder();
-		const locationMapper = this._register(new NotebookLocationMapper(pathEncoder, notebook));
-		const adapter = this._register(new RuntimeDebugAdapter({
-			locationMapper, outputChannel, pathEncoder, debugSession, runtimeSession
-		}));
+		const locationMapper = disposables.add(new NotebookLocationMapper(pathEncoder, notebook));
+		const adapter = disposables.add(new RuntimeDebugAdapter({ locationMapper, outputChannel, pathEncoder, debugSession, runtimeSession }));
 
-		// Create a debug cell controller to handle the cell execution and debugging.
-		const debugCellController = this._register(new DebugCellController(adapter, debugSession, runtimeSession, cell));
-
-		// TODO: Move below to JupyterRuntimeDebugAdapter?
-		// TODO: stop debugging when:
-		// - runtime exits
-		// - cell is deleted
-		// - notebook is closed
-
-		// End the debug session when the kernel is interrupted.
-		const stateDisposable = this._register(runtimeSession.onDidChangeRuntimeState(async (state) => {
-			console.log(`Runtime state changed: ${state}`);
-			if (state === positron.RuntimeState.Interrupting) {
-				stateDisposable.dispose();
-				await vscode.debug.stopDebugging(debugSession);
-			}
-		}));
+		disposables.add(new DebugCellController(adapter, debugSession, runtimeSession, cell));
 
 		// Clean up when the debug session terminates.
-		this._register(
-			vscode.debug.onDidTerminateDebugSession((session) => {
-				if (session.id === debugSession.id) {
-					stateDisposable.dispose();
-					debugCellController.dispose();
-					adapter.dispose();
-				}
-			})
-		);
+		disposables.add(vscode.debug.onDidTerminateDebugSession((session) => {
+			if (session.id === debugSession.id) {
+				disposables.dispose();
+			}
+		}));
 
 		return new vscode.DebugAdapterInlineImplementation(adapter);
 	}

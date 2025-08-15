@@ -23,36 +23,55 @@ export class DebugCellController extends Disposable {
 		super();
 
 		// Execute the cell when the debug session has completed configuration.
-		const configurationDoneDisposable = this._register(this._adapter.onDidSendMessage(async (message) => {
-			if ((message as DebugProtocol.ProtocolMessage).type !== 'response' ||
-				(message as DebugProtocol.Response).command !== 'configurationDone') {
-				return;
+		const configurationDone = this._register(this._adapter.onDidSendMessage(async (message) => {
+			if ((message as DebugProtocol.ProtocolMessage).type === 'response' &&
+				(message as DebugProtocol.Response).command === 'configurationDone') {
+				configurationDone.dispose();
+				await vscode.commands.executeCommand('notebook.cell.execute', {
+					ranges: [{ start: this._cell.index, end: this._cell.index + 1 }],
+					document: this._cell.notebook.uri,
+				});
 			}
-
-			configurationDoneDisposable.dispose();
-
-			await vscode.commands.executeCommand('notebook.cell.execute', {
-				ranges: [{ start: this._cell.index, end: this._cell.index + 1 }],
-				document: this._cell.notebook.uri,
-			});
 		}));
 
 		// Track the runtime execution ID when the cell is first executed.
-		const executeDisposable = this._register(positron.runtime.onDidExecuteCode((event) => {
+		const execute = this._register(positron.runtime.onDidExecuteCode((event) => {
 			if (event.attribution.source === positron.CodeAttributionSource.Notebook &&
 				event.attribution.metadata?.notebook === this._cell.notebook.uri.fsPath) {
-				executeDisposable.dispose();
+				execute.dispose();
 				this._executionId = event.executionId;
 			}
 		}));
 
-		// End the debug session when the cell execution is complete.
-		const messageDisposable = this._register(this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
+		// Stop debugging when the cell execution is complete.
+		const executeComplete = this._register(this._runtimeSession.onDidReceiveRuntimeMessage(async (message) => {
 			if (this._executionId &&
 				message.parent_id === this._executionId &&
 				message.type === positron.LanguageRuntimeMessageType.State &&
 				(message as positron.LanguageRuntimeState).state === positron.RuntimeOnlineState.Idle) {
-				messageDisposable.dispose();
+				executeComplete.dispose();
+				await vscode.debug.stopDebugging(this._debugSession);
+			}
+		}));
+
+		// Stop debugging when the cell is deleted.
+		const cellDeleted = this._register(vscode.workspace.onDidChangeNotebookDocument(async event => {
+			if (event.notebook.uri.toString() === this._cell.notebook.uri.toString()) {
+				for (const change of event.contentChanges) {
+					for (const cell of change.removedCells) {
+						if (cell.document.uri.toString() === this._cell.document.uri.toString()) {
+							cellDeleted.dispose();
+							await vscode.debug.stopDebugging(this._debugSession);
+						}
+					}
+				}
+			}
+		}));
+
+		// Stop debugging when the notebook is closed.
+		const notebookClosed = this._register(vscode.workspace.onDidCloseNotebookDocument(async notebook => {
+			if (notebook.uri.toString() === this._cell.notebook.uri.toString()) {
+				notebookClosed.dispose();
 				await vscode.debug.stopDebugging(this._debugSession);
 			}
 		}));
