@@ -671,16 +671,11 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 *
 	 * @param request The Debug Adapter Protocol request.
 	 * @param id The ID of the request.
+	 * @returns The Debug Adapter Protocol response.
 	 */
-	debug(request: positron.DebugProtocolRequest, id: string): void {
+	async debug(request: positron.DebugProtocolRequest, id: string): Promise<positron.DebugProtocolResponse> {
 		const debug = new DebugRequest(id, request);
-		this.sendRequest(debug).then((reply) => {
-			this.log(`Debug reply: ${JSON.stringify(reply)}`, vscode.LogLevel.Debug);
-		}).catch((err) => {
-			// This should be exceedingly rare; it represents a failure to send
-			// the request to Kallichore rather than a failure to debug
-			this.log(`Failed to send debug request: ${err}`, vscode.LogLevel.Error);
-		});
+		return await this.sendRequest(debug);
 	}
 
 	/**
