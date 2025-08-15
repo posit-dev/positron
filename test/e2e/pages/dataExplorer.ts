@@ -43,7 +43,7 @@ export class DataExplorer {
 		this._convertToCodeModal = new ConvertToCodeModal(this.code, this.workbench);
 		this._summaryPanel = new SummaryPanel(this.code, this.workbench);
 		this.statusBar = this.code.driver.page.locator(STATUS_BAR);
-		this.idleStatus = this.code.driver.page.locator('.status-bar-indicator .icon.idle')
+		this.idleStatus = this.code.driver.page.locator('.status-bar-indicator .icon.idle');
 	}
 
 	async waitForIdle(timeout = 60000): Promise<void> {
@@ -83,13 +83,13 @@ export class DataExplorer {
 		await expect(this.code.driver.page.getByText(searchString, { exact: true })).toBeVisible();
 	}
 
-	async maximize(collapseSummary: boolean = false): Promise<void> {
+	async maximize(hideSummaryPanel: boolean = false): Promise<void> {
 		await this.workbench.hotKeys.stackedLayout();
 		await this.workbench.hotKeys.closeSecondarySidebar();
 		await this.workbench.hotKeys.closePrimarySidebar();
 		await this.workbench.hotKeys.toggleBottomPanel();
 
-		if (collapseSummary) {
+		if (hideSummaryPanel) {
 			await this.summaryPanel.hide();
 		}
 	}
@@ -181,7 +181,7 @@ export class Filters {
 export class DataGrid {
 	grid: Locator;
 	private statusBar: Locator;
-	private headers = this.code.driver.page.locator(`${COLUMN_HEADERS} ${HEADER_TITLES}`)
+	private headers = this.code.driver.page.locator(`${COLUMN_HEADERS} ${HEADER_TITLES}`);
 	private rows = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}`);
 
 	constructor(private code: Code, private dataExplorer: DataExplorer) {
@@ -232,7 +232,7 @@ export class DataGrid {
 
 	async getData(): Promise<object[]> {
 
-		await this.dataExplorer.waitForIdle()
+		await this.dataExplorer.waitForIdle();
 
 		// need a brief additional wait
 		await this.code.wait(1000);
@@ -389,7 +389,7 @@ export class SummaryPanel {
 				menuTrigger: this.sortFilter,
 				menuItemType: 'menuitemcheckbox',
 				menuItemLabel: `Sort by ${sortBy}`
-			})
+			});
 		});
 	}
 
@@ -410,7 +410,7 @@ export class SummaryPanel {
 			visible
 				? await expect(this.verticalScrollbar).toBeVisible({ timeout: 5000 })
 				: await expect(this.verticalScrollbar).not.toBeVisible({ timeout: 5000 });
-		})
+		});
 	}
 
 	async getColumnMissingPercent(rowNumber: number): Promise<string> {
@@ -491,17 +491,17 @@ export class SummaryPanel {
 		});
 	}
 
-	async expectColumnProfileToBeExpanded(columnSummaryIndex: number) {
-		await this.expectColumnSummaryIndexExpansion(columnSummaryIndex, 'expanded');
+	async expectColumnProfileToBeExpanded(columnProfileIndex: number) {
+		await this.expectColumnSummaryIndexExpansion(columnProfileIndex, 'expanded');
 	}
 
-	async expectColumnToBeCollapsed(columnSummaryIndex: number) {
-		await this.expectColumnSummaryIndexExpansion(columnSummaryIndex, 'collapsed');
+	async expectColumnToBeCollapsed(columnProfileIndex: number) {
+		await this.expectColumnSummaryIndexExpansion(columnProfileIndex, 'collapsed');
 	}
 
-	private async expectColumnSummaryIndexExpansion(columnSummaryIndex: number, expansion: 'expanded' | 'collapsed') {
-		await test.step(`Verify column ${columnSummaryIndex} is ${expansion}`, async () => {
-			const column = this.code.driver.page.locator('.column-summary').nth(columnSummaryIndex);
+	private async expectColumnSummaryIndexExpansion(columnProfileIndex: number, expansion: 'expanded' | 'collapsed') {
+		await test.step(`Verify column ${columnProfileIndex} is ${expansion}`, async () => {
+			const column = this.code.driver.page.locator('.column-summary').nth(columnProfileIndex);
 			if (expansion === 'expanded') {
 				await expect(column.locator('.codicon-chevron-down')).toBeVisible();
 			} else {

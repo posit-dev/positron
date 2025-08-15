@@ -208,11 +208,11 @@ export class HotKeys {
 	// -----------------------
 
 	public async showDataExplorerSummaryPanel() {
-		await this.pressHotKeys('Cmd+J Y', 'Expand/show the Summary Panel in DE');
+		await this.pressHotKeys('Cmd+J Y', 'Show the DE Summary Panel');
 	}
 
 	public async hideDataExplorerSummaryPanel() {
-		await this.pressHotKeys('Cmd+J Z', 'Collapse/hide the Summary Panel in DE');
+		await this.pressHotKeys('Cmd+J Z', 'Hide the DE Summary Panel');
 	}
 
 	/**
