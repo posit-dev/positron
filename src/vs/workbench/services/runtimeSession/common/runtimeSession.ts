@@ -436,6 +436,7 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 			NotebookSetting.workingDirectory, { resource: notebookUri }
 		);
 		if (!configValue || configValue.trim() === '') {
+			this._logService.info(`${NotebookSetting.workingDirectory}: Setting is unset. Using default: '${defaultValue}'`);
 			return defaultValue;
 		}
 		const workspaceFolder = this._workspaceContextService.getWorkspaceFolder(notebookUri);
@@ -447,12 +448,13 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 				workspaceFolder || undefined, configValue
 			);
 		} catch (error) {
-			this._logService.warn(`${NotebookSetting.workingDirectory}: Failed to resolve variables in '${configValue}':`, error);
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Failed to resolve variables in '${configValue}'. Using default: '${defaultValue}'`, error);
 			return defaultValue;
 		}
 
 		// Check if the result is a directory that exists
 		if (await this.isValidDirectory(notebookUri.with({ path: resolvedValue }))) {
+			this._logService.info(`${NotebookSetting.workingDirectory}: Resolved '${configValue}' to '${resolvedValue}'`);
 			return resolvedValue;
 		} else {
 			return defaultValue;
