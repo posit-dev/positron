@@ -9,7 +9,7 @@ import { URI } from '../../../../base/common/uri.js';
 import { localize } from '../../../../nls.js';
 import { IContextKey, IContextKeyService, RawContextKey } from '../../../../platform/contextkey/common/contextkey.js';
 import { IEditorService } from '../../../services/editor/common/editorService.js';
-import { ILanguageRuntimeInfo, LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
+import { LanguageRuntimeSessionMode, RuntimeState } from '../../../services/languageRuntime/common/languageRuntimeService.js';
 import { ILanguageRuntimeSession, IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { isNotebookEditorInput } from '../../notebook/common/notebookEditorInput.js';
 
@@ -20,22 +20,20 @@ export const ActiveNotebookHasRunningRuntime = new RawContextKey<boolean>(
 	localize('notebookHasRunningInterpreter', 'Whether the active notebook has a running interpreter.'),
 );
 
-/** Whether the active notebook's runtime supports debugging. */
-export const ActiveNotebookRuntimeSupportsDebugging = new RawContextKey<boolean>(
-	'notebookInterpreterSupportsDebugging',
-	false,
-	localize('notebookInterpreterSupportsDebugging', 'Whether the active notebook interpreter supports debugging.'),
+/** The supported features of the active notebook's interpreter. */
+export const ActiveNotebookInterpreterSupportedFeatures = new RawContextKey<string[] | undefined>(
+	'notebookInterpreterSupportedFeatures',
+	undefined,
+	localize('notebookInterpreterSupportedFeatures', 'The supported features of the active notebook interpreter.'),
 );
 
-/** Tag for language runtimes to indicate that they support debugging. */
-export const DebuggerRuntimeSupportedFeature = 'debugger';
 
 /** Manages contexts about the active notebook and its language runtime. */
 export class ActiveRuntimeNotebookContextManager extends Disposable {
 
 	/** The bound contexts. */
 	public readonly activeNotebookHasRunningRuntime: IContextKey<boolean>;
-	public readonly activeNotebookRuntimeSupportsDebugging: IContextKey<boolean>;
+	public readonly activeNotebookInterpreterSupportedFeatures: IContextKey<string[] | undefined>;
 
 	private readonly _disposablesBySessionId = this._register(new DisposableMap<string, IDisposable>());
 
@@ -48,7 +46,7 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 
 		// Bind the contexts.
 		this.activeNotebookHasRunningRuntime = ActiveNotebookHasRunningRuntime.bindTo(this._contextKeyService);
-		this.activeNotebookRuntimeSupportsDebugging = ActiveNotebookRuntimeSupportsDebugging.bindTo(this._contextKeyService);
+		this.activeNotebookInterpreterSupportedFeatures = ActiveNotebookInterpreterSupportedFeatures.bindTo(this._contextKeyService);
 
 		// Attach to new sessions.
 		this._register(this._runtimeSessionService.onDidStartRuntime(session => {
@@ -104,7 +102,7 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 		// Update contexts when the session completes startup.
 		disposables.add(session.onDidCompleteStartup((runtimeInfo) => {
 			if (this.isActiveNotebook(notebookUri)) {
-				this.setActiveNotebookSupportsDebugging(runtimeInfo);
+				this.activeNotebookInterpreterSupportedFeatures.set(runtimeInfo?.supported_features);
 			}
 		}));
 
@@ -118,15 +116,13 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 		// The session has just started, initially enable contexts.
 		if (this.isActiveNotebook(notebookUri)) {
 			this.activeNotebookHasRunningRuntime.set(true);
-			if (session.runtimeInfo) {
-				this.setActiveNotebookSupportsDebugging(session.runtimeInfo);
-			}
+			this.activeNotebookInterpreterSupportedFeatures.set(session.runtimeInfo?.supported_features);
 		}
 	}
 
 	private disableContexts(): void {
 		this.activeNotebookHasRunningRuntime.set(false);
-		this.activeNotebookRuntimeSupportsDebugging.set(false);
+		this.activeNotebookInterpreterSupportedFeatures.set(undefined);
 	}
 
 	private handleActiveEditorChange(): void {
@@ -146,7 +142,7 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 		}
 
 		this.activeNotebookHasRunningRuntime.set(true);
-		this.setActiveNotebookSupportsDebugging(session.runtimeInfo);
+		this.activeNotebookInterpreterSupportedFeatures.set(session.runtimeInfo?.supported_features);
 	}
 
 	private isActiveNotebook(notebookUri: URI): boolean {
@@ -155,10 +151,4 @@ export class ActiveRuntimeNotebookContextManager extends Disposable {
 			isEqual(activeEditor.resource, notebookUri);
 	}
 
-	private setActiveNotebookSupportsDebugging(runtimeInfo: ILanguageRuntimeInfo | undefined): void {
-		const supportedFeatures = runtimeInfo?.supported_features || [];
-		this.activeNotebookRuntimeSupportsDebugging.set(
-			supportedFeatures.includes(DebuggerRuntimeSupportedFeature)
-		);
-	}
 }
