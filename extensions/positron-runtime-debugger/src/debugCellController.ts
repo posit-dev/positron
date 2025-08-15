@@ -5,7 +5,7 @@
 import { DebugProtocol } from '@vscode/debugprotocol';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { Disposable } from './util.js';
+import { Disposable, isUriEqual } from './util.js';
 
 /**
  * Controls the execution and lifecycle of a notebook cell during debugging.
@@ -56,10 +56,10 @@ export class DebugCellController extends Disposable {
 
 		// Stop debugging when the cell is deleted.
 		const cellDeleted = this._register(vscode.workspace.onDidChangeNotebookDocument(async event => {
-			if (event.notebook.uri.toString() === this._cell.notebook.uri.toString()) {
+			if (isUriEqual(event.notebook.uri, this._cell.notebook.uri)) {
 				for (const change of event.contentChanges) {
 					for (const cell of change.removedCells) {
-						if (cell.document.uri.toString() === this._cell.document.uri.toString()) {
+						if (isUriEqual(cell.document.uri, this._cell.document.uri)) {
 							cellDeleted.dispose();
 							await vscode.debug.stopDebugging(this._debugSession);
 						}
@@ -70,7 +70,7 @@ export class DebugCellController extends Disposable {
 
 		// Stop debugging when the notebook is closed.
 		const notebookClosed = this._register(vscode.workspace.onDidCloseNotebookDocument(async notebook => {
-			if (notebook.uri.toString() === this._cell.notebook.uri.toString()) {
+			if (isUriEqual(notebook.uri, this._cell.notebook.uri)) {
 				notebookClosed.dispose();
 				await vscode.debug.stopDebugging(this._debugSession);
 			}
