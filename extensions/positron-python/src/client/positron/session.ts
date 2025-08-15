@@ -168,9 +168,9 @@ export class PythonRuntimeSession implements positron.LanguageRuntimeSession, vs
         return this._runtimeInfo;
     }
 
-    async debug(request: positron.DebugProtocolRequest, id: string): Promise<positron.DebugProtocolResponse> {
+    async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
         if (this._kernel) {
-            return await this._kernel.debug(request, id);
+            return await this._kernel.debug(request);
         } else {
             throw new Error(`Cannot debug; kernel not started`);
         }

@@ -84,10 +84,8 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 				case positron.LanguageRuntimeMessageType.DebugEvent:
 					await this.handleRuntimeDebugEvent(runtimeMessage as positron.LanguageRuntimeDebugEvent);
 					break;
-				case positron.LanguageRuntimeMessageType.DebugReply:
-					this.handleRuntimeDebugReply(runtimeMessage as positron.LanguageRuntimeDebugReply);
-					break;
-				// NOTE: language runtimes currently do not support receiving debug request messages.
+				// NOTE: Language runtimes currently do not support receiving debug request messages,
+				//       and we handle replies directly in `handleMessage`.
 			}
 		}));
 	}
@@ -103,16 +101,6 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 
 		// Forward debug events to the client.
 		this.sendMessage(debugEvent);
-	}
-
-	/* Handles debug replies from the runtime. */
-	private handleRuntimeDebugReply(reply: positron.LanguageRuntimeDebugReply): void {
-		const debugReply = reply.content as DebugProtocol.Response;
-
-		// If this is a reply to one of our pending requests, send it to the client.
-		if (this._pendingRequestIds.delete(reply.parent_id)) {
-			this.sendMessage(debugReply);
-		}
 	}
 
 	/* Restores debug state when reconnecting to a runtime. */
@@ -181,9 +169,9 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 		// Send the request to the runtime.
 		const runtimeRequest = this.toRuntimeMessage(clientRequest) as DebugProtocol.Request;
 		this._log.debug(`[runtime] <<< RECV ${formatDebugMessage(runtimeRequest)}`);
-		const id = randomUUID();
+		let runtimeResponse: DebugProtocol.Response;
 		try {
-			this._runtimeSession.debug(runtimeRequest, id);
+			runtimeResponse = await this._runtimeSession.debug(runtimeRequest) as DebugProtocol.Response;
 		} catch (error) {
 			if (clientRequest.command === 'initialize') {
 				// Assume that the runtime does not support the Jupyter debug protocol.
@@ -192,7 +180,8 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 
 			throw error;
 		}
-		this._pendingRequestIds.add(id);
+
+		this.sendMessage(runtimeResponse);
 	}
 
 	/**

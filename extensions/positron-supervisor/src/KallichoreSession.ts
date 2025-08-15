@@ -39,7 +39,7 @@ import { KernelOutputMessage } from './ws/KernelMessage';
 import { UICommRequest } from './UICommRequest';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { AdoptedSession } from './AdoptedSession';
-import { DebugRequest, JupyterDebugReply, JupyterDebugRequest } from './jupyter/DebugRequest';
+import { DebugRequest } from './jupyter/DebugRequest';
 import { JupyterMessageType } from './jupyter/JupyterMessageType.js';
 
 /**
@@ -670,11 +670,10 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	 * Sends a Debug Adapter Protocol request to the runtime's debugger.
 	 *
 	 * @param request The Debug Adapter Protocol request.
-	 * @param id The ID of the request.
 	 * @returns The Debug Adapter Protocol response.
 	 */
-	async debug(request: positron.DebugProtocolRequest, id: string): Promise<positron.DebugProtocolResponse> {
-		const debug = new DebugRequest(id, request);
+	async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
+		const debug = new DebugRequest(request);
 		return await this.sendRequest(debug);
 	}
 
