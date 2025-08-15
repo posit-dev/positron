@@ -11,7 +11,7 @@ import { SyncDescriptor } from '../../../../platform/instantiation/common/descri
 import { IInstantiationService, ServicesAccessor } from '../../../../platform/instantiation/common/instantiation.js';
 import { Registry } from '../../../../platform/registry/common/platform.js';
 import { EditorPaneDescriptor, IEditorPaneRegistry } from '../../../browser/editor.js';
-import { IWorkbenchContributionsRegistry, Extensions as WorkbenchExtensions } from '../../../common/contributions.js';
+import { Extensions as WorkbenchExtensions, IWorkbenchContributionsRegistry, WorkbenchPhase, IWorkbenchContribution, registerWorkbenchContribution2 } from '../../../common/contributions.js';
 import { EditorExtensions, IEditorFactoryRegistry, IEditorSerializer } from '../../../common/editor.js';
 
 import { parse } from '../../../../base/common/marshalling.js';
@@ -31,6 +31,11 @@ import { IPositronNotebookService } from '../../../services/positronNotebook/bro
 import { IPositronNotebookInstance } from '../../../services/positronNotebook/browser/IPositronNotebookInstance.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { checkPositronNotebookEnabled } from './positronNotebookExperimentalConfig.js';
+import { IWorkingCopyEditorHandler, IWorkingCopyEditorService } from '../../../services/workingCopy/common/workingCopyEditorService.js';
+import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
+import { IExtensionService } from '../../../services/extensions/common/extensions.js';
+import { isEqual } from '../../../../base/common/resources.js';
+import { NotebookWorkingCopyTypeIdentifier } from '../../notebook/common/notebookCommon.js';
 
 
 
@@ -78,12 +83,19 @@ class PositronNotebookContribution extends Disposable {
 					// Determine notebook type from file content or metadata
 					const viewType = await this.detectNotebookViewType(resource);
 
+					// Preserve backup options if they exist
+					const positronOptions: PositronNotebookEditorInputOptions = {
+						startDirty: false,
+						_backupId: (options as any)?._backupId,
+						_workingCopy: (options as any)?._workingCopy
+					};
+
 					const editorInput = PositronNotebookEditorInput.getOrCreate(
 						this.instantiationService,
 						resource,
 						undefined,
 						viewType,
-						{ startDirty: false }
+						positronOptions
 					);
 
 					return { editor: editorInput, options };
@@ -107,6 +119,88 @@ class PositronNotebookContribution extends Disposable {
 	}
 }
 
+/**
+ * PositronNotebookWorkingCopyEditorHandler class.
+ * Handles backup restoration for Positron notebooks.
+ */
+class PositronNotebookWorkingCopyEditorHandler extends Disposable implements IWorkbenchContribution, IWorkingCopyEditorHandler {
+
+	static readonly ID = 'workbench.contrib.positronNotebookWorkingCopyEditorHandler';
+
+	constructor(
+		@IInstantiationService private readonly instantiationService: IInstantiationService,
+		@IWorkingCopyEditorService private readonly workingCopyEditorService: IWorkingCopyEditorService,
+		@IExtensionService private readonly extensionService: IExtensionService,
+		@INotebookService private readonly notebookService: INotebookService,
+		@IConfigurationService private readonly configurationService: IConfigurationService
+	) {
+		super();
+
+		// Only install handler if Positron notebooks are enabled
+		if (checkPositronNotebookEnabled(this.configurationService)) {
+			this.installHandler();
+		}
+	}
+
+	private async installHandler(): Promise<void> {
+		await this.extensionService.whenInstalledExtensionsRegistered();
+		this._register(this.workingCopyEditorService.registerHandler(this));
+	}
+
+	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
+		// Only handle .ipynb files when Positron notebooks are enabled
+		if (!workingCopy.resource.path.endsWith('.ipynb')) {
+			return false;
+		}
+
+		if (!checkPositronNotebookEnabled(this.configurationService)) {
+			return false;
+		}
+
+		const viewType = this.getViewType(workingCopy);
+		if (!viewType || viewType === 'interactive') {
+			return false;
+		}
+
+		return this.notebookService.canResolve(viewType);
+	}
+
+	isOpen(workingCopy: IWorkingCopyIdentifier, editor: EditorInput): boolean {
+		const viewType = this.getViewType(workingCopy);
+		if (!viewType) {
+			return false;
+		}
+
+		// Check if this is a Positron notebook editor for the same resource
+		return editor instanceof PositronNotebookEditorInput &&
+			editor.viewType === viewType &&
+			isEqual(workingCopy.resource, editor.resource);
+	}
+
+	createEditor(workingCopy: IWorkingCopyIdentifier): EditorInput {
+		const viewType = this.getViewType(workingCopy)!;
+		return PositronNotebookEditorInput.getOrCreate(
+			this.instantiationService,
+			workingCopy.resource,
+			undefined,
+			viewType,
+			{
+				// Mark as dirty since we're restoring from a backup
+				startDirty: true,
+				_workingCopy: workingCopy
+			}
+		);
+	}
+
+	private getViewType(workingCopy: IWorkingCopyIdentifier): string | undefined {
+		const notebookType = NotebookWorkingCopyTypeIdentifier.parse(workingCopy.typeId);
+		if (notebookType && notebookType.viewType === notebookType.notebookType) {
+			return notebookType.viewType;
+		}
+		return undefined;
+	}
+}
+
 // Register the Positron notebook editor pane.
 Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane(
 	EditorPaneDescriptor.create(
@@ -122,6 +216,9 @@ Registry.as<IEditorPaneRegistry>(EditorExtensions.EditorPane).registerEditorPane
 // Register workbench contributions.
 const workbenchContributionsRegistry = Registry.as<IWorkbenchContributionsRegistry>(WorkbenchExtensions.Workbench);
 workbenchContributionsRegistry.registerWorkbenchContribution(PositronNotebookContribution, LifecyclePhase.Restored);
+
+// Register the working copy handler for backup restoration
+registerWorkbenchContribution2(PositronNotebookWorkingCopyEditorHandler.ID, PositronNotebookWorkingCopyEditorHandler, WorkbenchPhase.BlockRestore);
 
 
 
