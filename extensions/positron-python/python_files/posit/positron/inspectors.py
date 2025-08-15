@@ -104,6 +104,7 @@ SIMPLER_NAMES = {
     "pandas.core.indexes.multi.MultiIndex": "pandas.MultiIndex",
     # Just display Int64Index as pandas.Index, since the former is deprecated since pandas v1.4.0.
     "pandas.core.indexes.numeric.Int64Index": "pandas.Index",
+    "duckdb.duckdb.DuckDBPyConnection": "duckdb.DuckDBPyConnection",
 }
 
 
@@ -1151,6 +1152,18 @@ class SQLAlchemyEngineInspector(BaseConnectionInspector):
         return True
 
 
+class DuckDBConnectionInspector(BaseConnectionInspector):
+    CLASS_QNAME = ("duckdb.DuckDBPyConnection",)
+
+    def _is_active(self, value) -> bool:
+        try:
+            # a connection is active if you can acquire a cursor from it
+            value.cursor()
+        except Exception:
+            return False
+        return True
+
+
 class IbisExprInspector(PositronInspector["ibis.Expr"]):
     def has_children(self) -> bool:
         return False
@@ -1188,6 +1201,7 @@ INSPECTOR_CLASSES: dict[str, type[PositronInspector]] = {
     DatetimeInspector.CLASS_QNAME: DatetimeInspector,
     **dict.fromkeys(SQLiteConnectionInspector.CLASS_QNAME, SQLiteConnectionInspector),
     **dict.fromkeys(SQLAlchemyEngineInspector.CLASS_QNAME, SQLAlchemyEngineInspector),
+    **dict.fromkeys(DuckDBConnectionInspector.CLASS_QNAME, DuckDBConnectionInspector),
     "ibis.Expr": IbisExprInspector,
     "boolean": BooleanInspector,
     "bytes": BytesInspector,

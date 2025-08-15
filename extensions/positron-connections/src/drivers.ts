@@ -16,6 +16,7 @@ export function registerConnectionDrivers(context: vscode.ExtensionContext) {
 		new PythonSQLiteDriver(context),
 		new RSparkDriver(context),
 		new PythonPostgreSQLDriver(context),
+		new PythonDuckDBDriver(context),
 	];
 
 	for (const driver of drivers) {
@@ -427,3 +428,49 @@ conn = sqlalchemy.create_engine(sqlalchemy.URL.create(
 `;
 	}
 }
+
+class PythonDuckDBDriver extends PythonDriver implements positron.ConnectionsDriver {
+
+	constructor(context: vscode.ExtensionContext) {
+		super();
+		// See the top-level ThirdPartyNotices.txt file for attribution and license details.
+		const iconPath = path.join(context.extensionPath, 'media', 'logo', 'duckdb.svg');
+		const iconData = readFileSync(iconPath, 'base64');
+		this.metadata.base64EncodedIconSvg = iconData;
+	}
+
+	driverId: string = 'py-duckdb';
+	metadata: positron.ConnectionsDriverMetadata = {
+		languageId: 'python',
+		name: 'DuckDB',
+		inputs: [
+			{
+				'id': 'database',
+				'label': 'Database path',
+				'type': 'string',
+				'value': ':memory:'
+			},
+			{
+				'id': 'read_only',
+				'label': 'Read Only',
+				'type': 'option',
+				'options': [
+					{ 'identifier': 'false', 'title': 'False' },
+					{ 'identifier': 'true', 'title': 'True' }
+				],
+				'value': 'false'
+			},
+		]
+	};
+
+	generateCode(inputs: positron.ConnectionsInput[]) {
+		const database = inputs.find(input => input.id === 'database')?.value;
+		const read_only = inputs.find(input => input.id === 'read_only')?.value == 'false' ? 'False' : 'True';
+
+		return `import duckdb
+conn = duckdb.connect(${JSON.stringify(database)}, read_only=${read_only})
+%connection_show conn
+`;
+	}
+}
+
