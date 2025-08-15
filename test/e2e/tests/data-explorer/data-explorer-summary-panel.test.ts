@@ -4,12 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 /*
-Summary:
-- This test suite verifies the Data Explorer summary panel functionality.
-	* Sort:
-	* Search:
-	* Expand/Collapse:
-*/
+ * Verifies Data Explorer Summary Panel behavior for column profiles:
+ *   - Sort, search, and expand/collapse functionality
+ *   - Retains expanded state across show/hide cycles
+ *   - Handles edge cases like empty search results
+ */
 
 import { join } from 'path';
 import { test, tags } from '../_test.setup';
@@ -57,11 +56,11 @@ test.describe('Data Explorer: Summary Panel', { tag: [tags.WIN, tags.WEB, tags.D
 		// clear search and ensure col profile still expanded
 		await dataExplorer.summaryPanel.clearSearch()
 		await dataExplorer.summaryPanel.expectColumnCountToBe(10);
-		// await dataExplorer.summaryPanel.expectColumnProfileToBeExpanded(0); // <--- this is failing
+		// await dataExplorer.summaryPanel.expectColumnProfileToBeExpanded(0); // <--- BUG, being fixed in filter branch
 
 		// search with no results
 		await dataExplorer.summaryPanel.search('snickerdoodle');
 		await dataExplorer.summaryPanel.expectColumnCountToBe(0);
-		// await dataExplorer.summaryPanel.expectEmptyState();
+		// await dataExplorer.summaryPanel.expectEmptyState(); // <--- no empty state created in UI yet
 	});
 });
