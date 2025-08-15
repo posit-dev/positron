@@ -4,10 +4,11 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as vscode from 'vscode';
-import express, { Request, Response, NextFunction } from 'express';
+import express, { Request, Response } from 'express';
 import { Server } from 'node:http';
 import { PositronMcpApi } from './positronApi';
 import { getLogger } from './logger';
+import { MinimalSecurityMiddleware, loadSecurityConfig } from './security.positron';
 
 interface McpRequest {
 	jsonrpc: string;
@@ -56,6 +57,7 @@ export class McpServer implements vscode.Disposable {
 	private app: express.Express;
 	private server: Server | undefined;
 	private readonly logger = getLogger();
+	private readonly securityMiddleware: MinimalSecurityMiddleware;
 	private readonly port = (() => {
 		const DEFAULT_PORT = 43123;
 		try {
@@ -73,23 +75,26 @@ export class McpServer implements vscode.Disposable {
 		}
 	})();
 
-	constructor(private readonly api: PositronMcpApi) {
+	constructor(
+		private readonly api: PositronMcpApi,
+		context: vscode.ExtensionContext
+	) {
 		this.app = express();
+		const securityConfig = loadSecurityConfig();
+		this.securityMiddleware = new MinimalSecurityMiddleware(securityConfig, context);
 		this.setupMiddleware();
 		this.setupRoutes();
 	}
 
 	private setupMiddleware(): void {
-		// Set CORS headers for browser clients
-		this.app.use((_req: Request, res: Response, next: NextFunction) => {
-			res.setHeader('Access-Control-Allow-Origin', '*');
-			res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-			res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-			next();
-		});
-
-		// Parse JSON requests
+		// Parse JSON requests (must come before other middleware)
 		this.app.use(express.json());
+
+		// Apply security middleware
+		this.app.use(this.securityMiddleware.corsMiddleware());
+		this.app.use(this.securityMiddleware.requestValidationMiddleware());
+		this.app.use(this.securityMiddleware.rateLimitMiddleware());
+		this.app.use(this.securityMiddleware.auditLoggingMiddleware());
 	}
 
 	private setupRoutes(): void {
@@ -279,7 +284,7 @@ export class McpServer implements vscode.Disposable {
 				try {
 					const sessionInfo = await this.getForegroundSessionInfo();
 					this.logger.debug('Tool.Result', 'foreground-session', sessionInfo);
-					
+
 					// Format the response in a more readable way
 					let formattedText: string;
 					if (sessionInfo) {
@@ -291,7 +296,7 @@ Session ID: ${sessionInfo.sessionId}`;
 					} else {
 						formattedText = 'No active runtime session';
 					}
-					
+
 					return {
 						jsonrpc: '2.0',
 						id: request.id,
@@ -319,7 +324,7 @@ Session ID: ${sessionInfo.sessionId}`;
 				try {
 					const variableState = await this.getCurrentVariableState();
 					this.logger.debug('Tool.Result', 'get-variables', { hasData: !!variableState, count: variableState?.totalCount });
-					
+
 					let formattedText: string;
 					if (variableState && variableState.variables.length > 0) {
 						const varLines = variableState.variables.map(v => {
@@ -334,12 +339,12 @@ Session ID: ${sessionInfo.sessionId}`;
 							} else if (displayValue.length > 50) {
 								displayValue = displayValue.substring(0, 50) + '...';
 							}
-							
+
 							return `• ${v.name} – ${v.type} ${displayValue ? `: ${displayValue}` : ''}`;
 						});
-						
+
 						formattedText = `You have ${variableState.totalCount} variable${variableState.totalCount !== 1 ? 's' : ''} in your Python workspace:\n\n${varLines.join('\n')}`;
-						
+
 						// Add helpful context if there are DataFrames
 						const dataframes = variableState.variables.filter(v => v.type.includes('DataFrame'));
 						if (dataframes.length > 0) {
@@ -357,7 +362,7 @@ Session ID: ${sessionInfo.sessionId}`;
 					} else {
 						formattedText = 'No active runtime session. Start a Python/R console to see variables.';
 					}
-					
+
 					return {
 						jsonrpc: '2.0',
 						id: request.id,
@@ -384,6 +389,21 @@ Session ID: ${sessionInfo.sessionId}`;
 			case 'execute-code':
 				try {
 					const { languageId, code, options = {} } = request.params.arguments;
+
+					// Check user consent for code execution
+					const hasConsent = await this.securityMiddleware.checkCodeExecutionConsent(languageId, code);
+					if (!hasConsent) {
+						this.logger.warn('Security', 'Code execution denied by user');
+						return {
+							jsonrpc: '2.0',
+							id: request.id,
+							error: {
+								code: -32001,
+								message: 'Code execution denied by user'
+							}
+						};
+					}
+
 					this.logger.logApiCall('runtime', 'executeCode', { languageId, codeLength: code.length, options });
 					const result = await this.api.runtime.executeCode(languageId, code, options);
 					this.logger.logApiResult('runtime', 'executeCode', true, result);
@@ -416,7 +436,7 @@ Session ID: ${sessionInfo.sessionId}`;
 					this.logger.logApiCall('editor', 'getActiveDocument');
 					const document = await this.api.editor.getActiveDocument();
 					this.logger.logApiResult('editor', 'getActiveDocument', !!document);
-					
+
 					if (!document) {
 						return {
 							jsonrpc: '2.0',
@@ -479,15 +499,15 @@ Session ID: ${sessionInfo.sessionId}`;
 			case 'get-workspace-info':
 				try {
 					const { includeConfig = true, configSection } = request.params?.arguments || {};
-					
+
 					this.logger.logApiCall('workspace', 'getWorkspaceFolders');
 					const folders = this.api.workspace.getWorkspaceFolders();
 					this.logger.logApiResult('workspace', 'getWorkspaceFolders', true, { count: folders.length });
-					
+
 					this.logger.logApiCall('runtime', 'getForegroundSession');
 					const activeSession = await this.api.runtime.getForegroundSession();
 					this.logger.logApiResult('runtime', 'getForegroundSession', !!activeSession);
-					
+
 					this.logger.logApiCall('runtime', 'getActiveSessions');
 					const activeSessions = await this.api.runtime.getActiveSessions();
 					this.logger.logApiResult('runtime', 'getActiveSessions', true, { count: activeSessions.length });
@@ -505,7 +525,7 @@ Session ID: ${sessionInfo.sessionId}`;
 					if (includeConfig) {
 						const config = this.api.workspace.getWorkspaceConfiguration(configSection);
 						const configData: Record<string, any> = {};
-						
+
 						// Get some common configuration values
 						if (configSection) {
 							// Get all keys for the specific section
@@ -517,7 +537,7 @@ Session ID: ${sessionInfo.sessionId}`;
 							// Get some common settings
 							configData['positron.mcp.enable'] = config.get('positron.mcp.enable');
 						}
-						
+
 						result.configuration = configData;
 					}
 
@@ -584,7 +604,7 @@ Session ID: ${sessionInfo.sessionId}`;
 			this.logger.logApiCall('runtime', 'getForegroundSession');
 			const session = await this.api.runtime.getForegroundSession();
 			this.logger.logApiResult('runtime', 'getForegroundSession', !!session, session);
-			
+
 			if (!session) {
 				return undefined;
 			}
@@ -623,13 +643,13 @@ Session ID: ${sessionInfo.sessionId}`;
 		}
 
 		this.logger.logServerStart(this.port);
-		
+
 		return new Promise((resolve, reject) => {
 			this.server = this.app.listen(this.port, 'localhost', () => {
 				this.logger.logServerStarted(this.port);
 				resolve();
 			});
-			
+
 			this.server.on('error', (error) => {
 				this.logger.error('Server', `Failed to start server on port ${this.port}`, error);
 				reject(error);
@@ -644,5 +664,26 @@ Session ID: ${sessionInfo.sessionId}`;
 			this.server = undefined;
 			this.logger.logServerStopped();
 		}
+	}
+
+	/**
+	 * Get the security audit log
+	 */
+	getSecurityAuditLog(): any[] {
+		return this.securityMiddleware.getAuditLog();
+	}
+
+	/**
+	 * Clear the security audit log
+	 */
+	clearSecurityAuditLog(): void {
+		this.securityMiddleware.clearAuditLog();
+	}
+
+	/**
+	 * Reset user consent for code execution
+	 */
+	async resetSecurityConsent(): Promise<void> {
+		await this.securityMiddleware.reset();
 	}
 }

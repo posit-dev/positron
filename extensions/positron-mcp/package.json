@@ -39,6 +39,54 @@
             "Log detailed debugging information including request/response data",
             "Log everything including internal trace information"
           ]
+        },
+        "positron.mcp.security.enableCors": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable CORS headers for browser-based clients. When enabled, only requests from allowed origins will be accepted."
+        },
+        "positron.mcp.security.allowedOrigins": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": ["http://localhost:*", "http://127.0.0.1:*"],
+          "description": "List of allowed CORS origins. Use wildcards (*) for port matching. Only localhost is allowed by default for security."
+        },
+        "positron.mcp.security.enableRequestValidation": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable request validation to ensure proper JSON-RPC format and size limits."
+        },
+        "positron.mcp.security.maxRequestSize": {
+          "type": "number",
+          "default": 1048576,
+          "description": "Maximum request body size in bytes (default: 1MB)."
+        },
+        "positron.mcp.security.enableAuditLogging": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable audit logging for all MCP requests and security events."
+        },
+        "positron.mcp.security.requireUserConsent": {
+          "type": "boolean",
+          "default": true,
+          "description": "Require user consent before executing code from AI assistants."
+        },
+        "positron.mcp.security.enableRateLimiting": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable rate limiting to prevent abuse."
+        },
+        "positron.mcp.security.rateLimitWindow": {
+          "type": "number",
+          "default": 60000,
+          "description": "Rate limit window in milliseconds (default: 1 minute)."
+        },
+        "positron.mcp.security.maxRequestsPerWindow": {
+          "type": "number",
+          "default": 100,
+          "description": "Maximum number of requests allowed per rate limit window."
         }
       }
     },
@@ -52,6 +100,21 @@
         "command": "positron.mcp.showLogs",
         "title": "Positron MCP: Show Logs",
         "category": "Positron"
+      },
+      {
+        "command": "positron.mcp.resetConsent",
+        "title": "Positron MCP: Reset Code Execution Consent",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.mcp.showAuditLog",
+        "title": "Positron MCP: Show Security Audit Log",
+        "category": "Positron"
+      },
+      {
+        "command": "positron.mcp.clearAuditLog",
+        "title": "Positron MCP: Clear Security Audit Log",
+        "category": "Positron"
       }
     ],
     "menus": {
@@ -61,6 +124,15 @@
         },
         {
           "command": "positron.mcp.showLogs"
+        },
+        {
+          "command": "positron.mcp.resetConsent"
+        },
+        {
+          "command": "positron.mcp.showAuditLog"
+        },
+        {
+          "command": "positron.mcp.clearAuditLog"
         }
       ]
     }
