@@ -17,7 +17,7 @@ permissions:
 jobs:
   extensions-linux:
     name: 'extensions-linux'
-    timeout-minutes: 15
+    timeout-minutes: 60
     runs-on: ubuntu-latest-8x
     container:
       image: ghcr.io/posit-dev/positron-ubuntu24-amd64:27
