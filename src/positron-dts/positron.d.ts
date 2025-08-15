@@ -1074,10 +1074,9 @@ declare module 'positron' {
 		 * Sends a Debug Adapter Protocol request to the runtime's debugger.
 		 *
 		 * @param request The Debug Adapter Protocol request.
-		 * @param id The ID of the request.
 		 * @returns The Debug Adapter Protocol response.
 		 */
-		debug(request: DebugProtocolRequest, id: string): Thenable<DebugProtocolResponse>;
+		debug(request: DebugProtocolRequest): Thenable<DebugProtocolResponse>;
 
 		/**
 		 * Execute code in the runtime

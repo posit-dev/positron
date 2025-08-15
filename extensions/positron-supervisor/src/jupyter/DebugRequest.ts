@@ -9,28 +9,7 @@ import { JupyterChannel } from './JupyterChannel';
 import { JupyterMessageType } from './JupyterMessageType.js';
 
 export class DebugRequest extends JupyterRequest<positron.DebugProtocolRequest, positron.DebugProtocolResponse> {
-	constructor(readonly requestId: string, req: positron.DebugProtocolRequest) {
+	constructor(req: positron.DebugProtocolRequest) {
 		super(JupyterMessageType.DebugRequest, req, JupyterMessageType.DebugReply, JupyterChannel.Control);
 	}
-	protected override createMsgId(): string {
-		return this.requestId;
-	}
-}
-
-/**
- * Represents a debug request message from the Jupyter kernel to the front end.
- *
- * @link https://jupyter-client.readthedocs.io/en/latest/messaging.html#debug-request
- */
-export interface JupyterDebugRequest {
-	content: positron.DebugProtocolRequest;
-}
-
-/**
- * Represents a debug reply message from the Jupyter kernel to the front end.
- *
- * @link https://jupyter-client.readthedocs.io/en/latest/messaging.html#debug-request
- */
-export interface JupyterDebugReply {
-	content: positron.DebugProtocolResponse;
 }

@@ -182,7 +182,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		}
 	}
 
-	async debug(request: positron.DebugProtocolRequest, id: string): Promise<positron.DebugProtocolResponse> {
+	async debug(request: positron.DebugProtocolRequest): Promise<positron.DebugProtocolResponse> {
 		throw new Error(`Debugging is not supported in R sessions`);
 	}
 
