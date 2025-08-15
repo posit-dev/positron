@@ -15,6 +15,37 @@ This document analyzes the feasibility of replacing VS Code's `NotebookTextModel
 3. **Upstream Merge Conflicts**: Changes to VS Code's notebook infrastructure create maintenance burden
 4. **Performance Overhead**: The model includes features Positron may not need (e.g., complex diff algorithms)
 
+## Understanding VS Code's ICellEditOperation Pattern
+
+### What is ICellEditOperation?
+
+VS Code uses a **command pattern** for all notebook modifications, where changes are described as operations rather than direct method calls:
+
+```typescript
+// Instead of: notebook.addCell(content)
+// VS Code uses:
+textModel.applyEdits([
+    { editType: CellEditType.Replace, index: 0, count: 0, cells: [...] }
+])
+```
+
+### Why VS Code Uses This Pattern
+
+1. **Unified Undo/Redo**: Every operation becomes an undoable/redoable unit through NotebookOperationManager
+2. **Batch Optimization**: Multiple edits can be merged and optimized before application (e.g., consecutive output appends)
+3. **Remote Editing**: Operations can be serialized across process boundaries for extension host communication
+4. **Transactional Consistency**: All edits succeed or fail atomically with proper event handling
+5. **Monaco Editor Heritage**: Inherited from Monaco's proven text editing model for consistency
+
+### The Complexity Cost
+
+This pattern adds significant complexity:
+- ~700 lines of operation processing and merging logic
+- Complex validation for each operation type
+- Tight coupling to VS Code's undo/redo infrastructure
+- Indirection layer between user actions and model changes
+- Learning curve for developers
+
 ## Updated Analysis: No Extension Compatibility Required
 
 ### What Changes Without Extension Compatibility
@@ -23,9 +54,27 @@ Removing the need for VS Code extension compatibility dramatically simplifies th
 
 1. **No INotebookTextModel Compliance**: Don't need to implement VS Code's complex interface
 2. **Direct Runtime Integration**: Can bypass INotebookKernelService and use IRuntimeSessionService directly
-3. **Simplified Edit Operations**: No need for ICellEditOperation complexity
+3. **Skip ICellEditOperation Pattern**: Can use simple, direct methods instead of operation objects
 4. **Streamlined Services**: Can skip INotebookExecutionService, INotebookExecutionStateService
 5. **Format Focus**: Only need to support .ipynb serialization/deserialization
+
+### The Simplification Opportunity
+
+Without the ICellEditOperation pattern, Positron can use intuitive, direct methods:
+
+```typescript
+// VS Code's approach (required for extensions)
+textModel.applyEdits([
+    { editType: CellEditType.Replace, index: 0, count: 1, cells: [...] },
+    { editType: CellEditType.Output, index: 1, outputs: [...] }
+], synchronous, beginSelectionState, endSelectionsComputer, undoRedoGroup);
+
+// Positron's simplified approach (no extension compatibility needed)
+model.addCell('code', 'print("hello")');
+model.updateCellOutput(cellId, outputs);
+```
+
+This represents a **70% reduction in complexity** for edit operations alone.
 
 ### Revised Recommendation
 
