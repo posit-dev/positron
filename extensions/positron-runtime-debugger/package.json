@@ -17,12 +17,12 @@
         "category": "%category.notebook%",
         "command": "notebook.debugCell",
         "icon": "$(debug-alt-small)",
-        "title": "Debug Cell",
+        "title": "%commands.notebook.debugCell.title%",
         "enablement": "notebookInterpreterSupportsDebugging && resource not in debuggedNotebooks"
       },
       {
         "command": "positron-runtime-debugger.showRuntimeError",
-        "title": "Show Runtime Error",
+        "title": "%commands.positron-runtime-debugger.showRuntimeError%",
         "enablement": "false"
       }
     ],
@@ -36,7 +36,7 @@
     "debuggers": [
       {
         "type": "notebook",
-        "label": "Notebook"
+        "label": "%debuggers.notebook.label%"
       }
     ]
   },

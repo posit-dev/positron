@@ -1,5 +1,8 @@
 {
 	"displayName": "Debugging",
 	"description": "Debugging support for Positron language runtimes.",
-	"category.notebook": "Notebook"
+	"category.notebook": "Notebook",
+	"commands.notebook.debugCell.title": "Debug Cell",
+	"commands.positron-runtime-debugger.showRuntimeError": "Show Runtime Error",
+	"debuggers.notebook.label": "Notebook"
 }
