@@ -412,6 +412,9 @@ export interface ILanguageRuntimeInfo {
 
 	/** Custom continuation prompt, if any */
 	continuation_prompt?: string;
+
+	/** List of supported features (e.g., 'debugger' for Jupyter debugging protocol support) */
+	supported_features?: string[];
 }
 
 /** LanguageRuntimeInfo contains metadata about the runtime after it has started. */

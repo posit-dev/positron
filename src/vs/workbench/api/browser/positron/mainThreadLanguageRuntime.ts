@@ -113,6 +113,7 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	private readonly _onDidReceiveRuntimeMessageIPyWidgetEmitter = new Emitter<ILanguageRuntimeMessageIPyWidget>();
 	private readonly _onDidCreateClientInstanceEmitter = new Emitter<ILanguageRuntimeClientCreatedEvent>();
 
+	private _runtimeInfo: ILanguageRuntimeInfo | undefined;
 	private _currentState: RuntimeState = RuntimeState.Uninitialized;
 	private _lastUsed: number = 0;
 	private _clients: Map<string, ExtHostRuntimeClientInstance<any, any>> =
@@ -359,6 +360,13 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 
 	emitExit(exit: ILanguageRuntimeExit): void {
 		this._exitEmitter.fire(exit);
+	}
+
+	/**
+	 * Returns the information about the runtime that is only available after starting
+	 */
+	get runtimeInfo(): ILanguageRuntimeInfo | undefined {
+		return this._runtimeInfo;
 	}
 
 	/**
@@ -614,6 +622,9 @@ class ExtHostLanguageRuntimeSessionAdapter extends Disposable implements ILangua
 	start(): Promise<ILanguageRuntimeInfo> {
 		return new Promise((resolve, reject) => {
 			this._proxy.$startLanguageRuntime(this.handle).then((info) => {
+				// Store the runtime information.
+				this._runtimeInfo = info;
+
 				// Update prompts in case user has customised them. Trim
 				// trailing whitespace as the rendering code adds its own
 				// whitespace.

@@ -51,6 +51,8 @@ class MockRuntimeSession implements ILanguageRuntimeSession {
 		extraRuntimeData: {}
 	} as ILanguageRuntimeMetadata;
 
+	runtimeInfo = undefined;
+
 	sessionId = 'test-session-1';
 
 	dynState = {
