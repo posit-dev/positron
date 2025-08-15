@@ -163,7 +163,7 @@ export class McpServer implements vscode.Disposable {
 							},
 							{
 								name: 'foreground-session',
-								description: 'Get information about the current foreground language runtime session',
+								description: '📊 Get current runtime session - Returns active Python/R/JS console information',
 								inputSchema: {
 									type: 'object',
 									properties: {},
@@ -274,6 +274,19 @@ export class McpServer implements vscode.Disposable {
 			case 'foreground-session':
 				try {
 					const sessionInfo = await this.getForegroundSessionInfo();
+					
+					// Format the response in a more readable way
+					let formattedText: string;
+					if (sessionInfo) {
+						formattedText = `Runtime Session: ${sessionInfo.sessionName}
+Language: ${sessionInfo.languageId}
+State: ${sessionInfo.state}
+Mode: ${sessionInfo.sessionMode}
+Session ID: ${sessionInfo.sessionId}`;
+					} else {
+						formattedText = 'No active runtime session';
+					}
+					
 					return {
 						jsonrpc: '2.0',
 						id: request.id,
@@ -281,9 +294,7 @@ export class McpServer implements vscode.Disposable {
 							content: [
 								{
 									type: 'text',
-									text: JSON.stringify({
-										session: sessionInfo ?? null
-									})
+									text: formattedText
 								}
 							]
 						}
@@ -302,6 +313,45 @@ export class McpServer implements vscode.Disposable {
 			case 'get-variables':
 				try {
 					const variableState = await this.getCurrentVariableState();
+					
+					let formattedText: string;
+					if (variableState && variableState.variables.length > 0) {
+						const varLines = variableState.variables.map(v => {
+							// Format the value more nicely
+							let displayValue = v.value;
+							if (displayValue.includes('DataFrame')) {
+								// Extract dimensions if it's a DataFrame
+								const match = displayValue.match(/\[(\d+) rows x (\d+) columns\]/);
+								if (match) {
+									displayValue = `DataFrame with ${match[1]} rows × ${match[2]} columns`;
+								}
+							} else if (displayValue.length > 50) {
+								displayValue = displayValue.substring(0, 50) + '...';
+							}
+							
+							return `• ${v.name} – ${v.type} ${displayValue ? `: ${displayValue}` : ''}`;
+						});
+						
+						formattedText = `You have ${variableState.totalCount} variable${variableState.totalCount !== 1 ? 's' : ''} in your Python workspace:\n\n${varLines.join('\n')}`;
+						
+						// Add helpful context if there are DataFrames
+						const dataframes = variableState.variables.filter(v => v.type.includes('DataFrame'));
+						if (dataframes.length > 0) {
+							const dfInfo = dataframes.map(df => {
+								const match = df.value.match(/\[(\d+) rows x (\d+) columns\]/);
+								if (match) {
+									return `${df.name} (${match[1]} rows × ${match[2]} columns)`;
+								}
+								return df.name;
+							});
+							formattedText += `\n\nDataFrames: ${dfInfo.join(', ')}`;
+						}
+					} else if (variableState) {
+						formattedText = 'No variables in your workspace yet';
+					} else {
+						formattedText = 'No active runtime session. Start a Python/R console to see variables.';
+					}
+					
 					return {
 						jsonrpc: '2.0',
 						id: request.id,
@@ -309,9 +359,7 @@ export class McpServer implements vscode.Disposable {
 							content: [
 								{
 									type: 'text',
-									text: JSON.stringify({
-										variableState: variableState ?? null
-									})
+									text: formattedText
 								}
 							]
 						}
