@@ -12,7 +12,6 @@ import React, { useRef, useEffect } from 'react';
 // Other dependencies.
 import * as nls from '../../../../../nls.js';
 import { positronClassNames } from '../../../../../base/common/positronUtilities.js';
-import { usePositronDataGridContext } from '../../../../browser/positronDataGrid/positronDataGridContext.js';
 import { VectorHistogram } from './vectorHistogram.js';
 import { ColumnProfileDate } from './columnProfileDate.js';
 import { ColumnProfileNumber } from './columnProfileNumber.js';
@@ -49,9 +48,6 @@ interface ColumnSummaryCellProps {
  * @returns The rendered component.
  */
 export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
-	// Context hooks.
-	const context = usePositronDataGridContext();
-
 	// Reference hooks.
 	const dataTypeRef = useRef<HTMLDivElement>(undefined!);
 
@@ -531,7 +527,7 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 				className={positronClassNames(
 					'cursor-indicator',
 					{ 'cursor': cursor },
-					{ 'focused': cursor && context.instance.focused }
+					{ 'focused': cursor && props.instance.focused }
 				)}
 			/>
 			<div className='basic-info'>
