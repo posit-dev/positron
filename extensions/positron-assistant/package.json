@@ -221,11 +221,8 @@
           },
           "positron.assistant.gitIntegration.enable": {
             "type": "boolean",
-            "default": false,
-            "description": "%configuration.gitIntegration.description%",
-            "tags": [
-              "experimental"
-            ]
+            "default": true,
+            "description": "%configuration.gitIntegration.description%"
           },
           "positron.assistant.showTokenUsage.enable": {
             "type": "boolean",
