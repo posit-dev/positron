@@ -5,7 +5,7 @@
 
 import React from 'react';
 import assert from 'assert';
-import sinon, { SinonStubbedInstance } from 'sinon';
+import sinon from 'sinon';
 import { createRoot, Root } from 'react-dom/client';
 import { mainWindow } from '../../../../../base/browser/window.js';
 
@@ -14,7 +14,7 @@ import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnDisplayType, SupportStatus, ColumnProfileType } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
 
-export function createMockTableSummaryDataGridInstance(overrides = {}): SinonStubbedInstance<TableSummaryDataGridInstance> {
+export function createMockTableSummaryDataGridInstance(overrides = {}): TableSummaryDataGridInstance {
 	// Mock the hover manager
 	const mockHoverManager = {
 		showHover: sinon.stub(),
@@ -24,7 +24,7 @@ export function createMockTableSummaryDataGridInstance(overrides = {}): SinonStu
 	// Mock the configuration service
 	const mockConfigurationService = {};
 
-	// Mock supported features - this needs to match the expected structure
+	// Mock supported features
 	const mockSupportedFeatures = {
 		get_column_profiles: {
 			support_status: SupportStatus.Supported,
@@ -63,6 +63,7 @@ export function createMockTableSummaryDataGridInstance(overrides = {}): SinonStu
 		}
 	};
 
+	// Mock instance of TableSummaryDataGridInstance
 	const mockInstance = {
 		// Mock properties from DataGridInstance base class
 		cursorRowIndex: 0,
@@ -87,12 +88,13 @@ export function createMockTableSummaryDataGridInstance(overrides = {}): SinonStu
 		...overrides
 	};
 
-	return mockInstance
+	return mockInstance as unknown as TableSummaryDataGridInstance;
 }
 
 suite('ColumnSummaryCell', () => {
 	let root: Root;
 	let container: HTMLElement;
+	const columnSchema = getColumnSchema('test_column', 0, 'string', ColumnDisplayType.String);
 
 	setup(() => {
 		// Create a container element for React to render into
@@ -113,16 +115,12 @@ suite('ColumnSummaryCell', () => {
 		sinon.restore();
 	});
 
-	test('displays 0%  correctly when getColumnProfileNullPercent return 0', async () => {
-		// Mock out <ColumnSummaryCell> props
-		const columnSchema = getColumnSchema('test_column', 0, 'string', ColumnDisplayType.String);
-
+	test('displays 0% when getColumnProfileNullPercent return 0', async () => {
 		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
 			getColumnProfileNullPercent: sinon.stub().returns(0),
 			getColumnProfileNullCount: sinon.stub().returns(0),
 		});
 
-		// Test case 1: 0% null values
 		root.render(
 			<ColumnSummaryCell
 				columnIndex={0}
@@ -140,12 +138,26 @@ suite('ColumnSummaryCell', () => {
 		assert.strictEqual(nullPercentElement.textContent, '0%', 'Expected to find 0% for 0% input');
 	});
 
-	test.skip('displays 25% when getColumnProfileNullPercent returns 25.7', async () => {
-	});
+	test('displays <1% when getColumnProfileNullPercent returns 0.5', async () => {
+		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
+			getColumnProfileNullPercent: sinon.stub().returns(0.5),
+			getColumnProfileNullCount: sinon.stub().returns(1),
+		});
 
-	test.skip('displays <1% when getColumnProfileNullPercent returns 0.5', async () => {
-	});
+		root.render(
+			<ColumnSummaryCell
+				columnIndex={0}
+				columnSchema={columnSchema}
+				instance={mockTableSummaryDataGridInstance}
+				onDoubleClick={() => { }}
+			/>
+		);
 
-	test.skip('displays 100% when getColumnProfileNullPercent returns 100', async () => {
+		// Wait for initial render
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		const nullPercentElement = container.querySelector('.text-percent');
+		assert.ok(nullPercentElement, 'Expected to find null percent element');
+		assert.strictEqual(nullPercentElement.textContent, '<1%', 'Expected to find <1% for 0.5% input');
 	});
 });
