@@ -404,8 +404,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 				// Consume the event.
 				consumeEvent();
 
-				console.log(`It's ${context.instance.cursorColumnIndex}`);
-
 				// Make sure the cursor is showing.
 				if (context.instance.showCursor()) {
 					return;
@@ -437,8 +435,6 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			case 'ArrowRight': {
 				// Consume the event.
 				consumeEvent();
-
-				console.log(`It's ${context.instance.cursorColumnIndex}`);
 
 				// Make sure the cursor is showing.
 				if (context.instance.showCursor()) {
@@ -577,7 +573,7 @@ export const DataGridWaffle = forwardRef<HTMLDivElement>((_: unknown, ref) => {
 			onKeyDown={keyDownHandler}
 			onWheel={wheelHandler}
 		>
-			{context.instance.columnHeaders && context.instance.rowHeaders &&
+			{context.instance.columnHeaders && context.instance.rowHeaders && context.instance.columns !== 0 &&
 				<DataGridCornerTopLeft
 					onClick={async () => {
 						await context.instance.setScrollOffsets(0, 0);

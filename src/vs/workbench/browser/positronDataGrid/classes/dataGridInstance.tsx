@@ -1930,7 +1930,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns true if the specified column is pinned; otherwise, false.
 	 */
 	isColumnPinned(columnIndex: number) {
-		return this._columnLayoutManager.isIndexPinned(columnIndex);
+		return this._columnLayoutManager.isPinnedIndex(columnIndex);
 	}
 
 	/**
@@ -1961,7 +1961,7 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns true if the specified row is pinned; otherwise, false.
 	 */
 	isRowPinned(rowIndex: number) {
-		return this._rowLayoutManager.isIndexPinned(rowIndex);
+		return this._rowLayoutManager.isPinnedIndex(rowIndex);
 	}
 
 	/**
@@ -2023,8 +2023,10 @@ export abstract class DataGridInstance extends Disposable {
 		// Set the cursor row index to the next row index and fire the onDidUpdate event.
 		this._cursorRowIndex = nextRowIndex;
 
+		// Scroll to the cursor.
 		this.scrollToCursor()
 
+		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
 	}
 
@@ -2040,11 +2042,13 @@ export abstract class DataGridInstance extends Disposable {
 			return;
 		}
 
-		// Set the cursor column index to the previous column index and fire the onDidUpdate event.
+		// Set the cursor column index to the previous column index.
 		this._cursorColumnIndex = previousColumnIndex;
 
-		this.scrollToCursor()
+		// Scroll to the cursor column index.
+		this.scrollToColumn(this._cursorColumnIndex);
 
+		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
 	}
 
@@ -2060,11 +2064,13 @@ export abstract class DataGridInstance extends Disposable {
 			return;
 		}
 
-		// Set the cursor column index to the previous column index and fire the onDidUpdate event.
+		// Set the cursor column index to the next column index.
 		this._cursorColumnIndex = nextColumnIndex;
 
+		// Scroll to the cursor column index.
 		this.scrollToColumn(this._cursorColumnIndex);
 
+		// Fire the onDidUpdate event.
 		this.fireOnDidUpdateEvent();
 	}
 
@@ -2138,6 +2144,11 @@ export abstract class DataGridInstance extends Disposable {
 	 * @returns A Promise<void> that resolves when the operation is complete.
 	 */
 	async scrollToColumn(columnIndex: number) {
+		// If the column is pinned, return.
+		if (this._columnLayoutManager.isPinnedIndex(columnIndex)) {
+			return;
+		}
+
 		// Get the column layout entry. If it wasn't found, return.
 		const columnLayoutEntry = this._columnLayoutManager.getLayoutEntry(columnIndex);
 		if (!columnLayoutEntry) {
@@ -2157,6 +2168,11 @@ export abstract class DataGridInstance extends Disposable {
 	 * @param rowIndex The row index.
 	 */
 	async scrollToRow(rowIndex: number) {
+		// If the row is pinned, return.
+		if (this._rowLayoutManager.isPinnedIndex(rowIndex)) {
+			return;
+		}
+
 		// Get the row layout entry. If it wasn't found, return.
 		const rowLayoutEntry = this._rowLayoutManager.getLayoutEntry(rowIndex);
 		if (!rowLayoutEntry) {
@@ -2200,6 +2216,7 @@ export abstract class DataGridInstance extends Disposable {
 	async mouseSelectCell(
 		columnIndex: number,
 		rowIndex: number,
+		pinned: boolean,
 		selectionType: MouseSelectionType
 	) {
 		// Clear column selection.
@@ -2219,7 +2236,10 @@ export abstract class DataGridInstance extends Disposable {
 
 				// Adjust the cursor and scroll to it.
 				this.setCursorPosition(columnIndex, rowIndex);
-				await this.scrollToCursor();
+
+				if (!pinned) {
+					await this.scrollToCursor();
+				}
 
 				// Fire the onDidUpdate event.
 				this.fireOnDidUpdateEvent();
