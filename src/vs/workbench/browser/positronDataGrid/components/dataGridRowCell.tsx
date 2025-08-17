@@ -70,11 +70,14 @@ export const DataGridRowCell = (props: DataGridRowCellProps) => {
 				await context.instance.mouseSelectCell(
 					props.columnIndex,
 					props.rowIndex,
+					props.pinned,
 					selectionType(e)
 				);
 			} else {
 				// Scroll to the cell.
-				await context.instance.scrollToCell(props.columnIndex, props.rowIndex);
+				if (!props.pinned) {
+					await context.instance.scrollToCell(props.columnIndex, props.rowIndex);
+				}
 			}
 		}
 
