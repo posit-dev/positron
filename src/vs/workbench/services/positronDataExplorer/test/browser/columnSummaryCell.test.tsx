@@ -13,6 +13,7 @@ import { ColumnSummaryCell } from '../../browser/components/columnSummaryCell.js
 import { getColumnSchema } from '../../common/positronDataExplorerMocks.js';
 import { ColumnDisplayType, SupportStatus, ColumnProfileType } from '../../../languageRuntime/common/positronDataExplorerComm.js';
 import { TableSummaryDataGridInstance } from '../../browser/tableSummaryDataGridInstance.js';
+import { ensureNoDisposablesAreLeakedInTestSuite } from '../../../../../base/test/common/utils.js';
 
 export function createMockTableSummaryDataGridInstance(overrides = {}): TableSummaryDataGridInstance {
 	// Mock the hover manager
@@ -160,4 +161,7 @@ suite('ColumnSummaryCell', () => {
 		assert.ok(nullPercentElement, 'Expected to find null percent element');
 		assert.strictEqual(nullPercentElement.textContent, '<1%', 'Expected to find <1% for 0.5% input');
 	});
+
+	// Ensure that all disposables are cleaned up.
+	ensureNoDisposablesAreLeakedInTestSuite();
 });
