@@ -446,11 +446,15 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 			[vscode.DiagnosticSeverity.Information]: 'Information',
 			[vscode.DiagnosticSeverity.Hint]: 'Hint',
 		};
-		if (selection && selection instanceof vscode.Selection && !selection.isEmpty) {
-			diagnostics = diagnostics.filter(d => {
-				const intersection = selection.intersection(d.range);
-				return intersection !== undefined && !intersection.isEmpty;
-			});
+		if (selection) {
+			if (selection instanceof vscode.Position) {
+				diagnostics = diagnostics.filter(d => d.range.contains(selection));
+			} else {
+				diagnostics = diagnostics.filter(d => {
+					const intersection = d.range.intersection(selection);
+					return intersection !== undefined && !intersection.isEmpty;
+				});
+			}
 		}
 		return diagnostics.map(d => `${d.range.start.line + 1}:${d.range.start.character + 1} - ${severityMap[d.severity]} - ${d.message}`).join('\n');
 	}
