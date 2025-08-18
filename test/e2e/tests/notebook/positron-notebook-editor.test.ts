@@ -124,7 +124,7 @@ test.describe('Positron notebook opening and saving', {
 		// Verify only the expected tab is open (new notebooks are named Untitled-N.ipynb)
 		await editors.waitForTab('Untitled-1.ipynb', true); // true = isDirty
 
-		// Count tabs before reload (checkinnng for multiple tabs with same file is the ghost editor symptom)
+		// Count tabs before reload (checking for multiple tabs with same file is the ghost editor symptom)
 		const tabsBefore = await app.code.driver.page.locator('.tabs-container div.tab').count();
 		test.expect(tabsBefore).toBe(1);
 
