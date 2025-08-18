@@ -6,6 +6,7 @@
 import datetime
 
 import pandas as pd
+import polars as pl
 import pytest
 import pytz
 
@@ -23,6 +24,8 @@ from .test_data_explorer import (
     _not_between_filter,
     _search_filter,
 )
+
+SIMPLE_POLARS_DF = pl.DataFrame(SIMPLE_PANDAS_DF.drop(columns=["f"]))
 
 
 # ruff: noqa: E712
@@ -88,8 +91,10 @@ def dxf(
     return DataExplorerConvertFixture(shell, de_service, variables_comm)
 
 
-def test_convert_pandas_filter_is_null_true(dxf: DataExplorerConvertFixture):
-    test_df = SIMPLE_PANDAS_DF
+@pytest.mark.parametrize(
+    ("test_df", "syntax_name"), [(SIMPLE_PANDAS_DF, "pandas"), (SIMPLE_POLARS_DF, "polars")]
+)
+def test_convert_filter_is_null_true(test_df, syntax_name, dxf: DataExplorerConvertFixture):
     schema = dxf.get_schema_for(test_df)
     b_is_null = _filter("is_null", schema[1])
     b_not_null = _filter("not_null", schema[1])
@@ -122,12 +127,13 @@ def test_convert_pandas_filter_is_null_true(dxf: DataExplorerConvertFixture):
 
     for filter_set, expected_df in cases:
         dxf.check_conversion_case(
-            test_df, expected_df, row_filters=filter_set, code_syntax_name="pandas"
+            test_df, expected_df, row_filters=filter_set, code_syntax_name=syntax_name
         )
 
 
-def test_convert_pandas_filter_empty(dxf: DataExplorerConvertFixture):
-    test_df = pd.DataFrame(
+@pytest.mark.parametrize(("test_df", "syntax_name"), [(pd.Series, "pandas"), (pl.Series, "polars")])
+def test_convert_filter_empty(test_df, syntax_name, dxf: DataExplorerConvertFixture):
+    test_df = test_df(
         {
             "a": ["foo1", "foo2", "", "2FOO", "FOO3", "bar1", "2BAR"],
             "b": [1, 11, 31, 22, 24, 62, 89],
@@ -151,12 +157,13 @@ def test_convert_pandas_filter_empty(dxf: DataExplorerConvertFixture):
     ]
     for filter_set, expected_df in cases:
         dxf.check_conversion_case(
-            test_df, expected_df, row_filters=filter_set, code_syntax_name="pandas"
+            test_df, expected_df, row_filters=filter_set, code_syntax_name=syntax_name
         )
 
 
-def test_convert_pandas_filter_search(dxf: DataExplorerConvertFixture):
-    test_df = pd.DataFrame(
+@pytest.mark.parametrize(("test_df", "syntax_name"), [(pd.Series, "pandas"), (pl.Series, "polars")])
+def test_convert_filter_search(test_df, syntax_name, dxf: DataExplorerConvertFixture):
+    test_df = test_df(
         {
             "a": ["foo1", "foo2", None, "2FOO", "FOO3", "bar1", "2BAR"],
             "b": [1, 11, 31, 22, 24, 62, 89],
@@ -248,12 +255,14 @@ def test_convert_pandas_filter_search(dxf: DataExplorerConvertFixture):
             test_df,
             expected_df,
             row_filters=[search_filter],
-            code_syntax_name="pandas",
+            code_syntax_name=syntax_name,
         )
 
 
-def test_convert_pandas_filter_between(dxf: DataExplorerConvertFixture):
-    test_df = SIMPLE_PANDAS_DF
+@pytest.mark.parametrize(
+    ("test_df", "syntax_name"), [(SIMPLE_PANDAS_DF, "pandas"), (SIMPLE_POLARS_DF, "polars")]
+)
+def test_convert_filter_between(test_df, syntax_name, dxf: DataExplorerConvertFixture):
     schema = dxf.get_schema("simple")
 
     cases = [
@@ -271,20 +280,22 @@ def test_convert_pandas_filter_between(dxf: DataExplorerConvertFixture):
             test_df,
             ex_between,
             row_filters=[_between_filter(column_schema, str(left_value), str(right_value))],
-            code_syntax_name="pandas",
+            code_syntax_name=syntax_name,
         )
         dxf.check_conversion_case(
             test_df,
             ex_not_between,
             row_filters=[_not_between_filter(column_schema, str(left_value), str(right_value))],
-            code_syntax_name="pandas",
+            code_syntax_name=syntax_name,
         )
 
 
-def test_convert_pandas_filter_compare(dxf: DataExplorerConvertFixture):
+@pytest.mark.parametrize(
+    ("test_df", "syntax_name"), [(SIMPLE_PANDAS_DF, "pandas"), (SIMPLE_POLARS_DF, "polars")]
+)
+def test_convert_filter_compare(test_df, syntax_name, dxf: DataExplorerConvertFixture):
     # Just use the 'a' column to smoke test comparison filters on
     # integers
-    test_df = SIMPLE_PANDAS_DF
     column = "a"
     schema = dxf.get_schema("simple")
 
@@ -292,18 +303,34 @@ def test_convert_pandas_filter_compare(dxf: DataExplorerConvertFixture):
         filt = _compare_filter(schema[0], op, 3)
         expected_df = test_df[op_func(test_df[column], 3)]
         dxf.check_conversion_case(
-            test_df, expected_df, row_filters=[filt], code_syntax_name="pandas"
+            test_df, expected_df, row_filters=[filt], code_syntax_name=syntax_name
         )
 
 
-def test_convert_pandas_filter_datetimetz(dxf: DataExplorerConvertFixture):
+@pytest.mark.parametrize(
+    ("test_df", "syntax_name"),
+    [
+        (
+            pd.DataFrame(
+                {
+                    "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+                }
+            ),
+            "pandas",
+        ),
+        (
+            pl.DataFrame(
+                {
+                    "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
+                }
+            ),
+            "polars",
+        ),
+    ],
+)
+def test_convert_filter_datetimetz(test_df, syntax_name, dxf: DataExplorerConvertFixture):
     tz = pytz.timezone("US/Eastern")
 
-    test_df = pd.DataFrame(
-        {
-            "date": pd.date_range("2000-01-01", periods=5, tz="US/Eastern"),
-        }
-    )
     dxf.register_table("dtz", test_df)
     schema = dxf.get_schema("dtz")
 
@@ -313,13 +340,15 @@ def test_convert_pandas_filter_datetimetz(dxf: DataExplorerConvertFixture):
         filt = _compare_filter(schema[0], op, "2000-01-03")
         expected_df = test_df[op_func(test_df["date"], val)]
         dxf.check_conversion_case(
-            test_df, expected_df, row_filters=[filt], code_syntax_name="pandas"
+            test_df, expected_df, row_filters=[filt], code_syntax_name=syntax_name
         )
 
 
-def test_convert_pandas_sort_and_filter(dxf: DataExplorerConvertFixture):
+@pytest.mark.parametrize(
+    ("test_df", "syntax_name"), [(SIMPLE_PANDAS_DF, "pandas"), (SIMPLE_POLARS_DF, "polars")]
+)
+def test_convert_sort_and_filter(test_df, syntax_name, dxf: DataExplorerConvertFixture):
     # Test that we can convert a sort and filter operation
-    test_df = SIMPLE_PANDAS_DF
     schema = dxf.get_schema("simple")
     filt = [_compare_filter(schema[2], FilterComparisonOp.Eq, "foo")]
 
@@ -332,14 +361,15 @@ def test_convert_pandas_sort_and_filter(dxf: DataExplorerConvertFixture):
         expected_df,
         row_filters=filt,
         sort_keys=sort_keys,
-        code_syntax_name="pandas",
+        code_syntax_name=syntax_name,
     )
 
 
-def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerConvertFixture):
+@pytest.mark.parametrize(("test_df", "syntax_name"), [(pd.Series, "pandas"), (pl.Series, "polars")])
+def test_convert_series_filter_and_sort(test_df, syntax_name, dxf: DataExplorerConvertFixture):
     # Test filtering and sorting on pandas Series
     series_data = [5, 2, 8, 1, 9, 3, 7, 4, 6]
-    test_series = pd.Series(series_data, name="values")
+    test_series = test_df(series_data, name="values")
 
     dxf.register_table("test_series", test_series)
     schema = dxf.get_schema("test_series")
@@ -357,9 +387,9 @@ def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerConvertFixture):
     for op, value, expected_series in comparison_cases:
         filt = _compare_filter(schema[0], op, value)
         # check as df to confirm columns
-        expected_df = pd.DataFrame({"values": expected_series})
+        expected_df = test_df({"values": expected_series})
         dxf.check_conversion_case(
-            test_series, expected_df, row_filters=[filt], code_syntax_name="pandas"
+            test_series, expected_df, row_filters=[filt], code_syntax_name=syntax_name
         )
 
     # Test between filters
@@ -370,17 +400,17 @@ def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerConvertFixture):
 
     for left_val, right_val, expected_series in between_cases:
         filt = _between_filter(schema[0], str(left_val), str(right_val))
-        expected_df = pd.DataFrame({"values": expected_series})
+        expected_df = test_df({"values": expected_series})
         dxf.check_conversion_case(
-            test_series, expected_df, row_filters=[filt], code_syntax_name="pandas"
+            test_series, expected_df, row_filters=[filt], code_syntax_name=syntax_name
         )
 
         # Test not_between
         not_between_series = test_series[(test_series < left_val) | (test_series > right_val)]
         filt = _not_between_filter(schema[0], str(left_val), str(right_val))
-        expected_df = pd.DataFrame({"values": not_between_series})
+        expected_df = test_df({"values": not_between_series})
         dxf.check_conversion_case(
-            test_series, expected_df, row_filters=[filt], code_syntax_name="pandas"
+            test_series, expected_df, row_filters=[filt], code_syntax_name=syntax_name
         )
     # Test sorting on Series
     sort_cases = [
@@ -390,18 +420,22 @@ def test_convert_pandas_series_filter_and_sort(dxf: DataExplorerConvertFixture):
 
     for ascending, expected_series in sort_cases:
         sort_keys = [{"column_index": 0, "ascending": ascending}]
-        expected_df = pd.DataFrame({"values": expected_series})
+        expected_df = test_df({"values": expected_series})
         dxf.check_conversion_case(
-            test_series, expected_df, sort_keys=sort_keys, code_syntax_name="pandas"
+            test_series, expected_df, sort_keys=sort_keys, code_syntax_name=syntax_name
         )
 
     # Test combined filter and sort
     filtered_series = test_series.sort_values(ascending=True)
     filtered_series = filtered_series[filtered_series > 3]
-    expected_df = pd.DataFrame({"values": filtered_series})
+    expected_df = test_df({"values": filtered_series})
 
     filt = _compare_filter(schema[0], ">", 3)
     sort_keys = [{"column_index": 0, "ascending": True}]
     dxf.check_conversion_case(
-        test_series, expected_df, sort_keys=sort_keys, row_filters=[filt], code_syntax_name="pandas"
+        test_series,
+        expected_df,
+        sort_keys=sort_keys,
+        row_filters=[filt],
+        code_syntax_name=syntax_name,
     )

@@ -24,7 +24,7 @@ from typing import (
 import comm
 
 from .access_keys import decode_access_key
-from .convert import PandasConverter
+from .convert import PandasConverter, PolarsConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
@@ -2371,7 +2371,9 @@ class PolarsView(DataExplorerTableView):
 
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        raise NotImplementedError("Convert to code is not implemented for Polars DataFrames.")
+        converter = PolarsConverter(self.table, self.state.name, request)
+        converted_code = converter.convert()
+        return ConvertedCode(converted_code=converted_code).dict()
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
@@ -2861,7 +2863,7 @@ class PolarsView(DataExplorerTableView):
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Unsupported,
+            support_status=SupportStatus.Supported,
             code_syntaxes=[CodeSyntaxName(code_syntax_name="polars")],
         ),
     )

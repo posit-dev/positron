@@ -2,7 +2,7 @@
 # Copyright (C) 2025 Posit Software, PBC. All rights reserved.
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 #
-from typing import List, Optional, Union
+from typing import List, Optional
 
 from .data_explorer_comm import (
     ColumnDisplayType,
@@ -628,11 +628,7 @@ class PolarsFilterHandler(FilterHandler):
             ColumnDisplayType.Datetime,
             ColumnDisplayType.Date,
         ]:
-            # For Polars use pl.datetime() or pl.date()
-            if self.filter_key.column_schema.type_display == ColumnDisplayType.Datetime:
-                value = f"pl.datetime({repr(value)})"
-            else:
-                value = f"pl.date({repr(value)})"
+            value = f"pl.lit({value!r}).str.to_datetime()"
 
         return f"{self.col_expr} {op} {value}"
 
