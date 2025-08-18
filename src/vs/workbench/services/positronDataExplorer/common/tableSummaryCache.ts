@@ -373,6 +373,9 @@ export class TableSummaryCache extends Disposable {
 		this._columns = tableState.table_shape.num_columns;
 		this._rows = tableState.table_shape.num_rows;
 
+		// The overscan factor determines how many additional columns to cache
+		// to ensure smooth scrolling and rendering. Considered to be part of
+		// the data that is viewable.
 		const overscanColumns = screenColumns * OVERSCAN_FACTOR;
 		// Determine the first column index to start caching from.
 		const startColumnIndex = Math.max(
@@ -386,66 +389,116 @@ export class TableSummaryCache extends Disposable {
 			firstColumnIndex + screenColumns + overscanColumns
 		);
 
+		// the ordered column indices of data that is viewable
 		let columnIndices: number[] = [];
-		let searchResult: SearchSchemaResult | null = null;
+		let searchResult: SearchSchemaResult | undefined = undefined;
 
-		// If the cache is invalidated we will need to load
-		// all the columns in view into the cache again
-		if (invalidateCache) {
-			columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
-		} else {
-			// If the cache is not invalidated and the search text has not changed,
-			// we will only load the columns in view that are not already cached
-			for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
-				if (!this._columnSchemaCache.has(columnIndex)) {
-					columnIndices.push(columnIndex);
-				}
-			}
-		}
-
-		// When search text is present, use backend search to get the columns into the schema cache
-		// When there is no search text, use `getSchema` to get the default order of columns into the cache
-		if (this._searchText) {
+		// When search text or sort options is present, we always need to get the full sorted order first
+		if (this._searchText || this._sortOption) {
 			// Use the new search method that supports backend search and sort
 			searchResult = await this._dataExplorerClientInstance.searchSchema2({
 				searchText: this._searchText,
 				sortOption: this._sortOption,
 			});
+		}
 
-			// If we have matches, fetch the schema for those specific columns
+		// If the cache is invalidated we will need to load
+		// all the columns in view into the cache again
+		if (invalidateCache) {
+			if (searchResult && searchResult.matches.length > 0) {
+				// For sorted/searched results, calculate viewable columns within search/sort results
+				const viewableStartIndex = Math.max(0, firstColumnIndex - overscanColumns);
+				const viewableEndIndex = Math.min(
+					searchResult.matches.length - 1,
+					firstColumnIndex + screenColumns + overscanColumns
+				);
+				columnIndices = searchResult.matches.slice(viewableStartIndex, viewableEndIndex + 1);
+			} else if (!searchResult || searchResult.matches.length === 0) {
+				// No search results
+				columnIndices = [];
+			} else {
+				// No search/sort, get all columns in viewable range
+				columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+			}
+		} else {
+			// If the cache is not invalidated, load missing columns that should be in view
+			if (searchResult && searchResult.matches.length > 0) {
+				// For sorted/searched results, figure out which columns are in view but not cached
+				const viewableStartIndex = Math.max(0, firstColumnIndex - overscanColumns);
+				const viewableEndIndex = Math.min(
+					searchResult.matches.length - 1,
+					firstColumnIndex + screenColumns + overscanColumns
+				);
+				const viewableColumns = searchResult.matches.slice(viewableStartIndex, viewableEndIndex + 1);
+				columnIndices = viewableColumns.filter(columnIndex => !this._columnSchemaCache.has(columnIndex));
+			} else if (!searchResult || searchResult.matches.length === 0) {
+				// No search results
+				columnIndices = [];
+			} else {
+				// No search/sort, get all columns in viewable range that aren't already cached
+				for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
+					if (!this._columnSchemaCache.has(columnIndex)) {
+						columnIndices.push(columnIndex);
+					}
+				}
+			}
+		}
+
+		// Update cache and display order based on whether we have search/sort results
+		if (searchResult) {
 			if (searchResult.matches.length > 0) {
-				const tableSchema = await this._dataExplorerClientInstance.getSchema(searchResult.matches);
+				// Calculate viewable columns within within search/sort results
+				const viewportStartIndex = Math.max(0, firstColumnIndex - overscanColumns);
+				const viewportEndIndex = Math.min(
+					searchResult.matches.length - 1,
+					firstColumnIndex + screenColumns + overscanColumns
+				);
 
-				// Cache the column schema for the matching columns
-				for (let i = 0; i < tableSchema.columns.length; i++) {
-					const columnIndex = searchResult.matches[i];
-					this._columnSchemaCache.set(columnIndex, tableSchema.columns[i]);
+				// Get the column indices of the viewable columns
+				const viewableColumns = searchResult.matches.slice(viewportStartIndex, viewportEndIndex + 1);
+
+				// Fetch schema for any columns we need to load
+				if (columnIndices.length > 0) {
+					const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+
+					// Clear cache if invalidating to avoid stale data
+					if (invalidateCache) {
+						this._columnSchemaCache.clear();
+						this._columnProfileCache.clear();
+					}
+
+					// Cache the column schema
+					for (let i = 0; i < tableSchema.columns.length; i++) {
+						const columnIndex = columnIndices[i];
+						this._columnSchemaCache.set(columnIndex, tableSchema.columns[i]);
+					}
 				}
 
-				// Update the render order to match the search results
-				this._displayPositionOrder = searchResult.matches;
+				// Set display order to the viewable slice of sorted results
+				this._displayPositionOrder = viewableColumns;
 
-				// Update the columns count based on search results
+				// Update the columns count to the total number of matches (not just searched results in view)
 				this._columns = searchResult.matches.length;
 			} else {
-				// No matches found, clear list of indices to render
+				// No matches found, clear display
 				this._displayPositionOrder = [];
 				this._columns = 0;
 			}
 		} else {
-			// No search text, use regular getSchema
-			const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
+			// No search/sort, use getSchema to fetch the viewable data
+			if (columnIndices.length > 0) {
+				const tableSchema = await this._dataExplorerClientInstance.getSchema(columnIndices);
 
-			// If we are invalidating the cache, we need to clear it before updating
-			// this can happen when the user clears the search text
-			if (invalidateCache) {
-				this._columnSchemaCache.clear();
-				this._columnProfileCache.clear();
-			}
+				// If we are invalidating the cache, we need to clear it before updating
+				if (invalidateCache) {
+					this._columnSchemaCache.clear();
+					this._columnProfileCache.clear();
+				}
 
-			// Cache the column schema that was returned
-			for (let i = 0; i < tableSchema.columns.length; i++) {
-				this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
+				// Cache the column schema that was returned
+				for (let i = 0; i < tableSchema.columns.length; i++) {
+					this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
+				}
 			}
 
 			// Update the display position order to include all columns in the view range
