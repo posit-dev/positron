@@ -546,7 +546,7 @@ async function verifyPlotInNewWindow(app: Application, language: "Python" | "R",
 		await plots.waitForCurrentPlot();
 	});
 	await test.step('Open plot in new window', async () => {
-		await plots.openPlotInNewWindow();
+		await plots.openPlotIn('new window');
 		await app.workbench.layouts.enterLayout('stacked');
 	});
 }
