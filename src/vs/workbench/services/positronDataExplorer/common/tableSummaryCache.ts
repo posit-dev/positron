@@ -416,27 +416,24 @@ export class TableSummaryCache extends Disposable {
 			);
 			const viewableColumns = searchResult.matches.slice(viewableStartIndex, viewableEndIndex + 1);
 
-			// If the cache is invalidated we will need to load all the columns in view into the cache again
-			// otherwise, we just need the missing columns should be in view.
+			// If the cache is invalidated we will need to load all the columns in view into
+			// the cache again otherwise, we just need the missing columns should be in view.
 			// The cache will be updated with the data for the columns in `columnIndices`
 			columnIndices = invalidateCache
-				? viewableColumns.filter(columnIndex => !this._columnSchemaCache.has(columnIndex))
-				: viewableColumns;
+				? viewableColumns
+				: viewableColumns.filter(columnIndex => !this._columnSchemaCache.has(columnIndex));
 		} else if (!searchResult || searchResult.matches.length === 0) {
 			// No search results, which means we have nothing to cache
 			columnIndices = [];
 		} else {
+			const viewableColumns = arrayFromIndexRange(startColumnIndex, endColumnIndex);
 			if (invalidateCache) {
 				// No search/sort, so we need indices of all columns in viewable range
 				// since we're clearing and replacing the caches
-				columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
+				columnIndices = viewableColumns;
 			} else {
 				// No search/sort, get all column indices in viewable range that aren't already cached
-				for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
-					if (!this._columnSchemaCache.has(columnIndex)) {
-						columnIndices.push(columnIndex);
-					}
-				}
+				columnIndices = viewableColumns.filter(columnIndex => !this._columnSchemaCache.has(columnIndex));
 			}
 		}
 
