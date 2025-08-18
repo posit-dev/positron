@@ -494,6 +494,11 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					// The user attached a specific git commit
 					const details = JSON.parse(value.query) as { historyItemId: string; historyItemParentId: string };
 					const diff = await getCommitChanges(value, details.historyItemId, details.historyItemParentId);
+
+					// Add as a reference to the response.
+					response.reference(value);
+
+					// Attach the git commit details.
 					const attachmentNode = xml.node('attachment', diff, {
 						historyItemId: details.historyItemId,
 						historyItemParentId: details.historyItemParentId,
