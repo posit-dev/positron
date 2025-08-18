@@ -89,7 +89,7 @@ jobs:
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
+          ANTHROPIC: "op://Positron/Anthropic/credential"
 
       - name: Set screen resolution
         shell: pwsh
