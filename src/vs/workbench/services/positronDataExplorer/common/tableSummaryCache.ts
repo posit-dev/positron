@@ -389,9 +389,13 @@ export class TableSummaryCache extends Disposable {
 			firstColumnIndex + screenColumns + overscanColumns
 		);
 
-		// the ordered column indices of data that is viewable
+		// the indices of the column that we need to fetch data for and then cache
 		let columnIndices: number[] = [];
+		// the search/sort results from the backend
 		let searchResult: SearchSchemaResult | undefined = undefined;
+		// Variables to track the viewable start and end indices when search/sort is present
+		let viewableStartIndex: number | undefined = undefined;
+		let viewableEndIndex: number | undefined = undefined;
 
 		// When search text or sort options is present, we always need to get the full sorted order first
 		if (this._searchText || this._sortOption) {
@@ -402,40 +406,32 @@ export class TableSummaryCache extends Disposable {
 			});
 		}
 
-		// If the cache is invalidated we will need to load
-		// all the columns in view into the cache again
-		if (invalidateCache) {
-			if (searchResult && searchResult.matches.length > 0) {
-				// For sorted/searched results, calculate viewable columns within search/sort results
-				const viewableStartIndex = Math.max(0, firstColumnIndex - overscanColumns);
-				const viewableEndIndex = Math.min(
-					searchResult.matches.length - 1,
-					firstColumnIndex + screenColumns + overscanColumns
-				);
-				columnIndices = searchResult.matches.slice(viewableStartIndex, viewableEndIndex + 1);
-			} else if (!searchResult || searchResult.matches.length === 0) {
-				// No search results
-				columnIndices = [];
-			} else {
-				// No search/sort, get all columns in viewable range
-				columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
-			}
+		// Determine what columns we need to fetch data for and then store in cache
+		if (searchResult && searchResult.matches.length > 0) {
+			// For sorted/searched results, calculate viewable columns within the search/sort results
+			viewableStartIndex = Math.max(0, firstColumnIndex - overscanColumns);
+			viewableEndIndex = Math.min(
+				searchResult.matches.length - 1,
+				firstColumnIndex + screenColumns + overscanColumns
+			);
+			const viewableColumns = searchResult.matches.slice(viewableStartIndex, viewableEndIndex + 1);
+
+			// If the cache is invalidated we will need to load all the columns in view into the cache again
+			// otherwise, we just need the missing columns should be in view.
+			// The cache will be updated with the data for the columns in `columnIndices`
+			columnIndices = invalidateCache
+				? viewableColumns.filter(columnIndex => !this._columnSchemaCache.has(columnIndex))
+				: viewableColumns;
+		} else if (!searchResult || searchResult.matches.length === 0) {
+			// No search results, which means we have nothing to cache
+			columnIndices = [];
 		} else {
-			// If the cache is not invalidated, load missing columns that should be in view
-			if (searchResult && searchResult.matches.length > 0) {
-				// For sorted/searched results, figure out which columns are in view but not cached
-				const viewableStartIndex = Math.max(0, firstColumnIndex - overscanColumns);
-				const viewableEndIndex = Math.min(
-					searchResult.matches.length - 1,
-					firstColumnIndex + screenColumns + overscanColumns
-				);
-				const viewableColumns = searchResult.matches.slice(viewableStartIndex, viewableEndIndex + 1);
-				columnIndices = viewableColumns.filter(columnIndex => !this._columnSchemaCache.has(columnIndex));
-			} else if (!searchResult || searchResult.matches.length === 0) {
-				// No search results
-				columnIndices = [];
+			if (invalidateCache) {
+				// No search/sort, so we need indices of all columns in viewable range
+				// since we're clearing and replacing the caches
+				columnIndices = arrayFromIndexRange(startColumnIndex, endColumnIndex);
 			} else {
-				// No search/sort, get all columns in viewable range that aren't already cached
+				// No search/sort, get all column indices in viewable range that aren't already cached
 				for (let columnIndex = startColumnIndex; columnIndex <= endColumnIndex; columnIndex++) {
 					if (!this._columnSchemaCache.has(columnIndex)) {
 						columnIndices.push(columnIndex);
@@ -444,7 +440,7 @@ export class TableSummaryCache extends Disposable {
 			}
 		}
 
-		// Update cache and display order based on whether we have search/sort results
+		// Update cache and display order based on the columns we need data for
 		if (searchResult) {
 			if (searchResult.matches.length > 0) {
 				// Calculate viewable columns within within search/sort results
