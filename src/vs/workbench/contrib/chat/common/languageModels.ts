@@ -432,7 +432,6 @@ export class LanguageModelsService implements ILanguageModelsService {
 				const firstSelectableProvider = event.added[0];
 				if (firstSelectableProvider) {
 					const provider = this._providers.get(firstSelectableProvider);
-					const positronProvider = this.getLanguageModelProviders().find(p => p.id === firstSelectableProvider);
 					if (provider) {
 						this._onDidChangeCurrentProvider.fire(firstSelectableProvider);
 					}
