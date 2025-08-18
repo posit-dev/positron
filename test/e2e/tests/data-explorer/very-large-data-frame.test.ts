@@ -52,7 +52,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			await hotKeys.closeSecondarySidebar();
 
 			// awaits table load completion
-			await dataExplorer.getDataExplorerTableData();
+			await dataExplorer.grid.getData();
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 
@@ -75,7 +75,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			await hotKeys.closeSecondarySidebar();
 
 			// awaits table load completion
-			await dataExplorer.getDataExplorerTableData();
+			await dataExplorer.grid.getData();
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 
@@ -100,7 +100,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			await hotKeys.closeSecondarySidebar();
 
 			// awaits table load completion
-			await dataExplorer.getDataExplorerTableData();
+			await dataExplorer.grid.getData();
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 
@@ -123,7 +123,7 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			await hotKeys.closeSecondarySidebar();
 
 			// awaits table load completion
-			await dataExplorer.getDataExplorerTableData();
+			await dataExplorer.grid.getData();
 			const endTime = performance.now();
 			const timeTaken = endTime - startTime;
 

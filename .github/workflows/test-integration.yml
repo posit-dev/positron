@@ -30,7 +30,7 @@ jobs:
       _R_CHECK_CRAN_INCOMING_: false
       _R_CHECK_SYSTEM_CLOCK_: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - uses: actions/setup-node@v4
         with:
@@ -41,18 +41,18 @@ jobs:
 
       - name: Attempt 1 - Setup Build and Compile
         id: attempt1
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
 
       - name: Attempt 2 - Setup Build and Compile
         if: ${{ steps.attempt1.outcome == 'failure' }}
         id: attempt2
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-unit-test-build-env
         continue-on-error: true
 
       - name: Attempt 3 - Setup Build and Compile
         if: ${{ steps.attempt2.outcome == 'failure' }}
-        uses: ./.github/actions/setup-build-env
+        uses: ./.github/actions/setup-unit-test-build-env
 
       - name: Fail if Retries Exhausted
         if: ${{ steps.attempt3.outcome == 'failure' }}
@@ -61,7 +61,7 @@ jobs:
       - name: Install Positron License
         uses: ./.github/actions/install-license
         with:
-          github-token: ${{ secrets.POSITRON_GITHUB_PAT }}
+          github-token: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
           license-key: ${{ secrets.POSITRON_DEV_LICENSE }}
 
       # one integration test needs this: Connections pane works for R

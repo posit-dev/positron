@@ -52,6 +52,10 @@ export class HotKeys {
 		await this.pressHotKeys('Shift+Enter', 'Execute notebook cell');
 	}
 
+	public async runFileInConsole() {
+		await this.pressHotKeys('Cmd+Shift+Enter', 'Run file in console');
+	}
+
 	// --------------------
 	// --- File Actions ---
 	// --------------------
@@ -150,13 +154,17 @@ export class HotKeys {
 		await this.pressHotKeys('Cmd+B C', 'Close primary sidebar');
 	}
 
-	// ----------------------
+	public async minimizeBottomPanel() {
+		await this.pressHotKeys('Cmd+J P', 'Minimize bottom panel');
+	}
+
+	// -------------------------
 	// --- Workspace Actions ---
-	// ----------------------
+	// -------------------------
 
 	public async closeWorkspace() {
 		await this.pressHotKeys('Cmd+J W');
-		await expect(this.code.driver.page.locator('.explorer-folders-view')).toBeVisible();
+		await expect(this.code.driver.page.locator('.explorer-folders-view')).not.toBeVisible();
 	}
 
 	public async importSettings() {
@@ -189,6 +197,22 @@ export class HotKeys {
 
 	public async resetWelcomeWalkthrough() {
 		await this.pressHotKeys('Cmd+J X', 'Reset welcome walkthrough');
+	}
+
+	public async openFolder() {
+		await this.pressHotKeys('Cmd+J Q', 'Open Folder');
+	}
+
+	// -----------------------
+	// ---  Data Explorer  ---
+	// -----------------------
+
+	public async showDataExplorerSummaryPanel() {
+		await this.pressHotKeys('Cmd+J Y', 'Show the DE Summary Panel');
+	}
+
+	public async hideDataExplorerSummaryPanel() {
+		await this.pressHotKeys('Cmd+J Z', 'Hide the DE Summary Panel');
 	}
 
 	/**

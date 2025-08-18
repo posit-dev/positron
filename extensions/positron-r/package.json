@@ -485,7 +485,7 @@
         "command": "r.sourceCurrentFile",
         "key": "ctrl+shift+enter",
         "mac": "cmd+shift+enter",
-        "when": "editorLangId == r && !isRPackage"
+        "when": "editorLangId == r && !isRPackage && !positron.hasCodeCells"
       },
       {
         "command": "r.insertSection",

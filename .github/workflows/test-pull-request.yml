@@ -20,7 +20,7 @@ jobs:
       web_tag_found: ${{ steps.pr-tags.outputs.web_tag_found }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Parse Tags from PR Body
         id: pr-tags
         run: bash scripts/pr-tags-parse.sh
@@ -56,6 +56,7 @@ jobs:
       currents_tags: "pull-request,electron/windows,${{ needs.pr-tags.outputs.tags }}"
       report_testrail: false
       report_currents: false
+      skip_tags: "@:nightly-only"
       upload_logs: false
     secrets: inherit
 

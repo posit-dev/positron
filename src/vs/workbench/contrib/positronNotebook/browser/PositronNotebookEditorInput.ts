@@ -16,14 +16,26 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { ExtUri } from '../../../../base/common/resources.js';
+import { ExtUri, joinPath, isEqual } from '../../../../base/common/resources.js';
+import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
+import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
+import { Schemas } from '../../../../base/common/network.js';
+import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 
 /**
- * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
- * May be filled out later.
+ * Options for Positron notebook editor input, including backup support.
+ * Based on the same interface in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
  */
 export interface PositronNotebookEditorInputOptions {
 	startDirty?: boolean;
+	/**
+	 * backupId for webview - used to restore webview state on reload
+	 */
+	_backupId?: string;
+	/**
+	 * Working copy identifier - used for backup/restore of dirty notebooks
+	 */
+	_workingCopy?: IWorkingCopyIdentifier;
 }
 
 
@@ -99,8 +111,10 @@ export class PositronNotebookEditorInput extends EditorInput {
 		@INotebookEditorModelResolverService private readonly _notebookModelResolverService: INotebookEditorModelResolverService,
 		@INotebookService private readonly _notebookService: INotebookService,
 		@IInstantiationService instantiationService: IInstantiationService,
-		@IContextKeyService contextKeyService: IContextKeyService,
+		@IContextKeyService _contextKeyService: IContextKeyService,
 		@ILogService private readonly _logService: ILogService,
+		@IFileDialogService private readonly _fileDialogService: IFileDialogService,
+		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 	) {
 		// Call the base class's constructor.
 		super();
@@ -113,10 +127,10 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * dispose override method.
 	 */
 	override dispose(): void {
-
+		// Dispose the notebook instance if it exists
 		this.notebookInstance?.dispose();
-		// Call the base class's dispose method.
-		this.notebookInstance?.close();
+
+		// Call the base class's dispose method
 		super.dispose();
 	}
 
@@ -127,6 +141,25 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	override get typeId(): string {
 		return PositronNotebookEditorInput.ID;
+	}
+
+	/**
+	 * Gets the capabilities of this input.
+	 */
+	override get capabilities(): EditorInputCapabilities {
+		let capabilities = EditorInputCapabilities.None;
+
+		// Check if this is an untitled notebook
+		if (this.resource.scheme === Schemas.untitled) {
+			capabilities |= EditorInputCapabilities.Untitled;
+		}
+
+		// Check if the notebook is readonly
+		if (this._editorModelReference?.object.isReadonly()) {
+			capabilities |= EditorInputCapabilities.Readonly;
+		}
+
+		return capabilities;
 	}
 
 	override async revert(_group: GroupIdentifier, options?: IRevertOptions): Promise<void> {
@@ -148,7 +181,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	override getName(): string {
 		const extUri = new ExtUri(() => false);
-		return extUri.basename(this.resource) ?? localize('positronNotebookInputName', "Positron Notebook");
+		return extUri.basename(this.resource) ?? localize('positron.notebook.inputName', "Positron Notebook");
 	}
 
 	/**
@@ -157,8 +190,13 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * @returns true if the other input matches this input; otherwise, false.
 	 */
 	override matches(otherInput: EditorInput | IUntypedEditorInput): boolean {
-		return otherInput instanceof PositronNotebookEditorInput &&
-			otherInput.resource.toString() === this.resource.toString();
+		if (super.matches(otherInput)) {
+			return true;
+		}
+		if (otherInput instanceof PositronNotebookEditorInput) {
+			return this.viewType === otherInput.viewType && isEqual(this.resource, otherInput.resource);
+		}
+		return false;
 	}
 
 	/**
@@ -176,11 +214,11 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * @param options Save options
 	 * @returns Input after saving
 	 */
-	override async save(group: GroupIdentifier, options?: ISaveOptions): Promise<EditorInput | IUntypedEditorInput | undefined> {
+	override async save(_group: GroupIdentifier, options?: ISaveOptions): Promise<EditorInput | IUntypedEditorInput | undefined> {
 		if (this._editorModelReference) {
 
 			if (this.hasCapability(EditorInputCapabilities.Untitled)) {
-				return this.saveAs(group, options);
+				return this.saveAs(_group, options);
 			} else {
 				await this._editorModelReference.object.save(options);
 			}
@@ -189,6 +227,127 @@ export class PositronNotebookEditorInput extends EditorInput {
 		}
 
 		return undefined;
+	}
+
+	/**
+	 * Saves an untitled notebook to a new location.
+	 * @param group Editor group the notebook is currently in
+	 * @param options Save options
+	 * @returns A new untyped editor input with the saved resource
+	 */
+	override async saveAs(_group: GroupIdentifier, options?: ISaveOptions): Promise<IUntypedEditorInput | undefined> {
+		if (!this._editorModelReference) {
+			return undefined;
+		}
+
+		// Get the notebook provider info to validate file extensions
+		const provider = this._notebookService.getContributedNotebookType(this.viewType);
+		if (!provider) {
+			return undefined;
+		}
+
+		// Suggest a name for the file based on the current untitled name
+		const extUri = new ExtUri(() => false);
+		const suggestedName = extUri.basename(this.resource);
+		const pathCandidate = await this._suggestName(provider, suggestedName);
+
+		// Ask the user where to save the file with proper filters
+		const target = await this._fileDialogService.showSaveDialog({
+			title: localize('positron.notebook.saveAs', "Save Notebook As"),
+			defaultUri: pathCandidate,
+			filters: [
+				// This will ensure that the saved file has the .ipynb extension.
+				{ name: localize('positron.notebook.fileType', 'Jupyter Notebook'), extensions: ['ipynb'] }
+			],
+			availableFileSystems: options?.availableFileSystems
+		});
+		if (!target) {
+			return undefined; // save cancelled
+		}
+
+		// Transfer the runtime session when saving an untitled notebook
+		try {
+			this._logService.debug(`Reassigning notebook session URI: ${this.resource.toString()} → ${target.toString()}`);
+
+			// Call updateNotebookSessionUri on the runtime service
+			// This updates internal mappings and emits events that other components listen for
+			const sessionId = this._runtimeSessionService.updateNotebookSessionUri(this.resource, target);
+
+			if (sessionId) {
+				// Log success to aid debugging session transfer issues
+				this._logService.debug(`Successfully reassigned session ${sessionId} to URI: ${target.toString()}`);
+			} else {
+				// This is an expected case for notebooks without executed cells (no session yet)
+				this._logService.debug(`No session found to reassign for URI: ${this.resource.toString()}`);
+			}
+		} catch (error) {
+			// Why we catch but continue:
+			// 1. Session transfer is important but secondary to saving the file content
+			// 2. Failed session transfer shouldn't prevent the user from saving their work
+			// 3. In the worst case, the notebook will save but users may need to re-run cells
+			this._logService.error('Failed to reassign notebook session URI', error);
+		}
+
+		// Use the model's saveAs method which handles the actual file saving
+		const result = await this._editorModelReference.object.saveAs(target);
+
+		if (result) {
+			// After 'saveAs', the original untitled working copy is left in a dirty state.
+			// This causes the editor framework to prompt the user to save the untitled file
+			// when it's eventually closed, which is not the desired behavior.
+			//
+			// The `revert` call is the correct, albeit semantically odd, way to resolve this.
+			// Internally, `revert` performs the two actions we need:
+			// 1. It discards the backup for the untitled resource via IWorkingCopyBackupService
+			// 2. It resets the model's in-memory dirty state
+			// This transitions the working copy to a clean state, allowing the framework to
+			// close the untitled editor gracefully without a user prompt.
+			//
+			// Note: This is working around a design limitation in VS Code's NotebookEditorModel.saveAs()
+			// which creates a new working copy but doesn't clean up the source untitled working copy.
+			// See the "hacky" comment in SimpleNotebookEditorModel.saveAs()'s implementation.
+			await this._editorModelReference.object.revert();
+
+			// Update the instance map to handle the URI change from untitled to saved file
+			// This ensures the same notebook instance continues to be used after save
+			PositronNotebookInstance.updateInstanceUri(this.resource, target);
+		}
+
+		return result;
+	}
+
+	private async _suggestName(provider: any, suggestedFilename: string): Promise<URI> {
+		// Try to extract file extension from the provider's selector
+		const firstSelector = provider.selectors?.[0];
+		let selectorStr = firstSelector && typeof firstSelector === 'string' ? firstSelector : undefined;
+
+		if (!selectorStr && firstSelector) {
+			const include = (firstSelector as { include?: string }).include;
+			if (typeof include === 'string') {
+				selectorStr = include;
+			}
+		}
+
+		if (selectorStr) {
+			const matches = /^\*\.([A-Za-z_-]*)$/.exec(selectorStr);
+			if (matches && matches.length > 1) {
+				const fileExt = matches[1];
+				if (!suggestedFilename.endsWith(fileExt)) {
+					return joinPath(await this._fileDialogService.defaultFilePath(), suggestedFilename + '.' + fileExt);
+				}
+			}
+		}
+
+		return joinPath(await this._fileDialogService.defaultFilePath(), suggestedFilename);
+	}
+
+	override toUntyped(): IUntypedEditorInput {
+		return {
+			resource: this.resource,
+			options: {
+				override: PositronNotebookEditorInput.EditorID
+			}
+		};
 	}
 
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
@@ -228,7 +387,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 			// Setup listeners for the model change events so we can forward them to the editor.
 			this._register(this._editorModelReference.object.onDidChangeDirty(() => this._onDidChangeDirty.fire()));
 			this._register(this._editorModelReference.object.onDidChangeReadonly(() => this._onDidChangeCapabilities.fire()));
-			this._register(this._editorModelReference.object.onDidRevertUntitled(() => this.dispose()));
+
 
 			// If the model is dirty we need to fire the dirty event.
 			// Not sure why this is not an event listner.
@@ -239,10 +398,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 			this._editorModelReference.object.load();
 		}
 
-		// In the vscode-notebooks there is a logic branch here to handle
-		// cases with a _backupId. Not sure what it does or when it's needed but
-		// am leaving this here as a reminder we skipped something.
-		// if (this.options._backupId) {}
 
 		return this._editorModelReference.object;
 	}

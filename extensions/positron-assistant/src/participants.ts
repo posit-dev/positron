@@ -62,7 +62,12 @@ export class ParticipantService implements vscode.Disposable {
 			participant.requestHandler.bind(participant),
 		);
 		vscodeParticipant.iconPath = participant.iconPath;
-		vscodeParticipant.followupProvider = participant.followupProvider;
+
+		// Only register followup provider if enabled
+		const followupsEnabled = vscode.workspace.getConfiguration('positron.assistant.followups').get('enable', true);
+		if (followupsEnabled) {
+			vscodeParticipant.followupProvider = participant.followupProvider;
+		}
 	}
 
 	getRequestData(chatRequestId: string): ChatRequestData | undefined {
@@ -123,6 +128,12 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 
 	readonly followupProvider: vscode.ChatFollowupProvider = {
 		async provideFollowups(result: vscode.ChatResult, context: vscode.ChatContext, token: vscode.CancellationToken): Promise<vscode.ChatFollowup[]> {
+			// Check if followups are enabled
+			const followupsEnabled = vscode.workspace.getConfiguration('positron.assistant.followups').get('enable', true);
+			if (!followupsEnabled) {
+				return [];
+			}
+
 			const system: string = await fs.promises.readFile(path.join(MARKDOWN_DIR, 'prompts', 'chat', 'followups.md'), 'utf8');
 			const messages = toLanguageModelChatMessage(context.history);
 			messages.push(vscode.LanguageModelChatMessage.User('Summarise and suggest follow-ups.'));

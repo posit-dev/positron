@@ -151,7 +151,7 @@ class Connection:
         - code: The code used to recreate the connection.
         """
         return MetadataSchema(
-            name=self.display_name,
+            name=self.display_name or "Unnamed Connection",
             language_id="python",
             host=self.host,
             type=self.type,
@@ -295,6 +295,8 @@ class ConnectionsService:
             return SQLite3Connection(obj)
         elif safe_isinstance(obj, "sqlalchemy", "Engine"):
             return SQLAlchemyConnection(obj)
+        elif safe_isinstance(obj, "duckdb", "DuckDBPyConnection"):
+            return DuckDBConnection(obj)
         else:
             type_name = type(obj).__name__
             raise UnsupportedConnectionError(f"Unsupported connection type {type(obj)}")
@@ -302,10 +304,12 @@ class ConnectionsService:
     def object_is_supported(self, obj: Any) -> bool:
         """Checks if an object is supported by the connections pane."""
         try:
-            # This block might fail if for some reason 'Connection' or 'Engine' are
+            # This block might fail if for some reason 'Connection', 'Engine', or 'DuckDBPyConnection' are
             # not available in their modules.
-            return safe_isinstance(obj, "sqlite3", "Connection") or safe_isinstance(
-                obj, "sqlalchemy", "Engine"
+            return (
+                safe_isinstance(obj, "sqlite3", "Connection")
+                or safe_isinstance(obj, "sqlalchemy", "Engine")
+                or safe_isinstance(obj, "duckdb", "DuckDBPyConnection")
             )
         except Exception as err:
             logger.error(f"Error checking supported {err}")
@@ -727,3 +731,147 @@ class SQLAlchemyConnection(Connection):
                 "Invalid path. Expected path to contain a schema and a table/view.",
                 f"But got schema.kind={schema.kind} and table.kind={table.kind}",
             )
+
+
+class DuckDBConnection(Connection):
+    """Support for DuckDB connections to databases."""
+
+    def __init__(self, conn: Any):
+        self.conn = conn
+
+        db_list = conn.execute("PRAGMA database_list;").fetchall()
+        databases = ", ".join([row[1] for row in db_list])
+
+        self.host = db_list[0][2]  # pragma database_list returns (seq, name, file)
+        if self.host == "" or self.host is None:
+            self.host = ":memory:"
+
+        self.display_name = f"DuckDB ({databases})"
+        self.type = "DuckDB"
+
+        # DuckDB allows attaching other databases, thus we can't really get to the exact same
+        # state. But we can at least show how to connect to the initial database.
+        self.code = (
+            f"import duckdb\nconn = duckdb.connect(database={self.host!r})\n%connection_show conn\n"
+        )
+
+    def list_objects(self, path: list[ObjectSchema]):
+        if len(path) == 0:
+            # we are at the root of the connection. DuckDB allows a connection to attach to multiple
+            # databases. so we return a list of 'catalogs'.
+            res = self.conn.execute(
+                "SELECT DISTINCT catalog_name FROM information_schema.schemata WHERE catalog_name NOT IN ('system', 'temp');"
+            )
+
+            return [
+                ConnectionObject({"name": name, "kind": "catalog"}) for (name,) in res.fetchall()
+            ]
+
+        if len(path) == 1:
+            # We must have a catalog on the path, and we return the list of schemas in that catalog.
+            catalog = path[0]
+            if catalog.kind != "catalog":
+                raise ValueError(
+                    f"Invalid path. Expected it to include a catalog, but got '{catalog.kind}'",
+                    f"Path: {path}",
+                )
+
+            res = self.conn.execute(
+                """
+                SELECT DISTINCT schema_name FROM information_schema.schemata
+                WHERE catalog_name = ?;
+                """,
+                (catalog.name,),
+            )
+
+            return [
+                ConnectionObject({"name": name, "kind": "schema"}) for (name,) in res.fetchall()
+            ]
+
+        if len(path) == 2:
+            # Query for tables and views in the catalog/ schema
+            catalog, schema = path
+            if catalog.kind != "catalog" or schema.kind != "schema":
+                raise ValueError(
+                    "Path must include a catalog and a schema in this order.", f"Path: {path}"
+                )
+
+            res = self.conn.execute(
+                """
+                SELECT table_name, table_type
+                FROM information_schema.tables
+                WHERE table_schema = ? AND table_catalog = ?
+                """,
+                (schema.name, catalog.name),
+            )
+
+            tables: list[ConnectionObject] = []
+            for name, table_type in res.fetchall():
+                # Convert DuckDB table types to our standard types
+                kind = "view" if table_type == "VIEW" else "table"
+                tables.append(ConnectionObject({"name": name, "kind": kind}))
+
+            return tables
+
+        # DuckDB doesn't have deeper hierarchies. If we get to this point
+        # it means the path is invalid.
+        raise ValueError(f"Path length must be at most 2, but got {len(path)}. Path: {path}")
+
+    def list_fields(self, path: list[ObjectSchema]):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        catalog, schema, table = path
+        if (
+            schema.kind != "schema"
+            or table.kind not in ["table", "view"]
+            or catalog.kind != "catalog"
+        ):
+            raise ValueError(
+                "Path must include a catalog, a schema and a table/view in this order.",
+                f"Path: {path}",
+            )
+
+        # Query for column information
+        res = self.conn.execute(
+            """
+            SELECT column_name, data_type
+            FROM information_schema.columns
+            WHERE table_schema = ? AND table_name = ? AND table_catalog = ?
+            ORDER BY ordinal_position;
+            """,
+            (schema.name, table.name, catalog.name),
+        )
+
+        return [
+            ConnectionObjectFields({"name": name, "dtype": dtype}) for name, dtype in res.fetchall()
+        ]
+
+    def preview_object(self, path: list[ObjectSchema]):
+        if len(path) != 3:
+            raise ValueError(f"Path length must be 3, but got {len(path)}. Path: {path}")
+
+        catalog, schema, table = path
+        if (
+            schema.kind != "schema"
+            or table.kind not in ["table", "view"]
+            or catalog.kind != "catalog"
+        ):
+            raise ValueError(
+                "Path must include a catalog, a schema and a table/view in this order.",
+                f"Path: {path}",
+            )
+
+        # Use DuckDB's native pandas integration via .df() method
+        query = f'SELECT * FROM "{catalog.name}"."{schema.name}"."{table.name}" LIMIT 1000'
+        return self.conn.execute(query).df()
+
+    def list_object_types(self):
+        return {
+            "table": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "view": ConnectionObjectInfo({"contains": "data", "icon": None}),
+            "schema": ConnectionObjectInfo({"contains": None, "icon": None}),
+        }
+
+    def disconnect(self):
+        self.conn.close()  # type: ignore

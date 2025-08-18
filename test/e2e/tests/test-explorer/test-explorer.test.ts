@@ -11,12 +11,11 @@ test.use({
 });
 
 test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
-	test.beforeAll(async function ({ app, r, settings, hotKeys }) {
+	test.beforeAll(async function ({ app, settings, r, hotKeys }) {
 		try {
 			// don't use native file picker
 			await settings.set({
-				'files.simpleDialog.enable': true,
-				'interpreters.startupBehavior': 'auto'
+				'files.simpleDialog.enable': true
 			}, { reload: true });
 		} catch (e) {
 			await app.code.driver.takeScreenshot('testExplorerSetup');
@@ -26,12 +25,14 @@ test.describe('Test Explorer', { tag: [tags.TEST_EXPLORER, tags.WEB] }, () => {
 
 	test('R - Verify Basic Test Explorer Functionality', {
 		tag: [tags.ARK]
-	}, async function ({ app, r, openFolder }) {
+	}, async function ({ app, openFolder }) {
 
 		// Open R package embedded in qa-example-content
 		await openFolder(path.join('qa-example-content/workspaces/r_testing'));
 
 		await app.workbench.sessions.expectAllSessionsToBeReady();
+
+		await app.workbench.sessions.start('r');
 
 		await expect(async () => {
 			await app.workbench.testExplorer.openTestExplorer();

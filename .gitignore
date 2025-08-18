@@ -24,7 +24,9 @@ product.overrides.json
 .vscode-test
 
 # --- Start Positron ---
-.claude
+# Ignore Claude local/personal files but keep commands
+.claude/*
+!.claude/commands/
 .Rproj.user
 /playwright-report/
 /blob-report/

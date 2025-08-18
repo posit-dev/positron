@@ -91,31 +91,17 @@ runs:
         echo "Setting up Conda environment with Python 3.12..."
 
         # Ensure Conda is available
-        source "${CONDA}/etc/profile.d/conda.sh"
+        source "$CONDA/etc/profile.d/conda.sh"
 
         # Define environment path
         CONDA_ENV_DIR="$HOME/scratch/python-env"
 
-        # Create a new Conda environment with Python 3.12
-        conda create -y -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
+        # NOTE: When using Minforge conda-forge is the default and override is no longer strictly necessary,
+        # but we keep it to prevent any unintentional fallback if configs change.
+        conda create -y --override-channels -c conda-forge -p "$CONDA_ENV_DIR" python=3.12.10 pip setuptools
 
-        # Verify Python installation
-        PYTHON_BIN="$CONDA_ENV_DIR/bin/python"
+        echo "Verifying Python in Conda environment..."
+        "$CONDA_ENV_DIR/bin/python" --version
+        "$CONDA_ENV_DIR/bin/python" -c "import sys; print(f'Python {sys.version} is working!')"
 
-        if [[ -x "$PYTHON_BIN" ]]; then
-            echo "Python successfully installed in Conda environment at $PYTHON_BIN"
-            $PYTHON_BIN --version
-        else
-            echo "Error: Python binary not found in Conda environment!"
-            exit 1
-        fi
-
-        # Verify Python modules are working
-        echo "Checking if Python modules work..."
-        $PYTHON_BIN -c "import venv, sys; print(f'Python {sys.version} modules are working!')"
-
-        # Final verification
-        echo "Final Python check..."
-        $PYTHON_BIN -c "import sys; print(f'Python {sys.version} is working!')"
-
-        echo "Miniconda-based Python 3.12 setup complete!"
+        echo "Miniforge-based Python 3.12 setup complete!"

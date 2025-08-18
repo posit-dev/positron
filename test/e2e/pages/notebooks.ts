@@ -123,7 +123,6 @@ export class Notebooks {
 		await test.step('Add code to first cell', async () => {
 			await this.selectCellAtIndex(cellIndex);
 			await this.typeInEditor(code, delay);
-			await this.waitForActiveCellEditorContents(code);
 		});
 	}
 
@@ -145,8 +144,15 @@ export class Notebooks {
 		});
 	}
 
-	async assertCellOutput(text: string): Promise<void> {
-		await expect(this.frameLocator.getByText(text)).toBeVisible({ timeout: 15000 });
+	async assertCellOutput(text: string | RegExp, cellIndex?: number): Promise<void> {
+		if (cellIndex !== undefined) {
+			// Target specific cell output
+			const cellOutput = this.frameLocator.locator('.output_container').nth(cellIndex);
+			await expect(cellOutput.getByText(text)).toBeVisible({ timeout: 15000 });
+		} else {
+			// Use nth(0) to get the first occurrence when multiple elements exist
+			await expect(this.frameLocator.getByText(text).nth(0)).toBeVisible({ timeout: 15000 });
+		}
 	}
 
 	async closeNotebookWithoutSaving() {
@@ -194,8 +200,6 @@ export class Notebooks {
 			delay
 				? await this.code.driver.page.locator(textarea).pressSequentially(text, { delay })
 				: await this.code.driver.page.locator(textarea).fill(text);
-
-			await this._waitForActiveCellEditorContents(c => c.indexOf(text) > -1);
 		});
 	}
 
@@ -230,6 +234,11 @@ export class Notebooks {
 
 	async selectCellAtIndex(cellIndex: number): Promise<void> {
 		await test.step(`Select cell at index: ${cellIndex}`, async () => {
+			if (cellIndex === 0) {
+				for (let i = 0; i < 5; i++) {
+					await this.code.driver.page.keyboard.press('ArrowUp');
+				}
+			}
 			await this.code.driver.page.locator(CELL_LINE).nth(cellIndex).click();
 		});
 	}

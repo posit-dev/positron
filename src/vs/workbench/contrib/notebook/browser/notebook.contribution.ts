@@ -15,6 +15,10 @@ import { IModelService } from '../../../../editor/common/services/model.js';
 import { ILanguageSelection, ILanguageService } from '../../../../editor/common/languages/language.js';
 import { ITextModelContentProvider, ITextModelService } from '../../../../editor/common/services/resolverService.js';
 import * as nls from '../../../../nls.js';
+// --- Start Positron ---
+// eslint-disable-next-line no-duplicate-imports
+import { ConfigurationScope } from '../../../../platform/configuration/common/configurationRegistry.js';
+// --- End Positron ---
 import { Extensions, IConfigurationPropertySchema, IConfigurationRegistry } from '../../../../platform/configuration/common/configurationRegistry.js';
 import { SyncDescriptor } from '../../../../platform/instantiation/common/descriptors.js';
 import { InstantiationType, registerSingleton } from '../../../../platform/instantiation/common/extensions.js';
@@ -58,6 +62,9 @@ import { IEditorGroupsService } from '../../../services/editor/common/editorGrou
 import { NotebookRendererMessagingService } from './services/notebookRendererMessagingServiceImpl.js';
 import { INotebookRendererMessagingService } from '../common/notebookRendererMessagingService.js';
 import { INotebookCellOutlineDataSourceFactory, NotebookCellOutlineDataSourceFactory } from './viewModel/notebookOutlineDataSourceFactory.js';
+// --- Start Positron ---
+import { checkPositronNotebookEnabled } from '../../positronNotebook/browser/positronNotebookExperimentalConfig.js';
+// --- End Positron ---
 
 // Editor Controller
 import './controller/coreActions.js';
@@ -134,6 +141,9 @@ import { INotebookOutlineEntryFactory, NotebookOutlineEntryFactory } from './vie
 import { getFormattedNotebookMetadataJSON } from '../common/model/notebookMetadataTextModel.js';
 import { NotebookOutputEditor } from './outputEditor/notebookOutputEditor.js';
 import { NotebookOutputEditorInput } from './outputEditor/notebookOutputEditorInput.js';
+// --- Start Positron ---
+import { IPositronNotebookService } from '../../../services/positronNotebook/browser/positronNotebookService.js';
+// --- End Positron ---
 
 /*--------------------------------------------------------------------------------------------- */
 
@@ -766,6 +776,9 @@ class NotebookEditorManager implements IWorkbenchContribution {
 	constructor(
 		@IEditorService private readonly _editorService: IEditorService,
 		@INotebookEditorModelResolverService private readonly _notebookEditorModelService: INotebookEditorModelResolverService,
+		// --- Start Positron ---
+		@IPositronNotebookService private readonly _positronNotebookService: IPositronNotebookService,
+		// --- End Positron ---
 		@IEditorGroupsService editorGroups: IEditorGroupsService
 	) {
 		// OPEN notebook editor for models that have turned dirty without being visible in an editor
@@ -794,6 +807,16 @@ class NotebookEditorManager implements IWorkbenchContribution {
 		const result: IResourceEditorInput[] = [];
 		for (const model of models) {
 			if (model.isDirty() && !this._editorService.isOpened({ resource: model.resource, typeId: NotebookEditorInput.ID, editorId: model.viewType }) && extname(model.resource) !== '.interactive') {
+				// --- Start Positron ---
+				// Make sure that we dont try and open the same editor twice if we're using positron
+				// notebooks. This is a separate if-statement so we don't have to put the diff
+				// inside the inline conditional.
+				const positronNotebookInstance = this._positronNotebookService.getInstance(model.resource);
+				// Check to see if the instance is connected to the view.
+				if (positronNotebookInstance && positronNotebookInstance.connectedToEditor) {
+					continue;
+				}
+				// --- End Positron ---
 				result.push({
 					resource: model.resource,
 					options: { inactive: true, preserveFocus: true, pinned: true, override: model.viewType }
@@ -815,6 +838,9 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 		@IWorkingCopyEditorService private readonly _workingCopyEditorService: IWorkingCopyEditorService,
 		@IExtensionService private readonly _extensionService: IExtensionService,
 		@INotebookService private readonly _notebookService: INotebookService,
+		// --- Start Positron ---
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
+		// --- End Positron ---
 	) {
 		super();
 
@@ -822,6 +848,14 @@ class SimpleNotebookWorkingCopyEditorHandler extends Disposable implements IWork
 	}
 
 	async handles(workingCopy: IWorkingCopyIdentifier): Promise<boolean> {
+		// --- Start Positron ---
+		// If this is a .ipynb file and Positron notebooks are enabled,
+		// let the Positron handler take care of it
+		if (workingCopy.resource.path.endsWith('.ipynb') &&
+			checkPositronNotebookEnabled(this._configurationService)) {
+			return false;
+		}
+		// --- End Positron ---
 		const viewType = this.handlesSync(workingCopy);
 		if (!viewType) {
 			return false;
@@ -1311,6 +1345,14 @@ configurationRegistry.registerConfiguration({
 			type: 'string',
 			default: '',
 			tags: ['notebookLayout']
+		},
+		// --- Start Positron ---
+		[NotebookSetting.workingDirectory]: {
+			markdownDescription: nls.localize('notebook.workingDirectory', "Default working directory for notebook kernels. Supports [variables](https://code.visualstudio.com/docs/reference/variables-reference) like `${workspaceFolder}`. If this setting doesn't resolve to an existing directory, it defaults to the notebook file's directory. Any change to this setting will apply to future opened notebooks."),
+			type: 'string',
+			default: '',
+			scope: ConfigurationScope.RESOURCE
 		}
+		// --- End Positron ---
 	}
 });

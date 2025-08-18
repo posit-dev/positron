@@ -6,7 +6,7 @@
 .connections-new-connection-create-connection {
 	display: grid;
 	gap: 10px;
-	grid-template-rows: 36px 2fr 15px 2fr 28px;
+	grid-template-rows: 36px 2fr 15px 2fr 32px;
 	grid-template-columns: 1fr 90px;
 	grid-template-areas:
 		"title-1  title-1"

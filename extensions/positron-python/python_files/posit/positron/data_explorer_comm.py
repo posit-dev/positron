@@ -19,6 +19,23 @@ from ._vendor.pydantic import BaseModel, Field, StrictBool, StrictFloat, StrictI
 
 
 @enum.unique
+class SearchSchemaSortOrder(str, enum.Enum):
+    """
+    Possible values for SortOrder in SearchSchema
+    """
+
+    Original = "original"
+
+    AscendingName = "ascending_name"
+
+    DescendingName = "descending_name"
+
+    AscendingType = "ascending_type"
+
+    DescendingType = "descending_type"
+
+
+@enum.unique
 class ColumnDisplayType(str, enum.Enum):
     """
     Possible values for ColumnDisplayType
@@ -229,12 +246,8 @@ class SearchSchemaResult(BaseModel):
     Result in Methods
     """
 
-    matches: TableSchema = Field(
-        description="A schema containing matching columns up to the max_results limit",
-    )
-
-    total_num_matches: StrictInt = Field(
-        description="The total number of columns matching the filter",
+    matches: List[StrictInt] = Field(
+        description="The column indices that match the search parameters in the indicated sort order.",
     )
 
 
@@ -1235,7 +1248,7 @@ class DataExplorerBackendRequest(str, enum.Enum):
     # Request schema
     GetSchema = "get_schema"
 
-    # Search full, unfiltered table schema with column filters
+    # Search table schema with column filters, optionally sort results
     SearchSchema = "search_schema"
 
     # Request formatted values from table columns
@@ -1329,27 +1342,21 @@ class GetSchemaRequest(BaseModel):
 
 class SearchSchemaParams(BaseModel):
     """
-    Search full, unfiltered table schema for column names matching one or
-    more column filters
+    Search table schema with column filters, optionally sort results
     """
 
     filters: List[ColumnFilter] = Field(
-        description="Column filters to apply when searching",
+        description="Column filters to apply when searching, can be empty",
     )
 
-    start_index: StrictInt = Field(
-        description="Index (starting from zero) of first result to fetch (for paging)",
-    )
-
-    max_results: StrictInt = Field(
-        description="Maximum number of resulting column schemas to fetch from the start index",
+    sort_order: SearchSchemaSortOrder = Field(
+        description="How to sort results: original in-schema order, alphabetical ascending or descending",
     )
 
 
 class SearchSchemaRequest(BaseModel):
     """
-    Search full, unfiltered table schema for column names matching one or
-    more column filters
+    Search table schema with column filters, optionally sort results
     """
 
     params: SearchSchemaParams = Field(

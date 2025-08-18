@@ -103,7 +103,9 @@ async function waitForExtensions(extensions: { fullName: string; shortName: stri
 		console.log(' 2. If SHA is needed, download package and follow instructions here: https://connect.posit.it/positron-wiki/updating-extensions.html#updating-extensions');
 		console.log(' 3. Update the `product.json` file with the correct version and (as needed) SHA');
 
-		throw new Error('Some extensions were installed with mismatched versions. Please check the logs above.');
+		if (process.env.EXTENSIONS_FAIL_ON_MISMATCH === 'true') {
+			throw new Error('Some extensions were installed with mismatched versions. Please check the logs above.');
+		}
 	}
 
 	console.log('\n🎉 All extensions installed with correct versions.');

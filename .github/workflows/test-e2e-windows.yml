@@ -38,6 +38,12 @@ on:
         type: boolean
         default: false
 
+      skip_tags:
+        required: false
+        description: "Comma-separated list of tags to skip."
+        type: string
+        default: ""
+
   workflow_dispatch:
     inputs:
       grep:
@@ -50,6 +56,11 @@ on:
         description: "Run each test N times, defaults to one."
         default: 1
         type: number
+      skip_tags:
+        required: false
+        description: "Comma-separated list of tags to skip."
+        type: string
+        default: "@:nightly-only"
 
 permissions:
   id-token: write
@@ -69,7 +80,16 @@ jobs:
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      - name: Load secret
+        uses: 1password/load-secrets-action@v3
+        with:
+          # Export loaded secrets as environment variables
+          export-env: true
+        env:
+          OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+          ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
 
       - name: Set screen resolution
         shell: pwsh
@@ -95,7 +115,7 @@ jobs:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         shell: pwsh
         # nvm on windows does not see .nvmrc
         #
@@ -208,9 +228,40 @@ jobs:
           ENABLE_CURRENTS_REPORTER: ${{ inputs.report_currents }}
           CURRENTS_PROJECT_ID: ${{ vars.CURRENTS_PROJECT_ID }}
         run: |
+          echo "Processing skip_tags input: '${{ inputs.skip_tags }}'"
+
+          # Convert comma-separated skip_tags input into a pipe-separated string
+          SKIP_TAGS_PATTERN=$(echo "${{ inputs.skip_tags }}" | sed 's/,/|/g')
+
+          # Build a single lookahead regex pattern
+          if [ -n "$SKIP_TAGS_PATTERN" ]; then
+            SKIP_TAGS_REGEX="(?=.*($SKIP_TAGS_PATTERN|@:web-only))"
+          else
+            SKIP_TAGS_REGEX="(?=.*(@:web-only))"
+          fi
+
+          # Build the --grep-invert argument if needed
+          GREP_INVERT_ARG=""
+          if [ -n "$SKIP_TAGS_REGEX" ]; then
+            GREP_INVERT_ARG="--grep-invert \"$SKIP_TAGS_REGEX\""
+          fi
+
+          # Build the --grep argument only if PW_TAGS is non-empty
+          if [ -z "${PW_TAGS}" ]; then
+            GREP_ARG=""
+          else
+            GREP_ARG="--grep \"${PW_TAGS}\""
+          fi
+
+          # Log the arguments
+          echo "Final --grep argument: $GREP_ARG"
+          echo "Final --grep-invert argument: $GREP_INVERT_ARG"
+
           export SKIP_BOOTSTRAP=true
           export SKIP_CLONE=true
-          npx playwright test --project "e2e-windows" --grep "${PW_TAGS}" --workers 2 --repeat-each ${{ inputs.repeat_each }} --max-failures 10
+          # Run the Playwright test command directly using eval
+          echo "Running: npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10"
+          eval npx playwright test --project \"e2e-windows\" --workers 2 $GREP_ARG $GREP_INVERT_ARG --repeat-each ${{ inputs.repeat_each }} --max-failures 10
 
       - name: Upload Playwright Report to S3
         if: ${{ success() || failure() }}

@@ -65,5 +65,21 @@
     {
         "key": "cmd+b c",
         "command": "workbench.action.closeSidebar" // View: Close Primary Side Bar
+    },
+    {
+       "key": "cmd+j p",
+       "command": "workbench.action.minimizePanel" // View: Minimize Bottom Panel
+    },
+	{
+        "key": "cmd+j q",
+        "command": "workbench.action.files.openFolder" // Open Folder
+    },
+    {
+        "key": "cmd+j z",
+        "command": "workbench.action.positronDataExplorer.collapseSummary" // Collapse/hide the summary Panel in DE
+    },
+    {
+        "key": "cmd+j y",
+        "command": "workbench.action.positronDataExplorer.expandSummary" // Expand/show the summary Panel in DE
     }
 ]

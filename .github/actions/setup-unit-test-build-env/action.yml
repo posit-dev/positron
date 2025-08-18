@@ -1,0 +1,67 @@
+name: "Setup Build Environment, Install Dependencies, and Compile App"
+description: "Installs necessary system dependencies."
+runs:
+  using: "composite"
+  steps:
+    - name: Install Build Dependencies
+      shell: bash
+      run: |
+        # Detect Ubuntu version
+        UBUNTU_VERSION=$(lsb_release -rs)
+        echo "Running on Ubuntu version: $UBUNTU_VERSION"
+
+        # Install libasound2 or libasound2t64 based on version
+        if [[ "$UBUNTU_VERSION" == "24.04" ]]; then
+          echo "Installing libasound2t64 for Ubuntu 24.04"
+          sudo apt-get update
+          sudo apt-get install -y libasound2t64
+        else
+          echo "Installing libasound2 for older Ubuntu versions"
+          sudo apt-get update
+          sudo apt-get install -y libasound2
+        fi
+        sudo apt-get install -y \
+          vim curl build-essential clang make cmake git \
+          libsodium-dev libxkbfile-dev pkg-config libsecret-1-dev libxss1 dbus xvfb \
+          libgtk-3-0 libgbm1 libnss3 libnspr4 libkrb5-dev libcairo-dev \
+          libsdl-pango-dev libjpeg-dev libgif-dev pandoc libgtk-4-1
+
+    - name: Install Node packages
+      shell: bash
+      env:
+        PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
+        ELECTRON_SKIP_BINARY_DOWNLOAD: 1
+        POSITRON_GITHUB_RO_PAT: ${{ github.token }}
+      run: |
+        # Install node-gyp; this is required by some packages
+        npm i --global node-gyp
+
+        # Perform the main npm command; this installs all Node packages and
+        # dependencies
+        npm ci --fetch-timeout 120000
+        npm --prefix test/e2e ci
+
+    - name: Compile and Download
+      shell: bash
+      run: npm exec -- npm-run-all --max_old_space_size=4095 -lp compile "electron x64" playwright-install
+
+    - name: Set permissions on SUID sandbox helper
+      shell: bash
+      run: |
+        ELECTRON_ROOT=.build/electron
+        sudo chown root $ELECTRON_ROOT/chrome-sandbox
+        sudo chmod 4755 $ELECTRON_ROOT/chrome-sandbox
+        stat $ELECTRON_ROOT/chrome-sandbox
+
+    # Although not directly part of the build environment, this configuration is essential for running unit, integration, and e2e tests.
+    - name: Configure xvfb Service
+      shell: bash
+      run: |
+        sudo cp build/azure-pipelines/linux/xvfb.init /etc/init.d/xvfb
+        sudo chmod +x /etc/init.d/xvfb
+        sudo update-rc.d xvfb defaults
+        sudo service xvfb start
+
+    # Downloads Builtin Extensions (needed for integration & e2e testing)
+    - shell: bash
+      run: npm run prelaunch

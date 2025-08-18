@@ -24,6 +24,7 @@ from typing import (
 import comm
 
 from .access_keys import decode_access_key
+from .convert import PandasConverter
 from .data_explorer_comm import (
     ArraySelection,
     BackendState,
@@ -48,7 +49,7 @@ from .data_explorer_comm import (
     ColumnValue,
     ConvertedCode,
     ConvertToCodeFeatures,
-    ConvertToCodeRequest,
+    ConvertToCodeParams,
     DataExplorerBackendMessageContent,
     DataExplorerFrontendEvent,
     DataSelectionCellRange,
@@ -79,6 +80,7 @@ from .data_explorer_comm import (
     SearchSchemaFeatures,
     SearchSchemaParams,
     SearchSchemaResult,
+    SearchSchemaSortOrder,
     SetColumnFiltersFeatures,
     SetColumnFiltersParams,
     SetRowFiltersFeatures,
@@ -100,6 +102,7 @@ from .data_explorer_comm import (
     TextSearchType,
 )
 from .positron_comm import CommMessage, PositronComm
+from .third_party import is_pandas, is_polars
 from .utils import BackgroundJobQueue, guid
 
 if TYPE_CHECKING:
@@ -289,13 +292,12 @@ class DataExplorerTableView:
     def suggest_code_syntax(self, request: SuggestCodeSyntaxRequest):
         raise NotImplementedError
 
-    def convert_to_code(self, request: ConvertToCodeRequest):
+    def convert_to_code(self, request: ConvertToCodeParams):
         raise NotImplementedError
 
     def search_schema(self, params: SearchSchemaParams):
         filters = params.filters
-        start_index = params.start_index
-        max_results = params.max_results
+        sort_order = params.sort_order
         if self._search_schema_last_result is not None:
             last_filters, matches = self._search_schema_last_result
             if last_filters != filters:
@@ -305,11 +307,30 @@ class DataExplorerTableView:
             matches = self._column_filter_get_matches(filters)
             self._search_schema_last_result = (filters, matches)
 
-        matches_slice = matches[start_index : start_index + max_results]
-        return SearchSchemaResult(
-            matches=TableSchema(columns=[self._get_single_column_schema(i) for i in matches_slice]),
-            total_num_matches=len(matches),
-        )
+        # Apply sorting based on sort_order
+        if sort_order == SearchSchemaSortOrder.AscendingName:
+            # Sort by column name ascending
+            matches = sorted(matches, key=lambda idx: self._get_column_name(idx).lower())
+        elif sort_order == SearchSchemaSortOrder.DescendingName:
+            # Sort by column name descending
+            matches = sorted(
+                matches, key=lambda idx: self._get_column_name(idx).lower(), reverse=True
+            )
+        elif sort_order == SearchSchemaSortOrder.AscendingType:
+            # Sort by column type ascending (using lowercase type name)
+            matches = sorted(
+                matches, key=lambda idx: str(self._get_column_type_display(idx)).lower()
+            )
+        elif sort_order == SearchSchemaSortOrder.DescendingType:
+            # Sort by column type descending (using lowercase type name)
+            matches = sorted(
+                matches,
+                key=lambda idx: str(self._get_column_type_display(idx)).lower(),
+                reverse=True,
+            )
+        # For SearchSchemaSortOrder.Original, keep original order (no sorting needed)
+
+        return SearchSchemaResult(matches=matches)
 
     def _column_filter_get_matches(self, filters: list[ColumnFilter]):
         matchers = self._get_column_filter_functions(filters)
@@ -341,8 +362,8 @@ class DataExplorerTableView:
 
         def _match_display_types(params: FilterMatchDataTypes):
             def matcher(index):
-                schema = self._get_single_column_schema(index)
-                return schema.type_display in params.display_types
+                type_display = self._get_column_type_display(index)
+                return type_display in params.display_types
 
             return matcher
 
@@ -360,6 +381,9 @@ class DataExplorerTableView:
         return matchers
 
     def _get_column_name(self, column_index: int) -> str:
+        raise NotImplementedError
+
+    def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
         raise NotImplementedError
 
     def get_data_values(self, params: GetDataValuesParams):
@@ -816,11 +840,7 @@ class DataExplorerTableView:
             supported_formats=[],
         ),
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Supported,
-            code_syntaxes=[
-                CodeSyntaxName(code_syntax_name="pandas"),
-                CodeSyntaxName(code_syntax_name="polars"),
-            ],
+            support_status=SupportStatus.Unsupported,
         ),
     )
 
@@ -1196,6 +1216,7 @@ class PandasView(DataExplorerTableView):
         state: DataExplorerState,
         job_queue: BackgroundJobQueue,
     ):
+        self.was_series = False
         table = self._maybe_wrap(table)
 
         # For lazy importing NumPy
@@ -1218,6 +1239,9 @@ class PandasView(DataExplorerTableView):
         import pandas as pd
 
         if isinstance(value, pd.Series):
+            # track if the original value was a Series, so we can
+            # convert filters appropriately for the real type
+            self.was_series = True
             if value.name is None:
                 return pd.DataFrame({"unnamed": value})
             else:
@@ -1372,23 +1396,26 @@ class PandasView(DataExplorerTableView):
         """Returns the supported code types for exporting data."""
         return CodeSyntaxName(code_syntax_name="pandas").dict()
 
-    def convert_to_code(self, request: ConvertToCodeRequest):  # noqa: ARG002
+    def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return ConvertedCode(
-            converted_code=["import pandas as pd", "# TODO: Implement export to code"]
-        ).dict()
+        converter = PandasConverter(
+            self.table, self.state.name, request, was_series=self.was_series
+        )
+        converted_code = converter.convert()
+        return ConvertedCode(converted_code=converted_code).dict()
 
     @classmethod
     def _construct_schema(
         cls, column, column_name, column_index: int, state: DataExplorerState
     ) -> ColumnSchema:
-        type_name, type_display = cls._get_type(column, column_index, state)
+        type_name, type_display, timezone = cls._get_type(column, column_index, state)
 
         return ColumnSchema(
             column_name=str(column_name),
             column_index=column_index,
             type_name=type_name,
             type_display=ColumnDisplayType(type_display),
+            timezone=timezone,
         )
 
     @classmethod
@@ -1403,7 +1430,9 @@ class PandasView(DataExplorerTableView):
         return state.inferred_dtypes[column_index]
 
     @classmethod
-    def _get_type(cls, column, column_index, state: DataExplorerState):
+    def _get_type(
+        cls, column, column_index, state: DataExplorerState
+    ) -> tuple[str, ColumnDisplayType, str | None]:
         import pandas as pd
 
         # A helper function for returning the backend type_name and
@@ -1411,17 +1440,26 @@ class PandasView(DataExplorerTableView):
         # schema changes
         dtype = column.dtype
 
+        try:
+            timezone = column.dtype.tz.zone
+        except AttributeError:
+            timezone = None
+
         if dtype == object:  # noqa: E721
             type_name = cls._get_inferred_dtype(column, column_index, state)
             type_name = cls.TYPE_NAME_MAPPING.get(type_name, type_name)
             type_display = cls._get_type_display(type_name)
+
         elif isinstance(dtype, pd.CategoricalDtype):
             type_name = str(dtype)
             if dtype.categories.dtype == object:
                 categories_type_name = cls._get_inferred_dtype(
                     dtype.categories, column_index, state
                 )
-                type_display = cls.TYPE_NAME_MAPPING.get(categories_type_name, categories_type_name)
+                categories_type_name = cls.TYPE_NAME_MAPPING.get(
+                    categories_type_name, categories_type_name
+                )
+                type_display = cls._get_type_display(categories_type_name)
             else:
                 categories_type_name = str(dtype.categories.dtype)
                 type_display = cls._get_type_display(categories_type_name)
@@ -1430,7 +1468,7 @@ class PandasView(DataExplorerTableView):
             type_name = str(dtype)
             type_display = cls._get_type_display(type_name)
 
-        return type_name, type_display
+        return type_name, type_display, timezone
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
         {
@@ -1486,7 +1524,7 @@ class PandasView(DataExplorerTableView):
     TYPE_MAPPERS = (_pandas_temporal_mapper,)
 
     @classmethod
-    def _get_type_display(cls, type_name):
+    def _get_type_display(cls, type_name) -> ColumnDisplayType:
         if type_name in cls.TYPE_DISPLAY_MAPPING:
             type_display = cls.TYPE_DISPLAY_MAPPING[type_name]
         else:
@@ -1518,6 +1556,11 @@ class PandasView(DataExplorerTableView):
 
     def _get_column_name(self, index: int):
         return str(self.table.columns[index])
+
+    def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
+        column = self.table.iloc[:, column_index]
+        _, type_display, _ = self._get_type(column, column_index, self.state)
+        return type_display
 
     def _get_data_values(
         self,
@@ -2326,11 +2369,9 @@ class PolarsView(DataExplorerTableView):
         """Returns the supported code types for exporting data."""
         return CodeSyntaxName(code_syntax_name="polars").dict()
 
-    def convert_to_code(self, request: ConvertToCodeRequest):  # noqa: ARG002
+    def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
-        return ConvertedCode(
-            converted_code=["import polars as pl", "# TODO: Implement export to code"]
-        ).dict()
+        raise NotImplementedError("Convert to code is not implemented for Polars DataFrames.")
 
     def _get_single_column_schema(self, column_index: int):
         if self.state.schema_cache:
@@ -2345,6 +2386,10 @@ class PolarsView(DataExplorerTableView):
 
     def _get_column_name(self, column_index: int) -> str:
         return self.table[:, column_index].name
+
+    def _get_column_type_display(self, column_index: int) -> ColumnDisplayType:
+        column = self.table[:, column_index]
+        return self._get_type_display(column.dtype)
 
     @classmethod
     def _construct_schema(
@@ -2395,7 +2440,7 @@ class PolarsView(DataExplorerTableView):
             "Object": "object",
             "List": "array",
             "Struct": "struct",
-            "Categorical": "categorical",
+            "Categorical": "string",
             "Enum": "unknown",
             "Null": "unknown",  # Not yet implemented
             "Unknown": "unknown",
@@ -2405,7 +2450,8 @@ class PolarsView(DataExplorerTableView):
     @classmethod
     def _get_type_display(cls, dtype: pl.DataType):
         key = str(dtype.base_type())
-        return cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
+        type_display = cls.TYPE_DISPLAY_MAPPING.get(key, "unknown")
+        return ColumnDisplayType(type_display)
 
     def _search_schema(
         self, filters: list[ColumnFilter], start_index: int, max_results: int
@@ -2815,7 +2861,7 @@ class PolarsView(DataExplorerTableView):
         ),
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
         convert_to_code=ConvertToCodeFeatures(
-            support_status=SupportStatus.Supported,
+            support_status=SupportStatus.Unsupported,
             code_syntaxes=[CodeSyntaxName(code_syntax_name="polars")],
         ),
     )
@@ -2831,24 +2877,6 @@ class PyArrowView(DataExplorerTableView):
     pass
 
 
-def _is_pandas(table):
-    try:
-        import pandas as pd
-    except ImportError:
-        return False
-
-    return bool(isinstance(table, (pd.DataFrame, pd.Series)))
-
-
-def _is_polars(table):
-    try:
-        import polars as pl
-    except ImportError:
-        return False
-
-    return bool(isinstance(table, (pl.DataFrame, pl.Series)))
-
-
 def _get_table_view(
     table,
     comm: PositronComm,
@@ -2857,18 +2885,18 @@ def _get_table_view(
 ):
     state.name = state.name or guid()
 
-    if _is_pandas(table):
+    if is_pandas(table):
         return PandasView(table, comm, state, job_queue)
-    elif _is_polars(table):
+    elif is_polars(table):
         return PolarsView(table, comm, state, job_queue)
     else:
         return UnsupportedView(table, comm, state, job_queue)
 
 
 def _value_type_is_supported(value):
-    if _is_pandas(value):
+    if is_pandas(value):
         return True
-    return bool(_is_polars(value))
+    return bool(is_polars(value))
 
 
 class DataExplorerService:

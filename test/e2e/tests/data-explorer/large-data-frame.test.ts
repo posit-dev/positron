@@ -35,12 +35,12 @@ test.describe('Data Explorer - Large Data Frame', {
 		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
 
 		// Validate full grid by checking data in the bottom right corner
-		await dataExplorer.clickLowerRightCorner();
-		await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
+		await dataExplorer.grid.clickLowerRightCorner();
+		await dataExplorer.grid.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
 		// Verify the status bar text reflects the full data set
-		await dataExplorer.clickUpperLeftCorner();
-		await dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
+		await dataExplorer.grid.clickUpperLeftCorner();
+		await dataExplorer.filters.add(...FILTER_PARAMS as [string, string, string]);
 		await dataExplorer.expectStatusBarToHaveText(POST_FILTER_DATA_SUMMARY);
 	});
 
@@ -57,12 +57,12 @@ test.describe('Data Explorer - Large Data Frame', {
 		await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
 
 		// Validate full grid by checking data in the bottom right corner
-		await dataExplorer.clickLowerRightCorner();
-		await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
+		await dataExplorer.grid.clickLowerRightCorner();
+		await dataExplorer.grid.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
 		// Verify the status bar text reflects the full data set
-		await dataExplorer.clickUpperLeftCorner();
-		await dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
+		await dataExplorer.grid.clickUpperLeftCorner();
+		await dataExplorer.filters.add(...FILTER_PARAMS as [string, string, string]);
 		await dataExplorer.expectStatusBarToHaveText(POST_FILTER_DATA_SUMMARY);
 	});
 });

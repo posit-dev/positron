@@ -7,12 +7,7 @@ inputs:
   aws-region:
     description: "The AWS region for S3"
     required: true
-  github-token:
-    description: "GitHub Token for accessing private repositories or APIs"
-    required: true
-  install_undetectable_interpreters:
-    description: "Install undetectable interpreters"
-    required: true
+
 runs:
   using: "composite"
   steps:
@@ -26,32 +21,5 @@ runs:
         role-to-assume: ${{ inputs.aws-role-to-assume }}
         aws-region: ${{ inputs.aws-region }}
 
-    - name: Setup Graphviz
-      uses: ts-graphviz/setup-graphviz@v2.0.2
-
-    - name: Setup Quarto
-      uses: quarto-dev/quarto-actions/setup@v2
-      env:
-        GH_TOKEN: ${{ inputs.github-token }}
-      with:
-        tinytex: true
-
-    - name: Setup Conda (Miniforge3)
-      uses: conda-incubator/setup-miniconda@v3
-      with:
-        miniforge-variant: Miniforge3
-        miniforge-version: latest
-        auto-activate-base: false
-
-    - name: Setup Python
-      uses: ./.github/actions/install-python
-      with:
-        alternate_version: "3.13.0"
-        install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}
-
-    - name: Setup R
-      uses: ./.github/actions/install-r
-      with:
-        version: "4.4.0"
-        alternate_version: "4.4.2"
-        install_undetectable_interpreters: ${{ inputs.install_undetectable_interpreters }}
+    - name: Setup Xvfb
+      uses: ./.github/actions/setup-xvfb

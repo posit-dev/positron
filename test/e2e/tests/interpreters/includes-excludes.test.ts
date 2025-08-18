@@ -16,9 +16,11 @@ test.describe('Interpreter: Includes', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
+		const basePath = '/root/scratch';
+
 		await settings.set({
-			'python.interpreters.include': ["/home/runner/scratch/python-env"],
-			'positron.r.customRootFolders': ["/home/runner/scratch"]
+			'python.interpreters.include': [`${basePath}/python-env`],
+			'positron.r.customRootFolders': [basePath]
 		}, { reload: true });
 	});
 
@@ -88,10 +90,10 @@ test.describe('Interpreter: Excludes', {
 			return fail('Alternate Python version not set');
 		}
 
-		const failMessage = 'selectInterpreter was supposed to fail as ~/.pyenv was excluded';
+		const failMessage = 'selectInterpreter was supposed to fail as /root/.pyenv was excluded';
 		await settings.set({
-			'python.interpreters.exclude': ["~/.pyenv"]
-		}, { reload: true });
+			'python.interpreters.exclude': ["/root/.pyenv"]
+		}, { reload: true, waitMs: 5000 });
 
 		try {
 			await sessions.start('pythonAlt', { reuse: false });
@@ -113,8 +115,10 @@ test.describe('Interpreter: Override', {
 }, () => {
 
 	test.beforeAll(async function ({ settings }) {
+		const pythonPath = '/root/scratch/python-env';
+
 		await settings.set({
-			'python.interpreters.override': ["/home/runner/scratch/python-env"],
+			'python.interpreters.override': [pythonPath],
 			'positron.r.interpreters.override': ["/opt/R/4.4.2/bin/R"]
 		}, { reload: true });
 	});
