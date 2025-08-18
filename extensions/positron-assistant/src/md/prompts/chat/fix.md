@@ -7,10 +7,9 @@ Your response must conform to this Markdown example:
 One or two sentence description of the fix.
 
 ```${language}
-${fixedCode}<vscode_codeblock_uri>${workspaceUri}/${filePath}</vscode_codeblock_uri>
+${fixedCode}
 ```
 ````
 
 Rules:
- - Only include `<vscode_codeblock_uri>` if a file was identified.
- - Do not include any whitespace between the fixed code and `<vscode_codeblock_uri>` tag.
+ - If a file was identified, include a valid, clickable Markdown link to that file in the response. Ensure the link uses the absolute path to that file.
