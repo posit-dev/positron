@@ -6,7 +6,7 @@
 import * as vscode from 'vscode';
 import * as fs from 'fs';
 
-import { GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
+import { API as GitAPI, GitExtension, Repository, Status, Change } from '../../git/src/api/git.js';
 import { EXTENSION_ROOT_DIR } from './constants';
 
 const mdDir = `${EXTENSION_ROOT_DIR}/src/md/`;
@@ -17,6 +17,7 @@ export enum GitRepoChangeKind {
 	Unstaged = 'unstaged',
 	Merge = 'merge',
 	Untracked = 'untracked',
+	Commit = 'commit',
 	All = 'all',
 }
 
@@ -30,8 +31,7 @@ export interface GitRepoChange {
 	changes: GitRepoChangeSummary[];
 }
 
-/** Get the list of active repositories */
-function currentGitRepositories(): Repository[] {
+function getAPI(): GitAPI {
 	// Obtain a handle to git extension API
 	const gitExtension = vscode.extensions.getExtension<GitExtension>('vscode.git')?.exports;
 	if (!gitExtension) {
@@ -41,7 +41,12 @@ function currentGitRepositories(): Repository[] {
 	if (git.repositories.length === 0) {
 		throw new Error('No Git repositories found');
 	}
+	return git;
+}
 
+/** Get the list of active repositories */
+function currentGitRepositories(): Repository[] {
+	const git = getAPI();
 	return git.repositories;
 }
 
@@ -75,6 +80,16 @@ async function gitChangeSummary(repo: Repository, change: Change, kind: GitRepoC
 			}
 		}
 	}
+}
+
+/** Get changes for a specific git repository and hash as text summaries */
+export async function getCommitChanges(repoUri: vscode.Uri, hash: string, parentHash: string) {
+	const git = getAPI();
+	const repo = git.getRepository(repoUri);
+	if (!repo) {
+		throw new Error('Repository not found');
+	}
+	return repo.diffBetween(parentHash, hash, repoUri.fsPath + '/.');
 }
 
 /** Get current workspace git repository changes as text summaries */
