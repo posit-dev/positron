@@ -83,11 +83,21 @@ class PositronNotebookContribution extends Disposable {
 					// Determine notebook type from file content or metadata
 					const viewType = await this.detectNotebookViewType(resource);
 
+					// Type guard for backup working copy options
+					interface BackupWorkingCopyOptions {
+						_backupId?: string;
+						_workingCopy?: IWorkingCopyIdentifier;
+					}
+					function hasBackupWorkingCopyOptions(obj: unknown): obj is BackupWorkingCopyOptions {
+						return typeof obj === 'object' && obj !== null &&
+							('_backupId' in obj || '_workingCopy' in obj);
+					}
+
 					// Preserve backup options if they exist
 					const positronOptions: PositronNotebookEditorInputOptions = {
 						startDirty: false,
-						_backupId: (options as any)?._backupId,
-						_workingCopy: (options as any)?._workingCopy
+						_backupId: hasBackupWorkingCopyOptions(options) ? options._backupId : undefined,
+						_workingCopy: hasBackupWorkingCopyOptions(options) ? options._workingCopy : undefined
 					};
 
 					const editorInput = PositronNotebookEditorInput.getOrCreate(
