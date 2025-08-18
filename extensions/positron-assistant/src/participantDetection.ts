@@ -52,6 +52,8 @@ class PositronAssistantParticipantDetector implements vscode.ChatParticipantDete
 				modelOptions: {
 					// System prompt instructs the model to return a JSON object or null
 					system: await fs.promises.readFile(`${MD_DIR}/prompts/chat/participantDetection.md`, 'utf8'),
+					// Pass the request ID through modelOptions for token usage tracking
+					requestId: chatRequest.id,
 				}
 			});
 
