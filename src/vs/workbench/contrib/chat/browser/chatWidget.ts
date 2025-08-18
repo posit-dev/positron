@@ -845,7 +845,7 @@ export class ChatWidget extends Disposable implements IChatWidget {
 				this.container.classList.add('experimental-welcome-view');
 			}
 			else if (expEmptyState) {
-				welcomeContent = this.getWelcomeViewContent(additionalMessage, expEmptyState);
+				welcomeContent = this.getPositronWelcomeViewContent(additionalMessage);
 			}
 			else {
 				// --- Start Positron ---
