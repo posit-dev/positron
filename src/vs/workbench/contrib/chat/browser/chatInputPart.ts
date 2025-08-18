@@ -511,6 +511,7 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		}));
 
 		// --- Start Positron ---
+		// 1.103.0 TODO: Check if this code is still required for updating the current model when available models change
 		// switches models if one has been added and there is no current model or the current model has been removed
 		// this._register(this.languageModelsService.onDidChangeLanguageModels(e => {
 		// 	const hasCurrentModel = this.languageModelsService.getLanguageModelIdsForCurrentProvider().some(modelId => modelId === this._currentLanguageModel?.identifier);
@@ -533,10 +534,9 @@ export class ChatInputPart extends Disposable implements IHistoryNavigationWidge
 		// 	}
 		// }));
 
-		// TODO: this is broken until the language model service can notify when the provider changes or we listen to current model changes
 		this._register(this.languageModelsService.onDidChangeCurrentProvider((provider) => {
 			// if the current provider is not the same as the current model's provider, change the current model to the first model of the new provider
-			if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.family !== provider.id) {
+			if (this._currentLanguageModel && provider && this._currentLanguageModel.metadata.family !== provider) {
 				const models = this.getModels();
 				if (models.length > 0) {
 					this.setCurrentLanguageModel(models[0]);

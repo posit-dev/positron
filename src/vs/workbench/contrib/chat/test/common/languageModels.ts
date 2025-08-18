@@ -24,6 +24,10 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 
 	onDidChangeLanguageModels = Event.None;
 
+	// --- Start Positron ---
+	onDidChangeProviders = Event.None;
+	// --- End Positron ---
+
 	updateModelPickerPreference(modelIdentifier: string, showInModelPicker: boolean): void {
 		return;
 	}
@@ -60,7 +64,7 @@ export class NullLanguageModelsService implements ILanguageModelsService {
 	set currentProvider(provider: IPositronChatProvider | undefined) {
 		throw new Error('Method not implemented.');
 	}
-	onDidChangeCurrentProvider: Event<IPositronChatProvider | undefined> = Event.None;
+	onDidChangeCurrentProvider: Event<string> = Event.None;
 	getLanguageModelIdsForCurrentProvider(): string[] {
 		throw new Error('Method not implemented.');
 	}
