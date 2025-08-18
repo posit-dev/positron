@@ -379,8 +379,10 @@ export class LayoutManager {
 		let start = 0;
 		const pinnedLayoutEntries: ILayoutEntry[] = [];
 		for (const index of this._pinnedIndexes) {
-			// Create the layout entry.
+			// Get the size.
 			const size = this.entrySize(index);
+
+			// Create the layout entry.
 			pinnedLayoutEntries.push({
 				index,
 				start,
@@ -431,8 +433,10 @@ export class LayoutManager {
 				continue;
 			}
 
-			// Create the layout entry.
+			// Get the size.
 			const size = this.entrySize(index);
+
+			// Create the layout entry.
 			layoutEntries.push({
 				index,
 				start,
