@@ -42,8 +42,10 @@ export enum InvalidateCacheFlags {
  */
 interface UpdateDescriptor {
 	invalidateCache: InvalidateCacheFlags;
+	pinnedColumnIndexes: number[];
 	firstColumnIndex: number;
 	screenColumns: number;
+	pinnedRowIndexes: number[];
 	firstRowIndex: number;
 	screenRows: number;
 }
@@ -365,8 +367,10 @@ export class TableDataCache extends Disposable {
 		// Destructure the update descriptor.
 		const {
 			invalidateCache,
+			pinnedColumnIndexes,
 			firstColumnIndex,
 			screenColumns,
+			pinnedRowIndexes,
 			firstRowIndex,
 			screenRows
 		} = updateDescriptor;

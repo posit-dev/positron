@@ -154,6 +154,13 @@ export class LayoutManager {
 	}
 
 	/**
+	 * Gets the pinned indexes.
+	 */
+	get pinnedIndexes() {
+		return Array.from(this._pinnedIndexes);
+	}
+
+	/**
 	 * Gets the pinned layout entries size.
 	 */
 	get pinnedLayoutEntriesSize() {

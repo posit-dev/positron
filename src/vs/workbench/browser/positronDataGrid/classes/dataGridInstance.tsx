@@ -1624,7 +1624,6 @@ export abstract class DataGridInstance extends Disposable {
 		// Get the first row layout entry for the vertical scroll offset.
 		const firstLayoutEntry = this._rowLayoutManager.findFirstUnpinnedLayoutEntry(this.verticalScrollOffset);
 		if (firstLayoutEntry && firstLayoutEntry.index < this.rows - 1) {
-
 			// Find the layout entry that will be to first layout entry for the next page.
 			for (let index = firstLayoutEntry.index + 1; index < this.rows; index++) {
 				// Get the layout entry.

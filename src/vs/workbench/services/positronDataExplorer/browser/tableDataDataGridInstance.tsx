@@ -240,8 +240,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
+				pinnedColumnIndexes: this._columnLayoutManager.pinnedIndexes,
 				firstColumnIndex: columnDescriptor.columnIndex,
 				screenColumns: this.screenColumns,
+				pinnedRowIndexes: this._rowLayoutManager.pinnedIndexes,
 				firstRowIndex: rowDescriptor.rowIndex,
 				screenRows: this.screenRows
 			});
@@ -259,8 +261,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 		if (columnDescriptor && rowDescriptor) {
 			await this._tableDataCache.update({
 				invalidateCache: invalidateCacheFlags ?? InvalidateCacheFlags.None,
+				pinnedColumnIndexes: this._columnLayoutManager.pinnedIndexes,
 				firstColumnIndex: columnDescriptor.columnIndex,
 				screenColumns: this.screenColumns,
+				pinnedRowIndexes: this._rowLayoutManager.pinnedIndexes,
 				firstRowIndex: rowDescriptor.rowIndex,
 				screenRows: this.screenRows
 			});
@@ -770,8 +774,10 @@ export class TableDataDataGridInstance extends DataGridInstance {
 			// Update the cache.
 			await this._tableDataCache.update({
 				invalidateCache: InvalidateCacheFlags.Data,
+				pinnedColumnIndexes: this._columnLayoutManager.pinnedIndexes,
 				firstColumnIndex: columnDescriptor.columnIndex,
 				screenColumns: this.screenColumns,
+				pinnedRowIndexes: this._rowLayoutManager.pinnedIndexes,
 				firstRowIndex: rowDescriptor.rowIndex,
 				screenRows: this.screenRows
 			});
