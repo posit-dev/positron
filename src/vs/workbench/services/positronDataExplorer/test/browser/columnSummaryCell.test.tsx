@@ -162,6 +162,52 @@ suite('ColumnSummaryCell', () => {
 		assert.strictEqual(nullPercentElement.textContent, '<1%', 'Expected to find <1% for 0.5% input');
 	});
 
+	test('displays 99% when getColumnProfileNullPercent returns 99.9', async () => {
+		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
+			getColumnProfileNullPercent: sinon.stub().returns(99.9),
+			getColumnProfileNullCount: sinon.stub().returns(999),
+		});
+
+		root.render(
+			<ColumnSummaryCell
+				columnIndex={0}
+				columnSchema={columnSchema}
+				instance={mockTableSummaryDataGridInstance}
+				onDoubleClick={() => { }}
+			/>
+		);
+
+		// Wait for initial render
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		const nullPercentElement = container.querySelector('.text-percent');
+		assert.ok(nullPercentElement, 'Expected to find null percent element');
+		assert.strictEqual(nullPercentElement.textContent, '99%', 'Expected to find 99% for 99.9% input');
+	});
+
+	test('displays 100% when getColumnProfileNullPercent returns 100', async () => {
+		const mockTableSummaryDataGridInstance = createMockTableSummaryDataGridInstance({
+			getColumnProfileNullPercent: sinon.stub().returns(100),
+			getColumnProfileNullCount: sinon.stub().returns(1000),
+		});
+
+		root.render(
+			<ColumnSummaryCell
+				columnIndex={0}
+				columnSchema={columnSchema}
+				instance={mockTableSummaryDataGridInstance}
+				onDoubleClick={() => { }}
+			/>
+		);
+
+		// Wait for initial render
+		await new Promise(resolve => setTimeout(resolve, 0));
+
+		const nullPercentElement = container.querySelector('.text-percent');
+		assert.ok(nullPercentElement, 'Expected to find null percent element');
+		assert.strictEqual(nullPercentElement.textContent, '100%', 'Expected to find 100% for 100% input');
+	});
+
 	// Ensure that all disposables are cleaned up.
 	ensureNoDisposablesAreLeakedInTestSuite();
 });
