@@ -26,8 +26,6 @@ import { create } from '../../../workbench/workbench.web.main.internal.js';
 // --- Start PWB: proxy port url ---
 import { extractLocalHostUriMetaDataForPortMapping, TunnelOptions, TunnelCreationOptions } from '../../../platform/tunnel/common/tunnel.js';
 import { transformPort } from './urlPorts.js';
-// eslint-disable-next-line no-duplicate-imports
-import { join } from '../../../base/common/path.js';
 // --- End PWB ---
 
 interface ISecretStorageCrypto {
@@ -658,7 +656,7 @@ function readCookie(name: string): string | undefined {
 					resolvedUri = resolvedUri.with({
 						scheme: resolvedScheme,
 						authority: mainWindow.location.host,
-						path: join(mainWindow.location.pathname, renderedTemplate, resolvedUri.path),
+						path: posix.join(mainWindow.location.pathname, renderedTemplate, resolvedUri.path),
 					});
 				} else {
 					throw new Error(`Failed to resolve external URI: ${uri.toString()}. Could not determine base url because productConfiguration missing.`);
