@@ -461,9 +461,8 @@ export class TableSummaryCache extends Disposable {
 					}
 
 					// Cache the column schema
-					for (let i = 0; i < tableSchema.columns.length; i++) {
-						const columnIndex = columnIndices[i];
-						this._columnSchemaCache.set(columnIndex, tableSchema.columns[i]);
+					for (const columnSchema of tableSchema.columns) {
+						this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
 					}
 				}
 
@@ -488,9 +487,9 @@ export class TableSummaryCache extends Disposable {
 					this._columnProfileCache.clear();
 				}
 
-				// Cache the column schema that was returned
-				for (let i = 0; i < tableSchema.columns.length; i++) {
-					this._columnSchemaCache.set(columnIndices[i], tableSchema.columns[i]);
+				// Cache the column schema
+				for (const columnSchema of tableSchema.columns) {
+					this._columnSchemaCache.set(columnSchema.column_index, columnSchema);
 				}
 			}
 
