@@ -375,6 +375,9 @@ export class TableDataCache extends Disposable {
 			screenRows
 		} = updateDescriptor;
 
+		console.log(pinnedColumnIndexes);
+		console.log(pinnedRowIndexes);
+
 		// Set the invalidate cache flags.
 		const invalidateColumnSchemaCache = (invalidateCache & InvalidateCacheFlags.ColumnSchema)
 			=== InvalidateCacheFlags.ColumnSchema;
