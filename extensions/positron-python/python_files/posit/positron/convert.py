@@ -51,8 +51,9 @@ class MethodChainBuilder:
         """
         result = self.setup_parts.copy()
 
+        # if there are multiple method chain parts,
+        # we need to join them into a single expression
         if len(self.chain_parts) > 1:
-            # Build the chained expression
             chained_expr = self.chain_parts[0]
             for part in self.chain_parts[1:]:
                 chained_expr += part
@@ -67,23 +68,25 @@ class MethodChainBuilder:
 class CodeConverter:
     """Base class for generating dataframe code strings."""
 
-    def __init__(self, table, table_name: str, params: ConvertToCodeParams):
-        """Initialize the code generator with a default DataFrame variable name.
-
-        Parameters
-        ----------
-        table : DataFrame or Series
-            DataFrame or Series to generate code for.
-        table_name : str
-            Name of the DataFrame variable in the generated code.
-        params : ConvertToCodeParams
-            Parameters for conversion, including filters and sort keys.
-        """
+    def __init__(
+        self,
+        table,
+        table_name: str,
+        params: ConvertToCodeParams,
+        *,
+        was_series: bool = False,
+        filter_handler_class,
+        sort_handler_class,
+    ):
         self.table = table
         self.table_name: str = table_name
         self.params: ConvertToCodeParams = params
+        self.was_series = was_series
+        self.syntax_name = params.code_syntax_name.code_syntax_name
+        self.filter_handler_class = filter_handler_class
+        self.sort_handler_class = sort_handler_class
 
-    def convert(self) -> List[StrictStr]:
+    def build_code(self) -> List[StrictStr]:
         """Convert operations to code strings.
 
         Returns
@@ -101,66 +104,6 @@ class CodeConverter:
         builder.add_operation(sort_setup, sort_chain)
 
         return builder.build()
-
-    def _convert_row_filters(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Convert a list of RowFilter objects to a tuple of code strings.
-
-        Returns
-        -------
-        tuple[List[StrictStr], List[StrictStr]]
-            Tuple containing preprocessing and method chain code strings.
-        """
-        raise NotImplementedError("Subclasses must implement _convert_row_filters method")
-
-    def _convert_column_filters(
-        self,
-    ) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Convert a list of ColumnFilter objects to a tuple of code strings.
-
-        Returns
-        -------
-        tuple[List[StrictStr], List[StrictStr]]
-            Tuple containing preprocessing and method chain code strings.
-        """
-        raise NotImplementedError("Subclasses must implement _convert_column_filters method")
-
-    def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Convert a list of ColumnSortKey objects to a tuple of code strings.
-
-        Returns
-        -------
-        tuple[List[StrictStr], List[StrictStr]]
-            Tuple containing preprocessing and method chain code strings.
-        """
-        raise NotImplementedError("Subclasses must implement _convert_sorts method")
-
-
-class DataFrameConverter(CodeConverter):
-    """Base class for specific DataFrame converters like Pandas and Polars."""
-
-    def __init__(
-        self,
-        table,
-        table_name: str,
-        params: ConvertToCodeParams,
-        *,
-        was_series: bool = False,
-        syntax_name: str,
-        filter_handler_class,
-        sort_handler_class,
-    ):
-        self.was_series = was_series
-        self.syntax_name = syntax_name
-        self.filter_handler_class = filter_handler_class
-        self.sort_handler_class = sort_handler_class
-        super().__init__(table, table_name, params)
-
-    def convert(self) -> List[StrictStr]:
-        if self.params.code_syntax_name.code_syntax_name != self.syntax_name:
-            raise NotImplementedError(
-                f"Code conversion for {self.params.code_syntax_name} is not implemented."
-            )
-        return super().convert()
 
     def _convert_row_filters(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """Take filters and convert them to code strings.
@@ -197,37 +140,17 @@ class DataFrameConverter(CodeConverter):
 
         return method_chain_setup, method_chain_parts
 
-    def _format_single_filter(self, comparison: str) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Format code for a single filter.
-
-        Parameters
-        ----------
-        comparison : str
-            Filter comparison string.
-
-        Returns
-        -------
-        tuple[List[StrictStr], List[StrictStr]]
-            Tuple of (method_chain_setup, method_chain_parts).
-        """
-        raise NotImplementedError("Subclasses must implement _format_single_filter method")
-
-    def _format_multi_filter(
-        self, comparisons: List[str]
+    def _convert_column_filters(
+        self,
     ) -> tuple[List[StrictStr], List[StrictStr]]:
-        """Format code for multiple filters.
-
-        Parameters
-        ----------
-        comparisons : List[str]
-            List of filter comparison strings.
+        """Convert a list of ColumnFilter objects to a tuple of code strings.
 
         Returns
         -------
         tuple[List[StrictStr], List[StrictStr]]
-            Tuple of (method_chain_setup, method_chain_parts).
+            Tuple containing preprocessing and method chain code strings.
         """
-        raise NotImplementedError("Subclasses must implement _format_multi_filter method")
+        raise NotImplementedError("Subclasses must implement _convert_column_filters method")
 
     def _convert_sort_keys(self) -> tuple[List[StrictStr], List[StrictStr]]:
         """Generate code for sorting.
@@ -248,7 +171,7 @@ class DataFrameConverter(CodeConverter):
         return method_chain_setup, method_chain_parts
 
 
-class PandasConverter(DataFrameConverter):
+class PandasConverter(CodeConverter):
     def __init__(
         self, table, table_name: str, params: ConvertToCodeParams, *, was_series: bool = False
     ):
@@ -257,7 +180,6 @@ class PandasConverter(DataFrameConverter):
             table_name,
             params,
             was_series=was_series,
-            syntax_name="pandas",
             filter_handler_class=PandasFilterHandler,
             sort_handler_class=PandasSortHandler,
         )
@@ -275,19 +197,29 @@ class PandasConverter(DataFrameConverter):
         return setup, parts
 
 
-class PolarsConverter(DataFrameConverter):
+class PolarsConverter(CodeConverter):
     def __init__(
-        self, table, table_name: str, params: ConvertToCodeParams, *, was_series: bool = False
+        self,
+        table,
+        table_name: str,
+        params: ConvertToCodeParams,
     ):
         super().__init__(
             table,
             table_name,
             params,
-            was_series=was_series,
-            syntax_name="polars",
+            # was_series is always false, we don't support Polars Series in the data explorer
+            was_series=False,
             filter_handler_class=PolarsFilterHandler,
             sort_handler_class=PolarsSortHandler,
         )
+
+    def build_code(self) -> List[StrictStr]:
+        code = super().build_code()
+        if self.params.code_syntax_name.code_syntax_name == "pandas":
+            # Append .to_pandas() to the end of the method chain for Polars conversion
+            code[-1] = code[-1] + ".to_pandas()"
+        return code
 
     def _format_single_filter(self, comparison: str) -> tuple[List[StrictStr], List[StrictStr]]:
         # Single comparison, use .filter() method
@@ -628,7 +560,11 @@ class PolarsFilterHandler(FilterHandler):
             ColumnDisplayType.Datetime,
             ColumnDisplayType.Date,
         ]:
-            value = f"pl.lit({value!r}).str.to_datetime()"
+            value = f"pl.lit({value!r}).str.to_datetime("
+            tz = self.filter_key.column_schema.timezone
+            if tz:
+                value += f"time_zone={tz!r}"
+            value += ")"
 
         return f"{self.col_expr} {op} {value}"
 
@@ -648,30 +584,26 @@ class PolarsFilterHandler(FilterHandler):
 
         # For case insensitive search in Polars
         if not case_sensitive:
-            col_expr = f"{self.col_expr}.str.to_lowercase()"
-            if isinstance(value, str):
-                value = value.lower()
-        else:
-            col_expr = self.col_expr
+            value = "(?i)" + value
 
         if search_type == TextSearchType.Contains:
-            return f"{col_expr}.str.contains({value!r})"
+            return f"{self.col_expr}.str.contains({value!r})"
         elif search_type == TextSearchType.NotContains:
-            return f"~{col_expr}.str.contains({value!r})"
+            return f"~{self.col_expr}.str.contains({value!r})"
         elif search_type == TextSearchType.RegexMatch:
-            return f"{col_expr}.str.contains({value!r}, literal=False)"
+            return f"{self.col_expr}.str.contains({value!r})"
         elif search_type == TextSearchType.StartsWith:
-            return f"{col_expr}.str.starts_with({value!r})"
+            return f"{self.col_expr}.str.starts_with({value!r})"
         elif search_type == TextSearchType.EndsWith:
-            return f"{col_expr}.str.ends_with({value!r})"
+            return f"{self.col_expr}.str.ends_with({value!r})"
         else:
             raise ValueError(f"Unsupported TextSearchType: {search_type}")
 
     def _convert_is_empty_filter(self) -> str:
-        return f"{self.col_expr}.str.lengths() == 0"
+        return f"{self.col_expr}.str.len_chars() == 0"
 
     def _convert_not_empty_filter(self) -> str:
-        return f"{self.col_expr}.str.lengths() > 0"
+        return f"{self.col_expr}.str.len_chars() != 0"
 
     def _convert_is_null_filter(self) -> str:
         return f"{self.col_expr}.is_null()"

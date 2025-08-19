@@ -1401,7 +1401,7 @@ class PandasView(DataExplorerTableView):
         converter = PandasConverter(
             self.table, self.state.name, request, was_series=self.was_series
         )
-        converted_code = converter.convert()
+        converted_code = converter.build_code()
         return ConvertedCode(converted_code=converted_code).dict()
 
     @classmethod
@@ -2372,7 +2372,7 @@ class PolarsView(DataExplorerTableView):
     def convert_to_code(self, request: ConvertToCodeParams):
         """Translates the current data view, including filters and sorts, into a code snippet."""
         converter = PolarsConverter(self.table, self.state.name, request)
-        converted_code = converter.convert()
+        converted_code = converter.build_code()
         return ConvertedCode(converted_code=converted_code).dict()
 
     def _get_single_column_schema(self, column_index: int):
@@ -2417,6 +2417,7 @@ class PolarsView(DataExplorerTableView):
             column_index=column_index,
             type_name=type_name,
             type_display=ColumnDisplayType(type_display),
+            timezone=getattr(column.dtype, "time_zone", None),
         )
 
     TYPE_DISPLAY_MAPPING = MappingProxyType(
@@ -2864,7 +2865,10 @@ class PolarsView(DataExplorerTableView):
         set_sort_columns=SetSortColumnsFeatures(support_status=SupportStatus.Supported),
         convert_to_code=ConvertToCodeFeatures(
             support_status=SupportStatus.Supported,
-            code_syntaxes=[CodeSyntaxName(code_syntax_name="polars")],
+            code_syntaxes=[
+                CodeSyntaxName(code_syntax_name="polars"),
+                CodeSyntaxName(code_syntax_name="pandas"),
+            ],
         ),
     )
 
