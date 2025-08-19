@@ -8,7 +8,6 @@ import {
 	PromptElement
 } from '@vscode/prompt-tsx';
 import { ActivationSteering } from '../components/base/ActivationSteering';
-import { CommunicationGuidelines } from '../components/base/CommunicationGuidelines';
 
 interface EditorPromptProps extends BasePromptElementProps {
 	/**
@@ -33,10 +32,6 @@ export class EditorPrompt extends PromptElement<EditorPromptProps> {
 				<ActivationSteering
 					participantType="editor"
 					priority={100}
-				/>
-				<CommunicationGuidelines
-					includeCodeGeneration={true}
-					priority={90}
 				/>
 				{this.props.fileExtension && (
 					<FileExtensionGuidance

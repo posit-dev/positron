@@ -21,7 +21,6 @@ interface ActivationSteeringProps extends BasePromptElementProps {
 
 /**
  * Component that loads activation steering content based on participant type.
- * This replaces the manual markdown file reading and concatenation.
  */
 export class ActivationSteering extends PromptElement<ActivationSteeringProps> {
 	render() {

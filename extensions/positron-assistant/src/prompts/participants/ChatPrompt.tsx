@@ -8,7 +8,6 @@ import {
 	PromptElement
 } from '@vscode/prompt-tsx';
 import { ActivationSteering } from '../components/base/ActivationSteering';
-import { CommunicationGuidelines } from '../components/base/CommunicationGuidelines';
 import { LanguageInstructions } from '../components/language/LanguageInstructions';
 import { FilepathsContent } from '../components/content/FilepathsContent';
 
@@ -40,10 +39,6 @@ export class ChatPrompt extends PromptElement<ChatPromptProps> {
 				<ActivationSteering
 					participantType="chat"
 					priority={100}
-				/>
-				<CommunicationGuidelines
-					includeCodeGeneration={true}
-					priority={90}
 				/>
 				<LanguageInstructions
 					activeSessions={this.props.activeSessions || []}

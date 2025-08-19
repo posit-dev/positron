@@ -9,7 +9,6 @@ export { PromptRenderer } from '../promptRenderer';
 // Base components
 export { SystemMessage } from './components/base/SystemMessage';
 export { ActivationSteering } from './components/base/ActivationSteering';
-export { CommunicationGuidelines } from './components/base/CommunicationGuidelines';
 
 // Content components
 export { DefaultContent, AgentContent, EditorContent, TerminalContent, FilepathsContent, AttachmentsContent, FollowupsContent, SessionsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, QuartoContent, MapEditContent, Attachment, Session, type AttachmentData, type SessionData, type IHistorySummaryEntry } from './components/content';

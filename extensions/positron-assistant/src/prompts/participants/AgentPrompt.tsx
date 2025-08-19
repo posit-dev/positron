@@ -10,7 +10,6 @@ import {
 	SystemMessage
 } from '@vscode/prompt-tsx';
 import { ActivationSteering } from '../components/base/ActivationSteering';
-import { CommunicationGuidelines } from '../components/base/CommunicationGuidelines';
 import { LanguageInstructions } from '../components/language/LanguageInstructions';
 
 interface AgentPromptProps extends BasePromptElementProps {
@@ -38,11 +37,6 @@ export class AgentPrompt extends PromptElement<AgentPromptProps> {
 				<ActivationSteering
 					participantType="agent"
 					priority={100}
-				/>
-				<CommunicationGuidelines
-					includeCodeGeneration={true}
-					includeTerminalGuidance={true} // Agents might execute commands
-					priority={90}
 				/>
 				<LanguageInstructions
 					activeSessions={this.props.activeSessions || []}

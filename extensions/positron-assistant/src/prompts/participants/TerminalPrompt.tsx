@@ -8,7 +8,6 @@ import {
 	PromptElement
 } from '@vscode/prompt-tsx';
 import { ActivationSteering } from '../components/base/ActivationSteering';
-import { CommunicationGuidelines } from '../components/base/CommunicationGuidelines';
 
 interface TerminalPromptProps extends BasePromptElementProps {
 	// Terminal prompts are typically simpler and focused
@@ -25,10 +24,6 @@ export class TerminalPrompt extends PromptElement<TerminalPromptProps> {
 				<ActivationSteering
 					participantType="terminal"
 					priority={100}
-				/>
-				<CommunicationGuidelines
-					includeTerminalGuidance={true}
-					priority={90}
 				/>
 			</>
 		);
