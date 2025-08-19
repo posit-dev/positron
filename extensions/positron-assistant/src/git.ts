@@ -37,16 +37,15 @@ function getAPI(): GitAPI {
 	if (!gitExtension) {
 		throw new Error('Git extension not found');
 	}
-	const git = gitExtension.getAPI(1);
-	if (git.repositories.length === 0) {
-		throw new Error('No Git repositories found');
-	}
-	return git;
+	return gitExtension.getAPI(1);
 }
 
 /** Get the list of active repositories */
 function currentGitRepositories(): Repository[] {
 	const git = getAPI();
+	if (git.repositories.length === 0) {
+		throw new Error('No Git repositories found');
+	}
 	return git.repositories;
 }
 
