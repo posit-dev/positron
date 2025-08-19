@@ -52,7 +52,7 @@ The repository reference format (`org/repo@branch_or_revision`) should only be u
 When accessing GitHub repositories or releases, the script attempts to find a GitHub Personal Access Token (PAT) in the following order:
 
 1. The `GITHUB_PAT` environment variable
-2. The `POSITRON_GITHUB_PAT` environment variable
+2. The `POSITRON_GITHUB_RO_PAT` environment variable
 3. The git config setting `credential.https://api.github.com.token`
 
 Providing a PAT is recommended to avoid rate limiting and to access private repositories.

@@ -308,12 +308,26 @@ class DataExplorerTableView:
             self._search_schema_last_result = (filters, matches)
 
         # Apply sorting based on sort_order
-        if sort_order == SearchSchemaSortOrder.Ascending:
+        if sort_order == SearchSchemaSortOrder.AscendingName:
             # Sort by column name ascending
-            matches = sorted(matches, key=lambda idx: self._get_column_name(idx))
-        elif sort_order == SearchSchemaSortOrder.Descending:
+            matches = sorted(matches, key=lambda idx: self._get_column_name(idx).lower())
+        elif sort_order == SearchSchemaSortOrder.DescendingName:
             # Sort by column name descending
-            matches = sorted(matches, key=lambda idx: self._get_column_name(idx), reverse=True)
+            matches = sorted(
+                matches, key=lambda idx: self._get_column_name(idx).lower(), reverse=True
+            )
+        elif sort_order == SearchSchemaSortOrder.AscendingType:
+            # Sort by column type ascending (using lowercase type name)
+            matches = sorted(
+                matches, key=lambda idx: str(self._get_column_type_display(idx)).lower()
+            )
+        elif sort_order == SearchSchemaSortOrder.DescendingType:
+            # Sort by column type descending (using lowercase type name)
+            matches = sorted(
+                matches,
+                key=lambda idx: str(self._get_column_type_display(idx)).lower(),
+                reverse=True,
+            )
         # For SearchSchemaSortOrder.Original, keep original order (no sorting needed)
 
         return SearchSchemaResult(matches=matches)

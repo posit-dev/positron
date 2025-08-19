@@ -38,3 +38,7 @@ export const POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE = new RawContextKey<
 	'positronDataExplorerCodeSyntaxesAvailable',
 	false
 );
+export const POSITRON_DATA_EXPLORER_IS_ROW_FILTERING = new RawContextKey<boolean>(
+	'positronDataExplorerIsRowFiltering',
+	false
+);

@@ -29,21 +29,21 @@ test.describe('Data Explorer - XLSX', {
 
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true });
-		await dataExplorer.waitForTableToLoad();
+		await dataExplorer.waitForIdle();
 
 		await metric.dataExplorer.stopAndSend({
 			action: 'load_data',
 			target_type: 'py.pandas.DataFrame',
 			target_description: 'open data frame from xlsx',
 			context_json: {
-				data_rows: await dataExplorer.getRowCount(),
-				data_cols: await dataExplorer.getColumnCount()
+				data_rows: await dataExplorer.grid.getRowCount(),
+				data_cols: await dataExplorer.grid.getColumnCount()
 			}
 		});
 
 		await hotKeys.closeSecondarySidebar();
-		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
-		const visibleTableData = await dataExplorer.getDataExplorerTableData();
+		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
+		const visibleTableData = await dataExplorer.grid.getData();
 		const firstRow = visibleTableData.at(0);
 		expect(firstRow!['Invoice ID']).toBe('898-04-2717');
 	});
@@ -58,21 +58,21 @@ test.describe('Data Explorer - XLSX', {
 
 		await variables.doubleClickVariableRow('df2');
 		await editors.verifyTab('Data: df2', { isVisible: true });
-		await dataExplorer.waitForTableToLoad();
+		await dataExplorer.waitForIdle();
 
 		await metric.dataExplorer.stopAndSend({
 			action: 'load_data',
 			target_type: 'r.tibble',
 			target_description: 'open data frame from xlsx',
 			context_json: {
-				data_rows: await dataExplorer.getRowCount(),
-				data_cols: await dataExplorer.getColumnCount()
+				data_rows: await dataExplorer.grid.getRowCount(),
+				data_cols: await dataExplorer.grid.getColumnCount()
 			}
 		});
 
 		await hotKeys.closeSecondarySidebar();
-		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
-		const visibleTableData = await dataExplorer.getDataExplorerTableData();
+		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
+		const visibleTableData = await dataExplorer.grid.getData();
 		const firstRow = visibleTableData.at(0);
 		expect(firstRow!['Invoice ID']).toBe('898-04-2717');
 	});

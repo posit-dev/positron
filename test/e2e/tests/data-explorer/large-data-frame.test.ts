@@ -34,25 +34,25 @@ test.describe('Data Explorer - Large Data Frame', {
 
 		await variables.doubleClickVariableRow('df');
 		await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
-		await dataExplorer.waitForTableToLoad();
+		await dataExplorer.waitForIdle();
 
 		await metric.dataExplorer.stopAndSend({
 			action: 'load_data',
 			target_type: 'py.pandas.DataFrame',
 			target_description: 'large unique parquet',
 			context_json: {
-				data_rows: await dataExplorer.getRowCount(),
-				data_cols: await dataExplorer.getColumnCount()
+				data_rows: await dataExplorer.grid.getRowCount(),
+				data_cols: await dataExplorer.grid.getColumnCount()
 			}
 		});
 
 		// Validate full grid by checking data in the bottom right corner
-		await dataExplorer.clickLowerRightCorner();
-		await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
+		await dataExplorer.grid.clickLowerRightCorner();
+		await dataExplorer.grid.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
 		// Verify the status bar text reflects the full data set
-		await dataExplorer.clickUpperLeftCorner();
-		await dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
+		await dataExplorer.grid.clickUpperLeftCorner();
+		await dataExplorer.filters.add(...FILTER_PARAMS as [string, string, string]);
 		await dataExplorer.expectStatusBarToHaveText(POST_FILTER_DATA_SUMMARY);
 	});
 
@@ -68,24 +68,24 @@ test.describe('Data Explorer - Large Data Frame', {
 		metric.start();
 		await variables.doubleClickVariableRow('df2');
 		await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
-		await dataExplorer.waitForTableToLoad();
+		await dataExplorer.waitForIdle();
 		await metric.dataExplorer.stopAndSend({
 			action: 'load_data',
 			target_type: 'r.tibble',
 			target_description: 'large unique parquet',
 			context_json: {
-				data_rows: await dataExplorer.getRowCount(),
-				data_cols: await dataExplorer.getColumnCount()
+				data_rows: await dataExplorer.grid.getRowCount(),
+				data_cols: await dataExplorer.grid.getColumnCount()
 			}
 		});
 
 		// Validate full grid by checking data in the bottom right corner
-		await dataExplorer.clickLowerRightCorner();
-		await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
+		await dataExplorer.grid.clickLowerRightCorner();
+		await dataExplorer.grid.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
 		// Verify the status bar text reflects the full data set
-		await dataExplorer.clickUpperLeftCorner();
-		await dataExplorer.addFilter(...FILTER_PARAMS as [string, string, string]);
+		await dataExplorer.grid.clickUpperLeftCorner();
+		await dataExplorer.filters.add(...FILTER_PARAMS as [string, string, string]);
 		await dataExplorer.expectStatusBarToHaveText(POST_FILTER_DATA_SUMMARY);
 	});
 });

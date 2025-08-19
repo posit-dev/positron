@@ -50,7 +50,7 @@ test.describe('Positron notebook opening and saving', {
 		await hotKeys.closeAllEditors();
 	});
 
-	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, hotKeys, settings }) {
+	test('Switching between VS Code and Positron notebook editors works correctly', async function ({ app, python, hotKeys, settings }) {
 		const { notebooks, notebooksVscode, notebooksPositron } = app.workbench;
 
 		// Verify default behavior - VS Code notebook editor should be used when no association is set
@@ -92,18 +92,67 @@ test.describe('Positron notebook opening and saving', {
 		// New notebooks should automatically be named "Untitled-1.ipynb" by default
 		await editors.waitForActiveTab('Untitled-1.ipynb', false);
 
-		// Save the notebook with a specific name
+		// Test save dialog functionality - save with a name that doesn't include .ipynb extension
+		// The enhanced save dialog should automatically handle extension enforcement
 		await runCommand('workbench.action.files.saveAs', { keepOpen: true });
 		await quickInput.waitForQuickInputOpened();
-		const newFileName = `saved-positron-notebook-${Math.random().toString(36).substring(7)}.ipynb`;
-		await quickInput.type(path.join(app.workspacePathOrFolder, newFileName));
+
+		// Type filename without extension to test automatic extension handling
+		const baseFileName = `saved-positron-notebook-${Math.random().toString(36).substring(7)}`;
+		await quickInput.type(path.join(app.workspacePathOrFolder, baseFileName));
 		await quickInput.clickOkButton();
 
-		// Verify the editor tab now shows the new filename instead of "Untitled" and it is a positron notebook
-		await editors.waitForActiveTab(newFileName, false);
+		// Verify the file was saved and the .ipynb extension was automatically added
+		const expectedFileName = `${baseFileName}.ipynb`;
+		await editors.waitForActiveTab(expectedFileName, false);
 		await notebooksPositron.expectToBeVisible();
 
 		// Keep the test workspace clean for subsequent test runs
-		await cleanup.removeTestFiles([newFileName]);
+		await cleanup.removeTestFiles([expectedFileName]);
+	});
+
+	test('Ghost editor issue: Positron notebook does not create duplicate VS Code notebook on reload with dirty notebook', async function ({ app, settings, hotKeys }) {
+		const { notebooks, notebooksPositron, editors } = app.workbench;
+
+		// Configure Positron as the default notebook editor
+		await setNotebookEditor(settings, 'positron');
+
+		// Create a new notebook (which starts dirty)
+		await notebooks.createNewNotebook();
+		await notebooksPositron.expectToBeVisible();
+
+		// Verify only the expected tab is open (new notebooks are named Untitled-N.ipynb)
+		await editors.waitForTab('Untitled-1.ipynb', true); // true = isDirty
+
+		// Count tabs before reload (checking for multiple tabs with same file is the ghost editor symptom)
+		const tabsBefore = await app.code.driver.page.locator('.tabs-container div.tab').count();
+		test.expect(tabsBefore).toBe(1);
+
+		// Reload the window to simulate restart
+		await hotKeys.reloadWindow();
+		// Wait for the reload to complete
+		await app.code.driver.page.waitForTimeout(3000);
+		await app.code.driver.page.locator('.monaco-workbench').waitFor({ state: 'visible' });
+
+		// After reload, check for the ghost editor issue
+		// The bug would cause both a Positron notebook AND a VS Code notebook to be visible
+
+		// Check tab count - should still be 1, not 2
+		const tabsAfter = await app.code.driver.page.locator('.tabs-container div.tab').count();
+		test.expect(tabsAfter).toBe(1);
+
+		// Verify that the Positron notebook is visible
+		await notebooksPositron.expectToBeVisible();
+
+		// Verify that the VS Code notebook is NOT visible (this is the ghost editor we're trying to prevent)
+		const vscodeNotebookElements = await app.code.driver.page.locator('.notebook-editor').count();
+		const positronNotebookElements = await app.code.driver.page.locator('.positron-notebook').count();
+
+		// Should have only one notebook editor, and it should be the Positron one
+		test.expect(positronNotebookElements).toBe(1);
+		test.expect(vscodeNotebookElements).toBe(0);
+
+		// Additional verification: ensure the active tab is still the restored untitled notebook
+		await editors.waitForActiveTab('Untitled-1.ipynb', true); // true = isDirty
 	});
 });

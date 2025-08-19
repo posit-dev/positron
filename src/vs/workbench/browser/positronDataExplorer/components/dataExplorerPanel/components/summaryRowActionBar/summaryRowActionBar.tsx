@@ -54,19 +54,20 @@ export const SummaryRowActionBar = ({ instance }: SummaryRowActionBarProps) => {
 
 
 	return (
-		<PositronActionBarContextProvider>
-			<PositronActionBar>
-				<ActionBarRegion location='left'>
-					<SummaryRowSortDropdown />
-				</ActionBarRegion>
-				<ActionBarRegion location='right'>
-					<ActionBarFilter
-						ref={filterRef}
-						width={150}
-						onFilterTextChanged={filterText => setSearchText(filterText)} />
-				</ActionBarRegion>
-			</PositronActionBar>
-		</PositronActionBarContextProvider>
-
+		<div className='summary-row-filter-bar'>
+			<PositronActionBarContextProvider>
+				<PositronActionBar>
+					<ActionBarRegion location='left'>
+						<SummaryRowSortDropdown />
+					</ActionBarRegion>
+					<ActionBarRegion location='right'>
+						<ActionBarFilter
+							ref={filterRef}
+							width={150}
+							onFilterTextChanged={filterText => setSearchText(filterText)} />
+					</ActionBarRegion>
+				</PositronActionBar>
+			</PositronActionBarContextProvider>
+		</div>
 	);
 }

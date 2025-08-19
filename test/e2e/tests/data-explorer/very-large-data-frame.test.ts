@@ -49,15 +49,15 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 			await variables.doubleClickVariableRow('df');
 			await editors.verifyTab('Data: df', { isVisible: true, isSelected: true });
-			await dataExplorer.waitForTableToLoad();
+			await dataExplorer.waitForIdle();
 
 			await metric.dataExplorer.stopAndSend({
 				action: 'load_data',
 				target_type: 'py.pandas.DataFrame',
 				target_description: 'very large unique parquet',
 				context_json: {
-					data_rows: await dataExplorer.getRowCount(),
-					data_cols: await dataExplorer.getColumnCount()
+					data_rows: await dataExplorer.grid.getRowCount(),
+					data_cols: await dataExplorer.grid.getColumnCount()
 				}
 			});
 		});
@@ -72,14 +72,14 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			metric.start();
 			await variables.doubleClickVariableRow('df2');
 			await editors.verifyTab('Data: df2', { isVisible: true, isSelected: true });
-			await dataExplorer.waitForTableToLoad();
+			await dataExplorer.waitForIdle();
 			await metric.dataExplorer.stopAndSend({
 				action: 'load_data',
 				target_type: 'r.tibble',
 				target_description: 'very_large_unique_parquet',
 				context_json: {
-					data_cols: await dataExplorer.getColumnCount(),
-					data_rows: await dataExplorer.getRowCount()
+					data_cols: await dataExplorer.grid.getColumnCount(),
+					data_rows: await dataExplorer.grid.getRowCount()
 				}
 			});
 		});
@@ -96,15 +96,15 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 
 			await variables.doubleClickVariableRow('df_large');
 			await editors.verifyTab('Data: df_large', { isVisible: true, isSelected: true });
-			await dataExplorer.getDataExplorerTableData();
+			await dataExplorer.waitForIdle();
 
 			await metric.dataExplorer.stopAndSend({
 				action: 'load_data',
 				target_type: 'py.pandas.DataFrame',
 				target_description: 'duplicated parquet with 1 mil rows 10 cols',
 				context_json: {
-					data_cols: await dataExplorer.getColumnCount(),
-					data_rows: await dataExplorer.getRowCount()
+					data_cols: await dataExplorer.grid.getColumnCount(),
+					data_rows: await dataExplorer.grid.getRowCount()
 				}
 			});
 		});
@@ -121,14 +121,14 @@ test.describe('Data Explorer - Very Large Data Frame', { tag: [tags.WIN, tags.DA
 			await hotKeys.closeSecondarySidebar();
 
 			// awaits table load completion
-			await dataExplorer.getDataExplorerTableData();
+			await dataExplorer.waitForIdle();
 			await logMetric.dataExplorer.stopAndSend({
 				action: 'load_data',
 				target_type: 'r.tibble',
 				target_description: 'duplicated parquet with 1 mil rows 10 cols',
 				context_json: {
-					data_cols: await dataExplorer.getColumnCount(),
-					data_rows: await dataExplorer.getRowCount()
+					data_cols: await dataExplorer.grid.getColumnCount(),
+					data_rows: await dataExplorer.grid.getRowCount()
 				}
 			});
 		});

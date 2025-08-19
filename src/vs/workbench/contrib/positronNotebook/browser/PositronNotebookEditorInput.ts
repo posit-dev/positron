@@ -16,17 +16,26 @@ import { IInstantiationService } from '../../../../platform/instantiation/common
 import { IContextKeyService } from '../../../../platform/contextkey/common/contextkey.js';
 import { PositronNotebookInstance } from './PositronNotebookInstance.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
-import { ExtUri, joinPath } from '../../../../base/common/resources.js';
+import { ExtUri, joinPath, isEqual } from '../../../../base/common/resources.js';
 import { IFileDialogService } from '../../../../platform/dialogs/common/dialogs.js';
 import { IRuntimeSessionService } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { Schemas } from '../../../../base/common/network.js';
+import { IWorkingCopyIdentifier } from '../../../services/workingCopy/common/workingCopy.js';
 
 /**
- * Mostly empty options object. Based on the same one in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
- * May be filled out later.
+ * Options for Positron notebook editor input, including backup support.
+ * Based on the same interface in `vs/workbench/contrib/notebook/browser/notebookEditorInput.ts`
  */
 export interface PositronNotebookEditorInputOptions {
 	startDirty?: boolean;
+	/**
+	 * backupId for webview - used to restore webview state on reload
+	 */
+	_backupId?: string;
+	/**
+	 * Working copy identifier - used for backup/restore of dirty notebooks
+	 */
+	_workingCopy?: IWorkingCopyIdentifier;
 }
 
 
@@ -172,7 +181,7 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 */
 	override getName(): string {
 		const extUri = new ExtUri(() => false);
-		return extUri.basename(this.resource) ?? localize('positronNotebookInputName', "Positron Notebook");
+		return extUri.basename(this.resource) ?? localize('positron.notebook.inputName', "Positron Notebook");
 	}
 
 	/**
@@ -181,8 +190,13 @@ export class PositronNotebookEditorInput extends EditorInput {
 	 * @returns true if the other input matches this input; otherwise, false.
 	 */
 	override matches(otherInput: EditorInput | IUntypedEditorInput): boolean {
-		return otherInput instanceof PositronNotebookEditorInput &&
-			otherInput.resource.toString() === this.resource.toString();
+		if (super.matches(otherInput)) {
+			return true;
+		}
+		if (otherInput instanceof PositronNotebookEditorInput) {
+			return this.viewType === otherInput.viewType && isEqual(this.resource, otherInput.resource);
+		}
+		return false;
 	}
 
 	/**
@@ -237,8 +251,16 @@ export class PositronNotebookEditorInput extends EditorInput {
 		const suggestedName = extUri.basename(this.resource);
 		const pathCandidate = await this._suggestName(provider, suggestedName);
 
-		// Ask the user where to save the file
-		const target = await this._fileDialogService.pickFileToSave(pathCandidate, options?.availableFileSystems);
+		// Ask the user where to save the file with proper filters
+		const target = await this._fileDialogService.showSaveDialog({
+			title: localize('positron.notebook.saveAs', "Save Notebook As"),
+			defaultUri: pathCandidate,
+			filters: [
+				// This will ensure that the saved file has the .ipynb extension.
+				{ name: localize('positron.notebook.fileType', 'Jupyter Notebook'), extensions: ['ipynb'] }
+			],
+			availableFileSystems: options?.availableFileSystems
+		});
 		if (!target) {
 			return undefined; // save cancelled
 		}
@@ -319,6 +341,15 @@ export class PositronNotebookEditorInput extends EditorInput {
 		return joinPath(await this._fileDialogService.defaultFilePath(), suggestedFilename);
 	}
 
+	override toUntyped(): IUntypedEditorInput {
+		return {
+			resource: this.resource,
+			options: {
+				override: PositronNotebookEditorInput.EditorID
+			}
+		};
+	}
+
 	override async resolve(_options?: IEditorOptions): Promise<IResolvedNotebookEditorModel | null> {
 		this._logService.info(this._identifier, 'resolve');
 
@@ -367,10 +398,6 @@ export class PositronNotebookEditorInput extends EditorInput {
 			this._editorModelReference.object.load();
 		}
 
-		// In the vscode-notebooks there is a logic branch here to handle
-		// cases with a _backupId. Not sure what it does or when it's needed but
-		// am leaving this here as a reminder we skipped something.
-		// if (this.options._backupId) {}
 
 		return this._editorModelReference.object;
 	}
