@@ -656,7 +656,7 @@ function readCookie(name: string): string | undefined {
 					resolvedUri = resolvedUri.with({
 						scheme: resolvedScheme,
 						authority: mainWindow.location.host,
-						path: [mainWindow.location.pathname, renderedTemplate, resolvedUri.path].join('/'),
+						path: posix.join(mainWindow.location.pathname, renderedTemplate, resolvedUri.path),
 					});
 				} else {
 					throw new Error(`Failed to resolve external URI: ${uri.toString()}. Could not determine base url because productConfiguration missing.`);
