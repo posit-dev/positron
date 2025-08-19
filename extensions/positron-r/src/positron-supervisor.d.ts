@@ -224,6 +224,16 @@ export interface PositronSupervisorApi extends vscode.Disposable {
 		sessionMetadata: positron.RuntimeSessionMetadata,
 		dynState: positron.LanguageRuntimeDynState,
 	): Promise<JupyterLanguageRuntimeSession>;
+
+	/**
+	 * The DAP comm class.
+	 *
+	 * Wraps a raw server comm (see `createServerComm()`) and provides an optional
+	 * `handleMessage()` method for the standard DAP messages.
+	 *
+	 * Must be disposed. Disposing closes the comm if not already done.
+	 */
+	readonly DapComm: typeof DapComm;
 }
 
 /** Specific functionality implemented by runtimes */
@@ -241,12 +251,12 @@ export interface JupyterKernelExtra {
  * Raw comm unmanaged by Positron.
  *
  * This type of comm is not mapped to a Positron client. It lives entirely in
- * the extension space and allows private communication between an extension and
- * its kernel.
+ * the extension space and allows a direct line of communication between an
+ * extension and its kernel.
  *
  * It's a disposable. Dispose of it once it's closed or you're no longer using
  * it. If the comm has not already been closed by the kernel, a client-initiated
- * `comm_close` message is emitted.
+ * `comm_close` message is emitted to clean the comm on the backend side.
  */
 export interface RawComm {
 	/** The comm ID. */
@@ -258,24 +268,33 @@ export interface RawComm {
 	/** Send a notification to the backend comm. Returns `false` if comm was closed. */
 	notify: (method: string, params?: Record<string, unknown>) => boolean;
 
-	/** Make a request to the backend comm. Resolves when backend responds. The tuple's
-			* first value indicates whether the comm was closed (and no request was emitted).
-			* The second value is the result if the request was made. */
+	/**
+	 * Make a request to the backend comm.
+	 *
+	 * Resolves when backend responds with a length-2 tuple:
+	 * - A boolean that indicates whether the comm was closed and the request
+	 *   could not be emitted.
+	 * - The result if the request was performed.
+	 */
 	request: (method: string, params?: Record<string, unknown>) => Promise<[boolean, any]>;
 
 	/** Clear resources and sends `comm_close` to backend comm (unless the channel
-			* was closed by the backend already). */
+		* was closed by the backend already). */
 	dispose: () => void;
 }
 
 /**
- * Communication channel. Dispose to close.
+ * Async-iterable receiver channel for comm messages from the backend.
+ * The messages are buffered and must be received as long as the channel is open.
+ * Dispose to close.
  */
 export interface Channel<T> extends AsyncIterable<T>, vscode.Disposable { }
 
-/** Message from the backend.
+/**
+ * Message from the backend.
  *
  * If a request, the `handle` method _must_ be called.
+ * Throw an error from `handle` to reject the request (e.g. if `method` is unknown).
  */
 export type CommBackendMessage =
 	| {
@@ -291,17 +310,91 @@ export type CommBackendMessage =
 	};
 
 /**
- * Interface for DAP communication instances
+ * A Debug Adapter Protocol (DAP) comm.
+ *
+ * This wraps a raw comm that:
+ *
+ * - Implements the server protocol (see `createComm()` and
+ *   `JupyterLanguageRuntimeSession::createServerComm()`).
+ *
+ * - Optionally handles a standard set of DAP comm messages.
  */
-export interface DapCommInterface {
+export class DapComm {
+	/**
+	 * Constructs a new DapComm instance.
+	 *
+	 * @param session The Jupyter language runtime session.
+	 * @param targetName The name of the comm target.
+	 * @param debugType The type of debugger, as required by `vscode.DebugConfiguration.type`.
+	 * @param debugName The name of the debugger, as required by `vscode.DebugConfiguration.name`.
+	 */
+	constructor(
+		session: JupyterLanguageRuntimeSession,
+		targetName: string,
+		debugType: string,
+		debugName: string,
+	);
+
+	/** The `targetName` passed to the constructor. */
 	readonly targetName: string;
+
+	/** The `debugType` passed to the constructor. */
 	readonly debugType: string;
+
+	/** The `debugName` passed to the constructor. */
 	readonly debugName: string;
 
+	/**
+	 * The raw comm for the DAP.
+	 * Use it to receive messages or make notifications and requests.
+	 * Defined after `createServerComm()` has been called.
+	 */
 	readonly comm?: RawComm;
+
+	/**
+	 * The port on which the DAP server is listening.
+	 * Defined after `createServerComm()` has been called.
+	 */
 	readonly serverPort?: number;
 
+	/**
+	 * Crate the raw server comm.
+	 *
+	 * Calls `JupyterLanguageRuntimeSession::createServerComm()`. The backend
+	 * comm handling for `targetName` is expected to start a DAP server and
+	 * communicate the port as part of the handshake.
+	 *
+	 * Once resolved:
+	 * - The DAP is ready to accept connections on the backend side.
+	 * - `comm` and `serverPort` are defined.
+	 */
 	createComm(): Promise<void>;
+
+	/**
+	 * Handle a message received via `this.comm.receiver`.
+	 *
+	 * This is optional. If called, these message types are handled:
+	 *
+	 * - `start_debug`: A debugging session is started from the frontend side,
+	 *   connecting to `this.serverPort`.
+	 *
+	 * - `execute`: A command is visibly executed in the console. Can be used to
+	 *   handle DAP requests like "step" via the console, delegating to the
+	 *   interpreter's own debugging infrastructure.
+	 *
+	 * - `restart`: The console session is restarted. Can be used to handle a
+	 *   restart DAP request on the backend side.
+	 *
+	 * Returns whether the message was handled. Note that if the message was not
+	 * handled, you _must_ check whether the message is a request, and either
+	 * handle or reject it in that case.
+	 */
 	handleMessage(msg: any): boolean;
+
+	/**
+	 * Dispose of the underlying comm.
+	 * Must be called if the DAP comm is no longer in use.
+	 * Closes the comm if not done already.
+	 */
 	dispose(): void;
 }
