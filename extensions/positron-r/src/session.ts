@@ -825,17 +825,19 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	 * sessions by coming online.
 	 */
 	private async startDap(): Promise<void> {
-		if (this._kernel) {
-			try {
-				const api = await supervisorApi();
-
-				this._dapComm = new api.DapComm(this._kernel!, 'ark_dap', 'ark', 'Ark Positron R');
-				await this._dapComm!.createComm();
-
-				this.startDapMessageLoop();
-			} catch (err) {
-				LOGGER.error(`Error starting DAP: ${err}`);
+		try {
+			if (!this._kernel) {
+				throw new Error('Kernel not started');
 			}
+
+			const api = await supervisorApi();
+
+			this._dapComm = new api.DapComm(this._kernel, 'ark_dap', 'ark', 'Ark Positron R');
+			await this._dapComm!.createComm();
+
+			this.startDapMessageLoop();
+		} catch (err) {
+			LOGGER.error(`Error starting DAP: ${err}`);
 		}
 	}
 
