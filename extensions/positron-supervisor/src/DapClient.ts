@@ -69,7 +69,18 @@ export class DapComm {
 					debugServer: this.port,
 					internalConsoleOptions: 'neverOpen',
 				};
-				vscode.debug.startDebugging(undefined, config);
+
+				// Log errors because this sometimes fail at
+				// https://github.com/posit-dev/positron/blob/71686862/src/vs/workbench/contrib/debug/browser/debugService.ts#L361
+				// because `hasDebugged` is undefined.
+				try {
+					vscode.debug.startDebugging(undefined, config);
+				} catch (err) {
+					this.session.emitJupyterLog(
+						`Can't start debug session for DAP server ${this.comm!.id}: ${err}`,
+						vscode.LogLevel.Warning
+					);
+				}
 
 				return true;
 			}
