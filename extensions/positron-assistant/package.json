@@ -34,6 +34,14 @@
           {
             "name": "exportQuarto",
             "description": "%chatParticipants.commands.exportQuarto.description%"
+          },
+          {
+            "name": "fix",
+            "description": "%chatParticipants.commands.fix.description%"
+          },
+          {
+            "name": "explain",
+            "description": "%chatParticipants.commands.explain.description%"
           }
         ],
         "locations": [
@@ -76,6 +84,20 @@
         "isDefault": true,
         "locations": [
           "editor"
+        ],
+        "commands": [
+          {
+            "name": "fix",
+            "description": "%chatParticipants.commands.fix.description%"
+          },
+          {
+            "name": "explain",
+            "description": "%chatParticipants.commands.explain.description%"
+          },
+          {
+            "name": "doc",
+            "description": "%chatParticipants.commands.doc.description%"
+          }
         ]
       },
       {
@@ -167,7 +189,9 @@
             "type": "boolean",
             "default": false,
             "markdownDescription": "%configuration.enable.markdownDescription%",
-            "tags": ["preview"]
+            "tags": [
+              "preview"
+            ]
           },
           "positron.assistant.toolDetails.enable": {
             "type": "boolean",
@@ -186,7 +210,9 @@
           },
           "positron.assistant.inlineCompletionExcludes": {
             "type": "array",
-            "default": ["**/.*"],
+            "default": [
+              "**/.*"
+            ],
             "markdownDescription": "%configuration.inlineCompletionExcludes.description%",
             "items": {
               "type": "string"
@@ -196,7 +222,9 @@
             "type": "boolean",
             "default": false,
             "description": "%configuration.gitIntegration.description%",
-            "tags": ["experimental"]
+            "tags": [
+              "experimental"
+            ]
           },
           "positron.assistant.showTokenUsage.enable": {
             "type": "boolean",
