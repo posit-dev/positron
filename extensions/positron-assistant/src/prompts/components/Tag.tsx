@@ -5,7 +5,7 @@
 
 // Ported from microsoft/vscode-copilot-chat
 
-import { PromptElement, PromptElementProps, TextChunk, useKeepWith } from '@vscode/prompt-tsx';
+import { Chunk, PromptElement, PromptElementProps, TextChunk, useKeepWith } from '@vscode/prompt-tsx';
 
 export type TagProps = PromptElementProps<{
 	name: string;
@@ -58,6 +58,6 @@ export class Tag extends PromptElement<TagProps> {
 
 class TagInner extends PromptElement {
 	render() {
-		return <TextChunk>{this.props.children}</TextChunk>;
+		return <Chunk>{this.props.children}</Chunk>;
 	}
 }
