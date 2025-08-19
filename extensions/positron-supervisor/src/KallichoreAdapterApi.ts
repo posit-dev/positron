@@ -122,9 +122,8 @@ function constructWebSocketUri(apiBasePath: string, sessionId: string): string {
 }
 
 export class KCApi implements PositronSupervisorApi {
-	readonly implementations = {
-		DapComm
-	};
+	/** The DAP comm class */
+	readonly DapComm = DapComm;
 
 	/** The instance of the API; the API is code-generated from the Kallichore
 	 * OpenAPI spec */

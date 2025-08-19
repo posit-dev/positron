@@ -1,0 +1,5 @@
+d-ts:
+  cp src/positron-supervisor.d.ts ../positron-r/src/positron-supervisor.d.ts
+  cp src/positron-supervisor.d.ts ../positron-reticulate/src/positron-supervisor.d.ts
+  cp src/positron-supervisor.d.ts ../positron-python/src/client/positron-supervisor.d.ts
+  npx prettier --config ../positron-python/.prettierrc.js --write ../positron-python/src/client/positron-supervisor.d.ts
