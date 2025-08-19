@@ -473,6 +473,12 @@ export class CodeBlockPart extends Disposable {
 			this.editor.revealRangeInCenter(data.range, ScrollType.Immediate);
 		}
 
+		// --- Start Positron ---
+		// The context needs to update. Possible bug introducted in 1.103.0.
+		// Sending the code to console sometimes truncated the code block.
+		// This adds an event listener to ensure the code block is up to date with the toolbar context
+		// when the Run in Console action executes.
+		/*
 		this.toolbar.context = {
 			code: textModel.getTextBuffer().getValueInRange(data.range ?? textModel.getFullModelRange(), EndOfLinePreference.TextDefined),
 			codeBlockIndex: data.codeBlockIndex,
@@ -481,6 +487,28 @@ export class CodeBlockPart extends Disposable {
 			codemapperUri: data.codemapperUri,
 			chatSessionId: data.chatSessionId
 		} satisfies ICodeBlockActionContext;
+		 */
+
+		const updateToolbarContext = () => {
+			this.toolbar.context = {
+				code: textModel.getTextBuffer().getValueInRange(data.range ?? textModel.getFullModelRange(), EndOfLinePreference.TextDefined),
+				codeBlockIndex: data.codeBlockIndex,
+				element: data.element,
+				languageId: textModel.getLanguageId(),
+				codemapperUri: data.codemapperUri,
+				chatSessionId: data.chatSessionId
+			} satisfies ICodeBlockActionContext;
+		};
+
+		// Set initial context
+		updateToolbarContext();
+
+		// Update context whenever the model content changes
+		this._register(textModel.onDidChangeContent(() => {
+			updateToolbarContext();
+		}));
+		// --- End Positron ---
+
 		this.resourceContextKey.set(textModel.uri);
 	}
 
