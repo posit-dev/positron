@@ -8,7 +8,6 @@ import * as positron from 'positron';
 
 import { PositronSupervisorApi } from './positron-supervisor';
 import { KCApi } from './KallichoreAdapterApi';
-import { DapComm } from './DapComm';
 
 /** Singleton instance of the Kallichore API wrapper */
 export let API_INSTANCE: KCApi;
@@ -25,13 +24,7 @@ export function activate(context: vscode.ExtensionContext): PositronSupervisorAp
 		log.show();
 	}));
 
-	// Create extended API that includes implementations
-	const extendedApi = Object.create(API_INSTANCE);
-	extendedApi.implementations = {
-		DapComm
-	};
-
-	return extendedApi;
+	return API_INSTANCE;
 }
 
 export function deactivate() {

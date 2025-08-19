@@ -8,8 +8,8 @@ import * as positron from 'positron';
 import { JupyterLanguageRuntimeSession, RawComm } from './positron-supervisor';
 
 /**
- * A Debug Adapter Protocol (DAP) client instance; handles messages from the
- * kernel side of the DAP and forwards them to the debug adapter.
+ * A Debug Adapter Protocol (DAP) comm.
+ * See `positron-supervisor.d.ts` for documentation.
  */
 export class DapComm {
 	public get comm(): RawComm | undefined {
@@ -22,10 +22,10 @@ export class DapComm {
 	private _comm?: RawComm;
 	private _port?: number;
 
-	/** Message counter; used for creating unique message IDs */
+	// Message counter used for creating unique message IDs
 	private messageCounter = 0;
 
-	/** Random stem for messages */
+	// Random stem for messages
 	private msgStem: string;
 
 	constructor(
@@ -113,9 +113,6 @@ export class DapComm {
 		}
 	}
 
-	/**
-	 * Dispose of the underlying comm, if present.
-	 */
 	dispose(): void {
 		this._comm?.dispose();
 	}

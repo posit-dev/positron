@@ -7,7 +7,7 @@ import * as positron from 'positron';
 import * as vscode from 'vscode';
 import PQueue from 'p-queue';
 
-import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra, RawComm, DapCommInterface } from './positron-supervisor';
+import { PositronSupervisorApi, JupyterKernelSpec, JupyterLanguageRuntimeSession, JupyterKernelExtra, DapComm } from './positron-supervisor';
 import { ArkLsp, ArkLspState } from './lsp';
 import { delay, whenTimeout, timeout, PromiseHandles } from './util';
 import { ArkAttachOnStartup, ArkDelayStartup } from './startup';
@@ -62,7 +62,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private _kernel?: JupyterLanguageRuntimeSession;
 
 	/** The DAP communication channel */
-	private _dapComm?: DapCommInterface;
+	private _dapComm?: DapComm;
 
 	/** The emitter for language runtime messages */
 	private _messageEmitter =
@@ -842,16 +842,10 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 				}
 
 				const supervisorApi = await supervisorExt.activate();
-				if (!supervisorApi.implementations) {
-					throw new Error('Supervisor API implementations not available');
-				}
-				const dapComm = supervisorApi.implementations.DapComm;
-				if (!dapComm) {
-					throw new Error('DapComm implementation not available');
-				}
 
-				this._dapComm = new dapComm(this._kernel!, 'ark_dap', 'ark', 'Ark Positron R');
+				this._dapComm = new supervisorApi.DapComm(this._kernel!, 'ark_dap', 'ark', 'Ark Positron R');
 				await this._dapComm!.createComm();
+
 				this.startDapMessageLoop();
 			} catch (err) {
 				LOGGER.error(`Error starting DAP: ${err}`);
