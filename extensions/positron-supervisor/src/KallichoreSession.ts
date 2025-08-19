@@ -462,13 +462,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		return `positron-lsp-${this.runtimeMetadata.languageId}-${createUniqueId()}`;
 	}
 
-	/**
-	 * Creates a server communication channel and returns both the comm and the port.
-	 *
-	 * @param target_name The name of the comm target
-	 * @param host The IP address or host name for the server
-	 * @returns A promise that resolves to a tuple of [RawComm, port number]
-	 */
+	/** Create a raw server comm. See `positron-supervisor.d.ts` for documentation. */
 	async createServerComm(target_name: string, host: string): Promise<[RawComm, number]> {
 		this.log(`Starting server comm '${target_name}' for ${host}`);
 		const comm = await this.createComm(target_name, { ip_address: host });
@@ -725,6 +719,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		}
 	}
 
+	/** Create raw comm. See `positron-supervisor.d.ts` for documentation. */
 	async createComm(
 		target_name: string,
 		params: Record<string, unknown> = {},

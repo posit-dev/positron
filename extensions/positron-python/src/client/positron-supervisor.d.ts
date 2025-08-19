@@ -118,24 +118,52 @@ export interface JupyterLanguageRuntimeSession extends positron.LanguageRuntimeS
     createPositronLspClientId(): string;
 
     /**
-     * Creates a server communication channel and returns both the comm and the port.
-     *
-     * @param targetName The name of the comm target
-     * @param host The IP address or host name for the server
-     * @returns A promise that resolves to a tuple of [RawComm, port number]
-     */
-    createServerComm(targetName: string, host: string): Promise<[RawComm, number]>;
-
-    /**
      * Start a raw comm for communication between frontend and backend.
      *
      * Unlike Positron clients, this kind of comm is private to the calling
-     * extension and its kernel.
+     * extension and its kernel. They open a direct line of communication that
+     * lives entirely on the extension host.
+     *
+     * The messages sent over these comms are expected to conform to JSON-RPC:
+     * - The message type is encoded in the `method` field.
+     * - Parameters are optional and encoded as object (named list of
+     *   parameters) in the `params` field.
+     * - If a response is expected, add an `id` field to indicate that this is a
+     *   request. This ID field is redundant with the one used in the Jupyter
+     *   layer but allows applications to make a distinction between notifications
+     *   and requests.
+     *
+     * Responses to requests follow this format:
+     * - `result` or `error` field.
+     * - `id` field corresponding to the request's `id`.
      *
      * @param target_name Comm type, also used to generate comm identifier.
      * @param params Optionally, additional parameters included in `comm_open`.
      */
     createComm(target_name: string, params?: Record<string, unknown>): Promise<RawComm>;
+
+    /**
+     * Create a raw server comm.
+     *
+     * Server comms are a special type of raw comms (see `createComm()`) that
+     * wrap a TCP server (e.g. an LSP or DAP server). The backend is expected to
+     * handle `comm_open` messages for `targetName` comms in the following way:
+     *
+     * - The `comm_open` messages includes an `ip_address` field. The server
+     *   must be started on this addess. The server, and not the client, picks
+     *   the port to prevent race conditions where a port becomes used between
+     *   the time it was picked by the frontend and handled by the backend.
+     *
+     * - Once the server is started at `ip_address` on a port, the backend sends
+     *   back a notification message of type (method) `server_started` that
+     *   includes a field `port`.
+     *
+     * @param targetName The name of the comm target
+     * @param host The IP address or host name for the server
+     * @returns A promise that resolves to a tuple of [RawComm, port number]
+     *   once the server has been started on the backend side.
+     */
+    createServerComm(targetName: string, host: string): Promise<[RawComm, number]>;
 
     /**
      * Method for emitting a message to the language server's Jupyter output
