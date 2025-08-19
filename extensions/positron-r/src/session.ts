@@ -866,7 +866,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 		for await (const message of this._dapComm.comm.receiver) {
 			LOGGER.trace('Received DAP message:', JSON.stringify(message));
 
-			if (!this._dapComm.handleMessage(message)) {
+			if (!await this._dapComm.handleMessage(message)) {
 				LOGGER.info(`Unknown DAP message: ${message.method}`);
 
 				if (message.kind === 'request') {
