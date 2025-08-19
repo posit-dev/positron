@@ -60,7 +60,7 @@ export class RawCommImpl implements vscode.Disposable {
 		};
 
 		const request = new CommMsgRequest(id, commMsg);
-		return [true, this.session.sendRequest(request)];
+		return [true, await this.session.sendRequest(request)];
 	}
 
 	close() {
