@@ -13,7 +13,7 @@ import { Disposable, LanguageRuntimeMessageType } from '../extHostTypes.js';
 import { RuntimeClientState, RuntimeClientType } from './extHostTypes.positron.js';
 import { ExtHostRuntimeClientInstance } from './extHostClientInstance.js';
 import { ExtensionIdentifier, IExtensionDescription } from '../../../../platform/extensions/common/extensions.js';
-import { URI } from '../../../../base/common/uri.js';
+import { isUriComponents, URI } from '../../../../base/common/uri.js';
 import { DeferredPromise } from '../../../../base/common/async.js';
 import { IRuntimeSessionMetadata } from '../../../services/runtimeSession/common/runtimeSessionService.js';
 import { ILogService } from '../../../../platform/log/common/log.js';
@@ -835,6 +835,14 @@ export class ExtHostLanguageRuntime implements extHostProtocol.ExtHostLanguageRu
 			metadata: event.attribution.metadata,
 			source: event.attribution.source as unknown as positron.CodeAttributionSource,
 		};
+
+		// Revive known metadata URIs
+		if (isUriComponents(attribution.metadata?.cell?.uri)) {
+			attribution.metadata.cell.uri = URI.revive(attribution.metadata.cell.uri);
+		}
+		if (isUriComponents(attribution.metadata?.cell?.notebook?.uri)) {
+			attribution.metadata.cell.notebook.uri = URI.revive(attribution.metadata.cell.notebook.uri);
+		}
 
 		// Create the event object
 		const evt: positron.CodeExecutionEvent = {

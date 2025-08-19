@@ -273,8 +273,13 @@ export class RuntimeNotebookKernel extends Disposable implements INotebookKernel
 			attribution: {
 				source: CodeAttributionSource.Notebook,
 				metadata: {
-					notebook: notebook.uri.path,
-				}
+					cell: {
+						uri: cell.uri,
+						notebook: {
+							uri: notebook.uri,
+						},
+					},
+				},
 			},
 			code,
 			languageId: cell.language,

@@ -33,33 +33,6 @@ export class NotebookLocationMapper extends Disposable implements LocationMapper
 		this._register(this._pathEncoder.onDidUpdateOptions(() => {
 			this.refresh();
 		}));
-
-		// TODO: Do we need to update mappings when the notebook changes?
-		//       Probably need to throttle this if so.
-		// When the notebook document changes, update mappings.
-		// this._register(vscode.workspace.onDidChangeNotebookDocument(event => {
-		// 	// Only handle changes for this notebook.
-		// 	if (event.notebook.uri.toString() !== this._notebook.uri.toString()) {
-		// 		return;
-		// 	}
-
-		// 	for (const change of event.contentChanges) {
-		// 		// Add new cells.
-		// 		for (const cell of change.addedCells) {
-		// 			this.add(cell);
-		// 		}
-
-		// 		// Delete removed cells.
-		// 		for (const cell of change.removedCells) {
-		// 			this.delete(cell);
-		// 		}
-		// 	}
-
-		// 	// Update changed cells.
-		// 	for (const change of event.cellChanges) {
-		// 		this.add(change.cell);
-		// 	}
-		// }));
 	}
 
 	/**

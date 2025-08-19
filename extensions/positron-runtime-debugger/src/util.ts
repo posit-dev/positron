@@ -6,7 +6,6 @@
 import * as path from 'path';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { DebugProtocol } from '@vscode/debugprotocol';
 
 /* The descriptor used in each runtime's debugger output channel. */
 const DebuggerOutputChannelDescriptor = vscode.l10n.t('Debugger');
@@ -115,26 +114,6 @@ export class ResourceSetContextKey extends ContextKey<Array<vscode.Uri>> {
 	}
 }
 
-export function formatDebugMessage(message: DebugProtocol.ProtocolMessage): string {
-	switch (message.type) {
-		case 'request': {
-			const request = message as DebugProtocol.Request;
-			return `${request.command} #${request.seq}: ${JSON.stringify(request.arguments)}`;
-		}
-		case 'event': {
-			const event = message as DebugProtocol.Event;
-			return `${event.event}: ${JSON.stringify(event.body)}`;
-		}
-		case 'response': {
-			const response = message as DebugProtocol.Response;
-			return `${response.command} #${response.request_seq}: ${JSON.stringify(response.body)}`;
-		}
-		default: {
-			return `[${message.type}]: ${JSON.stringify(message)}`;
-		}
-	}
-}
-
 export function createDebuggerOutputChannel(runtimeSession: positron.LanguageRuntimeSession): vscode.LogOutputChannel {
 	const runtimeName = runtimeSession.runtimeMetadata.runtimeName;
 	const sessionMode = runtimeSession.metadata.sessionMode;
@@ -147,6 +126,19 @@ export function createDebuggerOutputChannel(runtimeSession: positron.LanguageRun
 	const name = `${runtimeName}: ${DebuggerOutputChannelDescriptor} (${sessionTitle})`;
 	const outputChannel = vscode.window.createOutputChannel(name, { log: true });
 	return outputChannel;
+}
+
+interface LanguageRuntimeMessageTypeMap {
+	[positron.LanguageRuntimeMessageType.DebugEvent]: positron.LanguageRuntimeDebugEvent;
+	[positron.LanguageRuntimeMessageType.DebugReply]: positron.LanguageRuntimeDebugReply;
+	// Add message types as needed...
+}
+
+export function isLanguageRuntimeMessage<T extends keyof LanguageRuntimeMessageTypeMap>(
+	message: positron.LanguageRuntimeMessage,
+	expectedType: T
+): message is LanguageRuntimeMessageTypeMap[T] {
+	return message.type === expectedType;
 }
 
 export function isUriEqual(a: vscode.Uri, b: vscode.Uri): boolean {

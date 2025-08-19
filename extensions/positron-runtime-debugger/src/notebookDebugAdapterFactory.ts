@@ -23,26 +23,27 @@ export class NotebookDebugAdapterFactory extends Disposable implements vscode.De
 	private readonly _debuggedNotebookUris = new ResourceSetContextKey('debuggedNotebooks');
 
 	async createDebugAdapterDescriptor(debugSession: vscode.DebugSession, _executable: vscode.DebugAdapterExecutable): Promise<vscode.DebugAdapterDescriptor | undefined> {
-		const notebookUri = vscode.Uri.parse(debugSession.configuration.__notebookUri, true);
+		// NOTE: Errors thrown here are displayed to the user in a modal.
 
+		const notebookUri = vscode.Uri.parse(debugSession.configuration.__notebookUri, true);
 		if (this._debuggedNotebookUris.has(notebookUri)) {
-			throw new Error(`Notebook is already being debugged: ${notebookUri}`);
+			throw new Error(vscode.l10n.t('Unexpected error: Notebook {0} is already being debugged', notebookUri.toString()));
 		}
 
 		const notebook = vscode.workspace.notebookDocuments.find((doc) => isUriEqual(doc.uri, notebookUri));
 		if (!notebook) {
-			throw new Error(`Notebook not found: ${notebookUri}`);
+			throw new Error(vscode.l10n.t('Unexpected error: Notebook {0} not found', notebookUri.toString()));
 		}
 
 		const cellUri = vscode.Uri.parse(debugSession.configuration.__cellUri, true);
 		const cell = notebook.getCells().find((cell) => isUriEqual(cell.document.uri, cellUri));
 		if (!cell) {
-			throw new Error(`Cell not found: ${cellUri}`);
+			throw new Error(vscode.l10n.t('Unexpected error: Cell {0} not found', cellUri.toString()));
 		}
 
 		const runtimeSession = await getNotebookSession(notebookUri);
 		if (!runtimeSession) {
-			throw new Error(`No active runtime session found for notebook: ${notebook.uri}`);
+			throw new Error(vscode.l10n.t('Unexpected error: No active runtime session found for notebook {0}', notebook.uri.toString()));
 		}
 
 		// Create the debug adapter and its components.

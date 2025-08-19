@@ -6,7 +6,8 @@ import { DebugProtocol } from '@vscode/debugprotocol';
 import * as positron from 'positron';
 import * as vscode from 'vscode';
 import { DebugInfoArguments, DebugInfoResponseBody, DumpCellArguments, DumpCellResponseBody } from './jupyterDebugProtocol.js';
-import { Disposable, formatDebugMessage } from './util.js';
+import { Disposable, isLanguageRuntimeMessage } from './util.js';
+import { assertDebugMessage, formatDebugMessage, isDebugRequest } from './debugProtocol.js';
 import { DebugProtocolTransformer } from './debugProtocolTransformer.js';
 import { LocationMapper } from './locationMapper.js';
 import { PathEncoder } from './pathEncoder.js';
@@ -80,12 +81,10 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 
 		// Forward debug messages from the runtime to the client.
 		this._register(this._runtimeSession.onDidReceiveRuntimeMessage(async (runtimeMessage) => {
-			switch (runtimeMessage.type) {
-				case positron.LanguageRuntimeMessageType.DebugEvent:
-					await this.handleRuntimeDebugEvent(runtimeMessage as positron.LanguageRuntimeDebugEvent);
-					break;
-				// NOTE: Language runtimes currently do not support receiving debug request messages,
-				//       and we handle replies directly in `handleMessage`.
+			// NOTE: Language runtimes currently do not support receiving debug request messages,
+			//       and we handle replies directly in `handleMessage`.
+			if (isLanguageRuntimeMessage(runtimeMessage, positron.LanguageRuntimeMessageType.DebugEvent)) {
+				await this.handleRuntimeDebugEvent(runtimeMessage);
 			}
 		}));
 
@@ -104,15 +103,15 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 
 	/* Handles debug events from the runtime. */
 	private async handleRuntimeDebugEvent(event: positron.LanguageRuntimeDebugEvent): Promise<void> {
-		const debugEvent = event.content as DebugProtocol.Event;
+		assertDebugMessage(event.content, 'event', this._log, '[adapter]');
 
 		// When the debugger is initialized, restore the debug state before forwarding to client.
-		if (debugEvent.event === 'initialized') {
+		if (event.content.event === 'initialized') {
 			await this.restoreState();
 		}
 
 		// Forward debug events to the client.
-		this.sendMessage(debugEvent);
+		this.sendMessage(event.content);
 	}
 
 	/* Restores debug state when reconnecting to a runtime. */
@@ -143,7 +142,7 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 		try {
 			return this._runtimeToClientTransformer.transform(runtimeMessage);
 		} catch (error) {
-			this._log.error(`[adapter] Error transforming message: ${formatDebugMessage(runtimeMessage as DebugProtocol.ProtocolMessage)}`, error);
+			this._log.error(`[adapter] Error transforming message: ${formatDebugMessage(runtimeMessage)}`, error);
 		}
 		return runtimeMessage;
 	}
@@ -167,20 +166,18 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 			return;
 		}
 
-		const clientRequest = clientMessage as DebugProtocol.Request;
-		this.handleMessageAsync(clientRequest).catch((error) => {
-			this._log.error(`[adapter] Error handling message: ${formatDebugMessage(clientRequest)}`, error);
+		assertDebugMessage(clientMessage, 'request', this._log, '[adapter]');
+
+		this.handleMessageAsync(clientMessage).catch((error) => {
+			this._log.error(`[adapter] Error handling message: ${formatDebugMessage(clientMessage)}`, error);
 		});
 	}
 
 	private async handleMessageAsync(clientRequest: DebugProtocol.Request): Promise<void> {
 		// Certain requests (e.g. setBreakpoints) require a plaintext source file rather than a custom file
 		// format (e.g. ipynb). Try to create a source file in those cases.
-		if (clientRequest.command === 'setBreakpoints') {
-			const setBreakpointsRequest = clientRequest as DebugProtocol.SetBreakpointsRequest;
-			if (setBreakpointsRequest.arguments.source.path) {
-				await this.createSourceFile(setBreakpointsRequest.arguments.source.path);
-			}
+		if (isDebugRequest(clientRequest, 'setBreakpoints') && clientRequest.arguments.source.path) {
+			await this.createSourceFile(clientRequest.arguments.source.path);
 		}
 
 		// Send the request to the runtime.
@@ -188,9 +185,11 @@ export class RuntimeDebugAdapter extends Disposable implements vscode.DebugAdapt
 		this._log.debug(`[runtime] <<< RECV ${formatDebugMessage(runtimeRequest)}`);
 		let runtimeResponse: DebugProtocol.Response;
 		try {
-			runtimeResponse = await this._runtimeSession.debug(runtimeRequest) as DebugProtocol.Response;
+			const response = await this._runtimeSession.debug(runtimeRequest);
+			assertDebugMessage(response, 'response', this._log, '[adapter]');
+			runtimeResponse = response;
 		} catch (error) {
-			if (clientRequest.command === 'initialize') {
+			if (isDebugRequest(clientRequest, 'initialize')) {
 				// Assume that the runtime does not support the Jupyter debug protocol.
 				throw new Error(`Runtime does not support Jupyter debug protocol: ${formatDebugMessage(clientRequest)}`);
 			}

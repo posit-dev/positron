@@ -37,7 +37,8 @@ export class DebugCellController extends Disposable {
 		// Track the runtime execution ID when the cell is first executed.
 		const execute = this._register(positron.runtime.onDidExecuteCode((event) => {
 			if (event.attribution.source === positron.CodeAttributionSource.Notebook &&
-				event.attribution.metadata?.notebook === this._cell.notebook.uri.fsPath) {
+				event.attribution.metadata?.cell?.uri !== undefined &&
+				isUriEqual(event.attribution.metadata.cell.uri, this._cell.document.uri)) {
 				execute.dispose();
 				this._executionId = event.executionId;
 			}
