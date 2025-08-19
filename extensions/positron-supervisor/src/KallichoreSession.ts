@@ -776,7 +776,6 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		// client-initiated creation
 		if (type === positron.RuntimeClientType.Variables ||
 			type === positron.RuntimeClientType.Lsp ||
-			type === positron.RuntimeClientType.Dap ||
 			type === positron.RuntimeClientType.Ui ||
 			type === positron.RuntimeClientType.Help ||
 			type === positron.RuntimeClientType.IPyWidgetControl) {
@@ -1952,6 +1951,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					comm.dispose();
 					return;
 				}
+
 				break;
 			}
 
@@ -1976,7 +1976,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 			}
 		}
 
-		// TODO: Make LSP comms unmanaged
+		// TODO: Make LSP comms unmanaged and remove this branch
 		if (msg.header.msg_type === 'comm_msg') {
 			const commMsg = msg.content as JupyterCommMsg;
 			// If this is a `server_started` message, resolve the promise that
