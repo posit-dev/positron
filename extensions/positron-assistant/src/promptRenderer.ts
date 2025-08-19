@@ -117,8 +117,9 @@ export class PromptRenderer {
 
 			return rendered;
 		} catch (error) {
-			console.error('Error rendering prompt:', error);
-			throw new Error(`Failed to render prompt: ${error}`);
+			const msg = `Failed to render ${ctor.name} with props ${JSON.stringify(props)}: ${error}`;
+			console.error(msg);
+			throw new Error(msg);
 		}
 	}
 
