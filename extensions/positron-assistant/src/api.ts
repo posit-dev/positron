@@ -7,6 +7,12 @@ import * as vscode from 'vscode';
 import { PromptElement } from '@vscode/prompt-tsx';
 import { PositronAssistant } from './prompts/components/content/PositronAssistant.js';
 
+/**
+ * This is the API exposed by Positron Assistant to other extensions.
+ *
+ * It's used by the Copilot Chat extension to get a Positron Assistant prompt
+ * element for embedding in Copilot prompts.
+ */
 export class PositronAssistantApi {
 	/**
 	 * Generates assistant prompt content.
