@@ -35,25 +35,6 @@ export interface JupyterKernel {
 }
 
 /**
- * Message sent from the frontend requesting a server to start
- */
-export interface ServerStartMessage {
-    /** The IP address or host name on which the client is listening for server requests. The server is
-     * in charge of picking the exact port to communicate over, since the server is the
-     * one that binds to the port (to prevent race conditions).
-     */
-    host: string;
-}
-
-/**
- * Message sent to the frontend to acknowledge that the corresponding server has started
- */
-export interface ServerStartedMessage {
-    /** The port that the frontend should connect to on the `ip_address` it sent over */
-    port: number;
-}
-
-/**
  * This set of type definitions defines the interfaces used by the Positron
  * Supervisor extension.
  */
@@ -287,7 +268,7 @@ export interface RawComm {
     id: string;
 
     /** Async-iterable for messages sent from backend. */
-    receiver: Channel<CommBackendMessage>;
+    receiver: ReceiverChannel<CommBackendMessage>;
 
     /** Send a notification to the backend comm. Returns `false` if comm was closed. */
     notify: (method: string, params?: Record<string, unknown>) => boolean;
@@ -312,7 +293,7 @@ export interface RawComm {
  * The messages are buffered and must be received as long as the channel is open.
  * Dispose to close.
  */
-export interface Channel<T> extends AsyncIterable<T>, vscode.Disposable {}
+export interface ReceiverChannel<T> extends AsyncIterable<T>, vscode.Disposable {}
 
 /**
  * Message from the backend.
