@@ -31,7 +31,6 @@ import { IConfigurationResolverService } from '../../configurationResolver/commo
 import { IWorkspaceContextService } from '../../../../platform/workspace/common/workspace.js';
 import { NotebookSetting } from '../../../contrib/notebook/common/notebookCommon.js';
 import { IFileService } from '../../../../platform/files/common/files.js';
-import { dirname } from '../../../../base/common/path.js';
 
 /**
  * The maximum number of active sessions a user can have running at a time.
@@ -406,12 +405,12 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		try {
 			const stat = await this._fileService.stat(uri);
 			if (!stat.isDirectory) {
-				this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri.fsPath}' exists but is not a directory`);
+				this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri}' exists but is not a directory`);
 				return false;
 			}
 			return true;
 		} catch (error) {
-			this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri.fsPath}' does not exist or is not accessible:`, error);
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Path '${uri}' does not exist or is not accessible:`, error);
 			return false;
 		}
 	}
@@ -427,9 +426,9 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 	private async resolveNotebookWorkingDirectory(notebookUri: URI): Promise<string | undefined> {
 		// The default value is the notebook's parent directory, if it exists.
 		let defaultValue: string | undefined;
-		const notebookParent = dirname(notebookUri.fsPath);
-		if (await this.isValidDirectory(notebookUri.with({ path: notebookParent }))) {
-			defaultValue = notebookParent;
+		const notebookParent = URI.joinPath(notebookUri, '..');
+		if (await this.isValidDirectory(notebookParent)) {
+			defaultValue = notebookParent.fsPath;
 		}
 
 		const configValue = this._configurationService.getValue<string>(
@@ -453,10 +452,18 @@ export class RuntimeSessionService extends Disposable implements IRuntimeSession
 		}
 
 		// Check if the result is a directory that exists
-		if (await this.isValidDirectory(notebookUri.with({ path: resolvedValue }))) {
+		let resolvedValueUri: URI;
+		try {
+			resolvedValueUri = notebookUri.with({ path: resolvedValue });
+		} catch (error) {
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Invalid path '${resolvedValue}'. Using default: '${defaultValue}'`, error);
+			return defaultValue;
+		}
+		if (await this.isValidDirectory(resolvedValueUri)) {
 			this._logService.info(`${NotebookSetting.workingDirectory}: Resolved '${configValue}' to '${resolvedValue}'`);
 			return resolvedValue;
 		} else {
+			this._logService.warn(`${NotebookSetting.workingDirectory}: Using default value '${defaultValue}'`);
 			return defaultValue;
 		}
 	}
