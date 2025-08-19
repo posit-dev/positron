@@ -100,8 +100,8 @@ export class EditorActionBar {
 
 	// --- Actions ---
 
-	async clickConvertToCodeButton() {
-		await this.workbench.editorActionBar.clickButton('Convert to Code');
+	async clickButton(buttonLabel: 'Convert to Code' | 'Clear Column Sorting' | 'Open as Plain Text File'): Promise<void> {
+		await this.workbench.editorActionBar.clickButton(buttonLabel);
 	}
 
 	// --- Verifications ---

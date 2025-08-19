@@ -107,7 +107,7 @@ test.describe('Data Explorer: Convert to Code', { tag: [tags.WIN, tags.DATA_EXPL
 			await dataExplorer.filters.add('is_student', 'is false');                     // Charlie only
 
 			// copy code and verify result is accurate
-			await dataExplorer.editorActionBar.clickConvertToCodeButton();
+			await dataExplorer.editorActionBar.clickButton('Convert to Code');
 			await modals.expectButtonToBeVisible(expectedCodeStyle.toLowerCase());
 			await dataExplorer.convertToCodeModal.expectToBeVisible();
 
