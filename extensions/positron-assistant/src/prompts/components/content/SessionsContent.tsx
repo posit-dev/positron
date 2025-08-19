@@ -6,7 +6,8 @@
 import {
 	AssistantMessage,
 	BasePromptElementProps,
-	PromptElement
+	PromptElement,
+	TextChunk
 } from '@vscode/prompt-tsx';
 import { Session, SessionData } from './Session';
 
@@ -23,9 +24,11 @@ export class SessionsContent extends PromptElement<SessionsContentProps> {
 
 		return (
 			<AssistantMessage>
+				<TextChunk>
 				The user has attached information about their interactive
 				interpreter session below. This session is running alongside the
 				conversation with you in the Positron IDE.
+				</TextChunk>
 
 				{sessions.map((session) => (
 					<Session session={session} />
