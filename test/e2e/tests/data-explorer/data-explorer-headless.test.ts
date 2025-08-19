@@ -50,16 +50,16 @@ test.describe('Headless Data Explorer', {
 			await editors.verifyTab(file.split('/').pop()!, { isVisible: true, isSelected: true });
 
 			// verify can copy data to clipboard
-			await dataExplorer.clickCell(0, 0);
+			await dataExplorer.grid.clickCell(0, 0);
 			await clipboard.copy();
 			await clipboard.expectClipboardTextToBe(copyValue);
 
 			// verify all data loads
-			await dataExplorer.clickLowerRightCorner();
-			await dataExplorer.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
+			await dataExplorer.grid.clickLowerRightCorner();
+			await dataExplorer.grid.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
 			// verify action bar has correct buttons
-			await dataExplorer.expectActionBarToHaveButton('Open as Plain Text File', file.endsWith('.csv') || file.endsWith('.tsv'));
+			await dataExplorer.editorActionBar.expectToHaveButton('Open as Plain Text File', file.endsWith('.csv') || file.endsWith('.tsv'));
 		});
 	});
 
@@ -71,8 +71,8 @@ test.describe('Headless Data Explorer', {
 				await openDataFile(join(`data-files/flights/${file}`));
 				await editors.verifyTab(file, { isVisible: true, isSelected: true });
 
-				await dataExplorer.expectActionBarToHaveButton('Open as Plain Text File', true);
-				await dataExplorer.verifyCanOpenAsPlaintext(searchString);
+				await dataExplorer.editorActionBar.expectToHaveButton('Open as Plain Text File', true);
+				await dataExplorer.editorActionBar.verifyCanOpenAsPlaintext(searchString);
 			});
 	});
 
@@ -83,13 +83,13 @@ test.describe('Headless Data Explorer', {
 		await editors.verifyTab('decimal_types.parquet', { isVisible: true, isSelected: true });
 
 		// verify can copy data to clipboard
-		await dataExplorer.clickCell(0, 0);
+		await dataExplorer.grid.clickCell(0, 0);
 		await clipboard.copy();
 		await clipboard.expectClipboardTextToBe('123456789012345.678');
 
 		// verify all data loads
-		await dataExplorer.clickLowerRightCorner();
-		await dataExplorer.expectLastCellContentToBe('decimal_no_scale', '5555555555', -2);
+		await dataExplorer.grid.clickLowerRightCorner();
+		await dataExplorer.grid.expectLastCellContentToBe('decimal_no_scale', '5555555555', -2);
 	});
 });
 

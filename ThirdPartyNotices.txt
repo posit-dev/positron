@@ -4186,3 +4186,8 @@ Apache Spark and its logo are trademarks of The Apache Software Foundation.
 https://spark.apache.org/trademarks.html
 ---------------------------------------------------------
 
+---------------------------------------------------------
+The DuckDB trademarks, service marks, and graphics marks are held by the Dutch Stichting DuckDB Foundation (“hereinafter: the DuckDB Foundation”).
+
+https://duckdb.org/trademark_guidelines.html
+---------------------------------------------------------

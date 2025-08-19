@@ -227,15 +227,25 @@ export const test = base.extend<TestFixtures & CurrentsFixtures, WorkerFixtures 
 					const quickInputOption = app.workbench.quickInput.quickInputResult.getByText(folderName);
 
 					// Ensure we are ready to select the next folder
-					await playwright.expect(async () => {
-						try {
-							await playwright.expect(quickInputOption).toBeVisible({ timeout: 2000 });
-						} catch (error) {
-							await app.code.driver.page.keyboard.press('PageDown');
-							throw error;
-						}
+					const timeoutMs = 30000;
+					const retryInterval = 2000;
+					const maxRetries = Math.ceil(timeoutMs / retryInterval);
 
-					}).toPass({ timeout: 30000 });
+					for (let i = 0; i < maxRetries; i++) {
+						try {
+							await playwright.expect(quickInputOption).toBeVisible({ timeout: retryInterval });
+							// Success — exit loop
+							break;
+						} catch (error) {
+							// Press PageDown if not found
+							await app.code.driver.page.keyboard.press('PageDown');
+
+							// If last attempt, rethrow
+							if (i === maxRetries - 1) {
+								throw error;
+							}
+						}
+					}
 
 					await app.workbench.quickInput.quickInput.pressSequentially(folderName + '/');
 
