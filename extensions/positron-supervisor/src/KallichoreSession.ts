@@ -150,7 +150,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 	private readonly _clients: Map<string, Comm> = new Map();
 
 	/** A map of active comms unmanaged by Positron */
-	private readonly _comms: Map<string, [RawComm, Sender<CommBackendMessage>]> = new Map();
+	private readonly _rawComms: Map<string, [RawComm, Sender<CommBackendMessage>]> = new Map();
 
 	/** The kernel's log file, if any. */
 	private _kernelLogFile: string | undefined;
@@ -733,14 +733,14 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 		const [tx, rx] = channel<CommBackendMessage>();
 		const comm = new RawCommImpl(id, this, rx);
-		this._comms.set(id, [comm, tx]);
+		this._rawComms.set(id, [comm, tx]);
 
 		// Disposal handler that allows extension to initiate close comm
 		comm.register({
 			dispose: () => {
 				// If already deleted, it means a `comm_close` from the backend was
 				// received and we don't need to send one.
-				if (this._comms.delete(id)) {
+				if (this._rawComms.delete(id)) {
 					comm.closeAndNotify();
 				}
 			}
@@ -815,11 +815,17 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		const comms = reply.comms;
 		// Unwrap the comm info and add it to the result
 		for (const key in comms) {
+			// Don't list as client if this is an unmanaged comm
+			if (this._rawComms.has(key)) {
+				continue;
+			}
+
 			if (comms.hasOwnProperty(key)) {
 				const target = comms[key].target_name;
 				result[key] = target;
 				// If we don't have a comm object for this comm, create one
 				if (!this._clients.has(key)) {
+					// Should this be renamed to Client?
 					this._clients.set(key, new Comm(key, target));
 				}
 
@@ -1778,12 +1784,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		this._clients.clear();
 
 		// Close all raw comms
-		for (const [comm, tx] of this._comms.values()) {
+		for (const [comm, tx] of this._rawComms.values()) {
 			// Don't dispose of comm, this resource is owned by caller of `createComm()`.
 			(comm as RawCommImpl).close();
 			tx.dispose();
 		}
-		this._comms.clear();
+		this._rawComms.clear();
 
 		// Clear any starting comms
 		this._startingComms.forEach((promise) => {
@@ -1903,7 +1909,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 					// promise.
 					if (msg.header.msg_type === 'comm_msg') {
 						const commMsg = msg.content as JupyterCommMsg;
-						if (this._comms.has(commMsg.comm_id)) {
+						if (this._rawComms.has(commMsg.comm_id)) {
 							return;
 						}
 					}
@@ -1935,12 +1941,12 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 		switch (msg.header.msg_type) {
 			case 'comm_close': {
 				const closeMsg = msg.content as JupyterCommClose;
-				const commHandle = this._comms.get(closeMsg.comm_id);
+				const commHandle = this._rawComms.get(closeMsg.comm_id);
 
 				if (commHandle) {
 					// Delete first, this prevents the channel disposable from sending a
 					// `comm_close` back
-					this._comms.delete(closeMsg.comm_id);
+					this._rawComms.delete(closeMsg.comm_id);
 
 					const [comm, _] = commHandle;
 					comm.dispose();
@@ -1951,7 +1957,7 @@ export class KallichoreSession implements JupyterLanguageRuntimeSession {
 
 			case 'comm_msg': {
 				const commMsg = msg.content as JupyterCommMsg;
-				const commHandle = this._comms.get(commMsg.comm_id);
+				const commHandle = this._rawComms.get(commMsg.comm_id);
 
 				if (commHandle) {
 					const [_, tx] = commHandle;
