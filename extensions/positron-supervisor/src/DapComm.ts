@@ -51,7 +51,7 @@ export class DapComm {
 		this._port = serverPort;
 	}
 
-	handleMessage(msg: any): boolean {
+	async handleMessage(msg: any): Promise<boolean> {
 		if (msg.kind === 'request') {
 			return false;
 		}
@@ -74,7 +74,7 @@ export class DapComm {
 				// https://github.com/posit-dev/positron/blob/71686862/src/vs/workbench/contrib/debug/browser/debugService.ts#L361
 				// because `hasDebugged` is undefined.
 				try {
-					vscode.debug.startDebugging(undefined, config);
+					await vscode.debug.startDebugging(undefined, config);
 				} catch (err) {
 					this.session.emitJupyterLog(
 						`Can't start debug session for DAP server ${this.comm!.id}: ${err}`,
@@ -103,7 +103,7 @@ export class DapComm {
 
 			// We use the restart button as a shortcut for restarting the runtime
 			case 'restart': {
-				this.session.restart();
+				await this.session.restart();
 				return true;
 			}
 
