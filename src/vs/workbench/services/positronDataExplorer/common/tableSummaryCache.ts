@@ -20,6 +20,7 @@ const SMALL_HISTOGRAM_NUM_BINS = 80;
 const LARGE_HISTOGRAM_NUM_BINS = 200;
 const SMALL_FREQUENCY_TABLE_LIMIT = 8;
 const LARGE_FREQUENCY_TABLE_LIMIT = 16;
+const UPDATE_EVENT_DEBOUNCE_DELAY = 50;
 
 /**
  * UpdateDescriptor interface.
@@ -51,6 +52,11 @@ export class TableSummaryCache extends Disposable {
 	 * Gets or sets the trim cache timeout.
 	 */
 	private _trimCacheTimeout?: Timeout;
+
+	/**
+	 * Gets or sets the debounced update event timeout.
+	 */
+	private _debouncedUpdateTimeout?: Timeout;
 
 	/**
 	 * The search text used to filter the dataset in the column schema
@@ -125,6 +131,9 @@ export class TableSummaryCache extends Disposable {
 	public override dispose(): void {
 		// Clear the trim cache timeout.
 		this.clearTrimCacheTimeout();
+
+		// Clear the debounced update timeout.
+		this.clearDebouncedUpdateTimeout();
 
 		// Call the base class's dispose method.
 		super.dispose();
@@ -465,8 +474,8 @@ export class TableSummaryCache extends Disposable {
 						if (results.length > 0) {
 							this._columnProfileCache.set(columnIndex, results[0]);
 						}
-						// Fire the onDidUpdate event immediately
-						this._onDidUpdateEmitter.fire();
+						// Fire the onDidUpdate event with debouncing for smoother updates
+						this.fireOnDidUpdateDebounced();
 						return results;
 					})
 					.catch(error => {
@@ -545,6 +554,31 @@ export class TableSummaryCache extends Disposable {
 			clearTimeout(this._trimCacheTimeout);
 			this._trimCacheTimeout = undefined;
 		}
+	}
+
+	/**
+	 * Clears the debounced update timeout.
+	 */
+	private clearDebouncedUpdateTimeout() {
+		// If there is a debounced update timeout scheduled, clear it.
+		if (this._debouncedUpdateTimeout) {
+			clearTimeout(this._debouncedUpdateTimeout);
+			this._debouncedUpdateTimeout = undefined;
+		}
+	}
+
+	/**
+	 * Fires the onDidUpdate event with debouncing to smooth incremental updates.
+	 */
+	private fireOnDidUpdateDebounced() {
+		// Clear any existing debounced update timeout.
+		this.clearDebouncedUpdateTimeout();
+
+		// Set a new debounced update timeout.
+		this._debouncedUpdateTimeout = setTimeout(() => {
+			this._debouncedUpdateTimeout = undefined;
+			this._onDidUpdateEmitter.fire();
+		}, UPDATE_EVENT_DEBOUNCE_DELAY);
 	}
 
 	/**
