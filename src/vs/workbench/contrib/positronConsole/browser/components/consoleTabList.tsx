@@ -64,6 +64,9 @@ const ConsoleTab = ({ positronConsoleInstance, width, onChangeSession }: Console
 				}
 			})
 		);
+
+		// Return cleanup function to dispose of the store when effect cleans up.
+		return () => disposableStore.dispose();
 	}, [services.runtimeSessionService, positronConsoleInstance.sessionId])
 
 	/**

@@ -80,7 +80,16 @@ jobs:
       E2E_CONNECT_APIKEY: ${{ secrets.E2E_CONNECT_APIKEY}}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
+
+      # - name: Load secret
+      #   uses: 1password/load-secrets-action@v3
+      #   with:
+      #     # Export loaded secrets as environment variables
+      #     export-env: true
+      #   env:
+      #     OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
+      #     ANTHROPIC: "op://Positron/Anthropic/credential"
 
       - name: Set screen resolution
         shell: pwsh
@@ -106,7 +115,7 @@ jobs:
           npm_config_arch: x64
           PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: 1
           ELECTRON_SKIP_BINARY_DOWNLOAD: 1
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         shell: pwsh
         # nvm on windows does not see .nvmrc
         #

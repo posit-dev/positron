@@ -234,6 +234,11 @@ export class Notebooks {
 
 	async selectCellAtIndex(cellIndex: number): Promise<void> {
 		await test.step(`Select cell at index: ${cellIndex}`, async () => {
+			if (cellIndex === 0) {
+				for (let i = 0; i < 5; i++) {
+					await this.code.driver.page.keyboard.press('ArrowUp');
+				}
+			}
 			await this.code.driver.page.locator(CELL_LINE).nth(cellIndex).click();
 		});
 	}

@@ -84,10 +84,11 @@ class DataExplorerRuntime extends Disposable {
 				const dataExplorerClientInstance = new DataExplorerClientInstance(commInstance);
 				this._register(dataExplorerClientInstance);
 
-				// Add the onDidClose event handler on the DataExplorerClientInstance,
-				dataExplorerClientInstance.onDidClose(() => {
+				// Register the onDidClose event handler on the DataExplorerClientInstance
+				// so that we can clean up the instance when it is closed.
+				this._register(dataExplorerClientInstance.onDidClose(() => {
 					this._onDidCloseDataExplorerClientEmitter.fire(dataExplorerClientInstance);
-				});
+				}));
 
 				// Raise the onDidOpenDataExplorerClient event.
 				this._onDidOpenDataExplorerClientEmitter.fire(dataExplorerClientInstance);

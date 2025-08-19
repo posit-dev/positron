@@ -27,7 +27,7 @@ import { PositronDataExplorerUri } from '../../../services/positronDataExplorer/
 import { IPositronDataExplorerService, PositronDataExplorerLayout } from '../../../services/positronDataExplorer/browser/interfaces/positronDataExplorerService.js';
 import { PositronDataExplorerEditorInput } from './positronDataExplorerEditorInput.js';
 import { PositronDataExplorerClosed, PositronDataExplorerClosedStatus } from '../../../browser/positronDataExplorer/components/dataExplorerClosed/positronDataExplorerClosed.js';
-import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
+import { POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE, POSITRON_DATA_EXPLORER_IS_COLUMN_SORTING, POSITRON_DATA_EXPLORER_IS_CONVERT_TO_CODE_ENABLED, POSITRON_DATA_EXPLORER_IS_PLAINTEXT, POSITRON_DATA_EXPLORER_IS_ROW_FILTERING, POSITRON_DATA_EXPLORER_LAYOUT } from './positronDataExplorerContextKeys.js';
 import { checkDataExplorerConvertToCodeEnabled, DATA_EXPLORER_CONVERT_TO_CODE } from '../../../services/positronDataExplorer/common/positronDataExplorerConvertToCodeConfig.js';
 import { IConfigurationService } from '../../../../platform/configuration/common/configuration.js';
 import { SupportStatus } from '../../../services/languageRuntime/common/positronDataExplorerComm.js';
@@ -105,6 +105,11 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 	 * Gets the code syntaxes available context key.
 	 */
 	private readonly _codeSyntaxesAvailableContextKey: IContextKey<boolean>;
+
+	/**
+	 * Gets the is row filtering context key.
+	 */
+	private readonly _isRowFilteringContextKey: IContextKey<boolean>;
 
 	/**
 	 * The onSizeChanged event emitter.
@@ -249,12 +254,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 		this._codeSyntaxesAvailableContextKey = POSITRON_DATA_EXPLORER_CODE_SYNTAXES_AVAILABLE.bindTo(
 			this._group.scopedContextKeyService
 		);
-
-		// Set the convert to code context key based on the configuration value.
-		this._isConvertToCodeEnabledContextKey.set(
-			checkDataExplorerConvertToCodeEnabled(this._configurationService)
+		this._isRowFilteringContextKey = POSITRON_DATA_EXPLORER_IS_ROW_FILTERING.bindTo(
+			this._group.scopedContextKeyService
 		);
-
 
 		// Listen for configuration changes to the convert to code setting and update the context key accordingly.
 		this._register(this._configurationService.onDidChangeConfiguration(event => {
@@ -356,9 +358,10 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					}
 					// set context keys for convert to code and code syntaxes availability
 					const convertToCode = backendState.supported_features.convert_to_code;
-					if (backendState.supported_features.convert_to_code.support_status === SupportStatus.Unsupported) {
-						this._isConvertToCodeEnabledContextKey.set(false);
-					}
+
+					this._isConvertToCodeEnabledContextKey.set((
+						convertToCode.support_status === SupportStatus.Supported) && checkDataExplorerConvertToCodeEnabled(this._configurationService)
+					);
 					this._codeSyntaxesAvailableContextKey.set(
 						!!(convertToCode.code_syntaxes && convertToCode.code_syntaxes.length > 0)
 					);
@@ -370,6 +373,9 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 				);
 				this._isColumnSortingContextKey.set(
 					positronDataExplorerInstance.tableDataDataGridInstance.isColumnSorting
+				);
+				this._isRowFilteringContextKey.set(
+					(positronDataExplorerInstance.dataExplorerClientInstance?.cachedBackendState?.row_filters?.length ?? 0) > 0
 				);
 
 				const uri = PositronDataExplorerUri.backingUri(input.resource);
@@ -407,6 +413,14 @@ export class PositronDataExplorerEditor extends EditorPane implements IPositronD
 					positronDataExplorerInstance.onDidChangeColumnSorting(isColumnSorting =>
 						this._isColumnSortingContextKey.set(isColumnSorting)
 					)
+				);
+
+				// Add the onDidUpdateBackendState event handler to track row filters.
+				this._positronReactRenderer.register(
+					positronDataExplorerInstance.dataExplorerClientInstance.onDidUpdateBackendState(state => {
+						// Set the row filtering context key based on whether there are any filters
+						this._isRowFilteringContextKey.set(state.row_filters.length > 0);
+					})
 				);
 			} else {
 				this._positronReactRenderer.render(
