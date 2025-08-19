@@ -13,7 +13,10 @@ export type TagProps = PromptElementProps<{
 }>;
 
 /**
- * Represents a custom tag in the prompt.
+ * Represents a custom tag in the prompt. This is a convenient way to include
+ * structured data in the prompt.
+ *
+ * <Tag name="example">foo</Tag> renders to <example>foo</example>.
  */
 export class Tag extends PromptElement<TagProps> {
 

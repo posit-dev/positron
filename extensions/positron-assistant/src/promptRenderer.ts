@@ -9,9 +9,9 @@ import {
 	BasePromptElementProps,
 	IChatEndpointInfo,
 	renderElementJSON,
-	RenderPromptResult
 } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
+import { log } from './extension.js';
 
 /**
  * Simple stringify function for PromptElementJSON
@@ -118,7 +118,7 @@ export class PromptRenderer {
 			return rendered;
 		} catch (error) {
 			const msg = `Failed to render ${ctor.name} with props ${JSON.stringify(props)}: ${error}`;
-			console.error(msg);
+			log.error(msg);
 			throw new Error(msg);
 		}
 	}
@@ -153,7 +153,7 @@ export class PromptRenderer {
 				const tokenSource = new vscode.CancellationTokenSource();
 
 				// Add some debugging to catch the issue before it hits the tokenizer
-				console.log('About to call renderPrompt with:', { ctor: ctor.name, props });
+				log.trace('About to call renderPrompt with:', { ctor: ctor.name, props });
 
 				const result = await renderPrompt(
 					ctor,
@@ -164,7 +164,7 @@ export class PromptRenderer {
 					tokenSource.token
 				);
 
-				console.log('renderPrompt completed successfully. Messages:', result.messages);
+				log.trace('renderPrompt completed successfully. Messages:', result.messages);
 
 				// Extract system messages and combine them
 				const systemMessages = result.messages
@@ -188,7 +188,7 @@ export class PromptRenderer {
 
 				return systemPrompt;
 			} catch (renderError) {
-				console.error('renderPrompt failed, falling back to renderElementJSON:', renderError);
+				log.error('renderPrompt failed, falling back to renderElementJSON:', renderError);
 
 				// Fallback to renderElementJSON
 				const tokenSource = new vscode.CancellationTokenSource();
@@ -208,7 +208,7 @@ export class PromptRenderer {
 				return systemPrompt;
 			}
 		} catch (error) {
-			console.error('Error rendering system prompt:', error);
+			log.error('Error rendering system prompt:', error);
 			throw new Error(`Failed to render system prompt: ${error}`);
 		}
 	}
@@ -282,7 +282,7 @@ export class PromptRenderer {
 
 			return content;
 		} catch (error) {
-			console.error('Error rendering prompt to content:', error);
+			log.error('Error rendering prompt to content:', error);
 			throw new Error(`Failed to render prompt to content: ${error}`);
 		}
 	}
