@@ -15,6 +15,8 @@ import { Barrier, PromiseHandles, withTimeout } from './async';
 import { LogStreamer } from './LogStreamer';
 import { createUniqueId, summarizeError, summarizeHttpError } from './util';
 import { namedPipeInterceptor } from './NamedPipeHttpAgent';
+import { DapComm } from './DapComm';
+
 
 const KALLICHORE_STATE_KEY = 'positron-supervisor.v2';
 
@@ -118,8 +120,6 @@ function constructWebSocketUri(apiBasePath: string, sessionId: string): string {
 	// For TCP connections, use the standard ws:// format
 	return `ws://${uri.authority}/sessions/${sessionId}/channels`;
 }
-
-import { DapComm } from './DapClient';
 
 export class KCApi implements PositronSupervisorApi {
 	readonly implementations = {
