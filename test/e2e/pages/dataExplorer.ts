@@ -3,7 +3,6 @@
  *  Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
  *--------------------------------------------------------------------------------------------*/
 
-
 import test, { expect, Locator } from '@playwright/test';
 import { Code } from '../infra/code';
 import { Workbench } from '../infra/workbench';
@@ -25,26 +24,39 @@ const PROFILE_LABELS = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowN
 const PROFILE_VALUES = (rowNumber: number) => `${DATA_GRID_ROW}:nth-child(${rowNumber}) .column-profile-info .value`;
 
 
-/*
- *  Reuseable Positron data explorer functionality for tests to leverage.
- */
 export class DataExplorer {
 	statusBar: Locator;
 	private idleStatus: Locator;
 	private _filters: Filters;
+	private _editorActionBar: EditorActionBar;
 	private _dataGrid: DataGrid;
 	private _convertToCodeModal: ConvertToCodeModal;
 	private _summaryPanel: SummaryPanel;
 
-
 	constructor(private code: Code, private workbench: Workbench) {
 		this._filters = new Filters(this.code);
+		this._editorActionBar = new EditorActionBar(this.code, this.workbench);
 		this._dataGrid = new DataGrid(this.code, this);
 		this._convertToCodeModal = new ConvertToCodeModal(this.code, this.workbench);
 		this._summaryPanel = new SummaryPanel(this.code, this.workbench);
 		this.statusBar = this.code.driver.page.locator(STATUS_BAR);
 		this.idleStatus = this.code.driver.page.locator('.status-bar-indicator .icon.idle');
 	}
+
+	// --- Actions ---
+
+	async maximize(hideSummaryPanel: boolean = false): Promise<void> {
+		await this.workbench.hotKeys.stackedLayout();
+		await this.workbench.hotKeys.closeSecondarySidebar();
+		await this.workbench.hotKeys.closePrimarySidebar();
+		await this.workbench.hotKeys.toggleBottomPanel();
+
+		if (hideSummaryPanel) {
+			await this.summaryPanel.hide();
+		}
+	}
+
+	// --- Verifications ---
 
 	async waitForIdle(timeout = 60000): Promise<void> {
 		await test.step('Wait for data grid to be idle', async () => {
@@ -58,7 +70,42 @@ export class DataExplorer {
 		});
 	}
 
-	async expectActionBarToHaveButton(buttonName: string, isVisible: boolean = true) {
+	get filters(): Filters {
+		return this._filters;
+	}
+
+	get editorActionBar(): EditorActionBar {
+		return this._editorActionBar;
+	}
+
+	get grid(): DataGrid {
+		return this._dataGrid;
+	}
+
+	get convertToCodeModal(): ConvertToCodeModal {
+		return this._convertToCodeModal;
+	}
+
+	get summaryPanel(): SummaryPanel {
+		return this._summaryPanel;
+	}
+}
+
+// -----------------------
+//    Editor Action Bar
+// -----------------------
+export class EditorActionBar {
+
+	constructor(private code: Code, private workbench: Workbench) { }
+
+	// --- Actions ---
+
+	async clickConvertToCodeButton() {
+		await this.workbench.editorActionBar.clickButton('Convert to Code');
+	}
+
+	// --- Verifications ---
+	async expectToHaveButton(buttonName: string, isVisible: boolean = true) {
 		await test.step(`Expect action bar to have button: ${buttonName}`, async () => {
 			const button = this.code.driver.page.getByRole('button', { name: buttonName });
 			if (isVisible) {
@@ -83,36 +130,6 @@ export class DataExplorer {
 		await expect(this.code.driver.page.getByText(searchString, { exact: true })).toBeVisible();
 	}
 
-	async maximize(hideSummaryPanel: boolean = false): Promise<void> {
-		await this.workbench.hotKeys.stackedLayout();
-		await this.workbench.hotKeys.closeSecondarySidebar();
-		await this.workbench.hotKeys.closePrimarySidebar();
-		await this.workbench.hotKeys.toggleBottomPanel();
-
-		if (hideSummaryPanel) {
-			await this.summaryPanel.hide();
-		}
-	}
-
-	async clickConvertToCodeButton() {
-		await this.workbench.editorActionBar.clickButton('Convert to Code');
-	}
-
-	get filters(): Filters {
-		return this._filters;
-	}
-
-	get grid(): DataGrid {
-		return this._dataGrid;
-	}
-
-	get convertToCodeModal(): ConvertToCodeModal {
-		return this._convertToCodeModal;
-	}
-
-	get summaryPanel(): SummaryPanel {
-		return this._summaryPanel;
-	}
 }
 
 // -------------------
@@ -141,14 +158,7 @@ export class Filters {
 		// this.menuItemClearFilters = this.code.driver.page.getByRole('button', { name: 'Clear Filters' });
 	}
 
-	async clearAll() {
-		if (await this.clearSortingButton.isVisible() && await this.clearSortingButton.isEnabled()) {
-			await this.clearSortingButton.click();
-		}
-		if (await this.clearFilterButton.isVisible()) {
-			await this.clearFilterButton.click();
-		}
-	}
+	// --- Actions ---
 
 	/*
 	 * Add a filter to the data explorer.  Only works for a single filter at the moment.
@@ -173,6 +183,15 @@ export class Filters {
 			await this.applyFilterButton.click();
 		});
 	}
+
+	async clearAll() {
+		if (await this.clearSortingButton.isVisible() && await this.clearSortingButton.isEnabled()) {
+			await this.clearSortingButton.click();
+		}
+		if (await this.clearFilterButton.isVisible()) {
+			await this.clearFilterButton.click();
+		}
+	}
 }
 
 // -------------------
@@ -189,6 +208,8 @@ export class DataGrid {
 		this.statusBar = this.code.driver.page.locator('.data-explorer .status-bar');
 	}
 
+	// --- Actions ---
+
 	async jumpToStart(): Promise<void> {
 		if (process.platform === 'darwin') {
 			await this.code.driver.page.keyboard.press('Meta+Home');
@@ -196,6 +217,30 @@ export class DataGrid {
 			await this.code.driver.page.keyboard.press('Control+Home');
 		}
 	}
+
+	async clickLowerRightCorner() {
+		await this.code.driver.page.locator(SCROLLBAR_LOWER_RIGHT_CORNER).click();
+	}
+
+	async clickUpperLeftCorner() {
+		await this.code.driver.page.locator(DATA_GRID_TOP_LEFT).click();
+	}
+
+	async sortColumnBy(columnIndex: number, sortBy: string) {
+		await test.step(`Sort column ${columnIndex} by: ${sortBy}`, async () => {
+			await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
+			await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text('${sortBy}')`).click();
+		});
+	}
+
+	async clickCell(rowIndex: number, columnIndex: number) {
+		await test.step(`Click cell at row ${rowIndex}, column ${columnIndex}`, async () => {
+			const cellLocator = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`);
+			await cellLocator.click();
+		});
+	}
+
+	// --- Getters ---
 
 	async getRowCount(): Promise<number> {
 		const statusText = await this.statusBar.innerText();
@@ -213,21 +258,6 @@ export class DataGrid {
 			return parseInt(match[1].replace(/,/g, ''), 10);
 		}
 		return 0;
-	}
-
-	async clickLowerRightCorner() {
-		await this.code.driver.page.locator(SCROLLBAR_LOWER_RIGHT_CORNER).click();
-	}
-
-	async clickUpperLeftCorner() {
-		await this.code.driver.page.locator(DATA_GRID_TOP_LEFT).click();
-	}
-
-	async sortColumnBy(columnIndex: number, sortBy: string) {
-		await test.step(`Sort column ${columnIndex} by: ${sortBy}`, async () => {
-			await this.code.driver.page.locator(`.data-grid-column-header:nth-child(${columnIndex}) .sort-button`).click();
-			await this.code.driver.page.locator(`.positron-modal-overlay div.title:has-text('${sortBy}')`).click();
-		});
 	}
 
 	async getData(): Promise<object[]> {
@@ -266,6 +296,8 @@ export class DataGrid {
 		return await headersLocator.allInnerTexts();
 	}
 
+	// --- Verifications ---
+
 	async verifyColumnHeaders(expectedHeaders: string[]) {
 		await test.step('Verify column headers', async () => {
 			const actualHeaders = await this.getColumnHeaders();
@@ -293,13 +325,6 @@ export class DataGrid {
 					expect(rowData[key]).toBe(value);
 				}
 			}).toPass({ timeout: 60000 });
-		});
-	}
-
-	async clickCell(rowIndex: number, columnIndex: number) {
-		await test.step(`Click cell at row ${rowIndex}, column ${columnIndex}`, async () => {
-			const cellLocator = this.code.driver.page.locator(`${DATA_GRID_ROWS} ${DATA_GRID_ROW}:nth-child(${rowIndex + 1}) > div:nth-child(${columnIndex + 1})`);
-			await cellLocator.click();
 		});
 	}
 
@@ -331,6 +356,8 @@ export class DataGrid {
 		});
 	}
 
+	// --- Utils ---
+
 	private normalize(value: unknown): string {
 		const str = String(value).trim().toUpperCase();
 
@@ -358,15 +385,31 @@ export class SummaryPanel {
 	private searchFilter: Locator;
 	private sortFilter: Locator;
 	private columnSummary: Locator;
+	private columnSummaryName: Locator;
+	private actionBar: Locator;
+	private clearColumnSortingButton: Locator;
 	private verticalScrollbar: Locator;
 
-	constructor(private code: Code, private workbench: Workbench) {
+	constructor(private code: Code, private workbench: Workbench,) {
 		this.summaryPanel = this.code.driver.page.locator('.data-explorer .left-column');
 		this.summaryFilterBar = this.summaryPanel.locator('.summary-row-filter-bar');
 		this.searchFilter = this.summaryFilterBar.getByRole('textbox', { name: 'filter' });
 		this.sortFilter = this.summaryFilterBar.getByRole('button', { name: 'Sort summary row data' });
 		this.columnSummary = this.summaryPanel.locator('.column-summary');
+		this.columnSummaryName = this.columnSummary.locator('.column-name');
+		this.actionBar = this.code.driver.page.locator('.editor-action-bar');
+		this.clearColumnSortingButton = this.actionBar.getByRole('button', { name: 'Clear Column Sorting' });
 		this.verticalScrollbar = this.summaryPanel.locator('div.data-grid-scrollbar-slider');
+	}
+
+	// --- Actions ---
+
+	async hide(): Promise<void> {
+		await this.workbench.hotKeys.hideDataExplorerSummaryPanel();
+	}
+
+	async show(): Promise<void> {
+		await this.workbench.hotKeys.showDataExplorerSummaryPanel();
 	}
 
 	async search(filterText: string) {
@@ -393,25 +436,17 @@ export class SummaryPanel {
 		});
 	}
 
-	async expectSortToBeBy(sortBy: ColumnSort) {
-		await test.step('Verify sort order in summary panel', async () => {
-			await expect(this.sortFilter).toHaveText(`Sort by ${sortBy}`);
+	async clearSort() {
+		await test.step('Clear sort in summary panel', async () => {
+			await this.clearColumnSortingButton.click();
 		});
 	}
 
-	async expectColumnCountToBe(count: number) {
-		await test.step('Verify column count in summary panel', async () => {
-			await expect(this.columnSummary).toHaveCount(count);
-		});
+	async expandColumnProfile(rowNumber = 0): Promise<void> {
+		await this.code.driver.page.locator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
 	}
 
-	async expectScrollbarToBeVisible(visible = true) {
-		await test.step(`Verify vertical scrollbar: ${visible ? 'visible' : 'not visible'}`, async () => {
-			visible
-				? await expect(this.verticalScrollbar).toBeVisible({ timeout: 5000 })
-				: await expect(this.verticalScrollbar).not.toBeVisible({ timeout: 5000 });
-		});
-	}
+	// --- Getters ---
 
 	async getColumnMissingPercent(rowNumber: number): Promise<string> {
 		const row = this.code.driver.page.locator(MISSING_PERCENT(rowNumber));
@@ -470,16 +505,50 @@ export class SummaryPanel {
 
 	}
 
-	async expandColumnProfile(rowNumber = 0): Promise<void> {
-		await this.code.driver.page.locator(EXPAND_COLLASPE_ICON).nth(rowNumber).click();
+	// --- Verifications ---
+
+	async expectSortToBeBy(sortBy: ColumnSort) {
+		await test.step('Verify sort order in summary panel', async () => {
+			await expect(this.sortFilter).toHaveText(`Sort by ${sortBy}`);
+		});
 	}
 
-	async hide(): Promise<void> {
-		await this.workbench.hotKeys.hideDataExplorerSummaryPanel();
+	async expectColumnCountToBe(count: number) {
+		await test.step('Verify column count in summary panel', async () => {
+			await expect(this.columnSummary).toHaveCount(count);
+		});
 	}
 
-	async show(): Promise<void> {
-		await this.workbench.hotKeys.showDataExplorerSummaryPanel();
+	async expectColumnNameToBe(columnProfileIndex: number, expectedName: string) {
+		await test.step(`Verify column ${columnProfileIndex} name is "${expectedName}"`, async () => {
+			const columnName = this.columnSummaryName.nth(columnProfileIndex);
+			await expect(columnName).toHaveText(expectedName);
+		});
+	}
+
+	async expectColumnOrderToBe(columnNames: string[]) {
+		await test.step('Verify column order in summary panel', async () => {
+			const actualOrder = await this.columnSummaryName.allInnerTexts();
+			expect(actualOrder).toEqual(columnNames);
+		});
+	}
+
+	async expectColumnToBe({ index, name, expanded }: { index: number; name: string; expanded: boolean }) {
+		await test.step(`Expect col [${index}] to be: "${name}", ${expanded ? 'expanded' : 'collapsed'}`, async () => {
+			expanded
+				? await this.expectColumnProfileToBeExpanded(index)
+				: await this.expectColumnProfileToBeCollapsed(index);
+
+			await this.expectColumnNameToBe(index, name);
+		});
+	}
+
+	async expectScrollbarToBeVisible(visible = true) {
+		await test.step(`Verify vertical scrollbar: ${visible ? 'visible' : 'not visible'}`, async () => {
+			visible
+				? await expect(this.verticalScrollbar).toBeVisible({ timeout: 5000 })
+				: await expect(this.verticalScrollbar).not.toBeVisible({ timeout: 5000 });
+		});
 	}
 
 	async verifyMissingPercent(expectedValues: Array<{ column: number; expected: string }>) {
@@ -495,17 +564,29 @@ export class SummaryPanel {
 		await this.expectColumnSummaryIndexExpansion(columnProfileIndex, 'expanded');
 	}
 
-	async expectColumnToBeCollapsed(columnProfileIndex: number) {
+	async expectColumnProfileToBeCollapsed(columnProfileIndex: number) {
 		await this.expectColumnSummaryIndexExpansion(columnProfileIndex, 'collapsed');
 	}
 
 	private async expectColumnSummaryIndexExpansion(columnProfileIndex: number, expansion: 'expanded' | 'collapsed') {
 		await test.step(`Verify column ${columnProfileIndex} is ${expansion}`, async () => {
-			const column = this.code.driver.page.locator('.column-summary').nth(columnProfileIndex);
+
+			// Verify chevron direction
+			const column = this.columnSummary.nth(columnProfileIndex);
 			if (expansion === 'expanded') {
-				await expect(column.locator('.codicon-chevron-down')).toBeVisible();
+				await expect(column.locator('.codicon-chevron-down'), 'column should have down chevron').toBeVisible();
 			} else {
-				await expect(column.locator('.codicon-chevron-right')).toBeVisible();
+				await expect(column.locator('.codicon-chevron-right'), 'column should have right chevron').toBeVisible();
+			}
+
+			// Verify expansion
+			const box = await column.boundingBox();
+			expect(box).not.toBeNull();
+
+			if (expansion === 'expanded') {
+				expect(box!.height, 'column should be expanded vertically').toBeGreaterThan(100);
+			} else {
+				expect(box!.height, 'column should be collapsed vertically').toBeLessThan(100);
 			}
 		});
 	}
@@ -567,6 +648,18 @@ export class ConvertToCodeModal {
 		this.codeBox = this.code.driver.page.locator('.positron-modal-dialog-box .convert-to-code-editor');
 	}
 
+	// --- Actions ---
+
+	async clickOK() {
+		await this.workbench.modals.clickButton('Copy Code');
+	}
+
+	async clickCancel() {
+		await this.workbench.modals.clickButton('Cancel');
+	}
+
+	// --- Verifications ---
+
 	async expectToBeVisible() {
 		await test.step('Verify convert to code modal is visible', async () => {
 			await expect(this.codeBox).toBeVisible();
@@ -591,14 +684,6 @@ export class ConvertToCodeModal {
 			const bracketHighlightingCount = await this.code.driver.page.locator('[class*="bracket-highlighting-"]').count();
 			expect(bracketHighlightingCount).toBeGreaterThan(0);
 		});
-	}
-
-	async clickOK() {
-		await this.workbench.modals.clickButton('Copy Code');
-	}
-
-	async clickCancel() {
-		await this.workbench.modals.clickButton('Cancel');
 	}
 }
 

@@ -59,7 +59,7 @@ test.describe('Headless Data Explorer', {
 			await dataExplorer.grid.expectLastCellContentToBe('time_hour', LAST_CELL_CONTENTS);
 
 			// verify action bar has correct buttons
-			await dataExplorer.expectActionBarToHaveButton('Open as Plain Text File', file.endsWith('.csv') || file.endsWith('.tsv'));
+			await dataExplorer.editorActionBar.expectToHaveButton('Open as Plain Text File', file.endsWith('.csv') || file.endsWith('.tsv'));
 		});
 	});
 
@@ -71,8 +71,8 @@ test.describe('Headless Data Explorer', {
 				await openDataFile(join(`data-files/flights/${file}`));
 				await editors.verifyTab(file, { isVisible: true, isSelected: true });
 
-				await dataExplorer.expectActionBarToHaveButton('Open as Plain Text File', true);
-				await dataExplorer.verifyCanOpenAsPlaintext(searchString);
+				await dataExplorer.editorActionBar.expectToHaveButton('Open as Plain Text File', true);
+				await dataExplorer.editorActionBar.verifyCanOpenAsPlaintext(searchString);
 			});
 	});
 
