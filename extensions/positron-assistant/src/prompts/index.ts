@@ -23,6 +23,3 @@ export { AgentPrompt } from './participants/AgentPrompt';
 export { TerminalPrompt } from './participants/TerminalPrompt';
 export { EditorPrompt } from './participants/EditorPrompt';
 export { UnifiedPrompt } from './participants/UnifiedPrompt';
-
-// Integration helpers
-export { getChatSystemPrompt, getAgentSystemPrompt } from '../integration/promptTsxIntegration';
