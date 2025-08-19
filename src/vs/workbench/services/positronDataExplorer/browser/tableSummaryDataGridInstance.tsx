@@ -420,6 +420,31 @@ export class TableSummaryDataGridInstance extends DataGridInstance {
 	}
 
 	/**
+	 * Checks if the current dataset is considered large (> 10M rows).
+	 * @returns True if the dataset has more than 10 million rows, false otherwise.
+	 */
+	isLargeDataset(): boolean {
+		return this._tableSummaryCache.isLargeDataset();
+	}
+
+	/**
+	 * Checks if a sparkline has been manually requested for the given column.
+	 * @param columnIndex The column index.
+	 * @returns True if the sparkline has been requested, false otherwise.
+	 */
+	isSparklineRequested(columnIndex: number): boolean {
+		return this._tableSummaryCache.isSparklineRequested(columnIndex);
+	}
+
+	/**
+	 * Requests a sparkline for the given column.
+	 * @param columnIndex The column index.
+	 */
+	async requestSparkline(columnIndex: number): Promise<void> {
+		await this._tableSummaryCache.requestSparkline(columnIndex);
+	}
+
+	/**
 	 * Sets the column name search filter.
 	 * @param searchText The search text used to filter column names (case insensitive).
 	 */
