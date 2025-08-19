@@ -13,7 +13,7 @@ import { MARKDOWN_DIR, TOOL_TAG_REQUIRES_ACTIVE_SESSION, TOOL_TAG_REQUIRES_WORKS
 import { isChatImageMimeType, isTextEditRequest, isWorkspaceOpen, languageModelCacheBreakpointPart, toLanguageModelChatMessage, uriToString } from './utils';
 import { EXPORT_QUARTO_COMMAND, quartoHandler } from './commands/quarto';
 import { ContextInfo, PositronAssistantToolName } from './types.js';
-import { PromptRenderer, ChatPrompt, AgentPrompt, TerminalPrompt, EditorPrompt, AttachmentsContent, SessionsContent, FollowupsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, DefaultContent, EditorContent, FilepathsContent, type AttachmentData, type SessionData, type IHistorySummaryEntry } from './prompts';
+import { PromptRenderer, UnifiedPrompt, AttachmentsContent, SessionsContent, FollowupsContent, EditorStreamingContent, SelectionStreamingContent, SelectionContent, DefaultContent, EditorContent, FilepathsContent, type AttachmentData, type SessionData, type IHistorySummaryEntry } from './prompts';
 import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
@@ -193,8 +193,8 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		response: vscode.ChatResponseStream,
 		token: vscode.CancellationToken,
 	) {
-		// Get system prompt for this participant
-		const system = await this.getSystemPrompt(request);
+		// Render system prompt inline based on participant type
+		const system = await this.renderSystemPromptForParticipant(request);
 
 		// Get the IDE context for the request.
 		const positronContext = await positron.ai.getPositronChatContext(request);
@@ -356,7 +356,102 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 		};
 	}
 
-	protected abstract getSystemPrompt(request: vscode.ChatRequest): Promise<string>;
+	private async renderSystemPromptForParticipant(request: vscode.ChatRequest): Promise<string> {
+		// Determine participant-specific props
+		const participantType = this.getParticipantType();
+		const props = await this.getUnifiedPromptProps(request, participantType);
+
+		try {
+			return await PromptRenderer.renderSystemPrompt(
+				UnifiedPrompt,
+				props,
+				request.model,
+				this.getCacheKey(request, participantType)
+			);
+		} catch (error) {
+			console.error('Error rendering system prompt:', error);
+			return '';
+		}
+	}
+
+	private getParticipantType(): 'chat' | 'agent' | 'terminal' | 'editor' | 'edit' {
+		switch (this.id) {
+			case ParticipantID.Chat:
+				return 'chat';
+			case ParticipantID.Agent:
+				return 'agent';
+			case ParticipantID.Terminal:
+				return 'terminal';
+			case ParticipantID.Editor:
+			case ParticipantID.Notebook:
+				return 'editor';
+			case ParticipantID.Edit:
+				return 'edit';
+			default:
+				return 'chat'; // fallback
+		}
+	}
+
+	private async getUnifiedPromptProps(request: vscode.ChatRequest, participantType: 'chat' | 'agent' | 'terminal' | 'editor' | 'edit') {
+		const baseProps = {
+			participantType,
+			priority: 100
+		};
+
+		switch (participantType) {
+			case 'chat':
+			case 'agent':
+			case 'edit':
+				const activeSessions = await this.getActiveSessionLanguages();
+				const languageInstructions = await this.getActiveSessionLanguageInstructions();
+				return {
+					...baseProps,
+					includeFilepaths: participantType === 'chat' || participantType === 'edit',
+					activeSessions,
+					languageInstructions,
+				};
+
+			case 'editor':
+				if (!isTextEditRequest(request)) {
+					throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
+				}
+				const document = request.location2.document;
+				const selection = request.location2.selection;
+				const fileExtension = path.extname(document.uri.fsPath).substring(1);
+				const isTextEdit = !selection.isEmpty;
+				return {
+					...baseProps,
+					isTextEdit,
+					fileExtension,
+				};
+
+			case 'terminal':
+			default:
+				return baseProps;
+		}
+	}
+
+	private getCacheKey(request: vscode.ChatRequest, participantType: string): string {
+		switch (participantType) {
+			case 'chat':
+			case 'agent':
+			case 'edit':
+				// Include session info in cache key for these types
+				return `${participantType}-prompt-${Date.now()}`; // Simple cache key for now
+			case 'editor':
+				if (isTextEditRequest(request)) {
+					const document = request.location2.document;
+					const selection = request.location2.selection;
+					const fileExtension = path.extname(document.uri.fsPath).substring(1);
+					const isTextEdit = !selection.isEmpty;
+					return `editor-prompt-${isTextEdit ? 'selection' : 'document'}-${fileExtension}`;
+				}
+				return 'editor-prompt';
+			case 'terminal':
+			default:
+				return `${participantType}-prompt`;
+		}
+	}
 
 	private async getContextInfo(
 		request: vscode.ChatRequest,
@@ -779,107 +874,28 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 export class PositronAssistantChatParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Chat;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const activeSessions = await this.getActiveSessionLanguages();
-		const languageInstructions = await this.getActiveSessionLanguageInstructions();
 
-		try {
-			return await PromptRenderer.renderSystemPrompt(
-				ChatPrompt,
-				{
-					includeFilepaths: true,
-					activeSessions,
-					languageInstructions,
-					priority: 100
-				},
-				request.model,
-				`chat-prompt-${activeSessions.join('-')}-${Array.from(languageInstructions.keys()).join('-')}`
-			);
-		} catch (error) {
-			console.error('Error getting system prompt:', error);
-			return '';
-		}
-	}
 }
 
 /** The participant used in the chat pane in Agent mode. */
 export class PositronAssistantAgentParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Agent;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		const activeSessions = await this.getActiveSessionLanguages();
-		const languageInstructions = await this.getActiveSessionLanguageInstructions();
 
-		try {
-			return await PromptRenderer.renderSystemPrompt(
-				AgentPrompt,
-				{
-					activeSessions,
-					languageInstructions,
-					priority: 100
-				},
-				request.model,
-				`agent-prompt-${activeSessions.join('-')}-${Array.from(languageInstructions.keys()).join('-')}`
-			);
-		} catch (error) {
-			console.error('Error getting system prompt:', error);
-			return '';
-		}
-	}
 }
 
 /** The participant used in terminal inline chats. */
 class PositronAssistantTerminalParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Terminal;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		try {
-			return await PromptRenderer.renderSystemPrompt(
-				TerminalPrompt,
-				{
-					priority: 100
-				},
-				request.model,
-				'terminal-prompt'
-			);
-		} catch (error) {
-			console.error('Error getting system prompt:', error);
-			return '';
-		}
-	}
+
 }
 
 /** The participant used in editor inline chats. */
 export class PositronAssistantEditorParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Editor;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		if (!isTextEditRequest(request)) {
-			throw new Error(`Editor participant only supports editor requests. Got: ${typeof request.location2}`);
-		}
 
-		// Determine the editing mode and file context
-		const document = request.location2.document;
-		const selection = request.location2.selection;
-		const fileExtension = path.extname(document.uri.fsPath).substring(1);
-		const isTextEdit = !selection.isEmpty;
-
-		try {
-			return await PromptRenderer.renderSystemPrompt(
-				EditorPrompt,
-				{
-					isTextEdit,
-					fileExtension,
-					priority: 100
-				},
-				request.model,
-				`editor-prompt-${isTextEdit ? 'selection' : 'document'}-${fileExtension}`
-			);
-		} catch (error) {
-			console.error('Error getting system prompt:', error);
-			return '';
-		}
-	}
 
 	async getCustomPrompt(request: vscode.ChatRequest): Promise<string> {
 		if (!isTextEditRequest(request)) {
@@ -929,23 +945,7 @@ class PositronAssistantNotebookParticipant extends PositronAssistantEditorPartic
 class PositronAssistantEditParticipant extends PositronAssistantParticipant implements IPositronAssistantParticipant {
 	id = ParticipantID.Edit;
 
-	protected override async getSystemPrompt(request: vscode.ChatRequest): Promise<string> {
-		try {
-			return await PromptRenderer.renderSystemPrompt(
-				ChatPrompt,
-				{
-					includeFilepaths: true,
-					activeSessions: [],
-					priority: 100
-				},
-				request.model,
-				'edit-prompt'
-			);
-		} catch (error) {
-			console.error('Error getting system prompt:', error);
-			return '';
-		}
-	}
+
 }
 
 export function registerParticipants(context: vscode.ExtensionContext) {

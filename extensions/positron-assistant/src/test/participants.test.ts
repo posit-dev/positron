@@ -117,8 +117,8 @@ suite('PositronAssistantParticipant', () => {
 		// FIXED: Mock positron runtime sessions and system prompts to work with new TSX-based prompt system
 		// These mocks bypass the TSX rendering complexities while still testing the core functionality
 		sinon.stub(positron.runtime, 'getActiveSessions').resolves([]);
-		sinon.stub(chatParticipant, 'getSystemPrompt' as any).resolves('You are Positron Assistant, a helpful AI coding assistant.');
-		sinon.stub(editorParticipant, 'getSystemPrompt' as any).resolves('You are Positron Assistant editor, a helpful AI coding assistant for code editing.');
+		sinon.stub(chatParticipant, 'renderSystemPromptForParticipant' as any).resolves('You are Positron Assistant, a helpful AI coding assistant.');
+		sinon.stub(editorParticipant, 'renderSystemPromptForParticipant' as any).resolves('You are Positron Assistant editor, a helpful AI coding assistant for code editing.');
 	});
 
 	teardown(() => {
