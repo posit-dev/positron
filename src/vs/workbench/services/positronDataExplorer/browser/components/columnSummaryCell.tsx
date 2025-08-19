@@ -279,23 +279,23 @@ export const ColumnSummaryCell = (props: ColumnSummaryCellProps) => {
 			if (nullPercent === undefined || nullCount === undefined) {
 				return nls.localize(
 					'positron.missingValues.calculating',
-					'Missing Values\nCalculating...'
+					'Calculating...'
 				);
 			} else if (nullPercent === 0) {
 				return nls.localize(
 					'positron.missingValues.none',
-					'Missing Values\nNo missing values'
+					'No missing values'
 				);
 			} else if (nullPercent === 100) {
 				return nls.localize(
 					'positron.missingValues.all',
-					'Missing Values\nAll values are missing ({0} values)', nullCount.toLocaleString()
+					'All values are missing ({0} values)', nullCount.toLocaleString()
 				);
 			} else {
 				// Format percentage for tooltip
 				return nls.localize(
 					'positron.missingValues.some',
-					'Missing Values\n{0} of values are missing ({1} values)',
+					'{0} of values are missing ({1} values)',
 					getDisplayNullPercent(),
 					nullCount.toLocaleString()
 				);

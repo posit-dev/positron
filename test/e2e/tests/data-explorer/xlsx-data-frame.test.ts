@@ -29,8 +29,8 @@ test.describe('Data Explorer - XLSX', {
 		await editors.verifyTab('Data: df', { isVisible: true });
 
 		await hotKeys.closeSecondarySidebar();
-		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
-		const visibleTableData = await dataExplorer.getDataExplorerTableData();
+		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
+		const visibleTableData = await dataExplorer.grid.getData();
 		const firstRow = visibleTableData.at(0);
 		expect(firstRow!['Invoice ID']).toBe('898-04-2717');
 	});
@@ -45,8 +45,8 @@ test.describe('Data Explorer - XLSX', {
 		await editors.verifyTab('Data: df2', { isVisible: true });
 
 		await hotKeys.closeSecondarySidebar();
-		await dataExplorer.selectColumnMenuItem(1, 'Sort Descending');
-		const visibleTableData = await dataExplorer.getDataExplorerTableData();
+		await dataExplorer.grid.sortColumnBy(1, 'Sort Descending');
+		const visibleTableData = await dataExplorer.grid.getData();
 		const firstRow = visibleTableData.at(0);
 		expect(firstRow!['Invoice ID']).toBe('898-04-2717');
 	});

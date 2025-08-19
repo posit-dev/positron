@@ -32,8 +32,8 @@ test.describe('Data Explorer - Sparklines', {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
 
-		await dataExplorer.expandSummary();
-		await dataExplorer.verifySparklineHeights([{ column: 1, expected: ['50.0', '40.0', '30.0', '20.0', '10.0'] }]);
+		await dataExplorer.summaryPanel.show();
+		await dataExplorer.summaryPanel.verifySparklineHeights([{ column: 1, expected: ['50.0', '40.0', '30.0', '20.0', '10.0'] }]);
 	});
 
 
@@ -48,8 +48,8 @@ test.describe('Data Explorer - Sparklines', {
 		await hotKeys.closePrimarySidebar();
 		await hotKeys.closeSecondarySidebar();
 
-		await dataExplorer.expandSummary();
-		await dataExplorer.verifySparklineHeights([{ column: 1, expected: ['50.0', '40.0', '30.0', '20.0', '10.0'] }]);
+		await dataExplorer.summaryPanel.show();
+		await dataExplorer.summaryPanel.verifySparklineHeights([{ column: 1, expected: ['50.0', '40.0', '30.0', '20.0', '10.0'] }]);
 	});
 });
 

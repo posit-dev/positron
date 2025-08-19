@@ -64,7 +64,7 @@ test.describe('Postgres DB Connection', {
 			await app.workbench.sideBar.closeSecondarySideBar();
 
 			await expect(async () => {
-				const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+				const tableData = await app.workbench.dataExplorer.grid.getData();
 
 				// hack to allow for different beahavior based on how db was imported
 				try {
@@ -138,7 +138,7 @@ test.describe('Postgres DB Connection', {
 			await app.workbench.sideBar.closeSecondarySideBar();
 
 			await expect(async () => {
-				const tableData = await app.workbench.dataExplorer.getDataExplorerTableData();
+				const tableData = await app.workbench.dataExplorer.grid.getData();
 
 				// hack to allow for different beahavior based on how db was imported
 				try {

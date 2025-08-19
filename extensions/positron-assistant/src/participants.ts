@@ -17,6 +17,7 @@ import { StreamingTagLexer } from './streamingTagLexer.js';
 import { ReplaceStringProcessor } from './replaceStringProcessor.js';
 import { ReplaceSelectionProcessor } from './replaceSelectionProcessor.js';
 import { log, getRequestTokenUsage } from './extension.js';
+import { getCommitChanges } from './git.js';
 
 export enum ParticipantID {
 	/** The participant used in the chat pane in Ask mode. */
@@ -444,7 +445,7 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 					attachmentPrompts.push(rangeAttachmentNode, documentAttachmentNode);
 					log.debug(`[context] adding file range attachment context: ${rangeAttachmentNode.length} characters`);
 					log.debug(`[context] adding file attachment context: ${documentAttachmentNode.length} characters`);
-				} else if (value instanceof vscode.Uri) {
+				} else if (value instanceof vscode.Uri && value.scheme === 'file') {
 					const fileStat = await vscode.workspace.fs.stat(value);
 					if (fileStat.type === vscode.FileType.Directory) {
 						// The user attached a directory - usually a manually attached directory in the workspace.
@@ -489,6 +490,22 @@ abstract class PositronAssistantParticipant implements IPositronAssistantPartici
 						attachmentPrompts.push(attachmentNode);
 						log.debug(`[context] adding file attachment context: ${attachmentNode.length} characters`);
 					}
+				} else if (value instanceof vscode.Uri && value.scheme === 'scm-history-item') {
+					// The user attached a specific git commit
+					const details = JSON.parse(value.query) as { historyItemId: string; historyItemParentId: string };
+					const diff = await getCommitChanges(value, details.historyItemId, details.historyItemParentId);
+
+					// Add as a reference to the response.
+					response.reference(value);
+
+					// Attach the git commit details.
+					const attachmentNode = xml.node('attachment', diff, {
+						historyItemId: details.historyItemId,
+						historyItemParentId: details.historyItemParentId,
+						description: 'Git commit details',
+					});
+					attachmentPrompts.push(attachmentNode);
+					log.debug(`[context] adding git commit details context: ${attachmentNode.length} characters`);
 				} else if (value instanceof vscode.ChatReferenceBinaryData) {
 					if (isChatImageMimeType(value.mimeType)) {
 						// The user attached an image - usually a pasted image or screenshot of the IDE.

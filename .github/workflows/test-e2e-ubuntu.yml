@@ -92,18 +92,18 @@ jobs:
     timeout-minutes: 120
     runs-on: ubuntu-latest-8x
     container:
-      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:25
+      image: ghcr.io/posit-dev/positron-ubuntu24-amd64:27
       options: --user 0:0
       # Static PAT is needed because the bot can't pass a token to the job for security reasons
       credentials:
-        username: ${{ secrets.POSITRON_GITHUB_USER }}
-        password: ${{ secrets.POSITRON_GITHUB_PAT }}
+        username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+        password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
     services:
       postgres:
-        image: ghcr.io/posit-dev/positron-postgres-initialized:25
+        image: ghcr.io/posit-dev/positron-postgres-initialized:27
         credentials:
-          username: ${{ secrets.POSITRON_GITHUB_USER }}
-          password: ${{ secrets.POSITRON_GITHUB_PAT }}
+          username: ${{ secrets.POSITRON_GITHUB_RO_USER }}
+          password: ${{ secrets.POSITRON_GITHUB_RO_PAT }}
         ports:
           - 5432:5432
         env:
@@ -126,16 +126,16 @@ jobs:
       R_LIBS_SITE: /usr/local/lib/R/site-library
       R_LIBS_USER: /usr/local/lib/R/site-library
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Load secret
-        uses: 1password/load-secrets-action@v2
+        uses: 1password/load-secrets-action@v3
         with:
           # Export loaded secrets as environment variables
           export-env: true
         env:
           OP_SERVICE_ACCOUNT_TOKEN: ${{ secrets.OP_SERVICE_ACCOUNT_TOKEN }}
-          ANTHROPIC_API_KEY: "op://Positron/Anthropic/credential"
+          ANTHROPIC: "op://Positron/Anthropic/credential"
 
       - name: Transform to Playwright tags $PW_TAGS
         run: bash scripts/pr-tags-transform.sh ${{ inputs.project}} "${{ inputs.grep }}"
@@ -188,7 +188,7 @@ jobs:
       - name: Run Playwright Tests (Electron)
         shell: bash
         env:
-          POSITRON_PY_VER_SEL: "3.12.11 (Venv: .venv)"
+          POSITRON_PY_VER_SEL: "3.10.12"
           POSITRON_R_VER_SEL: 4.4.0
           POSITRON_PY_ALT_VER_SEL: "3.13.0"
           POSITRON_R_ALT_VER_SEL: 4.4.2

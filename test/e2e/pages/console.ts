@@ -358,7 +358,7 @@ export class Console {
 
 	async expectSuggestionListCount(count: number): Promise<void> {
 		await test.step(`Expect console suggestion list count to be ${count}`, async () => {
-			await expect(this.suggestionList).toHaveCount(count);
+			await expect(this.suggestionList).toHaveCount(count, { timeout: 15000 });
 		});
 	}
 
