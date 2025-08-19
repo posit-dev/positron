@@ -15,7 +15,7 @@ import { RHtmlWidget, getResourceRoots } from './htmlwidgets';
 import { randomUUID } from 'crypto';
 import { handleRCode } from './hyperlink';
 import { RSessionManager } from './session-manager';
-import { LOGGER } from './extension.js';
+import { LOGGER, supervisorApi } from './extension.js';
 
 interface RPackageInstallation {
 	packageName: string;
@@ -628,15 +628,7 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	}
 
 	private async createKernel(): Promise<JupyterLanguageRuntimeSession> {
-		// Get the Positron Supervisor extension and activate it if necessary
-		const ext = vscode.extensions.getExtension('positron.positron-supervisor');
-		if (!ext) {
-			throw new Error('Positron Supervisor extension not found');
-		}
-		if (!ext.isActive) {
-			await ext.activate();
-		}
-		this.adapterApi = ext?.exports as PositronSupervisorApi;
+		this.adapterApi = await supervisorApi();
 
 		// Create the Jupyter session
 		const kernel = this.kernelSpec ?
@@ -835,15 +827,9 @@ export class RSession implements positron.LanguageRuntimeSession, vscode.Disposa
 	private async startDap(): Promise<void> {
 		if (this._kernel) {
 			try {
-				// Get the supervisor extension API
-				const supervisorExt = vscode.extensions.getExtension('positron.positron-supervisor');
-				if (!supervisorExt) {
-					throw new Error('Positron Supervisor extension not found');
-				}
+				const api = await supervisorApi();
 
-				const supervisorApi = await supervisorExt.activate();
-
-				this._dapComm = new supervisorApi.DapComm(this._kernel!, 'ark_dap', 'ark', 'Ark Positron R');
+				this._dapComm = new api.DapComm(this._kernel!, 'ark_dap', 'ark', 'Ark Positron R');
 				await this._dapComm!.createComm();
 
 				this.startDapMessageLoop();
