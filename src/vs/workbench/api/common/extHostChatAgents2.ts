@@ -414,7 +414,10 @@ export class ExtHostChatAgents2 extends Disposable implements ExtHostChatAgentsS
 	registerChatParticipantDetectionProvider(extension: IExtensionDescription, provider: vscode.ChatParticipantDetectionProvider): vscode.Disposable {
 		const handle = ExtHostChatAgents2._participantDetectionProviderIdPool++;
 		this._participantDetectionProviders.set(handle, new ExtHostParticipantDetector(extension, provider));
-		this._proxy.$registerChatParticipantDetectionProvider(handle);
+		// --- Start Positron ---
+		// Add extension identifier to the chat participant detection provider
+		this._proxy.$registerChatParticipantDetectionProvider(handle, extension.identifier);
+		// --- End Positron ---
 		return toDisposable(() => {
 			this._participantDetectionProviders.delete(handle);
 			this._proxy.$unregisterChatParticipantDetectionProvider(handle);

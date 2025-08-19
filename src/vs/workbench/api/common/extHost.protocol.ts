@@ -1309,7 +1309,10 @@ export interface IDynamicChatAgentProps {
 
 export interface MainThreadChatAgentsShape2 extends IDisposable {
 	$registerAgent(handle: number, extension: ExtensionIdentifier, id: string, metadata: IExtensionChatAgentMetadata, dynamicProps: IDynamicChatAgentProps | undefined): void;
-	$registerChatParticipantDetectionProvider(handle: number): void;
+	// --- Start Positron ---
+	// Added extension identifier to the chat participant detection provider
+	$registerChatParticipantDetectionProvider(handle: number, extensionId?: ExtensionIdentifier): void;
+	// --- End Positron ---
 	$unregisterChatParticipantDetectionProvider(handle: number): void;
 	$registerRelatedFilesProvider(handle: number, metadata: IChatRelatedFilesProviderMetadata): void;
 	$unregisterRelatedFilesProvider(handle: number): void;

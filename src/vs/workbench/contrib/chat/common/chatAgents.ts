@@ -193,7 +193,11 @@ export interface IChatAgentService {
 	registerDynamicAgent(data: IChatAgentData, agentImpl: IChatAgentImplementation): IDisposable;
 	registerAgentCompletionProvider(id: string, provider: (query: string, token: CancellationToken) => Promise<IChatAgentCompletionItem[]>): IDisposable;
 	getAgentCompletionItems(id: string, query: string, token: CancellationToken): Promise<IChatAgentCompletionItem[]>;
-	registerChatParticipantDetectionProvider(handle: number, provider: IChatParticipantDetectionProvider): IDisposable;
+	// --- Start Positron ---
+	// Added extensionId to the parameters, since we need to track which
+	// extension the detection provider belongs to
+	registerChatParticipantDetectionProvider(handle: number, provider: IChatParticipantDetectionProvider, extensionId?: ExtensionIdentifier): IDisposable;
+	// --- End Positron ---
 	detectAgentOrCommand(request: IChatAgentRequest, history: IChatAgentHistoryEntry[], options: { location: ChatAgentLocation }, token: CancellationToken): Promise<{ agent: IChatAgentData; command?: IChatAgentCommand } | undefined>;
 	hasChatParticipantDetectionProviders(): boolean;
 	invokeAgent(agent: string, request: IChatAgentRequest, progress: (parts: IChatProgress[]) => void, history: IChatAgentHistoryEntry[], token: CancellationToken): Promise<IChatAgentResult>;
@@ -239,6 +243,12 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	private _hasToolsAgent = false;
 
 	private _chatParticipantDetectionProviders = new Map<number, IChatParticipantDetectionProvider>();
+
+	// --- Start Positron ---
+	// Map of participant detection providers to the extension IDs that
+	// registered them
+	private _chatParticipantDetectionProviderExtensions = new Map<number, ExtensionIdentifier>();
+	// --- End Positron ---
 
 	constructor(
 		@IContextKeyService private readonly contextKeyService: IContextKeyService,
@@ -577,10 +587,23 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 		return data.impl.provideChatSummary(history, token);
 	}
 
-	registerChatParticipantDetectionProvider(handle: number, provider: IChatParticipantDetectionProvider) {
+	registerChatParticipantDetectionProvider(handle: number, provider: IChatParticipantDetectionProvider, extensionId?: ExtensionIdentifier) {
 		this._chatParticipantDetectionProviders.set(handle, provider);
+
+		// --- Start Positron ---
+		// Remember which extension the detection provider belongs to
+		if (extensionId) {
+			this._chatParticipantDetectionProviderExtensions.set(handle, extensionId);
+		}
+		// --- End Positron ---
+
 		return toDisposable(() => {
 			this._chatParticipantDetectionProviders.delete(handle);
+
+			// --- Start Positron ---
+			// Clean up the extension ID tracking as well
+			this._chatParticipantDetectionProviderExtensions.delete(handle);
+			// --- End Positron ---
 		});
 	}
 
@@ -589,8 +612,36 @@ export class ChatAgentService extends Disposable implements IChatAgentService {
 	}
 
 	async detectAgentOrCommand(request: IChatAgentRequest, history: IChatAgentHistoryEntry[], options: { location: ChatAgentLocation }, token: CancellationToken): Promise<{ agent: IChatAgentData; command?: IChatAgentCommand } | undefined> {
+
 		// TODO@joyceerhl should we have a selector to be able to narrow down which provider to use
-		const provider = Iterable.first(this._chatParticipantDetectionProviders.values());
+		// --- Start Positron ---
+		// const provider = Iterable.first(this._chatParticipantDetectionProviders.values());
+
+		// Instead of taking the first provider, match the provider with the
+		// current extension provider.
+		let provider: IChatParticipantDetectionProvider | undefined;
+
+		// Get the current language model provider to help select the best detection provider
+		const currentProvider = this.languageModelsService.currentProvider;
+		if (currentProvider) {
+			// Get the extension identifier for the current provider
+			const extensionId = this.languageModelsService.getExtensionIdentifierForProvider(currentProvider.id);
+
+			if (extensionId) {
+				// Try to find a detection provider from the same extension as the current language model provider
+				for (const [handle, detectionProvider] of this._chatParticipantDetectionProviders) {
+					const providerExtensionId = this._chatParticipantDetectionProviderExtensions.get(handle);
+					if (providerExtensionId && ExtensionIdentifier.equals(providerExtensionId, extensionId)) {
+						provider = detectionProvider;
+						this.logService.debug(`ChatAgentService#detectAgentOrCommand: Found provider-matched detection provider for provider ${currentProvider.id} via extension tracking`);
+						break;
+					}
+				}
+			}
+		}
+
+		// --- End Positron ---
+
 		if (!provider) {
 			return;
 		}
