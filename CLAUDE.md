@@ -25,11 +25,22 @@ To work effectively on specific areas of Positron, ask Claude to include relevan
 
 ### Development
 ```bash
-# Build the application
-npm run compile
+# Start build daemons for development (CRITICAL: Wait for completion before launching!)
+npm run watch-clientd     # Core compilation daemon
+npm run watch-extensionsd # Extensions compilation daemon
+npm run watch-e2ed        # E2E tests compilation daemon (if doing E2E testing)
 
-# Run in development mode  
-npm run watch
+# Launch Positron (only after build daemons complete)
+# On macOS/Linux:
+./scripts/code.sh &
+# On Windows:
+start ./scripts/code.bat
+
+# Check after 5-10 seconds that Positron launched successfully
+# On macOS/Linux:
+sleep 10 && ps aux | grep -i "positron\|code" | grep -v grep
+# On Windows:
+timeout /t 10 /nobreak >nul && tasklist | findstr /i "positron electron"
 
 # Run tests
 npm test

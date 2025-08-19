@@ -41,11 +41,14 @@ npm run watch-e2ed
 
 ### 3. Launch Positron Application
 ```bash
-# Launch Positron (macOS/Linux)
-./scripts/code.sh
+# Launch Positron in background (macOS/Linux)
+./scripts/code.sh &
 
-# Launch Positron (Windows)  
-./scripts/code.bat
+# Launch Positron in background (Windows)  
+start ./scripts/code.bat
+
+# Check if launch was successful after 5-10 seconds (Windows)
+timeout /t 5 /nobreak >nul && tasklist | findstr /i "positron electron" | findstr /v "grep"
 ```
 
 ## Build Daemon Management
@@ -98,20 +101,42 @@ deemon --status npm run watch-client
 ## Claude Code Integration Commands
 
 ### Quick Development Setup
+
+🚨 **CRITICAL: Wait for compilation to complete before launching Positron**
+
 ```bash
 # 1. Install dependencies (only if needed - see warning above)
 npm install
 
-# 2. Start core daemons (choose one)
+# 2. Start core daemons (in parallel, but DO NOT launch Positron yet!)
 # For regular development:
-npm run watch-clientd && npm run watch-extensionsd
+npm run watch-clientd
+npm run watch-extensionsd
 
 # For E2E testing:
-npm run watch-clientd && npm run watch-extensionsd && npm run watch-e2ed
+npm run watch-clientd
+npm run watch-extensionsd
+npm run watch-e2ed
 
-# 3. Launch Positron
-./scripts/code.sh
+# 3. WAIT for all build daemons to show "Finished compilation with 0 errors"
+# Core client: Look for "Finished compilation[api-proposal-names] with 0 errors"
+# Extensions: Look for "Finished compilation[extensions] with 0 errors" 
+# E2E: Look for "Found 0 errors. Watching for file changes."
+
+# 4. ONLY THEN launch Positron in background
+./scripts/code.sh &
+
+# 5. Check after 5-10 seconds that Positron launched successfully
+# On macOS/Linux:
+sleep 5 && ps aux | grep -E "Positron|Electron.*positron" | grep -v grep | head -5
+# On Windows:
+timeout /t 5 /nobreak >nul && tasklist | findstr /i "positron electron"
 ```
+
+**Why this matters:**
+- Launching Positron before compilation finishes will cause startup failures
+- Extensions must be fully compiled before the application can load them
+- The build process can take 30-60 seconds for a full compilation
 
 ### Restart Development Environment
 ```bash
