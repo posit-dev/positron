@@ -16,7 +16,9 @@ export interface AttachmentData {
 	language?: string;
 	startLine?: number;
 	endLine?: number;
-	type?: 'file' | 'range' | 'directory' | 'image';
+	type?: 'file' | 'range' | 'directory' | 'image' | 'commit';
+	historyItemId?: string; // For git commits
+	historyItemParentId?: string; // For git commits
 	src?: string; // For images
 }
 

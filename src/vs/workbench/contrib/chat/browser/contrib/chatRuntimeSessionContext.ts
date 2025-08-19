@@ -65,7 +65,33 @@ export interface IChatRuntimeSessionContext {
 
 	/** The summarized execution history for the session */
 	executions: Array<IHistorySummaryEntry>;
-};
+}
+
+/**
+ * Budgets for truncating entry content
+ */
+interface EntryTruncationBudgets {
+	/** The budget for the input code */
+	inputBudget: number;
+	/** The budget for the output code */
+	outputBudget: number;
+	/** The budget for the error content */
+	errorBudget: number;
+}
+
+/**
+ * The result of truncating an execution history entry to fit within budget constraints.
+ */
+interface EntryTruncationResult {
+	/** The truncated input code */
+	truncatedInput: string;
+	/** The truncated output code */
+	truncatedOutput: string;
+	/** The truncated error content */
+	truncatedErrorContent?: string;
+	/** The cost of the truncated entry */
+	cost: number;
+}
 
 class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 
@@ -78,6 +104,7 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 		@IRuntimeSessionService private readonly _runtimeSessionService: IRuntimeSessionService,
 		@IPositronVariablesService private readonly _positronVariablesService: IPositronVariablesService,
 		@IExecutionHistoryService private readonly _executionHistoryService: IExecutionHistoryService,
+		@IConfigurationService private readonly _configurationService: IConfigurationService,
 	) { }
 
 	toPickItem(session: ILanguageRuntimeSession): IChatContextPickerPickItem {
@@ -92,7 +119,11 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 				// Create a temporary context object to generate the attachment
 				const tempContext = new ChatRuntimeSessionContext();
 				tempContext.setValue(session);
-				tempContext.setServices(this._positronVariablesService, this._executionHistoryService);
+				tempContext.setServices(
+					this._positronVariablesService,
+					this._executionHistoryService,
+					this._configurationService
+				);
 
 				try {
 					const entries = tempContext.toBaseEntries();
@@ -131,7 +162,7 @@ class RuntimeSessionContextValuePick implements IChatContextPickerItem {
 
 		picks.push({
 			type: 'separator',
-			label: localize('chatContext.runtimeSessions.notebook', 'Console Sessions')
+			label: localize('chatContext.runtimeSessions.console', 'Console Sessions')
 		});
 		for (const consoleSession of consoleSessions) {
 			picks.push(this.toPickItem(consoleSession));
@@ -187,7 +218,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 		// finishes starting, so this catches new notebook sessions (vs.
 		// switching between existing ones).
 		this._register(this.runtimeSessionService.onDidStartRuntime(async (session) => {
-			await this.updateRuntimeContext()
+			await this.updateRuntimeContext();
 		}));
 
 		this._register(this.chatWidgetService.onDidAddWidget(async (widget) => {
@@ -217,7 +248,8 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 				new RuntimeSessionContextValuePick(
 					this.runtimeSessionService,
 					this.positronVariablesService,
-					this.executionHistoryService
+					this.executionHistoryService,
+					this.configurationService
 				)
 			));
 	}
@@ -246,7 +278,8 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 			}
 			widget.input.runtimeContext.setServices(
 				this.positronVariablesService,
-				this.executionHistoryService
+				this.executionHistoryService,
+				this.configurationService
 			);
 
 			const setting = this._implicitSessionContextEnablement[widget.location];
@@ -266,6 +299,7 @@ export class ChatRuntimeSessionContextContribution extends Disposable implements
 }
 
 export class ChatRuntimeSessionContext extends Disposable {
+	private static maxCostSettingId = 'chat.runtimeSessionContext.maxExecutionHistoryCharacters';
 	get id() {
 		return 'positron.implicit.runtimeSession';
 	}
@@ -305,6 +339,7 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 	private _positronVariablesService?: IPositronVariablesService;
 	private _executionHistoryService?: IExecutionHistoryService;
+	private _configurationService?: IConfigurationService;
 
 	constructor() {
 		super();
@@ -312,10 +347,12 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 	setServices(
 		positronVariablesService: IPositronVariablesService,
-		executionHistoryService: IExecutionHistoryService
+		executionHistoryService: IExecutionHistoryService,
+		configurationService: IConfigurationService
 	): void {
 		this._positronVariablesService = positronVariablesService;
 		this._executionHistoryService = executionHistoryService;
+		this._configurationService = configurationService;
 	}
 
 	setValue(value: ILanguageRuntimeSession | undefined): void {
@@ -365,7 +402,9 @@ export class ChatRuntimeSessionContext extends Disposable {
 		const history = this._executionHistoryService.getExecutionEntries(sessionId);
 		const summarized: Array<IHistorySummaryEntry> = [];
 		let currentCost = 0;
-		const maxCost = 8192; // 8KB. Should this be configurable?
+		const maxCost = this._configurationService?.getValue<number>(ChatRuntimeSessionContext.maxCostSettingId) ?? 8192; // 8KB, default if not configured
+		let firstTracebackIncluded = false;
+
 		for (let i = history.length - 1; i >= 0; i--) {
 			const entry = history[i];
 			// Filter out non-execution entries
@@ -375,50 +414,173 @@ export class ChatRuntimeSessionContext extends Disposable {
 
 			// Compute the cost of the entry
 			let cost = entry.input.length + entry.output.length;
+			let errorContent: string | undefined = undefined;
 			if (entry.error) {
-				cost += JSON.stringify(entry.error).length;
+				errorContent = JSON.stringify(entry.error);
+				cost += errorContent.length;
 			}
 
-			// If this would exceed the max cost, try truncating the input and/or output
+			// If this would exceed the max cost, try truncating
 			if (currentCost + cost > maxCost) {
-				const truncatedInput = entry.input.length > 500 ?
-					entry.input.slice(0, 500) + '... (truncated)' :
-					entry.input;
-				const truncatedOutput = entry.output.length > 500 ?
-					entry.output.slice(0, 500) + '... (truncated)' :
-					entry.output;
-				let truncatedCost = truncatedInput.length + truncatedOutput.length;
-				if (entry.error) {
-					// Errors are not truncated, but their size is added to the cost
-					truncatedCost += JSON.stringify(entry.error).length;
-				}
-				if (currentCost + truncatedCost > maxCost) {
-					// If truncating the input and output still exceeds the max cost, break
-					break;
-				} else {
-					// Otherwise, use the truncated input and output
+				const remainingBudget = maxCost - currentCost;
+
+				// For the first traceback, ensure it's included even if truncated
+				// We guarantee this traceback is included regardless of size constraints
+				if (entry.error && !firstTracebackIncluded) {
+					// Calculate dynamic truncation sizes based on available budget
+					// Reserve minimum space for truncation markers and structure
+					const minReserved = 50; // Space for "... (truncated)" markers
+					const availableBudget = Math.max(remainingBudget - minReserved, 100);
+
+					// Use consistent budget allocation logic
+					const budgets = this.calculateBudgetAllocation(availableBudget, true);
+					const { truncatedInput, truncatedOutput, truncatedErrorContent, cost } = this.truncateEntryContent(
+						entry.input,
+						entry.output,
+						errorContent,
+						budgets
+					);
+
+					// Always include the first traceback, even if it exceeds remaining budget
 					summarized.push({
 						input: truncatedInput,
 						output: truncatedOutput,
-						error: entry.error,
+						error: truncatedErrorContent,
+					});
+					currentCost += cost;
+					firstTracebackIncluded = true;
+					continue;
+				}
+
+				// Try truncating input and output for non-traceback entries or subsequent tracebacks
+				// This handles the general case where we need to fit an entry within the remaining budget
+				// but it's not the critical first traceback that must be included
+
+				// Calculate dynamic truncation sizes based on remaining budget
+				const minReserved = 50; // Space for truncation markers
+				const availableBudget = Math.max(remainingBudget - minReserved, 0);
+
+				if (availableBudget <= 0) {
+					// No budget left for any entries, stop processing
+					break;
+				}
+
+				// Use consistent budget allocation logic
+				const budgets = this.calculateBudgetAllocation(availableBudget, !!entry.error);
+				const { truncatedInput, truncatedOutput, truncatedErrorContent, cost: truncatedCost } = this.truncateEntryContent(
+					entry.input,
+					entry.output,
+					errorContent,
+					budgets
+				);
+
+				// Calculate the total cost after truncation to see if it fits in remaining budget
+				if (truncatedCost > remainingBudget) {
+					// Even with aggressive truncation, this entry won't fit in the remaining space
+					// Stop processing further entries to respect the maximum cost limit
+					break;
+				} else {
+					// Entry fits within budget after truncation, add it to the summary
+					summarized.push({
+						input: truncatedInput,
+						output: truncatedOutput,
+						error: truncatedErrorContent,
 					});
 					currentCost += truncatedCost;
+					// Track that we've included a traceback if this entry had an error
+					if (entry.error) {
+						firstTracebackIncluded = true;
+					}
 					continue;
 				}
 			}
 
-			// Add the entry to the summarized list and absorb the cost
+			// Entry fits completely within the remaining budget without any truncation needed
+			// This is the ideal case where we can include the full execution entry
 			currentCost += cost;
 			summarized.push({
 				input: entry.input,
 				output: entry.output,
 				error: entry.error,
 			});
+			// Mark that we've included a traceback if this entry contains an error
+			if (entry.error) {
+				firstTracebackIncluded = true;
+			}
 		}
 
-		// Reverse the order to maintain the original order
+		// Reverse the order to maintain the original chronological order
+		// We processed entries from newest to oldest, but want to present them oldest to newest
 		summarized.reverse();
 		return summarized;
+	}
+
+	/**
+	 * Calculates dynamic budget allocation for truncating execution entry components
+	 * @param availableBudget Total budget available for this entry
+	 * @param hasError Whether this entry contains an error/traceback
+	 * @returns Budget allocation for input, output, and error components
+	 */
+	private calculateBudgetAllocation(availableBudget: number, hasError: boolean): EntryTruncationBudgets {
+		if (hasError) {
+			// Error gets priority (50%), then output (30%), then input (20%)
+			const errorBudget = Math.floor(availableBudget * 0.5);
+			const outputBudget = Math.floor(availableBudget * 0.3);
+			const inputBudget = availableBudget - errorBudget - outputBudget;
+			return { inputBudget, outputBudget, errorBudget };
+		} else {
+			// No error, split between input (40%) and output (60%)
+			const outputBudget = Math.floor(availableBudget * 0.6);
+			const inputBudget = availableBudget - outputBudget;
+			return { inputBudget, outputBudget, errorBudget: 0 };
+		}
+	}
+
+	/**
+	 * Truncates entry content based on allocated budgets
+	 * @param input Original input content
+	 * @param output Original output content
+	 * @param errorContent Original error content (JSON stringified)
+	 * @param budgets Budget allocation for each component
+	 * @returns Truncated content for input, output, and error, plus the total cost
+	 */
+	private truncateEntryContent(
+		input: string,
+		output: string,
+		errorContent: string | undefined,
+		budgets: EntryTruncationBudgets
+	): EntryTruncationResult {
+		// Truncate input dynamically based on budget
+		const truncatedInput = input.length > budgets.inputBudget ?
+			input.slice(0, Math.max(budgets.inputBudget - 16, 10)) + '... (truncated)' :
+			input;
+
+		// Truncate output dynamically based on budget
+		const truncatedOutput = output.length > budgets.outputBudget ?
+			output.slice(0, Math.max(budgets.outputBudget - 16, 10)) + '... (truncated)' :
+			output;
+
+		// Truncate error content dynamically, preserving beginning and end
+		let truncatedErrorContent = errorContent;
+		if (errorContent && errorContent.length > budgets.errorBudget) {
+			// Calculate begin/end lengths dynamically based on error budget
+			const truncationMarker = '\n... (traceback truncated) ...\n';
+			const markerLength = truncationMarker.length;
+			const contentBudget = Math.max(budgets.errorBudget - markerLength, 20);
+			const beginLength = Math.floor(contentBudget * 0.6); // 60% for beginning
+			const endLength = contentBudget - beginLength; // 40% for end
+
+			truncatedErrorContent = errorContent.slice(0, beginLength) +
+				truncationMarker +
+				errorContent.slice(-endLength);
+		}
+
+		let cost = truncatedInput.length + truncatedOutput.length;
+		if (truncatedErrorContent) {
+			cost += truncatedErrorContent.length;
+		}
+
+		return { truncatedInput, truncatedOutput, truncatedErrorContent, cost };
 	}
 
 	public toBaseEntries(): IChatRequestRuntimeSessionEntry[] {

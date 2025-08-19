@@ -42,7 +42,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install Node ${{ env.NODE_VERSION }}
         uses: actions/setup-node@v3
@@ -63,7 +63,7 @@ jobs:
       - name: Install Node dependencies
         run: npm ci --fetch-timeout 120000
         env:
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
 
       - name: Run `gulp prePublishNonBundle`
         run: npm run prePublish
@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v6
@@ -135,7 +135,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ${{ env.special-working-directory-relative }}
 
@@ -181,7 +181,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v6
@@ -213,7 +213,7 @@ jobs:
             python: '3.9'
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Install uv and Python
         uses: astral-sh/setup-uv@v6
@@ -267,7 +267,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           path: ${{ env.special-working-directory-relative }}
 
@@ -287,7 +287,7 @@ jobs:
       - name: Install Node dependencies
         run: npm ci --fetch-timeout 120000
         env:
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
 
       - name: Run `gulp prePublishNonBundle`
         run: npm run prePublish
@@ -402,7 +402,7 @@ jobs:
         env:
           TEST_FILES_SUFFIX: testvirtualenvs
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@b706e4e27b14669b486812790492dc50ca16b465 # v1.7
         with:
           run: npm run testSingleWorkspace
@@ -412,7 +412,7 @@ jobs:
       - name: Run single-workspace tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@b706e4e27b14669b486812790492dc50ca16b465 # v1.7
         with:
           run: npm run testSingleWorkspace
@@ -422,7 +422,7 @@ jobs:
       - name: Run debugger tests
         env:
           CI_PYTHON_VERSION: ${{ matrix.python }}
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         uses: GabrielBB/xvfb-action@b706e4e27b14669b486812790492dc50ca16b465 # v1.7
         with:
           run: npm run testDebugger
@@ -435,7 +435,7 @@ jobs:
 
       - name: Run smoke tests
         env:
-          POSITRON_GITHUB_PAT: ${{ github.token }}
+          POSITRON_GITHUB_RO_PAT: ${{ github.token }}
         run: |
           npx tsc && node ./out/test/smokeTest.js
         if: matrix.test-suite == 'smoke'
