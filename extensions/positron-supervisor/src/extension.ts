@@ -8,7 +8,7 @@ import * as positron from 'positron';
 
 import { PositronSupervisorApi } from './positron-supervisor';
 import { KCApi } from './KallichoreAdapterApi';
-import { DapComm } from './DapClient';
+import { DapComm } from './DapComm';
 
 /** Singleton instance of the Kallichore API wrapper */
 export let API_INSTANCE: KCApi;
