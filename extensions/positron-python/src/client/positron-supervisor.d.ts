@@ -380,7 +380,7 @@ export class DapComm {
      * handled, you _must_ check whether the message is a request, and either
      * handle or reject it in that case.
      */
-    handleMessage(msg: any): boolean;
+    handleMessage(msg: any): Promise<boolean>;
 
     /**
      * Dispose of the underlying comm.
