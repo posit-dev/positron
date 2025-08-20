@@ -6,21 +6,21 @@ license = ['MIT']
 # see copilot-language-server-releases repo
 license = ['MIT']
 attribution = [
-  'Copyright (c) 2025 GitHub'
+'Copyright (c) 2025 GitHub'
 ]
 
 ['npm::@vscode/codicons=*']
 # Parent folder to extensions
 license = ['CC-BY-4.0', 'MIT']
 attribution = [
-  'Copyright (c) Microsoft Corporation'
+'Copyright (c) Microsoft Corporation'
 ]
 
 ['npm::@xterm/headless=*']
 # attribution in source code
 attribution = [
-  'Copyright (c) The xterm.js authors',
-  'Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)'
+'Copyright (c) The xterm.js authors',
+'Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)'
 ]
 
 ['npm::buffers=0.1.1']
@@ -45,11 +45,11 @@ ignored = true
 # No explicit attribution in repo
 license = ['MIT']
 attribution = [
-  'Copyright (c) 2022 open-remote-ssh contributors'
+'Copyright (c) 2022 open-remote-ssh contributors'
 ]
 
 ['npm::vscode-extensions=*']
 # Parent folder to extensions
 attribution = [
-  'Copyright (c) Microsoft Corporation (MIT License)'
+'Copyright (c) Microsoft Corporation (MIT License)'
 ]
