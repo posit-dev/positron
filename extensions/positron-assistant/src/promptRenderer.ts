@@ -217,8 +217,9 @@ export class PromptRenderer {
 				return systemPrompt;
 			}
 		} catch (error) {
-			log.error('Error rendering system prompt:', error);
-			throw new Error(`Failed to render system prompt: ${error}`);
+			const msg = `Failed to render system prompt ${ctor.name} with props ${JSON.stringify(props)}: ${error}`;
+			log.error(msg);
+			throw new Error(msg);
 		}
 	}
 
