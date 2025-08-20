@@ -51,10 +51,10 @@ class DataExplorerConvertFixture(DataExplorerFixture):
         self,
         table,
         expected_table,
+        code_syntax_name,
         column_filters=None,
         row_filters=None,
         sort_keys=None,
-        code_syntax_name=None,
     ):
         table_id = var_guid()
         ex_id = var_guid()

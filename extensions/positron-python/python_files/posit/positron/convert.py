@@ -170,6 +170,38 @@ class CodeConverter:
 
         return method_chain_setup, method_chain_parts
 
+    def _format_single_filter(self, comparison: str) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Format a single filter comparison into method chain parts.
+
+        Parameters
+        ----------
+        comparison : str
+            The comparison string to format.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of setup and method chain parts.
+        """
+        raise NotImplementedError("Subclasses must implement _format_single_filter method")
+
+    def _format_multi_filter(
+        self, comparisons: List[str]
+    ) -> tuple[List[StrictStr], List[StrictStr]]:
+        """Format multiple filter comparisons into method chain parts.
+
+        Parameters
+        ----------
+        comparisons : List[str]
+            List of comparison strings to format.
+
+        Returns
+        -------
+        tuple[List[StrictStr], List[StrictStr]]
+            Tuple of setup and method chain parts.
+        """
+        raise NotImplementedError("Subclasses must implement _format_multi_filter method")
+
 
 class PandasConverter(CodeConverter):
     def __init__(
