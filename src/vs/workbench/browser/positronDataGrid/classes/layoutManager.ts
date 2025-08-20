@@ -115,9 +115,9 @@ export class LayoutManager {
 			return -1;
 		}
 
-		// If there are no pinned indexes, return the first index.
+		// If there are no pinned indexes, return the index at position 0.
 		if (!this._pinnedIndexes.size) {
-			return this.mapEntry(0);
+			return this.mapPositionToIndex(0);
 		}
 
 		// Return the first pinned index, or -1 if for some reason none exists.
@@ -134,14 +134,14 @@ export class LayoutManager {
 			return -1;
 		}
 
-		// Find the last unpinned index.
+		// Find the last unpinned entry index.
 		for (let position = this._entryCount - 1; position >= 0; position--) {
-			// Get the index.
-			const index = this.mapEntry(position);
+			// Get the index at the position.
+			const indexAtPosition = this.mapPositionToIndex(position);
 
-			// If the index is not pinned, return it.
-			if (!this.isPinnedIndex(index)) {
-				return index;
+			// If the index at the position is not pinned, return it.
+			if (!this.isPinnedIndex(indexAtPosition)) {
+				return indexAtPosition;
 			}
 		}
 
@@ -399,10 +399,8 @@ export class LayoutManager {
 		let start = 0;
 		const layoutEntries: ILayoutEntry[] = [];
 		for (const index of this._pinnedIndexes) {
-			// Get the size.
-			const size = this.entrySize(index);
-
 			// Create the layout entry.
+			const size = this.entrySize(index);
 			layoutEntries.push({
 				index,
 				start,
@@ -453,10 +451,8 @@ export class LayoutManager {
 				continue;
 			}
 
-			// Get the size.
-			const size = this.entrySize(index);
-
 			// Create the layout entry.
+			const size = this.entrySize(index);
 			layoutEntries.push({
 				index,
 				start,
@@ -561,12 +557,12 @@ export class LayoutManager {
 
 			// The pinned position is the last pinned position, return the first unpinned index.
 			for (let position = 0; position < this._entryCount; position++) {
-				// Get the index.
-				const entryMapIndex = this.mapEntry(position);
+				// Get the index at the position.
+				const indexAtPosition = this.mapPositionToIndex(position);
 
-				// If the index is not pinned, return it.
-				if (!this.isPinnedIndex(entryMapIndex)) {
-					return entryMapIndex;
+				// If the index at the position is not pinned, return it.
+				if (!this.isPinnedIndex(indexAtPosition)) {
+					return indexAtPosition;
 				}
 			}
 
@@ -585,19 +581,14 @@ export class LayoutManager {
 			// Get the entry map position of the index.
 			let entryMapPosition = this._entryMap.indexOf(index);
 
-			// This can't happen if the index is valid.
-			if (entryMapPosition === -1) {
-				return undefined;
-			}
-
 			// Return the next unpinned index, if found.
 			while (++entryMapPosition < this._entryMap.length) {
-				// Get the entry map index.
-				const entryMapIndex = this.mapEntry(entryMapPosition);
+				// Get the index at the position.
+				const indexAtPosition = this._entryMap[entryMapPosition];
 
 				// If the entry map index isn't pinned, return it.
-				if (!this.isPinnedIndex(entryMapIndex)) {
-					return entryMapIndex;
+				if (!this.isPinnedIndex(indexAtPosition)) {
+					return indexAtPosition;
 				}
 			}
 		}
@@ -631,10 +622,8 @@ export class LayoutManager {
 				start += this.entrySize(pinnedIndexesArray[i]);
 			}
 
-			// Get the size.
-			const size = this.entrySize(index);
-
 			// Return the pinned layout entry.
+			const size = this.entrySize(index);
 			return {
 				index,
 				start,
@@ -643,34 +632,25 @@ export class LayoutManager {
 			};
 		}
 
-		// Get the unpinned index position of the index.
-		let unpinnedIndexPosition: number;
-		if (!this._entryMap) {
-			unpinnedIndexPosition = index;
-		} else {
-			// Get the unpinned index position of the index from the entry map.
-			unpinnedIndexPosition = this._entryMap.indexOf(index);
-			if (unpinnedIndexPosition === -1) {
-				return undefined;
-			}
-		}
+		// Get the index at the position.
+		const indexAtPosition = this.mapPositionToIndex(index);
 
 		// Calculate the start position as if there were no pinned indexes, no custom entry sizes, and no entry sizes.
-		let start = unpinnedIndexPosition * this._defaultSize;
+		let start = indexAtPosition * this._defaultSize;
 
-		// Adjust the start to account for pinned indexes, custom entry sizes, and entry sizes.
-		for (let i = 0; i < unpinnedIndexPosition; i++) {
-			// Get the mapped entry index.
-			const mappedEntryIndex = this.mapEntry(i);
+		// Adjust the start position to account for pinned indexes, custom entry sizes, and entry sizes.
+		for (let i = 0; i < indexAtPosition; i++) {
+			// Get the adjust index at position.
+			const adjustIndexAtPosition = this.mapPositionToIndex(i);
 
 			// Subtract the default size of pinned indexes.
-			if (this.isPinnedIndex(mappedEntryIndex)) {
+			if (this.isPinnedIndex(adjustIndexAtPosition)) {
 				start -= this._defaultSize;
 				continue;
 			}
 
 			// Adjust the start to account for custom entry sizes.
-			const customEntrySize = this._customEntrySizes.get(mappedEntryIndex);
+			const customEntrySize = this._customEntrySizes.get(adjustIndexAtPosition);
 			if (customEntrySize !== undefined) {
 				start -= this._defaultSize;
 				start += customEntrySize;
@@ -678,17 +658,15 @@ export class LayoutManager {
 			}
 
 			// Adjust the start to account for entry sizes.
-			const entrySize = this._entrySizes.get(mappedEntryIndex);
+			const entrySize = this._entrySizes.get(adjustIndexAtPosition);
 			if (entrySize !== undefined) {
 				start -= this._defaultSize;
 				start += entrySize;
 			}
 		}
 
-		// Get the size.
-		const size = this.entrySize(index);
-
 		// Return the layout entry.
+		const size = this.entrySize(index);
 		return {
 			index,
 			start,
@@ -852,11 +830,11 @@ export class LayoutManager {
 	}
 
 	/**
-	 * Maps a position to an entry index.
-	 * @param position The position to map.
-	 * @returns The entry index.
+	 * Maps a layout position to its corresponding data index.
+	 * @param position The position within the visible or logical layout.
+	 * @returns The actual index into the data model.
 	 */
-	private mapEntry(position: number) {
+	private mapPositionToIndex(position: number): number {
 		return this._entryMap ? this._entryMap[position] : position;
 	}
 
