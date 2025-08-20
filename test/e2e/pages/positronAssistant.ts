@@ -216,7 +216,7 @@ export class Assistant {
 
 	async getTotalTokenUsage() {
 		const totalTokenUsageElement = this.code.driver.page.locator('.token-usage-total');
-		await expect(totalTokenUsageElement).toBeVisible({ timeout: 10_000 });
+		await expect(totalTokenUsageElement).toBeVisible();
 		const text = await totalTokenUsageElement.textContent();
 		console.log('Total Token Usage Text:', text);
 		expect(text).not.toBeNull();
