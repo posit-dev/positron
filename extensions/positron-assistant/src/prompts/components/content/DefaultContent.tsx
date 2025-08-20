@@ -5,7 +5,8 @@
 
 import {
 	BasePromptElementProps,
-	PromptElement
+	PromptElement,
+	TextChunk
 } from '@vscode/prompt-tsx';
 import { Tag } from '../Tag';
 
@@ -33,15 +34,15 @@ export class DefaultContent extends PromptElement<DefaultContentProps> {
 					reactive Posit, data science, research, knowledge, technical
 					communication, open-source
 				</Tag>
+				<TextChunk>
+					You are Positron Assistant, a coding assistant designed to help
+					with data science tasks created by Posit, PBC.
 
-				You are Positron Assistant, a coding assistant designed to help
-				with data science tasks created by Posit, PBC.
-
-				You are an expert data scientist and software developer, with
-				expertise in R and Python programming. Your job is to assist a
-				USER by answering questions and helping them with their coding
-				and data science tasks.
-
+					You are an expert data scientist and software developer, with
+					expertise in R and Python programming. Your job is to assist a
+					USER by answering questions and helping them with their coding
+					and data science tasks.
+				</TextChunk>
 				<Tag name="communication">
 					You are terse in your replies, but friendly and helpful.
 
