@@ -12,6 +12,34 @@ import { Receiver } from './Channel';
 import { CommBackendMessage } from './positron-supervisor';
 import { CommCloseCommand } from './jupyter/CommCloseCommand';
 
+export class CommError extends Error {
+	constructor(
+		message: string,
+		public readonly method?: string
+	) {
+		super(message);
+		this.name = 'CommError';
+	}
+}
+
+export class CommClosedError extends CommError {
+	constructor(commId: string, method?: string) {
+		super(`Communication channel ${commId} is closed`, method);
+		this.name = 'CommClosedError';
+	}
+}
+
+export class CommRpcError extends CommError {
+	constructor(
+		message: string,
+		public readonly code: number = -32000,
+		method?: string
+	) {
+		super(message, method);
+		this.name = 'CommRpcError';
+	}
+}
+
 export class RawCommImpl implements vscode.Disposable {
 	private readonly disposables: vscode.Disposable[] = [];
 	private closed = false;
@@ -22,9 +50,9 @@ export class RawCommImpl implements vscode.Disposable {
 		public readonly receiver: Receiver<CommBackendMessage>,
 	) { }
 
-	notify(method: string, params?: Record<string, unknown>): boolean {
+	notify(method: string, params?: Record<string, unknown>): void {
 		if (this.closed) {
-			return false;
+			throw new CommClosedError(this.id, method);
 		}
 
 		const msg: CommRpcMessage = {
@@ -36,13 +64,11 @@ export class RawCommImpl implements vscode.Disposable {
 		// We don't expect a response here, so `id` can be created and forgotten
 		const id = createUniqueId();
 		this.session.sendClientMessage(this.id, id, msg);
-
-		return true;
 	}
 
-	async request(method: string, params?: Record<string, unknown>): Promise<[boolean, any]> {
+	async request(method: string, params?: Record<string, unknown>): Promise<any> {
 		if (this.closed) {
-			return [false, undefined];
+			throw new CommClosedError(this.id, method);
 		}
 
 		const id = createUniqueId();
@@ -63,13 +89,19 @@ export class RawCommImpl implements vscode.Disposable {
 		const reply = await this.session.sendRequest(request);
 
 		if (reply.data.error !== undefined) {
-			throw new Error('TODO');
+			const payload = reply.data as CommRpcMessageError;
+			throw new CommRpcError(
+				payload.error.message,
+				payload.error.code,
+				method
+			);
 		}
+
 		if (reply.data.result === undefined) {
 			throw new Error(`Internal error in ${this.id}: undefined result for request ${msg}`);
 		}
 
-		return [true, reply.data.result];
+		return reply.data.result;
 	}
 
 	close() {
@@ -130,7 +162,7 @@ export class CommBackendRequest {
 	}
 
 	reply(result: any) {
-		const msg: CommRpcResponse = {
+		const msg: CommRpcMessageResult = {
 			jsonrpc: '2.0',
 			id: this.id,
 			method: this.method,
@@ -140,12 +172,14 @@ export class CommBackendRequest {
 	}
 
 	reject(error: Error, code = -32000) {
-		const msg: CommRpcError = {
+		const msg: CommRpcMessageError = {
 			jsonrpc: '2.0',
 			id: this.id,
-			method: this.method,
-			message: `${error}`,
-			code,
+			error: {
+				method: this.method,
+				message: `${error}`,
+				code,
+			}
 		};
 		this.send(msg);
 	}
@@ -169,17 +203,20 @@ export interface CommRpcMessage {
 	[key: string]: unknown;
 }
 
-interface CommRpcResponse {
+interface CommRpcMessageResult {
 	jsonrpc: '2.0';
 	result: any;
 	id: string;
 	[key: string]: unknown;
 }
 
-interface CommRpcError {
+interface CommRpcMessageError {
 	jsonrpc: '2.0';
-	message: string;
-	code: number;
+	error: {
+		message: string;
+		code: number;
+		[key: string]: unknown;
+	};
 	id: string;
 	[key: string]: unknown;
 }

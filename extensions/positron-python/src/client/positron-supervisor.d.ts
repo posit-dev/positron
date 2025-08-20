@@ -270,18 +270,21 @@ export interface RawComm {
     /** Async-iterable for messages sent from backend. */
     receiver: ReceiverChannel<CommBackendMessage>;
 
-    /** Send a notification to the backend comm. Returns `false` if comm was closed. */
-    notify: (method: string, params?: Record<string, unknown>) => boolean;
+    /**
+     * Send a notification to the backend comm.
+     * Throws `CommClosedError` if comm was closed.
+     */
+    notify: (method: string, params?: Record<string, unknown>) => void;
 
     /**
      * Make a request to the backend comm.
      *
-     * Resolves when backend responds with a length-2 tuple:
-     * - A boolean that indicates whether the comm was closed and the request
-     *   could not be emitted.
-     * - The result if the request was performed.
+     * Resolves when backend responds with the result.
+     * Throws:
+     * - `CommClosedError` if comm was closed
+     * - `CommRpcError` for RPC errors.
      */
-    request: (method: string, params?: Record<string, unknown>) => Promise<[boolean, any]>;
+    request: (method: string, params?: Record<string, unknown>) => Promise<any>;
 
     /** Clear resources and sends `comm_close` to backend comm (unless the channel
      * was closed by the backend already). */
@@ -295,6 +298,29 @@ export interface RawComm {
  */
 export interface ReceiverChannel<T> extends AsyncIterable<T>, vscode.Disposable {
     next(): Promise<IteratorResult<T>>;
+}
+
+/**
+ * Base class for communication errors.
+ */
+export class CommError extends Error {
+    constructor(message: string, method?: string);
+    readonly method?: string;
+}
+
+/**
+ * Error thrown when attempting to communicate through a closed channel.
+ */
+export class CommClosedError extends CommError {
+    constructor(commId: string, method?: string);
+}
+
+/**
+ * Error thrown for RPC-specific errors with error codes.
+ */
+export class CommRpcError extends CommError {
+    constructor(message: string, code?: number, method?: string);
+    readonly code: number;
 }
 
 /**
