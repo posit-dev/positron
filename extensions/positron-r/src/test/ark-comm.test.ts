@@ -4,9 +4,7 @@
  *--------------------------------------------------------------------------------------------*/
 
 import * as assert from 'assert';
-import * as positron from 'positron';
 import * as vscode from 'vscode';
-import { ArkComm } from '../ark-comm';
 import * as testKit from './kit';
 import { RSession } from '../session';
 import { RawComm, CommBackendMessage } from '../positron-supervisor';
@@ -36,7 +34,7 @@ suite('ArkComm', () => {
 	});
 
 	test('Can send notification', async () => {
-		assert(comm.notify("test_notification", { i: 10 }));
+		comm.notify("test_notification", { i: 10 });
 
 		// Backend should echo back
 		const notifReply = await assertNextMessage(comm);
@@ -56,6 +54,28 @@ suite('ArkComm', () => {
 		const requestReply = await assertRequest(comm, 'test_request', { i: 11 });
 		assert.deepStrictEqual(requestReply, { i: -11 })
 	});
+
+	test('Invalid method sends error', async () => {
+		await assert.rejects(
+			async () => {
+				await assertRequest(comm, 'invalid_request', {});
+			},
+			(error: any) => {
+				return error.name === 'CommRpcError';
+			}
+		);
+	});
+
+	test('Request can error', async () => {
+		await assert.rejects(
+			async () => {
+				await assertRequest(comm, 'test_request_error', {});
+			},
+			(error: any) => {
+				return error.name === 'CommRpcError' && /this-is-an-error/.test(error.message);
+			}
+		);
+	});
 });
 
 async function assertNextMessage(comm: RawComm): Promise<CommBackendMessage> {
@@ -69,11 +89,8 @@ async function assertNextMessage(comm: RawComm): Promise<CommBackendMessage> {
 }
 
 async function assertRequest(comm: RawComm, method: string, params?: Record<string, unknown>): Promise<any> {
-	const [delivered, reply] = await Promise.race([
+	return await Promise.race([
 		comm.request(method, params),
 		whenTimeout(5000, () => assert.fail(`Timeout while expecting comm reply on ${comm.id}`)),
 	]);
-
-	assert.strictEqual(delivered, true);
-	return reply;
 }
