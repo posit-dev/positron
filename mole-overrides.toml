@@ -3,6 +3,9 @@
 # Licensed under the Elastic License 2.0. See LICENSE.txt for license information.
 # ---------------------------------------------------------------------------------------------
 
+['npm::@duckdb/duckdb-wasm=*']
+attribution = ['Copyright 2018-2025 Stichting DuckDB Foundation']
+
 ['npm::@emmetio/html-matcher=0.3.3']
 # package.json has incorrect license code
 license = ['MIT']
@@ -10,16 +13,16 @@ license = ['MIT']
 ['npm::@github/copilot-language-server=*']
 # see copilot-language-server-releases repo
 license = ['MIT']
-attribution = [
-'Copyright (c) 2025 GitHub'
-]
+attribution = ['Copyright (c) 2025 GitHub']
+
+['npm::@octokit/plugin-paginate-rest=*']
+# attribution not well formatted in LICENSE
+attribution = ['Copyright (c) 2019 Octokit contributors']
 
 ['npm::@vscode/codicons=*']
 # Parent folder to extensions
 license = ['CC-BY-4.0', 'MIT']
-attribution = [
-'Copyright (c) Microsoft Corporation'
-]
+attribution = ['Copyright (c) Microsoft Corporation']
 
 ['npm::@xterm/headless=*']
 # attribution in source code
@@ -28,33 +31,366 @@ attribution = [
 'Copyright (c) 2012-2013, Christopher Jeffrey (MIT License)'
 ]
 
+['npm::bat=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
 ['npm::buffers=0.1.1']
 # Original repo is gone, package.json lists no license
 # Developer added license information in third-party repo
 license = ['MIT/X11']
 url = 'https://github.com/bitpay/node-buffers/tree/master'
 
+['npm::builtin-notebook-renderers=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::clojure=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::coffeescript=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::configuration-editing=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::cpp=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::csharp=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::css-language-features=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::css=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::dart=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::debug-auto-launch=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::debug-server-ready=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::diff=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::docker=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::emmet=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
 ['npm::expand-template=2.0.3']
 # package.json has extra WTFPL license referenced, but not present
 license = ['MIT']
+
+['npm::extension-editing=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::fsharp=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::git-base=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::git=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::github-authentication=0.0.2']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::github=0.0.1']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::go=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::groovy=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::gulp=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::handlebars=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::hlsl=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::html-language-features=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::html=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
 
 ['npm::import-in-the-middle=1.13.1']
 # includes LICENSE-3rdparty.csv that we can't parse
 license_files = ['spdx://APACHE-2.0']
 
+['npm::ipynb=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::jake=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::java=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::javascript=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::json-language-features=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::json=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::julia=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
 ['npm::keytar=*']
 # mocked dependency of extensions/microsoft-authentication
 ignored = true
 
+['npm::less=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::load-yaml-file=0.2.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::log=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::lua=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::make=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::markdown-language-features=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::markdown-math=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::markdown=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::media-preview=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::merge-conflict=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::microsoft-authentication=0.0.1']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::objective-c=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
 ['npm::open-remote-ssh=0.0.46']
 # No explicit attribution in repo
 license = ['MIT']
-attribution = [
-'Copyright (c) 2022 open-remote-ssh contributors'
-]
+attribution = ['Copyright (c) 2022 open-remote-ssh contributors']
+
+['npm::perl=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::php-language-features=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::php=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::positron-assistant=*']
+license = ['Elastic-2.0']
+attribution = ['Copyright (c) 2025 Posit Software, PBC']
+
+['npm::positron-ipywidgets=*']
+license = ['Elastic-2.0']
+attribution = ['Copyright (c) 2025 Posit Software, PBC']
+
+['npm::powershell=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::prompt=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::pug=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::python=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::r=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::razor=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::references-view=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::restructuredtext=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::ruby=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::rust=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::scss=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::search-result=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::shaderlab=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::shellscript=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::simple-browser=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::sql=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::swift=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-abyss=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-defaults=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-kimbie-dark=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-monokai-dimmed=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-monokai=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-quietlight=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-red=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-solarized-dark=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-solarized-light=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::theme-tomorrow-night-blue=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::tunnel-forwarding=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::vb=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
 
 ['npm::vscode-extensions=*']
 # Parent folder to extensions
-attribution = [
-'Copyright (c) Microsoft Corporation (MIT License)'
-]
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::web-worker=1.3.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::xml=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+
+['npm::yaml=1.0.0']
+# Built-in extensions from Code OSS upstream
+attribution = ['Copyright (c) Microsoft Corporation']
+

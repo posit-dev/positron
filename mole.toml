@@ -68,6 +68,7 @@ ark_collection = ["ark"]
 [spdx-overrides]
 # Contains an SPDX identifier for one of the sub-licenses
 'https://github.com/nodejs/node/raw/main/LICENSE' = ['MIT-with-additional']
+'https://github.com/posit-dev/positron/blob/main/LICENSE.txt' = ['Elastic-2.0']
 
 [relabel]
 'npm::@babel/' = 'Babel.js'

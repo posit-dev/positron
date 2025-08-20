@@ -4001,7 +4001,8 @@
      "Copyright Microsoft Corporation."
     ],
     "licenses": [
-     "CC-BY-4.0"
+     "CC-BY-4.0",
+     "MIT"
     ],
     "license_files": {
      "LICENSE": {
@@ -4145,6 +4146,9 @@
     "name": "Positron Assistant",
     "path": "extensions/positron-assistant",
     "version": "0.0.1",
+    "licenses": [
+     "Elastic-2.0"
+    ],
     "pkg_name": "positron-assistant"
    },
    "npm::@anthropic-ai/sdk=0.57.0": {
@@ -11631,6 +11635,9 @@
     "name": "Positron IPyWidgets",
     "path": "extensions/positron-ipywidgets",
     "version": "0.0.1",
+    "licenses": [
+     "Elastic-2.0"
+    ],
     "pkg_name": "positron-ipywidgets"
    },
    "npm::theme-quietlight=1.0.0": {
@@ -13331,6 +13338,9 @@
     "name": "Debugging",
     "path": "extensions/positron-runtime-debugger",
     "version": "0.0.1",
+    "licenses": [
+     "Elastic-2.0"
+    ],
     "pkg_name": "positron-runtime-debugger"
    },
    "npm::@vscode/debugprotocol=1.68.0": {
